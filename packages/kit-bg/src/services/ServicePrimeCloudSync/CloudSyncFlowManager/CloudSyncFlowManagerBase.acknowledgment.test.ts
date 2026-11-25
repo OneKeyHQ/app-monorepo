@@ -354,4 +354,32 @@ describe('CloudSyncFlowManagerBase scene acknowledgments', () => {
       expect(h.pool.get(h.item.id)?.localSceneUpdated).toBe(false);
     },
   );
+
+  test('skips scene writes when a newer persisted version replaces the item before mutex execution', async () => {
+    const h = await harness({ localSceneUpdated: false });
+    const getSyncItemSafe = jest.fn(async ({ id }: { id: string }) =>
+      h.pool.get(id),
+    );
+    h.manager.backgroundApi.localDb.getSyncItemSafe = getSyncItemSafe;
+    h.buildKey.mockImplementationOnce(async () => {
+      h.pool.set(h.item.id, {
+        ...h.item,
+        dataTime: (h.item.dataTime ?? 0) + 1,
+        localSceneUpdated: true,
+      });
+      return {
+        key: h.manager.rawKeyToHashKey(rawKey),
+        rawKey,
+        dataType: EPrimeCloudSyncDataType.IndexedAccount,
+        payload,
+      };
+    });
+
+    await h.replay(false);
+
+    expect(getSyncItemSafe).toHaveBeenCalledWith({ id: h.item.id });
+    expect(h.syncEachItem).not.toHaveBeenCalled();
+    expect(h.setUniversalIndexedAccountName).not.toHaveBeenCalled();
+    expect(h.updateSyncItem).not.toHaveBeenCalled();
+  });
 });

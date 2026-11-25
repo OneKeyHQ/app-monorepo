@@ -827,79 +827,82 @@ async function commitVerifiedAccountRotations(
           snapshot,
           wallets,
         );
-        if (projections.size !== 1) return;
-        const match = projections.values().next().value;
-        if (!match) return;
-        const { wallet, expected } = match;
-        if (snapshot.wallet.kind === 'hardware') {
-          if (!wallet.associatedDevice) return;
-          const {
-            records: [device],
-          } = await localDb.txGetRecordsByIds({
-            tx,
-            name: ELocalDBStoreNames.Device,
-            ids: [wallet.associatedDevice],
-          });
-          if (!device) return;
-          try {
-            const settings = JSON.parse(device.settingsRaw || '{}') as {
-              vendor?: EHardwareVendor;
-            };
-            if (
-              !settings ||
-              typeof settings !== 'object' ||
-              Array.isArray(settings) ||
-              (settings.vendor ?? EHardwareVendor.onekey) !==
-                EHardwareVendor.onekey
-            )
-              return;
-          } catch {
-            return;
-          }
-        } else {
-          const {
-            records: [credential],
-          } = await localDb.txGetRecordsByIds({
-            tx,
-            name: ELocalDBStoreNames.Credential,
-            ids: [wallet.id],
-          });
-          if (!credential?.credential) return;
-        }
-        current();
-        const indexedId = expected.indexedAccountId;
-        if (!indexedId) return;
-        const {
-          records: [account],
-        } = await localDb.txGetRecordsByIds({
-          tx,
-          name: ELocalDBStoreNames.Account,
-          ids: [expected.id],
-        });
-        const {
-          records: [indexed],
-        } = await localDb.txGetRecordsByIds({
-          tx,
-          name: ELocalDBStoreNames.IndexedAccount,
-          ids: [indexedId],
-        });
         if (
-          !account ||
-          account.indexedAccountId !== indexedId ||
-          indexed?.walletId !== wallet.id ||
-          indexed.index !== expected.pathIndex ||
-          account.name !== expected.name ||
-          (indexed.name && indexed.name !== expected.name) ||
-          !publicAccountIdentityEqual(
-            {
-              ...account,
-              createAtNetwork: account.createAtNetwork ?? undefined,
-              relPath: account.relPath ?? undefined,
-            },
-            expected,
-          )
+          !projections.size ||
+          (snapshot.wallet.kind !== 'hardware' && projections.size !== 1)
         )
           return;
+        for (const { wallet, expected } of projections.values()) {
+          if (snapshot.wallet.kind === 'hardware') {
+            if (!wallet.associatedDevice) return;
+            const {
+              records: [device],
+            } = await localDb.txGetRecordsByIds({
+              tx,
+              name: ELocalDBStoreNames.Device,
+              ids: [wallet.associatedDevice],
+            });
+            if (!device) return;
+            try {
+              const settings = JSON.parse(device.settingsRaw || '{}') as {
+                vendor?: EHardwareVendor;
+              };
+              if (
+                !settings ||
+                typeof settings !== 'object' ||
+                Array.isArray(settings) ||
+                (settings.vendor ?? EHardwareVendor.onekey) !==
+                  EHardwareVendor.onekey
+              )
+                return;
+            } catch {
+              return;
+            }
+          } else {
+            const {
+              records: [credential],
+            } = await localDb.txGetRecordsByIds({
+              tx,
+              name: ELocalDBStoreNames.Credential,
+              ids: [wallet.id],
+            });
+            if (!credential?.credential) return;
+          }
+          current();
+          const indexedId = expected.indexedAccountId;
+          if (!indexedId) return;
+          const {
+            records: [account],
+          } = await localDb.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.Account,
+            ids: [expected.id],
+          });
+          const {
+            records: [indexed],
+          } = await localDb.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.IndexedAccount,
+            ids: [indexedId],
+          });
+          if (
+            !account ||
+            account.indexedAccountId !== indexedId ||
+            indexed?.walletId !== wallet.id ||
+            indexed.index !== expected.pathIndex ||
+            account.name !== expected.name ||
+            (indexed.name && indexed.name !== expected.name) ||
+            !publicAccountIdentityEqual(
+              {
+                ...account,
+                createAtNetwork: account.createAtNetwork ?? undefined,
+                relPath: account.relPath ?? undefined,
+              },
+              expected,
+            )
+          )
+            return;
+        }
 
         const {
           records: [source],

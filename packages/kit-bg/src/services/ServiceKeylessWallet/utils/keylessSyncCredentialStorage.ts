@@ -216,11 +216,26 @@ async function getPendingHardwareKeyMigration(): Promise<
   IKeylessCloudSyncCredential | undefined
 > {
   const map = await readMap();
+  const environment = getCloudSyncStorageEnvironmentForRuntime();
   return (
-    Object.values(map)
-      .map(getUsableCredential)
-      .find((credential) => credential?.pendingHardwareKeyMigration) ??
-    undefined
+    Object.values(map).find((credential) => {
+      const pending = credential?.pendingHardwareKeyMigration;
+      if (!pending) return false;
+      const sourceEnv = credential.hardwareSession?.environment;
+      const targetEnv = pending.target.hardwareSession?.environment;
+      if (
+        (sourceEnv && environment && sourceEnv !== environment) ||
+        (targetEnv && environment && targetEnv !== environment)
+      ) {
+        return false;
+      }
+      return (
+        !!credential.encryptionKey &&
+        !!credential.pwdHash &&
+        !!pending.target.encryptionKey &&
+        !!pending.target.pwdHash
+      );
+    }) ?? undefined
   );
 }
 

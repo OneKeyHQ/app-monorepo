@@ -134,7 +134,7 @@ describe('shared Cloud credential storage source changes', () => {
     ).resolves.toBeNull();
   });
 
-  test('ignores unbound hardware sessions and their recovery state', async () => {
+  test('rejects unbound hardware sessions while preserving pending migration journals for local recovery', async () => {
     const session = {
       deviceKeyJwk: {
         kty: 'EC' as const,
@@ -167,6 +167,13 @@ describe('shared Cloud credential storage source changes', () => {
     await expect(
       keylessSyncCredentialStorage.getCredential(stale.keylessWalletId),
     ).resolves.toBeNull();
+    await expect(
+      keylessSyncCredentialStorage.getPendingHardwareKeyMigration(),
+    ).resolves.toEqual(stale);
+    await keylessSyncCredentialStorage.saveCredential({
+      ...stale,
+      hardwareSession: { ...session, environment: 'test' },
+    });
     await expect(
       keylessSyncCredentialStorage.getPendingHardwareKeyMigration(),
     ).resolves.toBeUndefined();

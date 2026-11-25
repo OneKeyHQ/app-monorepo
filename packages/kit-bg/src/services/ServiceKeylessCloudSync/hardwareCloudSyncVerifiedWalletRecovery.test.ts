@@ -804,6 +804,8 @@ test.each([
 test.each([
   'current',
   'current-realm-optionals',
+  'shared-hardware-wallets',
+  'shared-hardware-wallets-diverged',
   'after-ten-failed-probes',
   'two-ready-pages',
   'expire-before-second-commit',
@@ -827,6 +829,7 @@ test.each([
   async (scenario) => {
     const {
       wallet,
+      device,
       walletManager,
       previous: walletPrevious,
       row: walletRow,
@@ -989,6 +992,43 @@ test.each([
           : account.name,
       idHash: 'public fixture',
     };
+    const sharedHardware =
+      scenario === 'shared-hardware-wallets' ||
+      scenario === 'shared-hardware-wallets-diverged';
+    const siblingWallet =
+      sharedHardware && device
+        ? {
+            ...wallet,
+            id: `${wallet.id}-sibling`,
+            associatedDevice: `${device.id}-sibling`,
+            xfp: snapshot.wallet.xfp,
+          }
+        : undefined;
+    const siblingDevice =
+      sharedHardware && device && siblingWallet
+        ? {
+            ...device,
+            id: siblingWallet.associatedDevice,
+            deviceId: `${device.deviceId}-sibling`,
+          }
+        : undefined;
+    const siblingAccount = siblingWallet
+      ? {
+          ...publicAccountSnapshotToAccount(snapshot, siblingWallet.id),
+          ...(scenario === 'shared-hardware-wallets-diverged'
+            ? { name: 'Sibling local edit' }
+            : {}),
+        }
+      : undefined;
+    const siblingIndex =
+      siblingWallet && siblingAccount?.indexedAccountId
+        ? {
+            ...storedIndex,
+            id: siblingAccount.indexedAccountId,
+            walletId: siblingWallet.id,
+            name: siblingAccount.name,
+          }
+        : undefined;
     await mockDb.withTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
@@ -1002,11 +1042,24 @@ test.each([
             return row;
           },
         });
+        if (siblingDevice && siblingWallet && siblingAccount) {
+          await mockDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            records: [siblingDevice],
+          });
+          await mockDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            records: [{ ...siblingWallet, accounts: [siblingAccount.id] }],
+          });
+        }
         await mockDb.txAddRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
           records: [
             storedIndex,
+            ...(siblingIndex ? [siblingIndex] : []),
             ...(laterAccount?.indexedAccountId
               ? [
                   {
@@ -1022,7 +1075,11 @@ test.each([
         await mockDb.txAddRecords({
           tx,
           name: ELocalDBStoreNames.Account,
-          records: [storedAccount, ...(laterAccount ? [laterAccount] : [])],
+          records: [
+            storedAccount,
+            ...(siblingAccount ? [siblingAccount] : []),
+            ...(laterAccount ? [laterAccount] : []),
+          ],
         });
         await mockDb.txAddRecords({
           tx,
@@ -1180,7 +1237,8 @@ test.each([
       scenario === 'current-realm-optionals' ||
       scenario === 'resume-after-fast-deadline' ||
       failedFirst;
-    const applies = verifiesDeletion || secondPage;
+    const applies =
+      verifiesDeletion || secondPage || scenario === 'shared-hardware-wallets';
     await expect(mockDb.getSyncItem({ id })).resolves.toEqual(
       applies ? rotated : persistedOld,
     );

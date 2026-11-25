@@ -51,6 +51,28 @@ export type IWalletNameDeferredObserver = ((
   reason?: 'canonical-read' | 'canonical-write',
 ) => void) & { observeCanonicalWrite?: true };
 
+function matchesCloudSyncSceneSource(
+  record: {
+    data?: string | null;
+    dataTime?: number | null;
+    dataType: string;
+    isDeleted: boolean;
+    pwdHash: string;
+    rawData?: string | null;
+  },
+  source: IDBCloudSyncItem,
+) {
+  return (
+    (record.data ?? undefined) === (source.data ?? undefined) &&
+    (record.dataTime ?? undefined) === (source.dataTime ?? undefined) &&
+    record.dataType === source.dataType &&
+    record.isDeleted === source.isDeleted &&
+    record.pwdHash === source.pwdHash &&
+    (!!source.data ||
+      (record.rawData ?? undefined) === (source.rawData ?? undefined))
+  );
+}
+
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,
   TRecord extends ICloudSyncDBRecord,
@@ -97,6 +119,16 @@ export abstract class CloudSyncFlowManagerBase<
     const mutex = getMutexByDataType(params.item.dataType);
     return mutex.runExclusive(async () => {
       if (params.isCurrent && !params.isCurrent()) return false;
+      const localDb = this.backgroundApi?.localDb;
+      if (localDb && 'getSyncItemSafe' in localDb) {
+        const stored = await localDb.getSyncItemSafe({
+          id: params.item.id,
+        });
+        if (!stored || !matchesCloudSyncSceneSource(stored, params.item)) {
+          return false;
+        }
+        if (params.isCurrent && !params.isCurrent()) return false;
+      }
       return this.syncToSceneEachItem(params);
     });
   }
@@ -858,12 +890,7 @@ export abstract class CloudSyncFlowManagerBase<
                         // update awaits. Never acknowledge or replace its cache.
                         if (
                           (isCurrent && !isCurrent()) ||
-                          record.data !== source.data ||
-                          record.dataTime !== source.dataTime ||
-                          record.dataType !== source.dataType ||
-                          record.isDeleted !== source.isDeleted ||
-                          record.pwdHash !== source.pwdHash ||
-                          (!source.data && record.rawData !== source.rawData)
+                          !matchesCloudSyncSceneSource(record, source)
                         ) {
                           return record;
                         }
