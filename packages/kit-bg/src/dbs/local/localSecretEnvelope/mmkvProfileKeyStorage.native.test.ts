@@ -1,5 +1,6 @@
 const mockRecords = new Map<string, string>();
 const mockIsMaskingDataSync = jest.fn(() => false);
+const mockExistsMMKV = jest.fn(() => false);
 const mockCreateMMKV = jest.fn(() => ({
   getString: (key: string) => mockRecords.get(key),
   remove: (key: string) => mockRecords.delete(key),
@@ -8,6 +9,7 @@ const mockCreateMMKV = jest.fn(() => ({
 
 jest.mock('react-native-mmkv', () => ({
   createMMKV: mockCreateMMKV,
+  existsMMKV: mockExistsMMKV,
 }));
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
@@ -38,7 +40,15 @@ describe('MMKV profile-key storage Travel Mode masking', () => {
   beforeEach(() => {
     mockRecords.clear();
     mockCreateMMKV.mockClear();
+    mockExistsMMKV.mockReset().mockReturnValue(false);
     mockIsMaskingDataSync.mockReturnValue(false);
+  });
+
+  it('reports absence without creating a profile key store during preflight', async () => {
+    await expect(
+      mmkvProfileKeyStorage.getItem(DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF, true),
+    ).resolves.toBeNull();
+    expect(mockCreateMMKV).not.toHaveBeenCalled();
   });
 
   it('masks the default profile key while Travel Mode is active', async () => {
@@ -47,7 +57,7 @@ describe('MMKV profile-key storage Travel Mode masking', () => {
 
     await expect(
       mmkvProfileKeyStorage.getItem(DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF),
-    ).resolves.toBeNull();
+    ).rejects.toThrow('MMKV profile key is unavailable');
     await expect(
       getOrCreateItem(
         DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF,
@@ -72,9 +82,9 @@ describe('MMKV profile-key storage Travel Mode masking', () => {
     mockRecords.set('other-key', 'persisted-key');
     mockIsMaskingDataSync.mockReturnValue(true);
 
-    await expect(
-      mmkvProfileKeyStorage.getItem('other-key'),
-    ).resolves.toBeNull();
+    await expect(mmkvProfileKeyStorage.getItem('other-key')).rejects.toThrow(
+      'MMKV profile key is unavailable',
+    );
     await expect(getOrCreateItem('other-key', () => 'new-key')).rejects.toThrow(
       'MMKV profile key is unavailable',
     );
@@ -82,5 +92,16 @@ describe('MMKV profile-key storage Travel Mode masking', () => {
     await mmkvProfileKeyStorage.removeItem('other-key');
 
     expect(mockRecords.get('other-key')).toBe('persisted-key');
+  });
+
+  it('can read an existing profile key store during the first preflight', async () => {
+    mockExistsMMKV.mockReturnValue(true);
+    mockRecords.set(DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF, 'persisted-key');
+    await expect(
+      mmkvProfileKeyStorage.getItem(DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF, true),
+    ).resolves.toBe('persisted-key');
+    expect(mockCreateMMKV).toHaveBeenCalledWith({
+      id: 'onekey-local-secret-envelope',
+    });
   });
 });

@@ -201,7 +201,7 @@ export async function parseQRCodeWithDeps(
     if (
       result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
       (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
-        (result.data as IAnimationValue).progress === 1)
+        Boolean((result.data as IAnimationValue).fullData))
     ) {
       await closeScanPage();
     }

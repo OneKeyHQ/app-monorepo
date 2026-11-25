@@ -22,6 +22,7 @@ import {
   createHistogramSeriesOptions,
   createHistogramSeriesPaneView,
 } from './utils/histogramSeries';
+import { createRightAlignedPriceAxis } from './utils/rightAlignedPriceAxis';
 
 import type { ILightweightChartProps } from './types';
 import type {
@@ -71,7 +72,11 @@ function applyPriceFormatOverrides(
   {
     priceFormatBase,
     priceTickFormatter,
-  }: Pick<ILightweightChartProps, 'priceFormatBase' | 'priceTickFormatter'>,
+    priceScaleLabelAlign,
+  }: Pick<
+    ILightweightChartProps,
+    'priceFormatBase' | 'priceTickFormatter' | 'priceScaleLabelAlign'
+  >,
 ) {
   if (priceFormatBase === undefined && !priceTickFormatter) return;
   const currentPriceFormat = series.options().priceFormat;
@@ -80,7 +85,10 @@ function applyPriceFormatOverrides(
     priceFormat: {
       ...currentPriceFormat,
       base: priceFormatBase,
-      tickmarksFormatter: priceTickFormatter,
+      tickmarksFormatter:
+        priceScaleLabelAlign === 'right'
+          ? currentPriceFormat.tickmarksFormatter
+          : priceTickFormatter,
     },
   });
 }
@@ -113,6 +121,7 @@ export function LightweightChart({
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceScaleMinimumWidth,
+  priceScaleLabelAlign,
   crosshairVertLineColor,
   crosshairVertLineStyle,
   patternColor,
@@ -195,6 +204,7 @@ export function LightweightChart({
     pulseLastPointColor,
     priceFormatter,
     priceTickFormatter,
+    priceScaleLabelAlign,
     priceFormatBase,
     fontSize,
     seriesType,
@@ -368,6 +378,28 @@ export function LightweightChart({
           });
         }
         applyPriceFormatOverrides(series, currentChartConfig);
+        if (currentChartConfig.priceScaleLabelAlign === 'right') {
+          const priceFormat = series.options().priceFormat;
+          if (priceFormat.type === 'custom') {
+            const layout = chart.options().layout;
+            const axis = createRightAlignedPriceAxis({
+              formatValue: priceFormat.formatter,
+              formatTicks: currentChartConfig.priceTickFormatter,
+              font: `${layout.fontSize}px ${layout.fontFamily}`,
+              color: currentChartConfig.theme.textSubduedColor,
+            });
+            series.attachPrimitive(axis.primitive);
+            series.applyOptions({
+              priceFormat: {
+                ...priceFormat,
+                tickmarksFormatter: axis.tickmarksFormatter,
+              },
+            });
+            chart
+              .priceScale(currentChartConfig.priceScalePosition ?? 'right')
+              .applyOptions({ textColor: 'transparent' });
+          }
+        }
         if (currentChartConfig.referenceLine?.includeInAutoscale) {
           series.applyOptions({
             autoscaleInfoProvider: createReferenceLineAutoscaleInfoProvider(
@@ -656,6 +688,7 @@ export function LightweightChart({
     chartConfig.priceFormatter,
     chartConfig.priceTickFormatter,
     chartConfig.priceScalePosition,
+    chartConfig.priceScaleLabelAlign,
     chartConfig.priceScaleEntireTextOnly,
     chartConfig.priceScaleMargins,
     chartConfig.referenceLine,

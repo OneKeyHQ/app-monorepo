@@ -170,6 +170,7 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
       } else {
         navigation?.pushModal(EModalRoutes.MarketModal, {
           screen: EModalMarketRoutes.MarketWidgetList,
+          ...(destination.needsBinding && { params: { needsBinding: true } }),
         });
       }
     } else if (destination.kind === 'stock') {

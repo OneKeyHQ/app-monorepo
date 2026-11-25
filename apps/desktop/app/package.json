@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
-    "@onekeyfe/electron-qr-scanner": "44.0.2-alpha.1",
+    "@onekeyfe/electron-qr-scanner": "44.0.2-alpha.2",
     "@onekeyfe/electron-windows-hello": "44.0.2-alpha.1",
     "@sentry/electron": "7.8.0",
     "@stoprocent/noble": "2.3.16",
