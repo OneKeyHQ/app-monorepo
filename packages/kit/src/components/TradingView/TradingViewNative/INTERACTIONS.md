@@ -109,10 +109,13 @@ under separate owners:
   presses were on the plot: one on an axis, a drawing, an order or position
   line or its label (also one that takes no press, e.g. a PnL label or a
   pending order) or a pane's legend, or one whose first press drew, keeps its
-  own meaning. Alt+Enter (Option+Enter) with focus in a panel does the same
-  from the keyboard. A chart without a price axis has no empty corner and
-  offers the double click and the shortcut only, and a single chart has none
-  of them. The maximized panel is a view of the grid, never
+  own meaning. Alt+Enter (Option+Enter) with focus in a panel's chart does the
+  same from the keyboard; an editable field, e.g. a drawing's name, keeps the
+  key. None of them toggles while a pointer is pressed in the chart, so a
+  gesture under way, e.g. on an order's cancel control, ends on the geometry
+  it started with. A chart without a price axis has no empty corner and offers
+  the double click and the shortcut only, and a single chart has none of them.
+  The maximized panel is a view of the grid, never
   saved: a reload, another preset or a selection that goes back elsewhere,
   e.g. from a switch the host turned down, ends it. The other panels stay
   mounted at their size behind it, unseen and taking no press, so the split

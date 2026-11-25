@@ -250,6 +250,31 @@ export const TradingViewNativeChart = memo(
     // A double click maximizes the panel only when both of its presses were:
     // the first one can place a drawing and leave the cursor tool armed.
     const plotPressesRef = useRef<[boolean, boolean]>([false, false]);
+    // Pointers pressed in the chart and not released yet. Maximizing or
+    // restoring waits for them, so a gesture under way, e.g. on an order's
+    // cancel control, ends on the geometry it started with.
+    const pressedPointerIdsRef = useRef(new Set<number>());
+    const canMaximize = Boolean(maximize);
+    useEffect(() => {
+      if (!canMaximize) return undefined;
+      const pressed = pressedPointerIdsRef.current;
+      const release = ({ pointerId }: PointerEvent) => {
+        pressed.delete(pointerId);
+      };
+      const releaseAll = () => pressed.clear();
+      globalThis.addEventListener('pointerup', release, true);
+      globalThis.addEventListener('pointercancel', release, true);
+      globalThis.addEventListener('blur', releaseAll);
+      return () => {
+        globalThis.removeEventListener('pointerup', release, true);
+        globalThis.removeEventListener('pointercancel', release, true);
+        globalThis.removeEventListener('blur', releaseAll);
+        pressed.clear();
+      };
+    }, [canMaximize]);
+    const toggleMaximize = useCallback(() => {
+      if (pressedPointerIdsRef.current.size === 0) maximize?.toggle();
+    }, [maximize]);
     const drawingToolsRef = useRef<HTMLDivElement>(null);
     const getDrawingToolsCollapseGain = sharedDrawingTools?.getCollapseGain;
     // Where the plot's reference width starts: the chart's root, which holds a
@@ -1760,7 +1785,31 @@ export const TradingViewNativeChart = memo(
           // Every press in the chart counts as one off the plot until the
           // canvas finds it on the plot.
           plotPressesRef.current = [plotPressesRef.current[1], false];
+          if (canMaximize) pressedPointerIdsRef.current.add(event.pointerId);
           if (trackPointerInteraction) startPointerInteraction(event);
+        }}
+        // Alt+Enter (Option+Enter) with focus in the chart maximizes its
+        // split-view panel or brings the split back, also without the corner
+        // button. Taken before that button, so it toggles once. An editable
+        // field, e.g. a drawing's name, keeps the key.
+        onKeyDownCapture={(event) => {
+          const { target } = event;
+          if (
+            !canMaximize ||
+            event.key !== 'Enter' ||
+            !event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            !(target instanceof HTMLElement) ||
+            !event.currentTarget.contains(target) ||
+            target.isContentEditable ||
+            ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+          ) {
+            return;
+          }
+          event.preventDefault();
+          if (!event.repeat) toggleMaximize();
         }}
         onLostPointerCapture={finishPointerInteraction}
         style={{
@@ -1808,7 +1857,7 @@ export const TradingViewNativeChart = memo(
             onDoubleClick={(event) => {
               if (drawingController.onDoubleClick(event)) return;
               const [isFirstOnPlot, isSecondOnPlot] = plotPressesRef.current;
-              if (isFirstOnPlot && isSecondOnPlot) maximize?.toggle();
+              if (isFirstOnPlot && isSecondOnPlot) toggleMaximize();
             }}
             onContextMenu={priceSelection.onContextMenu}
             onLostPointerCapture={(event) => {
@@ -1997,7 +2046,7 @@ export const TradingViewNativeChart = memo(
             <TradingViewNativeMaximizeButton
               backgroundColor={background}
               isMaximized={maximize.isMaximized}
-              onPress={maximize.toggle}
+              onPress={toggleMaximize}
               priceAxisWidth={measuredPriceAxisWidth}
               testID={testID}
               timeAxisHeight={timeAxisHeight}
