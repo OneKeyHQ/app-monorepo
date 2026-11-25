@@ -1121,12 +1121,14 @@ export function NativeTokenSelectorList({
               // the four columns, Swap's included, a quarter each. Native
               // tablets keep balance | price | Swap. An unpriced balance
               // formats its value as '--', which is no value; a zero balance
-              // without a price still formats a fiat zero, so the price
-              // decides too.
+              // without a price still formats a fiat zero, which is not one
+              // either. A grouped row sums its networks' values but takes its
+              // price from one of them, so a value above zero counts even
+              // without that price.
               const hasValue =
                 !!valueText.text &&
                 amount !== UNAVAILABLE_DISPLAY &&
-                rawPrice !== UNAVAILABLE_DISPLAY;
+                (rawPrice !== UNAVAILABLE_DISPLAY || Number(amount) > 0);
               let holdingsPrimary = balanceText;
               let holdingsSecondary = valueText;
               if (!platformEnv.isNative) {

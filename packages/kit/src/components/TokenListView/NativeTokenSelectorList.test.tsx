@@ -1277,6 +1277,46 @@ it('shows only the amount for an unpriced zero balance on the wide Web Home row'
   }
 });
 
+it('keeps the value of a grouped row whose price network has no price', () => {
+  // A grouped row sums its networks' values but takes one network's price.
+  mockHomeFiatMap = {
+    [ethToken.$key]: {
+      balanceParsed: '2',
+      fiatValue: '5',
+      currency: 'usd',
+    } as ITokenFiat,
+  };
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken]}
+        networkId="evm--1"
+        ownerKey="owner-A"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        homeCellSeam
+        tableLayout
+        withPrice
+        withSwapAction
+        tokenItemTestIDPrefix="home-token-item"
+      />,
+    );
+    const first = mockSnapshot?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      const holdings = first.columns.find(({ key }) => key === 'balance');
+      expect(holdings?.text).toContain('5');
+      expect(holdings?.secondaryText).toBe('2');
+    }
+  } finally {
+    mockHomeFiatMap = {};
+  }
+});
+
 it('rounds the Web row box for its hover fill and leaves native rows to the engine', () => {
   const props = {
     rows: [ethToken],
