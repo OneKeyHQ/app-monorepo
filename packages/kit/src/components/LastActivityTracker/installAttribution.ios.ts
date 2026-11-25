@@ -64,7 +64,9 @@ const nativeModule = NativeModules.AppClipAttribution as
 let reportInstallAttributionTask: Promise<void> | undefined;
 let reportInstallAttributionRequested = false;
 let captureAppClipInviteCodeTask: Promise<void> | undefined;
-let reportAppleAdsAttributionTask: Promise<void> | undefined;
+let reportAppleAdsAttributionTask:
+  | { attempt: Promise<void>; foregroundRetry?: Promise<void> }
+  | undefined;
 
 function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   if (!value || typeof value !== 'object') {
@@ -345,11 +347,11 @@ export function reportInstallAttribution(
   }
   return Promise.all([
     appClipTask,
-    retryAppleAdsInstallAttribution(utilityEndpoint, installationId),
+    reportAppleAdsAttribution(utilityEndpoint, installationId),
   ]).then(() => undefined);
 }
 
-export function retryAppleAdsInstallAttribution(
+function reportAppleAdsAttribution(
   utilityEndpoint: string,
   installationId: string,
 ): Promise<void> {
@@ -360,11 +362,27 @@ export function retryAppleAdsInstallAttribution(
   ) {
     return Promise.resolve();
   }
-  reportAppleAdsAttributionTask ??= reportAppleAdsInstallAttribution(
-    utilityEndpoint,
-    installationId,
-  ).finally(() => {
-    reportAppleAdsAttributionTask = undefined;
-  });
-  return reportAppleAdsAttributionTask;
+  reportAppleAdsAttributionTask ??= {
+    attempt: reportAppleAdsInstallAttribution(
+      utilityEndpoint,
+      installationId,
+    ).finally(() => {
+      reportAppleAdsAttributionTask = undefined;
+    }),
+  };
+  return reportAppleAdsAttributionTask.attempt;
+}
+
+export function retryAppleAdsInstallAttribution(
+  utilityEndpoint: string,
+  installationId: string,
+): Promise<void> {
+  const task = reportAppleAdsAttributionTask;
+  if (task) {
+    task.foregroundRetry ??= task.attempt.catch(() =>
+      reportAppleAdsAttribution(utilityEndpoint, installationId),
+    );
+    return task.foregroundRetry;
+  }
+  return reportAppleAdsAttribution(utilityEndpoint, installationId);
 }

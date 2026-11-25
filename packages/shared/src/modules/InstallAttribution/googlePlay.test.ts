@@ -105,6 +105,15 @@ describe('Google Play install attribution', () => {
     expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
 
+  it('preserves encoded attribution and invite fields when a value contains an equals sign', () => {
+    const rawReferrer = 'ref_code%3DABC123%26utm_source%3Dpartner=referral';
+
+    expect(parseGooglePlayInstallReferrer(rawReferrer)).toEqual({
+      utmSource: 'partner=referral',
+    });
+    expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBe('ABC123');
+  });
+
   it('keeps direct values and treats their encoded delimiters as literal text', () => {
     expect(
       parseGooglePlayInstallReferrer(

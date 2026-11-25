@@ -674,6 +674,49 @@ describe('Apple Ads install attribution runtime guard', () => {
     expect(mockReadPending).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    { outcome: 'success', shouldReject: false, expectedAttempts: 1 },
+    { outcome: 'failure', shouldReject: true, expectedAttempts: 2 },
+  ])(
+    'handles a startup $outcome with foreground calls already waiting',
+    async ({ shouldReject, expectedAttempts }) => {
+      const endpoint = 'https://utility.onekey.so';
+      const installationId = 'installation-123';
+      let settleStartup: (() => void) | undefined;
+      mockReportAppleAdsInstallAttribution.mockReturnValueOnce(
+        new Promise<void>((resolve, reject) => {
+          settleStartup = shouldReject
+            ? () => reject(new Error('startup timed out'))
+            : resolve;
+        }),
+      );
+
+      const startup = reportInstallAttribution(endpoint, installationId);
+      const firstForeground = retryAppleAdsInstallAttribution(
+        endpoint,
+        installationId,
+      );
+      const secondForeground = retryAppleAdsInstallAttribution(
+        endpoint,
+        installationId,
+      );
+
+      expect(mockReportAppleAdsInstallAttribution).toHaveBeenCalledTimes(1);
+      settleStartup?.();
+      if (shouldReject) {
+        await expect(startup).rejects.toThrow('startup timed out');
+      } else {
+        await expect(startup).resolves.toBeUndefined();
+      }
+      await Promise.all([firstForeground, secondForeground]);
+
+      expect(mockReportAppleAdsInstallAttribution).toHaveBeenCalledTimes(
+        expectedAttempts,
+      );
+      expect(mockReadPending).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('drains a queued App Clip handoff when the Apple Ads request rejects', async () => {
     mockReportAppleAdsInstallAttribution.mockRejectedValueOnce(
       new Error('Apple Ads unavailable'),

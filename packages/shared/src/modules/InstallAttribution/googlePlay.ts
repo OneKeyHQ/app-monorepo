@@ -94,7 +94,8 @@ function readFromReferrer<T>({
   const boundedReferrer = rawReferrer.slice(0, MAX_REFERRER_LENGTH);
   const direct = read(new URLSearchParams(boundedReferrer));
   const decoded = boundedReferrer.split('&').flatMap((segment) => {
-    if (segment.includes('=') || !/%3D/i.test(segment)) {
+    const firstAssignment = /=|%3D/i.exec(segment);
+    if (!firstAssignment || firstAssignment[0] === '=') {
       return [];
     }
     try {
