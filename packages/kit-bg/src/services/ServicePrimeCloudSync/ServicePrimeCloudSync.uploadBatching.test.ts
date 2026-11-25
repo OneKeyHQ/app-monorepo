@@ -16,6 +16,13 @@ import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
 
+jest.mock('@onekeyhq/shared/src/config/endpointsMap', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/config/endpointsMap')
+  >('@onekeyhq/shared/src/config/endpointsMap');
+  return { ...actual, getEndpointsMap: async () => actual.endpointsMap.prod };
+});
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const passthroughDecorator =
     () =>

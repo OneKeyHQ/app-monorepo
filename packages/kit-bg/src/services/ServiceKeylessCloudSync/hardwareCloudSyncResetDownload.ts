@@ -1,12 +1,13 @@
 import { HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import type {
-  IHardwareCloudSyncSession,
-  IKeylessCloudSyncCredential,
-} from '@onekeyhq/shared/types/keylessCloudSync';
+import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { logHardwareCloudSyncDiagnostic } from './hardwareCloudSyncLog';
+import {
+  canUseHardwareCloudSyncSessionAt,
+  matchesRecordFields,
+} from './hardwareCloudSyncSession';
 
 import type {
   IHardwareCloudSyncDataKey,
@@ -187,6 +188,22 @@ export async function prepareHardwareCloudSyncResetRecords({
   };
 }
 
+const POOL_REKEY_BASE_FIELDS = [
+  'pwdHash',
+  'data',
+  'rawData',
+  'dataTime',
+  'isDeleted',
+] as const;
+
+const POOL_REKEY_GUARDED_FIELDS = [
+  ...POOL_REKEY_BASE_FIELDS,
+  'dataType',
+  'rawKey',
+  'pendingPublicAccountDeletionAt',
+  'pendingPublicAccountDeletionHash',
+] as const;
+
 export function preparePoolRekey(
   originalItems: IDBCloudSyncItem[],
   items: IDBCloudSyncItem[],
@@ -196,6 +213,9 @@ export function preparePoolRekey(
 ): Parameters<LocalDbBase['updateSyncItem']>[0] {
   const originalsById = new Map(originalItems.map((item) => [item.id, item]));
   const replacementsById = new Map(items.map((item) => [item.id, item]));
+  const matchFields = isCurrent
+    ? POOL_REKEY_GUARDED_FIELDS
+    : POOL_REKEY_BASE_FIELDS;
   return {
     ids: items.map((item) => item.id),
     isCurrent,
@@ -207,14 +227,7 @@ export function preparePoolRekey(
       if (
         original &&
         replacement &&
-        record.pwdHash === original.pwdHash &&
-        record.data === original.data &&
-        (!isCurrent ||
-          (record.dataType === original.dataType &&
-            record.rawKey === original.rawKey)) &&
-        record.rawData === original.rawData &&
-        (record.dataTime ?? undefined) === (original.dataTime ?? undefined) &&
-        record.isDeleted === original.isDeleted
+        matchesRecordFields(record, original, matchFields)
       ) {
         record.data = replacement.data;
         record.pwdHash = replacement.pwdHash;
@@ -230,10 +243,6 @@ export type IHardwareDataKeyCommitGuard = {
   origin?: string;
   isCurrent: () => boolean;
   generation?: number;
-  rebind?: {
-    session: IHardwareCloudSyncSession;
-    assertStored: (stored: IKeylessCloudSyncCredential) => Promise<void>;
-  };
 };
 
 export async function commitHardwareDataKey({
@@ -266,7 +275,6 @@ export async function commitHardwareDataKey({
     updated: IKeylessCloudSyncCredential,
     options: {
       expected: IKeylessCloudSyncCredential;
-      reboundSession?: IHardwareCloudSyncSession;
       refreshAdmission?: {
         canPersist: () => boolean;
         canPublish: () => boolean;
@@ -293,7 +301,6 @@ export async function commitHardwareDataKey({
       items: originalItems,
       from: {
         dek: credential.encryptionKey,
-        dekId: session.dekId,
         pwdHash: credential.pwdHash,
       },
       to: next,
@@ -317,20 +324,22 @@ export async function commitHardwareDataKey({
       );
     // The recognized rotation remains resumable until its pool commits.
     if (guard) {
-      const { origin, generation, isCurrent, rebind } = guard;
+      const { origin, generation, isCurrent } = guard;
       return saveCredential(updated, {
         expected: credential,
-        reboundSession: rebind && { ...rebind.session, dekId: next.dekId },
         refreshAdmission: {
-          canPersist: rebind ? isCurrent : () => true,
+          canPersist: () => true,
           canPublish: isCurrent,
         },
         beforeSave: async (stored) => {
-          if (rebind) await rebind.assertStored(stored);
           const pending = stored.pendingDataKey;
           if (
             !isCurrent() ||
-            (origin && stored.hardwareSession?.boundBaseURL !== origin) ||
+            (origin &&
+              !canUseHardwareCloudSyncSessionAt(
+                stored.hardwareSession,
+                origin,
+              )) ||
             (generation !== undefined && pending?.generation !== generation) ||
             stored.encryptionKey !== credential.encryptionKey ||
             stored.source?.type !== 'hardware' ||

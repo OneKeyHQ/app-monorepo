@@ -284,9 +284,13 @@ describe('CloudSyncFlowManagerBase scene acknowledgments', () => {
   });
 
   test.each([true, false])(
-    'deleted item with prior acknowledgment %s is still replayed',
+    'deleted item with prior acknowledgment %s is still replayed without retaining rawData',
     async (localSceneUpdated) => {
-      const h = await harness({ isDeleted: true, localSceneUpdated });
+      const h = await harness({
+        isDeleted: true,
+        localSceneUpdated,
+        rawData: '',
+      });
       await h.replay();
 
       expect(h.syncEachItem).toHaveBeenCalledWith({
@@ -295,8 +299,54 @@ describe('CloudSyncFlowManagerBase scene acknowledgments', () => {
         payload,
       });
       expect(h.updateSyncItem).toHaveBeenCalledTimes(localSceneUpdated ? 0 : 1);
+      expect(h.pool.get(h.item.id)).toMatchObject({
+        localSceneUpdated: true,
+        rawData: '',
+      });
     },
   );
+
+  test('scrubs legacy plaintext rawData when replaying an already-acknowledged deleted item', async () => {
+    const h = await harness({ isDeleted: true, localSceneUpdated: true });
+    expect(h.pool.get(h.item.id)?.rawData).toBeTruthy();
+
+    await h.replay();
+
+    expect(h.syncEachItem).toHaveBeenCalledTimes(1);
+    expect(h.updateSyncItem).toHaveBeenCalledTimes(1);
+    expect(h.pool.get(h.item.id)).toMatchObject({
+      localSceneUpdated: true,
+      rawData: '',
+    });
+  });
+
+  test('clears rawData on encrypted deleted items built by buildSyncItem while keeping offline rawData', async () => {
+    const h = await harness();
+    h.manager.backgroundApi.servicePrimeCloudSync = {
+      getCloudSyncDataTime: jest.fn(async () => 1_750_000_000_123),
+    } as unknown as IBackgroundApi['servicePrimeCloudSync'];
+
+    const encryptedDeletion = await h.manager.buildSyncItem({
+      target,
+      dataTime: undefined,
+      syncCredential: credential,
+      isDeleted: true,
+    });
+    expect(encryptedDeletion?.data).toBeTruthy();
+    expect(encryptedDeletion?.isDeleted).toBe(true);
+    expect(encryptedDeletion?.localSceneUpdated).toBe(true);
+    expect(encryptedDeletion?.rawData).toBe('');
+
+    const offlineDeletion = await h.manager.buildSyncItem({
+      target,
+      dataTime: undefined,
+      syncCredential: undefined,
+      isDeleted: true,
+    });
+    expect(offlineDeletion?.data).toBeUndefined();
+    expect(offlineDeletion?.isDeleted).toBe(true);
+    expect(offlineDeletion?.rawData).toBeTruthy();
+  });
 
   test('does not acknowledge failed authentication or decryption', async () => {
     const h = await harness({
@@ -354,4 +404,103 @@ describe('CloudSyncFlowManagerBase scene acknowledgments', () => {
       expect(h.pool.get(h.item.id)?.localSceneUpdated).toBe(false);
     },
   );
+
+  test('skips scene writes when a newer persisted version replaces the item before mutex execution', async () => {
+    const h = await harness({ localSceneUpdated: false });
+    const getSyncItemSafe = jest.fn(async ({ id }: { id: string }) =>
+      h.pool.get(id),
+    );
+    h.manager.backgroundApi.localDb.getSyncItemSafe = getSyncItemSafe;
+    h.buildKey.mockImplementationOnce(async () => {
+      h.pool.set(h.item.id, {
+        ...h.item,
+        dataTime: (h.item.dataTime ?? 0) + 1,
+        localSceneUpdated: true,
+      });
+      return {
+        key: h.manager.rawKeyToHashKey(rawKey),
+        rawKey,
+        dataType: EPrimeCloudSyncDataType.IndexedAccount,
+        payload,
+      };
+    });
+
+    await h.replay(false);
+
+    expect(getSyncItemSafe).toHaveBeenCalledWith({ id: h.item.id });
+    expect(h.syncEachItem).not.toHaveBeenCalled();
+    expect(h.setUniversalIndexedAccountName).not.toHaveBeenCalled();
+    expect(h.updateSyncItem).not.toHaveBeenCalled();
+  });
+
+  test('releases the scene mutex and leaves the item pending when the pre-write pool read stalls', async () => {
+    const h = await harness({ localSceneUpdated: false });
+    const stalled = Promise.withResolvers<IDBCloudSyncItem | undefined>();
+    h.manager.backgroundApi.localDb.getSyncItemSafe = jest.fn(
+      () => stalled.promise,
+    );
+    jest.useFakeTimers();
+    try {
+      const replayPromise = h.replay(false);
+      await jest.advanceTimersByTimeAsync(5000);
+      await replayPromise;
+    } finally {
+      jest.useRealTimers();
+      stalled.resolve(undefined);
+    }
+
+    expect(h.syncEachItem).not.toHaveBeenCalled();
+    expect(h.setUniversalIndexedAccountName).not.toHaveBeenCalled();
+    expect(h.updateSyncItem).not.toHaveBeenCalled();
+    expect(h.pool.get(h.item.id)?.localSceneUpdated).toBe(false);
+  });
+
+  test('notifies wallet read deferral when pre-write pool read times out, but not when the row is missing', async () => {
+    const h = await harness({
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      localSceneUpdated: false,
+      serverUploaded: true,
+    });
+    const onWalletNameHistoryDeferred = jest.fn();
+
+    // Missing row before timeout: must not report read deferral.
+    h.manager.backgroundApi.localDb.getSyncItemSafe = jest.fn(
+      async () => undefined,
+    );
+    await expect(
+      h.manager.syncToSceneEachItemByMutex({
+        item: h.item,
+        target,
+        payload,
+        onWalletNameHistoryDeferred,
+      }),
+    ).resolves.toBe(false);
+    expect(onWalletNameHistoryDeferred).not.toHaveBeenCalled();
+
+    // Timed-out pool read: must report canonical-read deferral for eligible Wallet rows.
+    const stalled = Promise.withResolvers<IDBCloudSyncItem | undefined>();
+    h.manager.backgroundApi.localDb.getSyncItemSafe = jest.fn(
+      () => stalled.promise,
+    );
+    jest.useFakeTimers();
+    try {
+      const pending = h.manager.syncToSceneEachItemByMutex({
+        item: h.item,
+        target,
+        payload,
+        onWalletNameHistoryDeferred,
+      });
+      await jest.advanceTimersByTimeAsync(5000);
+      await expect(pending).resolves.toBe(false);
+    } finally {
+      jest.useRealTimers();
+      stalled.resolve(undefined);
+    }
+    expect(onWalletNameHistoryDeferred).toHaveBeenCalledTimes(1);
+    expect(onWalletNameHistoryDeferred).toHaveBeenCalledWith(
+      h.item,
+      'canonical-read',
+    );
+    expect(h.syncEachItem).not.toHaveBeenCalled();
+  });
 });

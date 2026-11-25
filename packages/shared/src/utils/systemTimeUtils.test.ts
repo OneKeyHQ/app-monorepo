@@ -15,6 +15,7 @@ const mockGetClient = jest.fn(async () => ({
 }));
 const mockTrustedDomain = jest.fn(async () => true);
 const mockGetEndpoint = jest.fn(async () => 'https://wallet.onekeycn.com');
+const mockOfficialWalletEndpoint = jest.fn(() => 'https://wallet.onekeycn.com');
 
 jest.mock('../appApiClient/appApiClient', () => ({
   appApiClient: {
@@ -31,6 +32,7 @@ jest.mock('../config/endpointsMap', () => ({
     prod: { wallet: 'https://wallet.onekeycn.com' },
     test: { wallet: 'https://wallet.onekeytest.com' },
   },
+  getEndpointsMap: async () => ({ wallet: mockOfficialWalletEndpoint() }),
   getEndpointByServiceName: () => mockGetEndpoint(),
 }));
 
@@ -224,8 +226,12 @@ describe('system time error notifications', () => {
       if (scenario === 'explicit-reset')
         systemTimeUtils.lastServerTime = undefined;
       if (scenario === 'health-source-change') {
-        mockGetEndpoint.mockResolvedValueOnce('https://wallet.onekeytest.com');
-        await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+        mockGetEndpoint.mockResolvedValue('https://wallet.onekeytest.com');
+        try {
+          await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+        } finally {
+          mockGetEndpoint.mockResolvedValue('https://wallet.onekeycn.com');
+        }
       }
       const shouldProject =
         scenario === 'normal-business-sample' ||
@@ -696,6 +702,7 @@ describe('hardware verification time', () => {
     jest.clearAllMocks();
     mockGet.mockReset();
     mockTrustedDomain.mockResolvedValue(true);
+    mockOfficialWalletEndpoint.mockReturnValue('https://wallet.onekeycn.com');
     mockGetEndpoint.mockResolvedValue('https://wallet.onekeycn.com');
     mockGetClient.mockImplementation(async () => ({
       get: mockGet,
@@ -839,6 +846,26 @@ describe('hardware verification time', () => {
       headers: { Date: new Date(BASE_TIME).toUTCString() },
       request: {
         responseURL: `https://wallet.onekeycn.com${url}?${new URLSearchParams(
+          (config as { params: Record<string, string> }).params,
+        ).toString()}`,
+      },
+    }));
+    expect(await systemTimeUtils.getHardwareVerificationTime()).toBe(BASE_TIME);
+  });
+
+  it('uses the current Wallet base path for time verification', async () => {
+    const endpoint = 'https://wallet-new.example.invalid/gateway';
+    mockGetEndpoint.mockResolvedValue(endpoint);
+    mockOfficialWalletEndpoint.mockReturnValue(endpoint);
+    mockGetClient.mockResolvedValue({
+      get: mockGet,
+      defaults: { baseURL: endpoint, headers: {} },
+    });
+    mockGet.mockImplementation(async (url, config) => ({
+      status: 200,
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+      request: {
+        responseURL: `${endpoint}${url}?${new URLSearchParams(
           (config as { params: Record<string, string> }).params,
         ).toString()}`,
       },
