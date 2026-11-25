@@ -79,29 +79,33 @@ export function createInstallAttributionSource(): IInstallAttributionSource {
 }
 
 /**
- * Reads a referrer string, retrying once against a decoded copy when the
- * first pass finds nothing and the raw value still looks percent-encoded —
- * some landing pages double-encode the value Play hands back.
+ * Some landing pages encode whole parameter segments. Decode only those
+ * segments so escapes in direct values cannot become query parameters.
  */
 function readFromReferrer<T>({
   rawReferrer,
   read,
-  isEmpty,
+  merge,
 }: {
   rawReferrer: string;
   read: (searchParams: URLSearchParams) => T;
-  isEmpty: (value: T) => boolean;
+  merge: (direct: T, decoded: T) => T;
 }): T {
   const boundedReferrer = rawReferrer.slice(0, MAX_REFERRER_LENGTH);
-  const parsed = read(new URLSearchParams(boundedReferrer));
-  if (!isEmpty(parsed) || !/%3D/i.test(boundedReferrer)) {
-    return parsed;
-  }
-  try {
-    return read(new URLSearchParams(decodeURIComponent(boundedReferrer)));
-  } catch {
-    return parsed;
-  }
+  const direct = read(new URLSearchParams(boundedReferrer));
+  const decoded = boundedReferrer.split('&').flatMap((segment) => {
+    if (segment.includes('=') || !/%3D/i.test(segment)) {
+      return [];
+    }
+    try {
+      return [decodeURIComponent(segment)];
+    } catch {
+      return [];
+    }
+  });
+  return decoded.length
+    ? merge(direct, read(new URLSearchParams(decoded.join('&'))))
+    : direct;
 }
 
 export function parseGooglePlayInstallReferrer(
@@ -121,7 +125,7 @@ export function parseGooglePlayInstallReferrer(
       }
       return parsed;
     },
-    isEmpty: (parsed) => Object.keys(parsed).length === 0,
+    merge: (direct, decoded) => ({ ...decoded, ...direct }),
   });
 }
 
@@ -141,7 +145,7 @@ export function extractInviteCodeFromInstallReferrer(
           searchParams.get(INSTALL_REFERRER_INVITE_CODE_KEY),
         ),
       ),
-    isEmpty: (code) => code === undefined,
+    merge: (direct, decoded) => direct ?? decoded,
   });
 }
 

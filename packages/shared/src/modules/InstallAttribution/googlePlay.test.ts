@@ -90,6 +90,32 @@ describe('Google Play install attribution', () => {
     });
   });
 
+  it('reports mixed direct and encoded attribution fields', async () => {
+    getInstallReferrerMock.mockResolvedValue(
+      'gad_source=1&utm_source%3Donekey.so%26utm_campaign%3Ddownload_page',
+    );
+
+    await reportGooglePlayInstallAttribution();
+
+    expect(logAttributionMock).toHaveBeenCalledWith({
+      gadSource: '1',
+      utmCampaign: 'download_page',
+      utmSource: 'onekey.so',
+    });
+    expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
+  });
+
+  it('keeps direct values and treats their encoded delimiters as literal text', () => {
+    expect(
+      parseGooglePlayInstallReferrer(
+        'utm_source=direct&ignored=literal%26gclid%3Dother&utm_source%3Dencoded%26utm_campaign%3Ddownload_page',
+      ),
+    ).toEqual({
+      utmCampaign: 'download_page',
+      utmSource: 'direct',
+    });
+  });
+
   it('ignores empty and not-set referrer values without relying on brackets', () => {
     expect(
       parseGooglePlayInstallReferrer(

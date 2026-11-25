@@ -340,15 +340,25 @@ export function reportInstallAttribution(
     },
   );
   const appClipTask = reportInstallAttributionTask;
+  if (!utilityEndpoint || !installationId) {
+    return appClipTask;
+  }
+  return Promise.all([
+    appClipTask,
+    retryAppleAdsInstallAttribution(utilityEndpoint, installationId),
+  ]).then(() => undefined);
+}
 
+export function retryAppleAdsInstallAttribution(
+  utilityEndpoint: string,
+  installationId: string,
+): Promise<void> {
   if (
     !platformEnv.isNativeIOSStore ||
     !platformEnv.isNativeMainThread ||
-    platformEnv.isE2E ||
-    !utilityEndpoint ||
-    !installationId
+    platformEnv.isE2E
   ) {
-    return appClipTask;
+    return Promise.resolve();
   }
   reportAppleAdsAttributionTask ??= reportAppleAdsInstallAttribution(
     utilityEndpoint,
@@ -356,7 +366,5 @@ export function reportInstallAttribution(
   ).finally(() => {
     reportAppleAdsAttributionTask = undefined;
   });
-  return Promise.all([appClipTask, reportAppleAdsAttributionTask]).then(
-    () => undefined,
-  );
+  return reportAppleAdsAttributionTask;
 }

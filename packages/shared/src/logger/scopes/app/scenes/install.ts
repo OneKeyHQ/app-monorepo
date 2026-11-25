@@ -1,4 +1,4 @@
-/* cspell:ignore adservices gbraid gclid wbraid */
+/* cspell:ignore gbraid gclid wbraid */
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -30,45 +30,34 @@ export type IAppClipInstallAttributionParams = IInstallAttributionParams & {
   shortLinkVersion?: number;
 };
 
-export type IAppleAdsInstallAttributionParams = IInstallAttributionParams & {
-  $insertId: string;
-  $timestamp: number;
-  adGroupId?: string;
-  adId?: string;
-  attributionSource?: 'apple_ads_adservices';
-  campaignId?: string;
-  claimType?: string;
-  clickDate?: string;
-  conversionType?: string;
-  countryOrRegion?: string;
-  impressionDate?: string;
-  keywordId?: string;
-  orgId?: string;
-  supplyPlacement?: string;
-};
-
 export class InstallScene extends BaseScene {
   @LogToServer({ level: 'info', waitForServer: true })
-  @LogToLocal({ level: 'info' })
   private installAttribution(params: IInstallAttributionParams) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  private installAttributionDiagnostic(params: IInstallAttributionParams) {
     return params;
   }
 
   public reportGooglePlayInstallAttribution(
     params: IInstallAttributionParams,
   ): Promise<void> {
+    const {
+      gbraid: _gbraid,
+      gclid: _gclid,
+      wbraid: _wbraid,
+      ...diagnostics
+    } = params;
+    this.installAttributionDiagnostic(diagnostics);
     return this.installAttribution(params) as unknown as Promise<void>;
   }
 
   public reportAppClipInstallAttribution(
     params: IAppClipInstallAttributionParams,
   ): Promise<void> {
-    return this.installAttribution(params) as unknown as Promise<void>;
-  }
-
-  public reportAppleAdsInstallAttribution(
-    params: IAppleAdsInstallAttributionParams,
-  ): Promise<void> {
+    this.installAttributionDiagnostic(params);
     return this.installAttribution(params) as unknown as Promise<void>;
   }
 

@@ -69,10 +69,13 @@ jest.mock('./installInviteCodeCapture', () => ({
   captureInstallInviteCode: mockCaptureInstallInviteCode,
 }));
 
-const { parseAppClipInviteCodeRecord, reportInstallAttribution } =
-  jest.requireActual<typeof import('./installAttribution.ios')>(
-    './installAttribution.ios',
-  );
+const {
+  parseAppClipInviteCodeRecord,
+  reportInstallAttribution,
+  retryAppleAdsInstallAttribution,
+} = jest.requireActual<typeof import('./installAttribution.ios')>(
+  './installAttribution.ios',
+);
 
 const pendingRecord = {
   clickId: '0123456789ABCDEFGHIJKL',
@@ -650,6 +653,25 @@ describe('Apple Ads install attribution runtime guard', () => {
       'https://utility.onekey.so',
       'installation-123',
     );
+  });
+
+  it('retries Apple Ads after a failed launch and shares concurrent retries', async () => {
+    const endpoint = 'https://utility.onekey.so';
+    const installationId = 'installation-123';
+    mockReportAppleAdsInstallAttribution.mockRejectedValueOnce(
+      new Error('offline'),
+    );
+
+    await expect(
+      reportInstallAttribution(endpoint, installationId),
+    ).rejects.toThrow('offline');
+    await Promise.all([
+      retryAppleAdsInstallAttribution(endpoint, installationId),
+      retryAppleAdsInstallAttribution(endpoint, installationId),
+    ]);
+
+    expect(mockReportAppleAdsInstallAttribution).toHaveBeenCalledTimes(2);
+    expect(mockReadPending).toHaveBeenCalledTimes(1);
   });
 
   it('drains a queued App Clip handoff when the Apple Ads request rejects', async () => {

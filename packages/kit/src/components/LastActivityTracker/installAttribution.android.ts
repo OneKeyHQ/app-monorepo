@@ -93,3 +93,10 @@ export async function reportInstallAttribution(
     throw attributionResult.reason;
   }
 }
+
+export function retryAppleAdsInstallAttribution(
+  _utilityEndpoint: string,
+  _installationId: string,
+): Promise<void> {
+  return Promise.resolve();
+}
