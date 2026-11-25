@@ -289,8 +289,8 @@ class CloudSyncItemBuilder {
             itemId: item.id,
             dataType: item.dataType,
           });
-        } catch (error) {
-          console.error('decryptSyncItem keyless decrypt error', error, item);
+        } catch {
+          console.error('decryptSyncItem keyless decrypt error', item.dataType);
           throw new IncorrectMasterPassword();
         }
       } else if (keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)) {
@@ -339,8 +339,8 @@ class CloudSyncItemBuilder {
           rawDataJson = JSON.parse(decryptedData) as ICloudSyncRawDataJson;
           item.pwdHash = credentialPwdHash || '';
         }
-      } catch (error) {
-        console.error('decryptSyncItem jsonParse error', error, item);
+      } catch {
+        console.error('decryptSyncItem jsonParse error', item.dataType);
       }
       item.rawDataJson = rawDataJson;
       item.rawData = decryptedData || '';

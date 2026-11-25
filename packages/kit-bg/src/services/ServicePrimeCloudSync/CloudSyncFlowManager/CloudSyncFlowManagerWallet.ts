@@ -295,10 +295,6 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   override async syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    previousAppliedWalletSource?: {
-      item: IDBCloudSyncItem;
-      credential: ICloudSyncCredential;
-    };
     item?: IDBCloudSyncItem;
     target: ICloudSyncTargetWallet;
     payload: ICloudSyncPayloadWallet;
@@ -309,7 +305,6 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     const { target, payload, item, isCurrent } = params;
     const walletId = target.wallet.id;
     let expectedCloudSyncWalletName: string | undefined;
-    let deferCloudSyncWalletName = false;
     // The base flow has already authenticated and matched the Wallet payload.
     // Local pending ciphertext is upload intent, not permission to replace a
     // divergent canonical name (including after turning the same key back on).
@@ -348,39 +343,18 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
         }
       };
       try {
-        expectedCloudSyncWalletName = await resolveBeforeTimeout(
-          (async () => {
-            const canonical = await readCanonical();
-            if (!canonical || cancelled || (isCurrent && !isCurrent()))
-              return undefined;
-            if (!item.serverUploaded)
-              return canonical.name === payload.name
-                ? canonical.name
-                : undefined;
-            if (canonical.name.trim() && canonical.name !== payload.name) {
-              deferCloudSyncWalletName = true;
-              if (
-                !(await this.backgroundApi.simpleDb.changeHistory.retainWalletName(
-                  { walletId, name: canonical.name },
-                ))
-              )
-                return undefined;
-              if (cancelled) return undefined;
-              deferCloudSyncWalletName = false;
-            }
-            return canonical.name;
-          })(),
-          1500,
-        );
+        const canonical = await resolveBeforeTimeout(readCanonical(), 1500);
+        if (
+          canonical &&
+          (item.serverUploaded || canonical.name === payload.name)
+        )
+          expectedCloudSyncWalletName = canonical.name;
       } catch (error) {
         errorUtils.autoPrintErrorIgnore(error);
       } finally {
         cancelled = true;
       }
-      if (
-        expectedCloudSyncWalletName === undefined &&
-        !deferCloudSyncWalletName
-      ) {
+      if (expectedCloudSyncWalletName === undefined) {
         // The AEAD-and-key-checked row was not applied. A confirmed missing
         // Wallet is a skip; only an interrupted read leaves it unverified.
         if (
@@ -393,47 +367,22 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       }
     }
     if (isCurrent && !isCurrent()) return false;
-    if (deferCloudSyncWalletName && item)
-      params.onWalletNameHistoryDeferred?.(item);
     if (
-      deferCloudSyncWalletName &&
-      !payload.avatar &&
-      !payload.firstEvmAddress &&
-      !item?.localSceneUpdated
-    )
-      return false;
-
-    let expectedAvatar: string | undefined;
-    const previous = params.previousAppliedWalletSource;
-    if (
-      deferCloudSyncWalletName &&
-      payload.avatar &&
-      previous &&
       item?.serverUploaded &&
-      previous.item.id === item.id &&
-      previous.item.pwdHash === item.pwdHash &&
-      (previous.item.dataTime ?? 0) < (item.dataTime ?? 0) &&
-      isCurrent
+      expectedCloudSyncWalletName?.trim() &&
+      expectedCloudSyncWalletName !== payload.name
     ) {
-      try {
-        const decrypted = await resolveBeforeTimeout(
-          cloudSyncItemBuilder.decryptSyncItem({
-            item: { ...previous.item },
-            syncCredential: previous.credential,
+      const oldName = expectedCloudSyncWalletName;
+      await resolveBeforeTimeout(
+        Promise.resolve().then(() =>
+          this.backgroundApi.simpleDb.changeHistory.retainWalletName({
+            walletId,
+            name: oldName,
           }),
-          1500,
-        );
-        const rawDataJson = decrypted?.rawDataJson;
-        if (
-          rawDataJson?.dataType === EPrimeCloudSyncDataType.Wallet &&
-          rawDataJson.payload.avatar &&
-          this.rawKeyToHashKey(rawDataJson.rawKey) === item.id
-        )
-          expectedAvatar = JSON.stringify(rawDataJson.payload.avatar);
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
-      }
-      if (!isCurrent()) return false;
+        ),
+        1500,
+      ).catch((error) => errorUtils.autoPrintErrorIgnore(error));
+      if (isCurrent && !isCurrent()) return false;
     }
 
     const update: IDBSetWalletNameAndAvatarParams = {
@@ -442,8 +391,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       ...(expectedCloudSyncWalletName === undefined
         ? {}
         : { expectedCloudSyncWalletName }),
-      ...(deferCloudSyncWalletName ? { deferCloudSyncWalletName: true } : {}),
-      name: deferCloudSyncWalletName ? undefined : payload.name,
+      name: payload.name,
       avatar: payload.avatar,
       firstEvmAddress: payload.firstEvmAddress,
       // avoid infinite loop sync
@@ -465,21 +413,14 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
         await serviceAccount.setWalletNameAndAvatarFromCloud(
           update,
           isCurrent,
-          expectedAvatar,
           () => observer(item, 'canonical-write'),
         );
-      else if (expectedAvatar === undefined)
-        await serviceAccount.setWalletNameAndAvatarFromCloud(update, isCurrent);
       else
-        await serviceAccount.setWalletNameAndAvatarFromCloud(
-          update,
-          isCurrent,
-          expectedAvatar,
-        );
+        await serviceAccount.setWalletNameAndAvatarFromCloud(update, isCurrent);
     } else {
       await serviceAccount.setWalletNameAndAvatar(update);
     }
-    return !deferCloudSyncWalletName;
+    return true;
   }
 
   override async getDBRecordBySyncPayload(params: {

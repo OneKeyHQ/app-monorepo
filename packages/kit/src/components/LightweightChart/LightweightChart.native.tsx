@@ -64,8 +64,9 @@ export function LightweightChart(
     () => ({
       ...chartConfig,
       hideCrosshairPriceLabel: props.hideCrosshairPriceLabel,
+      secondaryLineBlankSlots: props.secondaryLineBlankSlots,
     }),
-    [chartConfig, props.hideCrosshairPriceLabel],
+    [chartConfig, props.hideCrosshairPriceLabel, props.secondaryLineBlankSlots],
   );
   const fontSize = config.fontSize ?? 12;
   const typeface = useChartTypeface();
