@@ -1,8 +1,10 @@
 import { Semaphore, withTimeout } from 'async-mutex';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
-import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  EPrimeCloudSyncDataType,
+  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import { IncorrectMasterPassword } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
@@ -125,13 +127,33 @@ export abstract class CloudSyncFlowManagerBase<
       if (params.isCurrent && !params.isCurrent()) return false;
       const localDb = this.backgroundApi?.localDb;
       if (localDb && 'getSyncItemSafe' in localDb) {
-        const stored = await resolveBeforeTimeout(
-          localDb.getSyncItemSafe({
-            id: params.item.id,
-          }),
+        const readResult = await resolveBeforeTimeout(
+          localDb
+            .getSyncItemSafe({
+              id: params.item.id,
+            })
+            .then((stored) => ({ stored })),
           SCENE_SOURCE_READ_TIMEOUT_MS,
         );
-        if (!stored || !matchesCloudSyncSceneSource(stored, params.item)) {
+        if (!readResult) {
+          if (
+            params.item.dataType === EPrimeCloudSyncDataType.Wallet &&
+            params.item.serverUploaded &&
+            !params.item.localSceneUpdated &&
+            !!params.item.pwdHash &&
+            !!params.item.data &&
+            !params.item.isDeleted &&
+            !params.item.pendingPublicAccountDeletionAt &&
+            (!params.isCurrent || params.isCurrent())
+          ) {
+            params.onWalletNameHistoryDeferred?.(params.item, 'canonical-read');
+          }
+          return false;
+        }
+        if (
+          !readResult.stored ||
+          !matchesCloudSyncSceneSource(readResult.stored, params.item)
+        ) {
           return false;
         }
         if (params.isCurrent && !params.isCurrent()) return false;

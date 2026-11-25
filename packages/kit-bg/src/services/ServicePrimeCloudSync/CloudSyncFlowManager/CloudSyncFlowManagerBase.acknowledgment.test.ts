@@ -454,4 +454,53 @@ describe('CloudSyncFlowManagerBase scene acknowledgments', () => {
     expect(h.updateSyncItem).not.toHaveBeenCalled();
     expect(h.pool.get(h.item.id)?.localSceneUpdated).toBe(false);
   });
+
+  test('notifies wallet read deferral when pre-write pool read times out, but not when the row is missing', async () => {
+    const h = await harness({
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      localSceneUpdated: false,
+      serverUploaded: true,
+    });
+    const onWalletNameHistoryDeferred = jest.fn();
+
+    // Missing row before timeout: must not report read deferral.
+    h.manager.backgroundApi.localDb.getSyncItemSafe = jest.fn(
+      async () => undefined,
+    );
+    await expect(
+      h.manager.syncToSceneEachItemByMutex({
+        item: h.item,
+        target,
+        payload,
+        onWalletNameHistoryDeferred,
+      }),
+    ).resolves.toBe(false);
+    expect(onWalletNameHistoryDeferred).not.toHaveBeenCalled();
+
+    // Timed-out pool read: must report canonical-read deferral for eligible Wallet rows.
+    const stalled = Promise.withResolvers<IDBCloudSyncItem | undefined>();
+    h.manager.backgroundApi.localDb.getSyncItemSafe = jest.fn(
+      () => stalled.promise,
+    );
+    jest.useFakeTimers();
+    try {
+      const pending = h.manager.syncToSceneEachItemByMutex({
+        item: h.item,
+        target,
+        payload,
+        onWalletNameHistoryDeferred,
+      });
+      await jest.advanceTimersByTimeAsync(5000);
+      await expect(pending).resolves.toBe(false);
+    } finally {
+      jest.useRealTimers();
+      stalled.resolve(undefined);
+    }
+    expect(onWalletNameHistoryDeferred).toHaveBeenCalledTimes(1);
+    expect(onWalletNameHistoryDeferred).toHaveBeenCalledWith(
+      h.item,
+      'canonical-read',
+    );
+    expect(h.syncEachItem).not.toHaveBeenCalled();
+  });
 });
