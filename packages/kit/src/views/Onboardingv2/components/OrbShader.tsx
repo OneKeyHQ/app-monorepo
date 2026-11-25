@@ -22,7 +22,7 @@ const fallbackImageUrl =
   require('@onekeyhq/kit/assets/onboarding/orb-fallback.png') as string;
 
 const fallbackGifUrl =
-  require('@onekeyhq/kit/assets/onboarding/orb-fallback.gif') as string;
+  require('@onekeyhq/kit/assets/onboarding/orb-fallback-animated.gif') as string;
 
 // The images are the baseline. Keeping the optional stylesheet with the
 // fallback means the image does not depend on loading a CSS chunk.
