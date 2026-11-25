@@ -4,6 +4,8 @@ export interface IProxyRequestParam {
   params: any;
   url?: string;
   data?: any;
+  /** Forwarded upstream by routes that take request headers. */
+  headers?: Record<string, string>;
 }
 
 export interface IProxyRequestItem {

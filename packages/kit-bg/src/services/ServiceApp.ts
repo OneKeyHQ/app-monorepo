@@ -780,6 +780,9 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async dispatchUnlockJob() {
     defaultLogger.app.page.dispatchUnlockJob();
+    void this.backgroundApi.serviceStarknetPrivacy
+      .prepareUnlockedViewingKeys()
+      .catch(() => undefined);
     appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
   }
 
@@ -976,6 +979,7 @@ class ServiceApp extends ServiceBase {
     from?: EEnterWay;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    entryCategory?: string;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
     const {
@@ -989,6 +993,7 @@ class ServiceApp extends ServiceBase {
       from,
       showFavoriteButton,
       marketTokenCategory,
+      entryCategory,
       tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
@@ -1011,6 +1016,9 @@ class ServiceApp extends ServiceBase {
     }
     if (marketTokenCategory) {
       routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (entryCategory) {
+      routeParams.entryCategory = entryCategory;
     }
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;
@@ -1051,6 +1059,7 @@ class ServiceApp extends ServiceBase {
     network?: string;
     isNative?: boolean;
     from?: EEnterWay;
+    entryCategory?: string;
     disableTrade?: boolean;
     showFavoriteButton?: boolean;
   }) {
@@ -1063,6 +1072,7 @@ class ServiceApp extends ServiceBase {
       network,
       isNative,
       from,
+      entryCategory,
       disableTrade,
       showFavoriteButton,
     } = params;
@@ -1088,6 +1098,9 @@ class ServiceApp extends ServiceBase {
     }
     if (from) {
       routeParams.from = from;
+    }
+    if (entryCategory) {
+      routeParams.entryCategory = entryCategory;
     }
     if (typeof disableTrade === 'boolean') {
       routeParams.disableTrade = disableTrade;

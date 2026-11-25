@@ -105,12 +105,14 @@ import {
 } from '../../../Prime/hooks/usePrimeFeatureAccess';
 import { getAccountIdOnNetwork } from '../../../ScanQrCode/utils/getAccountIdOnNetwork';
 import { parseOnChainAmount } from '../../../ScanQrCode/utils/parseOnChainAmount';
+import { validateStarknetPrivacyRecipient } from '../../../StarknetPrivacy/utils/starknetPrivacySend';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {
   getSendAddressRiskCheckButtonState,
   normalizeOptionalRecipientText,
+  shouldReviewQuickSelectRecipient,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
 } from './recipientSelectionUtils';
@@ -225,6 +227,7 @@ function SendDataInputContainer() {
     onCancel,
     isAllNetworks,
     localWalletSourcePool,
+    starknetPrivacyKind,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -315,6 +318,7 @@ function SendDataInputContainer() {
   // call; failures are silent because the amount page retries on its own.
   useEffect(() => {
     if (
+      starknetPrivacyKind ||
       isNFT ||
       !tokenInfo ||
       !account?.address ||
@@ -335,6 +339,7 @@ function SendDataInputContainer() {
     currentAccount.accountId,
     currentAccount.networkId,
     isNFT,
+    starknetPrivacyKind,
     tokenInfo,
   ]);
 
@@ -472,6 +477,8 @@ function SendDataInputContainer() {
   const toValue = form.watch('to') as IAddressInputValue | undefined;
   const toPending = toValue?.pending;
   const toResolved = toValue?.resolved;
+  const recipientAccountRef = useRef(currentAccount);
+  recipientAccountRef.current = currentAccount;
   const toAddressRaw = toValue?.raw;
   const zcashMemoSupported = toResolved?.startsWith('u1');
   useEffect(() => {
@@ -721,6 +728,29 @@ function SendDataInputContainer() {
       // The recipient may have changed while the checks above were awaited;
       // only warn about and continue with the recipient this attempt started on.
       if (toVal?.resolved !== toResolved) return;
+      if (starknetPrivacyKind === 'transfer') {
+        if (
+          currentAccount.accountId !== accountId ||
+          currentAccount.networkId !== networkId
+        )
+          return;
+        const message = await validateStarknetPrivacyRecipient(
+          intl,
+          networkId,
+          toResolved,
+        );
+        if (
+          isUnmountedRef.current ||
+          form.getValues('to')?.resolved !== toResolved ||
+          recipientAccountRef.current.accountId !== currentAccount.accountId ||
+          recipientAccountRef.current.networkId !== currentAccount.networkId
+        )
+          return;
+        if (message) {
+          form.setError('to', { type: 'validate', message });
+          return;
+        }
+      }
       const { canProceed, hasAcknowledgedWarning } =
         await confirmCexDepositIfUnsupported({
           intl,
@@ -890,6 +920,7 @@ function SendDataInputContainer() {
       }
 
       pushAmountInput({
+        starknetPrivacyKind,
         networkId: currentAccount.networkId,
         accountId: currentAccount.accountId,
         isNFT,
@@ -926,6 +957,7 @@ function SendDataInputContainer() {
     toResolved,
     form,
     pushAmountInput,
+    starknetPrivacyKind,
     signatureConfirm,
     scannedAmount,
     sendAmount,
@@ -1361,31 +1393,6 @@ function SendDataInputContainer() {
     [displayMemoForm, isNoteOnlyChain, form],
   );
 
-  const shouldStayOnDataStepForQuickSelect = useCallback(
-    ({
-      selectedMemo,
-      selectedNote,
-    }: {
-      selectedMemo?: string;
-      selectedNote?: string;
-    }) => {
-      const hasSelectedMemo = Boolean(selectedMemo?.trim());
-      const hasSelectedNote = Boolean(selectedNote?.trim());
-      const needsMemoInput = vaultSettings?.withMemo && !hasSelectedMemo;
-      const needsPaymentId =
-        vaultSettings?.withPaymentId && !form.getValues('paymentId');
-      const needsNote =
-        vaultSettings?.withNote && !hasSelectedNote && !hasSelectedMemo;
-      return needsMemoInput || needsPaymentId || needsNote;
-    },
-    [
-      form,
-      vaultSettings?.withMemo,
-      vaultSettings?.withNote,
-      vaultSettings?.withPaymentId,
-    ],
-  );
-
   const navigateQuickSelectRecipientToAmount = useCallback(
     async ({
       selectedAddress,
@@ -1610,7 +1617,10 @@ function SendDataInputContainer() {
       }
 
       if (isFromAccount || isFromAddressBook) {
-        const willSkip = !shouldStayOnDataStepForQuickSelect({
+        const willSkip = !shouldReviewQuickSelectRecipient({
+          privateTransfer: Boolean(starknetPrivacyKind),
+          vaultSettings,
+          paymentId: form.getValues('paymentId'),
           selectedMemo,
           selectedNote,
         });
@@ -1666,7 +1676,9 @@ function SendDataInputContainer() {
       currentAccount.networkId,
       fillRecipientFromQuickSelect,
       navigateQuickSelectRecipientToAmount,
-      shouldStayOnDataStepForQuickSelect,
+      form,
+      starknetPrivacyKind,
+      vaultSettings,
     ],
   );
 
@@ -1790,6 +1802,7 @@ function SendDataInputContainer() {
                   enableWalletName
                   enableVerifySendFundToSelf
                   enableAddressInteractionStatus
+                  recipientOnlyBadges={Boolean(starknetPrivacyKind)}
                   enableAddressContract
                   enableAllowListValidation={enableAllowListValidation}
                   onInputTypeChange={handleAddressInputChangeType}

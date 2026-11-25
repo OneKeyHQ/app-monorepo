@@ -91,6 +91,7 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
     },
   },
 }));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({ isNativeIOS: true }));
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: { isMaskingDataSync: () => mockMasked },
 }));
@@ -137,6 +138,40 @@ describe('market widget editor native snapshot lifecycle', () => {
     mockFocusCleanup = undefined;
   });
   afterEach(cleanup);
+
+  it('exposes the saved slot order only after a missing iOS binding recovers', async () => {
+    mockBackgroundRefreshSupported = true;
+    const missing = { ...createState('missing'), settings: [] };
+    const pending = createPendingState();
+    mockGetEditorState.mockResolvedValue(missing);
+    mockRefreshEditorState.mockReturnValue(pending.promise);
+    const { result } = renderHook(() =>
+      useMarketWidgetEditorState('session', undefined, 'binding', 'list'),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.unavailable).toBe(true);
+    expect(result.current.state).toBeUndefined();
+
+    const assets: IMarketWidgetAsset[] = ['SOL', 'BTC', 'ETH'].map(
+      (symbol) => ({
+        kind: 'asset',
+        assetId: symbol.toLowerCase(),
+        name: symbol,
+        symbol,
+      }),
+    );
+    await act(async () =>
+      pending.resolve({
+        ...missing,
+        hot: [...assets].toReversed(),
+        settings: [
+          { id: 'binding', kind: 'list', source: 'hot', name: 'List', assets },
+        ],
+      }),
+    );
+    expect(result.current.unavailable).toBe(false);
+    expect(result.current.state?.settings?.[0]?.assets).toEqual(assets);
+  });
 
   it('keeps selected assets in one native draft across searches and releases it on close', async () => {
     mockDraftSessionsSupported = true;

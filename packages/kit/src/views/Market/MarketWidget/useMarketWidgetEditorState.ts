@@ -12,7 +12,9 @@ import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/
 import type {
   IMarketWidgetAsset,
   IMarketWidgetEditorState,
+  IMarketWidgetKind,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 const loadingSnapshot = {
@@ -24,6 +26,8 @@ const loadingSnapshot = {
 export function useMarketWidgetEditorState(
   editorSession?: string,
   pickerQuery?: string,
+  instanceId?: string,
+  instanceKind?: IMarketWidgetKind,
 ) {
   const [snapshot, setSnapshot] = useState<{
     state?: IMarketWidgetEditorState;
@@ -68,7 +72,11 @@ export function useMarketWidgetEditorState(
     if (!pendingSessionRef.current) {
       const lifecycle = lifecycleRef.current;
       const pending = marketWidget
-        .beginEditing()
+        .beginEditing(
+          instanceId && instanceKind
+            ? { id: instanceId, kind: instanceKind }
+            : undefined,
+        )
         .then((token) => {
           if (
             !mountedRef.current ||
@@ -90,7 +98,7 @@ export function useMarketWidgetEditorState(
       pendingSessionRef.current = pending;
     }
     return pendingSessionRef.current;
-  }, [releaseSession]);
+  }, [instanceId, instanceKind, releaseSession]);
 
   const cancelDraft = useCallback(() => {
     draftRequestRef.current += 1;
@@ -402,11 +410,18 @@ export function useMarketWidgetEditorState(
     };
   }, [snapshot.state, searchResponse]);
 
+  const unavailable = !!(
+    platformEnv.isNativeIOS &&
+    instanceId &&
+    instanceKind &&
+    state?.settings?.length === 0
+  );
   return {
     editorSession: nativeSession,
     cancelDraft,
     retainDraft,
-    state,
+    state: unavailable ? undefined : state,
+    unavailable,
     isLoading,
     hasError,
     privacyMasked,

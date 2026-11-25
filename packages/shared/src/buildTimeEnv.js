@@ -18,6 +18,11 @@ const isExtFirefox = process.env.EXT_CHANNEL === 'firefox';
 const isExtEdge = process.env.EXT_CHANNEL === 'edge';
 
 const isE2E = process.env.E2E_MODE === 'true';
+const isLocalDevelopmentBuild =
+  process.env.NODE_ENV === 'development' &&
+  !process.env.CI &&
+  !process.env.EAS_BUILD &&
+  !isE2E;
 
 const enablePerfMonitor = process.env.PERF_MONITOR_ENABLED === '1';
 const enableNativeBackgroundThread =
@@ -27,6 +32,7 @@ module.exports = {
   isJest,
   isDev,
   isProduction,
+  isLocalDevelopmentBuild,
   isWeb,
   isWebEmbed,
   isDesktop,

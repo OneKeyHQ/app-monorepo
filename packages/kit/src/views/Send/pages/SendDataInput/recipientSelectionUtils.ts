@@ -1,4 +1,5 @@
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
+import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
@@ -34,6 +35,31 @@ export function shouldSkipResolvedRecipientUpdate({
   return (
     selected.length > 0 &&
     (selected === currentRaw || selected === currentResolved)
+  );
+}
+
+// Private recipients must pass the same registration check as a typed address on Next.
+export function shouldReviewQuickSelectRecipient({
+  privateTransfer,
+  vaultSettings,
+  paymentId,
+  selectedMemo,
+  selectedNote,
+}: {
+  privateTransfer: boolean;
+  vaultSettings?: Pick<
+    IVaultSettings,
+    'withMemo' | 'withPaymentId' | 'withNote'
+  >;
+  paymentId?: string;
+  selectedMemo?: string;
+  selectedNote?: string;
+}) {
+  return Boolean(
+    privateTransfer ||
+    (vaultSettings?.withMemo && !selectedMemo?.trim()) ||
+    (vaultSettings?.withPaymentId && !paymentId) ||
+    (vaultSettings?.withNote && !selectedNote?.trim() && !selectedMemo?.trim()),
   );
 }
 

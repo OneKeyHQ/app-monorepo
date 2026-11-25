@@ -35,3 +35,5 @@
 "market_widget_market_closed__title" = "Geschlossen";
 "market_widget_stock_chart__desc" = "Diagramm";
 "market_widget_asset__title" = "Vermögen";
+"market_widget_new_configuration__title" = "Neue Konfiguration";
+"global.default" = "Standard";
