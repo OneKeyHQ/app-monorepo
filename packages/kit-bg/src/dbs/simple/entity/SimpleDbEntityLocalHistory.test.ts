@@ -108,6 +108,52 @@ describe('pending history timestamps', () => {
 });
 
 describe('batch-updated pending history', () => {
+  it('settles independent receipts atomically and keeps the paid fee on a later read', async () => {
+    const storage = createUntrackedMemoryStorage(null);
+    const createEntity = () => {
+      const entity = new SimpleDbEntityLocalHistory();
+      Object.assign(entity, { appStorage: storage });
+      return entity;
+    };
+    const entity = createEntity();
+    const params = { networkId: 'starknet--mainnet', accountAddress: '0x7' };
+    const pending = ['0x10', '0x11'].map((id) => ({
+      ...tx(),
+      id,
+      decodedTx: {
+        ...tx().decodedTx,
+        networkId: params.networkId,
+        txid: id,
+        status: EDecodedTxStatus.Pending,
+        totalFeeInNative: '2',
+      },
+    }));
+    await entity.saveLocalHistoryTxs({ ...params, pendingTxs: pending });
+    await Promise.all(
+      pending.map((row) => {
+        const settled = {
+          ...row,
+          decodedTx: {
+            ...row.decodedTx,
+            status: EDecodedTxStatus.Confirmed,
+            totalFeeInNative: '1',
+          },
+        };
+        return entity.batchUpdateLocalHistoryTxs([
+          { ...params, confirmedTxs: [settled], confirmedTxsToSave: [settled] },
+        ]);
+      }),
+    );
+    const restored = createEntity();
+    expect(
+      await restored.getAccountLocalHistoryPendingTxs(params),
+    ).toHaveLength(0);
+    const txs = await restored.getAccountLocalHistoryConfirmedTxs(params);
+    expect(txs.map((row) => row.id).toSorted()).toEqual(['0x10', '0x11']);
+    expect(txs.every((row) => row.decodedTx.totalFeeInNative === '1')).toBe(
+      true,
+    );
+  });
   it('never persists a private pending row', async () => {
     const setItem = jest.fn(async () => undefined);
     const entity = new SimpleDbEntityLocalHistory();

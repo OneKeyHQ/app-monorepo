@@ -7,6 +7,10 @@ import {
 } from '@onekeyfe/react-native-native-overlay';
 import { NavigationRouteContext } from '@react-navigation/native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { OverlayPageHostLayoutProvider } from './OverlayPageHostLayoutContext';
+
 /**
  * Hosts page-scope overlays for one root route (Main, Modal, Onboarding, …).
  * The host renders after the route's navigator, so page overlays cover the
@@ -23,8 +27,17 @@ export function withOverlayPageHost<P extends object>(
     }
     return (
       <OverlayPageHostScope hostKey={hostKey}>
-        <Component {...props} />
-        <OverlayPageHost hostKey={hostKey} />
+        {platformEnv.isNative ? (
+          <OverlayPageHostLayoutProvider>
+            <Component {...props} />
+            <OverlayPageHost hostKey={hostKey} />
+          </OverlayPageHostLayoutProvider>
+        ) : (
+          <>
+            <Component {...props} />
+            <OverlayPageHost hostKey={hostKey} />
+          </>
+        )}
       </OverlayPageHostScope>
     );
   }

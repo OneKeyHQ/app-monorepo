@@ -23,7 +23,7 @@ export enum EModalMarketRoutes {
 
 export type IModalMarketParamList = {
   [EModalMarketRoutes.MarketWidgetList]:
-    | { kind?: IMarketWidgetKind }
+    | { kind?: IMarketWidgetKind; needsBinding?: boolean }
     | undefined;
   [EModalMarketRoutes.MarketWidgetEditor]: {
     profileId?: string;

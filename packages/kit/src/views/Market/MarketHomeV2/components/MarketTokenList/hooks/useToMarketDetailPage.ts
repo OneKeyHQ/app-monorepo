@@ -77,6 +77,12 @@ interface IUseToDetailPageOptions {
    */
   marketTokenCategory?: string;
   /**
+   * Analytics-only list context (for example the watchlist) for rows that
+   * carry no `marketTokenCategory`. Stock rows fall back to
+   * `marketTokenCategory`, which their route does not keep.
+   */
+  entryCategory?: string;
+  /**
    * Avoid stacking another detail page when switching assets from Market detail.
    * A different detail route is replaced, while the same route is updated in place.
    */
@@ -244,10 +250,15 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ? { disableTrade: resolvedItem.disableTrade }
           : undefined),
         ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+        ...(options?.entryCategory
+          ? { entryCategory: options.entryCategory }
+          : undefined),
         ...(typeof showFavoriteButton === 'boolean'
           ? { showFavoriteButton }
           : undefined),
       };
+      const stockEntryCategory =
+        options?.entryCategory ?? options?.marketTokenCategory;
       const stockParams = stockId
         ? {
             stockId,
@@ -255,6 +266,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             network: tokenParams.network,
             isNative: tokenParams.isNative,
             from: options?.from,
+            ...(stockEntryCategory
+              ? { entryCategory: stockEntryCategory }
+              : undefined),
             ...(typeof tokenParams.disableTrade === 'boolean'
               ? { disableTrade: tokenParams.disableTrade }
               : undefined),
@@ -318,6 +332,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             disableTrade: tokenParams.disableTrade,
             showFavoriteButton: tokenParams.showFavoriteButton,
             from: tokenParams.from || enterSource,
+            ...(stockEntryCategory
+              ? { entryCategory: stockEntryCategory }
+              : undefined),
           });
         } else {
           try {
@@ -449,6 +466,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.switchToMarketTabFirst,
       options?.from,
       options?.marketTokenCategory,
+      options?.entryCategory,
       options?.replaceCurrentDetail,
       options?.showFavoriteButton,
       preloadLayout,

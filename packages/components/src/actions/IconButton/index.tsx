@@ -66,6 +66,7 @@ export function IconButton(props: IIconButtonProps) {
     hotKey = false,
     titlePlacement = 'top',
     tooltipProps,
+    onPressDebounce,
     ...rest
   } = props;
 
@@ -79,7 +80,7 @@ export function IconButton(props: IIconButtonProps) {
     variant,
   });
 
-  const { onPress, onLongPress } = useSharedPress(rest);
+  const { onPress, onLongPress } = useSharedPress({ ...rest, onPressDebounce });
 
   const inGlassHeader = useInGlassHeader();
   const resolvedIconColor = iconProps?.color ?? iconColor;

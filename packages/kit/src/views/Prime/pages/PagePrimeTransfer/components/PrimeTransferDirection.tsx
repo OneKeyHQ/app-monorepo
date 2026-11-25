@@ -459,11 +459,8 @@ export function PrimeTransferDirection({
             preparationTaskId,
             walletIds: botWalletId ? [botWalletId] : undefined,
           });
-        // Some credentials could not be read because the local secure storage
-        // layer was transiently unavailable; they were skipped. Confirm before
-        // sending the rest. Fixed English copy by design (rare edge case).
         const unavailableCredentials = transferData?.unavailableCredentials;
-        if (unavailableCredentials?.length) {
+        if (!platformEnv.isDesktop && unavailableCredentials?.length) {
           // Cap the listed names: a transient secure-storage failure is
           // usually global, so this list can be long (potentially every
           // wallet). Show a few names + "and N more".

@@ -225,6 +225,40 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     jest.restoreAllMocks();
   });
 
+  it('keeps Starknet privacy metadata out of both confirmation and direct remote parsing', async () => {
+    const service = buildService(buildParsedTx({ components: [] }));
+    const remoteParser = jest.spyOn(service, 'parseTransaction');
+    const network = 'starknet--mainnet';
+    const privateTx: IUnsignedTxPro = {
+      encodedTx: {
+        privacy: { kind: 'transfer', amount: '42', recipient: '0x2' },
+      } as IEncodedTx,
+    };
+    await service.buildDecodedTxs({
+      accountId,
+      networkId: network,
+      accountAddress,
+      unsignedTxs: [privateTx],
+    });
+    expect(remoteParser).not.toHaveBeenCalled();
+    await service.buildDecodedTxs({
+      accountId,
+      networkId: network,
+      accountAddress,
+      unsignedTxs: [{ encodedTx: {} }],
+    });
+    expect(remoteParser).toHaveBeenCalledTimes(1);
+    remoteParser.mockRestore();
+    await expect(
+      service.parseTransaction({
+        accountId,
+        networkId: network,
+        accountAddress,
+        encodedTx: privateTx.encodedTx,
+      }),
+    ).rejects.toThrow('Privacy transactions must be reviewed locally');
+  });
+
   it.each(['xmr--0', 'zec--0'])(
     '%s uses only verified local payment details and fees',
     async (privacyNetworkId) => {

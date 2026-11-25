@@ -157,4 +157,89 @@ describe('SimpleDbEntityPrivacyChainKeys', () => {
       'simpledb: invalid persisted data (privacyChainKeys)',
     );
   });
+
+  it('encrypts, decrypts, re-encrypts on password change, and cleans up scoped records', async () => {
+    const { encodeSensitiveTextAsync } =
+      await import('@onekeyhq/core/src/secret/encryptors/aes256');
+    const {
+      getDecryptedLocalWalletViewingKey,
+      reEncryptLocalWalletViewingKeys,
+      saveEncryptedLocalWalletViewingKey,
+    } = await import('../../../vaults/localWallet/viewingKeyStore');
+    const oldPassword = await encodeSensitiveTextAsync({
+      text: 'old-pass-123',
+    });
+    const newPassword = await encodeSensitiveTextAsync({
+      text: 'new-pass-456',
+    });
+    const { entity, read } = createEntity();
+    const backgroundApi = {
+      simpleDb: { privacyChainKeys: entity },
+    } as unknown as import('../../../apis/IBackgroundApi').IBackgroundApi;
+    const scope = 'starknet--mainnet:0xpool';
+    const plaintext = JSON.stringify({
+      viewingKey: '0x1234',
+      publicKeyX: '0xabcd',
+    });
+
+    await saveEncryptedLocalWalletViewingKey({
+      backgroundApi,
+      accountId: 'hw-1--m/0',
+      scope,
+      networkId: 'starknet--mainnet',
+      vkFp: 'c'.repeat(32),
+      plaintext,
+      password: oldPassword,
+    });
+
+    // Persisted value is ciphertext, not plaintext.
+    const stored = read() as {
+      keys: Record<string, IPrivacyChainKeyRecord>;
+    };
+    const storedRecord = stored.keys[`hw-1--m/0::${scope}`];
+    expect(storedRecord.sealed.format).toBe('encrypted');
+    expect(storedRecord.sealed.value).not.toContain('0x1234');
+    expect(storedRecord.accountId).toBe('hw-1--m/0');
+
+    await expect(
+      getDecryptedLocalWalletViewingKey({
+        backgroundApi,
+        accountId: 'hw-1--m/0',
+        scope,
+        networkId: 'starknet--mainnet',
+        password: oldPassword,
+      }),
+    ).resolves.toEqual({ value: plaintext, vkFp: 'c'.repeat(32) });
+
+    // Re-encrypt on password change and verify rollback restores old ciphertext.
+    const { rollback } = await reEncryptLocalWalletViewingKeys({
+      backgroundApi,
+      oldPassword,
+      newPassword,
+    });
+    await expect(
+      getDecryptedLocalWalletViewingKey({
+        backgroundApi,
+        accountId: 'hw-1--m/0',
+        scope,
+        networkId: 'starknet--mainnet',
+        password: newPassword,
+      }),
+    ).resolves.toEqual({ value: plaintext, vkFp: 'c'.repeat(32) });
+
+    await rollback();
+    await expect(
+      getDecryptedLocalWalletViewingKey({
+        backgroundApi,
+        accountId: 'hw-1--m/0',
+        scope,
+        networkId: 'starknet--mainnet',
+        password: oldPassword,
+      }),
+    ).resolves.toEqual({ value: plaintext, vkFp: 'c'.repeat(32) });
+
+    // Orphan cleanup removes scoped records by owner accountId.
+    await entity.removeOrphanData({ validAccountIds: ['other-account'] });
+    await expect(entity.listAccountIds()).resolves.toEqual([]);
+  });
 });

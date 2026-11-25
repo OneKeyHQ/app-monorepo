@@ -1,0 +1,104 @@
+/** @jest-environment jsdom */
+
+import { act, renderHook, waitFor } from '@testing-library/react';
+
+import { useScanCameras as useDesktopScanCameras } from './useScanCameras.desktop';
+
+import type { IScanCameraInfo } from './types';
+
+jest.mock('@onekeyfe/react-native-qr-scanner/web', () => ({}));
+
+const back: IScanCameraInfo = { id: 'back', label: 'Back', position: 'back' };
+const usb: IScanCameraInfo = { id: 'usb', label: 'USB', position: 'external' };
+
+test('desktop retains its list on failure and discovers a USB camera without a Chromium event', async () => {
+  jest.useFakeTimers();
+  const previousDesktopApi = globalThis.desktopApi;
+  const resumed = Promise.withResolvers<IScanCameraInfo[] | null>();
+  const listCameras = jest
+    .fn<Promise<IScanCameraInfo[] | null>, []>()
+    .mockResolvedValueOnce([back])
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce([back, usb])
+    .mockReturnValueOnce(resumed.promise)
+    .mockResolvedValueOnce(null);
+  Object.defineProperty(globalThis, 'desktopApi', {
+    configurable: true,
+    writable: true,
+    value: { qrScanner: { listCameras } },
+  });
+  try {
+    const { result, rerender, unmount } = renderHook(
+      (active: boolean) => useDesktopScanCameras(1, false, active),
+      { initialProps: true },
+    );
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        cameras: [back],
+        loaded: true,
+        pending: false,
+      }),
+    );
+
+    await act(async () => {
+      jest.advanceTimersToNextTimer();
+    });
+    expect(listCameras).toHaveBeenCalledTimes(2);
+    expect(result.current).toEqual({
+      cameras: [back],
+      loaded: true,
+      pending: false,
+    });
+
+    await act(async () => {
+      jest.advanceTimersToNextTimer();
+    });
+    expect(result.current).toEqual({
+      cameras: [back, usb],
+      loaded: true,
+      pending: false,
+    });
+
+    rerender(false);
+    await act(async () => {
+      jest.advanceTimersByTime(10_000);
+    });
+    expect(listCameras).toHaveBeenCalledTimes(3);
+
+    rerender(true);
+    expect(result.current).toEqual({
+      cameras: [],
+      loaded: false,
+      pending: true,
+    });
+    expect(listCameras).toHaveBeenCalledTimes(4);
+    await act(async () => resumed.resolve([usb]));
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        cameras: [usb],
+        loaded: true,
+        pending: false,
+      }),
+    );
+    expect(listCameras).toHaveBeenCalledTimes(4);
+
+    rerender(false);
+    rerender(true);
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        cameras: [],
+        loaded: false,
+        pending: false,
+      }),
+    );
+
+    unmount();
+    await act(async () => {
+      jest.advanceTimersByTime(10_000);
+    });
+    expect(listCameras).toHaveBeenCalledTimes(5);
+  } finally {
+    globalThis.desktopApi = previousDesktopApi;
+    jest.useRealTimers();
+  }
+});

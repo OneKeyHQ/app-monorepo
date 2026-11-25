@@ -242,11 +242,24 @@ function buildSeriesGeometry(
   plot: INativeChartScene['plot'],
 ) {
   const { data, secondary, yAtValue } = scale;
-  const lastX = Math.max(
+  const rightEdge = Math.max(
     plot.x,
-    plot.x + plot.width - (config.timeScaleRightOffsetPixels ?? 0) - 2,
+    plot.x + plot.width - (config.timeScaleRightOffsetPixels ?? 0),
   );
-  const firstX = plot.x + 2;
+  const histogramBarWidth =
+    config.seriesType === 'histogram'
+      ? Math.max(
+          1,
+          Math.min(
+            config.histogramOptions?.maxBarWidth ?? 4,
+            (Math.max(0, rightEdge - plot.x - 4) / Math.max(1, data.length)) *
+              (config.histogramOptions?.barWidthRatio ?? 0.5),
+          ),
+        )
+      : 0;
+  const inset = Math.max(2, histogramBarWidth / 2);
+  const firstX = plot.x + inset;
+  const lastX = Math.max(plot.x, rightEdge - inset);
   // lightweight-charts uses logical spacing across the union of series times.
   const timeline = [
     ...new Set([
@@ -291,7 +304,15 @@ function buildSeriesGeometry(
     time: Number(point.time),
     price: point.value,
   }));
-  return { firstX, lastX, indexByTime, xAtIndex, hoverPoints, points };
+  return {
+    firstX,
+    lastX,
+    histogramBarWidth,
+    indexByTime,
+    xAtIndex,
+    hoverPoints,
+    points,
+  };
 }
 
 function buildChartLayout(
@@ -475,36 +496,62 @@ function drawSeriesFill(context: IChartDrawingContext) {
 function drawPrimarySeries(context: IChartDrawingContext) {
   const {
     config,
-    layout: { points, lastX, firstX, base, yAtValue, plotHeight, plot },
+    layout: {
+      points,
+      histogramBarWidth: barWidth,
+      base,
+      yAtValue,
+      plotHeight,
+      plot,
+    },
     painter: { commands, style },
   } = context;
   if (config.seriesType === 'histogram') {
     const options = config.histogramOptions;
-    const barWidth = Math.max(
-      1,
-      Math.min(
-        options?.maxBarWidth ?? 4,
-        ((lastX - firstX) / Math.max(1, points.length)) *
-          (options?.barWidthRatio ?? 0.5),
-      ),
-    );
     points.forEach((point) => {
       if (point.price === base) return;
       const color =
         point.price >= base
           ? (options?.positiveColor ?? config.theme.lineColor)
           : (options?.negativeColor ?? config.theme.lineColor);
+      const top = Math.min(point.y, yAtValue(base));
+      const height = Math.abs(point.y - yAtValue(base));
+      const radius = Math.min(
+        Math.max(0, options?.borderRadius ?? 0),
+        barWidth / 2,
+        height,
+      );
+      const customPaintId = style(
+        point.price >= base ? 'positive' : 'negative',
+        color,
+      );
+      if (radius > 0) {
+        // Clip the extra radius at the baseline so only the value end is round.
+        commands.push({
+          kind: 'clip',
+          rect: { x: point.x - barWidth / 2, y: top, width: barWidth, height },
+        });
+        commands.push({
+          kind: 'roundRect',
+          paint: 'line',
+          customPaintId,
+          x: point.x - barWidth / 2,
+          y: point.price < base ? top - radius : top,
+          width: barWidth,
+          height: height + radius,
+          radius,
+        });
+        commands.push({ kind: 'restore' });
+        return;
+      }
       commands.push({
         kind: 'rect',
         paint: 'line',
-        customPaintId: style(
-          point.price >= base ? 'positive' : 'negative',
-          color,
-        ),
+        customPaintId,
         x: point.x - barWidth / 2,
-        y: Math.min(point.y, yAtValue(base)),
+        y: top,
         width: barWidth,
-        height: Math.abs(point.y - yAtValue(base)),
+        height,
       });
     });
   } else if (config.seriesType === 'baseline') {
@@ -711,6 +758,7 @@ type IPriceAxisLabels = ReturnType<typeof getPriceAxisLabels>;
 function drawPriceTicks(
   context: IChartDrawingContext,
   labels: IPriceAxisLabels,
+  measureText: IMeasureText,
 ) {
   const {
     config,
@@ -721,6 +769,7 @@ function drawPriceTicks(
       plotHeight,
       yAtValue,
       axisOnLeft,
+      axisWidth,
       plot,
     },
     painter: { commands },
@@ -747,7 +796,12 @@ function drawPriceTicks(
       customPaintId: 'axis',
       font: 'priceAxis',
       text: tickLabels[i],
-      x: axisX,
+      x:
+        config.priceScaleLabelAlign === 'right'
+          ? (axisOnLeft ? axisWidth : plot.x + plot.width + axisWidth) -
+            2 -
+            measureText(tickLabels[i], 'priceAxis')
+          : axisX,
       y: y + fontSize * 0.35,
     });
   });
@@ -840,7 +894,7 @@ function drawPriceAxis(
   } = context;
   if (!config.showPriceScale) return;
   const labels = getPriceAxisLabels(context);
-  drawPriceTicks(context, labels);
+  drawPriceTicks(context, labels, measureText);
   const axisLabel = createPriceAxisLabelPainter(context, labels.labelHeight);
   const ref = config.referenceLine;
   if (ref?.axisLabelVisible) {
