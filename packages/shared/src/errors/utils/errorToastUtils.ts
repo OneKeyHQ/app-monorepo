@@ -12,11 +12,7 @@ import {
   type IOneKeyErrorI18nInfo,
 } from '../types/errorTypes';
 
-import {
-  type ILocalSecretEnvelopeCredentialErrorData,
-  LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
-  LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
-} from './localSecretEnvelopeErrorData';
+import { getLocalSecretEnvelopeCredentialIssue } from './localSecretEnvelopeErrorData';
 
 async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
   const parts: string[] = [];
@@ -112,48 +108,26 @@ let lastToastErrorCode: number | string | undefined;
 let lastToastTimestamp = 0;
 const TOAST_DEDUPLICATE_WINDOW_MS = 5000;
 
-function isCredentialLocalSecretEnvelopeUnavailableError(
-  err: IOneKeyError | undefined,
-) {
-  const isLocalSecretEnvelopeUnavailable =
-    err?.className === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable ||
-    err?.name === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable;
-  return (
-    isLocalSecretEnvelopeUnavailable &&
-    (
-      err.data as Partial<ILocalSecretEnvelopeCredentialErrorData> | undefined
-    )?.[LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD] ===
-      LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE
-  );
-}
-
-function showLocalSecretEnvelopeErrorDialogIfNeeded(
+function showLocalSecretEnvelopeRecoveryToastIfNeeded(
   error: IOneKeyError | unknown | undefined,
+  walletName?: string,
 ) {
-  fixAxiosAbortCancelError(error);
-  const err = error as IOneKeyError | undefined;
-  if (
-    err?.autoToast &&
-    !err?.$$autoToastErrorTriggered &&
-    isCredentialLocalSecretEnvelopeUnavailableError(err)
-  ) {
-    appEventBus.emit(EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog, {
-      technicalMessage:
-        err.message ||
-        err.className ||
-        EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
-    });
-    return true;
+  const issue = getLocalSecretEnvelopeCredentialIssue(error);
+  if (!issue) {
+    return false;
   }
-  return false;
+  appEventBus.emit(
+    EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+    walletName ? { ...issue, walletName } : issue,
+  );
+  return true;
 }
 
 function showToastOfError(error: IOneKeyError | unknown | undefined) {
   fixAxiosAbortCancelError(error);
-  // Product requirement: keep the existing auto-toast path after showing the
-  // LSE recovery dialog, so credential key loss surfaces both the detailed
-  // recovery guidance and the original operation-level error.
-  showLocalSecretEnvelopeErrorDialogIfNeeded(error);
+  if (showLocalSecretEnvelopeRecoveryToastIfNeeded(error)) {
+    return;
+  }
   const err = error as IOneKeyError<IOneKeyErrorI18nInfo> | undefined;
   if (
     isUserCancelStyleError(err) ||
@@ -289,7 +263,7 @@ export default {
   toastIfError,
   toastIfErrorDisable,
   showToastOfError,
-  showLocalSecretEnvelopeErrorDialogIfNeeded,
+  showLocalSecretEnvelopeRecoveryToastIfNeeded,
   withErrorAutoToast,
   wasAutoToastShown,
   isUserCancelStyleError,

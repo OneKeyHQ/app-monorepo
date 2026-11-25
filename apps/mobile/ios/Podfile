@@ -129,6 +129,9 @@ target 'OneKeyWallet' do
   pod 'SDWebImage', '5.21.7', :modular_headers => true
   pod 'SDWebImageWebPCoder', '0.14.6', :modular_headers => true
   pod 'SDWebImageSVGCoder', '1.7.0', :modular_headers => true
+  # @onekeyfe/react-native-qr-scanner's ZXing fallback imports this pod as a
+  # Clang module; see USE_HEADERMAP below.
+  pod 'zxing-cpp', '2.2.0', :modular_headers => true
 
   # use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
   # use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
@@ -382,6 +385,14 @@ target 'OneKeyWallet' do
       end
     end
     installer.pods_project.targets.each do |target|
+
+      # zxing-cpp's `#include "Point.h"` would resolve to React Native's
+      # react/renderer/graphics/Point.h through the shared header map.
+      if target.name == 'zxing-cpp'
+        target.build_configurations.each do |config|
+          config.build_settings['USE_HEADERMAP'] = 'NO'
+        end
+      end
 
       # Fix JuiceboxSdkFfi module not found error for RNJuiceboxSdk
       if target.name == 'RNJuiceboxSdk'

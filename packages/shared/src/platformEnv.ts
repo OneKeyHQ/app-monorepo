@@ -91,6 +91,7 @@ export type IPlatformEnv = {
   isProduction?: boolean;
   /** e2e mode */
   isE2E?: boolean;
+  isLocalDevelopmentBuild?: boolean;
   enableNativeBackgroundThread?: boolean;
 
   /** running in the browsers */
@@ -185,6 +186,7 @@ const {
   isJest,
   isDev,
   isProduction,
+  isLocalDevelopmentBuild,
   isWeb,
   isWebEmbed,
   isDesktop,
@@ -199,6 +201,7 @@ const {
   isJest: boolean;
   isDev: boolean;
   isProduction: boolean;
+  isLocalDevelopmentBuild: boolean;
   isWeb: boolean;
   isWebEmbed: boolean;
   isDesktop: boolean;
@@ -572,6 +575,7 @@ const platformEnv: IPlatformEnv = {
 
   isDev,
   isProduction,
+  isLocalDevelopmentBuild,
   isE2E,
   enableNativeBackgroundThread,
 

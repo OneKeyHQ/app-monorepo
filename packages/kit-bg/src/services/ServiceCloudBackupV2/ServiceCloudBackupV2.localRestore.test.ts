@@ -11,7 +11,10 @@ import type {
   IBackupDataEncryptedPayload,
   IBackupProviderAccountInfo,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalSecretEnvelopeUnavailable,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -574,6 +577,23 @@ describe('local iCloud restore integration', () => {
       ).toBeNull();
     },
   );
+
+  it('releases the failed import task and reports a retryable local storage failure', async () => {
+    const prepared = await prepareCached();
+    transfer.startImport.mockRejectedValueOnce(
+      new LocalSecretEnvelopeUnavailable(),
+    );
+    await expect(
+      service.restorePreparedLocalBackup({
+        ...prepared,
+        taskUUID: 'import-task',
+      }),
+    ).resolves.toEqual({ success: false, localStorageUnavailable: true });
+    expect(transfer.resetImportProgress).toHaveBeenCalledWith({
+      taskUUID: 'import-task',
+    });
+    expect(transfer.completeImportProgress).not.toHaveBeenCalled();
+  });
 
   it('drains an in-progress wallet import before allowing reset to erase storage', async () => {
     const prepared = await prepareCached();

@@ -24,6 +24,8 @@ import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
+import type ServiceLiveActivity from '../services/ServiceLiveActivity';
+import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 
@@ -227,14 +229,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceSwap() {
-    const ServiceSwap =
-      require('../services/ServiceSwap') as typeof import('../services/ServiceSwap');
-    const value = new ServiceSwap.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceSwap', { value });
-    return value;
+  get serviceSwap(): ILazyServiceProxy<ServiceSwap> {
+    return this.buildLazyService(
+      'serviceSwap',
+      () => import('../services/ServiceSwap'),
+    );
   }
 
   get serviceUnifoldDeposit(): ILazyServiceProxy<ServiceUnifoldDeposit> {
@@ -248,6 +247,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return this.buildLazyService(
       'serviceBinanceDeposit',
       () => import('../services/ServiceBinanceDeposit'),
+    );
+  }
+
+  get serviceLiveActivity(): ILazyServiceProxy<ServiceLiveActivity> {
+    return this.buildLazyService(
+      'serviceLiveActivity',
+      () => import('../services/ServiceLiveActivity'),
     );
   }
 

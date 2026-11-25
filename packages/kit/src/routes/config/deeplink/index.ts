@@ -23,6 +23,8 @@ import {
   hasUnsafeUrlChars,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -35,10 +37,12 @@ import {
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { parseMarketWidgetLinkUrl } from '@onekeyhq/shared/src/utils/marketWidgetUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { buildSwapTabNavigationParams } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnUtmParams } from '@onekeyhq/shared/types/staking';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
@@ -50,6 +54,7 @@ import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
+import { markMarketHomeDeeplinkEntry } from '../../../views/Market/utils/marketHomeEntryNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { isBinanceConnectDeepLink } from './binanceConnectDeepLink';
@@ -82,6 +87,40 @@ function getStringQueryParam(value: unknown): string | undefined {
 
 let pendingRedeemBitcoinVoucherInitialCode: string | undefined;
 let redeemBitcoinVoucherOpenTask: Promise<void> | undefined;
+let swapActivityOpenSequence = 0;
+
+async function openSwapActivityOrder(orderKey: unknown) {
+  if (typeof orderKey !== 'string' || !orderKey || orderKey.length > 256)
+    return;
+  swapActivityOpenSequence += 1;
+  const sequence = swapActivityOpenSequence;
+  await whenAppUnlocked();
+  const order =
+    await backgroundApiProxy.serviceLiveActivity.resolveOrderForDeepLink({
+      orderKey,
+    });
+  if (sequence !== swapActivityOpenSequence) return;
+  if (!order) {
+    errorToastUtils.showToastOfError(
+      new OneKeyLocalError({ key: ETranslations.global_no_results }),
+    );
+    return;
+  }
+  if (order.source === 'mock') {
+    const { showSwapLiveActivityMockDetail } =
+      await import('../../../views/Setting/pages/Tab/DevSettingsSection/SwapLiveActivityPanel');
+    showSwapLiveActivityMockDetail(order.snapshot);
+    return;
+  }
+  appGlobals.$rootAppNavigation?.pushModal(EModalRoutes.SwapModal, {
+    screen: EModalSwapRoutes.SwapHistoryDetail,
+    params: {
+      liveActivityOrderKey: orderKey,
+      txHistoryOrderId: order.history.swapInfo.orderId,
+      txHistoryList: [order.history],
+    },
+  });
+}
 
 async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
   pendingRedeemBitcoinVoucherInitialCode = initialCode;
@@ -334,33 +373,22 @@ async function processOneKeyAppUniversalLink(
     }, 1500);
     return true;
   }
-  if (target.type === 'stocks') {
+  if (target.type === 'stocks' || target.type === 'swapHome') {
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Swap,
       params: {
         screen: ETabSwapRoutes.TabSwap,
-        params: {
-          tab: ESwapTabSwitchType.STOCK,
-        },
-      },
-    });
-    return true;
-  }
-  if (target.type === 'swapHome') {
-    // Explicit tab param resets any live Stock/Limit sub tab so the link
-    // always lands on the plain Swap home, cold or warm.
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Swap,
-      params: {
-        screen: ETabSwapRoutes.TabSwap,
-        params: {
-          tab: ESwapTabSwitchType.SWAP,
-        },
+        params: buildSwapTabNavigationParams(
+          target.type === 'stocks'
+            ? ESwapTabSwitchType.STOCK
+            : ESwapTabSwitchType.SWAP,
+        ),
       },
     });
     return true;
   }
   if (target.type === 'market') {
+    markMarketHomeDeeplinkEntry();
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
@@ -462,6 +490,17 @@ async function processDeepLinkUrlAccount(
         return;
       }
       switch (getOneKeyDeepLinkPath(parsedUrl)) {
+        case EOneKeyDeepLinkPath.swap_activity: {
+          if (platformEnv.isDev && queryParams?.mockPanel === '1') {
+            await whenAppUnlocked();
+            const { showSwapLiveActivityPanel } =
+              await import('../../../views/Setting/pages/Tab/DevSettingsSection/SwapLiveActivityPanel');
+            showSwapLiveActivityPanel();
+            break;
+          }
+          await openSwapActivityOrder(queryParams?.orderKey);
+          break;
+        }
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
