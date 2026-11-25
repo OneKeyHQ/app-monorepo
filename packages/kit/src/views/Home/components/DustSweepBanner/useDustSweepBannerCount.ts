@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { atom, useAtomValue } from 'jotai';
 
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useListStructureAtom,
@@ -20,6 +21,11 @@ import {
   canConvertFiat,
   convertFiat,
 } from '@onekeyhq/kit/src/utils/fiatConvert';
+import type {
+  IDustSweepBannerHolding,
+  IDustSweepBannerNetwork,
+  IDustSweepBannerOffer,
+} from '@onekeyhq/kit/src/views/DustSweep/utils/loadNetworks';
 import {
   DUST_SWEEP_MAX_THRESHOLD,
   getDustSweepHiddenThreshold,
@@ -31,21 +37,32 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-type IBannerCount = { count: number; logos: (string | undefined)[] };
+const NONE: IDustSweepBannerOffer = { count: 0, logos: [] };
 
-const NONE: IBannerCount = { count: 0, logos: [] };
+// What the Home list says Dust sweep could open on: networks largest balance
+// first with their holdings, and how many the largest one would preselect.
+type IBannerPlan = {
+  key: string;
+  homeCount: number;
+  networks: IDustSweepBannerNetwork[];
+};
 
-// How many holdings Dust sweep preselects when it opens, read from the Home
-// list already loaded. Dust sweep works one network at a time and opens on
-// the account's largest network that has something to sweep, so the count is
-// that network's: holdings under the Dust sweep amount setting and above the
-// gas floor, by its token rules. The logos are the three most valuable.
-// Undefined networks (still loading, or no banner to show) count nothing.
+const NO_PLAN: IBannerPlan = { key: '', homeCount: 0, networks: [] };
+
+// How many holdings Dust sweep preselects when it opens. Dust sweep works one
+// network at a time and opens on the account's largest network that has
+// something to sweep, so the count is that network's: holdings under the Dust
+// sweep amount setting and above the gas floor, by its token rules. The Home
+// list proposes the networks; the offer then checks them against the Swap
+// list the page uses, and the banner waits for that. The logos are the three
+// most valuable. Undefined networks (still loading, or no banner to show)
+// count nothing.
 export function useDustSweepBannerCount(
   supportedNetworkIds: ReadonlySet<string> | undefined,
-): IBannerCount {
+): IDustSweepBannerOffer {
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const store = useTokenListContextData().store!;
   const [listStructure] = useListStructureAtom();
@@ -54,7 +71,7 @@ export function useDustSweepBannerCount(
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const ownerKey = useHomeTokenListOwnerKey();
   const {
-    activeAccount: { indexedAccount, network },
+    activeAccount: { account, wallet, indexedAccount, network },
   } = useActiveAccount({ num: 0 });
   // The structure can still hold the previous owner's rows after a switch.
   // Merge-derive mode keys it by the indexed account instead.
@@ -65,11 +82,11 @@ export function useDustSweepBannerCount(
         !!network?.id &&
         listStructure.ownerKey === `${indexedAccount.id}__${network.id}`));
 
-  const countAtom = useMemo(() => {
+  const planAtom = useMemo(() => {
     const { valuationUpdating } = ensureStoreProjection(store);
-    let last = NONE;
+    let last = NO_PLAN;
     return atom((get) => {
-      if (!supportedNetworkIds || !ownerMatches) return NONE;
+      if (!supportedNetworkIds || !ownerMatches) return NO_PLAN;
       // Keep the last count until a valuation frame finishes writing.
       if (get(valuationUpdating)) return last;
       // Per network: the balance Dust sweep ranks networks by (regular and
@@ -81,6 +98,7 @@ export function useDustSweepBannerCount(
           balance: BigNumber;
           listed: boolean;
           preselected: { usd: BigNumber; logoURI?: string }[];
+          holdings: IDustSweepBannerHolding[];
         }
       >();
       const toUsd = (fiat: ITokenFiat) => {
@@ -119,6 +137,7 @@ export function useDustSweepBannerCount(
             balance: new BigNumber(0),
             listed: false,
             preselected: [],
+            holdings: [],
           };
           networks.set(token.networkId, entry);
         }
@@ -129,6 +148,15 @@ export function useDustSweepBannerCount(
           !usd.gt(0)
         )
           return;
+        entry.holdings.push({
+          contractAddress: token.address,
+          symbol: token.symbol,
+          decimals: token.decimals,
+          logoURI: token.logoURI,
+          valueUsd: usd.toFixed(),
+          price: fiat.price?.toString(),
+          riskLevel: token.riskLevel,
+        });
         if (usd.lt(DUST_SWEEP_MAX_THRESHOLD)) entry.listed = true;
         if (
           usd.lt(threshold) &&
@@ -182,15 +210,31 @@ export function useDustSweepBannerCount(
           opening = entry;
         }
       }
-      const found = (opening?.preselected ?? []).toSorted(
-        (a, b) => b.usd.comparedTo(a.usd) ?? 0,
-      );
-      const logos = found.slice(0, 3).map((item) => item.logoURI);
-      if (
-        found.length !== last.count ||
-        logos.some((logo, index) => logo !== last.logos[index])
-      ) {
-        last = { count: found.length, logos };
+      const homeCount = opening?.preselected.length ?? 0;
+      const candidates = [...networks.entries()]
+        .filter(
+          ([, entry]) => entry.listed && entry.balance.decimalPlaces(2).gt(0),
+        )
+        .toSorted(([, a], [, b]) => b.balance.comparedTo(a.balance) ?? 0)
+        .map(([networkId, entry]) => ({
+          networkId,
+          holdings: entry.holdings,
+        }));
+      // Cents keep a price tick from starting another check.
+      const key = JSON.stringify([
+        homeCount,
+        candidates.map(({ networkId, holdings }) => [
+          networkId,
+          holdings.map((holding) => [
+            holding.contractAddress,
+            new BigNumber(holding.valueUsd).toFixed(2),
+            holding.price,
+            holding.riskLevel,
+          ]),
+        ]),
+      ]);
+      if (key !== last.key) {
+        last = { key, homeCount, networks: candidates };
       }
       return last;
     });
@@ -203,5 +247,50 @@ export function useDustSweepBannerCount(
     threshold,
     currencyMap,
   ]);
-  return useAtomValue(countAtom, { store });
+  const plan = useAtomValue(planAtom, { store });
+  const params = useMemo<IDustSweepRouteParams | undefined>(
+    () =>
+      wallet?.id
+        ? {
+            accountId: account?.id,
+            walletId: wallet.id,
+            indexedAccountId: indexedAccount?.id,
+            networkId: network?.isAllNetworks ? undefined : network?.id,
+            entry: 'homeBanner',
+          }
+        : undefined,
+    [
+      account?.id,
+      wallet?.id,
+      indexedAccount?.id,
+      network?.id,
+      network?.isAllNetworks,
+    ],
+  );
+  // A new account or amount setting waits for its own check; a Home refresh
+  // keeps the last checked offer until the next one lands.
+  const ownerCheckKey = JSON.stringify([threshold, params]);
+  const { result } = usePromiseResult(
+    async () => {
+      // The banner shows from two holdings; the check only ever lowers the
+      // count, so fewer on the Home list need no request.
+      if (!params || plan.homeCount < 2) {
+        return { ownerCheckKey, offer: NONE };
+      }
+      const { loadDustSweepBannerOffer } =
+        await import('@onekeyhq/kit/src/views/DustSweep/utils/loadNetworks');
+      const offer = await loadDustSweepBannerOffer({
+        params,
+        networks: plan.networks,
+        threshold,
+      });
+      return { ownerCheckKey, offer };
+    },
+    [ownerCheckKey, params, plan, threshold],
+    { undefinedResultIfError: true },
+  );
+  if (plan.homeCount < 2 || result?.ownerCheckKey !== ownerCheckKey) {
+    return NONE;
+  }
+  return result.offer;
 }

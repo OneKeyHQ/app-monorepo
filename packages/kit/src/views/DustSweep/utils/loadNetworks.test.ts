@@ -2,10 +2,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountsInfoResult } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ETokenRiskLevel,
+} from '@onekeyhq/shared/types/swap/types';
 import type { ICachedAccountTokens } from '@onekeyhq/shared/types/token';
 
 import {
+  loadDustSweepBannerOffer,
   loadDustSweepEntryCapabilities,
   loadDustSweepNetworks,
   refreshDustSweepNetwork,
@@ -111,6 +115,8 @@ const params = {
 
 describe('loadDustSweepNetworks request ownership', () => {
   beforeEach(() => {
+    // Also drops the Swap lists shared with the Home banner.
+    invalidateDustSweepNetworksCache(params.walletId);
     jest.clearAllMocks();
     serviceToken.getCachedAccountTokens.mockResolvedValue([]);
     swapConfigs.getSwapProviderManager.mockResolvedValue([]);
@@ -1200,5 +1206,135 @@ describe('loadDustSweepNetworks request ownership', () => {
     ).rejects.toBe(failure);
     expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
     expect(serviceSwap.fetchSwapTokens.mock.calls).toHaveLength(0);
+  });
+});
+
+describe('loadDustSweepBannerOffer', () => {
+  const holding = (contractAddress: string, valueUsd: string, price = '1') => ({
+    contractAddress,
+    symbol: contractAddress.toUpperCase(),
+    decimals: 18,
+    logoURI: `${contractAddress}.png`,
+    valueUsd,
+    price,
+  });
+  const swapToken = (
+    networkId: string,
+    contractAddress: string,
+    riskLevel?: number,
+  ) => ({
+    networkId,
+    contractAddress,
+    symbol: contractAddress.toUpperCase(),
+    decimals: 18,
+    riskLevel,
+  });
+
+  beforeEach(() => {
+    invalidateDustSweepNetworksCache(params.walletId);
+    jest.clearAllMocks();
+    serviceAllNetwork.getAllNetworkAccounts.mockResolvedValue(accountsInfo());
+    serviceSwap.fetchSwapTokens.mockReset().mockResolvedValue([]);
+  });
+
+  it('counts only holdings the Swap list has, once each and without spam', async () => {
+    serviceSwap.fetchSwapTokens.mockResolvedValue([
+      swapToken('evm--1', '0xa'),
+      swapToken('evm--1', '0xb'),
+      swapToken('evm--1', '0xspam', ETokenRiskLevel.SPAM),
+    ]);
+    await expect(
+      loadDustSweepBannerOffer({
+        params,
+        threshold: 10,
+        networks: [
+          {
+            networkId: 'evm--1',
+            holdings: [
+              holding('0xa', '5'),
+              holding('0xa', '5'),
+              holding('0xb', '3'),
+              holding('0xspam', '2'),
+              holding('0xunlisted', '4'),
+            ],
+          },
+        ],
+      }),
+    ).resolves.toEqual({ count: 2, logos: ['0xa.png', '0xb.png'] });
+  });
+
+  it('leaves an unpriced holding out of the count', async () => {
+    serviceSwap.fetchSwapTokens.mockResolvedValue([
+      swapToken('evm--1', '0xa'),
+      swapToken('evm--1', '0xb'),
+    ]);
+    await expect(
+      loadDustSweepBannerOffer({
+        params,
+        threshold: 10,
+        networks: [
+          {
+            networkId: 'evm--1',
+            holdings: [holding('0xa', '5'), holding('0xb', '3', '0')],
+          },
+        ],
+      }),
+    ).resolves.toEqual({ count: 1, logos: ['0xa.png'] });
+  });
+
+  it('moves to the next network when the Swap list has nothing to sweep on the first', async () => {
+    serviceSwap.fetchSwapTokens.mockImplementation(async ({ networkId }) =>
+      networkId === 'evm--56'
+        ? [swapToken('evm--56', '0xc'), swapToken('evm--56', '0xd')]
+        : [],
+    );
+    await expect(
+      loadDustSweepBannerOffer({
+        params,
+        threshold: 10,
+        networks: [
+          { networkId: 'evm--1', holdings: [holding('0xa', '5')] },
+          {
+            networkId: 'evm--56',
+            holdings: [holding('0xc', '6'), holding('0xd', '2')],
+          },
+        ],
+      }),
+    ).resolves.toEqual({ count: 2, logos: ['0xc.png', '0xd.png'] });
+  });
+
+  it('lets the page reuse the Swap list the banner checked, and a refresh read it fresh', async () => {
+    serviceSwap.getSwapProviderManager.mockResolvedValue([okxProvider()]);
+    serviceSwap.fetchSwapNetworks.mockResolvedValue([ethereum]);
+    serviceSwap.fetchSwapProviderSupportNetworks.mockResolvedValue([ethereum]);
+    swapConfigs.getSwapProviderManager.mockResolvedValue([]);
+    serviceToken.getCachedAccountTokens.mockResolvedValue([]);
+    serviceToken.fetchAccountTokens.mockResolvedValue({
+      tokens: { data: [], map: {}, keys: '', currency: 'usd' },
+      smallBalanceTokens: { data: [], map: {}, keys: '', currency: 'usd' },
+      riskTokens: { data: [], map: {}, keys: '', currency: 'usd' },
+    });
+    serviceToken.getNativeToken.mockResolvedValue({
+      address: '',
+      isNative: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+    });
+    await loadDustSweepBannerOffer({
+      params,
+      threshold: 10,
+      networks: [{ networkId: 'evm--1', holdings: [holding('0xa', '5')] }],
+    });
+    const result = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    expect(serviceSwap.fetchSwapTokens.mock.calls).toHaveLength(1);
+    await refreshDustSweepNetwork(
+      { entry: result.networks[0], indexedAccountId: params.indexedAccountId },
+      new AbortController().signal,
+    );
+    expect(serviceSwap.fetchSwapTokens.mock.calls).toHaveLength(2);
   });
 });

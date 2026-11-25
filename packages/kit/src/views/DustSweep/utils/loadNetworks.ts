@@ -18,6 +18,7 @@ import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transien
 import type {
   IDustSweepNetwork,
   IDustSweepRouteParams,
+  IDustSweepThreshold,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import { DUST_SWEEP_PROVIDER } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
@@ -25,6 +26,7 @@ import type {
   ISwapProviderManager,
   ISwapServiceProvider,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { ETokenRiskLevel } from '@onekeyhq/shared/types/swap/types';
 import type {
   ISwapNetwork,
   ISwapToken,
@@ -35,8 +37,18 @@ import type {
   ITokenData,
 } from '@onekeyhq/shared/types/token';
 
+import { isSwapTokenRisky } from '../../Swap/utils/swapTokenRiskUtils';
+
 import { buildDustSweepCandidates } from './candidates';
-import { getDustSweepNetworksCacheRevision } from './networkCache';
+import {
+  getDustSweepNetworksCacheRevision,
+  subscribeDustSweepIdentity,
+  subscribeDustSweepNetworkCacheRevision,
+} from './networkCache';
+import {
+  DUST_SWEEP_MAX_THRESHOLD,
+  getDustSweepHiddenThreshold,
+} from './tokenEligibility';
 
 export function getDustSweepSupportedNetworks({
   networks,
@@ -308,6 +320,49 @@ function mergeSupplementalWalletTokens({
   return merged;
 }
 
+// The Swap list a network's holdings are checked against. The Home banner and
+// the page's first load share it for a few minutes; a refresh reads it fresh,
+// and a sweep or an account change drops it.
+const SWAP_TOKENS_TTL_MS = 5 * 60 * 1000;
+const swapTokenLoads = new Map<
+  string,
+  { capturedAt: number; load: Promise<ISwapToken[]> }
+>();
+subscribeDustSweepNetworkCacheRevision(() => swapTokenLoads.clear());
+subscribeDustSweepIdentity(() => swapTokenLoads.clear());
+
+function loadDustSweepSwapTokens(
+  {
+    accountId,
+    address,
+    networkId,
+  }: { accountId: string; address: string; networkId: string },
+  { fresh = false }: { fresh?: boolean } = {},
+) {
+  const key = JSON.stringify([accountId, address, networkId]);
+  const cached = swapTokenLoads.get(key);
+  if (!fresh && cached && Date.now() - cached.capturedAt < SWAP_TOKENS_TTL_MS) {
+    return cached.load;
+  }
+  const load = loadAssetQuietly(() =>
+    backgroundApiProxy.serviceSwap.fetchSwapTokens({
+      accountId,
+      accountAddress: address,
+      accountNetworkId: networkId,
+      networkId,
+      currency: 'usd',
+      throwOnError: true,
+      isTokenListPrefetch: true,
+    }),
+  );
+  const entry = { capturedAt: Date.now(), load };
+  swapTokenLoads.set(key, entry);
+  load.catch(() => {
+    if (swapTokenLoads.get(key) === entry) swapTokenLoads.delete(key);
+  });
+  return load;
+}
+
 async function loadDustSweepNetworkAssets({
   entry,
   indexedAccountId,
@@ -338,16 +393,13 @@ async function loadDustSweepNetworkAssets({
         networkId: entry.network.networkId,
       }),
     ),
-    loadAssetQuietly(() =>
-      backgroundApiProxy.serviceSwap.fetchSwapTokens({
+    loadDustSweepSwapTokens(
+      {
         accountId: entry.accountId,
-        accountAddress: entry.address,
-        accountNetworkId: entry.network.networkId,
+        address: entry.address,
         networkId: entry.network.networkId,
-        currency: 'usd',
-        throwOnError: true,
-        isTokenListPrefetch: true,
-      }),
+      },
+      { fresh: isManualRefresh },
     ),
   ]);
   const knownAddresses = new Set(
@@ -657,4 +709,148 @@ export function loadDustSweepNetworks(
   return waitForLoad(load.fresh, signal).finally(() => {
     settled = true;
   });
+}
+
+// A holding the Home list has on a network, as the banner offers it.
+export type IDustSweepBannerHolding = {
+  contractAddress: string;
+  symbol: string;
+  decimals: number;
+  logoURI?: string;
+  valueUsd: string;
+  price?: string;
+  riskLevel?: ETokenRiskLevel;
+};
+
+// Networks Dust sweep could open on, largest balance first.
+export type IDustSweepBannerNetwork = {
+  networkId: string;
+  holdings: IDustSweepBannerHolding[];
+};
+
+export type IDustSweepBannerOffer = {
+  count: number;
+  logos: (string | undefined)[];
+};
+
+// Checked at most this many networks deep before the banner gives up.
+const BANNER_NETWORKS_CHECKED = 3;
+
+async function resolveDustSweepNetworkAccount(
+  params: IDustSweepRouteParams,
+  networkId: string,
+) {
+  const { accountId } = params;
+  if (!accountId) return undefined;
+  const { accountsInfo } = await loadQuietly(() =>
+    backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+      accountId,
+      indexedAccountId: params.indexedAccountId,
+      networkId: getNetworkIdsMap().onekeyall,
+      networksEnabledOnly: !params.networkId,
+      excludeTestNetwork: true,
+      includingNonExistingAccount: false,
+      includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
+    }),
+  );
+  const account = accountsInfo.find(
+    (item) =>
+      item.networkId === networkId &&
+      (!params.networkId || item.accountId === params.accountId),
+  );
+  return account?.apiAddress
+    ? { accountId: account.accountId, address: account.apiAddress }
+    : undefined;
+}
+
+// One network's offer, or undefined when the page would not list it.
+async function loadDustSweepBannerNetworkOffer({
+  params,
+  networkId,
+  holdings,
+  threshold,
+}: IDustSweepBannerNetwork & {
+  params: IDustSweepRouteParams;
+  threshold: IDustSweepThreshold;
+}): Promise<IDustSweepBannerOffer | undefined> {
+  const account = await resolveDustSweepNetworkAccount(params, networkId);
+  if (!account) return undefined;
+  const swapTokens = await loadDustSweepSwapTokens({ ...account, networkId });
+  const swapRiskByAddress = new Map<string, number>();
+  swapTokens.forEach((token) => {
+    const address = normalizeTokenContractAddress({
+      networkId,
+      contractAddress: token.contractAddress,
+    });
+    if (token.networkId !== networkId || token.isNative || !address) return;
+    swapRiskByAddress.set(
+      address,
+      Math.max(swapRiskByAddress.get(address) ?? 0, token.riskLevel ?? 0),
+    );
+  });
+  const seen = new Set<string>();
+  const listed = holdings.flatMap((holding) => {
+    const address = normalizeTokenContractAddress({
+      networkId,
+      contractAddress: holding.contractAddress,
+    });
+    const swapRisk = address ? swapRiskByAddress.get(address) : undefined;
+    if (
+      !address ||
+      seen.has(address) ||
+      swapRisk === undefined ||
+      swapRisk >= ETokenRiskLevel.SPAM
+    )
+      return [];
+    seen.add(address);
+    return [{ ...holding, swapRisk, usd: new BigNumber(holding.valueUsd) }];
+  });
+  if (!listed.some((holding) => holding.usd.lt(DUST_SWEEP_MAX_THRESHOLD))) {
+    return undefined;
+  }
+  const preselected = listed
+    .filter(
+      (holding) =>
+        holding.usd.lt(threshold) &&
+        !holding.usd.lt(getDustSweepHiddenThreshold(networkId)) &&
+        !isSwapTokenRisky({
+          networkId,
+          contractAddress: holding.contractAddress,
+          symbol: holding.symbol,
+          decimals: holding.decimals,
+          price: holding.price,
+          riskLevel: Math.max(holding.riskLevel ?? 0, holding.swapRisk),
+        }),
+    )
+    .toSorted((a, b) => b.usd.comparedTo(a.usd) ?? 0);
+  return {
+    count: preselected.length,
+    logos: preselected.slice(0, 3).map((holding) => holding.logoURI),
+  };
+}
+
+// What the page will preselect for the Home banner: the page lists only
+// holdings Swap lists (without spam), opens on the largest network that has
+// one under the largest amount preset, and preselects holdings under the
+// amount setting that clear the gas floor and are not risky.
+export async function loadDustSweepBannerOffer({
+  params,
+  networks,
+  threshold,
+}: {
+  params: IDustSweepRouteParams;
+  networks: IDustSweepBannerNetwork[];
+  threshold: IDustSweepThreshold;
+}): Promise<IDustSweepBannerOffer> {
+  // One network at a time: the first the page would list is the one it opens.
+  for (const network of networks.slice(0, BANNER_NETWORKS_CHECKED)) {
+    // oxlint-disable-next-line no-await-in-loop
+    const offer = await loadDustSweepBannerNetworkOffer({
+      ...network,
+      params,
+      threshold,
+    });
+    if (offer) return offer;
+  }
+  return { count: 0, logos: [] };
 }
