@@ -149,7 +149,6 @@ interface IPublicTradesSubscription {
 }
 
 interface IPublicTradesBatch {
-  fromClosedSocket?: boolean;
   trades: IWsTrades;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -2003,10 +2002,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     transport.socket.addEventListener('close', () => {
       this._publicTradesSubscriptions.forEach((entry, coin) => {
         if (entry.connection.transport !== transport) return;
-        // Swap may still display accepted trades offline. Never replay that
-        // batch as live after the subscription is acknowledged again.
-        const pending = this._publicTradesBatches.get(coin);
-        if (pending) pending.fromClosedSocket = true;
+        this._flushClosedPublicTradesBatch(coin);
         entry.connected = false;
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
           status: 'disconnected',
@@ -2037,11 +2033,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         !entry.connected &&
         !entry.failure
       ) {
-        if (
-          this._publicTradesBatches.get(subscription.coin)?.fromClosedSocket
-        ) {
-          this._clearPublicTradesBatch(subscription.coin);
-        }
         entry.connected = true;
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
           status: 'connected',
@@ -2102,11 +2093,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
-    let currentBatch = this._publicTradesBatches.get(coin);
-    if (currentBatch?.fromClosedSocket) {
-      this._clearPublicTradesBatch(coin);
-      currentBatch = undefined;
-    }
+    const currentBatch = this._publicTradesBatches.get(coin);
     const limit = Math.min(
       PERPS_RECENT_TRADES_LIMIT,
       Math.max(...entry.batchLimits),
@@ -2149,11 +2136,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._publicTradesBatches.set(coin, batch);
   }
 
-  private _clearPublicTradesBatch(coin: string): void {
+  private _clearPublicTradesBatch(coin: string) {
     const batch = this._publicTradesBatches.get(coin);
     if (batch) {
       clearTimeout(batch.timer);
       this._publicTradesBatches.delete(coin);
+    }
+    return batch;
+  }
+
+  private _flushClosedPublicTradesBatch(coin: string) {
+    const batch = this._clearPublicTradesBatch(coin);
+    if (batch) {
+      this._emitHyperliquidDataUpdate(
+        ESubscriptionType.TRADES,
+        batch.trades,
+        true,
+      );
     }
   }
 
@@ -2197,7 +2196,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
                   this._publicTradesSubscriptions.get(normalizedCoin) === entry
                 ) {
                   this._retirePublicTradesConnection(connection);
-                  this._clearPublicTradesBatch(normalizedCoin);
+                  this._flushClosedPublicTradesBatch(normalizedCoin);
                   entry.connected = false;
                   entry.failure = error;
                   appEventBus.emit(
@@ -3338,11 +3337,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _emitHyperliquidDataUpdate(
     subscriptionType: ESubscriptionType,
     data: unknown,
+    displayOnly?: boolean,
   ): void {
     appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
       type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
       subType: subscriptionType,
       data,
+      ...(displayOnly && { displayOnly }),
     });
   }
 

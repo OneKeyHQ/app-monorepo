@@ -1,8 +1,11 @@
+import { orderBy, uniqBy } from 'lodash';
+
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IRecentTrade,
   IWsTrades,
@@ -12,28 +15,43 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 type IHistoryListener = (trades: IRecentTrade[]) => void;
-type IRecoveryGeneration = { request?: Promise<IRecentTrade[]> };
+type IRecoveryGeneration = {
+  request?: Promise<boolean>;
+  snapshot?: IRecentTrade[];
+};
 type IPublicTradesHistory = {
   generation: IRecoveryGeneration;
-  consumers: number;
   listeners: Set<IHistoryListener>;
 };
 
 const histories = new Map<string, IPublicTradesHistory>();
 
+export function mergePublicTrades(
+  incoming: IRecentTrade[],
+  previous: IRecentTrade[],
+) {
+  const unique = uniqBy(
+    [...incoming, ...previous],
+    (trade) => `${trade.time}:${trade.tid}`,
+  );
+  return orderBy(unique, ['time', 'tid'], ['desc', 'desc']).slice(
+    0,
+    PERPS_RECENT_TRADES_LIMIT,
+  );
+}
+
 export function acquirePublicTradesHistory(
   coin: string,
-  listener?: IHistoryListener,
+  listener: IHistoryListener,
 ) {
   const history: IPublicTradesHistory = histories.get(coin) ?? {
     generation: {},
-    consumers: 0,
     listeners: new Set(),
   };
   histories.set(coin, history);
   let observedGeneration = history.generation;
-  history.consumers += 1;
-  if (listener) history.listeners.add(listener);
+  history.listeners.add(listener);
+  if (history.generation.snapshot) listener(history.generation.snapshot);
   return {
     disconnect() {
       if (history.generation === observedGeneration) history.generation = {};
@@ -42,21 +60,32 @@ export function acquirePublicTradesHistory(
       const generation = history.generation;
       observedGeneration = generation;
       if (reconnect && generation.request) return generation.request;
+      const isObsolete = () => reconnect && history.generation !== generation;
       const request = backgroundApiProxy.serviceHyperliquid
         .getPerpRecentTrades({ coin })
-        .then((trades) => {
-          if (history.generation !== generation) return [];
-          history.listeners.forEach((notify) => notify(trades));
-          return trades;
-        });
+        .then(
+          (trades) => {
+            if (isObsolete()) return false;
+            const incoming = trades.filter((trade) => trade.coin === coin);
+            history.generation.snapshot = mergePublicTrades(
+              incoming,
+              history.generation.snapshot ?? [],
+            );
+            history.listeners.forEach((notify) => notify(incoming));
+            return true;
+          },
+          (error: unknown) => {
+            if (isObsolete()) return false;
+            throw error;
+          },
+        );
       // Each watcher can acknowledge the same reconnect on a different turn.
       if (reconnect) generation.request = request;
       return request;
     },
     release() {
-      if (listener) history.listeners.delete(listener);
-      history.consumers -= 1;
-      if (!history.consumers) histories.delete(coin);
+      history.listeners.delete(listener);
+      if (!history.listeners.size) histories.delete(coin);
     },
   };
 }
@@ -69,7 +98,7 @@ export function watchHyperliquidPublicTrades({
 }: {
   coin: string;
   limit?: number;
-  onTrades: (trades: IWsTrades) => void;
+  onTrades: (trades: IWsTrades, displayOnly?: boolean) => void;
   onStatus?: (status: 'connected' | 'disconnected' | 'failed') => void;
 }) {
   const service = backgroundApiProxy.serviceHyperliquidSubscription;
@@ -154,7 +183,7 @@ export function watchHyperliquidPublicTrades({
       const trades = (payload.data as IWsTrades).filter(
         (trade) => trade.coin === coin,
       );
-      if (trades.length) onTrades(trades);
+      if (trades.length) onTrades(trades, payload.displayOnly);
     }
   };
 

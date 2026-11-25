@@ -723,11 +723,11 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     }
   });
 
-  it('drops buffered latest-price trades when the socket closes before the batch timer fires', async () => {
+  it('delivers a buffered Swap trade once as display-only across a fast reconnect', async () => {
     jest.useFakeTimers();
     const service = createService();
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
-    const market = { coin: 'BTC', limit: 1 };
+    const market = { coin: 'BTC' };
     try {
       await service.subscribePublicTrades(market);
       const listener = trades.mock.calls[0][1] as (
@@ -741,6 +741,8 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       } as IRecentTrade;
       listener([trade]);
       socket.dispatchEvent(new Event('close'));
+      socket.dispatchEvent(new Event('close'));
+      jest.advanceTimersByTime(200);
       hlEvents.dispatchEvent(
         new CustomEvent('subscriptionResponse', {
           detail: {
@@ -750,16 +752,22 @@ describe('ServiceHyperliquidSubscription public trades', () => {
         }),
       );
       jest.advanceTimersByTime(1000);
-      expect(emit).not.toHaveBeenCalledWith(
-        EAppEventBusNames.HyperliquidDataUpdate,
-        expect.anything(),
-      );
+      expect(
+        emit.mock.calls.filter(
+          ([name]) => name === EAppEventBusNames.HyperliquidDataUpdate,
+        ),
+      ).toMatchObject([
+        [
+          EAppEventBusNames.HyperliquidDataUpdate,
+          { data: [trade], displayOnly: true },
+        ],
+      ]);
       const fresh = { ...trade, px: '102', tid: 2 };
       listener([fresh]);
       jest.advanceTimersByTime(1000);
       expect(emit).toHaveBeenLastCalledWith(
         EAppEventBusNames.HyperliquidDataUpdate,
-        expect.objectContaining({ data: [fresh] }),
+        { type: 'market', subType: ESubscriptionType.TRADES, data: [fresh] },
       );
     } finally {
       emit.mockRestore();
@@ -845,10 +853,16 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       ) => void;
       firstListener([trade]);
       socket.dispatchEvent(new Event('close'));
-      emit.mockClear();
       jest.advanceTimersByTime(1000);
-      expect(emit.mock.calls).toMatchObject([
-        [EAppEventBusNames.HyperliquidDataUpdate, { data: [trade] }],
+      expect(
+        emit.mock.calls.filter(
+          ([name]) => name === EAppEventBusNames.HyperliquidDataUpdate,
+        ),
+      ).toMatchObject([
+        [
+          EAppEventBusNames.HyperliquidDataUpdate,
+          { data: [trade], displayOnly: true },
+        ],
       ]);
 
       socket.dispatchEvent(new Event('open'));

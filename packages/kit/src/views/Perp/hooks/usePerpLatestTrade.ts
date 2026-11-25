@@ -90,7 +90,7 @@ function createLatestTradeStore(coin: string) {
     const unwatch = watchHyperliquidPublicTrades({
       coin,
       limit: 1,
-      onTrades: (trades) => publish(trades, true),
+      onTrades: (trades, displayOnly) => publish(trades, !displayOnly),
       onStatus: (status) => {
         if (disposed) return;
         connected = status === 'connected';

@@ -1,7 +1,12 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
@@ -17,7 +22,13 @@ jest.mock('../../../utils/watchHyperliquidPublicTrades', () => ({
 }));
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { serviceHyperliquid: { getPerpRecentTrades: jest.fn() } },
+  default: {
+    serviceHyperliquid: { getPerpRecentTrades: jest.fn() },
+    serviceHyperliquidSubscription: {
+      subscribePublicTrades: jest.fn().mockResolvedValue(true),
+      unsubscribePublicTrades: jest.fn().mockResolvedValue(undefined),
+    },
+  },
 }));
 
 const watch = jest.mocked(watchHyperliquidPublicTrades);
@@ -89,7 +100,12 @@ it('disables stale prices and disconnected batches until fresh connected data ar
   expect(result.current.isInteractive).toBe(false);
   act(() => feed.onStatus?.('connected'));
   expect(result.current.getSelectablePrice()).toBeUndefined();
-  act(() => feed.onTrades([trade({ tid: 3, px: '101' })]));
+  const fresh = trade({ tid: 3, px: '101' });
+  act(() => feed.onTrades([fresh], true));
+  expect(result.current.trade?.px).toBe('101');
+  expect(result.current.getSelectablePrice()).toBeUndefined();
+  act(() => feed.onTrades([fresh]));
+  act(() => feed.onTrades([fresh], true));
   expect(result.current.getSelectablePrice()).toBe('101');
 });
 
@@ -301,4 +317,68 @@ it('shares history across staggered reconnect acknowledgements and publishes a t
   expect(tape.result.current.trades[0]?.px).toBe('103');
   expect(latest.result.current.trade?.px).toBe('103');
   expect(latest.result.current.getSelectablePrice()).toBeUndefined();
+});
+
+it('displays a successful cold HTTP read after the first socket subscription fails', async () => {
+  const latest = renderHook(() => usePerpLatestTrade('BTC', true));
+  const tape = renderHook(() => usePerpPublicTrades('BTC', true));
+  const fallback = Promise.withResolvers<IWsTrades>();
+  fetchSnapshot.mockReturnValueOnce(fallback.promise);
+  act(() => jest.advanceTimersByTime(1000));
+  act(() => watch.mock.calls.forEach(([feed]) => feed.onStatus?.('failed')));
+  await act(async () => fallback.resolve([trade({ px: '103' })]));
+  expect(tape.result.current.trades[0]?.px).toBe('103');
+  expect(tape.result.current.isLoading).toBe(false);
+  expect(latest.result.current.trade?.px).toBe('103');
+  expect(latest.result.current.getSelectablePrice()).toBeUndefined();
+});
+
+it.each([true, false])(
+  'keeps a recovered price when a tape mounts late (already settled: %s)',
+  async (alreadySettled) => {
+    fetchSnapshot.mockResolvedValueOnce([]);
+    const latest = renderHook(() => usePerpLatestTrade('BTC', true));
+    const tickerFeed = watch.mock.calls[0][0];
+    await act(async () => tickerFeed.onStatus?.('connected'));
+    act(() => tickerFeed.onStatus?.('disconnected'));
+    const recovery = Promise.withResolvers<IWsTrades>();
+    const newest = trade({ tid: 5, px: '105' });
+    fetchSnapshot
+      .mockReturnValueOnce(recovery.promise)
+      .mockResolvedValueOnce([trade({ tid: 4, px: '104' })]);
+    act(() => tickerFeed.onStatus?.('connected'));
+    if (alreadySettled) await act(async () => recovery.resolve([newest]));
+    const tape = renderHook(() => usePerpPublicTrades('BTC', true));
+    await act(async () => watch.mock.calls[1][0].onStatus?.('connected'));
+    if (!alreadySettled) await act(async () => recovery.resolve([newest]));
+    act(() => jest.advanceTimersByTime(600));
+    expect(latest.result.current.trade?.px).toBe('105');
+    expect(tape.result.current.trades[0]?.px).toBe('105');
+  },
+);
+
+it('keeps a display-only event delivered after acknowledgement out of order entry', async () => {
+  const actual = jest.requireActual<
+    typeof import('../../../utils/watchHyperliquidPublicTrades')
+  >('../../../utils/watchHyperliquidPublicTrades');
+  watch.mockImplementationOnce(actual.watchHyperliquidPublicTrades);
+  const latest = renderHook(() => usePerpLatestTrade('BTC', true));
+  await act(async () => undefined);
+  const payload = {
+    type: 'market',
+    subType: ESubscriptionType.TRADES,
+    data: [trade({ px: '102' })],
+  };
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+      ...payload,
+      displayOnly: true,
+    });
+  });
+  expect(latest.result.current.trade?.px).toBe('102');
+  expect(latest.result.current.getSelectablePrice()).toBeUndefined();
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, payload);
+  });
+  expect(latest.result.current.getSelectablePrice()).toBe('102');
 });

@@ -182,6 +182,7 @@ it('clears a backfill failure only after the live connection covers a full disti
   await act(async () => {
     feed.onStatus?.('disconnected');
     feed.onStatus?.('connected');
+    feed.onTrades(trades(51, 50), true);
     feed.onTrades(trades(51, 49));
     feed.onTrades(trades(51, 49));
   });
@@ -198,4 +199,41 @@ it('clears a backfill failure only after the live connection covers a full disti
   });
   expect(result.current.isError).toBe(false);
   expect(result.current.isLoading).toBe(false);
+});
+
+it('ignores a recovery invalidated by a second disconnect without marking the snapshot complete', async () => {
+  snapshot.mockResolvedValueOnce([]);
+  const { result } = renderHook(() => usePerpPublicTrades('BTC', true));
+  const feed = watch.mock.calls[0][0];
+  await act(async () => feed.onStatus?.('connected'));
+  const recovery = Promise.withResolvers<IRecentTrade[]>();
+  snapshot.mockReturnValueOnce(recovery.promise);
+  act(() => {
+    feed.onStatus?.('disconnected');
+    feed.onStatus?.('connected');
+    feed.onStatus?.('disconnected');
+  });
+  await act(async () => recovery.resolve(trades(10, 20)));
+  expect(result.current.trades).toHaveLength(0);
+  expect(result.current.isLoading).toBe(true);
+  expect(result.current.isDisconnected).toBe(true);
+  snapshot.mockResolvedValueOnce([]);
+  await act(async () => feed.onStatus?.('connected'));
+  expect(result.current.isLoading).toBe(false);
+  expect(result.current.isError).toBe(false);
+});
+
+it('keeps the retry result after the earlier request fails late', async () => {
+  const initial = Promise.withResolvers<IRecentTrade[]>();
+  snapshot
+    .mockReturnValueOnce(initial.promise)
+    .mockResolvedValueOnce(trades(1, 20));
+  const { result } = renderHook(() => usePerpPublicTrades('BTC', true));
+  act(() => watch.mock.calls[0][0].onStatus?.('connected'));
+  act(() => result.current.retry());
+  await act(async () => watch.mock.calls[1][0].onStatus?.('connected'));
+  await act(async () => initial.reject(new Error('older request failed')));
+  expect(result.current.trades[0]?.tid).toBe(20);
+  expect(result.current.isLoading).toBe(false);
+  expect(result.current.isError).toBe(false);
 });

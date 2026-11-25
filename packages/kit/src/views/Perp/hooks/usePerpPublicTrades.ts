@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { orderBy, uniqBy } from 'lodash';
-
 import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   acquirePublicTradesHistory,
+  mergePublicTrades,
   watchHyperliquidPublicTrades,
 } from '../../../utils/watchHyperliquidPublicTrades';
 
@@ -32,14 +31,6 @@ function tradeKey(trade: IRecentTrade) {
   return `${trade.time}:${trade.tid}`;
 }
 
-function latestTrades(incoming: IRecentTrade[], previous: IRecentTrade[]) {
-  const unique = uniqBy([...incoming, ...previous], tradeKey);
-  return orderBy(unique, ['time', 'tid'], ['desc', 'desc']).slice(
-    0,
-    PERPS_RECENT_TRADES_LIMIT,
-  );
-}
-
 export function usePerpPublicTrades(coin: string, active: boolean) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState(initialState);
@@ -54,7 +45,12 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     let disposed = false;
     let connected = false;
     let needsReconnectBackfill = false;
-    const history = acquirePublicTradesHistory(coin);
+    const history = acquirePublicTradesHistory(coin, (incoming) => {
+      setState((previous) => ({
+        ...previous,
+        trades: mergePublicTrades(incoming, previous.trades),
+      }));
+    });
     let snapshotId = 0;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
@@ -66,15 +62,12 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         isLoading: liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT,
       }));
       try {
-        const snapshot = await history.fetch(reconnect);
-        if (disposed) return;
-        const incoming = snapshot.filter((trade) => trade.coin === coin);
+        const applied = await history.fetch(reconnect);
+        if (!applied || disposed || id !== snapshotId) return;
         setState((previous) => ({
           ...previous,
-          trades: latestTrades(incoming, previous.trades),
-          // An earlier fallback can still supply trades while a newer backfill owns the status.
-          isLoading: id === snapshotId ? false : previous.isLoading,
-          isError: id === snapshotId ? false : previous.isError,
+          isLoading: false,
+          isError: false,
         }));
       } catch {
         if (disposed || id !== snapshotId) return;
@@ -96,15 +89,17 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     const unwatch = watchHyperliquidPublicTrades({
       coin,
       limit: PERPS_RECENT_TRADES_LIMIT,
-      onTrades: (incoming) => {
-        for (const trade of incoming) {
-          if (liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT) break;
-          liveTradeKeys.add(tradeKey(trade));
+      onTrades: (incoming, displayOnly) => {
+        if (!displayOnly) {
+          for (const trade of incoming) {
+            if (liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT) break;
+            liveTradeKeys.add(tradeKey(trade));
+          }
         }
         const fullLiveWindow = liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
         setState((previous) => ({
           ...previous,
-          trades: latestTrades(incoming, previous.trades),
+          trades: mergePublicTrades(incoming, previous.trades),
           ...(fullLiveWindow && { isError: false, isLoading: false }),
         }));
       },
