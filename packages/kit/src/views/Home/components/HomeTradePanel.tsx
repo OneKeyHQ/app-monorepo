@@ -15,6 +15,7 @@ import {
 import { DESKTOP_MODE_UI_PAGE_BORDER_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ErrorBoundarySimple } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { TokenSwapHandoffContext } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
 import type { ITokenSwapHandoffParams } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -114,21 +115,25 @@ function HomeTradePanel({
             enabledNum={[0, 1]}
           >
             <Stack key={formKey} width="100%">
-              <LazyEmbeddedSwap
-                // Its own store: the token-row Swap modal can be open below
-                // 1280 when the window grows and mounts the column.
-                storeName={EJotaiContextStoreNames.swapHomeTradePanel}
-                pageType={EPageType.modal}
-                singleSwapBridgeHeader
-                singleSwapBridgeTitle={intl.formatMessage({
-                  id: ETranslations.global_swap,
-                })}
-                swapInitParams={swapInitParams}
-                reviewContextKey={`home-trade-panel:${formKey}`}
-                // The store outlives the form, so another home account has to
-                // clear the draft it left.
-                draftOwnerKey={importAccountKey}
-              />
+              {/* A form that fails to load empties the column, not the
+                  wallet. */}
+              <ErrorBoundarySimple fallback={null}>
+                <LazyEmbeddedSwap
+                  // Its own store: the token-row Swap modal can be open below
+                  // 1280 when the window grows and mounts the column.
+                  storeName={EJotaiContextStoreNames.swapHomeTradePanel}
+                  pageType={EPageType.modal}
+                  singleSwapBridgeHeader
+                  singleSwapBridgeTitle={intl.formatMessage({
+                    id: ETranslations.global_swap,
+                  })}
+                  swapInitParams={swapInitParams}
+                  reviewContextKey={`home-trade-panel:${formKey}`}
+                  // The store outlives the form, so another home account has to
+                  // clear the draft it left.
+                  draftOwnerKey={importAccountKey}
+                />
+              </ErrorBoundarySimple>
             </Stack>
           </AccountSelectorProviderMirror>
         </YStack>

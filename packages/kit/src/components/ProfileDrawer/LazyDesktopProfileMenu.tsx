@@ -2,6 +2,8 @@ import { Image, Stack, preloadLazyTooltip } from '@onekeyhq/components';
 import avatarFallback from '@onekeyhq/kit/assets/avatar-fallback.png';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
+import { ErrorBoundarySimple } from '../ErrorBoundary';
+
 // The default avatar holds its place in the rail until the menu loads.
 function DesktopProfileMenuFallback() {
   return (
@@ -11,7 +13,7 @@ function DesktopProfileMenuFallback() {
   );
 }
 
-export const LazyDesktopProfileMenu = LazyLoad(
+const DesktopProfileMenuLoader = LazyLoad(
   async () => {
     const [{ DesktopProfileMenu }] = await Promise.all([
       import('./DesktopProfileMenu'),
@@ -25,7 +27,25 @@ export const LazyDesktopProfileMenu = LazyLoad(
   <DesktopProfileMenuFallback />,
 );
 
-export const LazyDesktopDeviceUpdateDot = LazyLoad(async () => {
+const DesktopDeviceUpdateDotLoader = LazyLoad(async () => {
   const { DesktopDeviceUpdateDot } = await import('./DesktopProfileMenu');
   return { default: DesktopDeviceUpdateDot };
 });
+
+// A menu or dot that fails to load leaves the rail as it was, not the app's
+// error screen.
+export function LazyDesktopProfileMenu() {
+  return (
+    <ErrorBoundarySimple fallback={<DesktopProfileMenuFallback />}>
+      <DesktopProfileMenuLoader />
+    </ErrorBoundarySimple>
+  );
+}
+
+export function LazyDesktopDeviceUpdateDot() {
+  return (
+    <ErrorBoundarySimple fallback={null}>
+      <DesktopDeviceUpdateDotLoader />
+    </ErrorBoundarySimple>
+  );
+}

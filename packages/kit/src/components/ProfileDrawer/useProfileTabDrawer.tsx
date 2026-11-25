@@ -21,6 +21,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
+import { ErrorBoundarySimple } from '../ErrorBoundary';
+
 import {
   profileDrawerProgress,
   setProfileDrawerOpen,
@@ -84,9 +86,13 @@ export function useProfileTabDrawer(): ITabBarDrawer | undefined {
   const renderContent = useCallback(
     () =>
       contentReady ? (
-        <Suspense fallback={<DrawerBlank />}>
-          <LazyProfileDrawerContent />
-        </Suspense>
+        // Content that fails to load leaves a blank drawer, not the app's
+        // error screen.
+        <ErrorBoundarySimple fallback={<DrawerBlank />}>
+          <Suspense fallback={<DrawerBlank />}>
+            <LazyProfileDrawerContent />
+          </Suspense>
+        </ErrorBoundarySimple>
       ) : (
         <DrawerBlank />
       ),
