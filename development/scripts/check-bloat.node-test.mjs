@@ -339,6 +339,31 @@ test('Nash Equilibrium payoff catches multi-dimensional sub-cliff patch spinning
   assert.ok(refactorEq.netPayoff > 0);
   assert.equal(refactorEq.triggered, false);
   assert.equal(refactorEq.dominantStrategy, 'CONVERGED_LOCAL_FIX');
+
+  // Case 3: Large multi-file review fix that meets >= 25% deletion ratio (PR #14759 / #14760 shape)
+  // Does not falsely trigger equilibrium gate when code is actively deleted/replaced.
+  const multiFileRefactorEq = evaluateEquilibrium({
+    origNet: 807,
+    fixAdded: 510,
+    fixDeleted: 167,
+    fixNet: 343,
+    netStateFlags: 1,
+    netBranches: 21,
+    reviewFileCounts: {
+      'packages/kit/src/StockSimpleChart.tsx': 3,
+      'packages/kit/src/UntouchedFile.tsx': 3,
+    },
+    fileEntries: [
+      {
+        file: 'packages/kit/src/StockSimpleChart.tsx',
+        added: 61,
+        deleted: 16,
+        net: 45,
+      },
+    ],
+  });
+  assert.equal(multiFileRefactorEq.clusteredFiles.length, 0);
+  assert.equal(multiFileRefactorEq.triggered, false);
 });
 
 test('GitHub Actions workflow renders null amplificationRatio as N/A without 999 placeholder', () => {
