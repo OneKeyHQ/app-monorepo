@@ -90,6 +90,9 @@ function LnurlPayRequestModal() {
   // The bounds are in thousandths of a sat; the minimum rounds up to whole sats.
   const amountMin = Math.ceil(Number(lnurlDetails?.minSendable ?? 0) / 1000);
   const amountMax = Math.floor(Number(lnurlDetails?.maxSendable ?? 0) / 1000);
+  // No whole sat fits a range such as a fixed 1,500 thousandths of a sat.
+  const maxSendable = Number(lnurlDetails?.maxSendable ?? 0);
+  const hasNoWholeSatAmount = maxSendable > 0 && amountMin * 1000 > maxSendable;
   const useFormReturn = useForm<ISendPaymentFormValues>({
     defaultValues: {
       amount: amountMin > 0 && amountMin === amountMax ? `${amountMin}` : '',
@@ -294,7 +297,8 @@ function LnurlPayRequestModal() {
             }}
             confirmButtonProps={{
               loading: isLoading,
-              disabled: !continueOperate || isAmountEmpty,
+              disabled:
+                !continueOperate || isAmountEmpty || hasNoWholeSatAmount,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

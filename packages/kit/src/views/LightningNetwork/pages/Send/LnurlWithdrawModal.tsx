@@ -90,6 +90,10 @@ function LnurlWithdrawModal() {
   const amountMax = Math.floor(
     Number(lnurlDetails?.maxWithdrawable ?? 0) / 1000,
   );
+  // No whole sat fits a range such as a fixed 1,500 thousandths of a sat.
+  const maxWithdrawable = Number(lnurlDetails?.maxWithdrawable ?? 0);
+  const hasNoWholeSatAmount =
+    maxWithdrawable > 0 && amountMin * 1000 > maxWithdrawable;
   const useFormReturn = useForm<IMakeInvoiceFormValues>({
     defaultValues: {
       amount: amountMin > 0 && amountMin === amountMax ? `${amountMin}` : '',
@@ -233,7 +237,7 @@ function LnurlWithdrawModal() {
             }}
             confirmButtonProps={{
               loading: isLoading,
-              disabled: !continueOperate,
+              disabled: !continueOperate || hasNoWholeSatAmount,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

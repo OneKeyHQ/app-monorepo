@@ -71,7 +71,8 @@ function ReceiveInvoice() {
       return invoice.is_paid;
     };
     // A status read still running when the screen closes reports to nothing,
-    // so it cannot close the screens opened since.
+    // so it cannot close the screens opened since; only the first paid
+    // result closes the screen.
     let isActive = true;
     let closeTimer: ReturnType<typeof setTimeout> | undefined;
     timerRef.current = setInterval(
@@ -79,6 +80,7 @@ function ReceiveInvoice() {
         fetchIsPaid()
           .then((isPaid) => {
             if (isActive && isPaid) {
+              isActive = false;
               Toast.success({
                 title: intl.formatMessage({
                   id: ETranslations.ln_payment_received_label,
