@@ -236,6 +236,7 @@ export enum EAppEventBusNames {
   CleanTokenDetailInTabletDetailView = 'CleanTokenDetailInTabletDetailView',
   MarketHomePageEnter = 'MarketHomePageEnter',
   MarketWatchListV2Changed = 'MarketWatchListV2Changed',
+  MarketWidgetConfigurationSynced = 'MarketWidgetConfigurationSynced',
   SwapLimitOrderBuildSuccess = 'SwapLimitOrderBuildSuccess',
   RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
   ShowInAppPushNotification = 'ShowInAppPushNotification',

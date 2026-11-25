@@ -63,6 +63,7 @@ struct MarketWidgetEntry: TimelineEntry {
   let selectionUnavailable: Bool
   var source: MarketWidgetSource = .watchlist
   var profileID: String? = nil
+  var instanceNumber: Int? = nil
   var profileUnavailable = false
   var manualSelection = false
   var isGalleryPreview = false
@@ -98,7 +99,8 @@ struct MarketWidgetEntry: TimelineEntry {
     MarketWidgetEntry(date: Date(), configuration: selection.configuration,
       rows: selection.assets.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0, allowLegacy: true), failed: false) },
       isWatchlist: isWatchlist, selectionUnavailable: selection.selectionUnavailable,
-      source: selection.source, profileID: selection.profileID, profileUnavailable: selection.profileUnavailable,
+      source: selection.source, profileID: selection.profileID, instanceNumber: selection.profile?.instanceNumber,
+      profileUnavailable: selection.profileUnavailable,
       manualSelection: selection.profile?.assets != nil)
   }
 

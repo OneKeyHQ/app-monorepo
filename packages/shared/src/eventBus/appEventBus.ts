@@ -830,6 +830,7 @@ export interface IAppEventBusPayload {
     from: EEnterWay;
   };
   [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
+  [EAppEventBusNames.MarketWidgetConfigurationSynced]: undefined;
   [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
   [EAppEventBusNames.RefreshNativeTokenInfo]: undefined;
   [EAppEventBusNames.ShowInAppPushNotification]: {
