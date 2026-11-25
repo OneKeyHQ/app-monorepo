@@ -10,17 +10,20 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
-const THRESHOLDS = {
+export const THRESHOLDS = {
   minFixNetLines: 120,
   maxAmplificationRatio: 0.5,
   minDeletionRatio: 0.25,
   maxNetStateFlags: 4,
 };
 
+export const ZERO_BASELINE_RATIO_LABEL = 'N/A (baseline net growth is zero)';
+
 const CODE_FILE_RE = /\.(?:[cm]?[jt]sx?)$/;
 const EXCLUDED_PATH_RE =
-  /(?:^|\/)(?:__tests__|__mocks__|__snapshots__|node_modules|dist|build|coverage)\/|\.(?:test|spec|stories|d)\.[cm]?[jt]sx?$|translations\.ts$/;
+  /(?:^|\/)(?:__tests__|__mocks__|__snapshots__|node_modules|dist|build|coverage|generated|e2e)\/|\.(?:test|spec|e2e|node-test|generated|stories|d)\.[cm]?[jt]sx?$|translations\.ts$/;
 const STATE_PATTERNS = [
   /\buseState(?:<[^>]*>)?\s*\(/g,
   /\buseRef(?:<[^>]*>)?\s*\(/g,
@@ -86,7 +89,7 @@ const refExists = (ref) =>
   Boolean(ref) &&
   runGit(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], true)
     .status === 0;
-const isTargetCodeFile = (p) =>
+export const isTargetCodeFile = (p) =>
   Boolean(p) && CODE_FILE_RE.test(p) && !EXCLUDED_PATH_RE.test(p);
 
 function ensureCommit(sha) {
@@ -459,6 +462,53 @@ function scanPatterns(fromRef, toRef, trackedPaths, untrackedFiles) {
   return { netStateFlags, scopeCreepWarnings };
 }
 
+export function evaluateAmplification({
+  origNet: rawOrigNet,
+  fixAdded,
+  fixDeleted,
+  fixNet,
+  thresholds = THRESHOLDS,
+}) {
+  const origNet = Math.max(0, rawOrigNet);
+  const amplificationRatio =
+    origNet > 0 ? Number((fixNet / origNet).toFixed(3)) : null;
+  const deletionRatio =
+    fixAdded > 0 ? Number((fixDeleted / fixAdded).toFixed(3)) : 1;
+  const meetsGrowthRule =
+    amplificationRatio === null
+      ? true
+      : amplificationRatio >= thresholds.maxAmplificationRatio;
+  const triggered =
+    fixNet >= thresholds.minFixNetLines &&
+    meetsGrowthRule &&
+    deletionRatio < thresholds.minDeletionRatio;
+
+  return {
+    origNet,
+    fixAdded,
+    fixDeleted,
+    fixNet,
+    amplificationRatio,
+    deletionRatio,
+    triggered,
+  };
+}
+
+export function formatAmplificationRatio(amplificationRatio) {
+  if (amplificationRatio === null || amplificationRatio === undefined) {
+    return ZERO_BASELINE_RATIO_LABEL;
+  }
+  return `${(amplificationRatio * 100).toFixed(0)}%`;
+}
+
+export function formatCliAmplificationLine(amp) {
+  const netLabel = `${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}`;
+  const ratioLabel = formatAmplificationRatio(amp.amplificationRatio);
+  const delLabel = `${(amp.deletionRatio * 100).toFixed(0)}%`;
+  const status = amp.triggered ? 'FAIL' : 'OK';
+  return `  1. Fix Amplification: +${amp.fixAdded}/-${amp.fixDeleted} (net ${netLabel}) vs orig +${amp.origNet} | ratio=${ratioLabel} | del/add=${delLabel} [${status}]`;
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
@@ -507,19 +557,13 @@ function main() {
     process.exit(0);
   }
 
-  const origNet = Math.max(0, origStats.net);
   const fixNet = baseAdvanced ? currStats.net - origStats.net : fixStats.net;
-  let amplificationRatio = 0;
-  if (origNet > 0) amplificationRatio = Number((fixNet / origNet).toFixed(3));
-  else if (fixNet > 0) amplificationRatio = 999;
-  const deletionRatio =
-    fixStats.added > 0
-      ? Number((fixStats.deleted / fixStats.added).toFixed(3))
-      : 1;
-  const ampTriggered =
-    fixNet >= THRESHOLDS.minFixNetLines &&
-    amplificationRatio >= THRESHOLDS.maxAmplificationRatio &&
-    deletionRatio < THRESHOLDS.minDeletionRatio;
+  const amp = evaluateAmplification({
+    origNet: origStats.net,
+    fixAdded: fixStats.added,
+    fixDeleted: fixStats.deleted,
+    fixNet,
+  });
 
   const untrackedSet = new Set(fixStats.untrackedFiles);
   const trackedPaths = [...fixStats.paths]
@@ -533,7 +577,7 @@ function main() {
   );
   const stateTriggered = netStateFlags >= THRESHOLDS.maxNetStateFlags;
   const failed =
-    ampTriggered ||
+    amp.triggered ||
     stateTriggered ||
     (opts.strictScope && scopeCreepWarnings.length > 0);
 
@@ -545,14 +589,8 @@ function main() {
     thresholds: THRESHOLDS,
     filesChecked: fixStats.fileCount,
     amplification: {
-      origNet,
-      fixAdded: fixStats.added,
-      fixDeleted: fixStats.deleted,
-      fixNet,
-      amplificationRatio,
-      deletionRatio,
+      ...amp,
       hotspots: fixStats.hotspots,
-      triggered: ampTriggered,
     },
     stateFlags: { netStateFlags, triggered: stateTriggered },
     scopeCreepWarnings,
@@ -564,9 +602,7 @@ function main() {
     console.log(
       `[check:bloat] mode=${report.mode} baseline=${report.preReviewSha.slice(0, 10)} (${report.baselineSource}) files=${report.filesChecked}`,
     );
-    console.log(
-      `  1. Fix Amplification: +${fixStats.added}/-${fixStats.deleted} (net ${fixNet >= 0 ? '+' : ''}${fixNet}) vs orig +${origNet} | ratio=${(amplificationRatio * 100).toFixed(0)}% | del/add=${(deletionRatio * 100).toFixed(0)}% [${ampTriggered ? 'FAIL' : 'OK'}]`,
-    );
+    console.log(formatCliAmplificationLine(amp));
     console.log(
       `  2. Implicit State Flags: ${netStateFlags >= 0 ? '+' : ''}${netStateFlags} (limit < ${THRESHOLDS.maxNetStateFlags}) [${stateTriggered ? 'FAIL' : 'OK'}]`,
     );
@@ -579,9 +615,15 @@ function main() {
   if (failed && !opts.warnOnly) process.exit(2);
 }
 
-try {
-  main();
-} catch (err) {
-  console.error(`[check:bloat] Error: ${err.message}`);
-  process.exit(1);
+const isEntrypoint =
+  Boolean(process.argv[1]) &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isEntrypoint) {
+  try {
+    main();
+  } catch (err) {
+    console.error(`[check:bloat] Error: ${err.message}`);
+    process.exit(1);
+  }
 }
