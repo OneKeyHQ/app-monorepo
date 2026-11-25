@@ -18,12 +18,14 @@ export function createNativeQrScannerBridge(): IDesktopQrScanner | undefined {
     return undefined;
 
   let receiverInstalled = false;
+  const frozenSessions = new Set<string>();
   const installReceiver = () => {
     if (receiverInstalled) return;
     sharedTexture.setSharedTextureReceiver(
       async ({ importedSharedTexture }, sessionId: unknown) => {
         try {
           if (typeof sessionId !== 'string') return;
+          if (frozenSessions.has(sessionId)) return;
           const canvas = document.getElementById(
             desktopQrPreviewPrefix + sessionId,
           );
@@ -53,19 +55,23 @@ export function createNativeQrScannerBridge(): IDesktopQrScanner | undefined {
       ipcRenderer.invoke(desktopQrScannerChannel.listCameras) as ReturnType<
         IDesktopQrScanner['listCameras']
       >,
-    start: async (sessionId, cameraId) => {
+    start: async (sessionId, cameraId, options) => {
       installReceiver();
+      frozenSessions.delete(sessionId);
       return ipcRenderer.invoke(
         desktopQrScannerChannel.start,
         sessionId,
         cameraId,
+        options,
       ) as Promise<boolean>;
     },
-    stop: (sessionId) =>
-      ipcRenderer.invoke(
+    stop: (sessionId) => {
+      frozenSessions.delete(sessionId);
+      return ipcRenderer.invoke(
         desktopQrScannerChannel.stop,
         sessionId,
-      ) as Promise<void>,
+      ) as Promise<void>;
+    },
     focus: (sessionId, x, y) =>
       ipcRenderer.invoke(
         desktopQrScannerChannel.focus,
@@ -73,6 +79,22 @@ export function createNativeQrScannerBridge(): IDesktopQrScanner | undefined {
         x,
         y,
       ) as Promise<boolean>,
+    setMultiSymbol: (sessionId, enabled) =>
+      ipcRenderer.invoke(
+        desktopQrScannerChannel.setMultiSymbol,
+        sessionId,
+        enabled,
+      ) as Promise<void>,
+    setPaused: (sessionId, paused) =>
+      ipcRenderer.invoke(
+        desktopQrScannerChannel.setPaused,
+        sessionId,
+        paused,
+      ) as Promise<void>,
+    setPreviewFrozen: (sessionId, frozen) => {
+      if (frozen) frozenSessions.add(sessionId);
+      else frozenSessions.delete(sessionId);
+    },
     onEvent: (callback) => {
       const listener = (
         _event: Electron.IpcRendererEvent,

@@ -3,6 +3,7 @@ import { ipcMain, sharedTexture } from 'electron';
 import { desktopQrScannerChannel } from '@onekeyhq/shared/types/desktopQrScanner';
 import type {
   IDesktopQrCamera,
+  IDesktopQrDetectedSymbol,
   IDesktopQrError,
   IDesktopQrEvent,
 } from '@onekeyhq/shared/types/desktopQrScanner';
@@ -35,17 +36,26 @@ type INativeScanner = {
   listCameras(): INativeCamera[] | Promise<INativeCamera[]>;
   createCapture(options: {
     source: { kind: 'camera'; deviceId?: string };
+    multiSymbol?: boolean;
     onReady(
       generation: number,
       deviceOrInfo?: string | INativeReadyInfo,
       windowsDeviceId?: string,
     ): void;
     onText(text: string, generation: number): void;
+    onSymbols?(
+      symbols: IDesktopQrDetectedSymbol[],
+      frameWidth: number,
+      frameHeight: number,
+      generation: number,
+    ): void;
     onError(error: { code?: string }, generation: number): void;
     onFrame(frame: INativeQrFrame): void;
   }): {
     start(): void;
     focus?(x?: number, y?: number): boolean;
+    setMultiSymbol?(enabled: boolean): void;
+    setPaused?(paused: boolean): void;
     dispose(): void;
   };
 };
@@ -161,8 +171,14 @@ export function installNativeQrScanner(
     event: IpcMainInvokeEvent,
     sessionId: unknown,
     cameraId: unknown,
+    rawOptions?: unknown,
   ) => {
     const frame = event.senderFrame;
+    const multiSymbol =
+      typeof rawOptions === 'object' &&
+      rawOptions !== null &&
+      'multiSymbol' in rawOptions &&
+      Boolean((rawOptions as { multiSymbol?: unknown }).multiSymbol);
     if (
       !frame ||
       !trustedInvoke(event) ||
@@ -192,6 +208,7 @@ export function installNativeQrScanner(
       const selected = cameras.find((camera) => camera.id === cameraId);
       active.capture = scanner.createCapture({
         source: { kind: 'camera', deviceId: selected?.id },
+        multiSymbol,
         onReady(generation, deviceOrInfo, windowsDeviceId) {
           if (lease !== active) return;
           active.generation = generation;
@@ -209,6 +226,17 @@ export function installNativeQrScanner(
         onText(text, generation) {
           if (generation === active.generation)
             send(active, { type: 'text', sessionId, text });
+        },
+        onSymbols(symbols, frameWidth, frameHeight, generation) {
+          if (generation === active.generation) {
+            send(active, {
+              type: 'symbols',
+              sessionId,
+              symbols,
+              frameWidth,
+              frameHeight,
+            });
+          }
         },
         onError(error) {
           fail(active, cameraErrorCode(error.code));
@@ -231,6 +259,36 @@ export function installNativeQrScanner(
   ipcMain.handle(desktopQrScannerChannel.stop, (event, sessionId: unknown) => {
     if (trustedInvoke(event) && lease?.sessionId === sessionId) stop();
   });
+  ipcMain.removeHandler(desktopQrScannerChannel.setMultiSymbol);
+  ipcMain.handle(
+    desktopQrScannerChannel.setMultiSymbol,
+    (event, sessionId: unknown, enabled: unknown) => {
+      const activeLease = lease;
+      if (
+        trustedInvoke(event) &&
+        activeLease &&
+        activeLease.sessionId === sessionId &&
+        typeof enabled === 'boolean'
+      ) {
+        activeLease.capture?.setMultiSymbol?.(enabled);
+      }
+    },
+  );
+  ipcMain.removeHandler(desktopQrScannerChannel.setPaused);
+  ipcMain.handle(
+    desktopQrScannerChannel.setPaused,
+    (event, sessionId: unknown, paused: unknown) => {
+      const activeLease = lease;
+      if (
+        trustedInvoke(event) &&
+        activeLease &&
+        activeLease.sessionId === sessionId &&
+        typeof paused === 'boolean'
+      ) {
+        activeLease.capture?.setPaused?.(paused);
+      }
+    },
+  );
   ipcMain.removeHandler(desktopQrScannerChannel.focus);
   ipcMain.handle(
     desktopQrScannerChannel.focus,

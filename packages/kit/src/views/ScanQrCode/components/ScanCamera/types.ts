@@ -1,3 +1,4 @@
+import type { IMultiQrFrameEvent } from '../../utils/multiQrSymbols';
 import type {
   QrCameraInfo,
   QrScannerErrorCode,
@@ -6,6 +7,12 @@ import type { ViewProps } from 'react-native';
 
 export type IScanCameraProps = ViewProps & {
   handleScanResult?: (value: string) => void;
+  /** Whole-frame multi-symbol detections when `multiSymbol` is enabled. */
+  onFrameSymbols?: (event: IMultiQrFrameEvent) => void;
+  /** Enable whole-frame multi-symbol detection without restarting capture. */
+  multiSymbol?: boolean;
+  /** Freeze the current preview frame and pause detection without releasing the camera. */
+  frozen?: boolean;
   /** Camera failures: `permission-denied`, `no-camera`, `camera-busy`, ... */
   onCameraError?: (code: QrScannerErrorCode) => void;
   /** The camera started delivering frames (again, after a switch). */

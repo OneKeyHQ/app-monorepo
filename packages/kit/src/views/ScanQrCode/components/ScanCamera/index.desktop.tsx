@@ -44,6 +44,9 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       children,
       cameraId,
       handleScanResult,
+      onFrameSymbols,
+      multiSymbol,
+      frozen,
       onCameraReady,
       onCameraError,
       onWebCameraFallback,
@@ -54,15 +57,18 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     const canvas = useRef<HTMLCanvasElement>(null);
     const activeSessionId = useRef<string | undefined>(undefined);
     const stop = useRef<(() => void) | undefined>(undefined);
+    const initialMultiSymbol = useRef(Boolean(multiSymbol));
     const { showFocusBox, focusBoxElement } = useDomFocusBox();
     const handlers = useRef({
       handleScanResult,
+      onFrameSymbols,
       onCameraReady,
       onCameraError,
       onWebCameraFallback,
     });
     handlers.current = {
       handleScanResult,
+      onFrameSymbols,
       onCameraReady,
       onCameraError,
       onWebCameraFallback,
@@ -118,6 +124,14 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           handlers.current.onCameraReady?.(event.cameraId);
         if (event.type === 'text')
           handlers.current.handleScanResult?.(event.text);
+        if (event.type === 'symbols') {
+          handlers.current.onFrameSymbols?.({
+            symbols: event.symbols,
+            coordinateSpace: 'frame',
+            frameWidth: event.frameWidth,
+            frameHeight: event.frameHeight,
+          });
+        }
         if (event.type === 'error') {
           if (
             event.code === 'preview-unavailable' ||
@@ -130,8 +144,10 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         }
       });
       stop.current = stopSession;
-      void scanner
-        .start(sessionId, cameraId)
+      const startPromise = initialMultiSymbol.current
+        ? scanner.start(sessionId, cameraId, { multiSymbol: true })
+        : scanner.start(sessionId, cameraId);
+      void startPromise
         .then((started) => {
           if (!started) fallback();
         })
@@ -143,6 +159,22 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         unsubscribe();
       };
     }, [cameraId]);
+
+    useEffect(() => {
+      const scanner = globalThis.desktopApi?.qrScanner;
+      const sessionId = activeSessionId.current;
+      if (!scanner || !sessionId) return;
+      void scanner.setMultiSymbol?.(sessionId, Boolean(multiSymbol));
+    }, [multiSymbol]);
+
+    useEffect(() => {
+      const scanner = globalThis.desktopApi?.qrScanner;
+      const sessionId = activeSessionId.current;
+      if (!scanner || !sessionId) return;
+      const nextFrozen = Boolean(frozen);
+      scanner.setPreviewFrozen?.(sessionId, nextFrozen);
+      void scanner.setPaused?.(sessionId, nextFrozen);
+    }, [frozen]);
 
     return (
       <View style={[styles.container, style]}>
