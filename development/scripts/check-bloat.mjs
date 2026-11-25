@@ -498,73 +498,82 @@ function alignReviewTree({ origBase, currentBase, preReviewSha }) {
   return { tree, conflicts };
 }
 
-function loadBabelParser() {
-  const require = createRequire(import.meta.url);
-  try {
-    require.resolve('@babel/parser/package.json');
-  } catch (error) {
-    // Reruns of older workflows copy the checker without its dependencies.
-    if (error.code === 'MODULE_NOT_FOUND') return undefined;
-    throw error;
-  }
-  return require('@babel/parser').parse;
-}
-
-const parse = loadBabelParser();
 const mask = (text) => text.replace(/[^\n]/g, ' ');
 const maskLiteral = (text) => `0${mask(text.slice(1))}`;
+const require = createRequire(import.meta.url);
+const OXC_SCAN_OPTION = '--internal-oxc-scan';
 
-function stripNonExecutable(source, file) {
-  if (!parse) return stripUnparsedSource(source, file);
+function hasOxcParser() {
+  try {
+    require.resolve('oxc-parser/package.json');
+    return true;
+  } catch (error) {
+    // Reruns of older workflows copy the checker without its dependencies.
+    if (error.code === 'MODULE_NOT_FOUND') return false;
+    throw error;
+  }
+}
 
-  const isTypeScript = /\.[cm]?tsx?$/.test(file);
-  const plugins = ['decorators-legacy'];
-  if (isTypeScript) plugins.push('typescript');
-  if (!isTypeScript || file.endsWith('.tsx')) plugins.push('jsx');
+function stripNonExecutable(source, file, oxcParser) {
+  if (!oxcParser) return stripUnparsedSource(source, file);
 
   let sourceType = 'unambiguous';
   if (/\.m[jt]s$/.test(file)) sourceType = 'module';
-  else if (/\.c[jt]s$/.test(file)) sourceType = 'script';
+  else if (/\.c[jt]s$/.test(file)) sourceType = 'commonjs';
 
-  let tokens;
+  const isTypeScript = /\.[cm]?tsx?$/.test(file);
+  const spans = [];
   try {
-    ({ tokens } = parse(source, {
+    const { program, comments, errors } = oxcParser.parseSync(file, source, {
       sourceType,
-      plugins,
-      tokens: true,
-      errorRecovery: true,
-      attachComment: false,
-      allowReturnOutsideFunction: sourceType !== 'module',
-    }));
+      lang: isTypeScript ? undefined : 'jsx',
+      preserveParens: false,
+    });
+    if (errors.length) return stripUnparsedSource(source, file);
+
+    for (const comment of comments) {
+      spans.push({ start: comment.start, end: comment.end, literal: false });
+    }
+    new oxcParser.Visitor({
+      Literal(node) {
+        if (typeof node.value === 'string' || node.regex) {
+          spans.push({ start: node.start, end: node.end, literal: true });
+        }
+      },
+      JSXText(node) {
+        spans.push({ start: node.start, end: node.end, literal: false });
+      },
+      TemplateLiteral(node) {
+        // cspell:ignore quasis
+        for (const [index, part] of node.quasis.entries()) {
+          // Oxc includes delimiters in quasi ranges. Keep interpolation code.
+          spans.push({
+            start: index === 0 ? part.start : part.start + 1,
+            end: part.tail ? part.end : part.end - 2,
+            literal: index === 0,
+          });
+        }
+      },
+    }).visit(program);
   } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-    // A worktree can contain edits that are temporarily invalid.
+    const stackOverflow =
+      error instanceof RangeError &&
+      error.message === 'Maximum call stack size exceeded';
+    if (!(error instanceof SyntaxError) && !stackOverflow) throw error;
     return stripUnparsedSource(source, file);
   }
 
   const parts = [];
   let cursor = 0;
-  for (const [index, token] of tokens.entries()) {
-    const label = token.type.label ?? token.type;
-    const isLiteral =
-      label === 'string' ||
-      label === 'regexp' ||
-      (label === '`' && tokens[index + 1]?.type.label === 'template');
-    if (
-      isLiteral ||
-      label === 'CommentBlock' ||
-      label === 'CommentLine' ||
-      label === 'template' ||
-      label === 'jsxText' ||
-      label === '`'
-    ) {
-      const text = source.slice(token.start, token.end);
-      parts.push(
-        source.slice(cursor, token.start),
-        isLiteral ? maskLiteral(text) : mask(text),
-      );
-      cursor = token.end;
-    }
+  for (const { start, end, literal } of spans.toSorted(
+    (a, b) => a.start - b.start,
+  )) {
+    const text = source.slice(start, end);
+    parts.push(
+      source.slice(cursor, start),
+      literal ? maskLiteral(text) : mask(text),
+    );
+    cursor = end;
   }
   parts.push(source.slice(cursor));
   return stripDeclarationLines(parts.join(''));
@@ -685,6 +694,42 @@ function exactFileSelector(file) {
 }
 
 function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
+  const files = { entries, untrackedFiles };
+  if (hasOxcParser()) {
+    // Native stack overflow can terminate Node before JavaScript can catch it.
+    const env = { ...process.env };
+    delete env.GH_TOKEN;
+    delete env.GITHUB_TOKEN;
+    const worker = spawnSync(
+      process.execPath,
+      [process.argv[1], OXC_SCAN_OPTION],
+      {
+        env,
+        input: JSON.stringify({ fromRef, toRef, files }),
+        encoding: 'utf8',
+        maxBuffer: 20 * 1024 * 1024,
+      },
+    );
+    if (worker.error) throw worker.error;
+    if (worker.status === 0) return JSON.parse(worker.stdout);
+    if (!['SIGSEGV', 'SIGABRT', 'SIGBUS'].includes(worker.signal)) {
+      throw new Error(
+        worker.stderr.trim() || 'Oxc scanner failed to produce a report',
+      );
+    }
+    console.warn(
+      '[check:bloat] Native parser process stopped; retrying with the fallback scanner.',
+    );
+  }
+  return scanFilePatterns(fromRef, toRef, files);
+}
+
+function scanFilePatterns(
+  fromRef,
+  toRef,
+  { entries, untrackedFiles },
+  oxcParser,
+) {
   let netStateFlags = 0;
   let netBranches = 0;
   const scopeCreepWarnings = [];
@@ -730,7 +775,9 @@ function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
     const changed = ranges.filter(([, length]) => length > 0);
     if (!changed.length) return [];
     // Lex the complete source before selecting zero-context ranges from the patch.
-    const source = stripNonExecutable(readSource(), file).split('\n');
+    const source = stripNonExecutable(readSource(), file, oxcParser).split(
+      '\n',
+    );
     return changed.map(([start, length]) =>
       source.slice(start - 1, start - 1 + length).join('\n'),
     );
@@ -783,7 +830,11 @@ function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
     inspectFile(file, added, removed);
   }
   for (const file of untrackedFiles) {
-    inspectFile(file, [stripNonExecutable(readWorktreeSource(file), file)], []);
+    inspectFile(
+      file,
+      [stripNonExecutable(readWorktreeSource(file), file, oxcParser)],
+      [],
+    );
   }
   return { netStateFlags, netBranches, scopeCreepWarnings };
 }
@@ -1226,7 +1277,15 @@ const isEntrypoint =
 
 if (isEntrypoint) {
   try {
-    main();
+    if (process.argv[2] === OXC_SCAN_OPTION) {
+      const { fromRef, toRef, files } = JSON.parse(fs.readFileSync(0, 'utf8'));
+      const oxcParser = require('oxc-parser');
+      console.log(
+        JSON.stringify(scanFilePatterns(fromRef, toRef, files, oxcParser)),
+      );
+    } else {
+      main();
+    }
   } catch (err) {
     console.error(`[check:bloat] Error: ${err.message}`);
     process.exit(1);
