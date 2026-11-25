@@ -111,10 +111,15 @@ export default function useScanQrCodeLazy() {
                   if (animationValue.fullData) {
                     parseValue.raw = animationValue.fullData;
                     resolve(parseValue);
+                    await backgroundApiProxy.serviceScanQRCode.resetAnimationData();
+                  } else if (animationValue.fragmentAccepted === false) {
+                    return {};
                   }
                   Haptics.impact(ImpactFeedbackStyle.Light);
                   return {
-                    progress: animationValue.progress,
+                    progress: animationValue.fullData
+                      ? 1
+                      : animationValue.progress,
                   };
                 }
                 resolve(parseValue);

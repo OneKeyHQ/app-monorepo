@@ -5,7 +5,7 @@
   "main": "src/index.tsx",
   "dependencies": {
     "@breeztech/breez-sdk-spark": "0.26.1",
-    "@onekeyfe/react-native-sni-connect": "6.8.0-33",
+    "@onekeyfe/react-native-sni-connect": "6.8.0-38",
     "@panva/hpke-noble": "1.0.6",
     "@starknet-io/starknet-types-0101": "npm:@starknet-io/types-js@0.10.2",
     "@zip.js/zip.js": "2.10.0",

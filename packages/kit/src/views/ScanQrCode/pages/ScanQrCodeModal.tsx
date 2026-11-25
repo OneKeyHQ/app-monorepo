@@ -36,10 +36,12 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
+import { MultiQrSelectionOverlay } from '../components/MultiQrSelectionOverlay';
 import { ScanQrCodeTestIDs } from '../testIDs';
-import { scanFromURLAsync } from '../utils/scanFromURLAsync';
+import * as scanFromUrlModule from '../utils/scanFromURLAsync';
 
 import type { IScanCameraRef } from '../components/ScanCamera';
+import type { IMultiQrSymbol } from '../utils/multiQrSymbols';
 import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -288,10 +290,34 @@ export default function ScanQrCodeModal() {
   );
 
   const isPhotoScanInProgress = useRef(false);
+  const [pickedImageSelection, setPickedImageSelection] = useState<{
+    uri: string;
+    width: number;
+    height: number;
+    symbols: IMultiQrSymbol[];
+  } | null>(null);
+  const pickedImageUriRef = useRef<string | null>(null);
+
+  const clearPickedImageSelection = useCallback(() => {
+    const uri = pickedImageUriRef.current;
+    pickedImageUriRef.current = null;
+    setPickedImageSelection(null);
+    if (uri) {
+      void PhotoLibrary.releasePickedImage(uri).catch(() => {});
+    }
+  }, []);
+
+  useLayoutEffect(
+    () => () => {
+      clearPickedImageSelection();
+    },
+    [clearPickedImageSelection],
+  );
 
   const pickImage = useCallback(async () => {
     if (isPhotoScanInProgress.current) return;
 
+    clearPickedImageSelection();
     isPhotoScanInProgress.current = true;
     try {
       const result = await PhotoLibrary.pickImage().catch(() => {
@@ -305,31 +331,83 @@ export default function ScanQrCodeModal() {
       if (result.canceled) return;
 
       const uri = result.uri;
-      let data: string | null = null;
+      let decoded = {
+        width: 0,
+        height: 0,
+        symbols: [] as IMultiQrSymbol[],
+        partial: undefined as boolean | undefined,
+      };
       try {
-        data = await scanFromURLAsync(uri);
+        if (typeof scanFromUrlModule.scanSymbolsFromURLAsync === 'function') {
+          const res = await scanFromUrlModule.scanSymbolsFromURLAsync(uri);
+          decoded = {
+            width: res.width,
+            height: res.height,
+            symbols: res.symbols,
+            partial: res.partial,
+          };
+        } else {
+          const text = await scanFromUrlModule.scanFromURLAsync(uri);
+          decoded = {
+            width: 0,
+            height: 0,
+            symbols: text ? [{ text, centerX: 0.5, centerY: 0.5 }] : [],
+            partial: undefined,
+          };
+        }
       } catch {
-        data = null;
-      } finally {
-        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
+        decoded = { width: 0, height: 0, symbols: [], partial: undefined };
       }
-      if (data) {
-        await callback(data);
-      } else {
+
+      if (decoded.symbols.length === 0) {
+        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.scan_no_recognizable_qr_code_found,
           }),
         });
+        return;
       }
+
+      if (decoded.symbols.length === 1 && !decoded.partial) {
+        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
+        await callback(decoded.symbols[0].text);
+        return;
+      }
+
+      // Multiple QR codes (or partial fallback result): keep image displayed
+      // with green dot anchors until the user selects one or cancels.
+      if (!scan.current.mounted || scan.current.phase !== 'open') {
+        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
+        return;
+      }
+      pickedImageUriRef.current = uri;
+      setPickedImageSelection({
+        uri,
+        width: decoded.width,
+        height: decoded.height,
+        symbols: decoded.symbols,
+      });
     } finally {
       isPhotoScanInProgress.current = false;
     }
-  }, [callback, intl]);
+  }, [callback, clearPickedImageSelection, intl]);
+
+  const handlePickedSymbolSelect = useCallback(
+    (symbol: IMultiQrSymbol) => {
+      if (isPhotoScanInProgress.current || !pickedImageUriRef.current) return;
+      isPhotoScanInProgress.current = true;
+      clearPickedImageSelection();
+      void callback(symbol.text).finally(() => {
+        isPhotoScanInProgress.current = false;
+      });
+    },
+    [callback, clearPickedImageSelection],
+  );
 
   const onCameraScanned = useCallback(
     async (value: string) => {
-      if (isPhotoScanInProgress.current) {
+      if (isPhotoScanInProgress.current || pickedImageUriRef.current) {
         return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
@@ -430,7 +508,20 @@ export default function ScanQrCodeModal() {
                   ref={scannerRef}
                   handleBarCodeScanned={onCameraScanned}
                   qrWalletScene={qrWalletScene}
+                  selectionCovered={Boolean(pickedImageSelection)}
                 />
+                {pickedImageSelection ? (
+                  <MultiQrSelectionOverlay
+                    imageUri={pickedImageSelection.uri}
+                    imageSize={{
+                      width: pickedImageSelection.width,
+                      height: pickedImageSelection.height,
+                    }}
+                    symbols={pickedImageSelection.symbols}
+                    onSelect={handlePickedSymbolSelect}
+                    onCancel={clearPickedImageSelection}
+                  />
+                ) : null}
               </Stack>
             </YStack>
           </Stack>

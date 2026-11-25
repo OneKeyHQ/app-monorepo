@@ -1,6 +1,6 @@
 {
-  "version": "44.0.2-alpha.1",
-  "sourceCommit": "1e31880329ecd288515b5f88b0735822a43f5cf1",
-  "sourceRef": "refs/heads/codex/windows-native-qr-scanner",
-  "inventorySha256": "53a521b4e79219f29ae5c74b68e6de63ba59faaa987d81fa7c2594d18a124fd3"
+  "version": "44.0.2-alpha.2",
+  "sourceCommit": "3a0d39a462cfc312a1d8f89568c20dcdfcb06722",
+  "sourceRef": "refs/heads/main",
+  "inventorySha256": "8f27291fe579328f868965c2b14bfa544880c47ca19df9f12f3d88408a8b3612"
 }

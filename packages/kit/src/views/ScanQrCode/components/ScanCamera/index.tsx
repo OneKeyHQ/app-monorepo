@@ -1,10 +1,13 @@
 import {
   createElement,
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
 } from 'react';
+import type { MouseEvent } from 'react';
 
 import {
   QrScannerError,
@@ -12,6 +15,7 @@ import {
 } from '@onekeyfe/react-native-qr-scanner/web';
 import { StyleSheet, View } from 'react-native';
 
+import { readDomFocusPoint, useDomFocusBox } from './FocusBox';
 import { ensureWebQrScannerConfigured } from './webQrScanner';
 
 import type {
@@ -19,6 +23,7 @@ import type {
   IScanCameraProps,
   IScanCameraRef,
 } from './types';
+import type { IMultiQrRgbaFrame } from '../../utils/multiQrSymbols';
 import type { WebQrScanner } from '@onekeyfe/react-native-qr-scanner/web';
 
 export type { IScanCameraInfo, IScanCameraProps, IScanCameraRef };
@@ -44,6 +49,9 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       style,
       children,
       handleScanResult,
+      onFrameSymbols,
+      multiSymbol,
+      frozen,
       onCameraError,
       onCameraReady,
       cameraId,
@@ -57,20 +65,52 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     ref,
   ) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
+    const frozenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const selectedFrameRef = useRef<IMultiQrRgbaFrame | undefined>(undefined);
     const scannerRef = useRef<WebQrScanner | null>(null);
-    const handlers = useRef({ handleScanResult, onCameraError, onCameraReady });
-    handlers.current = { handleScanResult, onCameraError, onCameraReady };
+    const { requestFocus, resetFocusBox, focusBoxElement } = useDomFocusBox();
+    const handlers = useRef({
+      handleScanResult,
+      onFrameSymbols,
+      onCameraError,
+      onCameraReady,
+    });
+    handlers.current = {
+      handleScanResult,
+      onFrameSymbols,
+      onCameraError,
+      onCameraReady,
+    };
     // The camera at mount; later changes go through switchCamera().
     const startedCameraId = useRef(cameraId);
+    const initialMultiSymbol = useRef(Boolean(multiSymbol));
+    const observesSymbols = Boolean(onFrameSymbols);
+
+    const onVideoClick = useCallback(
+      (event: MouseEvent<HTMLVideoElement>) => {
+        const scanner = scannerRef.current;
+        if (frozen || !scanner) return;
+        const { videoWidth, videoHeight } = event.currentTarget;
+        const point = readDomFocusPoint(event, {
+          width: videoWidth,
+          height: videoHeight,
+        });
+        requestFocus(point, () =>
+          scanner.focus({ x: point.normalizedX, y: point.normalizedY }),
+        );
+      },
+      [frozen, requestFocus],
+    );
 
     useImperativeHandle(
       ref,
       () => ({
         dispose: () => {
+          resetFocusBox();
           scannerRef.current?.dispose();
         },
       }),
-      [],
+      [resetFocusBox],
     );
 
     useEffect(() => {
@@ -81,6 +121,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         video,
         source: { kind: 'camera', deviceId: startedCameraId.current },
         onReady: () => {
+          resetFocusBox();
           const stream = video.srcObject;
           const track =
             typeof MediaStream !== 'undefined' && stream instanceof MediaStream
@@ -90,7 +131,18 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         },
         // The app assembles UR parts itself; it reads every frame's text.
         mode: 'static',
-        onFrameText: (text) => handlers.current.handleScanResult?.(text),
+        multiSymbol: initialMultiSymbol.current,
+        ...(observesSymbols
+          ? {
+              onFrameSymbols: (event) => {
+                if (handlers.current.onFrameSymbols?.(event)) {
+                  selectedFrameRef.current = event.frame;
+                }
+              },
+            }
+          : {
+              onFrameText: (text) => handlers.current.handleScanResult?.(text),
+            }),
         onError: (error) => {
           // Static mode never ends a session with a UR error.
           if (error instanceof QrScannerError) {
@@ -102,17 +154,53 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       scannerRef.current = scanner;
       void scanner.start();
       return () => {
+        selectedFrameRef.current = undefined;
         scanner.dispose();
         scannerRef.current = null;
       };
-    }, []);
+    }, [observesSymbols, resetFocusBox]);
+
+    useEffect(() => {
+      scannerRef.current?.setMultiSymbol(Boolean(multiSymbol));
+    }, [multiSymbol]);
+
+    useEffect(() => {
+      const nextFrozen = Boolean(frozen);
+      if (nextFrozen) resetFocusBox();
+      scannerRef.current?.setFrozen(nextFrozen);
+    }, [frozen, observesSymbols, resetFocusBox]);
+
+    useLayoutEffect(() => {
+      const canvas = frozenCanvasRef.current;
+      if (!canvas) return;
+      const frame = selectedFrameRef.current;
+      if (frozen && frame) {
+        canvas.width = frame.width;
+        canvas.height = frame.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx && typeof ImageData === 'function') {
+          const copy = new Uint8ClampedArray(frame.data.length);
+          copy.set(frame.data);
+          ctx.putImageData(
+            new ImageData(copy, frame.width, frame.height),
+            0,
+            0,
+          );
+        }
+        canvas.style.display = 'block';
+      } else {
+        canvas.style.display = 'none';
+        selectedFrameRef.current = undefined;
+      }
+    }, [frozen]);
 
     useEffect(() => {
       const scanner = scannerRef.current;
       if (!scanner || cameraId === startedCameraId.current) return;
+      resetFocusBox();
       startedCameraId.current = cameraId;
       void scanner.switchCamera(cameraId);
-    }, [cameraId]);
+    }, [cameraId, resetFocusBox]);
 
     return (
       <View style={[styles.container, style]} {...rest}>
@@ -122,7 +210,14 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           muted: true,
           playsInline: true,
           autoPlay: true,
+          onClick: onVideoClick,
         })}
+        {createElement('canvas', {
+          ref: frozenCanvasRef,
+          'data-testid': 'scan-camera-frozen-preview',
+          style: { ...videoStyle, display: 'none', pointerEvents: 'none' },
+        })}
+        {focusBoxElement}
         {children}
       </View>
     );
