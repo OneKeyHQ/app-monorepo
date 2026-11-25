@@ -60,12 +60,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           git fetch origin "$PR_BASE" --no-tags
-          if git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > /tmp/check-bloat.mjs 2>/dev/null; then
-            CHECKER="/tmp/check-bloat.mjs"
-          else
-            CHECKER="development/scripts/check-bloat.mjs"
-          fi
-          node "$CHECKER" \
+          git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > /tmp/check-bloat.mjs
+          node /tmp/check-bloat.mjs \
             --pr "$PR_NUMBER" \
             --repo "$REPO" \
             --base "origin/$PR_BASE" \
@@ -158,7 +154,7 @@ jobs:
 
             if (report.outcome === 'INCOMPLETE') {
               await upsertComment(
-                `${marker}\n### ℹ️ Review-Fix Bloat Gate: Incomplete\n\nPre-review baseline unreachable (\`${report.baselineSource}\`). Please review diff growth manually.`,
+                `${marker}\n### ℹ️ Review-Fix Bloat Gate: Incomplete\n\nUnable to compare the reviewed tree (\`${report.skipReason}\`, \`${report.baselineSource}\`). Please review diff growth manually.`,
               );
               return;
             }
@@ -174,7 +170,9 @@ jobs:
 
             const failed = report.verdict === 'REFACTOR_REQUIRED';
             const hasScopeWarnings = (report.scopeCreepWarnings || []).length > 0;
-            if (!failed && !hasScopeWarnings) {
+            const complexity = report.complexity;
+            const hasComplexityNotice = complexity && (complexity.score < 0 || complexity.hotspots.length > 0);
+            if (!failed && !hasScopeWarnings && !hasComplexityNotice) {
               if (existing) {
                 await upsertComment(
                   `${marker}\n### ✅ Review-Fix Bloat Gate Passed\n\nLatest changes are within review-fix thresholds (baseline: \`${report.preReviewSha.slice(0, 10)}\`).`,
@@ -185,7 +183,14 @@ jobs:
 
             const amp = report.amplification;
             const st = report.stateFlags;
-            const eq = report.equilibrium;
+            const thresholds = report.thresholds;
+            const percent = (ratio) => `${(ratio * 100).toFixed(0)}%`;
+            const growthLimits = [`ratio ≥ ${percent(thresholds.maxAmplificationRatio)}`, 'zero baseline'];
+            if (Number.isFinite(thresholds.maxAbsoluteFixNetLines)) {
+              growthLimits.push(`net ≥ ${thresholds.maxAbsoluteFixNetLines}`);
+            }
+            const amplificationLimit =
+              `net ≥ ${thresholds.minFixNetLines} and (${growthLimits.join(' or ')}) and del/add < ${percent(thresholds.minDeletionRatio)}`;
             const ratioText =
               amp.amplificationRatio === null || amp.amplificationRatio === undefined
                 ? 'N/A (baseline net growth is zero)'
@@ -198,20 +203,19 @@ jobs:
               marker,
               failed
                 ? '### ⚠️ Review-Fix Bloat Gate: Refactor Recommended'
-                : '### ℹ️ Review-Fix Scope Notice',
+                : '### ℹ️ Review-Fix Notice',
               '',
               `Baseline: \`${report.preReviewSha.slice(0, 10)}\` (${report.baselineSource})`,
               '',
               '| Metric | Current | Threshold | Status |',
               '|---|---|---|---|',
-              `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${ratioText}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | net >= 120 & (ratio >= 50% or net >= 300 or zero baseline) & del/add < 25% | ${amp.triggered ? '❌' : '✅'} |`,
-              `| Implicit State Flags | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags${branchText} | < 4 | ${st.triggered ? '❌' : '✅'} |`,
+              `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${ratioText}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | ${amplificationLimit} | ${amp.triggered ? '❌' : '✅'} |`,
+              `| Implicit State Flags | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags${branchText} | < ${thresholds.maxNetStateFlags} | ${st.triggered ? '❌' : '✅'} |`,
             ];
 
-            if (eq) {
-              const payoffSign = eq.netPayoff >= 0 ? '+' : '';
+            if (complexity) {
               lines.push(
-                `| Nash Equilibrium Payoff | ${payoffSign}${eq.netPayoff} ECU (budget ${eq.complexityBudget} + credit ${eq.refactorCredit} - cost ${eq.entropyCost}, strategy: \`${eq.dominantStrategy}\`) | payoff >= 0 or del/add >= ${eq.clusteredFiles?.length ? '40%' : '25%'} | ${eq.triggered ? '❌' : '✅'} |`,
+                `| Complexity score | ${complexity.score} (budget ${complexity.baseBudget} + deletion credit ${complexity.lineCredit} − change cost ${complexity.changeCost}) | Advisory | — |`,
               );
             }
 
@@ -221,10 +225,10 @@ jobs:
                 lines.push(`- \`${h.file}\`: +${h.added}/-${h.deleted} (net ${h.net >= 0 ? '+' : ''}${h.net})`);
               }
             }
-            if (eq?.clusteredFiles?.length) {
-              lines.push('', '**Clustered Review Hotspots (diminishing budget — require convergent refactor):**');
-              for (const f of eq.clusteredFiles) {
-                lines.push(`- \`${f}\` (>= 3 review comments with < 40% deletion ratio)`);
+            if (complexity?.hotspots.length) {
+              lines.push('', '**Review Hotspots:**');
+              for (const h of complexity.hotspots) {
+                lines.push(`- \`${h.file}\`: +${h.net} net lines, ${percent(h.deletionRatio)} del/add, ${h.reviewThreads} review threads`);
               }
             }
             if (hasScopeWarnings) {

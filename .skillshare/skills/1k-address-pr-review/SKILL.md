@@ -21,17 +21,13 @@ Use this skill when responding to existing PR review comments or AI review findi
    - Fixing review findings must NOT introduce new UI (modals, banners, dialogs, buttons), new user-facing flows, new copy/i18n keys, or unapproved product behavior changes.
    - Any comment whose fix would cross this boundary MUST be classified as **`Needs Decision`**, even if the underlying concern is valid.
 
-3. **Anti-Spin Breaker & Nash Equilibrium Convergence (Cluster Before Patching)**
-   - Do not blindly loop through findings one by one and stack defensive patches.
-   - Before proposing individual fixes, cluster findings by root cause, state lifecycle, or module boundary, and evaluate the **Nash Equilibrium Payoff (`U = ComplexityBudget + RefactorCredit - EntropyCost`)** via `yarn check:bloat`.
-   - Under the gate's payoff matrix:
-     - The 3rd+ review comment on the **same file** grants `+0` extra complexity budget and raises the required deletion ratio to `>= 40%`.
-     - Each net new state/ref flag costs `25` ECU and each new branching guard costs `4` ECU, whereas deleting legacy lines or state flags earns positive **Refactor Credit**.
+3. **Anti-Spin Breaker (Cluster Before Patching)**
+   - Group findings by root cause, state lifecycle, or module boundary before proposing fixes.
    - Trigger the **Refactor Gate** if any condition holds:
      - `>= 3` P0/P1 findings hit the same module, hook, service, or state flow
      - Findings conflict with each other or repeatedly patch around the same async/concurrency race
-     - `yarn check:bloat` reports `netPayoff < 0` (`dominantStrategy: CONVERGENT_REFACTOR`) or exits `2` (`REFACTOR_REQUIRED`)
-   - When the Refactor Gate triggers: stop proposing symptom-by-symptom patches. Summarize the current state, expose the broken boundary or state machine, and propose a **convergent refactor** (simplifying or shrinking code to eliminate the whole cluster) alongside minimal local-fix tradeoffs for the user to choose.
+     - `yarn check:bloat` exits `2` with `REFACTOR_REQUIRED`
+   - When the Refactor Gate triggers: explain the broken boundary and propose a shared fix that addresses the cluster. Use the complexity score and review hotspots as advisory evidence.
 
 4. **Evidence-Based Triage (Anti-Blind-Compliance)**
    - Reviewers and bots often only see diff hunks. Verify every finding against full local source, types, upstream guards, and OneKey runtime topology (`CLAUDE.md`).
@@ -103,20 +99,11 @@ When an independent verifier (e.g., Codex `codex:codex-rescue` or a fresh read-o
 - Ask neutrally: *"Verify against the local codebase whether this finding is a real actionable issue or a false positive, with concrete file:line evidence."*
 - **Human gate**: Even if the second opinion agrees a P0/P1 is a false positive, mark it **`Dismiss Candidate (需人工确认)`** — never silently drop a P0/P1 without user sign-off.
 
-### Step 3: Cluster, Anti-Spin & Nash Equilibrium Check
+### Step 3: Cluster & Anti-Spin Check
 
-Before writing the report, step back and inspect all verified findings together:
-1. For a GitHub PR with existing reviews, run `yarn check:bloat --pr <N>` to measure review-phase **fix amplification & deletion ratio**, **implicit state-flag & branching growth**, **Nash Equilibrium Payoff (`netPayoff` / `dominantStrategy`)**, and **UI/i18n scope-creep warnings**.
-2. Group findings by module / hook / service / state lifecycle and select the **Nash Equilibrium Dominant Strategy** for each group:
-
-| 场景 | 局部打补丁 (Local Patch) 的期望 Payoff | 收敛重构 / 举证驳回的期望 Payoff | 必选纳什均衡策略 |
-|---|---|---|---|
-| 单点真实 P0/P1，无新增状态标志位 | **正**（在基础预算内消除高危缺陷） | 低（过度设计） | **`Actionable (Local Fix)`** |
-| 同文件/模块 `>= 3` 条评论，或需新增第 3+ 个 state/ref 锁 | **负**（触发同文件边际预算归零 + 状态税 `25 ECU/flag` + 簇惩罚，门禁必挂） | **正**（删旧分支获重构奖励 `Refactor Credit`，一次性消掉整簇问题） | **`Actionable (Refactor Cluster)`** |
-| Reviewer 未看全上下文 / 要求加冗余防御或新 UI/文案 | **负**（白白消耗复杂度预算 + 触发 Scope Warn） | **正**（零代码熵增，引用 `file:line` 上游守卫直接结案或转人工决策） | **`False Positive` / `Needs Decision`** |
-
-3. Check the **Refactor Gate** criteria from Core Principles (triggered automatically if `yarn check:bloat` reports `netPayoff < 0` or exits `2` with `REFACTOR_REQUIRED`).
-4. If triggered, draft a concise **现状 → 根因 → 建议重划的状态机/边界 → 预期代码量与均衡 Payoff 变化** comparison so the user can choose between refactoring the boundary vs. applying targeted patches.
+1. For a GitHub PR with existing reviews, run `yarn check:bloat --pr <N>`. Check amplification, state growth, and scope warnings. Use the complexity score and hotspots to guide review of the diff.
+2. Group verified findings by root cause or lifecycle. If the checker returns `INCOMPLETE`, review the diff manually and record the reason.
+3. If the Refactor Gate triggers, summarize the root cause, the proposed boundary, and the expected complexity change.
 
 ### Step 4: Present Triage Report (STOP — No File Edits)
 
@@ -128,7 +115,7 @@ Output the report using this structure and wait for user selection:
 ## 概要
 - **来源**: PR #<N>（N 条未解决评论）/ 本地粘贴（N 条）
 - **分类统计**: Actionable (Local): X | Refactor Cluster: Y | Needs Decision: Z | False Positive / Dismiss Candidate: W
-- **纳什均衡与防自旋检查**: ✅ 已达局部修复均衡（Payoff >= 0，可直接局部修复） / ⚠️ 偏离均衡触发重构门禁（Payoff < 0，主导策略：`CONVERGENT_REFACTOR`）
+- **防自旋检查**: 门禁结果、相关复杂度指标和热点
 - **范围护栏**: N 条建议涉及新增 UI / 新流程，已拦截到 Needs Decision
 
 ## ⚠️ 重构建议（仅触发重构门禁时输出）

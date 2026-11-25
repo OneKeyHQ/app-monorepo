@@ -10,6 +10,10 @@ allowed-tools: Read, Grep, Glob, Write, StrReplace
 
 ## Workflow
 
+### Review-Fix Bloat Gate
+
+When the retrospective includes the bloat gate, run `yarn check:bloat --benchmark 30` before counting new cases. Include evaluated coverage, errors, incomplete baselines, and bypass simulations in the report even when there are too few cases for the checklist review. Inspect both flagged and passing patches before proposing threshold changes.
+
 ### Step 1: Read Cases
 
 Read `.claude/skills/1k-retrospective/references/case-studies.md`. Count cases since the last `<!-- Retrospective completed -->` marker. If fewer than 3 new cases, report "Not enough new cases" and stop.
@@ -49,22 +53,6 @@ Append to `case-studies.md`:
 ```
 <!-- Retrospective completed: YYYY-MM-DD | Cases analyzed: N | Changes applied: N -->
 ```
-
-### Step 7: Review-Fix Bloat Gate Calibration (Nash Equilibrium Audit)
-
-During each periodic retrospective, also audit the Review-Fix Bloat Gate (`development/scripts/check-bloat.mjs`) against the latest 30–50 PRs on GitHub:
-
-```bash
-yarn check:bloat --benchmark 30
-```
-
-1. **Check False-Positive Rate (`bloat-reviewed` bypasses & high-deletion flags)**:
-   - Target: `<= 2%` false positives on genuine refactors.
-   - If PRs with healthy deletion ratios (`22%–24%`) or `bloat-reviewed` labels are being flagged, propose lowering `THRESHOLDS.minDeletionRatio` (e.g. `0.25 -> 0.22`) or raising `THRESHOLDS.baseComplexityBudget`.
-2. **Check Intervention Band & Sub-Cliff Patch-Spinning**:
-   - Healthy intervention rate across evaluated PRs is **`10%–25%`**.
-   - If `borderlineSpinCandidates` reports PRs slipping just beneath the 120-line / 4-flag cliffs with `< 25%` deletion ratio, propose increasing `THRESHOLDS.stateFlagCostWeight` (e.g. `25 -> 35`) in `development/scripts/check-bloat.mjs`.
-3. Include the benchmark summary and any proposed `THRESHOLDS` tuning in the retrospective report before modifying `development/scripts/check-bloat.mjs`.
 
 ## Example
 

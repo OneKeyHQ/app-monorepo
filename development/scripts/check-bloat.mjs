@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Review-Fix Bloat, Scope-Creep & Nash Equilibrium Gate.
+ * Review-Fix Bloat and Scope-Creep Gate.
  *
  * Anchors at the PR's pre-review baseline (--pr auto-detects earliest
- * substantive post-draft review commit, or explicit --since) and evaluates:
+ * substantive review of a ready PR, or explicit --since) and evaluates:
  *   1. Fix Amplification & Deletion Ratio (via `git diff -M`, with hard cap)
  *   2. Executable Implicit State-Flag & Branching Growth + UI/i18n Scope-Creep
- *   3. Nash Equilibrium Utility (Payoff = Complexity Budget + Refactor Credit - Entropy Cost)
+ *   3. Advisory complexity score and review hotspots
  */
 
 import { spawnSync } from 'node:child_process';
@@ -18,12 +18,17 @@ export const THRESHOLDS = {
   maxAbsoluteFixNetLines: 300,
   maxAmplificationRatio: 0.5,
   minDeletionRatio: 0.25,
-  clusterMinDeletionRatio: 0.4,
+
   maxNetStateFlags: 4,
-  stateFlagCostWeight: 25,
-  branchCostWeight: 4,
-  clusterPenaltyWeight: 40,
-  baseComplexityBudget: 120,
+};
+
+const COMPLEXITY_SCORE = {
+  baseBudget: 120,
+  stateFlagCost: 25,
+  branchCost: 4,
+  hotspotMinThreads: 3,
+  hotspotMinNetLines: 60,
+  hotspotMinDeletionRatio: 0.4,
 };
 
 export const ZERO_BASELINE_RATIO_LABEL = 'N/A (baseline net growth is zero)';
@@ -48,7 +53,7 @@ const UI_PATTERNS = [
 ];
 const I18N_KEY_RE = /\bETranslations\.[A-Za-z0-9_]+\b/g;
 const NON_SUBSTANTIVE_REVIEW_BODY_RE =
-  /Not posted on this PR by your GitHub settings|<!--\s*onekey-pr-review-bloat-gate\s*-->|^\s*(?:LGTM!?|Approved\.?)\s*$/i;
+  /Not posted on this PR by your GitHub settings|<!--\s*(?:onekey-pr-review-bloat-gate|codex-review-receipt:v1)\s*-->|^\s*(?:LGTM|Approved|Looks good)[.!]?\s*$/i;
 
 function parseArgs(argv) {
   const opts = {
@@ -132,10 +137,7 @@ function pickBase(explicit) {
 }
 
 function mergeBase(baseRef, commitRef) {
-  const res = runGit(['merge-base', baseRef, commitRef], true);
-  return res.status === 0
-    ? res.stdout.trim()
-    : runGit(['rev-parse', baseRef]).stdout.trim();
+  return runGit(['merge-base', baseRef, commitRef]).stdout.trim();
 }
 
 function resolveRepo(explicit) {
@@ -154,70 +156,101 @@ function resolveRepo(explicit) {
   throw new Error('Unable to resolve GitHub repo; pass --repo owner/name');
 }
 
-function fetchGhArray(endpoint, allowFail = false) {
-  const res = runCmd(
-    'gh',
-    ['api', '--paginate', '--slurp', endpoint],
-    allowFail,
-  );
-  if (res.status !== 0 || !res.stdout.trim()) return [];
-  const pages = JSON.parse(res.stdout);
+function fetchGhArray(endpoint) {
+  const { stdout } = runCmd('gh', ['api', '--paginate', '--slurp', endpoint]);
+  const pages = JSON.parse(stdout);
   if (!Array.isArray(pages)) throw new Error(`Invalid response: ${endpoint}`);
   return pages.flat();
 }
 
 export function isSubstantiveReview(review) {
-  if (!review || !review.submitted_at) return false;
-  const state = review.state || '';
-  if (state !== 'CHANGES_REQUESTED' && state !== 'COMMENTED') return false;
+  if (!review?.submitted_at) return false;
+  const { state } = review;
+  if (!['CHANGES_REQUESTED', 'COMMENTED', 'APPROVED'].includes(state)) {
+    return false;
+  }
   const body = (review.body || '').trim();
-  if (state === 'COMMENTED' && !body) {
-    // Empty COMMENTED reviews are envelopes for inline comments, which are
-    // tracked individually with file/line metadata via pulls/{pr}/comments.
-    return false;
-  }
-  if (body && NON_SUBSTANTIVE_REVIEW_BODY_RE.test(body)) {
-    return false;
-  }
-  return true;
+  if (!body) return state === 'CHANGES_REQUESTED';
+  return !NON_SUBSTANTIVE_REVIEW_BODY_RE.test(body);
 }
 
 export function selectEarliestReviewAnchor({
   reviews = [],
   comments = [],
-  readyForReviewAt = null,
+  events = [],
+  draft = false,
   prAuthor = '',
 }) {
-  const readyMs = readyForReviewAt ? Date.parse(readyForReviewAt) : null;
-  const candidates = [];
-  const reviewFileCounts = {};
+  const transitions = events
+    .filter(
+      (event) =>
+        ['ready_for_review', 'convert_to_draft'].includes(event.event) &&
+        Number.isFinite(Date.parse(event.created_at)),
+    )
+    .toSorted((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const initiallyDraft = transitions.length
+    ? transitions[0].event === 'ready_for_review'
+    : draft;
+  const isReadyAt = (at) => {
+    const transition = transitions.findLast(
+      (item) => Date.parse(item.created_at) <= Date.parse(at),
+    );
+    return transition
+      ? transition.event === 'ready_for_review'
+      : !initiallyDraft;
+  };
 
-  for (const r of reviews) {
-    if (isSubstantiveReview(r) && (!prAuthor || r.user?.login !== prAuthor)) {
+  const candidates = [];
+  const reviewFileCounts = new Map();
+  const reviewsById = new Map(reviews.map((review) => [review.id, review]));
+
+  for (const review of reviews) {
+    if (
+      review.user?.login !== prAuthor &&
+      isSubstantiveReview(review) &&
+      isReadyAt(review.submitted_at)
+    ) {
       candidates.push({
-        at: r.submitted_at,
-        sha: r.commit_id || '',
-        source: `review:${r.user?.login || 'unknown'}`,
-        isBot: r.user?.type === 'Bot',
+        at: review.submitted_at,
+        sha: review.commit_id || '',
+        source: `review:${review.user?.login || 'unknown'}`,
       });
     }
   }
 
-  for (const c of comments) {
-    // Exclude thread replies (e.g. author "Fixed in <sha>" responses) and
-    // self-comments by the PR author so replies do not inflate per-file cluster counts.
-    const isReply = Boolean(c?.in_reply_to_id);
-    const isSelf = Boolean(prAuthor && c?.user?.login === prAuthor);
-    if (c && c.created_at && !isReply && !isSelf) {
-      if (c.path && isTargetCodeFile(c.path)) {
-        reviewFileCounts[c.path] = (reviewFileCounts[c.path] || 0) + 1;
+  const externalComments = comments
+    .filter((comment) => comment.created_at && comment.user?.login !== prAuthor)
+    .map((comment) => {
+      const review = reviewsById.get(comment.pull_request_review_id);
+      const at =
+        Date.parse(review?.submitted_at) > Date.parse(comment.created_at)
+          ? review.submitted_at
+          : comment.created_at;
+      return { comment, review, at };
+    })
+    .filter(({ at }) => isReadyAt(at))
+    .toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at));
+
+  const countedThreads = new Set();
+  for (const { comment, review, at } of externalComments) {
+    // Replies refer to the root. The first external comment in a ready period
+    // can anchor a thread the author started, without counting later replies.
+    const threadId = comment.in_reply_to_id || comment.id;
+    if (!countedThreads.has(threadId)) {
+      countedThreads.add(threadId);
+      if (isTargetCodeFile(comment.path)) {
+        reviewFileCounts.set(
+          comment.path,
+          (reviewFileCounts.get(comment.path) || 0) + 1,
+        );
       }
       candidates.push({
-        at: c.created_at,
-        sha: c.original_commit_id || c.commit_id || '',
-        source: `comment:${c.user?.login || 'unknown'}`,
-        isBot: c.user?.type === 'Bot',
-        path: c.path || '',
+        at,
+        // A root comment's current commit_id moves as the PR advances.
+        sha: comment.in_reply_to_id
+          ? review?.commit_id || ''
+          : comment.original_commit_id || review?.commit_id || '',
+        source: `comment:${comment.user?.login || 'unknown'}`,
       });
     }
   }
@@ -225,71 +258,20 @@ export function selectEarliestReviewAnchor({
   const sorted = candidates.toSorted(
     (a, b) => Date.parse(a.at) - Date.parse(b.at),
   );
-  if (!sorted.length) {
-    return { earliest: null, reviewFileCounts, totalReviewComments: 0 };
-  }
-
-  // Prefer the earliest review at or after ready_for_review so early bot comments
-  // on WIP drafts do not prematurely lock the baseline on commit #1.
-  const postDraft =
-    readyMs && !Number.isNaN(readyMs)
-      ? sorted.filter((item) => Date.parse(item.at) >= readyMs)
-      : [];
-  const earliest = postDraft[0] || sorted[0];
-
   return {
-    earliest,
-    reviewFileCounts,
+    earliest: sorted[0] || null,
+    reviewFileCounts: Object.fromEntries(reviewFileCounts),
     totalReviewComments: candidates.length,
   };
 }
 
-export function findPreReviewCommitFromLog(logOutput, earliestAt) {
-  const cutoffMs = Date.parse(earliestAt);
-  if (Number.isNaN(cutoffMs) || !logOutput.trim()) return '';
-
-  // Expected format per line: "<sha>\t<authorIso>\t<committerIso>" ordered newest-first.
-  // Checking authorDate makes the lookup resilient to `git rebase`, which
-  // overwrites committerDate to the rebase timestamp while preserving authorDate.
-  for (const line of logOutput.split('\n').filter(Boolean)) {
-    const [sha, authorIso, committerIso] = line.split('\t');
-    const authorMs = authorIso ? Date.parse(authorIso) : NaN;
-    const committerMs = committerIso ? Date.parse(committerIso) : NaN;
-    if (
-      (!Number.isNaN(committerMs) && committerMs <= cutoffMs) ||
-      (!Number.isNaN(authorMs) && authorMs <= cutoffMs)
-    ) {
-      return sha.trim();
-    }
-  }
-  return '';
-}
-
-function fetchReadyForReviewTimestamp(repo, pr) {
-  const events = fetchGhArray(`repos/${repo}/issues/${pr}/events`, true);
-  let latestReadyAt = null;
-  for (const ev of events) {
-    if (ev?.event === 'ready_for_review' && ev.created_at) {
-      if (
-        !latestReadyAt ||
-        Date.parse(ev.created_at) > Date.parse(latestReadyAt)
-      ) {
-        latestReadyAt = ev.created_at;
-      }
-    }
-  }
-  return latestReadyAt;
-}
-
-function fetchReviewState(repo, pr, prAuthor = '') {
-  const reviews = fetchGhArray(`repos/${repo}/pulls/${pr}/reviews`);
-  const comments = fetchGhArray(`repos/${repo}/pulls/${pr}/comments`);
-  const readyForReviewAt = fetchReadyForReviewTimestamp(repo, pr);
+function fetchReviewState(repo, pr, prMeta) {
   return selectEarliestReviewAnchor({
-    reviews,
-    comments,
-    readyForReviewAt,
-    prAuthor,
+    reviews: fetchGhArray(`repos/${repo}/pulls/${pr}/reviews`),
+    comments: fetchGhArray(`repos/${repo}/pulls/${pr}/comments`),
+    events: fetchGhArray(`repos/${repo}/issues/${pr}/events`),
+    draft: prMeta.draft,
+    prAuthor: prMeta.user?.login || '',
   });
 }
 
@@ -342,7 +324,7 @@ function resolveSnapshots(opts) {
   const { earliest, reviewFileCounts, totalReviewComments } = fetchReviewState(
     repo,
     opts.pr,
-    prMeta.user?.login || '',
+    prMeta,
   );
   if (!earliest) {
     return {
@@ -354,33 +336,14 @@ function resolveSnapshots(opts) {
     };
   }
 
-  let preReviewSha = '';
-  let baselineSource = `${earliest.source}@${earliest.at}`;
-  if (ensureCommit(earliest.sha)) {
-    preReviewSha = runGit(['rev-parse', earliest.sha]).stdout.trim();
-  } else {
-    const logOut = runGit(
-      [
-        'log',
-        '--format=%H%x09%aI%x09%cI',
-        `${currentBase}..${targetRef || 'HEAD'}`,
-      ],
-      true,
-    ).stdout;
-    preReviewSha = findPreReviewCommitFromLog(logOut, earliest.at);
-    if (preReviewSha) baselineSource += ' (author-timestamp-fallback)';
+  const baselineSource = `${earliest.source}@${earliest.at}`;
+  if (!ensureCommit(earliest.sha)) {
+    return incompleteReport(
+      { mode: 'pr', baseRef, baselineSource },
+      'review_commit_unreachable',
+    );
   }
-
-  if (!preReviewSha) {
-    return {
-      outcome: 'INCOMPLETE',
-      skipped: true,
-      skipReason: 'baseline_unreachable_after_rebase',
-      mode: 'pr',
-      baseRef,
-      baselineSource,
-    };
-  }
+  const preReviewSha = runGit(['rev-parse', earliest.sha]).stdout.trim();
 
   return {
     outcome: 'EVALUATE',
@@ -397,47 +360,53 @@ function resolveSnapshots(opts) {
   };
 }
 
-function expandRenamePath(rawPath) {
-  const brace = rawPath.match(/^(.*)\{(.*) => (.*)\}(.*)$/);
-  if (brace)
-    return [
-      `${brace[1]}${brace[2]}${brace[4]}`,
-      `${brace[1]}${brace[3]}${brace[4]}`,
-    ];
-  const arrow = rawPath.split(' => ');
-  return arrow.length === 2 ? [arrow[0], arrow[1]] : [rawPath, rawPath];
+function incompleteReport(snapshot, reason) {
+  return {
+    ...snapshot,
+    verdict: 'INCOMPLETE',
+    outcome: 'INCOMPLETE',
+    skipped: true,
+    skipReason: reason,
+  };
 }
 
-function collectDiffStats(
-  fromRef,
-  toRef,
-  { includeUntracked = false, onlyPaths = null } = {},
-) {
+function collectDiffStats(fromRef, toRef, { includeUntracked = false } = {}) {
   const rangeArgs = toRef ? [fromRef, toRef] : [fromRef];
-  const out = runGit(['diff', '-M', '--numstat', ...rangeArgs, '--']).stdout;
+  const records = runGit([
+    'diff',
+    '-M',
+    '--numstat',
+    '-z',
+    ...rangeArgs,
+    '--',
+  ]).stdout.split('\0');
   let added = 0;
   let deleted = 0;
   const paths = new Set();
   const trackedNewPaths = new Set();
   const entries = [];
 
-  for (const line of out.split('\n').filter(Boolean)) {
-    const [aStr, dStr, rawPath] = line.split('\t');
-    if (rawPath && aStr !== '-' && dStr !== '-') {
-      const [oldP, newP] = expandRenamePath(rawPath);
-      const inScope =
-        (isTargetCodeFile(oldP) || isTargetCodeFile(newP)) &&
-        (!onlyPaths || onlyPaths.has(oldP) || onlyPaths.has(newP));
-      if (inScope) {
-        const a = Number(aStr);
-        const d = Number(dStr);
-        added += a;
-        deleted += d;
-        paths.add(oldP);
-        paths.add(newP);
-        if (newP) trackedNewPaths.add(newP);
-        entries.push({ file: newP || oldP, added: a, deleted: d, net: a - d });
-      }
+  for (let index = 0; index < records.length - 1; index += 1) {
+    const [, aStr, dStr, rawPath] = /^(\S+)\t(\S+)\t([\s\S]*)$/.exec(
+      records[index],
+    );
+    const [oldP, newP] = rawPath
+      ? [rawPath, rawPath]
+      : [records[index + 1], records[index + 2]];
+    if (!rawPath) index += 2;
+    if (
+      aStr !== '-' &&
+      dStr !== '-' &&
+      (isTargetCodeFile(oldP) || isTargetCodeFile(newP))
+    ) {
+      const a = Number(aStr);
+      const d = Number(dStr);
+      added += a;
+      deleted += d;
+      paths.add(oldP);
+      paths.add(newP);
+      trackedNewPaths.add(newP);
+      entries.push({ file: newP, added: a, deleted: d, net: a - d });
     }
   }
 
@@ -447,19 +416,13 @@ function collectDiffStats(
       'ls-files',
       '--others',
       '--exclude-standard',
+      '-z',
       '--',
     ]).stdout;
-    for (const f of ls
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)) {
-      if (
-        isTargetCodeFile(f) &&
-        !trackedNewPaths.has(f) &&
-        (!onlyPaths || onlyPaths.has(f)) &&
-        fs.existsSync(f)
-      ) {
-        const lines = fs.readFileSync(f, 'utf8').split('\n').length;
+    for (const f of ls.split('\0').filter(Boolean)) {
+      if (isTargetCodeFile(f) && !trackedNewPaths.has(f) && fs.existsSync(f)) {
+        const text = fs.readFileSync(f, 'utf8');
+        const lines = text ? text.replace(/\n$/, '').split('\n').length : 0;
         added += lines;
         paths.add(f);
         untrackedFiles.push(f);
@@ -480,116 +443,31 @@ function collectDiffStats(
   };
 }
 
-/**
- * Eliminates upstream base-branch pollution when a PR merges or rebases onto a
- * newer base branch during review (`origBase !== currentBase`).
- * For files untouched by upstream between `origBase..currentBase`, the direct
- * `preReviewSha..targetRef` diff is exact. For files also modified by upstream,
- * we compute the PR-isolated delta from `currStats` vs `origStats`.
- */
-export function reconcileBaseAdvancedStats(
-  origStats,
-  currStats,
-  rawFixStats,
-  upstreamChangedPaths = new Set(),
-) {
-  if (!upstreamChangedPaths || upstreamChangedPaths.size === 0) {
-    return rawFixStats;
-  }
-
-  const origByFile = new Map((origStats.entries || []).map((e) => [e.file, e]));
-  const currByFile = new Map((currStats.entries || []).map((e) => [e.file, e]));
-  const rawByFile = new Map(
-    (rawFixStats.entries || []).map((e) => [e.file, e]),
+function alignReviewTree({ origBase, currentBase, preReviewSha }) {
+  if (origBase === currentBase) return preReviewSha;
+  // Compare two trees on the same base without touching the index or worktree.
+  const result = runGit(
+    ['merge-tree', '--write-tree', currentBase, preReviewSha],
+    true,
   );
-
-  const allFiles = new Set([
-    ...origByFile.keys(),
-    ...currByFile.keys(),
-    ...rawByFile.keys(),
-  ]);
-
-  let added = 0;
-  let deleted = 0;
-  const entries = [];
-  const paths = new Set();
-
-  for (const file of allFiles) {
-    if (!upstreamChangedPaths.has(file)) {
-      const raw = rawByFile.get(file);
-      if (raw && (raw.added > 0 || raw.deleted > 0)) {
-        added += raw.added;
-        deleted += raw.deleted;
-        paths.add(file);
-        entries.push(raw);
-      }
-    } else {
-      const orig = origByFile.get(file) || { added: 0, deleted: 0, net: 0 };
-      const curr = currByFile.get(file) || { added: 0, deleted: 0, net: 0 };
-      const netDelta = curr.net - orig.net;
-      let fileAdded = Math.max(0, curr.added - orig.added);
-      let fileDeleted = Math.max(0, curr.deleted - orig.deleted);
-      // Ensure fileAdded - fileDeleted === netDelta
-      const diff = netDelta - (fileAdded - fileDeleted);
-      if (diff > 0) fileAdded += diff;
-      else if (diff < 0) fileDeleted += -diff;
-
-      if (fileAdded > 0 || fileDeleted > 0) {
-        added += fileAdded;
-        deleted += fileDeleted;
-        paths.add(file);
-        entries.push({
-          file,
-          added: fileAdded,
-          deleted: fileDeleted,
-          net: netDelta,
-        });
-      }
-    }
+  if (result.status === 1) return null;
+  if (result.status !== 0) {
+    throw new Error(`Unable to align review tree: ${result.stderr.trim()}`);
   }
-
-  return {
-    added,
-    deleted,
-    net: added - deleted,
-    paths,
-    untrackedFiles: rawFixStats.untrackedFiles || [],
-    entries,
-    fileCount: entries.length,
-    hotspots: entries.toSorted((a, b) => b.net - a.net).slice(0, 5),
-  };
+  return result.stdout.trim();
 }
 
 function stripNonExecutable(lines) {
-  const kept = [];
-  let inBlock = false;
-  for (const raw of lines) {
-    let line = raw;
-    if (inBlock) {
-      const end = line.indexOf('*/');
-      if (end === -1) line = '';
-      else {
-        line = line.slice(end + 2);
-        inBlock = false;
-      }
-    }
-    line = line.replace(/\/\*[\s\S]*?\*\//g, '');
-    const start = line.indexOf('/*');
-    if (start !== -1) {
-      line = line.slice(0, start);
-      inBlock = true;
-    }
-    const clean = line.replace(/\/\/.*$/, '').trim();
-    if (
-      clean &&
-      !/^(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+)/.test(
-        clean,
-      )
-    ) {
-      kept.push(clean);
-    }
-  }
-  return kept.join('\n');
+  // Mask comments and literals together so comment markers in strings don't consume code.
+  const tokens =
+    /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|`(?:\\[\s\S]|[^`\\])*`/g;
+  return lines
+    .join('\n')
+    .replace(tokens, (token) => token.replace(/[^\n]/g, ' '))
+    .replace(
+      /^\s*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
+      '',
+    );
 }
 
 function scanPatterns(fromRef, toRef, trackedPaths, untrackedFiles) {
@@ -633,6 +511,9 @@ function scanPatterns(fromRef, toRef, trackedPaths, untrackedFiles) {
   if (trackedPaths.length) {
     const rangeArgs = toRef ? [fromRef, toRef] : [fromRef];
     const diffOut = runGit([
+      '-c',
+      'core.quotePath=false',
+      '--literal-pathspecs',
       'diff',
       '-M',
       '-U0',
@@ -709,121 +590,42 @@ export function evaluateAmplification({
   };
 }
 
-/**
- * Evaluates the Reviewer-Fixer Nash Equilibrium payoff:
- *   NetPayoff (U) = ComplexityBudget (B) + RefactorCredit (R) - EntropyCost (C)
- *
- * Game-theoretic design:
- *   - Diminishing budget per file: the 1st and 2nd review comments on a file
- *     grant +20 / +10 ECU budget; the 3rd+ comment on the SAME file grants +0
- *     budget and flags the file as a cluster requiring >= 40% deletion ratio.
- *   - High tax on implicit state flags (+25 ECU each) and branching (+4 ECU each).
- *   - Positive refactor credit for deleting legacy lines (when deletionRatio >= 25%)
- *     or eliminating state flags/branches, making convergent refactoring the
- *     strictly dominant strategy over symptom-by-symptom patching.
- */
-export function evaluateEquilibrium({
-  origNet: rawOrigNet = 0,
-  fixAdded = 0,
-  fixDeleted = 0,
-  fixNet = fixAdded - fixDeleted,
-  netStateFlags = 0,
-  netBranches = 0,
-  reviewFileCounts = {},
-  fileEntries = [],
-  thresholds = THRESHOLDS,
+export function evaluateComplexityScore({
+  fixAdded,
+  fixDeleted,
+  fixNet,
+  netStateFlags,
+  netBranches,
+  reviewFileCounts,
+  fileEntries,
 }) {
-  const origNet = Math.max(0, rawOrigNet);
-  const deletionRatio =
-    fixAdded > 0 ? Number((fixDeleted / fixAdded).toFixed(3)) : 1;
-
-  // 1. Complexity Budget (B) with per-file diminishing marginal allowance
-  const baseBudget = thresholds.baseComplexityBudget ?? 120;
-  const scaleBonus =
-    origNet > 0
-      ? Math.min(60, Math.floor(Math.max(0, origNet - 240) * 0.25))
-      : 0;
-  let reviewBonus = 0;
-  const clusteredFiles = [];
-  const entryMap = new Map((fileEntries || []).map((e) => [e.file, e]));
-
-  for (const [file, count] of Object.entries(reviewFileCounts || {})) {
-    if (count >= 1) reviewBonus += 20;
-    if (count >= 2) reviewBonus += 10;
-    // 3rd+ comment on the same file grants 0 extra budget (anti-spin)
-    if (count >= 3) {
-      const entry = entryMap.get(file);
-      const fileDelRatio =
-        entry && entry.added > 0 ? entry.deleted / entry.added : 1;
-      if (
-        entry &&
-        entry.net >= 60 &&
-        fileDelRatio < (thresholds.clusterMinDeletionRatio ?? 0.4)
-      ) {
-        clusteredFiles.push(file);
-      }
-    }
-  }
-  reviewBonus = Math.min(60, reviewBonus);
-  const hardCap = thresholds.maxAbsoluteFixNetLines ?? 300;
-  const complexityBudget = Math.min(
-    hardCap,
-    baseBudget + scaleBonus + reviewBonus,
-  );
-
-  // 2. Entropy Cost (C)
-  const lineGrowthCost = Math.max(0, fixNet);
-  const stateFlagCost =
-    Math.max(0, netStateFlags) * (thresholds.stateFlagCostWeight ?? 25);
-  const branchCost =
-    Math.max(0, netBranches) * (thresholds.branchCostWeight ?? 4);
-  const clusterPenalty =
-    clusteredFiles.length * (thresholds.clusterPenaltyWeight ?? 40);
-  const entropyCost =
-    lineGrowthCost + stateFlagCost + branchCost + clusterPenalty;
-
-  // 3. Refactor Credit (R)
-  const lineRefactorCredit =
-    deletionRatio >= thresholds.minDeletionRatio
+  const { baseBudget, stateFlagCost, branchCost } = COMPLEXITY_SCORE;
+  const lineCredit =
+    fixAdded === 0 || fixDeleted / fixAdded >= THRESHOLDS.minDeletionRatio
       ? Math.floor(fixDeleted * 0.5)
       : 0;
-  const stateReductionCredit =
-    Math.max(0, -netStateFlags) * (thresholds.stateFlagCostWeight ?? 25);
-  const branchReductionCredit =
-    Math.max(0, -netBranches) * (thresholds.branchCostWeight ?? 4);
-  const refactorCredit =
-    lineRefactorCredit + stateReductionCredit + branchReductionCredit;
-
-  // 4. Net Payoff (U) & Equilibrium Verdict
-  const netPayoff = complexityBudget + refactorCredit - entropyCost;
-  const hasMultiDimBloat =
-    netStateFlags >= 2 ||
-    clusteredFiles.length > 0 ||
-    fixNet >= thresholds.minFixNetLines;
-  const triggered =
-    netPayoff < 0 &&
-    deletionRatio < thresholds.minDeletionRatio &&
-    hasMultiDimBloat;
-
-  let dominantStrategy = 'CONVERGED_LOCAL_FIX';
-  if (triggered || netPayoff < 0) {
-    dominantStrategy =
-      clusteredFiles.length > 0 ||
-      netStateFlags >= 3 ||
-      deletionRatio < thresholds.minDeletionRatio
-        ? 'CONVERGENT_REFACTOR'
-        : 'PRUNE_DEFENSIVE_PATCHES';
-  }
+  const changeCost =
+    fixNet + netStateFlags * stateFlagCost + netBranches * branchCost;
+  const hotspots = fileEntries
+    .filter(
+      ({ file, net, added, deleted }) =>
+        reviewFileCounts[file] >= COMPLEXITY_SCORE.hotspotMinThreads &&
+        net >= COMPLEXITY_SCORE.hotspotMinNetLines &&
+        deleted / added < COMPLEXITY_SCORE.hotspotMinDeletionRatio,
+    )
+    .map(({ file, net, added, deleted }) => ({
+      file,
+      net,
+      deletionRatio: deleted / added,
+      reviewThreads: reviewFileCounts[file],
+    }));
 
   return {
-    complexityBudget,
-    entropyCost,
-    refactorCredit,
-    netPayoff,
-    netBranches,
-    clusteredFiles,
-    dominantStrategy,
-    triggered,
+    score: baseBudget + lineCredit - changeCost,
+    baseBudget,
+    lineCredit,
+    changeCost,
+    hotspots,
   };
 }
 
@@ -842,61 +644,38 @@ export function formatCliAmplificationLine(amp) {
   return `  1. Fix Amplification: +${amp.fixAdded}/-${amp.fixDeleted} (net ${netLabel}) vs orig +${amp.origNet} | ratio=${ratioLabel} | del/add=${delLabel} [${status}]`;
 }
 
-export function formatCliEquilibriumLine(eq) {
-  const payoffLabel = `${eq.netPayoff >= 0 ? '+' : ''}${eq.netPayoff}`;
-  const status = eq.triggered ? 'FAIL' : 'OK';
-  return `  3. Nash Equilibrium Payoff: ${payoffLabel} ECU (budget=${eq.complexityBudget} + credit=${eq.refactorCredit} - cost=${eq.entropyCost}) | strategy=${eq.dominantStrategy} [${status}]`;
-}
-
 export function summarizeBenchmarkResults(items = []) {
   const evaluated = items.filter((item) => !item.skipped && item.amplification);
-  const passed = evaluated.filter((item) => item.verdict === 'PASS');
-  const flagged = evaluated.filter(
+  const enforced = evaluated.filter((item) => !item.bypassed);
+  const passed = enforced.filter((item) => item.verdict === 'PASS');
+  const flagged = enforced.filter(
     (item) => item.verdict === 'REFACTOR_REQUIRED',
   );
   const bypassed = items.filter((item) => item.bypassed);
-  const falsePositiveCandidates = flagged.filter(
-    (item) => item.bypassed || (item.amplification?.deletionRatio ?? 0) >= 0.22,
+  const incomplete = items.filter((item) => item.outcome === 'INCOMPLETE');
+  const errors = items.filter((item) => item.outcome === 'ERROR');
+  const advisory = evaluated.filter((item) =>
+    Number.isFinite(item.complexity?.score),
   );
-  const borderlineSpinCandidates = passed.filter(
-    (item) =>
-      (item.amplification?.fixNet ?? 0) >= 90 &&
-      (item.amplification?.deletionRatio ?? 1) < 0.25,
-  );
-
-  const interventionRate =
-    evaluated.length > 0
-      ? Number((flagged.length / evaluated.length).toFixed(3))
-      : 0;
-  const recommendations = [];
-  if (falsePositiveCandidates.length > 0) {
-    recommendations.push(
-      `Inspect ${falsePositiveCandidates.length} potential false-positive PR(s) (${falsePositiveCandidates.map((p) => `#${p.number}`).join(', ')}): consider lowering minDeletionRatio from 0.25 to 0.22 if genuine refactors were flagged.`,
-    );
-  }
-  if (interventionRate > 0.3) {
-    recommendations.push(
-      `Intervention rate is ${(interventionRate * 100).toFixed(0)}% (> 30% target band): consider raising baseComplexityBudget from ${THRESHOLDS.baseComplexityBudget} to ${THRESHOLDS.baseComplexityBudget + 30}.`,
-    );
-  }
-  if (borderlineSpinCandidates.length >= 2) {
-    recommendations.push(
-      `Found ${borderlineSpinCandidates.length} sub-cliff low-deletion PR(s) (${borderlineSpinCandidates.map((p) => `#${p.number}`).join(', ')}): consider raising stateFlagCostWeight from ${THRESHOLDS.stateFlagCostWeight} to 35.`,
-    );
-  }
-  if (!recommendations.length) {
-    recommendations.push(
-      'CALIBRATED: intervention rate is within the 10%-25% target band with 0 false-positive overrides.',
-    );
-  }
 
   return {
     totalPrs: items.length,
     evaluatedCount: evaluated.length,
+    nonBypassedEvaluatedCount: enforced.length,
     passedCount: passed.length,
     refactorRequiredCount: flagged.length,
     bypassedCount: bypassed.length,
-    interventionRate,
+    incompleteCount: incomplete.length,
+    errorCount: errors.length,
+    otherSkippedCount:
+      items.length - evaluated.length - incomplete.length - errors.length,
+    interventionRate: enforced.length ? flagged.length / enforced.length : null,
+    bypassedSimulations: evaluated
+      .filter((item) => item.bypassed)
+      .map(({ number, verdict }) => ({ number, verdict })),
+    advisoryCount: advisory.length,
+    negativeScoreCount: advisory.filter((item) => item.complexity.score < 0)
+      .length,
     flaggedPrs: flagged.map((p) => ({
       number: p.number,
       title: p.title,
@@ -904,17 +683,29 @@ export function summarizeBenchmarkResults(items = []) {
       fixNet: p.amplification?.fixNet ?? 0,
       deletionRatio: p.amplification?.deletionRatio ?? 0,
       netStateFlags: p.stateFlags?.netStateFlags ?? 0,
-      netPayoff: p.equilibrium?.netPayoff ?? 0,
+      score: p.complexity?.score ?? null,
     })),
-    falsePositiveCandidates: falsePositiveCandidates.map((p) => p.number),
-    borderlineSpinCandidates: borderlineSpinCandidates.map((p) => p.number),
-    recommendations,
+    incompletePrs: incomplete.map(({ number, skipReason }) => ({
+      number,
+      reason: skipReason,
+    })),
+    errorPrs: errors.map(({ number, error }) => ({ number, error })),
   };
 }
 
 function runBenchmarkMode(opts) {
   const limit = Math.max(1, Math.min(100, Number(opts.benchmark) || 30));
   const repo = resolveRepo(opts.repo);
+  const base = 'x';
+  const baseSha = runCmd('gh', [
+    'api',
+    `repos/${repo}/git/ref/heads/${base}`,
+    '--jq',
+    '.object.sha',
+  ]).stdout.trim();
+  if (!ensureCommit(baseSha)) {
+    throw new Error(`Benchmark base commit not available: ${repo}@${baseSha}`);
+  }
   const prListRaw = runCmd('gh', [
     'pr',
     'list',
@@ -922,6 +713,8 @@ function runBenchmarkMode(opts) {
     repo,
     '--state',
     'all',
+    '--base',
+    base,
     '--limit',
     String(limit),
     '--json',
@@ -942,16 +735,23 @@ function runBenchmarkMode(opts) {
         String(pr.number),
         '--repo',
         repo,
+        '--base',
+        baseSha,
         '--json',
         '--warn-only',
       ],
       true,
     );
-    let parsed = { skipped: true, outcome: 'ERROR', verdict: 'PASS' };
+    let parsed;
     try {
+      if (res.status !== 0) throw new Error(res.stderr.trim());
       parsed = JSON.parse(res.stdout);
-    } catch {
-      // Keep fallback on transient error
+    } catch (error) {
+      parsed = {
+        skipped: true,
+        outcome: 'ERROR',
+        error: error.message || `Analysis exited with status ${res.status}`,
+      };
     }
     results.push({
       number: pr.number,
@@ -962,25 +762,46 @@ function runBenchmarkMode(opts) {
     });
   }
 
-  const summary = summarizeBenchmarkResults(results);
+  const summary = { base, baseSha, ...summarizeBenchmarkResults(results) };
   if (opts.json) {
     console.log(JSON.stringify(summary, null, 2));
   } else {
     console.log(
-      `[check:bloat] Benchmark across latest ${summary.totalPrs} PRs (${repo}):`,
+      `[check:bloat] Benchmark across latest ${summary.totalPrs} PRs (${repo}:${base}@${baseSha.slice(0, 10)}):`,
+    );
+    const rate =
+      summary.interventionRate === null
+        ? 'N/A'
+        : `${(summary.interventionRate * 100).toFixed(0)}%`;
+    console.log(
+      `  Evaluated: ${summary.evaluatedCount} | Evaluated without bypass: ${summary.nonBypassedEvaluatedCount} | PASS: ${summary.passedCount} | REFACTOR_REQUIRED: ${summary.refactorRequiredCount} (${rate}) | Currently labeled bloat-reviewed: ${summary.bypassedCount}`,
     );
     console.log(
-      `  Evaluated: ${summary.evaluatedCount} | PASS: ${summary.passedCount} | REFACTOR_REQUIRED: ${summary.refactorRequiredCount} (${(summary.interventionRate * 100).toFixed(0)}%) | Bypassed (bloat-reviewed): ${summary.bypassedCount}`,
+      `  Incomplete: ${summary.incompleteCount} | Errors: ${summary.errorCount} | Other skips: ${summary.otherSkippedCount} | Negative advisory scores: ${summary.negativeScoreCount}/${summary.advisoryCount}`,
     );
-    for (const f of summary.flaggedPrs) {
+    for (const item of [...summary.incompletePrs, ...summary.errorPrs]) {
+      console.log(`  - #${item.number}: ${item.reason || item.error}`);
+    }
+    for (const item of summary.bypassedSimulations) {
       console.log(
-        `  - #${f.number}: fixNet=+${f.fixNet} (orig +${f.origNet}), del/add=${(f.deletionRatio * 100).toFixed(0)}%, flags=+${f.netStateFlags}, payoff=${f.netPayoff} | ${f.title}`,
+        `  - #${item.number}: ${item.verdict} without the current bypass label`,
       );
     }
-    for (const rec of summary.recommendations) {
-      console.log(`  [CALIBRATION] ${rec}`);
+    for (const f of summary.flaggedPrs) {
+      console.log(
+        `  - #${f.number}: fixNet=${f.fixNet} (orig +${f.origNet}), del/add=${(f.deletionRatio * 100).toFixed(0)}%, flags=${f.netStateFlags}, score=${f.score ?? 'N/A'} | ${f.title}`,
+      );
     }
   }
+}
+
+function printSkipped(snapshot, json) {
+  const report = { verdict: 'PASS', ...snapshot };
+  console.log(
+    json
+      ? JSON.stringify(report, null, 2)
+      : `[check:bloat] ${report.outcome} (${report.skipReason}) — VERDICT: ${report.verdict}`,
+  );
 }
 
 function main() {
@@ -998,90 +819,54 @@ function main() {
 
   const snap = resolveSnapshots(opts);
   if (snap.skipped) {
-    const out = { ...snap, verdict: 'PASS' };
-    console.log(
-      opts.json
-        ? JSON.stringify(out, null, 2)
-        : `[check:bloat] ${out.outcome} (${out.skipReason}) — VERDICT: PASS`,
-    );
-    process.exit(0);
+    printSkipped(snap, opts.json);
+    return;
   }
 
-  const includeUntracked = snap.targetRef === null;
+  const fixBase = alignReviewTree(snap);
+  if (!fixBase) {
+    printSkipped(
+      incompleteReport(snap, 'review_tree_conflicts_with_current_base'),
+      opts.json,
+    );
+    return;
+  }
   const origStats = collectDiffStats(snap.origBase, snap.preReviewSha);
-  const currStats = collectDiffStats(snap.currentBase, snap.targetRef, {
-    includeUntracked,
+  const fixStats = collectDiffStats(fixBase, snap.targetRef, {
+    includeUntracked: snap.targetRef === null,
   });
-  const prPaths = new Set([...origStats.paths, ...currStats.paths]);
-  const baseAdvanced = snap.origBase !== snap.currentBase;
-  const rawFixStats = collectDiffStats(snap.preReviewSha, snap.targetRef, {
-    includeUntracked,
-    onlyPaths: baseAdvanced ? prPaths : null,
-  });
-
-  let upstreamChangedPaths = new Set();
-  if (baseAdvanced) {
-    const upstreamOut = runGit(
-      ['diff', '--name-only', snap.origBase, snap.currentBase, '--'],
-      true,
-    ).stdout;
-    upstreamChangedPaths = new Set(
-      upstreamOut
-        .split('\n')
-        .map((s) => s.trim())
-        .filter((f) => f && prPaths.has(f)),
-    );
-  }
-
-  const fixStats = baseAdvanced
-    ? reconcileBaseAdvancedStats(
-        origStats,
-        currStats,
-        rawFixStats,
-        upstreamChangedPaths,
-      )
-    : rawFixStats;
-
   if (!fixStats.fileCount) {
-    const out = {
-      ...snap,
-      verdict: 'PASS',
-      outcome: 'NO_CODE_CHANGES',
-      skipped: true,
-      skipReason: 'no_code_changes_since_review',
-    };
-    console.log(
-      opts.json
-        ? JSON.stringify(out, null, 2)
-        : `[check:bloat] NO_CODE_CHANGES — VERDICT: PASS`,
+    printSkipped(
+      {
+        ...snap,
+        outcome: 'NO_CODE_CHANGES',
+        skipped: true,
+        skipReason: 'no_code_changes_since_review',
+      },
+      opts.json,
     );
-    process.exit(0);
+    return;
   }
 
-  const fixNet = baseAdvanced ? currStats.net - origStats.net : fixStats.net;
   const amp = evaluateAmplification({
     origNet: origStats.net,
     fixAdded: fixStats.added,
     fixDeleted: fixStats.deleted,
-    fixNet,
+    fixNet: fixStats.net,
   });
-
   const untrackedSet = new Set(fixStats.untrackedFiles);
-  const trackedPaths = [...fixStats.paths]
-    .filter((p) => !untrackedSet.has(p) && !upstreamChangedPaths.has(p))
-    .toSorted();
+  const trackedPaths = [...fixStats.paths].filter((p) => !untrackedSet.has(p));
   const { netStateFlags, netBranches, scopeCreepWarnings } = scanPatterns(
-    snap.preReviewSha,
+    fixBase,
     snap.targetRef,
     trackedPaths,
     fixStats.untrackedFiles,
   );
   const stateTriggered = netStateFlags >= THRESHOLDS.maxNetStateFlags;
-  const equilibrium = evaluateEquilibrium({
-    origNet: origStats.net,
+  const complexity = evaluateComplexityScore({
     fixAdded: fixStats.added,
     fixDeleted: fixStats.deleted,
-    fixNet,
+    fixNet: fixStats.net,
     netStateFlags,
     netBranches,
     reviewFileCounts: snap.reviewFileCounts,
@@ -1090,7 +875,6 @@ function main() {
   const failed =
     amp.triggered ||
     stateTriggered ||
-    equilibrium.triggered ||
     (opts.strictScope && scopeCreepWarnings.length > 0);
 
   const report = {
@@ -1105,7 +889,7 @@ function main() {
       hotspots: fixStats.hotspots,
     },
     stateFlags: { netStateFlags, netBranches, triggered: stateTriggered },
-    equilibrium,
+    complexity,
     scopeCreepWarnings,
   };
 
@@ -1119,7 +903,9 @@ function main() {
     console.log(
       `  2. Implicit State Flags: ${netStateFlags >= 0 ? '+' : ''}${netStateFlags} (limit < ${THRESHOLDS.maxNetStateFlags}, branches ${netBranches >= 0 ? '+' : ''}${netBranches}) [${stateTriggered ? 'FAIL' : 'OK'}]`,
     );
-    console.log(formatCliEquilibriumLine(equilibrium));
+    console.log(
+      `  3. Advisory complexity: ${complexity.score} (budget=${complexity.baseBudget}, deletion credit=${complexity.lineCredit}, change cost=${complexity.changeCost})`,
+    );
     for (const w of scopeCreepWarnings) {
       console.log(`  [SCOPE_CREEP_WARN] ${w.file} [${w.type}]: ${w.detail}`);
     }

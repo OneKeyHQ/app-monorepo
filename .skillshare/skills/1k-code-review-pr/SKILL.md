@@ -267,7 +267,7 @@ Do NOT generate auto-fix for:
 - Logic changes requiring business context understanding
 - Security fixes needing architectural decisions
 - Performance optimizations with tradeoffs
-- **Clustered / state-inflating patches (Nash Equilibrium guard)**: when a single file already has `>= 2` P0/P1 findings or fixing the finding would add another `useState`/`useRef`/boolean guard on top of an already complex flow, do NOT generate an additive local `Auto-fix` patch; instead recommend a convergent state-machine or boundary refactor that reduces net complexity.
+- **Clustered / state-inflating patches**: when a single file already has `>= 2` P0/P1 findings or fixing the finding would add another `useState`/`useRef`/boolean guard on top of an already complex flow, do NOT generate an additive local `Auto-fix` patch; instead recommend a convergent state-machine or boundary refactor that reduces net complexity.
 
 ## GH CLI Inline Comments
 
@@ -415,9 +415,7 @@ Historical PR threads may still use the legacy 5-tier scale; when analyzing them
 - **Context matters** — understand why the code was written this way before suggesting changes.
 - **Reuse first** — before accepting new abstractions or duplicated business logic, search for existing local implementations and flag unnecessary reimplementation with concrete reuse targets.
 - **Prioritize** — 3 high-quality findings beats 20 marginal complaints.
-- **Complexity Budget & Nash Equilibrium (Anti-Bloat Responsibility)** — Reviewer suggestions share responsibility for PR complexity growth (`yarn check:bloat`):
-  - If the same file/hook/service has `>= 2` P0/P1 findings in your review, or a suggested fix would add a 3rd+ boolean/ref state guard, do **NOT** emit additive symptom-by-symptom `Auto-fix` patches. Consolidate them into a single convergent refactor recommendation that simplifies the state machine or module boundary.
-  - On re-reviews of a PR that already has review-fix commits, run `node development/scripts/check-bloat.mjs --pr <N> --json --warn-only` first. When `equilibrium.netPayoff <= 20` or `amplification.triggered` is near threshold, suppress marginal additive P1/P2 suggestions and only report true P0 blockers or complexity-reducing refactors.
+- **Review-fix growth** — Report every verified defect at its actual priority. Use `yarn check:bloat` to guide fix suggestions, including whether several findings share a lifecycle or module boundary that should be refactored together.
 - **Score honestly** — the score reflects reality, not diplomacy.
 - **Auto-fix aggressively** — when the fix is clear, always include a diff patch. Reviewers prefer actionable suggestions.
 
