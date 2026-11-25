@@ -36,11 +36,6 @@ type IParsedReferrer = Partial<
   Record<(typeof referrerFields)[number][1], string>
 >;
 
-const referrerKeys = new Set<string>([
-  INSTALL_REFERRER_INVITE_CODE_KEY,
-  ...referrerFields.map(([key]) => key),
-]);
-
 function getValidReferrerValue(value: string | null): string | undefined {
   const normalizedValue = value?.trim();
   if (!normalizedValue || normalizedValue.toLowerCase().includes('not set')) {
@@ -84,8 +79,9 @@ export function createInstallAttributionSource(): IInstallAttributionSource {
 }
 
 /**
- * Some landing pages encode whole parameter segments. Decode only those
- * segments so escapes in direct values cannot become query parameters.
+ * Utility serializes the inner query and the outer Play URL independently.
+ * A literal assignment delimiter identifies a direct parameter, even when
+ * its name contains an escaped delimiter. Decode bare encoded segments once.
  */
 function readFromReferrer<T>({
   rawReferrer,
@@ -98,31 +94,11 @@ function readFromReferrer<T>({
 }): T {
   const boundedReferrer = rawReferrer.slice(0, MAX_REFERRER_LENGTH);
   const direct = read(new URLSearchParams(boundedReferrer));
-  const decoded = boundedReferrer.split('&').flatMap((segment, index) => {
-    const firstAssignment = /=|%3D/i.exec(segment);
-    if (!firstAssignment || firstAssignment[0] === '=') {
+  const decoded = boundedReferrer.split('&').flatMap((segment) => {
+    if (segment.includes('=') || !/%3D/i.test(segment)) {
       return [];
     }
     try {
-      const literalAssignment = segment.indexOf('=');
-      if (literalAssignment !== -1) {
-        // A direct parameter's value starts after its literal delimiter. Only
-        // assignments in the prefix can identify a mixed-encoded bundle.
-        const decodedPrefix = decodeURIComponent(
-          segment.slice(0, literalAssignment),
-        );
-        const prefix =
-          index === 0 ? decodedPrefix.replace(/^\?/u, '') : decodedPrefix;
-        const hasEncodedKey = prefix.split('&').some((field) => {
-          const assignment = field.indexOf('=');
-          return (
-            assignment !== -1 && referrerKeys.has(field.slice(0, assignment))
-          );
-        });
-        if (!hasEncodedKey) {
-          return [];
-        }
-      }
       return [decodeURIComponent(segment)];
     } catch {
       return [];

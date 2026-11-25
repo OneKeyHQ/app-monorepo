@@ -106,12 +106,11 @@ describe('Google Play install attribution', () => {
   });
 
   it.each([
-    'ref_code%3DABC123%26utm_source%3Dpartner=referral',
-    '?ref%5Fcode%3DABC123%26utm_source%3Dpartner=referral',
-    '%3Fref_code%3DABC123%26utm_source%3Dpartner=referral',
-    'channel%3Dlanding%26utm_source%3Dpartner=referral%26ref_code%3DABC123',
+    'ref_code%3DABC123%26utm_source%3Dpartner%253Dreferral',
+    '?ref%5Fcode%3DABC123%26utm_source%3Dpartner%253Dreferral',
+    '%3Fref_code%3DABC123%26utm_source%3Dpartner%253Dreferral',
   ])(
-    'preserves encoded attribution and invite fields with a literal equals sign: %s',
+    'preserves encoded attribution and invite fields with equals signs in values: %s',
     (rawReferrer) => {
       expect(parseGooglePlayInstallReferrer(rawReferrer)).toEqual({
         utmSource: 'partner=referral',
@@ -120,34 +119,51 @@ describe('Google Play install attribution', () => {
     },
   );
 
-  it('accepts metadata first in a referrer serialized like a Utility short link', () => {
-    const rawReferrer = new URLSearchParams({
-      referrer: new URLSearchParams({
-        channel: 'dashboard',
-        utm_source: 'partner=referral',
-        ref_code: 'ABC123',
-      }).toString(),
-    })
-      .toString()
-      .slice('referrer='.length);
+  it.each([
+    {
+      channel: 'landing=partner',
+      utm_source: 'partner=referral',
+      ref_code: 'ABC123',
+    },
+    {
+      utm_source: 'partner=referral',
+      ref_code: 'ABC123',
+      channel: 'landing=partner',
+    },
+  ])(
+    'reads Utility query serialization in either field order: %o',
+    (fields) => {
+      const directQuery = new URLSearchParams(fields).toString();
+      const encodedQuery = new URLSearchParams({ referrer: directQuery })
+        .toString()
+        .slice('referrer='.length);
 
-    expect(parseGooglePlayInstallReferrer(rawReferrer)).toEqual({
-      utmSource: 'partner=referral',
-    });
-    expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBe('ABC123');
-  });
+      for (const referrer of [directQuery, encodedQuery]) {
+        expect(parseGooglePlayInstallReferrer(referrer)).toEqual({
+          utmSource: 'partner=referral',
+        });
+        expect(extractInviteCodeFromInstallReferrer(referrer)).toBe('ABC123');
+      }
+    },
+  );
 
-  it('keeps nested fields opaque when a direct parameter name contains an escaped equals sign', async () => {
-    const rawReferrer =
-      'gad_source=1&custom%3Dname=value%26utm_source%3Dother%26ref_code%3DABC123';
-    getInstallReferrerMock.mockResolvedValue(rawReferrer);
+  it.each([
+    'custom%3Dname=value%26utm_source%3Dother%26ref_code%3DABC123',
+    'utm_source%3Dname=value%26utm_source%3Dother%26ref_code%3DABC123',
+    'channel%3Dlanding=partner%26utm_source%3Dother%26ref_code%3DABC123',
+  ])(
+    'keeps escaped direct parameter names and values opaque: %s',
+    async (param) => {
+      const rawReferrer = `gad_source=1&${param}`;
+      getInstallReferrerMock.mockResolvedValue(rawReferrer);
 
-    await reportGooglePlayInstallAttribution();
+      await reportGooglePlayInstallAttribution();
 
-    expect(logAttributionMock).not.toHaveBeenCalled();
-    expect(markReportedMock).not.toHaveBeenCalled();
-    expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBeUndefined();
-  });
+      expect(logAttributionMock).not.toHaveBeenCalled();
+      expect(markReportedMock).not.toHaveBeenCalled();
+      expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBeUndefined();
+    },
+  );
 
   it('keeps direct values and treats their encoded delimiters as literal text', () => {
     expect(
