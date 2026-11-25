@@ -8,6 +8,7 @@ import { InputAccessoryView } from 'react-native';
 import type { EPageType } from '@onekeyhq/components';
 import {
   Button,
+  GlassButtonCapsule,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -108,7 +109,10 @@ import { resolveSwapStockReviewToken } from '../../utils/swapStockReviewUtils';
 import { isQuoteRequestForStockTrade } from '../../utils/swapStockTradeControl';
 
 import SwapActionsState from './SwapActionsState';
-import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
+import {
+  SwapSettingsHeaderButton,
+  SwapStockHeaderRightActionContainer,
+} from './SwapHeaderRightActionContainer';
 import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
@@ -184,6 +188,10 @@ interface ISwapStockDesktopContainerProps {
   stockTradeIdentityLoading?: boolean;
   stockTradeToken?: ISwapToken;
 }
+
+type ISwapStockMobileContainerProps = ISwapStockDesktopContainerProps & {
+  marketStockTrade?: boolean;
+};
 
 const STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT = 24;
 const STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT = 20;
@@ -1548,9 +1556,10 @@ export function SwapStockDesktopContainer(
   );
 }
 
-function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
+function SwapStockMobileContent(props: ISwapStockMobileContainerProps) {
   const {
     embedded,
+    marketStockTrade,
     pageType,
     storeName,
     onSelectToken,
@@ -1600,6 +1609,22 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     [stockChannel],
   );
 
+  let tradeModalSettings: ReactNode;
+  if (marketStockTrade) {
+    tradeModalSettings = isDesktopModalPage ? (
+      <SwapStockHeaderRightActionContainer storeName={storeName} />
+    ) : (
+      <GlassButtonCapsule circular>
+        <SwapSettingsHeaderButton
+          pageType={pageType}
+          storeName={storeName}
+          swapType={ESwapTabSwitchType.STOCK}
+          iconSize="$6"
+        />
+      </GlassButtonCapsule>
+    );
+  }
+
   return (
     <Keyboard.AwareScrollView
       keyboardShouldPersistTaps="handled"
@@ -1621,7 +1646,9 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         gap="$2"
         flex={1}
       >
-        {embedded ? null : <SwapStockMobileHeader />}
+        {embedded ? null : (
+          <SwapStockMobileHeader tradeModalSettings={tradeModalSettings} />
+        )}
         <StockTradeTicket
           onSelectToken={onSelectToken}
           fetchLoading={fetchLoading}
@@ -1655,6 +1682,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           <SwapStockMobilePositions
             networks={supportNetworksList}
             storeName={storeName}
+            lockToCurrentStock={marketStockTrade}
           />
         )}
       </YStack>
@@ -1663,7 +1691,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
 }
 
 export function SwapStockMobileContainer(
-  props: ISwapStockDesktopContainerProps,
+  props: ISwapStockMobileContainerProps,
 ) {
   const { stockSpeedConfig, stockTradeToken, storeName } = props;
   return (

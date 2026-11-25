@@ -1340,6 +1340,7 @@ const SwapActionsState = ({
         </Stack>
         {!platformEnv.isNativeIOS ? (
           <PercentageStageOnKeyboard
+            disabled={multiplierStatus !== 'ready'}
             onSelectPercentageStage={onSelectPercentageStage}
           />
         ) : null}
@@ -1350,6 +1351,7 @@ const SwapActionsState = ({
       costSavingsComponent,
       desktopActionWidth,
       isActionDisabled,
+      multiplierStatus,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,
@@ -1364,13 +1366,14 @@ const SwapActionsState = ({
         {!platformEnv.isNativeIOS ? (
           <Page.Footer>
             <PercentageStageOnKeyboard
+              disabled={multiplierStatus !== 'ready'}
               onSelectPercentageStage={onSelectPercentageStage}
             />
           </Page.Footer>
         ) : null}
       </>
     ),
-    [actionComponent, onSelectPercentageStage],
+    [actionComponent, multiplierStatus, onSelectPercentageStage],
   );
 
   return (

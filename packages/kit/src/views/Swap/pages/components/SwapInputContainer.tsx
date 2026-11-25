@@ -22,6 +22,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedTokenBalanceMetaAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapSelectedTokensColdStartContextAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -128,6 +129,7 @@ const SwapInputContainer = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapSelectedTokenBalanceMeta] = useSwapSelectedTokenBalanceMetaAtom();
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const [initialSelectedTokensSynced] =
@@ -436,6 +438,7 @@ const SwapInputContainer = ({
           }
           activeAccount={activeAccount}
           showPercentageInput={showPercentageInputDebounce}
+          percentageInputDisabled={multiplierStatus !== 'ready'}
           showActionBuy={showActionBuy}
           actionBuyHighlighted={!isFromBalanceLoadedZero}
           onDepositClose={refreshTokenBalance}
@@ -493,6 +496,7 @@ const SwapInputContainer = ({
       {platformEnv.isNativeIOSPhone && direction === ESwapDirectionType.FROM ? (
         <InputAccessoryView nativeID={inputAccessoryViewID}>
           <PercentageStageOnKeyboard
+            disabled={multiplierStatus !== 'ready'}
             onSelectPercentageStage={onSelectPercentageStage}
           />
         </InputAccessoryView>
