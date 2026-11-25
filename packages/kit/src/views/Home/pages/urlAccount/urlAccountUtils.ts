@@ -237,12 +237,15 @@ export const urlAccountNavigation = {
       networkId: string | undefined;
       contextNetworkId?: string;
     },
+    shouldNavigate?: () => boolean,
   ) {
     const networkSegment = await buildUrlNetworkSegment({
       realNetworkId: params.networkId || '',
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
+
+    if (shouldNavigate && !shouldNavigate()) return false;
 
     const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
 
@@ -316,6 +319,7 @@ export const urlAccountNavigation = {
       stackDepth: tabStackAfter?.routes?.length,
       topRoute: tabStackAfterTopRouteName,
     });
+    return true;
   },
   async pushOrReplaceUrlAccountPage(
     navigation: IAppNavigation,

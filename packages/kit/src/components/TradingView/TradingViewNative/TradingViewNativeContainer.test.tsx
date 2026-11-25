@@ -1415,6 +1415,24 @@ describe('TradingViewNativeContainer', () => {
     expect(layer.firstElementChild).toBe(chartTree);
   });
 
+  it('clears the loading mask when the native chart displays its unavailable state', () => {
+    mockDataState = { status: 'idle' };
+    render(
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'ZEC', environment: 'mainnet' }}
+        testID="chart"
+      />,
+    );
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
+
+    const chartProps = mockTradingViewNativeChart.mock.lastCall?.[0] as
+      | { onChartUnavailable: () => void }
+      | undefined;
+    act(() => chartProps?.onChartUnavailable());
+
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
+  });
+
   it('shows the loading animation until the initial K-line points arrive', () => {
     mockDataState = { status: 'idle' };
     const source = {
@@ -2661,6 +2679,54 @@ describe('TradingViewNativeContainer', () => {
       from: timestamp - halfSevenDays,
       to: timestamp + halfSevenDays,
     });
+  });
+
+  it('reports only interval picks from the chart controls as selections', () => {
+    const timestamp = 1_751_328_000;
+    const handleIntervalSelect = jest.fn();
+    mockActiveInterval = '1';
+    mockDataState = { status: 'stale' };
+    mockPoints = [{ o: 100, h: 101, l: 99, c: 100, v: 10, t: timestamp }];
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market' as const,
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled' as const,
+        }}
+        onIntervalSelect={handleIntervalSelect}
+      />,
+    );
+    const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+      .calls[0][0] as {
+      onIntervalChange: (interval: string) => void;
+      onCalendarPanelSubmit: (payload: {
+        panel: 'goToDate';
+        timestamp: number;
+      }) => void;
+    };
+
+    // The calendar picks its own interval; that is not a user selection.
+    act(() => {
+      controlsProps.onCalendarPanelSubmit({ panel: 'goToDate', timestamp });
+    });
+    expect(mockHandleIntervalChange).toHaveBeenCalledTimes(1);
+    expect(handleIntervalSelect).not.toHaveBeenCalled();
+
+    // Re-picking the active interval changes nothing.
+    act(() => {
+      controlsProps.onIntervalChange('1');
+    });
+    expect(handleIntervalSelect).not.toHaveBeenCalled();
+
+    act(() => {
+      controlsProps.onIntervalChange('15');
+    });
+    expect(handleIntervalSelect).toHaveBeenCalledTimes(1);
+    expect(handleIntervalSelect).toHaveBeenCalledWith('15');
   });
 
   it('switches to the V2 adaptive interval before navigating a large time range', () => {

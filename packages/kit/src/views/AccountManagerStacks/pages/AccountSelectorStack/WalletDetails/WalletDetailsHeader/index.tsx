@@ -11,6 +11,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useWalletLocalSecretEnvelopePreflight } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
+import { WalletLocalSecretEnvelopeStatus } from '@onekeyhq/kit/src/components/AccountSelector/WalletLocalSecretEnvelopeStatus';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -22,7 +24,10 @@ import {
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { showWalletAvatarEditDialog } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletAvatarEdit';
 import { WalletEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletEdit/WalletEditButton';
-import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
+import {
+  WalletNotBackedUpBadge,
+  WalletRenameButton,
+} from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -53,6 +58,18 @@ export function WalletDetailsHeader({
   const { selectedAccount } = useSelectedAccount({ num: num ?? 0 });
   const actions = useAccountSelectorActions();
   const intl = useIntl();
+  const walletId = wallet?.id;
+  const isHomeAccount =
+    accountSelectorContextData?.sceneName === EAccountSelectorSceneName.home &&
+    (num ?? 0) === 0 &&
+    selectedAccount.walletId === walletId;
+  useWalletLocalSecretEnvelopePreflight(
+    !isHomeAccount &&
+      walletId === selectedAccount.focusedWallet &&
+      accountUtils.isHdWallet({ walletId })
+      ? walletId
+      : undefined,
+  );
 
   const _showAboutDevice =
     accountUtils.isHwWallet({ walletId: wallet?.id }) &&
@@ -128,7 +145,24 @@ export function WalletDetailsHeader({
             </SizableText>
           ) : null}
           {!platformEnv.isWebDappMode && wallet ? (
-            <WalletRenameButton wallet={wallet} editable={editable} mr="$1.5" />
+            <YStack flex={1} minWidth={0} mr="$1.5">
+              <WalletRenameButton
+                wallet={wallet}
+                editable={editable}
+                showBackupBadge={false}
+              />
+              <WalletLocalSecretEnvelopeStatus
+                credentialId={wallet.id}
+                compact
+                fallback={
+                  <WalletNotBackedUpBadge
+                    wallet={wallet}
+                    alignSelf="flex-start"
+                    ml="$1.5"
+                  />
+                }
+              />
+            </YStack>
           ) : null}
         </XStack>
 

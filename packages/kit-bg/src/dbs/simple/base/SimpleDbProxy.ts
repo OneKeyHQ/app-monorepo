@@ -72,6 +72,7 @@ import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntity
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntityRookieGuide } from '../entity/SimpleDbEntityRookieGuide';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
+import type { SimpleDbEntityStarknetPrivacy } from '../entity/SimpleDbEntityStarknetPrivacy';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
@@ -211,6 +212,10 @@ export class SimpleDbProxy
   privacyChainZcashSent = this._createProxyService(
     'privacyChainZcashSent',
   ) as SimpleDbEntityPrivacyChainZcashSent;
+
+  starknetPrivacy = this._createProxyService(
+    'starknetPrivacy',
+  ) as SimpleDbEntityStarknetPrivacy;
 
   feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
 

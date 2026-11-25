@@ -65,7 +65,7 @@ function createRuntime({
 
 describe('mobile lockdown bootstrap', () => {
   test.each(['main', 'background'])(
-    '%s permits SDK dynamic compilation and blocks constructor recovery',
+    '%s blocks dynamic evaluation and constructor recovery',
     (runtime) => {
       const context = createRuntime();
       context.exports.finishMobileLockdown(runtime);
@@ -74,12 +74,9 @@ describe('mobile lockdown bootstrap', () => {
         '(0, eval)("1 + 2")',
         'globalThis.eval("1 + 2")',
         'Reflect.apply(eval, undefined, ["1 + 2"])',
-        'Function("return 3")()',
-        'new Function("return 3")()',
-        'Reflect.construct(Function, ["return 3"])()',
-      ])
-        expect(vm.runInContext(source, context)).toBe(3);
-      for (const source of [
+        'Function("return globalThis")()',
+        'new Function("return globalThis")()',
+        'Reflect.construct(Function, ["return globalThis"])()',
         '(()=>{}).constructor("return globalThis")()',
         '(async()=>{}).constructor("return globalThis")()',
         '(function*(){}).constructor("return globalThis")()',
@@ -99,7 +96,7 @@ describe('mobile lockdown bootstrap', () => {
   );
 
   test.each(['main', 'background'])(
-    '%s configures hardware SDK V1 and V2 schemas after hardening',
+    '%s configures hardware SDK V1 and V2 schemas under no-eval hardening',
     (runtime) => {
       // A child keeps protobuf and SES in the same realm without freezing Jest.
       const source = `
@@ -123,7 +120,10 @@ describe('mobile lockdown bootstrap', () => {
         for (const filename of ${JSON.stringify(getMobileLockdownPolyfills())}) {
           vm.runInThisContext(fs.readFileSync(filename, 'utf8'), { filename });
         }
-        helper.exports.finishMobileLockdown(${JSON.stringify(runtime)});
+        const state = helper.exports.finishMobileLockdown(${JSON.stringify(runtime)});
+        assert.strictEqual(state.evalTaming, 'no-eval');
+        assert.throws(() => (0, eval)('1 + 2'), /SES_NO_EVAL/);
+        assert.throws(() => Function('return 3')(), /SES_NO_EVAL/);
         const transport = require('@onekeyfe/hd-transport').default;
         for (const filename of [
           'messages.json', 'messages_legacy_v1.json', 'messages-protocol-v2.json',
@@ -445,7 +445,7 @@ describe('mobile lockdown bootstrap', () => {
         enabled: true,
         runtime,
         lockdownApplied: true,
-        evalTaming: 'unsafe-eval',
+        evalTaming: 'no-eval',
       });
       expect(
         vm.runInContext(

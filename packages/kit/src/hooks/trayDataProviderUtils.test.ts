@@ -1,4 +1,5 @@
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import type {
   ITrayData,
@@ -301,6 +302,7 @@ describe('trayDataProviderUtils', () => {
         tokenAddress: '0x2::sui::SUI',
         network: 'sui',
         isNative: true,
+        from: EEnterWay.DesktopTray,
       },
     });
   });
@@ -317,6 +319,7 @@ describe('trayDataProviderUtils', () => {
       params: {
         network: 'bsc',
         isNative: true,
+        from: EEnterWay.DesktopTray,
       },
     });
   });
@@ -334,6 +337,7 @@ describe('trayDataProviderUtils', () => {
         tokenAddress: '0xabc',
         network: 'eth',
         isNative: false,
+        from: EEnterWay.DesktopTray,
       },
     });
   });

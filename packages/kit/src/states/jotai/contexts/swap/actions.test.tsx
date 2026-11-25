@@ -95,6 +95,7 @@ import {
   swapLimitPriceFromAmountAtom,
   swapLimitPriceToAmountAtom,
   swapLimitPriceUseRateAtom,
+  swapManualSelectQuoteProvidersAtom,
   swapNetworkConfigStatusAtom,
   swapNetworks,
   swapProDirectionAtom,
@@ -134,6 +135,7 @@ import {
   swapStockExecutionTokensAtom,
   swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
+  swapTabPrefillEditRevisionAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenListRequestsAtom,
@@ -12030,6 +12032,159 @@ describe('useSwapActions', () => {
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerKey].tokens,
     ).toEqual([ethToken]);
+  });
+});
+
+describe('Swap tab prefill draft ownership', () => {
+  const approvedProviderIntent = {
+    type: 'manual-provider',
+    info: { provider: 'approval-provider', providerName: 'Approval Provider' },
+  } as const;
+
+  it('advances on user input, token selection and a committed prefill', async () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const initialRevision = store.get(swapTabPrefillEditRevisionAtom());
+    const amount = { value: '1.25', isInput: true };
+    await act(async () => {
+      result.current.setSwapUserInputAmount(ESwapDirectionType.TO, amount);
+      await result.current.selectFromToken(ethToken);
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual(amount);
+    expect(store.get(swapTabPrefillEditRevisionAtom())).toBe(
+      initialRevision + 2,
+    );
+
+    act(() => {
+      result.current.applySwapTabPrefill({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    expect(store.get(swapToTokenAmountAtom()).value).toBe('');
+    expect(store.get(swapTabPrefillEditRevisionAtom())).toBe(
+      initialRevision + 3,
+    );
+  });
+
+  it.each([ESwapDirectionType.FROM, ESwapDirectionType.TO])(
+    'restores the approved %s input before sorting and never writes it again after a prefill',
+    async (direction) => {
+      const { store, Wrapper } = createWrapperWithStore();
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      let resolveSort: () => void = () => undefined;
+      mockSetSwapNetworksSortRawData.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          resolveSort = resolve;
+        }),
+      );
+      act(() => {
+        const editRevision = result.current.advanceSwapTabPrefillEditRevision();
+        result.current.restoreApprovedSwapDraft({
+          editRevision,
+          providerIntent: approvedProviderIntent,
+          fromToken: usdcToken,
+          toToken: usdtToken,
+          direction,
+          amount: '7',
+        });
+      });
+
+      expect(mockSetSwapNetworksSortRawData).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.any(Array) }),
+      );
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(usdcToken);
+      expect(store.get(swapSelectToTokenAtom())).toEqual(usdtToken);
+      expect(store.get(swapManualSelectQuoteProvidersAtom())).toEqual(
+        approvedProviderIntent,
+      );
+      expect(store.get(swapFromTokenAmountAtom()).value).toBe(
+        direction === ESwapDirectionType.FROM ? '7' : '',
+      );
+      expect(store.get(swapToTokenAmountAtom()).value).toBe(
+        direction === ESwapDirectionType.TO ? '7' : '',
+      );
+
+      act(() => {
+        result.current.applySwapTabPrefill({
+          fromToken: ethToken,
+          toToken: usdcToken,
+        });
+      });
+      await act(async () => resolveSort());
+
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(ethToken);
+      expect(store.get(swapSelectToTokenAtom())).toEqual(usdcToken);
+      expect(store.get(swapManualSelectQuoteProvidersAtom())).toBeUndefined();
+      expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+      expect(store.get(swapToTokenAmountAtom()).value).toBe('');
+    },
+  );
+
+  it('rejects an approval restore after another user edit claims the draft', () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const userAmount = { value: '4', isInput: true };
+    const currentProviderIntent = {
+      type: 'manual-provider',
+      info: { provider: 'current-provider', providerName: 'Current Provider' },
+    } as const;
+    act(() => {
+      store.set(swapManualSelectQuoteProvidersAtom(), currentProviderIntent);
+      const editRevision = result.current.advanceSwapTabPrefillEditRevision();
+      result.current.setSwapUserInputAmount(
+        ESwapDirectionType.FROM,
+        userAmount,
+      );
+      result.current.restoreApprovedSwapDraft({
+        editRevision,
+        providerIntent: approvedProviderIntent,
+        fromToken: usdcToken,
+        toToken: usdtToken,
+        direction: ESwapDirectionType.FROM,
+        amount: '7',
+      });
+    });
+
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(ethToken);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual(userAmount);
+    expect(store.get(swapManualSelectQuoteProvidersAtom())).toEqual(
+      currentProviderIntent,
+    );
+  });
+
+  it('rejects an approval restore after a newer prefill commits', () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      const editRevision = result.current.advanceSwapTabPrefillEditRevision();
+      result.current.applySwapTabPrefill({
+        fromToken: ethToken,
+        toToken: usdcToken,
+      });
+      result.current.restoreApprovedSwapDraft({
+        editRevision,
+        providerIntent: approvedProviderIntent,
+        fromToken: usdcToken,
+        toToken: usdtToken,
+        direction: ESwapDirectionType.FROM,
+        amount: '7',
+      });
+    });
+
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(ethToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(usdcToken);
+    expect(store.get(swapManualSelectQuoteProvidersAtom())).toBeUndefined();
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
   });
 });
 

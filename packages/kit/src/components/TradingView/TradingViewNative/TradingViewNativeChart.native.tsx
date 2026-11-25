@@ -1,18 +1,54 @@
-import { Stack } from '@onekeyhq/components';
+import { useCallback, useContext, useEffect, useState } from 'react';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { ChartUnavailable } from '../../ChartUnavailable';
+import { ErrorBoundarySimple } from '../../ErrorBoundary';
+
+import { TradingViewNativeChartReadyContext } from './TradingViewNativeChartReadyContext';
 
 import type { ITradingViewNativeChartProps } from './TradingViewNativeChart.types';
 
-type INativeChartModule = typeof import('./native/TradingViewNativeChart');
+function TradingViewChartFallback({
+  onChartUnavailable,
+  testID,
+}: Pick<ITradingViewNativeChartProps, 'onChartUnavailable' | 'testID'>) {
+  const onChartReady = useContext(TradingViewNativeChartReadyContext);
+  useEffect(() => {
+    onChartUnavailable?.();
+    // Fullscreen presentation can reveal the text once it is mounted.
+    onChartReady?.();
+  }, [onChartReady, onChartUnavailable]);
 
-const NativeTradingViewNativeChart = platformEnv.isNativeIOSMacCatalyst
-  ? undefined
-  : (require('./native/TradingViewNativeChart') as INativeChartModule)
-      .TradingViewNativeChart;
+  return <ChartUnavailable testID={testID} />;
+}
+
+function SkiaTradingViewChart(
+  props: ITradingViewNativeChartProps & { onSkiaError: () => void },
+) {
+  const { loadResult } =
+    require('./loadSkiaChart.native') as typeof import('./loadSkiaChart.native');
+  if ('error' in loadResult) throw loadResult.error;
+  const { chart: Chart } = loadResult;
+  return <Chart {...props} />;
+}
 
 export function TradingViewNativeChart(props: ITradingViewNativeChartProps) {
-  if (!NativeTradingViewNativeChart) {
-    return <Stack flex={1} testID={props.testID} />;
+  const [skiaFailed, setSkiaFailed] = useState(false);
+  const handleSkiaError = useCallback(() => setSkiaFailed(true), []);
+  const fallback = (
+    <TradingViewChartFallback
+      testID={props.testID}
+      onChartUnavailable={props.onChartUnavailable}
+    />
+  );
+
+  if (platformEnv.isNativeIOSMacCatalyst || skiaFailed) {
+    return fallback;
   }
-  return <NativeTradingViewNativeChart {...props} />;
+  return (
+    <ErrorBoundarySimple fallback={fallback}>
+      <SkiaTradingViewChart {...props} onSkiaError={handleSkiaError} />
+    </ErrorBoundarySimple>
+  );
 }

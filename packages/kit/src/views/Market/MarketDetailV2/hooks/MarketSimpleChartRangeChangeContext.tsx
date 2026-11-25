@@ -11,13 +11,25 @@ import type {
   IStockSimpleChartRangeChange,
 } from '../components/StockSimpleChart';
 
+export type IReportedSimpleChartRange = IStockSimpleChartRangeChange & {
+  widgetScope?: {
+    assetId?: string;
+    networkId: string;
+    tokenAddress: string;
+    observedAt: number;
+  };
+};
+
 type IReportRangeChange = (
-  change: IStockSimpleChartRangeChange | undefined,
+  change: IReportedSimpleChartRange | undefined,
 ) => void;
 
 // Split so the chart, which only reports, does not re-render on its own report.
 const RangeChangeValueContext = createContext<
   IStockSimpleChartRangeChange | undefined
+>(undefined);
+const WidgetRangeChangeContext = createContext<
+  IReportedSimpleChartRange | undefined
 >(undefined);
 const RangeChangeReportContext = createContext<IReportRangeChange>(
   () => undefined,
@@ -30,6 +42,8 @@ function isSameRangeChange(
   return (
     a?.priceMode === b?.priceMode &&
     a?.range === b?.range &&
+    a?.session === b?.session &&
+    a?.isTradingDay === b?.isTradingDay &&
     a?.baseline === b?.baseline &&
     a?.latest === b?.latest
   );
@@ -43,16 +57,20 @@ function isSameRangeChange(
 export function MarketSimpleChartRangeChangeProvider({
   children,
 }: PropsWithChildren) {
-  const [change, setChange] = useState<
-    IStockSimpleChartRangeChange | undefined
-  >();
+  const [change, setChange] = useState<IStockSimpleChartRangeChange>();
+  const [widgetChange, setWidgetChange] = useState<IReportedSimpleChartRange>();
   const report = useCallback<IReportRangeChange>((next) => {
     setChange((prev) => (isSameRangeChange(prev, next) ? prev : next));
+    setWidgetChange(
+      next?.widgetScope && next.range === '1D' ? next : undefined,
+    );
   }, []);
   return (
     <RangeChangeReportContext.Provider value={report}>
       <RangeChangeValueContext.Provider value={change}>
-        {children}
+        <WidgetRangeChangeContext.Provider value={widgetChange}>
+          {children}
+        </WidgetRangeChangeContext.Provider>
       </RangeChangeValueContext.Provider>
     </RangeChangeReportContext.Provider>
   );
@@ -60,6 +78,10 @@ export function MarketSimpleChartRangeChangeProvider({
 
 export function useReportMarketSimpleChartRangeChange() {
   return useContext(RangeChangeReportContext);
+}
+
+export function useReportedMarketSimpleChartRange() {
+  return useContext(WidgetRangeChangeContext);
 }
 
 /**
@@ -110,10 +132,10 @@ const RANGE_CHANGE_LABEL_IDS: Record<IStockSimpleChartRange, ETranslations> = {
 };
 
 /**
- * Names the window the header's move covers. A share's day is measured from
- * the previous close, both on the simple chart's 1D and in the 24h figures the
- * header falls back to, so it reads "Today"; a tokenized price's day is a
- * rolling 24 hours.
+ * Names the window the header's move covers. A share's trading day is measured
+ * from the previous close, both on the simple chart's sessions and in the 24h
+ * figures the header falls back to, so it reads "Today". The share's 1D range
+ * and a tokenized price's day are a rolling 24 hours.
  */
 export function useMarketPriceChangeLabelId(
   priceMode: IMarketPriceSource,
@@ -128,9 +150,12 @@ export function getMarketPriceChangeLabelId(
   change: IStockSimpleChartRangeChange | undefined,
   priceMode: IMarketPriceSource,
 ): ETranslations {
-  const range = change && change.priceMode === priceMode ? change.range : '1D';
-  if (priceMode === 'share' && range === '1D') {
+  const current = change && change.priceMode === priceMode ? change : undefined;
+  if (
+    priceMode === 'share' &&
+    (!current || current.session || current.isTradingDay)
+  ) {
     return ETranslations.date_today;
   }
-  return RANGE_CHANGE_LABEL_IDS[range];
+  return RANGE_CHANGE_LABEL_IDS[current?.range ?? '1D'];
 }

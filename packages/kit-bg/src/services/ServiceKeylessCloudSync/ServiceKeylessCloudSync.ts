@@ -3616,7 +3616,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         await setEnabled(false);
       }
       if (shouldHandleLocalSecretEnvelopeUnavailable) {
-        errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
+        errorToastUtils.showLocalSecretEnvelopeRecoveryToastIfNeeded(error);
       }
       throw error;
     } finally {

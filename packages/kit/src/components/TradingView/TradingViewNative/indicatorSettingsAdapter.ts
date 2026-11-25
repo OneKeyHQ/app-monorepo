@@ -1,3 +1,4 @@
+// cspell:ignore VWAP VWMA
 import { colord } from 'colord';
 
 import {
@@ -926,10 +927,10 @@ function createSubIndicator(
 
   return {
     active: storedIndicator?.active ?? false,
-    description: definition.description,
     id,
     label: definition.shortTitle,
     lines: [...plotLines, ...bandLines, ...fillLines],
+    name: definition.description,
     opacity: getIndicatorTransparency(storedIndicator, id === 'VOL' ? 50 : 0),
     opacityColors,
     parameters,

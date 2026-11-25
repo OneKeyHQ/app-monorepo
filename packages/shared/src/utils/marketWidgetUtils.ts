@@ -17,6 +17,7 @@ const MARKET_WIDGET_EDITOR_QUERY_KEYS = new Set([
   'profileId',
   'kind',
   'editorSession',
+  'setup',
 ]);
 
 const validAssetId = (value: unknown): value is string =>
@@ -31,16 +32,15 @@ const validAddress = (value: unknown): value is string =>
 
 export function buildMarketWidgetAssets(
   watchlist: IMarketWatchListItemV2[],
-  { includeStocks = true }: { includeStocks?: boolean } = {},
+  {
+    includeStocks = true,
+    maxAssets = MARKET_WIDGET_MAX_ASSETS,
+  }: { includeStocks?: boolean; maxAssets?: number } = {},
 ): IMarketWidgetAsset[] {
   const assets: IMarketWidgetAsset[] = [];
   const seen = new Set<string>();
   watchlist.forEach((item) => {
-    if (
-      assets.length === MARKET_WIDGET_MAX_ASSETS ||
-      item.perpsCoin !== undefined
-    )
-      return;
+    if (assets.length >= maxAssets || item.perpsCoin !== undefined) return;
     let asset: IMarketWidgetAsset;
     let key: string;
     if (item.stockId !== undefined && !item.chainId && !item.assetId) {
@@ -83,6 +83,7 @@ export type IMarketWidgetLinkTarget =
       profileId?: string;
       widgetKind?: IMarketWidgetKind;
       editorSession?: string;
+      needsBinding?: true;
     }
   | Pick<Extract<IMarketWidgetAsset, { kind: 'asset' }>, 'kind' | 'assetId'>
   | Pick<Extract<IMarketWidgetAsset, { kind: 'stock' }>, 'kind' | 'stockId'>
@@ -164,13 +165,35 @@ export function parseMarketWidgetLinkUrl(url: string): {
       if (Object.keys(params).length === 0) {
         return { matches: true, target: { kind: 'editor' } };
       }
-      if (Object.keys(params).length !== 1) return { matches: true };
+      const count = Object.keys(params).length;
+      const uuid =
+        /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu;
+      const widgetKind =
+        params.kind === 'single' || params.kind === 'list'
+          ? params.kind
+          : undefined;
       if (
-        params.editorSession &&
-        /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(
-          params.editorSession,
-        )
+        params.profileId &&
+        uuid.test(params.profileId) &&
+        (count === 1 || (count === 2 && widgetKind))
       ) {
+        return {
+          matches: true,
+          target: {
+            kind: 'editor',
+            profileId: params.profileId.toLowerCase(),
+            ...(widgetKind && { widgetKind }),
+          },
+        };
+      }
+      if (count !== 1) return { matches: true };
+      if (params.setup === '1') {
+        return {
+          matches: true,
+          target: { kind: 'editor', needsBinding: true },
+        };
+      }
+      if (params.editorSession && uuid.test(params.editorSession)) {
         return {
           matches: true,
           target: {
@@ -179,22 +202,8 @@ export function parseMarketWidgetLinkUrl(url: string): {
           },
         };
       }
-      if (
-        params.profileId &&
-        /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(
-          params.profileId,
-        )
-      ) {
-        return {
-          matches: true,
-          target: { kind: 'editor', profileId: params.profileId.toLowerCase() },
-        };
-      }
-      if (params.kind === 'single' || params.kind === 'list') {
-        return {
-          matches: true,
-          target: { kind: 'editor', widgetKind: params.kind },
-        };
+      if (widgetKind) {
+        return { matches: true, target: { kind: 'editor', widgetKind } };
       }
       return { matches: true };
     }

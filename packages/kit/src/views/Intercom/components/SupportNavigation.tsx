@@ -8,6 +8,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IIconProps } from '@onekeyhq/components';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function SupportNavigation({
@@ -89,14 +90,14 @@ export function SupportNavigation({
               color={item.selected ? '$icon' : '$iconSubdued'}
             />
             {item.badge ? (
-              <YStack
-                position="absolute"
+              // Fixed 8 dp: the default size token shrinks on narrow Android
+              // screens.
+              <SupportUnreadDot
+                testID={`${item.id}-unread-dot`}
                 top={-2}
                 right={-5}
                 width={8}
                 height={8}
-                borderRadius={4}
-                bg="$bgCritical"
               />
             ) : null}
           </XStack>

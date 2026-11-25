@@ -413,9 +413,16 @@ export function TradingViewMobileIndicatorEditorFields({
         </YStack>
       ) : null}
       {indicator.description ? (
-        <SizableText size="$bodyMd" color="$textSubdued" mt="$5">
-          {indicator.description}
-        </SizableText>
+        <YStack testID="mobile-indicator-description" mt="$5" gap="$2">
+          <SizableText size="$headingSm" role="heading" aria-level={2}>
+            {intl.formatMessage({
+              id: ETranslations.market_chart_indicator_about__title,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {indicator.description}
+          </SizableText>
+        </YStack>
       ) : null}
     </>
   );
