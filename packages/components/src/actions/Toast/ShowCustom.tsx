@@ -12,7 +12,7 @@ import {
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { isNil } from 'lodash';
-import { Animated, PanResponder, StyleSheet } from 'react-native';
+import { Animated, PanResponder, Platform, StyleSheet } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -25,7 +25,10 @@ import { Trigger } from '../Trigger';
 import type {
   IOverlayAnimation,
   IOverlayBackdrop,
+  IOverlayMotion,
 } from '@onekeyfe/react-native-native-overlay';
+
+const CUSTOM_TOAST_SPRING = { mass: 1, stiffness: 460, damping: 36 };
 
 // Align custom toast motion with the RareUI-inspired message toast spring & exit curve.
 const CUSTOM_TOAST_ANIMATION: IOverlayAnimation = {
@@ -35,12 +38,13 @@ const CUSTOM_TOAST_ANIMATION: IOverlayAnimation = {
     offsetY: -24,
     fade: true,
     // Older Chromium and Safari releases reject CSS linear() spring easing.
-    motion: platformEnv.isNative
-      ? { type: 'spring', spring: { mass: 1, stiffness: 460, damping: 36 } }
-      : {
-          type: 'timing',
-          timing: { durationMs: 250, easing: [0.32, 0.72, 0, 1] },
-        },
+    motion: Platform.select<IOverlayMotion>({
+      native: { type: 'spring', spring: CUSTOM_TOAST_SPRING },
+      default: {
+        type: 'timing',
+        timing: { durationMs: 250, easing: [0.32, 0.72, 0, 1] },
+      },
+    }),
   },
   exit: {
     type: 'scale',
@@ -114,18 +118,14 @@ function useSwipeUpToClose(onClose: () => void, enabled: boolean) {
           }
           Animated.spring(translateY, {
             toValue: 0,
-            mass: 1,
-            stiffness: 460,
-            damping: 36,
+            ...CUSTOM_TOAST_SPRING,
             useNativeDriver: false,
           }).start();
         },
         onPanResponderTerminate: () => {
           Animated.spring(translateY, {
             toValue: 0,
-            mass: 1,
-            stiffness: 460,
-            damping: 36,
+            ...CUSTOM_TOAST_SPRING,
             useNativeDriver: false,
           }).start();
         },

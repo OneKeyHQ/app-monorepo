@@ -52,6 +52,7 @@ const mockUpdate = jest.fn((spec: IOverlayToastSpec) =>
   realToastStore.update(spec),
 );
 const mockDismiss = jest.fn((id: string) => realToastStore.dismiss(id));
+const mockAnnounceForAccessibility = jest.fn<void, [string]>();
 let mockNextId = 0;
 function mockView({
   children,
@@ -80,6 +81,10 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   },
 }));
 jest.mock('react-native', () => ({
+  AccessibilityInfo: {
+    announceForAccessibility: (message: string) =>
+      mockAnnounceForAccessibility(message),
+  },
   useWindowDimensions: () => ({ height: 900 }),
   I18nManager: { isRTL: false },
 }));
@@ -238,9 +243,13 @@ it.each(['success', 'error'] as const)(
     });
 
     expect(Toast.success({ title: 'Duplicate', toastId })).toBeUndefined();
-    expect(loading?.settle(status, { title: 'Result', duration: 2300 })).toBe(
-      true,
-    );
+    expect(
+      loading?.settle(status, {
+        title: 'Result',
+        message: 'Details',
+        duration: 2300,
+      }),
+    ).toBe(true);
     expect(loading?.settle(status, { title: 'Duplicate result' })).toBe(false);
 
     const items = realToastStore.getSnapshot().items;
@@ -254,6 +263,10 @@ it.each(['success', 'error'] as const)(
     expect(onClose).not.toHaveBeenCalled();
 
     setToastStyleContext(createContext());
+    expect(mockAnnounceForAccessibility).toHaveBeenCalledTimes(1);
+    expect(mockAnnounceForAccessibility).toHaveBeenCalledWith(
+      'Result. Details',
+    );
     expect(mockUpdate).toHaveBeenCalledTimes(1);
     expect(realToastStore.getSnapshot().items[0]?.generation).toBe(
       items[0]?.generation,
@@ -268,11 +281,11 @@ it('settles Toast.promise in place and preserves custom web position', async () 
   const value = await Toast.promise(
     Promise.resolve('0xabc'),
     {
-      loading: 'Broadcasting transaction',
+      loading: { title: 'Broadcasting transaction', position: 'top-center' },
       success: (hash) => ({ title: 'Confirmed', message: hash }),
       error: 'Broadcast failed',
     },
-    { position: 'top-center', duration: 3200 },
+    { position: 'bottom-right', duration: 3200 },
   );
   expect(value).toBe('0xabc');
   const items = realToastStore.getSnapshot().items;
@@ -284,6 +297,45 @@ it('settles Toast.promise in place and preserves custom web position', async () 
   });
   expect(textOf(items[0]?.spec.title)).toBe('Confirmed');
   expect(textOf(items[0]?.spec.message)).toBe('0xabc');
+});
+
+it('settles in place unless another web card covers the result group', () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  const loading = Toast.loading({
+    title: 'Submitting',
+    position: 'top-center',
+  });
+  Toast.notification({ title: 'Unrelated', position: 'bottom-right' });
+  const covering = Toast.notification({ title: 'New', position: 'top-center' });
+  const result = { title: 'Submitted' };
+  const options = { onlyIfFrontmostOnWeb: true };
+  expect(loading?.settle('success', result, options)).toBe(false);
+
+  covering?.close();
+  expect(loading?.settle('success', result, options)).toBe(true);
+});
+
+it('gives a concurrent task with the same toast ID no feedback of its own', async () => {
+  const messages = { loading: 'Submitting', success: 'Done', error: 'Failed' };
+  const options = { toastId: 'submission' };
+  const { promise, resolve } = Promise.withResolvers<number>();
+  const original = Toast.promise(promise, messages, options);
+  await expect(Toast.promise(async () => 1, messages, options)).resolves.toBe(
+    1,
+  );
+  const error = new Error('Duplicate task failed');
+  await expect(
+    Toast.promise(Promise.reject(error), messages, options),
+  ).rejects.toBe(error);
+  expect(mockShow).toHaveBeenCalledTimes(1);
+
+  resolve(2);
+  await expect(original).resolves.toBe(2);
+  expect(mockShow).toHaveBeenCalledTimes(2);
+  expect(latest().spec).toMatchObject({
+    id: options.toastId,
+    statusIcon: { status: 'success' },
+  });
 });
 
 it('settles a synchronous task failure at the loading position', async () => {
@@ -365,6 +417,7 @@ it('shows only the result if a request finishes before the toast host mounts', (
     statusIcon: { status: 'success' },
   });
   expect(textOf(latest().spec.title)).toBe('Result');
+  expect(mockAnnounceForAccessibility).not.toHaveBeenCalled();
 });
 
 it.each([true, false])(

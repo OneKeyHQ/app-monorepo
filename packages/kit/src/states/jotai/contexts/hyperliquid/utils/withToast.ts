@@ -1,16 +1,18 @@
-import { Toast } from '@onekeyhq/components';
+import { type IToastProps, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   extractHyperLiquidErrorMessage,
   hyperLiquidErrorResolver,
 } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
+import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ERROR_MESSAGES, ERROR_PATTERNS, TOAST_CONFIGS } from './config';
 import { EErrorType } from './types';
 
 import type { EActionType } from './types';
+
+const ERROR_LOCALIZATION_TIMEOUT_MS = 300;
 
 export interface IWithToastOptions<T = unknown> {
   asyncFn: () => Promise<T>;
@@ -48,8 +50,10 @@ function extractErrorMessage(error: unknown): string {
   return extractRawErrorMessage(error);
 }
 
-async function resolveErrorToastTitle(error: unknown): Promise<string> {
-  const errorMessage = extractErrorMessage(error);
+async function resolveErrorToastTitle(
+  error: unknown,
+  errorMessage: string,
+): Promise<string> {
   const rawErrorMessage = extractRawErrorMessage(error);
   const errorType =
     identifyError(errorMessage) ?? identifyError(rawErrorMessage);
@@ -79,26 +83,18 @@ async function resolveErrorToastTitle(error: unknown): Promise<string> {
       default:
         break;
     }
+    return ERROR_MESSAGES[errorType]();
   }
 
   const rawResolved =
     rawErrorMessage !== errorMessage
       ? await hyperLiquidErrorResolver.resolveAsync(rawErrorMessage)
       : undefined;
-  const extractedResolved =
-    !rawResolved?.i18nKey && !errorType
-      ? await hyperLiquidErrorResolver.resolveAsync(errorMessage)
-      : undefined;
-
-  let friendlyMessage = errorMessage;
-  if (errorType) {
-    friendlyMessage = ERROR_MESSAGES[errorType]();
-  } else if (rawResolved?.i18nKey) {
-    friendlyMessage = rawResolved.localizedMessage;
-  } else if (extractedResolved?.localizedMessage) {
-    friendlyMessage = extractedResolved.localizedMessage;
+  if (rawResolved?.i18nKey) {
+    return rawResolved.localizedMessage;
   }
-  return friendlyMessage;
+  const resolved = await hyperLiquidErrorResolver.resolveAsync(errorMessage);
+  return resolved.localizedMessage || errorMessage;
 }
 
 export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
@@ -109,6 +105,13 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
   const config = TOAST_CONFIGS[actionType];
   let loadingToast: ReturnType<typeof Toast.loading>;
   let loadingTimer: ReturnType<typeof setTimeout> | undefined;
+  const showResult = (status: 'success' | 'error', props: IToastProps) => {
+    if (loadingToast?.settle(status, props, { onlyIfFrontmostOnWeb: true })) {
+      return;
+    }
+    loadingToast?.close();
+    Toast[status](props);
+  };
 
   if (config?.loading) {
     const loadingText =
@@ -143,27 +146,17 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
           : config.successMessage;
     }
 
-    const success = { title: successTitle, message: successMessage };
-    // Native renderers announce new cards, so results need their own card.
-    if (platformEnv.isNative) {
-      loadingToast?.close();
-      Toast.success(success);
-    } else if (!loadingToast?.settle('success', success)) {
-      Toast.success(success);
-    }
+    showResult('success', { title: successTitle, message: successMessage });
 
     return result;
   } catch (error) {
     if (loadingTimer) clearTimeout(loadingTimer);
-    void resolveErrorToastTitle(error)
-      .then((title) => {
-        if (platformEnv.isNative) {
-          loadingToast?.close();
-          Toast.error({ title });
-        } else if (!loadingToast?.settle('error', { title })) {
-          Toast.error({ title });
-        }
-      })
+    const fallbackTitle = extractErrorMessage(error);
+    void resolveBeforeTimeout(
+      resolveErrorToastTitle(error, fallbackTitle),
+      ERROR_LOCALIZATION_TIMEOUT_MS,
+    )
+      .then((title) => showResult('error', { title: title ?? fallbackTitle }))
       .catch((e: unknown) => {
         loadingToast?.close();
         defaultLogger.perp.agentLifeCycle.trackReason({

@@ -31,7 +31,6 @@ import { waitFor } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 
 import { getPerpsTradingNotEnabledMessage } from './config';
@@ -51,18 +50,13 @@ describe('withToast', () => {
     expect(getPerpsTradingNotEnabledMessage()).toBe('perp.error_enable');
   });
 
-  it.each([false, true])(
-    'shows an order result after a loading card (native=%s)',
-    async (isNative) => {
-      const restorePlatform = jest.replaceProperty(
-        platformEnv,
-        'isNative',
-        isNative,
-      );
+  it.each([true, false])(
+    'shows an order result after a loading card (in place=%s)',
+    async (canSettle) => {
       jest.useFakeTimers();
       try {
         const close = jest.fn();
-        const settle = jest.fn(() => true);
+        const settle = jest.fn(() => canSettle);
         jest.mocked(Toast.loading).mockReturnValueOnce({ close, settle });
         const success = jest.spyOn(Toast, 'success');
         const task = withToast({
@@ -75,27 +69,69 @@ describe('withToast', () => {
 
         await jest.advanceTimersByTimeAsync(500);
         await task;
-        if (isNative) {
+        if (!canSettle) {
           expect(close).toHaveBeenCalledTimes(1);
-          expect(settle).not.toHaveBeenCalled();
           expect(success).toHaveBeenCalledWith(
             expect.objectContaining({ title: expect.any(String) }),
           );
         } else {
-          expect(settle).toHaveBeenCalledWith(
-            'success',
-            expect.objectContaining({ title: expect.any(String) }),
-          );
           expect(close).not.toHaveBeenCalled();
           expect(success).not.toHaveBeenCalled();
         }
+        expect(settle).toHaveBeenCalledWith(
+          'success',
+          expect.objectContaining({ title: expect.any(String) }),
+          { onlyIfFrontmostOnWeb: true },
+        );
         success.mockRestore();
       } finally {
-        restorePlatform.restore();
         jest.useRealTimers();
       }
     },
   );
+
+  it('settles an order error while the locale lookup is pending', async () => {
+    jest.useFakeTimers();
+    const locale = Promise.withResolvers<{
+      localizedMessage: string;
+      rawMessage: string;
+    }>();
+    const lookup = jest
+      .spyOn(hyperLiquidErrorResolver, 'resolveAsync')
+      .mockReturnValue(locale.promise);
+    try {
+      const settle = jest.fn(() => true);
+      jest
+        .mocked(Toast.loading)
+        .mockReturnValueOnce({ close: jest.fn(), settle });
+      const operation = Promise.withResolvers<void>();
+      const error = new Error('Price too far from oracle');
+      const result = withToast({
+        actionType: EActionType.PLACE_ORDER,
+        asyncFn: () => operation.promise,
+      });
+
+      await jest.advanceTimersByTimeAsync(300);
+      operation.reject(error);
+      await expect(result).rejects.toBe(error);
+      await jest.advanceTimersByTimeAsync(300);
+      expect(settle).toHaveBeenCalledWith(
+        'error',
+        { title: error.message },
+        { onlyIfFrontmostOnWeb: true },
+      );
+
+      locale.resolve({
+        rawMessage: error.message,
+        localizedMessage: 'Too far',
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(settle).toHaveBeenCalledTimes(1);
+    } finally {
+      lookup.mockRestore();
+      jest.useRealTimers();
+    }
+  });
 
   it('localizes wrapped HyperLiquid order errors from server config', async () => {
     const wrappedMessage =

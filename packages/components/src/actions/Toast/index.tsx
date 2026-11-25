@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import { createRef } from 'react';
 
 import { overlayToastStore } from '@onekeyfe/react-native-native-overlay';
+import { AccessibilityInfo } from 'react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -301,6 +302,7 @@ function presentToast(id: string, toast: IActiveToast) {
     overlayToastStore.update(spec);
     return;
   }
+  const announceResult = platformEnv.isNative && toast.shown;
   toast.shown = true;
   toast.restartLifetime = false;
   overlayToastStore.show(spec, {
@@ -325,6 +327,18 @@ function presentToast(id: string, toast: IActiveToast) {
     onPress: () => toast.onPress?.(),
   });
   reconcileActiveToasts();
+  if (announceResult && !toast.closed && !toast.dismissed) {
+    // The native renderer announces newly attached cards automatically.
+    const announcement = [spec.title, spec.message]
+      .map((line) =>
+        line?.paragraphs
+          .map((runs) => runs.map((run) => run.text).join(''))
+          .join('\n'),
+      )
+      .filter(Boolean)
+      .join('. ');
+    if (announcement) AccessibilityInfo.announceForAccessibility(announcement);
+  }
 }
 
 subscribeToastStyleContext(() => {
@@ -429,10 +443,11 @@ export type IToastSettleStatus = 'success' | 'error' | 'warning' | 'info';
 
 export interface IToastLoadingResult {
   close: () => void;
-  /** Starts the result's timeout on the same card. Returns false if the card is gone or settled. */
+  /** Starts the result's timeout on the same card. Returns false if it cannot settle in place. */
   settle: (
     status: IToastSettleStatus,
     props: Omit<IToastBaseProps, 'toastId' | 'onClose' | 'haptic' | 'preset'>,
+    options?: { onlyIfFrontmostOnWeb?: boolean },
   ) => boolean;
 }
 
@@ -462,6 +477,21 @@ function normalizeToastProps<T extends { title: string }>(
   return typeof value === 'string' ? ({ title: value } as T) : value;
 }
 
+function isCoveredOnWeb(
+  id: string,
+  position: IOverlayToastPosition | undefined,
+) {
+  const snapshot = overlayToastStore.getSnapshot();
+  const defaultPosition = snapshot.config.position ?? 'bottom-right';
+  const first = snapshot.items.find(
+    ({ spec, visible }) =>
+      spec.id === id ||
+      (visible &&
+        (spec.position ?? defaultPosition) === (position ?? defaultPosition)),
+  );
+  return first !== undefined && first.spec.id !== id;
+}
+
 function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
   const instance = showMessageToast({ haptic: 'loading', ...props });
   if (!instance) return;
@@ -471,7 +501,7 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
 
   return {
     close: handle.close,
-    settle: (status, result) => {
+    settle: (status, result, { onlyIfFrontmostOnWeb } = {}) => {
       if (
         settled ||
         toast.dismissed ||
@@ -480,11 +510,20 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
       ) {
         return false;
       }
+      const position = result.position ?? props.position;
+      if (
+        onlyIfFrontmostOnWeb &&
+        !platformEnv.isNative &&
+        toast.shown &&
+        isCoveredOnWeb(id, position)
+      ) {
+        return false;
+      }
       validateToastTitle(result.title);
       const content = createMessageContent(
         {
-          position: props.position,
           ...result,
+          position,
           haptic: status,
         },
         id,
@@ -505,6 +544,7 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
   };
 }
 
+/** An active toast ID owns the feedback for one task. Other tasks still run. */
 function toastPromise<T>(
   task: Promise<T> | (() => Promise<T>),
   messages: IToastPromiseMessages<T>,
@@ -514,16 +554,18 @@ function toastPromise<T>(
   > = {},
 ): Promise<T> {
   const loadingProps = normalizeToastProps(messages.loading);
+  const loadingPosition = loadingProps.position ?? options.position;
   const loading = toastLoading({
     ...options,
     ...loadingProps,
+    position: loadingPosition,
     duration: Infinity,
   });
-  const loadingPosition = loadingProps.position ?? options.position;
   const showResult = (
     status: 'success' | 'error',
     resolveProps: () => string | IToastBaseProps,
   ) => {
+    if (!loading) return;
     try {
       const props = normalizeToastProps(resolveProps());
       const resultProps = {
@@ -531,12 +573,12 @@ function toastPromise<T>(
         ...props,
         position: props.position ?? loadingPosition,
       };
-      if (!loading?.settle(status, resultProps)) {
+      if (!loading.settle(status, resultProps)) {
         toastMessage({ haptic: status, ...resultProps });
       }
     } catch {
       try {
-        loading?.close();
+        loading.close();
       } catch {
         // Toast presentation and cleanup must preserve the task outcome.
       }
