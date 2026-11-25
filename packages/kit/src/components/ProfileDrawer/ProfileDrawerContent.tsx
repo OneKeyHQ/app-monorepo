@@ -750,7 +750,7 @@ function ProfileDrawerBody() {
         <DrawerRow
           testID="profile-drawer-prime"
           icon="PrimeOutline"
-          label="Prime"
+          label={intl.formatMessage({ id: ETranslations.global_prime })}
           item="prime"
           trackID="wallet-prime"
           onPress={handlers.prime}

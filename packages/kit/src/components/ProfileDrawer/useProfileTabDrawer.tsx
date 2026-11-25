@@ -11,7 +11,12 @@ import { useNavigationState } from '@react-navigation/native';
 import { useEvent } from 'react-native-reanimated';
 
 import type { ITabBarDrawer } from '@onekeyhq/components';
-import { Stack } from '@onekeyhq/components';
+import {
+  ESplitViewType,
+  Stack,
+  useIsSplitView,
+  useSplitViewType,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
@@ -48,6 +53,14 @@ function DrawerBlank() {
 export function useProfileTabDrawer(): ITabBarDrawer | undefined {
   const isOpen = useIsProfileDrawerOpen();
   const isHomeRoot = useNavigationState(selectIsHomeRoot);
+  // A tablet's split view mounts a tab navigator per pane, and the open state
+  // is shared. The drawer belongs to the pane showing the wallet home: the
+  // main one while both panes show, else the sub one (the main is hidden).
+  const splitViewType = useSplitViewType();
+  const isSplitVisible = useIsSplitView();
+  const ownsDrawer =
+    splitViewType === ESplitViewType.UNKNOWN ||
+    (splitViewType === ESplitViewType.MAIN) === isSplitVisible;
   const [contentReady, setContentReady] = useState(false);
   // Runs on the UI thread through the animated drawer host, so the header
   // avatar fades in the same frame the page moves. Reanimated types the
@@ -82,7 +95,7 @@ export function useProfileTabDrawer(): ITabBarDrawer | undefined {
 
   return useMemo(
     () =>
-      platformEnv.isNative
+      platformEnv.isNative && ownsDrawer
         ? {
             renderContent,
             open: isOpen,
@@ -91,6 +104,6 @@ export function useProfileTabDrawer(): ITabBarDrawer | undefined {
             swipeEnabled: isHomeRoot,
           }
         : undefined,
-    [isHomeRoot, isOpen, onProgress, renderContent],
+    [isHomeRoot, isOpen, onProgress, ownsDrawer, renderContent],
   );
 }

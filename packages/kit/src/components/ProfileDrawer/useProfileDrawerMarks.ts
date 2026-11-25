@@ -5,6 +5,10 @@ import {
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -89,7 +93,7 @@ function subscribeSeen(listener: () => void) {
 export function useFirmwareUpdateKeys(skip: boolean) {
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   // Drops devices removed since their last check.
-  const { result: connectIds } = usePromiseResult(
+  const { result: connectIds, run } = usePromiseResult(
     async () => {
       // Nothing to filter until a device has been checked.
       if (!detectStatus || skip) return [];
@@ -105,6 +109,16 @@ export function useFirmwareUpdateKeys(skip: boolean) {
     [detectStatus, skip],
     { checkIsFocused: false },
   );
+  // Removing a wallet keeps its device's last check, so read the list again.
+  useEffect(() => {
+    const refresh = () => {
+      void run();
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refresh);
+    };
+  }, [run]);
   return useMemo(() => {
     if (!detectStatus || !connectIds) return [];
     const known = new Set(connectIds);

@@ -31,6 +31,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useOnLock } from '../../hooks/useOnLock';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useHomeTokenListSnapshot } from '../../states/jotai/contexts/tokenList/cells';
+import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { showIntercom } from '../../views/Intercom/client';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 import {
@@ -360,7 +361,13 @@ function IdentityRow() {
   );
 }
 
-function MenuBody({ marks }: { marks: IProfileDrawerMarks }) {
+function MenuBody({
+  marks,
+  xfpMissing,
+}: {
+  marks: IProfileDrawerMarks;
+  xfpMissing: boolean;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onLock = useOnLock();
@@ -381,6 +388,13 @@ function MenuBody({ marks }: { marks: IProfileDrawerMarks }) {
 
   return (
     <YStack p="$1" testID="desktop-profile-menu" onKeyDown={handleMenuKeyDown}>
+      {/* Only the user can update a hardware wallet's legacy data; the More
+          menu this replaced carried the same reminder. */}
+      {xfpMissing ? (
+        <Stack mb="$1">
+          <WalletXfpStatusReminder />
+        </Stack>
+      ) : null}
       <IdentityRow />
       <Divider mx="$2" my="$1" borderColor="$borderSubdued" />
       <MenuRow
@@ -404,7 +418,7 @@ function MenuBody({ marks }: { marks: IProfileDrawerMarks }) {
         trackID="wallet-prime"
         item="prime"
         icon="PrimeOutline"
-        label="Prime"
+        label={intl.formatMessage({ id: ETranslations.global_prime })}
         onPress={() => {
           navigation.pushFullModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDashboard,
@@ -531,17 +545,25 @@ function ProfileMenuButton() {
     trackSeen: true,
     desktopMenuOpen: isOpen,
   });
-  useWalletMetaSilentRepair();
+  const xfpMissing = useWalletMetaSilentRepair();
 
-  const hasDot = marks.avatarReasons.length > 0;
+  const hasDot = marks.avatarReasons.length > 0 || xfpMissing;
   const menuLabel = intl.formatMessage({
     id: ETranslations.address_book_menu_title,
   });
-  const label = hasDot
-    ? `${menuLabel}, ${intl.formatMessage({
-        id: ETranslations.settings_contact_us,
-      })}`
-    : menuLabel;
+  const label = [
+    menuLabel,
+    marks.avatarReasons.length > 0
+      ? intl.formatMessage({ id: ETranslations.settings_contact_us })
+      : undefined,
+    xfpMissing
+      ? intl.formatMessage({
+          id: ETranslations.global_hardware_legacy_data_update_banner_title,
+        })
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(', ');
   // The button sits outside the tooltip and popover triggers: those swap in
   // their real component on first use, which would remount it and drop
   // keyboard focus.
@@ -606,7 +628,7 @@ function ProfileMenuButton() {
         renderTrigger={null}
         renderContent={
           <MoreActionProvider>
-            <MenuBody marks={marks} />
+            <MenuBody marks={marks} xfpMissing={xfpMissing} />
           </MoreActionProvider>
         }
       />
