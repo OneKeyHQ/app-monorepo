@@ -6,7 +6,10 @@ import {
 } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type {
+  IHardwareCloudSyncKeySource,
+  IKeylessCloudSyncCredential,
+} from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { getCloudSyncStorageEnvironmentForRuntime } from '../../../states/jotai/jotaiStorageConsts';
 import {
@@ -133,7 +136,10 @@ function getUsableCredential(
 ): IKeylessCloudSyncCredential | null {
   if (
     !credential ||
-    (credential.hardwareSession && !credential.hardwareSession.boundBaseURL)
+    (credential.hardwareSession && !credential.hardwareSession.boundBaseURL) ||
+    (credential.source?.type === 'hardware' &&
+      credential.pendingDataKey &&
+      !credential.hardwareSession)
   ) {
     return null;
   }
@@ -160,6 +166,47 @@ async function getCredential(
   return getUsableCredential(map[keylessWalletId]);
 }
 
+async function hasStoredCredential(keylessWalletId: string): Promise<boolean> {
+  return !!(await readMap())[keylessWalletId];
+}
+
+// An inactive session's key is only available for local recovery of its reset.
+async function getInterruptedHardwareResetKey(
+  source: IHardwareCloudSyncKeySource,
+  current: IKeylessCloudSyncCredential,
+) {
+  const environment = getCloudSyncStorageEnvironmentForRuntime();
+  const session = current.hardwareSession;
+  if (
+    !environment ||
+    current.keylessWalletId !== source.credentialId ||
+    !session?.boundBaseURL ||
+    session.environment !== environment
+  ) {
+    return undefined;
+  }
+  const stored = (await readMap())[source.credentialId];
+  const pending = stored?.pendingDataKey;
+  const storedEnvironment = stored?.hardwareSession?.environment;
+  if (
+    stored?.source?.type !== 'hardware' ||
+    stored.keylessWalletId !== source.credentialId ||
+    stored.source.credentialId !== source.credentialId ||
+    stored.source.derivationVersion !== source.derivationVersion ||
+    (storedEnvironment && storedEnvironment !== environment) ||
+    stored.pendingHardwareKeyMigration ||
+    !stored.encryptionKey ||
+    !stored.pwdHash ||
+    stored.pwdHash === current.pwdHash ||
+    pending?.dekId !== session.dekId ||
+    pending?.pwdHash !== current.pwdHash ||
+    pending?.dek !== current.encryptionKey
+  ) {
+    return undefined;
+  }
+  return { dek: stored.encryptionKey, pwdHash: stored.pwdHash };
+}
+
 async function removeAllCredentials(): Promise<void> {
   const key = getStorageKey();
   await mutate(() => keylessStorageUtils.storageRemoveItem(key));
@@ -182,6 +229,8 @@ export default {
   resetStorageKeys: [STORAGE_KEY, TEST_STORAGE_KEY],
   saveCredential,
   getCredential,
+  hasStoredCredential,
+  getInterruptedHardwareResetKey,
   removeAllCredentials,
   getPendingHardwareKeyMigration,
 };

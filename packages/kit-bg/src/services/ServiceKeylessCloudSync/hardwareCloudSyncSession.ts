@@ -1171,8 +1171,8 @@ export async function reencryptHardwareCloudSyncItems<
   validateOnly,
 }: {
   items: T[];
-  from: IHardwareCloudSyncDataKey;
-  to: IHardwareCloudSyncDataKey;
+  from: Pick<IHardwareCloudSyncDataKey, 'dek' | 'pwdHash'>;
+  to: Pick<IHardwareCloudSyncDataKey, 'dek' | 'pwdHash'>;
   validateOnly?: boolean;
 }): Promise<T[]> {
   const result: T[] = [];

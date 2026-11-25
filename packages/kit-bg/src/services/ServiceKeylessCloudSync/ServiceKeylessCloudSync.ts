@@ -861,25 +861,65 @@ class ServiceKeylessCloudSync extends ServiceBase {
                 includeUnsupportedDataTypes: true,
               },
             );
-          this.assertUnknownSyncItemsCanMigrate(items, [credential.pwdHash]);
-          const existing =
-            current.currentCloudSyncKeylessWalletId === source.credentialId
-              ? await keylessSyncCredentialStorage.getCredential(
-                  source.credentialId,
+          const sameSelectedSource =
+            current.hardwareCloudSyncKeySource?.credentialId ===
+            source.credentialId;
+          const sameSelectedWallet =
+            current.currentCloudSyncKeylessWalletId === source.credentialId;
+          const existing = sameSelectedWallet
+            ? await keylessSyncCredentialStorage.getCredential(
+                source.credentialId,
+              )
+            : null;
+          const resetKey =
+            !rebuildsLocalItemsNow &&
+            sameSelectedSource &&
+            (sameSelectedWallet || !current.currentCloudSyncKeylessWalletId)
+              ? await keylessSyncCredentialStorage.getInterruptedHardwareResetKey(
+                  source,
+                  credential,
                 )
-              : null;
+              : undefined;
+          this.assertUnknownSyncItemsCanMigrate(
+            items,
+            resetKey
+              ? [credential.pwdHash, resetKey.pwdHash]
+              : [credential.pwdHash],
+          );
+          const resetOriginals = resetKey
+            ? items.filter(
+                (item) =>
+                  item.pwdHash === resetKey.pwdHash &&
+                  !item.pendingPublicAccountDeletionAt,
+              )
+            : [];
+          const resetItems =
+            resetKey && resetOriginals.length
+              ? await reencryptHardwareCloudSyncItems({
+                  items: resetOriginals,
+                  from: resetKey,
+                  to: {
+                    dek: credential.encryptionKey,
+                    pwdHash: credential.pwdHash,
+                  },
+                })
+              : [];
+          const resetItemsById = new Map(
+            resetItems.map((item) => [item.id, item]),
+          );
           const { recoveredItems, restoresRotatedHardwareKey } =
             await prepareHardwareResign({
-              items,
-              previousPwdHashes,
+              items: resetItems.length
+                ? items.map((item) => resetItemsById.get(item.id) ?? item)
+                : items,
+              previousPwdHashes: resetKey
+                ? [...previousPwdHashes, resetKey.pwdHash]
+                : previousPwdHashes,
               existing,
               credential,
               rebuildsLocalItemsNow,
-              sameSelectedSource:
-                current.hardwareCloudSyncKeySource?.credentialId ===
-                source.credentialId,
-              sameSelectedWallet:
-                current.currentCloudSyncKeylessWalletId === source.credentialId,
+              sameSelectedSource,
+              sameSelectedWallet,
               makeCredential: () =>
                 this.buildSyncCredentialWithKeylessCredential({
                   ...credential,
@@ -904,6 +944,22 @@ class ServiceKeylessCloudSync extends ServiceBase {
             throw settingsChangedError();
           assertCurrent();
           this.hardwareCloudKeyCommitting = true;
+          if (resetKey && resetItems.length) {
+            const { preparePoolRekey } =
+              await import('./hardwareCloudSyncResetDownload');
+            // Keep the old key durable until all of its local writes commit.
+            await localDb.updateSyncItem(
+              preparePoolRekey(
+                resetOriginals,
+                resetItems,
+                resetKey.pwdHash,
+                isCurrent,
+                settingsChangedError,
+              ),
+            );
+            await this.assertCloudSyncStorageScopeCurrent();
+            assertCurrent();
+          }
           await keylessSyncCredentialStorage.saveCredential({
             ...credential,
             source,
@@ -1057,7 +1113,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         const source = config.hardwareCloudSyncKeySource;
         if (!source || config.isCloudSyncEnabledKeyless) return false;
         if (
-          !(await keylessSyncCredentialStorage.getCredential(
+          !(await keylessSyncCredentialStorage.hasStoredCredential(
             source.credentialId,
           ))
         )
@@ -1650,44 +1706,63 @@ class ServiceKeylessCloudSync extends ServiceBase {
     });
   }
 
-  // True while storage still holds this hardware session as the selected key:
+  // Returns the session credential while it is still selected:
   // a request in flight must not write back after sync was turned off or
   // switched to Keyless (saveCredential replaces the whole credential table).
-  private async isStoredHardwareSession(
+  private async getStoredHardwareSessionCredential(
     credential: IKeylessCloudSyncCredential,
-  ): Promise<boolean> {
+  ): Promise<IKeylessCloudSyncCredential | undefined> {
     const config = await primeCloudSyncPersistAtom.get();
     if (
       !config.isCloudSyncEnabledKeyless ||
       config.hardwareCloudSyncKeySource?.credentialId !==
         credential.keylessWalletId
     ) {
-      return false;
+      return undefined;
     }
     const stored = await keylessSyncCredentialStorage.getCredential(
       credential.keylessWalletId,
     );
-    return (
-      !!stored?.hardwareSession &&
+    return stored?.hardwareSession &&
       stored.hardwareSession.sessionId === credential.hardwareSession?.sessionId
-    );
+      ? stored
+      : undefined;
   }
 
-  // The session was revoked or the key was reset elsewhere: drop this
-  // device's key so the page asks to connect the hardware wallet again.
+  // The session was revoked or the key was reset elsewhere: pause this
+  // device's sync until the hardware wallet signs in again.
   private async requireHardwareCloudSyncSignIn(
     credential: IKeylessCloudSyncCredential,
   ): Promise<never> {
     await this.repairCredentialMutex.runExclusive(async () => {
       if (!(await this.isCloudSyncStorageScopeCurrent())) return;
-      const deletionAllowed = await this.isStoredHardwareSession(credential);
+      const stored = await this.getStoredHardwareSessionCredential(credential);
       logHardwareCloudSyncDiagnostic('sign_in_credential_deletion_guard', {
-        deletionAllowed,
+        deletionAllowed: !!stored,
       });
-      if (deletionAllowed) {
-        await keylessSyncCredentialStorage.removeAllCredentials();
-        logHardwareCloudSyncDiagnostic('sign_in_credential_deleted', {});
+      if (!stored) return;
+      if (
+        stored.source?.type === 'hardware' &&
+        stored.pendingDataKey &&
+        !stored.pendingHardwareKeyMigration &&
+        (!stored.hardwareSession?.environment ||
+          stored.hardwareSession.environment ===
+            (await this.getSelectedCloudSyncEnvironment()))
+      ) {
+        // Re-signing can finish the local reset without reusing this session.
+        await keylessSyncCredentialStorage.saveCredential({
+          keylessWalletId: stored.keylessWalletId,
+          source: stored.source,
+          signingPrivateKey: '',
+          signingPublicKey: '',
+          encryptionKey: stored.encryptionKey,
+          pwdHash: stored.pwdHash,
+          pendingDataKey: stored.pendingDataKey,
+        });
+        return;
       }
+      await keylessSyncCredentialStorage.removeAllCredentials();
+      logHardwareCloudSyncDiagnostic('sign_in_credential_deleted', {});
     });
     this.clearKeylessCloudSyncCredentialCache();
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -1847,7 +1922,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
   ): Promise<IKeylessCloudSyncCredential> {
     const commit = this.repairCredentialMutex.runExclusive(async () => {
       if (refreshAdmission && !refreshAdmission.canPersist()) return undefined;
-      if (!(await this.isStoredHardwareSession(expected))) return undefined;
+      if (!(await this.getStoredHardwareSessionCredential(expected)))
+        return undefined;
       const stored = await keylessSyncCredentialStorage.getCredential(
         expected.keylessWalletId,
       );
@@ -2337,7 +2413,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     let knownGeneration: number | undefined;
     let migrationSource = credential;
     const beforeFlush = async () => {
-      if (!isCurrent() || !(await this.isStoredHardwareSession(credential))) {
+      if (
+        !isCurrent() ||
+        !(await this.getStoredHardwareSessionCredential(credential))
+      ) {
         throw new HardwareCloudSyncCancelledError();
       }
       this.hardwareCloudKeyCommitting = true;
@@ -2491,7 +2570,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           this.repairCredentialMutex.runExclusive(async () => {
             if (
               !isCurrent() ||
-              !(await this.isStoredHardwareSession(migrationSource))
+              !(await this.getStoredHardwareSessionCredential(migrationSource))
             )
               throw new HardwareCloudSyncCancelledError();
             try {

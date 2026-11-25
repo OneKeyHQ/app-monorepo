@@ -908,12 +908,10 @@ test.each([
           items: [item],
           from: {
             dek: old.encryptionKey,
-            dekId: oldDekId,
             pwdHash: old.pwdHash,
           },
           to: {
             dek: current.encryptionKey,
-            dekId: current.hardwareSession.dekId,
             pwdHash,
           },
         })

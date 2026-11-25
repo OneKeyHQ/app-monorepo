@@ -250,8 +250,15 @@ jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
       mockStored?.pendingHardwareKeyMigration ? mockStored : undefined,
     ),
     getCredential: jest.fn(async (id: string) =>
-      mockStored?.keylessWalletId === id ? mockStored : null,
+      mockStored?.keylessWalletId === id &&
+      (!mockStored.pendingDataKey || mockStored.hardwareSession)
+        ? mockStored
+        : null,
     ),
+    hasStoredCredential: jest.fn(
+      async (id: string) => mockStored?.keylessWalletId === id,
+    ),
+    getInterruptedHardwareResetKey: jest.fn(async () => undefined),
     saveCredential: jest.fn(async (credential: IKeylessCloudSyncCredential) => {
       mockStored = credential;
     }),
@@ -3749,6 +3756,157 @@ describe('hardware Cloud key in production builds', () => {
       backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
     ).toHaveBeenCalledTimes(1);
   });
+
+  test.each(['unbound', 'revoked'] as const)(
+    're-signing after a %s interrupted reset rekeys the pending account snapshot before replacing the old key',
+    async (sessionState) => {
+      const session = activeCredential.hardwareSession;
+      if (!session) throw new OneKeyLocalError('Missing fixture session');
+      const endpoint = endpointsMap.prod.prime;
+      const oldKey = { dek: 'a1'.repeat(32), pwdHash: 'hw-dek-before-reset' };
+      const next = {
+        dek: 'b2'.repeat(32),
+        dekId: 'fixture-reset-dek',
+        pwdHash: 'hw-dek-after-reset',
+        generation: 2,
+      };
+      const id = 'fixture-pending-account';
+      const dataType = EPrimeCloudSyncDataType.Account;
+      const plaintext = 'fixture-pending-account-snapshot';
+      const ciphertext = await keylessCloudSyncUtils.encryptWithKeylessKey({
+        rawData: plaintext,
+        encryptionKey: oldKey.dek,
+        itemId: id,
+        dataType,
+      });
+      const { service, getClient, backgroundApi } = setup([
+        { id, dataType, data: ciphertext, pwdHash: oldKey.pwdHash },
+      ]);
+      const {
+        items: [record],
+      } = await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
+      const original = { ...record };
+      getClient.mockResolvedValue(axios.create({ baseURL: endpoint }));
+      mockStored = {
+        ...activeCredential,
+        signingPrivateKey: '',
+        signingPublicKey: '',
+        encryptionKey: oldKey.dek,
+        pwdHash: oldKey.pwdHash,
+        hardwareSession: {
+          ...session,
+          boundBaseURL: sessionState === 'revoked' ? endpoint : undefined,
+          environment: 'prod',
+        },
+        pendingDataKey: next,
+      };
+      if (sessionState === 'revoked') {
+        await expect(
+          service['requireHardwareCloudSyncSignIn'](mockStored),
+        ).rejects.toThrow('Reconnect your hardware wallet');
+        expect(mockStored?.hardwareSession).toBeUndefined();
+      } else {
+        mockConfig.currentCloudSyncKeylessWalletId = undefined;
+      }
+      await expect(
+        service.getSelectedHardwareCloudKeyAvailability(),
+      ).resolves.toBe('missing');
+
+      const newSession = {
+        ...session,
+        boundBaseURL: endpoint,
+        sessionId: 'fixture-fresh-session',
+      };
+      const reSign = async () => {
+        jest
+          .mocked(verifyHardwareCloudSyncChallenge)
+          .mockResolvedValueOnce(newSession);
+        jest
+          .mocked(bootstrapHardwareCloudSyncDataKey)
+          .mockResolvedValueOnce({ ...next, previousPwdHashes: [] });
+        jest
+          .mocked(generateHardwareCloudSyncCredentialWithSdk)
+          .mockImplementationOnce(async ({ unlock }) => ({
+            source,
+            credential: await unlock({
+              credentialId: source.credentialId,
+              source,
+              signAuth: async () => 'public-test-signature',
+              deriveKek: async () => 'public-test-kek',
+            }),
+          }));
+        jest
+          .mocked(keylessSyncCredentialStorage.getInterruptedHardwareResetKey)
+          .mockResolvedValueOnce(oldKey);
+        const sessionApi = jest.requireMock<
+          typeof import('./hardwareCloudSyncSession')
+        >('./hardwareCloudSyncSession');
+        const actual = jest.requireActual<
+          typeof import('./hardwareCloudSyncSession')
+        >('./hardwareCloudSyncSession');
+        if (record.pwdHash === oldKey.pwdHash) {
+          jest
+            .mocked(sessionApi.reencryptHardwareCloudSyncItems)
+            .mockImplementationOnce(actual.reencryptHardwareCloudSyncItems);
+        }
+        return service.enableHardwareCloudSync({ connectId });
+      };
+      const pool = jest.spyOn(localDb, 'updateSyncItem');
+      const interruption = new Error('fixture interrupted rekey');
+      if (sessionState === 'unbound') {
+        pool.mockRejectedValueOnce(interruption);
+      } else {
+        jest
+          .mocked(keylessSyncCredentialStorage.saveCredential)
+          .mockRejectedValueOnce(interruption);
+      }
+      pool.mockImplementationOnce(async ({ ids, updater }) => {
+        expect(ids).toEqual([id]);
+        expect(mockStored?.pendingDataKey).toEqual(next);
+        expect(mockStored?.encryptionKey).toBe(oldKey.dek);
+        await updater(record);
+      });
+      try {
+        await expect(reSign()).rejects.toThrow(interruption.message);
+        expect(record.pwdHash).toBe(
+          sessionState === 'unbound' ? oldKey.pwdHash : next.pwdHash,
+        );
+        expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+        expect(mockStored?.encryptionKey).toBe(oldKey.dek);
+        expect(mockStored?.pendingDataKey).toEqual(next);
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).not.toHaveBeenCalled();
+
+        await expect(reSign()).resolves.toBeUndefined();
+        expect(pool).toHaveBeenCalledTimes(sessionState === 'unbound' ? 2 : 1);
+        expect({ ...record, data: ciphertext }).toEqual({
+          ...original,
+          pwdHash: next.pwdHash,
+        });
+        if (!record.data)
+          throw new OneKeyLocalError('Missing re-encrypted fixture');
+        await expect(
+          keylessCloudSyncUtils.decryptWithKeylessKey({
+            encryptedData: record.data,
+            encryptionKey: next.dek,
+            itemId: id,
+            dataType,
+          }),
+        ).resolves.toBe(plaintext);
+        expect(mockStored?.hardwareSession?.sessionId).toBe(
+          newSession.sessionId,
+        );
+        expect(mockStored?.pwdHash).toBe(next.pwdHash);
+        expect(mockStored?.pendingDataKey).toBeUndefined();
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).toHaveBeenCalledTimes(1);
+      } finally {
+        pool.mockRestore();
+      }
+    },
+  );
 
   test('manual rotation recovery requests history only for a retained old-key account', async () => {
     const { service, getClient } = setup();

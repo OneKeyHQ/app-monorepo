@@ -209,7 +209,11 @@ export function preparePoolRekey(
         record.data === original.data &&
         (!isCurrent ||
           (record.dataType === original.dataType &&
-            record.rawKey === original.rawKey)) &&
+            record.rawKey === original.rawKey &&
+            (record.pendingPublicAccountDeletionAt ?? undefined) ===
+              (original.pendingPublicAccountDeletionAt ?? undefined) &&
+            (record.pendingPublicAccountDeletionHash ?? undefined) ===
+              (original.pendingPublicAccountDeletionHash ?? undefined))) &&
         record.rawData === original.rawData &&
         (record.dataTime ?? undefined) === (original.dataTime ?? undefined) &&
         record.isDeleted === original.isDeleted
@@ -286,7 +290,6 @@ export async function commitHardwareDataKey({
       items: originalItems,
       from: {
         dek: credential.encryptionKey,
-        dekId: session.dekId,
         pwdHash: credential.pwdHash,
       },
       to: next,
