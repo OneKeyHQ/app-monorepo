@@ -961,17 +961,23 @@ export function TradingViewNativeMultiChart({
             : next;
         },
         // The panels followed the option at the press. If it is not saved,
-        // the next edit starts from the write before this one. A failed
-        // enable leaves the panels to the saved layout again. A failed
-        // disable syncs them again, from the selected chart as at a press:
-        // the interval saved with the option can be one they have left since.
+        // the option is as the next edit finds it: in the write of this page
+        // still on its way, or in the saved layout, which another page can
+        // have changed meanwhile. Synced again, the panels start from the
+        // selected chart as at a press: the interval saved with the option
+        // can be one they have left since.
         option === 'interval'
-          ? () =>
+          ? () => {
+              const saved = latestSelectionState.current.layout;
+              const { written } = channel;
+              const kept =
+                written && !hasWrite(saved, written) ? written : saved;
               setIntervalSyncIntent(
-                isSynced
-                  ? null
-                  : { isSynced: true, start: readSelectedInterval() },
-              )
+                getTradingViewNativeMultiChartSync(kept).interval
+                  ? { isSynced: true, start: readSelectedInterval() }
+                  : { isSynced: false },
+              );
+            }
           : undefined,
       );
     },

@@ -2521,6 +2521,36 @@ it('keeps the intervals the charts show when a write that turns the option off f
   });
 });
 
+it('leaves the option off when a write that turns it off fails after another page saved it off', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  act(() => harness.flushLayout());
+  const { revision = 0 } = harness.layout;
+
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  // Another page turned it off over the same layout first: the same revision,
+  // without the write of this page.
+  act(() =>
+    harness.replaceLayout({
+      ...harness.layout,
+      sync: { interval: false },
+      revision: revision + 1,
+      writeId: 'other-page',
+    }),
+  );
+  await act(async () => harness.failLayout());
+  expect(option()).toBe('false');
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '240', 'panel-2': '15' });
+});
+
 it('stops syncing the intervals when a split runtime fails to save the option, and asks for it again on the next press', async () => {
   mockIntervals.set('main', '1');
   mockIntervals.set('panel-2', '240');
