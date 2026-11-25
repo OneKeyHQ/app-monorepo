@@ -354,17 +354,19 @@ it('keeps a transparent Android dash invisible', () => {
 it('dashes only the trailing link on native, also when it wraps', () => {
   platformEnv.isNative = true;
   const onLayout = jest.fn();
-  const view = render(
+  const label = (length: number) => (
     <DashText
+      dashOverlay
       width={100}
       leadingText="Sign in to continue. "
       dashSpacing={2}
-      length={50}
+      length={length}
       onLayout={onLayout}
     >
       Learn more
-    </DashText>,
+    </DashText>
   );
+  const view = render(label(0));
   const textProps = jest.mocked(SizableText);
   const layoutParagraph = (width: number) => {
     const callback = textProps.mock.calls
@@ -381,9 +383,9 @@ it('dashes only the trailing link on native, also when it wraps', () => {
     textProps.mock.calls.slice(-2).map(([props]) => props.width);
   expect(textProps).toHaveBeenCalledTimes(1);
   layoutParagraph(100);
-  expect(probeWidths()).toEqual([100, 100]);
-  expect(onLayout).toHaveBeenCalledTimes(1);
-
+  expect(textProps.mock.calls.every(([props]) => props.opacity !== 0)).toBe(
+    true,
+  );
   // Lays out the paragraph (index 0) or a leading-text probe: plain (1) or
   // ending in a word joiner (2); one 20pt line per width.
   const layout = (probe: 0 | 1 | 2, ...widths: number[]) => {
@@ -416,24 +418,27 @@ it('dashes only the trailing link on native, also when it wraps', () => {
       return [start, top, width] as number[];
     });
 
-  // Same line as the sentence end, starting after the space.
+  // Enabling dashes does not send new layout events for the visible text.
+  layout(0, 100, 90);
+  view.rerender(label(50));
+  expect(probeWidths()).toEqual([100, 100]);
+  expect(onLayout).toHaveBeenCalledTimes(1);
   layout(1, 100, 40);
   layout(2, 100, 45);
-  layout(0, 100, 90);
-  expect(dashes()).toEqual([[45, 42, 45]]);
+  expect(dashes()).toEqual([[45, 39.5, 45]]);
   // The link wraps across two lines.
   layout(1, 80);
   layout(2, 85);
   layout(0, 100, 30);
   expect(dashes()).toEqual([
-    [85, 22, 15],
-    [0, 42, 30],
+    [85, 19.5, 15],
+    [0, 39.5, 30],
   ]);
   // The link alone on the next line while the joiner probe wraps earlier.
   layout(1, 100, 90);
   layout(2, 100, 70, 25);
   layout(0, 100, 90, 30);
-  expect(dashes()).toEqual([[0, 62, 30]]);
+  expect(dashes()).toEqual([[0, 59.5, 30]]);
   // A narrower paragraph must wait for its own prefix measurements.
   layoutParagraph(80);
   expect(probeWidths()).toEqual([80, 80]);
@@ -442,8 +447,8 @@ it('dashes only the trailing link on native, also when it wraps', () => {
   layout(1, 80, 45);
   layout(2, 80, 50);
   expect(dashes()).toEqual([
-    [50, 42, 25],
-    [0, 62, 65],
+    [50, 39.5, 25],
+    [0, 59.5, 65],
   ]);
 });
 

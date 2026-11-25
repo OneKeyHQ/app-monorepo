@@ -358,7 +358,8 @@ function DashTextCore({
   };
 
   if (multiline) {
-    const measureLeadingText = hasDashes && leadingText !== undefined;
+    const hasLeadingText = leadingText !== undefined;
+    const measureLeadingText = hasDashes && hasLeadingText;
     const dashOffset = dashOverlay ? -dashThickness : dashSpacing;
     const { plain, withSpace } = leadingMeasurements;
     let dashedLines = textLines;
@@ -376,9 +377,10 @@ function DashTextCore({
         <SizableText
           {...textProps}
           {...decorationProps}
-          onLayout={measureLeadingText ? handleParagraphLayout : onLayout}
+          onLayout={hasLeadingText ? handleParagraphLayout : onLayout}
           onTextLayout={
-            hasDashes && (useMeasuredDashes || tracksAndroidWrapping)
+            hasLeadingText ||
+            (hasDashes && (useMeasuredDashes || tracksAndroidWrapping))
               ? handleTextLayout
               : onTextLayout
           }
