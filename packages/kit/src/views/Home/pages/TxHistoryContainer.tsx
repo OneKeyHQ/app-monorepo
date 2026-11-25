@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactNode } from 'react';
 
 import { isEmpty, unionBy, uniqBy } from 'lodash';
 
@@ -88,14 +87,6 @@ type IPendingTokenRefreshAfterTokensDone = {
 const getTokenRefreshAccountKey = (account: ITokenRefreshAccount) =>
   `${account.accountId}::${account.networkId}`;
 
-export type ITxHistoryCompactListProps = {
-  // `loading` until the first page arrives, `empty` when it had nothing;
-  // `data` is empty in both.
-  status: 'loading' | 'empty' | 'ready';
-  data: IAccountHistoryTx[];
-  onPressHistory: (history: IAccountHistoryTx) => void;
-};
-
 function TxHistoryListContainer(
   params:
     | {
@@ -104,20 +95,11 @@ function TxHistoryListContainer(
         limit?: number;
         emptyTitle?: string;
         emptyDescription?: string;
-        // Draws the list itself, loading and empty states included (the
-        // desktop Recent activity column), so all three share its row shape.
-        renderCompactList?: (props: ITxHistoryCompactListProps) => ReactNode;
       }
     | undefined,
 ) {
-  const {
-    plainMode,
-    tableLayout,
-    limit,
-    emptyTitle,
-    emptyDescription,
-    renderCompactList,
-  } = params ?? {};
+  const { plainMode, tableLayout, limit, emptyTitle, emptyDescription } =
+    params ?? {};
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
@@ -816,8 +798,8 @@ function TxHistoryListContainer(
   // the viewport and make the native SectionList jitter (it has no exact
   // item layout). Held rows merge in automatically once the user scrolls back
   // near the top. Pass-through on web/desktop and for preview / plain lists.
-  // The tab scenario (full wallet-history tab, not RecentHistory's
-  // plainMode+limit preview) also gates the scroll observer mount below.
+  // The tab scenario (full wallet-history tab, not a plainMode+limit
+  // preview) also gates the scroll observer mount below.
   const isFrozenTopTabScenario = !plainMode && !limit;
   const frozenTopEnabled =
     isFocused && isRouteFocused && isFrozenTopTabScenario;
@@ -922,20 +904,6 @@ function TxHistoryListContainer(
       ) : null,
     [],
   );
-
-  if (renderCompactList) {
-    let status: ITxHistoryCompactListProps['status'] = 'ready';
-    if (!historyState.initialized) {
-      status = 'loading';
-    } else if (displayedHistoryData.length === 0) {
-      status = 'empty';
-    }
-    return renderCompactList({
-      status,
-      data: displayedHistoryData,
-      onPressHistory: handleHistoryItemPress,
-    });
-  }
 
   return (
     <>
