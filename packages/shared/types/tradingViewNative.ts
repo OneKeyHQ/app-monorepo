@@ -325,6 +325,13 @@ export type ITradingViewNativeMultiChartLayout = {
   preset: ITradingViewNativeMultiChartPreset;
   sync?: ITradingViewNativeMultiChartSync;
   /**
+   * The interval of the chart that interval syncing was turned on in. Saved
+   * with the option, so every page that shows the layout takes it as the
+   * option arrives and they all end up on the same interval, whichever panel
+   * each has selected by then. Gone once the option is off.
+   */
+  intervalSyncStart?: string;
+  /**
    * The selected panel, which shows the host's own source. The first panel
    * when absent or not shown by the preset.
    */

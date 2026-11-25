@@ -218,6 +218,11 @@ export function normalizeTradingViewNativeMultiChartLayout(
       if (typeof isSynced === 'boolean') sync[option] = isSynced;
     }
   }
+  // Only means something beside the option it was saved with.
+  const intervalSyncStart =
+    sync.interval === true && isNonEmptyString(input.intervalSyncStart)
+      ? input.intervalSyncStart
+      : undefined;
   const activePanelId = PANEL_IDS.find((id) => id === input.activePanelId);
   const revision =
     typeof input.revision === 'number' &&
@@ -237,6 +242,7 @@ export function normalizeTradingViewNativeMultiChartLayout(
     panels,
     ...(Object.keys(sizes).length ? { sizes } : {}),
     ...(Object.keys(sync).length ? { sync } : {}),
+    ...(intervalSyncStart ? { intervalSyncStart } : {}),
     ...(revision ? { revision } : {}),
     ...(writeId ? { writeId } : {}),
   };
@@ -258,14 +264,30 @@ export function getTradingViewNativeMultiChartSync(
   return { ...NOTHING_SYNCED, ...layout.sync };
 }
 
+/**
+ * Turns a sync option on or off. `intervalStart` goes with the interval
+ * option turned on: the interval of the chart it was turned on in, which the
+ * panels then take.
+ */
 export function setTradingViewNativeMultiChartSync(
   layout: ITradingViewNativeMultiChartLayout,
   option: ITradingViewNativeMultiChartSyncOption,
   isSynced: boolean,
+  intervalStart?: string,
 ): ITradingViewNativeMultiChartLayout {
-  return getTradingViewNativeMultiChartSync(layout)[option] === isSynced
-    ? layout
-    : { ...layout, sync: { ...layout.sync, [option]: isSynced } };
+  if (getTradingViewNativeMultiChartSync(layout)[option] === isSynced) {
+    return layout;
+  }
+  const next: ITradingViewNativeMultiChartLayout = {
+    ...layout,
+    sync: { ...layout.sync, [option]: isSynced },
+  };
+  if (option === 'interval') {
+    // An interval saved for an earlier start is never one to start from again.
+    delete next.intervalSyncStart;
+    if (isSynced && intervalStart) next.intervalSyncStart = intervalStart;
+  }
+  return next;
 }
 
 export function getTradingViewNativeMultiChartPanelIds(
