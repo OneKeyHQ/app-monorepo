@@ -166,6 +166,7 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'stockPreviewLogoUrl',
   'stockPreviewQuote',
   'from',
+  'entryCategory',
   'disableTrade',
   'showFavoriteButton',
 ] as const;
@@ -219,6 +220,23 @@ export function isFocusedMarketDetailRouteName(name?: string) {
   return (
     isReplaceableMarketDetailRouteName(name) ||
     name === EModalSwapRoutes.SwapProMarketDetail
+  );
+}
+
+/**
+ * Whether a MarketDetailV2 screen lives in the Market tab stack. The same
+ * screen also renders in the Swap and Market modal stacks; the Market modal
+ * reuses the `MarketDetailV2` route name, so the stack's own route names
+ * decide, not the route name alone.
+ */
+export function isMarketTabDetailRoute(
+  routeName: string | undefined,
+  stackRouteNames: readonly string[] | undefined,
+) {
+  return Boolean(
+    routeName &&
+    MARKET_DETAIL_V2_ROUTE_NAMES.has(routeName) &&
+    stackRouteNames?.includes(ETabMarketRoutes.TabMarket),
   );
 }
 
@@ -758,6 +776,36 @@ export function isInitialSectionConsumed(previous: unknown, next: unknown) {
     cur?.initialSection === undefined &&
     isEqual(omit(prev, 'initialSection'), omit(cur, 'initialSection')),
   );
+}
+
+// The pending asset whose lookup just rewrote the route, so analytics can
+// tell that rewrite from a new selection that also clears the pending asset.
+let resolvedPendingMarketAsset: unknown;
+
+/** Called by the pending-asset lookup right before it rewrites the route. */
+export function markPendingMarketAssetResolved(pendingMarketAsset: unknown) {
+  resolvedPendingMarketAsset = pendingMarketAsset;
+}
+
+/**
+ * Whether a params change is the pending-asset lookup of the same entry
+ * filling in (or clearing) the asset fields, which is not a new entry.
+ */
+export function isPendingMarketAssetResolved(previous: unknown, next: unknown) {
+  type IEntryParams =
+    | { pendingMarketAsset?: unknown; from?: unknown; entryCategory?: unknown }
+    | undefined;
+  const prev = previous as IEntryParams;
+  const cur = next as IEntryParams;
+  const isLookupUpdate = Boolean(
+    prev?.pendingMarketAsset &&
+    prev.pendingMarketAsset === resolvedPendingMarketAsset &&
+    !cur?.pendingMarketAsset &&
+    prev.from === cur?.from &&
+    prev.entryCategory === cur?.entryCategory,
+  );
+  if (isLookupUpdate) resolvedPendingMarketAsset = undefined;
+  return isLookupUpdate;
 }
 
 // Detail routes (by key) opened by Swap's "view full data" whose trip back to

@@ -11,6 +11,11 @@ import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  resetMarketHomeEntryState,
+  takeMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -78,9 +83,13 @@ jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
 
 // keep the components package out of this suite's import graph; only Toast
 // is consumed by the deeplink module (explicit pay refusal)
+let mockRootNavigationState: unknown;
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
     error: jest.fn(),
+  },
+  rootNavigationRef: {
+    current: { getRootState: () => mockRootNavigationState },
   },
 }));
 
@@ -448,8 +457,11 @@ describe('stocks / perps universal links', () => {
     'https://app.onekeytest.com/market/',
     'https://app.onekey.so/clip/market?click_id=0123456789ABCDEFGHIJKL',
   ])('routes market universal link to the Market tab home: %s', async (url) => {
+    resetMarketHomeEntryState();
     handleDeepLinkUrl({ url });
     await flushAsyncTasks();
+
+    expect(takeMarketHomeEntry()).toBe(EMarketHomeEntrySource.Deeplink);
 
     expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
@@ -458,6 +470,42 @@ describe('stocks / perps universal links', () => {
       },
     });
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+
+  it('does not mark a deep link entry when the Market home is already focused', async () => {
+    resetMarketHomeEntryState();
+    mockRootNavigationState = {
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: 0,
+            routes: [
+              {
+                name: ETabRoutes.Market,
+                state: {
+                  index: 0,
+                  routes: [{ name: ETabMarketRoutes.TabMarket }],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+    try {
+      handleDeepLinkUrl({ url: 'https://app.onekey.so/market' });
+      await flushAsyncTasks();
+
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: { screen: ETabMarketRoutes.TabMarket },
+      });
+      expect(takeMarketHomeEntry()).toBeUndefined();
+    } finally {
+      mockRootNavigationState = undefined;
+    }
   });
 
   it('routes market universal link to the standalone Market tab on native', async () => {

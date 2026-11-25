@@ -53,6 +53,7 @@ import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
+import { markMarketHomeDeeplinkEntry } from '../../../views/Market/utils/marketHomeEntryNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
@@ -397,6 +398,7 @@ async function processOneKeyAppUniversalLink(
     return true;
   }
   if (target.type === 'market') {
+    markMarketHomeDeeplinkEntry();
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
