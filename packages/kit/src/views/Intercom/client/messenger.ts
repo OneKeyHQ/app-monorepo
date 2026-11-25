@@ -34,6 +34,8 @@ import type { IShowIntercomParams } from './openGuard';
 
 const appId = process.env.INTERCOM_APP_ID || 'vbbj4ssb';
 let owner: string | null | undefined;
+// The anonymous visitor the client runs as, so each visitor counts apart.
+let visitorId: string | undefined;
 let client: ReturnType<typeof createMessengerClient> | undefined;
 let revision = 0;
 let visible = false;
@@ -56,6 +58,11 @@ function setUnread(ids: string[]) {
   unreadIds = new Set(ids);
   if (notification && !unreadIds.has(notification.conversationId))
     setNotification(undefined);
+  listeners.forEach((listener) => listener());
+}
+function setVisitorId(id: string | undefined) {
+  if (visitorId === id) return;
+  visitorId = id;
   listeners.forEach((listener) => listener());
 }
 function storageOperation<T>(operation: () => Promise<T>): Promise<T> {
@@ -87,6 +94,7 @@ function invalidate() {
   revision += 1;
   client?.dispose();
   client = undefined;
+  visitorId = undefined;
   unreadKnown = false;
   setUnread([]);
   setNotification(undefined);
@@ -94,10 +102,12 @@ function invalidate() {
 }
 export const getIntercomUnreadCount = () => unreadIds.size;
 export const isIntercomUnreadCountKnown = () => unreadKnown;
-// The identity the count belongs to: '' when anonymous, undefined before the
-// first identity sync.
-export const getIntercomUnreadOwner = () =>
-  owner === undefined ? undefined : (owner ?? '');
+// The identity the count belongs to: the signed-in user, or the anonymous
+// visitor; undefined before the first identity sync.
+export const getIntercomUnreadOwner = () => {
+  if (owner === undefined) return undefined;
+  return owner ?? `visitor:${visitorId ?? ''}`;
+};
 export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   listeners.add(listener);
   return () => {
@@ -355,12 +365,15 @@ export async function createIntercomMessengerSession(
           const raw = visitorBinding
             ? await (await visitorBinding).get()
             : null;
-          return parseVisitor(raw);
+          const visitor = parseVisitor(raw);
+          if (generation === revision) setVisitorId(visitor?.anonymousId);
+          return visitor;
         }),
       saveVisitor: (visitor) =>
         storageOperation(async () => {
           await assertCurrent();
           await (await visitorBinding)?.set(JSON.stringify(visitor));
+          if (generation === revision) setVisitorId(visitor.anonymousId);
         }),
       onRead: (id) => {
         if (generation !== revision || isLocked()) return;

@@ -25,7 +25,8 @@ export function useIsIntercomUnreadCountKnown() {
   );
 }
 
-// The Intercom identity the count belongs to ('' when anonymous).
+// The Intercom identity the count belongs to: the signed-in user or the
+// anonymous visitor.
 export function useIntercomUnreadOwner() {
   return useSyncExternalStore(
     subscribeToIntercomUnreadCount,

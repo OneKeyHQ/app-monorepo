@@ -576,6 +576,28 @@ it('revokes an in-memory visitor after the shared storage reference is reset', a
   expect(body.has('anonymous_session')).toBe(false);
 });
 
+it('keys an anonymous unread count by the visitor it belongs to', async () => {
+  const old = await subject.createIntercomMessengerSession(null);
+  expect(subject.getIntercomUnreadOwner()).toBe('visitor:test-visitor');
+  mockStorageEpoch += 1;
+  mockVisitor = null;
+  await expect(old.listConversations()).rejects.toThrow();
+  expect(subject.getIntercomUnreadOwner()).not.toBe('visitor:test-visitor');
+  mockFetch.mockImplementation(
+    async () =>
+      new Response(
+        JSON.stringify({
+          ...boot,
+          user: { id: 'test-user', anonymous_id: 'next-visitor' },
+          conversations: [],
+        }),
+        { status: 200 },
+      ),
+  );
+  await subject.createIntercomMessengerSession(null);
+  expect(subject.getIntercomUnreadOwner()).toBe('visitor:next-visitor');
+});
+
 it('binds a new anonymous client only after the previous identity storage removal completes', async () => {
   mockUserId = 'A';
   await subject.createIntercomMessengerSession('A');
