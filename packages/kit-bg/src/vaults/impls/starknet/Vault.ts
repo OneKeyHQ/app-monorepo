@@ -36,6 +36,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { composePrivacyChainBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { mapStrk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -79,6 +80,7 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
+import { EStrk20OptInStatus } from '@onekeyhq/shared/types/starknetPrivacy';
 import type {
   IAccountToken,
   IFetchTokenDetailItem,
@@ -97,6 +99,10 @@ import {
 
 import { VaultBase } from '../../base/VaultBase';
 import { fetchLocalWalletNativeTokenQuote } from '../../localWallet/nativeTokenPrice';
+import {
+  applyComposedBalancesToBackendTokenList,
+  toLocalWalletTokenPrice,
+} from '../../localWallet/tokenList';
 import { ESignedTxBroadcastStatus } from '../../types';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -109,7 +115,11 @@ import {
   STARKNET_PRESET_TOKENS,
   ZERO_SIGNATURE,
 } from './sdkStarknet';
-import { ERC20_ENTRYPOINT, STRK_TOKEN_ADDRESS } from './sdkStarknet/consts';
+import {
+  ERC20_ENTRYPOINT,
+  STRK20_PRIVACY_CONFIG,
+  STRK_TOKEN_ADDRESS,
+} from './sdkStarknet/consts';
 import {
   assertStarknetPrivacyBuildIsFresh,
   buildStarknetPrivacyDecodedAction,
@@ -1212,6 +1222,139 @@ export default class Vault extends VaultBase {
     }));
 
     return { data: { data } };
+  }
+
+  override async fetchTokenList(
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
+    const response = await super.fetchTokenList(params);
+    await this._overlayStarknetPrivateBalances(response, params);
+    return response;
+  }
+
+  /**
+   * Composes cached STRK20 private balances into the Home token list using the
+   * shared local-wallet balance overlay, without blocking on network discovery
+   * or loading the lazy privacy service for non-opted-in accounts.
+   */
+  private async _overlayStarknetPrivateBalances(
+    response: IFetchServerTokenListResponse,
+    params: IFetchServerTokenListParams,
+  ): Promise<void> {
+    const accountId = params.accountId || this.accountId;
+    const config = STRK20_PRIVACY_CONFIG[this.networkId];
+    if (!accountId || !config?.poolAddress) {
+      return;
+    }
+    if (!this.backgroundApi.simpleDb?.starknetPrivacy?.getRecord) {
+      return;
+    }
+    const record = await this.backgroundApi.simpleDb.starknetPrivacy
+      .getRecord({
+        networkId: this.networkId,
+        accountId,
+        poolAddress: config.poolAddress,
+      })
+      .catch(() => undefined);
+    if (record?.optInStatus !== EStrk20OptInStatus.Registered) {
+      return;
+    }
+    if (!this.backgroundApi.serviceStarknetPrivacy?.getHomePrivateBalances) {
+      return;
+    }
+    const privateSnapshot = await this.backgroundApi.serviceStarknetPrivacy
+      .getHomePrivateBalances({
+        networkId: this.networkId,
+        accountId,
+      })
+      .catch(() => undefined);
+    if (!privateSnapshot) {
+      return;
+    }
+    const privateByToken = privateSnapshot.byToken;
+    if (!Object.keys(privateByToken).length) {
+      return;
+    }
+    const normalizeEntryAddress = (address?: string) => {
+      try {
+        return normalizeTokenAddress(address || STRK_TOKEN_ADDRESS);
+      } catch {
+        return undefined;
+      }
+    };
+    const matchedAddresses = new Set<string>();
+    applyComposedBalancesToBackendTokenList({
+      response,
+      groups: ['tokens', 'smallBalanceTokens', 'riskTokens'],
+      resolveBalance: (token, currentFiat) => {
+        const normalized = normalizeEntryAddress(
+          token.isNative && !token.address ? STRK_TOKEN_ADDRESS : token.address,
+        );
+        if (!normalized) return undefined;
+        matchedAddresses.add(normalized);
+        const privateSide = privateByToken[normalized];
+        if (!privateSide || privateSide === '0') {
+          return undefined;
+        }
+        const composed = composePrivacyChainBalance({
+          publicSideIndexer: currentFiat.balance,
+          privateSide,
+          spendable: currentFiat.balance,
+        });
+        return composed.total ? { total: composed.total } : undefined;
+      },
+    });
+
+    const accountAddress = params.requestApiParams.accountAddress ?? '';
+    const hiddenTokenSet = new Set(
+      (params.requestApiParams.hiddenTokens ?? [])
+        .map((addr) => normalizeEntryAddress(addr))
+        .filter((addr): addr is string => Boolean(addr)),
+    );
+    const addedFingerprints: string[] = [];
+    for (const [tokenAddr, privateAmount] of Object.entries(privateByToken)) {
+      const shouldSynthesize =
+        Boolean(privateAmount) &&
+        privateAmount !== '0' &&
+        !matchedAddresses.has(tokenAddr) &&
+        !hiddenTokenSet.has(tokenAddr);
+      const preset = shouldSynthesize
+        ? this._getPresetTokens().find(
+            (item) => normalizeTokenAddress(item.address) === tokenAddr,
+          )
+        : undefined;
+      if (preset) {
+        const isNative = tokenAddr === STRK_TOKEN_ADDRESS;
+        const $key = `${this.networkId}_${accountAddress}_${preset.address}`;
+        const balanceParsed = new BigNumber(privateAmount)
+          .shiftedBy(-preset.decimals)
+          .toFixed();
+        response.data.data.tokens.data.push({
+          $key,
+          name: preset.name,
+          symbol: preset.symbol,
+          decimals: preset.decimals,
+          address: preset.address,
+          logoURI: '',
+          isNative,
+        });
+        response.data.data.tokens.map[$key] = {
+          balance: privateAmount,
+          balanceParsed,
+          totalBalance: privateAmount,
+          totalBalanceParsed: balanceParsed,
+          price: toLocalWalletTokenPrice(undefined),
+          fiatValue: '',
+          totalBalanceFiatValue: '',
+        };
+        addedFingerprints.push(`${$key}_${privateAmount}`);
+      }
+    }
+    if (addedFingerprints.length > 0) {
+      response.data.data.tokens.keys = md5(
+        `${response.data.data.tokens.keys}_${addedFingerprints.join('_')}`,
+      );
+    }
   }
 
   override async fetchTokenListByRpc(

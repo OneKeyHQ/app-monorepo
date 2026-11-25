@@ -22733,6 +22733,7 @@
     "packages/kit-bg/src/vaults/localWallet/nativeTokenPrice.ts": 14727,
     "packages/kit-bg/src/vaults/localWallet/nodeUrl.ts": 16448,
     "packages/kit-bg/src/vaults/localWallet/privacyChainCacheStore.ts": 8500,
+    "packages/kit-bg/src/vaults/localWallet/privacyChainStorageKey.ts": 12517,
     "packages/kit-bg/src/vaults/localWallet/remoteConfig.ts": 12299,
     "packages/kit-bg/src/vaults/localWallet/storageSupport.ts": 5643,
     "packages/kit-bg/src/vaults/localWallet/syncTurn.ts": 9985,

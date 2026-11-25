@@ -209,6 +209,9 @@ export async function noteStarknetPrivacyBroadcastSubmitted(params: {
       accountId,
       poolAddress: privacy.poolAddress,
       txid,
+      ...(typeof privacy.provingBlockId === 'number'
+        ? { provingBlockId: privacy.provingBlockId }
+        : {}),
     };
     if (privacy.kind === 'register') {
       await backgroundApi.serviceStarknetPrivacy.noteRegisterSubmitted(key);

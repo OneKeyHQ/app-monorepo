@@ -24,6 +24,11 @@ export async function validateStarknetPrivacyRecipient(
       ETranslations.starknet_privacy_error_recipient_not_registered__msg,
     );
   } catch (error) {
-    return formatMockMessage(intl, mapStrk20Error(error).translationKey);
+    const mapped = mapStrk20Error(error);
+    return formatMockMessage(
+      intl,
+      mapped.translationKey,
+      mapped.translationValues,
+    );
   }
 }

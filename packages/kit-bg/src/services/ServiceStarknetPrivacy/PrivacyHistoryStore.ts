@@ -140,6 +140,12 @@ export class PrivacyHistoryStore {
     };
     const { buildStrk20HistoryTx } =
       await import('../../vaults/impls/starknet/strk20Protocol');
+    const { toHexFelt } = await import('../../vaults/impls/starknet/utils');
+    const discoveryTxIds = page.transactions.flatMap((transaction) =>
+      BigInt(transaction.transactionHash) === 0n
+        ? []
+        : [toHexFelt(transaction.transactionHash)],
+    );
     const txs = await Promise.all(
       page.transactions.map((transaction) =>
         buildStrk20HistoryTx({
@@ -224,7 +230,7 @@ export class PrivacyHistoryStore {
       : undefined;
     return {
       txs: sortHistoryTxsByTime({ txs: datedTxs }),
-      discoveryTxIds: txs.flatMap((tx) => (tx ? [tx.id] : [])),
+      discoveryTxIds,
       hasMore,
       isEnabled: true,
       ...(cursor ? { cursor } : {}),
@@ -341,6 +347,7 @@ export class PrivacyHistoryStore {
     if (settled.length) {
       const latestConfirmed =
         await serviceHistory.getAccountLocalHistoryConfirmedTxs(query);
+      params.ctx.assertSession();
       const latestById = new Map(
         latestConfirmed.map((item) => [item.id, item]),
       );

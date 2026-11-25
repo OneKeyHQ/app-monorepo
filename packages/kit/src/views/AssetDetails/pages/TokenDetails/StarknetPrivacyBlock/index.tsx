@@ -103,7 +103,7 @@ function StarknetPrivacyBlock({
     state,
     balanceErrorCode,
   });
-  const { optIn, isOptingIn, optInErrorKey, optInRetryable } =
+  const { optIn, isOptingIn, optInErrorKey, optInErrorValues, optInRetryable } =
     useStarknetPrivacyOptIn({
       networkId,
       accountId,
@@ -219,11 +219,14 @@ function StarknetPrivacyBlock({
     }
 
     const reasonKey = optInErrorKey ?? descriptionKey;
+    const reasonValues = optInErrorKey ? optInErrorValues : undefined;
     return (
       <TokenPrivacyPanel
         state="disabled"
         title={formatMockMessage(intl, titleKey)}
-        description={reasonKey ? formatMockMessage(intl, reasonKey) : ''}
+        description={
+          reasonKey ? formatMockMessage(intl, reasonKey, reasonValues) : ''
+        }
         onEnable={() => void optIn()}
         enableUnavailable={optInBlocked}
         busy={isOptingIn}

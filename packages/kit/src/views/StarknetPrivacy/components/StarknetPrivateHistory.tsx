@@ -152,6 +152,7 @@ function PrivateHistoryContent(
           tokenInfo.address,
           history.txs.length,
           history.txs.at(-1)?.id,
+          history.cursorId,
         ].join('|')}
         onEndReached={history.loadMore}
         onEndReachedThreshold={0.2}

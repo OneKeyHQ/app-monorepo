@@ -9,6 +9,10 @@ const mockUnifoldTrackingLoop = jest.fn(async () => undefined);
 const mockUnifoldPrivateMethod = jest.fn(async () => undefined);
 const mockIdentityExitConstructor = jest.fn();
 const mockTravelModeConstructor = jest.fn();
+const mockStarknetPrivacyConstructor = jest.fn();
+const mockStarknetPrivacyClearViewingKeyCache = jest.fn(async () => undefined);
+const mockStarknetPrivacyInvalidatePendingAuthorizations = jest.fn();
+const mockStarknetPrivacyGetPrivacyConfig = jest.fn(async () => undefined);
 const mockIdentityExitRecovery = jest.fn(async () => ({
   recoveredOperationCount: 0,
   abandonedOperationCount: 0,
@@ -17,6 +21,7 @@ let mockDemoModuleLoadCount = 0;
 let mockUnifoldModuleLoadCount = 0;
 let mockIdentityExitModuleLoadCount = 0;
 let mockTravelModeModuleLoadCount = 0;
+let mockStarknetPrivacyModuleLoadCount = 0;
 
 jest.mock('./BackgroundApiBase', () => ({
   __esModule: true,
@@ -112,6 +117,23 @@ jest.mock('../services/ServiceIdentityExit/ServiceIdentityExit', () => {
   };
 });
 
+jest.mock('../services/ServiceStarknetPrivacy', () => {
+  mockStarknetPrivacyModuleLoadCount += 1;
+  return {
+    __esModule: true,
+    default: function ServiceStarknetPrivacy(params: unknown) {
+      mockStarknetPrivacyConstructor(params);
+      return {
+        clearViewingKeyCache: () => mockStarknetPrivacyClearViewingKeyCache(),
+        invalidatePendingAuthorizations: () => {
+          mockStarknetPrivacyInvalidatePendingAuthorizations();
+        },
+        getPrivacyConfig: () => mockStarknetPrivacyGetPrivacyConfig(),
+      };
+    },
+  };
+});
+
 describe('BackgroundApi lazy services', () => {
   beforeEach(() => {
     jest.resetModules();
@@ -120,6 +142,7 @@ describe('BackgroundApi lazy services', () => {
     mockUnifoldModuleLoadCount = 0;
     mockIdentityExitModuleLoadCount = 0;
     mockTravelModeModuleLoadCount = 0;
+    mockStarknetPrivacyModuleLoadCount = 0;
   });
 
   test.each([false, true])(
@@ -308,5 +331,37 @@ describe('BackgroundApi lazy services', () => {
         backgroundMethodName: 'INTERNAL_method',
       }),
     ).toBeUndefined();
+  });
+
+  test('skips loading serviceStarknetPrivacy on lock cleanup until loaded, then clears synchronously', async () => {
+    const { default: BackgroundApi } = await import('./BackgroundApi');
+    const backgroundApi = new BackgroundApi();
+
+    backgroundApi.serviceStarknetPrivacy.invalidatePendingAuthorizations();
+    await backgroundApi.serviceStarknetPrivacy.clearViewingKeyCache();
+    expect(mockStarknetPrivacyModuleLoadCount).toBe(0);
+    expect(mockStarknetPrivacyConstructor).not.toHaveBeenCalled();
+    expect(
+      mockStarknetPrivacyInvalidatePendingAuthorizations,
+    ).not.toHaveBeenCalled();
+    expect(mockStarknetPrivacyClearViewingKeyCache).not.toHaveBeenCalled();
+
+    // Loading via a real method initializes the service once.
+    await backgroundApi.serviceStarknetPrivacy.getPrivacyConfig({
+      networkId: 'starknet--mainnet',
+    });
+    expect(mockStarknetPrivacyModuleLoadCount).toBe(1);
+    expect(mockStarknetPrivacyConstructor).toHaveBeenCalledTimes(1);
+
+    // Once loaded, lock/timeout cleanup runs synchronously without awaiting a microtask.
+    backgroundApi.serviceStarknetPrivacy.invalidatePendingAuthorizations();
+    expect(
+      mockStarknetPrivacyInvalidatePendingAuthorizations,
+    ).toHaveBeenCalledTimes(1);
+
+    const clearPromise =
+      backgroundApi.serviceStarknetPrivacy.clearViewingKeyCache();
+    expect(mockStarknetPrivacyClearViewingKeyCache).toHaveBeenCalledTimes(1);
+    await clearPromise;
   });
 });

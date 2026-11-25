@@ -194,6 +194,8 @@ describe('ServiceSend gas account request auth headers', () => {
       networkId: params.networkId,
       feeAmount: params.feeAmount,
       feeTokenSymbol: params.feeTokenSymbol,
+      accountAddress: '0x0',
+      encodedTx: {},
     };
     await expect(service.preCheckIsFeeInfoOverflow(params)).resolves.toBe(
       false,

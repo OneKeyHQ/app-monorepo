@@ -293,7 +293,9 @@ class ServiceStarknetPrivacy extends ServiceBase {
     }
     const sequencing = await this.lifecycle.getSequencingState(p);
     if (sequencing.status === EStrk20SequencingStatus.Waiting) {
-      throw strk20Error(EStrk20ErrorCode.Waiting);
+      throw strk20Error(EStrk20ErrorCode.Waiting, {
+        estimatedSecondsRemaining: sequencing.estimatedSecondsRemaining,
+      });
     }
     return (await this.getStarknetVault(p)).buildAccountActivationTx();
   }
@@ -321,7 +323,11 @@ class ServiceStarknetPrivacy extends ServiceBase {
   }
 
   async noteRegisterSubmitted(
-    p: IStrk20AccountKey & { poolAddress: string; txid: string },
+    p: IStrk20AccountKey & {
+      poolAddress: string;
+      txid: string;
+      provingBlockId?: number;
+    },
   ): Promise<void> {
     return this.lifecycle.noteRegisterSubmitted(p);
   }
@@ -331,6 +337,7 @@ class ServiceStarknetPrivacy extends ServiceBase {
       poolAddress: string;
       txid: string;
       kind: IStrk20TransferKind;
+      provingBlockId?: number;
       fromRecovery?: boolean;
     },
   ): Promise<void> {
@@ -399,6 +406,12 @@ class ServiceStarknetPrivacy extends ServiceBase {
     p: IPrivateBalanceQuery,
   ): Promise<IPrivateBalanceSnapshot | undefined> {
     return this.balances.getCachedPrivateBalances(p);
+  }
+
+  async getHomePrivateBalances(
+    p: IStrk20AccountKey,
+  ): Promise<IPrivateBalanceSnapshot | undefined> {
+    return this.balances.getHomePrivateBalances(p);
   }
 
   @backgroundMethod()

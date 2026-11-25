@@ -71,6 +71,10 @@ function readRpcUintOrU256Decimal(result: string[]): string {
   return u256ToDecimalString(...requireU256(result));
 }
 
+const SPEC_VERSION_PROBE_FAILURE_BACKOFF_MS = timerUtils.getTimeDurationMs({
+  seconds: 30,
+});
+
 /**
  * Flat JSON-RPC client for the calls kit-bg needs. Deliberately not starknet.js
  * RpcProvider: that pulls the account/contract/abi stack into the background
@@ -86,6 +90,8 @@ export default class ClientStarknet {
   readonly transport: IStarknetTransport;
 
   private preConfirmedBlockTagCache: Promise<string> | undefined;
+
+  private preConfirmedProbeRetryAfter = 0;
 
   constructor({
     networkId,
@@ -145,28 +151,36 @@ export default class ClientStarknet {
    * working.
    */
   async getPreConfirmedBlockTag(): Promise<string> {
-    if (!this.preConfirmedBlockTagCache) {
-      const pending = this.getSpecVersion()
-        .then((version) => {
-          const [major, minor] = version
-            .split('.')
-            .map((part) => Number.parseInt(part, 10));
-          const isPreConfirmed =
-            major > SPEC_VERSION_PRE_CONFIRMED.major ||
-            (major === SPEC_VERSION_PRE_CONFIRMED.major &&
-              minor >= SPEC_VERSION_PRE_CONFIRMED.minor);
-          return isPreConfirmed ? BLOCK_TAG_PRE_CONFIRMED : BLOCK_TAG_PENDING;
-        })
-        .catch(() => {
-          // Clear the cache on transient failure so subsequent calls retry
-          // spec-version detection once the endpoint recovers.
-          if (this.preConfirmedBlockTagCache === pending) {
-            this.preConfirmedBlockTagCache = undefined;
-          }
-          return BLOCK_TAG_PRE_CONFIRMED;
-        });
-      this.preConfirmedBlockTagCache = pending;
+    if (this.preConfirmedBlockTagCache) {
+      return this.preConfirmedBlockTagCache;
     }
+    if (Date.now() < this.preConfirmedProbeRetryAfter) {
+      return BLOCK_TAG_PRE_CONFIRMED;
+    }
+    const pending = this.getSpecVersion()
+      .then((version) => {
+        const [major, minor] = version
+          .split('.')
+          .map((part) => Number.parseInt(part, 10));
+        const isPreConfirmed =
+          major > SPEC_VERSION_PRE_CONFIRMED.major ||
+          (major === SPEC_VERSION_PRE_CONFIRMED.major &&
+            minor >= SPEC_VERSION_PRE_CONFIRMED.minor);
+        this.preConfirmedProbeRetryAfter = 0;
+        return isPreConfirmed ? BLOCK_TAG_PRE_CONFIRMED : BLOCK_TAG_PENDING;
+      })
+      .catch(() => {
+        // Back off briefly on transient failure so subsequent calls do not
+        // stall on repeated spec-version timeouts before retrying.
+        if (this.preConfirmedBlockTagCache === pending) {
+          this.preConfirmedBlockTagCache = undefined;
+          this.preConfirmedProbeRetryAfter =
+            Date.now() + SPEC_VERSION_PROBE_FAILURE_BACKOFF_MS;
+          void this.getSpecVersion.clear();
+        }
+        return BLOCK_TAG_PRE_CONFIRMED;
+      });
+    this.preConfirmedBlockTagCache = pending;
     return this.preConfirmedBlockTagCache;
   }
 

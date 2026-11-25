@@ -1133,11 +1133,21 @@ class ServiceSend extends ServiceBase {
       const { networkId, feeAmount, feeTokenSymbol, encodedTx } = params;
       const privateTx = isStarknetPrivateTransaction(networkId, encodedTx);
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      // Redact address/payload for Starknet privacy txs while supplying the
+      // required schema placeholders so the backend's real fee check runs.
       const resp = await client.post<{
         data: { success: boolean };
       }>(
         '/wallet/v1/account/pre-send-transaction',
-        privateTx ? { networkId, feeTokenSymbol, feeAmount } : params,
+        privateTx
+          ? {
+              networkId,
+              feeTokenSymbol,
+              feeAmount,
+              accountAddress: '0x0',
+              encodedTx: {},
+            }
+          : params,
         privateTx
           ? undefined
           : { headers: await this.getOneKeyIdAuthHeaders() },

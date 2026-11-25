@@ -43,6 +43,10 @@ const EMPTY_TX_GATE: IStrk20TxGateState = {
   estimatedSecondsRemaining: 0,
 };
 
+// Safety timeout for legacy pending records without provingBlockId or when the
+// RPC cannot report the pool's proof validity window.
+const PENDING_DROPPED_FALLBACK_TIMEOUT_MS = 60 * 60 * 1000;
+
 /**
  * Pure, deterministic state-machine reducer: derives the single mutually-exclusive
  * `phase` and orthogonal `txGate` from reconciled background facts.
@@ -190,7 +194,11 @@ export class PrivacyLifecycleStore {
 
   /** Called by the vault once the node accepted a register tx. */
   async noteRegisterSubmitted(
-    p: IStrk20AccountKey & { poolAddress: string; txid: string },
+    p: IStrk20AccountKey & {
+      poolAddress: string;
+      txid: string;
+      provingBlockId?: number;
+    },
   ): Promise<void> {
     await simpleDb.starknetPrivacy.patchRecord({
       networkId: p.networkId,
@@ -201,15 +209,57 @@ export class PrivacyLifecycleStore {
         optInStatus: EStrk20OptInStatus.RegisterPending,
         registerTxid: p.txid,
         registerSubmittedAt: Date.now(),
+        ...(p.provingBlockId !== undefined
+          ? { registerProvingBlockId: p.provingBlockId }
+          : {}),
         registerTxFailed: false,
       },
     });
   }
 
   /**
+   * Determines whether a pending tx with no RPC receipt (neither receipt nor
+   * authoritative status) can no longer land because its proof validity window
+   * has elapsed or a conservative wall-clock safety threshold was exceeded.
+   */
+  private async isDroppedPendingTxExpired(p: {
+    client: {
+      getBlockNumber?: () => Promise<number>;
+      getPoolProofValidityBlocks?: (poolAddress: string) => Promise<number>;
+    };
+    poolAddress: string;
+    provingBlockId?: number;
+    submittedAt?: number;
+  }): Promise<boolean> {
+    if (
+      typeof p.provingBlockId === 'number' &&
+      typeof p.client.getBlockNumber === 'function' &&
+      typeof p.client.getPoolProofValidityBlocks === 'function'
+    ) {
+      try {
+        const [latestBlock, validityBlocks] = await Promise.all([
+          p.client.getBlockNumber(),
+          p.client.getPoolProofValidityBlocks(p.poolAddress),
+        ]);
+        if (validityBlocks > 0) {
+          return latestBlock > p.provingBlockId + validityBlocks;
+        }
+      } catch {
+        // Fall through to the wall-clock safety timeout when block/window lookup fails.
+      }
+    }
+    return (
+      typeof p.submittedAt === 'number' &&
+      p.submittedAt > 0 &&
+      Date.now() - p.submittedAt >= PENDING_DROPPED_FALLBACK_TIMEOUT_MS
+    );
+  }
+
+  /**
    * Settles registerPending from the register tx's receipt, so the outcome
-   * lands even if the app was closed before it confirmed. Only a failed
-   * receipt permits a retry; a missing receipt is an unknown outcome.
+   * lands even if the app was closed before it confirmed. A missing receipt
+   * stays pending until its proof validity window (or safety timeout) elapses
+   * and on-chain state confirms no key was registered.
    */
   private async reconcileRegisterPending(
     p: IStarknetPrivacyScope & { record: IStrk20AccountPrivacyState },
@@ -248,6 +298,29 @@ export class PrivacyLifecycleStore {
             ? { lastTxBlockNumber: receipt.block_number }
             : {}),
         };
+      } else if (
+        receipt === null &&
+        (await this.isDroppedPendingTxExpired({
+          client,
+          poolAddress: p.poolAddress,
+          provingBlockId: record.registerProvingBlockId,
+          submittedAt: record.registerSubmittedAt,
+        }))
+      ) {
+        const registeredPublicKey = await client.getPoolRegisteredPublicKey({
+          poolAddress: p.poolAddress,
+          accountAddress: record.accountAddress,
+        });
+        patch = registeredPublicKey
+          ? {
+              optInStatus: EStrk20OptInStatus.Registered,
+              registeredPublicKey,
+              registerTxFailed: false,
+            }
+          : {
+              optInStatus: EStrk20OptInStatus.Consented,
+              registerTxFailed: true,
+            };
       }
       if (!patch) {
         return record;
@@ -272,6 +345,7 @@ export class PrivacyLifecycleStore {
     p: IStarknetPrivacyScope & {
       txid: string;
       kind: IStrk20TransferKind;
+      provingBlockId?: number;
       fromRecovery?: boolean;
     },
   ): Promise<void> {
@@ -301,6 +375,9 @@ export class PrivacyLifecycleStore {
           kind: p.kind,
           status: 'pending',
           submittedAt: Date.now(),
+          ...(p.provingBlockId !== undefined
+            ? { provingBlockId: p.provingBlockId }
+            : {}),
         },
       },
     });
@@ -360,7 +437,31 @@ export class PrivacyLifecycleStore {
         status !== EOnChainHistoryTxStatus.Success &&
         status !== EOnChainHistoryTxStatus.Failed
       ) {
-        return p.record;
+        if (
+          receipt !== null ||
+          !(await this.isDroppedPendingTxExpired({
+            client,
+            poolAddress: p.poolAddress,
+            provingBlockId: transfer.provingBlockId,
+            submittedAt: transfer.submittedAt,
+          }))
+        ) {
+          return p.record;
+        }
+        return (
+          (await simpleDb.starknetPrivacy.patchRecord({
+            networkId: p.networkId,
+            accountId: p.accountId,
+            poolAddress: p.poolAddress,
+            expected: { lastTransferTxid: transfer.txid },
+            patch: {
+              lastTransfer: {
+                ...transfer,
+                status: 'failed',
+              },
+            },
+          })) ?? p.record
+        );
       }
       const blockNumber = receipt?.block_number;
       return (
