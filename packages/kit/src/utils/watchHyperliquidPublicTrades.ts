@@ -14,9 +14,10 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-type IHistoryListener = (trades: IRecentTrade[]) => void;
+type IHistoryListener = (trades: IRecentTrade[], recovered: boolean) => void;
 type IRecoveryGeneration = {
   request?: Promise<boolean>;
+  recovered?: true;
   snapshot?: IRecentTrade[];
 };
 type IPublicTradesHistory = {
@@ -51,8 +52,13 @@ export function acquirePublicTradesHistory(
   histories.set(coin, history);
   let observedGeneration = history.generation;
   history.listeners.add(listener);
-  if (history.generation.snapshot) listener(history.generation.snapshot);
+  if (history.generation.snapshot) {
+    listener(history.generation.snapshot, !!history.generation.recovered);
+  }
   return {
+    get recovered() {
+      return !!history.generation.recovered;
+    },
     disconnect() {
       if (history.generation === observedGeneration) history.generation = {};
     },
@@ -71,7 +77,8 @@ export function acquirePublicTradesHistory(
               incoming,
               history.generation.snapshot ?? [],
             );
-            history.listeners.forEach((notify) => notify(incoming));
+            if (reconnect) generation.recovered = true;
+            history.listeners.forEach((notify) => notify(incoming, reconnect));
             return true;
           },
           (error: unknown) => {

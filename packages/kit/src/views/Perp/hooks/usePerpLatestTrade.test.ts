@@ -357,6 +357,72 @@ it.each([true, false])(
   },
 );
 
+it.each([
+  ['before mount', 50],
+  ['before local failure', 50],
+  ['after local failure', 50],
+  ['before mount', 0],
+  ['after local failure', 1],
+] as const)(
+  'settles Recent Trades when shared recovery succeeds %s with %i rows',
+  async (timing, rowCount) => {
+    fetchSnapshot.mockResolvedValueOnce([]);
+    renderHook(() => usePerpLatestTrade('BTC', true));
+    const tickerFeed = watch.mock.calls[0][0];
+    await act(async () => tickerFeed.onStatus?.('connected'));
+    act(() => tickerFeed.onStatus?.('disconnected'));
+    const recovery = Promise.withResolvers<IWsTrades>();
+    const local = Promise.withResolvers<IWsTrades>();
+    fetchSnapshot
+      .mockReturnValueOnce(recovery.promise)
+      .mockReturnValueOnce(local.promise);
+    act(() => tickerFeed.onStatus?.('connected'));
+    const rows = Array.from({ length: rowCount }, (_, tid) => trade({ tid }));
+    const succeed = () => act(async () => recovery.resolve(rows));
+    if (timing === 'before mount') await succeed();
+    const tape = renderHook(() => usePerpPublicTrades('BTC', true));
+    await act(async () => watch.mock.calls[1][0].onStatus?.('connected'));
+    if (timing === 'before local failure') await succeed();
+    if (timing !== 'after local failure')
+      expect(tape.result.current.isLoading).toBe(false);
+    await act(async () => local.reject(new Error('independent fetch failed')));
+    if (timing === 'after local failure') {
+      expect(tape.result.current.isError).toBe(true);
+      await succeed();
+      act(() => jest.advanceTimersByTime(600));
+    }
+    expect(tape.result.current.trades).toHaveLength(rowCount);
+    expect(tape.result.current.isError).toBe(false);
+    expect(tape.result.current.isLoading).toBe(false);
+  },
+);
+
+it('keeps a manual Retry in control when an earlier shared recovery returns late', async () => {
+  fetchSnapshot.mockResolvedValueOnce([]);
+  renderHook(() => usePerpLatestTrade('BTC', true));
+  const tickerFeed = watch.mock.calls[0][0];
+  await act(async () => tickerFeed.onStatus?.('connected'));
+  act(() => tickerFeed.onStatus?.('disconnected'));
+  const recovery = Promise.withResolvers<IWsTrades>();
+  const manual = Promise.withResolvers<IWsTrades>();
+  fetchSnapshot
+    .mockReturnValueOnce(recovery.promise)
+    .mockRejectedValueOnce(new Error('first read failed'))
+    .mockReturnValueOnce(manual.promise);
+  act(() => tickerFeed.onStatus?.('connected'));
+  const tape = renderHook(() => usePerpPublicTrades('BTC', true));
+  await act(async () => watch.mock.calls[1][0].onStatus?.('connected'));
+  expect(tape.result.current.isError).toBe(true);
+  act(() => tape.result.current.retry());
+  await act(async () => watch.mock.calls[2][0].onStatus?.('connected'));
+  await act(async () => recovery.resolve([trade()]));
+  expect(tape.result.current.isLoading).toBe(true);
+  await act(async () => manual.reject(new Error('retry failed')));
+  expect(tape.result.current.isLoading).toBe(false);
+  expect(tape.result.current.isError).toBe(true);
+  expect(tape.result.current.trades).toHaveLength(1);
+});
+
 it('keeps a display-only event delivered after acknowledgement out of order entry', async () => {
   const actual = jest.requireActual<
     typeof import('../../../utils/watchHyperliquidPublicTrades')

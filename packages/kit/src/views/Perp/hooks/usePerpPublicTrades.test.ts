@@ -201,7 +201,7 @@ it('clears a backfill failure only after the live connection covers a full disti
   expect(result.current.isLoading).toBe(false);
 });
 
-it('ignores a recovery invalidated by a second disconnect without marking the snapshot complete', async () => {
+it('enables offline Retry immediately when another disconnect invalidates recovery', async () => {
   snapshot.mockResolvedValueOnce([]);
   const { result } = renderHook(() => usePerpPublicTrades('BTC', true));
   const feed = watch.mock.calls[0][0];
@@ -213,12 +213,20 @@ it('ignores a recovery invalidated by a second disconnect without marking the sn
     feed.onStatus?.('connected');
     feed.onStatus?.('disconnected');
   });
-  await act(async () => recovery.resolve(trades(10, 20)));
+  expect(result.current.isDisconnected).toBe(true);
+  expect(result.current.isLoading).toBe(false);
+
+  const retry = Promise.withResolvers<IRecentTrade[]>();
+  snapshot.mockReturnValueOnce(retry.promise);
+  act(() => result.current.retry());
+  act(() => jest.advanceTimersByTime(1000));
+  act(() => watch.mock.calls.at(-1)?.[0].onStatus?.('disconnected'));
+  await act(async () => recovery.resolve(trades(100, 20)));
   expect(result.current.trades).toHaveLength(0);
   expect(result.current.isLoading).toBe(true);
+  await act(async () => retry.resolve(trades(1, 20)));
+  expect(result.current.trades[0]?.tid).toBe(20);
   expect(result.current.isDisconnected).toBe(true);
-  snapshot.mockResolvedValueOnce([]);
-  await act(async () => feed.onStatus?.('connected'));
   expect(result.current.isLoading).toBe(false);
   expect(result.current.isError).toBe(false);
 });
