@@ -73,7 +73,6 @@ import {
   getWalletContractInstance,
   serializeUnsignedTransaction,
 } from './sdkTon/utils';
-import settings from './settings';
 
 import type { IWallet } from './sdkTon/utils';
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -526,7 +525,6 @@ export default class Vault extends VaultBase {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
-    result.deriveInfoItems = Object.values(settings.accountDeriveInfo);
     return result;
   }
 

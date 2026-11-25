@@ -5,6 +5,7 @@ import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { formatWalletLocalSecretEnvelopeStatus } from '@onekeyhq/kit/src/components/AccountSelector/WalletLocalSecretEnvelopeStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
@@ -24,7 +25,10 @@ import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useWalletLocalSecretEnvelopeStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/walletLocalSecretEnvelopeStatus';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getLocalSecretEnvelopeCredentialKey } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -65,6 +69,7 @@ export type IAccountSelectorRowRecordV2 = {
   valuesNetworkId: string;
   shouldShowCreateAddressButton: boolean;
   isCreatingAddress: boolean;
+  lseIssue?: ILocalSecretEnvelopeCredentialIssue;
 };
 
 export function useAccountSelectorAccountRowsV2({
@@ -123,6 +128,7 @@ export function useAccountSelectorAccountRowsV2({
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
+  const [{ issues, sessionId }] = useWalletLocalSecretEnvelopeStatusAtom();
   const records = useMemo(
     () =>
       sections.flatMap((section) =>
@@ -157,6 +163,12 @@ export function useAccountSelectorAccountRowsV2({
           return {
             key: item.id,
             item,
+            lseIssue:
+              sessionId && isOthersUniversal
+                ? issues[
+                    getLocalSecretEnvelopeCredentialKey(sessionId, item.id)
+                  ]
+                : undefined,
             account,
             indexedAccount,
             section,
@@ -179,6 +191,8 @@ export function useAccountSelectorAccountRowsV2({
       linkedNetworkId,
       selectedAccount.networkId,
       addressCreationState,
+      issues,
+      sessionId,
       wallet?.id,
     ],
   );
@@ -271,6 +285,23 @@ export function useAccountSelectorAccountRowsV2({
               actionKey: 'account-more',
             },
           ];
+        if (record.lseIssue) {
+          const label = formatWalletLocalSecretEnvelopeStatus(intl);
+          subtitleSegments.push({
+            text: label,
+            tone: 'caution',
+            separatorBefore: true,
+          });
+          trailing = [
+            {
+              kind: 'icon',
+              name: 'ErrorOutline',
+              actionKey: 'account.lse.details',
+              accessibilityLabel: label,
+            },
+            ...trailing,
+          ];
+        }
         return {
           type: 'identity',
           presentation: 'accountSelector',

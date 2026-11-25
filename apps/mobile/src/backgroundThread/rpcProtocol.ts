@@ -398,9 +398,23 @@ export function buildSafeBackgroundThreadErrorData(
       LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD
     ] === LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE
   ) {
+    const issue = (data as ILocalSecretEnvelopeCredentialErrorData)
+      .localSecretEnvelopeIssue;
+    const safeIssue =
+      typeof issue?.credentialKey === 'string' &&
+      /^[0-9a-f]{64}$/.test(issue.credentialKey) &&
+      (issue.reason === 'key-missing' ||
+        issue.reason === 'authentication-failed')
+        ? {
+            credentialKey: issue.credentialKey,
+            reason: issue.reason,
+            ...(issue.imported === true ? { imported: true } : {}),
+          }
+        : undefined;
     return {
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+      ...(safeIssue ? { localSecretEnvelopeIssue: safeIssue } : {}),
       ...(broadcastTxContext
         ? { [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext }
         : {}),

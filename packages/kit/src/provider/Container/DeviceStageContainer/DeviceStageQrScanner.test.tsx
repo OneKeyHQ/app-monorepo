@@ -4,6 +4,7 @@ import { render } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import { DeviceStageQrScanner } from './DeviceStageQrScanner';
 
@@ -12,6 +13,9 @@ type IScanHandler = (value: string) => Promise<Record<string, unknown>>;
 let mockScanHandler: IScanHandler | undefined;
 const mockParse = jest.fn<Promise<unknown>, unknown[]>();
 const mockCancelStageAirGapScan = jest.fn<Promise<void>, [unknown]>(
+  async () => undefined,
+);
+const mockSubmitStageAirGapScanResult = jest.fn<Promise<void>, [unknown]>(
   async () => undefined,
 );
 
@@ -29,7 +33,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceQrWallet: {
       cancelStageAirGapScan: (params: unknown) =>
         mockCancelStageAirGapScan(params),
-      submitStageAirGapScanResult: jest.fn(async () => undefined),
+      submitStageAirGapScanResult: (params: unknown) =>
+        mockSubmitStageAirGapScanResult(params),
     },
   },
 }));
@@ -62,6 +67,35 @@ it('retries the frame after a transient parse failure without ending the scan', 
     retry: true,
   });
   expect(mockCancelStageAirGapScan).not.toHaveBeenCalled();
+});
+
+it('retries the assembled result when the encoder advances past the completing frame', async () => {
+  render(<DeviceStageQrScanner sessionId={1} />);
+  const frame = 'UR:BYTES/2-2/LPAOAOCF';
+  const fullData = 'UR:BYTES/IEHSSALTTN';
+  const completed = {
+    type: EQRCodeHandlerType.ANIMATION_CODE,
+    raw: frame,
+    data: { fullData, progress: 1 },
+  };
+  mockParse.mockResolvedValueOnce(completed);
+  mockSubmitStageAirGapScanResult.mockRejectedValueOnce(
+    new OneKeyLocalError('bridge hiccup'),
+  );
+
+  await expect(scan(frame)).resolves.toEqual({ retry: true });
+  await expect(scan('UR:BYTES/3-2/LPAXAOCF')).resolves.toEqual({});
+  await expect(scan('UR:BYTES/4-2/LPAAAOCF')).resolves.toEqual({});
+
+  const submission = {
+    result: { ...completed, raw: fullData },
+    sessionId: 1,
+  };
+  expect(mockParse).toHaveBeenCalledTimes(1);
+  expect(mockSubmitStageAirGapScanResult.mock.calls).toEqual([
+    [submission],
+    [submission],
+  ]);
 });
 
 it('ends the scan once for a code that can never be accepted', async () => {

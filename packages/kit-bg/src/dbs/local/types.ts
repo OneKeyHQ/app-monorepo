@@ -206,6 +206,7 @@ export type IDBCreateHDWalletParams = {
   overrideWalletId?: string;
   applyRestoreSyncPolicy?: boolean;
   creationSource?: 'create' | 'import';
+  recoverUnavailableSecureStorageKey?: boolean;
 };
 export type IDBCreateHwWalletParamsBase = {
   name?: string;

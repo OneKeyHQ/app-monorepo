@@ -34,6 +34,7 @@ import {
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
+  IMPL_STARKNET,
   IMPL_STELLAR,
   IMPL_SUI,
   IMPL_TBTC,
@@ -225,6 +226,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_NEO]: () => import('./impls/neo/Vault') as any,
     [IMPL_AGGREGATE]: () => import('./impls/aggregate/Vault') as any,
     [IMPL_STELLAR]: () => import('./impls/stellar/Vault') as any,
+    [IMPL_STARKNET]: () => import('./impls/starknet/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

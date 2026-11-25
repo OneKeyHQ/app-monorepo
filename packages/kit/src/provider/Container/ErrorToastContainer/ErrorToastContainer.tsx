@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Toast, useClipboard } from '@onekeyhq/components';
 import { closeOneKeyIdLoginDialogs } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -94,12 +95,37 @@ export function ErrorToastContainer() {
   );
 
   useEffect(() => {
+    let active = true;
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       const isPrimeUserBanned = Number(p.errorCode) === PRIME_USER_BANNED_CODE;
       if (!p.title && !isPrimeUserBanned) {
         return;
       }
       if (shouldSuppressErrorToast(p)) {
+        return;
+      }
+
+      if (
+        p.errorClassName ===
+          EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable ||
+        p.errorName === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable
+      ) {
+        void import('../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery')
+          .then((recovery) => {
+            if (!active) return;
+            recovery.showLocalSecretEnvelopeDetailsToast({
+              intl,
+              toastId: 'lse-unavailable',
+              onDetails: () =>
+                recovery.showLocalSecretEnvelopeRecoveryDialog({
+                  intl,
+                  context: 'retry',
+                }),
+            });
+          })
+          .catch(() => {
+            if (active) showErrorToast(p);
+          });
         return;
       }
 
@@ -184,6 +210,7 @@ export function ErrorToastContainer() {
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);
     return () => {
+      active = false;
       appEventBus.off(EAppEventBusNames.ShowToast, fn);
     };
   }, [intl]);

@@ -146,6 +146,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   IPreActionsBeforeSendingParams,
+  ISendConfirmationPreparation,
   ISignTransactionParams,
   ITransferInfo,
   ITransferPayload,
@@ -332,6 +333,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
     result.isValid = Boolean(isValid);
 
+    if (privateKeyResult?.isValid) {
+      const { accountDeriveInfo, accountDeriveMode } =
+        await this.getVaultSettings();
+      if (accountDeriveMode === 'walletContract') {
+        result.deriveInfoItems = Object.values(accountDeriveInfo);
+      }
+    }
+
     return { result, inputDecoded: input };
   }
 
@@ -508,6 +517,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   abstract updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
+
+  async prepareSendConfirmation(
+    unsignedTxs: IUnsignedTxPro[],
+    _confirmPrerequisites: boolean,
+  ): Promise<ISendConfirmationPreparation> {
+    return {
+      unsignedTxs,
+    };
+  }
+
+  async getSendPrerequisiteProgress(_txid: string): Promise<{
+    status?: EOnChainHistoryTxStatus;
+  }> {
+    return {};
+  }
 
   // Override in chain vaults that need to refresh transaction data (e.g. blockhash)
   // before signing each transaction in a batch send sequence.

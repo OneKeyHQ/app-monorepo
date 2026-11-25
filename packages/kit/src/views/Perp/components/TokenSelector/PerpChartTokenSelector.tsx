@@ -15,6 +15,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { usePrewarmPerpsTokenSelectorImages } from '../../hooks';
@@ -163,6 +164,13 @@ export const PerpChartTokenSelector = memo(
           <XStack
             ref={triggerRef}
             testID={testID}
+            onHoverIn={
+              platformEnv.isWeb && !isOpen
+                ? () => {
+                    void prewarmTokenSelectorImages();
+                  }
+                : undefined
+            }
             role="button"
             h={28}
             pl="$1"

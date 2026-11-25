@@ -708,7 +708,6 @@ class EvmApiProvider extends BaseApiProvider {
         gasFeeFiatValue: safeNumberString(
           gasFee.multipliedBy(nativeToken.price),
         ),
-        // @ts-expect-error
         nonce: safeNumber(tx?.nonce),
         value: value.toFixed(),
       },

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { IMarketTokenDetailRouteParams } from '@onekeyhq/shared/src/routes';
 
+import { markPendingMarketAssetResolved } from '../../utils/marketDetailNavigation';
 import { buildMarketTokenDetailPreview } from '../utils/marketDetailPreview';
 import { resolveMarketTopCoinNavigationTarget } from '../utils/resolveMarketTopCoinNavigationTarget';
 
@@ -19,7 +20,13 @@ export function usePendingMarketAsset({
   const lookup = useMemo(
     () =>
       pendingMarketAsset && marketTokenId
-        ? { assetId: marketTokenId, network, tokenAddress, isNative }
+        ? {
+            assetId: marketTokenId,
+            network,
+            tokenAddress,
+            isNative,
+            pendingMarketAsset,
+          }
         : undefined,
     [pendingMarketAsset, marketTokenId, network, tokenAddress, isNative],
   );
@@ -50,6 +57,9 @@ export function usePendingMarketAsset({
     })
       .then((token) => {
         if (!isCurrent()) return;
+        if (token || preferredToken) {
+          markPendingMarketAssetResolved(lookup.pendingMarketAsset);
+        }
         if (token) {
           setParams({
             pendingMarketAsset: undefined,

@@ -150,11 +150,13 @@ async function expectGetPrivateKeysHdOk({
   networkInfo,
   hdAccounts,
   hdCredential,
+  addressEncoding,
 }: {
   coreApi: CoreChainApiBase;
   networkInfo: ICoreApiNetworkInfo;
   hdAccounts: IPrepareCoreChainTestsFixturesOptions['hdAccounts'];
   hdCredential: ICoreTestsHdCredential;
+  addressEncoding?: EAddressEncodings;
 }) {
   const { password } = hdCredential;
   for (const account of hdAccounts) {
@@ -166,6 +168,7 @@ async function expectGetPrivateKeysHdOk({
       },
       networkInfo,
       relPaths: account.relPaths,
+      addressEncoding,
     });
     let encryptKey = keys[account.path];
     if (!encryptKey && account.relPaths?.[0]) {

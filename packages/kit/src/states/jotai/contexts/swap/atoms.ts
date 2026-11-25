@@ -86,7 +86,11 @@ const {
   contextAtomMethod,
   useContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextSwap, contextAtomMethod };
+export {
+  ProviderJotaiContextSwap,
+  contextAtomMethod,
+  useContextData as useSwapContextData,
+};
 
 export {
   swapAllNetworkActionLockAtom,
@@ -257,6 +261,19 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
   });
 
 export type ISwapTokenPair = { fromToken: ISwapToken; toToken: ISwapToken };
+
+export const {
+  atom: swapTabPrefillEditRevisionAtom,
+  use: useSwapTabPrefillEditRevisionAtom,
+} = contextAtom(0);
+
+export function useGetSwapTabPrefillEditRevision() {
+  const { store } = useContextData();
+  return useCallback(
+    () => store?.get(swapTabPrefillEditRevisionAtom()) ?? 0,
+    [store],
+  );
+}
 
 // The pair last picked from the "Recent trades" chips, so an order can report
 // whether it still trades that pair.
