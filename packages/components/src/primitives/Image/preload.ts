@@ -21,7 +21,7 @@ function getPreloadUri(
   options?: IPreloadImageOptions,
 ) {
   const { uri } = source;
-  if (!uri) {
+  if (!uri || hasCustomSourceIdentity(source)) {
     return undefined;
   }
 
@@ -41,36 +41,32 @@ function getPreloadUri(
   return result.uri ?? uri;
 }
 
-export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
-  const hasUnsupportedHeaderSource = sources.some(
-    (source) => source.uri && hasCustomSourceIdentity(source),
-  );
-  const uris = [
-    ...new Set(
-      sources
-        .filter((source) => !hasCustomSourceIdentity(source))
-        .map((source) => getPreloadUri(source, options))
-        .filter((uri): uri is string => Boolean(uri)),
-    ),
-  ];
-  if (!uris.length) {
-    return !hasUnsupportedHeaderSource;
+async function prefetchUri(uri: string) {
+  try {
+    if ((await Image.prefetch(uri)) === false) return false;
+    markPreloadedImageUri(uri);
+    return true;
+  } catch {
+    return false;
   }
+}
+
+export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
+  const requests = new Map<string, Promise<boolean>>();
   const results = await Promise.all(
-    uris.map((uri) =>
-      Image.prefetch(uri).then(
-        (result) => {
-          if (result === false) {
-            return false;
-          }
-          markPreloadedImageUri(uri);
-          return true;
-        },
-        () => false,
-      ),
-    ),
+    sources.map(async (source) => {
+      if (!source.uri) return true;
+      const uri = getPreloadUri(source, options);
+      if (uri) {
+        const request = requests.get(uri) ?? prefetchUri(uri);
+        requests.set(uri, request);
+        if (await request) return true;
+      }
+      options?.onSourceError?.(source);
+      return false;
+    }),
   );
-  return results.every(Boolean) && !hasUnsupportedHeaderSource;
+  return results.every(Boolean);
 };
 
 export const preloadImage: IPreloadImageFunc = (source, options) =>
