@@ -243,6 +243,40 @@ describe('ServiceAccountProfile.queryAddress request overlap', () => {
     await expect(pending).resolves.toMatchObject({ validStatus: 'valid' });
   });
 
+  it.each([true, false])(
+    'preserves receiver risk badges without disclosing the wallet in private lookups (speculative: %s)',
+    async (localValid) => {
+      const { service, clientGet, validate, backgroundApi } = makeService({
+        localValid,
+        badgesResp: { isScam: true, isContract: true },
+      });
+      const pending = service.queryAddress({
+        ...baseArgs,
+        networkId: 'starknet--mainnet',
+        recipientOnlyBadges: true,
+      });
+      await flushMicrotasks();
+      expect(clientGet).toHaveBeenCalledTimes(localValid ? 1 : 0);
+      validate.resolve('valid');
+      const result = await pending;
+      expect(result.isScam).toBe(true);
+      expect(result.isContract).toBe(true);
+      expect(result.addressInteractionStatus).toBeUndefined();
+      expect(clientGet).toHaveBeenCalledTimes(1);
+      expect(clientGet).toHaveBeenCalledWith(BADGES_PATH, {
+        params: expect.objectContaining({
+          toAddress: RECIPIENT,
+          fromAddress: undefined,
+          xpub: undefined,
+        }),
+      });
+      expect(backgroundApi.serviceAccount.getAccount).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
   it('keeps other chains validation after local address normalization', async () => {
     const { service, backgroundApi, validate } = makeService();
     const normalizedAddress = 'normalized-recipient';
