@@ -244,7 +244,7 @@ it('finishes preflight after a confirmed readable result', async () => {
   expect(mockToast).not.toHaveBeenCalled();
 });
 
-it('replaces backup guidance with the recovery action for a wallet with a confirmed issue', () => {
+it('replaces backup guidance with the recovery action for a wallet with a confirmed issue', async () => {
   const credentialId = 'hd-2';
   const credentialKey = getLocalSecretEnvelopeCredentialKey(
     'test-session',
@@ -266,8 +266,47 @@ it('replaces backup guidance with the recovery action for a wallet with a confir
   mockWalletIssues[credentialKey] = { ...issue, credentialKey };
   rerender(renderWalletHeading());
   expect(screen.queryByText('Not backed up')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Wallet unavailable' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Wallet unavailable' }));
+  });
   expect(mockDialog).toHaveBeenCalledTimes(1);
+  expect(mockToast).not.toHaveBeenCalled();
+});
+
+it('coalesces recovery dialog requests and accepts a new request after close', async () => {
+  render(<LocalSecretEnvelopeErrorDialogContainer />);
+  const showDetails = () =>
+    appEventBus.emit(
+      EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+      issue,
+    );
+  await act(async () => {
+    showDetails();
+    showDetails();
+  });
+  expect(mockDialog).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    await mockDialog.mock.calls[0][0].onClose?.();
+    showDetails();
+  });
+  expect(mockDialog).toHaveBeenCalledTimes(2);
+});
+
+it('discards recovery UI requests when the container unmounts during loading', async () => {
+  const { unmount } = render(<LocalSecretEnvelopeErrorDialogContainer />);
+  await act(async () => {
+    appEventBus.emit(
+      EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+      issue,
+    );
+    appEventBus.emit(
+      EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+      issue,
+    );
+    unmount();
+  });
+  expect(mockDialog).not.toHaveBeenCalled();
   expect(mockToast).not.toHaveBeenCalled();
 });
 
