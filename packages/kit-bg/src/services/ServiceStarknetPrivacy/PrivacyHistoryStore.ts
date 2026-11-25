@@ -300,7 +300,6 @@ export class PrivacyHistoryStore {
       serviceHistory.getAccountLocalHistoryConfirmedTxs(query),
     ]);
     const localMetaByHash = new Map<string, IAccountHistoryTx>();
-    const diskDisplayTxs: IAccountHistoryTx[] = [];
     for (const tx of [...pending, ...confirmed]) {
       const intent = (
         tx.decodedTx.extraInfo as IDecodedTxExtraStarknet | undefined
@@ -315,23 +314,10 @@ export class PrivacyHistoryStore {
         } catch {
           // Ignore malformed txids.
         }
-        if (
-          intent.tokenAddress &&
-          BigInt(intent.tokenAddress) === BigInt(params.tokenAddress)
-        ) {
-          diskDisplayTxs.push(tx);
-        }
       }
     }
 
     const displayByHash = new Map<string, IAccountHistoryTx>();
-    for (const tx of diskDisplayTxs) {
-      try {
-        displayByHash.set(BigInt(tx.decodedTx.txid).toString(), tx);
-      } catch {
-        // Ignore malformed txids.
-      }
-    }
     for (const [hash, stored] of this.pendingPrivateTxs.entries()) {
       if (stored.scopeKey === params.scopeKey) {
         const intent = (

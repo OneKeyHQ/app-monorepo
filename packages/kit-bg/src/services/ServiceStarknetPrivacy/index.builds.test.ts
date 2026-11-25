@@ -1507,34 +1507,34 @@ describe('private history display', () => {
       transactions: [],
       cursor: { subchannels: [], historyComplete: true },
     });
-    backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs.mockResolvedValue(
-      [
-        {
-          id: 'local-private',
-          isLocalCreated: true,
-          decodedTx: {
-            txid: '0x123',
-            owner: ACCOUNT_ADDRESS,
-            signer: ACCOUNT_ADDRESS,
-            networkId: NETWORK_ID,
-            accountId: ACCOUNT_ID,
-            nonce: 0,
-            status: EDecodedTxStatus.Pending,
-            totalFeeInNative: '2',
-            extraInfo: {
-              privacy: {
-                kind: 'transfer',
-                poolAddress: MAINNET_POOL,
-                tokenAddress: STRK,
-                amount: '10000000000000000000',
-                recipient: '0x7b',
-              },
+    service.rememberPendingPrivateHistoryTx({
+      ...key,
+      poolAddress: MAINNET_POOL,
+      tx: {
+        id: 'local-private',
+        isLocalCreated: true,
+        decodedTx: {
+          txid: '0x123',
+          owner: ACCOUNT_ADDRESS,
+          signer: ACCOUNT_ADDRESS,
+          networkId: NETWORK_ID,
+          accountId: ACCOUNT_ID,
+          nonce: 0,
+          status: EDecodedTxStatus.Pending,
+          totalFeeInNative: '2',
+          extraInfo: {
+            privacy: {
+              kind: 'transfer',
+              poolAddress: MAINNET_POOL,
+              tokenAddress: STRK,
+              amount: '10000000000000000000',
+              recipient: '0x7b',
             },
-            actions: [],
           },
+          actions: [],
         },
-      ] as unknown as import('@onekeyhq/shared/types/history').IAccountHistoryTx[],
-    );
+      } as unknown as import('@onekeyhq/shared/types/history').IAccountHistoryTx,
+    });
     const confirmedReadStarted = Promise.withResolvers<void>();
     const finishConfirmedRead =
       Promise.withResolvers<
@@ -1646,51 +1646,51 @@ it.each([
       transactions: [],
       cursor: { subchannels: [], historyComplete: true },
     });
-    backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs.mockResolvedValue(
-      [
-        {
-          id: 'local-private',
-          isLocalCreated: true,
-          decodedTx: {
-            txid: '0x123',
-            owner: ACCOUNT_ADDRESS,
-            signer: ACCOUNT_ADDRESS,
-            networkId: NETWORK_ID,
-            accountId: ACCOUNT_ID,
-            nonce: 0,
-            status: EDecodedTxStatus.Pending,
-            totalFeeInNative: '2',
-            extraInfo: {
-              privacy: {
-                kind: 'transfer',
-                poolAddress: MAINNET_POOL,
-                tokenAddress: STRK,
-                amount: '10000000000000000000',
-                recipient: '0x7b',
+    service.rememberPendingPrivateHistoryTx({
+      ...key,
+      poolAddress: MAINNET_POOL,
+      tx: {
+        id: 'local-private',
+        isLocalCreated: true,
+        decodedTx: {
+          txid: '0x123',
+          owner: ACCOUNT_ADDRESS,
+          signer: ACCOUNT_ADDRESS,
+          networkId: NETWORK_ID,
+          accountId: ACCOUNT_ID,
+          nonce: 0,
+          status: EDecodedTxStatus.Pending,
+          totalFeeInNative: '2',
+          extraInfo: {
+            privacy: {
+              kind: 'transfer',
+              poolAddress: MAINNET_POOL,
+              tokenAddress: STRK,
+              amount: '10000000000000000000',
+              recipient: '0x7b',
+            },
+          },
+          actions: [
+            {
+              type: 'assetTransfer',
+              assetTransfer: {
+                from: ACCOUNT_ADDRESS,
+                to: '0x7b',
+                sends: [
+                  {
+                    from: ACCOUNT_ADDRESS,
+                    to: '0x7b',
+                    amount: '10',
+                    tokenIdOnNetwork: STRK,
+                  },
+                ],
+                receives: [],
               },
             },
-            actions: [
-              {
-                type: 'assetTransfer',
-                assetTransfer: {
-                  from: ACCOUNT_ADDRESS,
-                  to: '0x7b',
-                  sends: [
-                    {
-                      from: ACCOUNT_ADDRESS,
-                      to: '0x7b',
-                      amount: '10',
-                      tokenIdOnNetwork: STRK,
-                    },
-                  ],
-                  receives: [],
-                },
-              },
-            ],
-          },
+          ],
         },
-      ] as unknown as import('@onekeyhq/shared/types/history').IAccountHistoryTx[],
-    );
+      } as unknown as import('@onekeyhq/shared/types/history').IAccountHistoryTx,
+    });
     const { txs, discoveryTxIds } = await service.fetchPrivateHistory({
       ...key,
       tokenAddress: STRK,
@@ -1854,7 +1854,7 @@ it('keeps paid fees and the local privacy intent when Discovery replaces the sam
 });
 
 it('uses the receipt fee instead of the estimate when private-history polling confirms a local transfer', async () => {
-  const { service, client, backgroundApi } = build();
+  const { service, client } = build();
   await service.buildRegisterTx(key);
   client.getTransactionReceipt.mockResolvedValue({
     execution_status: 'SUCCEEDED',
@@ -1865,36 +1865,36 @@ it('uses the receipt fee instead of the estimate when private-history polling co
     transactions: [],
     cursor: { subchannels: [], historyComplete: true },
   });
-  backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs.mockResolvedValue(
-    [
-      {
-        id: 'local',
-        isLocalCreated: true,
-        decodedTx: {
-          txid: '0x01',
-          owner: ACCOUNT_ADDRESS,
-          signer: ACCOUNT_ADDRESS,
-          networkId: NETWORK_ID,
-          accountId: ACCOUNT_ID,
-          nonce: 7,
-          actions: [],
-          status: EDecodedTxStatus.Pending,
-          totalFeeInNative: '2',
-          totalFeeFiatValue: '0.1',
-          extraInfo: {
-            privacy: {
-              kind: 'transfer',
-              poolAddress: MAINNET_POOL,
-              tokenAddress: STRK,
-              amount: '1000000000000000000',
-              recipient: '0x7b',
-              protocolFee: PROTOCOL_FEE,
-            },
+  service.rememberPendingPrivateHistoryTx({
+    ...key,
+    poolAddress: MAINNET_POOL,
+    tx: {
+      id: 'local',
+      isLocalCreated: true,
+      decodedTx: {
+        txid: '0x01',
+        owner: ACCOUNT_ADDRESS,
+        signer: ACCOUNT_ADDRESS,
+        networkId: NETWORK_ID,
+        accountId: ACCOUNT_ID,
+        nonce: 7,
+        actions: [],
+        status: EDecodedTxStatus.Pending,
+        totalFeeInNative: '2',
+        totalFeeFiatValue: '0.1',
+        extraInfo: {
+          privacy: {
+            kind: 'transfer',
+            poolAddress: MAINNET_POOL,
+            tokenAddress: STRK,
+            amount: '1000000000000000000',
+            recipient: '0x7b',
+            protocolFee: PROTOCOL_FEE,
           },
         },
       },
-    ],
-  );
+    } as unknown as import('@onekeyhq/shared/types/history').IAccountHistoryTx,
+  });
   const result = await service.fetchPrivateHistory({
     ...key,
     tokenAddress: STRK,
