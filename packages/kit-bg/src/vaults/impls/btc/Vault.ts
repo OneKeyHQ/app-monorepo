@@ -11,11 +11,17 @@ import {
   getInputsToSignFromPsbt,
   validateBtcAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { buildOwnedAddressesForBatchDisplay } from '@onekeyhq/core/src/chains/btc/sdkBtc/batchPsbt';
 import {
   decodedPsbt as decodedPsbtFN,
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import {
+  buildBtcPsbtAuthorization,
+  buildBtcPsbtDisplayTransfers,
+  getBtcOutputScriptAsm,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/psbtAuthorization';
 import { verifyBitcoinMessage } from '@onekeyhq/core/src/chains/btc/sdkBtc/signMessage';
 import {
   EOutputsTypeForCoinSelect,
@@ -396,6 +402,25 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
+  // Whether the signer signs exactly the inputs in `inputsToSign`, each with
+  // the sighash type that input declares. A SIGHASH_SINGLE confirm page is
+  // only truthful under that guarantee, and without it an input outside the
+  // request has to commit to every output as well.
+  // - Software keyrings sign nothing but the requested inputs, as declared.
+  // - Keystone results are verified against the declared types and reduced
+  //   to the requested inputs (verifyKeystonePsbt).
+  // - OneKey firmware signs every input that carries one of its key
+  //   derivations, always with SIGHASH_DEFAULT; Ledger signs every input
+  //   that matches its wallet policy, with the type the input declares.
+  isPsbtSignerBoundToRequest(): boolean {
+    const { keyring } = this;
+    return (
+      keyring.isKeyringHd() ||
+      keyring.isKeyringImported() ||
+      keyring instanceof KeyringHardwareKeystone
+    );
+  }
+
   async buildDecodedPsbtTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
@@ -419,6 +444,30 @@ export default class VaultBtc extends VaultBase {
     if (!nativeToken) {
       throw new OneKeyInternalError('Native token not found');
     }
+
+    // BTC has no server simulation: this decode is all the user sees before
+    // signing. It is derived from what the requested signatures commit to,
+    // and throws for a request whose commitment cannot back a display. It
+    // runs first: nothing below may read an input index it has not accepted.
+    const psbtNetwork = toPsbtNetwork(network);
+    const utxoAccount = account as IDBUtxoAccount;
+    const psbt = Psbt.fromHex(checkIsDefined(encodedTx.psbtHex), {
+      network: psbtNetwork,
+    });
+    const authorization = buildBtcPsbtAuthorization({
+      psbt,
+      psbtNetwork,
+      inputsToSign,
+      ownedAddresses: buildOwnedAddressesForBatchDisplay({
+        primaryAddress: account.address,
+        addressMaps: [
+          utxoAccount.addresses,
+          utxoAccount.customAddresses,
+          utxoAccount.findAddresses,
+        ],
+      }),
+      isSignerBoundToRequest: this.isPsbtSignerBoundToRequest(),
+    });
 
     const { allUtxoList } = await this._collectUTXOsInfoByApi();
 
@@ -449,50 +498,37 @@ export default class VaultBtc extends VaultBase {
       }
     });
 
-    const originalUtxoTo = outputs.map((output) => ({
-      address: output.address,
-      balance: new BigNumber(output.value)
+    const toUtxoAddressInfo = (transfer: {
+      address: string;
+      value: string;
+    }) => ({
+      address: transfer.address,
+      balance: new BigNumber(transfer.value)
         .shiftedBy(-network.decimals)
         .toFixed(),
-      balanceValue: output.value,
+      balanceValue: transfer.value,
       symbol: network.symbol,
-      isMine: output.address === account.address,
-    }));
+      isMine: transfer.address === account.address,
+    });
 
-    const utxoTo =
-      outputs.length > 1
-        ? (() => {
-            // filter non-change and non-inscription structure outputs first
-            const nonChangeAndInscriptionStructureOutputs = outputs.filter(
-              (output) =>
-                !output.payload?.isChange &&
-                output.address &&
-                !output.payload?.isInscriptionStructure,
-            );
-            // if filtered outputs is empty, return original outputs
-            return (
-              nonChangeAndInscriptionStructureOutputs.length
-                ? nonChangeAndInscriptionStructureOutputs
-                : outputs
-            ).map((output) => ({
-              address: output.address,
-              balance: new BigNumber(output.value)
-                .shiftedBy(-network.decimals)
-                .toFixed(),
-              balanceValue: output.value,
-              symbol: network.symbol,
-              isMine: output.address === account.address,
-            }));
-          })()
-        : outputs.map((output) => ({
-            address: output.address,
-            balance: new BigNumber(output.value)
-              .shiftedBy(-network.decimals)
-              .toFixed(),
-            balanceValue: output.value,
-            symbol: network.symbol,
-            isMine: output.address === account.address,
-          }));
+    const originalUtxoTo = outputs.map(toUtxoAddressInfo);
+
+    const displayTransfers = buildBtcPsbtDisplayTransfers({
+      authorization,
+      // An output that has no address is named by its script, read from the
+      // psbt being signed.
+      outputs: outputs.map((output, index) => {
+        const script = psbt.txOutputs[index]?.script;
+        return output.address || !script
+          ? output
+          : { ...output, scriptAsm: getBtcOutputScriptAsm(script) };
+      }),
+    });
+    const utxoTo = displayTransfers.sends.map((transfer) => ({
+      ...toUtxoAddressInfo(transfer),
+      scriptAsm: transfer.scriptAsm,
+    }));
+    const utxoReceives = displayTransfers.receives.map(toUtxoAddressInfo);
 
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
@@ -501,9 +537,25 @@ export default class VaultBtc extends VaultBase {
         type: EDecodedTxActionType.ASSET_TRANSFER,
         assetTransfer: {
           from: utxoFrom.length ? utxoFrom[0].address : inputs[0].address,
-          to: utxoTo[0].address,
+          to: utxoTo[0]?.address ?? '',
           sends: utxoTo.map((utxo) => ({
             from: account.address,
+            to: utxo.address,
+            ...(utxo.scriptAsm === undefined
+              ? {}
+              : { toScript: utxo.scriptAsm }),
+            isNative: true,
+            tokenIdOnNetwork: '',
+            name: nativeToken.name,
+            icon: nativeToken.logoURI ?? '',
+            amount: utxo.balance,
+            amountValue: utxo.balanceValue,
+            symbol: network.symbol,
+          })),
+          // Only a SIGHASH_SINGLE signature has receives: the output it
+          // commits to. The paying counterparty is not part of the commitment.
+          receives: utxoReceives.map((utxo) => ({
+            from: '',
             to: utxo.address,
             isNative: true,
             tokenIdOnNetwork: '',
@@ -513,7 +565,6 @@ export default class VaultBtc extends VaultBase {
             amountValue: utxo.balanceValue,
             symbol: network.symbol,
           })),
-          receives: [],
           utxoFrom,
           utxoTo: originalUtxoTo,
         },
