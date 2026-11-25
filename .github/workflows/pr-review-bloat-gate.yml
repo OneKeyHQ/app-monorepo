@@ -11,6 +11,9 @@ on:
       - ready_for_review
       - labeled
       - unlabeled
+  pull_request_review:
+    types:
+      - submitted
 
 permissions:
   contents: read
@@ -21,6 +24,7 @@ concurrency:
 
 jobs:
   analyze:
+    if: github.event.pull_request.base.ref == 'x'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -55,7 +59,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_BASE: ${{ github.base_ref }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
         run: |

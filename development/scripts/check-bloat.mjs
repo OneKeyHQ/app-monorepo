@@ -44,7 +44,7 @@ const STATE_PATTERNS = [
 ];
 const BRANCH_PATTERNS = [
   /\b(?:if|else\s+if|switch|case|catch)\b/g,
-  /\?\s*[^:?]+\s*:/g,
+  /(?<!\?)\?(?![?.])\s*[^:?;]+\s*:/g,
 ];
 const UI_PATTERNS = [
   /\bDialog\.show\b/g,
@@ -383,23 +383,38 @@ function incompleteReport(snapshot, reason) {
   };
 }
 
-function collectDiffStats(fromRef, toRef, { includeUntracked = false } = {}) {
+function collectDiffStats(
+  fromRef,
+  toRef,
+  { includeUntracked = false, includePatch = false } = {},
+) {
   const rangeArgs = toRef ? [fromRef, toRef] : [fromRef];
-  const records = runGit([
+  const out = runGit([
     'diff',
     '-M',
     '--numstat',
     '-z',
+    '--no-ext-diff',
+    '--no-textconv',
+    '--no-color',
+    ...(includePatch ? ['--patch', '-U0', '--inter-hunk-context=0'] : []),
     ...rangeArgs,
     '--',
-  ]).stdout.split('\0');
+  ]).stdout;
+  const [statOutput, patch = ''] = out.split('\0\0', 2);
+  const records = statOutput.split('\0');
+  if (records.at(-1) === '') records.pop();
+  // Git emits line counts and patch sections in the same file-pair order.
+  const filePatches = patch.split(/^diff --git /m).slice(1);
+  const changedFiles = [];
+  let patchIndex = 0;
   let added = 0;
   let deleted = 0;
   const paths = new Set();
   const trackedNewPaths = new Set();
   const entries = [];
 
-  for (let index = 0; index < records.length - 1; index += 1) {
+  for (let index = 0; index < records.length; index += 1) {
     const [, aStr, dStr, rawPath] = /^(\S+)\t(\S+)\t([\s\S]*)$/.exec(
       records[index],
     );
@@ -407,6 +422,8 @@ function collectDiffStats(fromRef, toRef, { includeUntracked = false } = {}) {
       ? [rawPath, rawPath]
       : [records[index + 1], records[index + 2]];
     if (!rawPath) index += 2;
+    const filePatch = filePatches[patchIndex];
+    patchIndex += 1;
     if (
       aStr !== '-' &&
       dStr !== '-' &&
@@ -419,10 +436,20 @@ function collectDiffStats(fromRef, toRef, { includeUntracked = false } = {}) {
       paths.add(oldP);
       paths.add(newP);
       trackedNewPaths.add(newP);
-      entries.push({ file: newP, added: a, deleted: d, net: a - d });
+      entries.push({
+        file: newP,
+        ...(oldP !== newP ? { previousFile: oldP } : {}),
+        added: a,
+        deleted: d,
+        net: a - d,
+      });
+      if (includePatch) changedFiles.push({ oldP, newP, patch: filePatch });
     }
   }
 
+  if (includePatch && patchIndex !== filePatches.length) {
+    throw new Error('Unable to match line counts with file patches');
+  }
   const untrackedFiles = [];
   if (includeUntracked) {
     const ls = runGit([
@@ -434,7 +461,7 @@ function collectDiffStats(fromRef, toRef, { includeUntracked = false } = {}) {
     ]).stdout;
     for (const f of ls.split('\0').filter(Boolean)) {
       if (isTargetCodeFile(f) && !trackedNewPaths.has(f) && fs.existsSync(f)) {
-        const text = fs.readFileSync(f, 'utf8');
+        const text = readWorktreeSource(f);
         const lines = text ? text.replace(/\n$/, '').split('\n').length : 0;
         added += lines;
         paths.add(f);
@@ -450,6 +477,7 @@ function collectDiffStats(fromRef, toRef, { includeUntracked = false } = {}) {
     net: added - deleted,
     paths,
     untrackedFiles,
+    changedFiles,
     entries,
     fileCount: entries.length,
     hotspots: entries.toSorted((a, b) => b.net - a.net).slice(0, 5),
@@ -486,10 +514,12 @@ function alignReviewTree({ origBase, currentBase, preReviewSha }) {
   return { tree, conflicts };
 }
 
-function stripNonExecutable(lines) {
-  const source = lines.join('\n');
+function stripNonExecutable(source) {
   const codeTokens =
-    /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|[`{}]/g;
+    /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|[/`{}]/g;
+  const regexpLiteral =
+    /\/(?![/*])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\[\n])+\/[a-z]*/y;
+  const regexpPrefix = /(?:^|[=(,:!;?{[]|=>|\breturn)\s*$/;
   const templateTokens = /\\[\s\S]|`|\$\{/g;
   const mask = (text) => text.replace(/[^\n]/g, ' ');
   const frames = [];
@@ -521,34 +551,50 @@ function stripNonExecutable(lines) {
         else frames.pop();
       }
       code += token;
+    } else if (token === '/') {
+      regexpLiteral.lastIndex = match.index;
+      const literal =
+        regexpPrefix.test(code.trimEnd().slice(-12)) &&
+        regexpLiteral.exec(source);
+      if (literal) {
+        code += mask(literal[0]);
+        cursor = regexpLiteral.lastIndex;
+      } else {
+        code += token;
+      }
     } else {
       code += mask(token);
     }
   }
 
   return code.replace(
-    /^\s*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
-    '',
+    /^[ \t]*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
+    mask,
   );
 }
 
-function scanPatterns(fromRef, toRef, trackedPaths, untrackedFiles) {
+function readWorktreeSource(file) {
+  return fs.lstatSync(file).isSymbolicLink()
+    ? fs.readlinkSync(file)
+    : fs.readFileSync(file, 'utf8');
+}
+
+function scanPatterns(fromRef, toRef, { changedFiles, untrackedFiles }) {
   let netStateFlags = 0;
   let netBranches = 0;
   const scopeCreepWarnings = [];
-  const count = (text, res) =>
-    res.reduce((s, r) => s + (text.match(r) || []).length, 0);
+  const matches = (chunks, pattern) =>
+    chunks.flatMap((chunk) => chunk.match(pattern) || []);
+  const count = (chunks, patterns) =>
+    patterns.reduce((sum, pattern) => sum + matches(chunks, pattern).length, 0);
 
-  const inspectFile = (file, addedLines, removedLines) => {
-    const addText = stripNonExecutable(addedLines);
-    const remText = stripNonExecutable(removedLines);
+  const inspectFile = (file, added, removed) => {
     netStateFlags +=
-      count(addText, STATE_PATTERNS) - count(remText, STATE_PATTERNS);
+      count(added, STATE_PATTERNS) - count(removed, STATE_PATTERNS);
     netBranches +=
-      count(addText, BRANCH_PATTERNS) - count(remText, BRANCH_PATTERNS);
+      count(added, BRANCH_PATTERNS) - count(removed, BRANCH_PATTERNS);
     for (const re of UI_PATTERNS) {
-      const delta =
-        (addText.match(re) || []).length - (remText.match(re) || []).length;
+      const delta = matches(added, re).length - matches(removed, re).length;
       if (delta > 0) {
         scopeCreepWarnings.push({
           file,
@@ -557,8 +603,8 @@ function scanPatterns(fromRef, toRef, trackedPaths, untrackedFiles) {
         });
       }
     }
-    const remKeys = new Set(remText.match(I18N_KEY_RE) || []);
-    const newKeys = [...new Set(addText.match(I18N_KEY_RE) || [])].filter(
+    const remKeys = new Set(matches(removed, I18N_KEY_RE));
+    const newKeys = [...new Set(matches(added, I18N_KEY_RE))].filter(
       (k) => !remKeys.has(k),
     );
     if (newKeys.length) {
@@ -570,48 +616,38 @@ function scanPatterns(fromRef, toRef, trackedPaths, untrackedFiles) {
     }
   };
 
-  if (trackedPaths.length) {
-    const rangeArgs = toRef ? [fromRef, toRef] : [fromRef];
-    const diffOut = runGit([
-      '-c',
-      'core.quotePath=false',
-      '--literal-pathspecs',
-      'diff',
-      '-M',
-      '-U0',
-      ...rangeArgs,
-      '--',
-      ...trackedPaths,
-    ]).stdout;
-    let curFile = '';
-    let inHunk = false;
-    let added = [];
-    let removed = [];
-    const flush = () => {
-      if (curFile) inspectFile(curFile, added, removed);
-      curFile = '';
-      inHunk = false;
-      added = [];
-      removed = [];
-    };
-    for (const line of diffOut.split('\n')) {
-      if (line.startsWith('diff --git ')) {
-        flush();
-        const m = line.match(/^diff --git a\/(.+) b\/(.+)$/);
-        curFile = m ? m[2] : '';
-      } else if (line.startsWith('@@ ')) {
-        inHunk = true;
-      } else if (inHunk && line.startsWith('+')) {
-        added.push(line.slice(1));
-      } else if (inHunk && line.startsWith('-')) {
-        removed.push(line.slice(1));
-      }
-    }
-    flush();
-  }
+  const selectChangedText = (ranges, readSource) => {
+    const changed = ranges.filter(([, length]) => length > 0);
+    if (!changed.length) return [];
+    // Lex the complete source before selecting zero-context ranges from the patch.
+    const source = stripNonExecutable(readSource()).split('\n');
+    return changed.map(([start, length]) =>
+      source.slice(start - 1, start - 1 + length).join('\n'),
+    );
+  };
 
-  for (const f of untrackedFiles) {
-    inspectFile(f, fs.readFileSync(f, 'utf8').split('\n'), []);
+  for (const { oldP, newP, patch } of changedFiles) {
+    const before = [];
+    const after = [];
+    for (const [, oldStart, oldCount, newStart, newCount] of patch.matchAll(
+      /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm,
+    )) {
+      before.push([Number(oldStart), Number(oldCount ?? 1)]);
+      after.push([Number(newStart), Number(newCount ?? 1)]);
+    }
+    const added = selectChangedText(after, () =>
+      toRef
+        ? runGit(['show', `${toRef}:${newP}`]).stdout
+        : readWorktreeSource(newP),
+    );
+    const removed = selectChangedText(
+      before,
+      () => runGit(['show', `${fromRef}:${oldP}`]).stdout,
+    );
+    inspectFile(newP, added, removed);
+  }
+  for (const file of untrackedFiles) {
+    inspectFile(file, [stripNonExecutable(readWorktreeSource(file))], []);
   }
   return { netStateFlags, netBranches, scopeCreepWarnings };
 }
@@ -624,10 +660,8 @@ export function evaluateAmplification({
   thresholds = THRESHOLDS,
 }) {
   const origNet = Math.max(0, rawOrigNet);
-  const amplificationRatio =
-    origNet > 0 ? Number((fixNet / origNet).toFixed(3)) : null;
-  const deletionRatio =
-    fixAdded > 0 ? Number((fixDeleted / fixAdded).toFixed(3)) : 1;
+  const amplificationRatio = origNet > 0 ? fixNet / origNet : null;
+  const deletionRatio = fixAdded > 0 ? fixDeleted / fixAdded : 1;
   const hardCapLimit = thresholds.maxAbsoluteFixNetLines ?? Infinity;
   const hardCapReached = fixNet >= hardCapLimit;
   const meetsGrowthRule =
@@ -645,8 +679,11 @@ export function evaluateAmplification({
     fixAdded,
     fixDeleted,
     fixNet,
-    amplificationRatio,
-    deletionRatio,
+    amplificationRatio:
+      amplificationRatio === null
+        ? null
+        : Number(amplificationRatio.toFixed(3)),
+    deletionRatio: Number(deletionRatio.toFixed(3)),
     hardCapReached,
     triggered,
   };
@@ -669,18 +706,20 @@ export function evaluateComplexityScore({
   const changeCost =
     fixNet + netStateFlags * stateFlagCost + netBranches * branchCost;
   const hotspots = fileEntries
-    .filter(
-      ({ file, net, added, deleted }) =>
-        reviewFileCounts[file] >= COMPLEXITY_SCORE.hotspotMinThreads &&
-        net >= COMPLEXITY_SCORE.hotspotMinNetLines &&
-        deleted / added < COMPLEXITY_SCORE.hotspotMinDeletionRatio,
-    )
-    .map(({ file, net, added, deleted }) => ({
+    .filter(({ net }) => net >= COMPLEXITY_SCORE.hotspotMinNetLines)
+    .map(({ file, previousFile, net, added, deleted }) => ({
       file,
       net,
       deletionRatio: deleted / added,
-      reviewThreads: reviewFileCounts[file],
-    }));
+      // Each review thread is assigned one path, even when it has replies.
+      reviewThreads:
+        (reviewFileCounts[file] || 0) + (reviewFileCounts[previousFile] || 0),
+    }))
+    .filter(
+      ({ reviewThreads, deletionRatio }) =>
+        reviewThreads >= COMPLEXITY_SCORE.hotspotMinThreads &&
+        deletionRatio < COMPLEXITY_SCORE.hotspotMinDeletionRatio,
+    );
 
   return {
     score: baseBudget + lineCredit - changeCost,
@@ -738,6 +777,10 @@ export function summarizeBenchmarkResults(items = []) {
     advisoryCount: advisory.length,
     negativeScoreCount: advisory.filter((item) => item.complexity.score < 0)
       .length,
+    passedPrs: passed.map((item) => ({
+      number: item.number,
+      score: item.complexity?.score ?? null,
+    })),
     flaggedPrs: flagged.map((p) => ({
       number: p.number,
       title: p.title,
@@ -762,27 +805,36 @@ export function resolveBenchmarkQuery(rawSpec = '7d', nowMs = Date.now()) {
   const dayMatch = spec.match(/^(\d+)\s*d(?:ays?)?$/);
   if (spec === 'week' || spec === '7d' || dayMatch) {
     const days = dayMatch ? Math.max(1, Math.min(90, Number(dayMatch[1]))) : 7;
-    const sinceDate = new Date(nowMs - days * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
+    const sinceMs = nowMs - days * 86_400_000;
     return {
       mode: 'days',
       days,
-      sinceDate,
-      search: `created:>=${sinceDate}`,
-      limit: 300,
-      label: `past ${days}d (since ${sinceDate})`,
+      sinceMs,
+      nowMs,
+      label: `past ${days}d (since ${new Date(sinceMs).toISOString()})`,
     };
   }
-  const limit = Math.max(1, Math.min(300, Number(spec) || 30));
+  const limit = Math.max(1, Math.min(300, Math.trunc(Number(spec)) || 30));
   return {
     mode: 'count',
-    days: null,
-    sinceDate: null,
-    search: '',
     limit,
     label: `latest ${limit} PRs`,
   };
+}
+
+const BENCHMARK_PAGE_SIZE = 100;
+
+export function collectBenchmarkWindow({ sinceMs, nowMs }, fetchPage) {
+  const prs = new Map();
+  for (let page = 1; ; page += 1) {
+    const candidates = fetchPage(page);
+    for (const pr of candidates) {
+      const created = Date.parse(pr.created_at);
+      if (created < sinceMs) return [...prs.values()];
+      if (created <= nowMs) prs.set(pr.number, pr);
+    }
+    if (candidates.length < BENCHMARK_PAGE_SIZE) return [...prs.values()];
+  }
 }
 
 function runBenchmarkMode(opts) {
@@ -798,24 +850,34 @@ function runBenchmarkMode(opts) {
   if (!ensureCommit(baseSha)) {
     throw new Error(`Benchmark base commit not available: ${repo}@${baseSha}`);
   }
-  const ghArgs = [
-    'pr',
-    'list',
-    '--repo',
-    repo,
-    '--state',
-    'all',
-    '--base',
-    base,
-    '--limit',
-    String(query.limit),
-  ];
-  if (query.search) {
-    ghArgs.push('--search', query.search);
-  }
-  ghArgs.push('--json', 'number,title,state,labels');
-  const prListRaw = runCmd('gh', ghArgs).stdout;
-  const prs = JSON.parse(prListRaw || '[]');
+  const prs =
+    query.mode === 'days'
+      ? collectBenchmarkWindow(query, (page) =>
+          JSON.parse(
+            runCmd('gh', [
+              'api',
+              `repos/${repo}/pulls?state=all&base=${base}&sort=created&direction=desc&per_page=${BENCHMARK_PAGE_SIZE}&page=${page}`,
+              '--jq',
+              '[.[] | {number,title,labels,created_at}]',
+            ]).stdout,
+          ),
+        )
+      : JSON.parse(
+          runCmd('gh', [
+            'pr',
+            'list',
+            '--repo',
+            repo,
+            '--state',
+            'all',
+            '--base',
+            base,
+            '--limit',
+            String(query.limit),
+            '--json',
+            'number,title,labels',
+          ]).stdout,
+        );
   const results = [];
 
   for (const pr of prs) {
@@ -851,7 +913,6 @@ function runBenchmarkMode(opts) {
     results.push({
       number: pr.number,
       title: pr.title,
-      state: pr.state,
       bypassed,
       ...parsed,
     });
@@ -886,6 +947,9 @@ function runBenchmarkMode(opts) {
       console.log(
         `  - #${item.number}: ${item.verdict} without the current bypass label`,
       );
+    }
+    for (const item of summary.passedPrs) {
+      console.log(`  - #${item.number}: PASS, score=${item.score ?? 'N/A'}`);
     }
     for (const f of summary.flaggedPrs) {
       console.log(
@@ -928,6 +992,7 @@ function main() {
     fixBase &&
     collectDiffStats(fixBase, snap.targetRef, {
       includeUntracked: snap.targetRef === null,
+      includePatch: true,
     });
   // An excluded conflict can still matter if the fix renamed it into a code path.
   if (!fixStats || conflicts.some((file) => fixStats.paths.has(file))) {
@@ -957,13 +1022,10 @@ function main() {
     fixDeleted: fixStats.deleted,
     fixNet: fixStats.net,
   });
-  const untrackedSet = new Set(fixStats.untrackedFiles);
-  const trackedPaths = [...fixStats.paths].filter((p) => !untrackedSet.has(p));
   const { netStateFlags, netBranches, scopeCreepWarnings } = scanPatterns(
     fixBase,
     snap.targetRef,
-    trackedPaths,
-    fixStats.untrackedFiles,
+    fixStats,
   );
   const stateTriggered = netStateFlags >= THRESHOLDS.maxNetStateFlags;
   const complexity = evaluateComplexityScore({

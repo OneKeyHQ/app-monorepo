@@ -9,6 +9,7 @@ import { runInNewContext } from 'node:vm';
 
 import {
   ZERO_BASELINE_RATIO_LABEL,
+  collectBenchmarkWindow,
   evaluateAmplification,
   evaluateComplexityScore,
   formatAmplificationRatio,
@@ -304,6 +305,38 @@ test('300 net lines trigger amplification for a large low-deletion PR', () => {
   }
 });
 
+test('uses the unrounded deletion ratio for the hard-cap verdict', () => {
+  const result = evaluateAmplification({
+    origNet: 2000,
+    fixAdded: 1001,
+    fixDeleted: 250,
+    fixNet: 751,
+  });
+  assert.equal(result.deletionRatio, 0.25);
+  assert.equal(result.hardCapReached, true);
+  assert.equal(result.triggered, true);
+});
+
+test('workflow runs on submitted reviews using the pull request base and head', () => {
+  const workflow = fs.readFileSync(
+    path.join(repoRoot, '.github/workflows/pr-review-bloat-gate.yml'),
+    'utf8',
+  );
+  assert.match(
+    workflow,
+    /^  pull_request_review:\n    types:\n      - submitted$/m,
+  );
+  assert.match(workflow, /if: github\.event\.pull_request\.base\.ref == 'x'/);
+  assert.match(
+    workflow,
+    /PR_BASE: \$\{\{ github\.event\.pull_request\.base\.ref \}\}/,
+  );
+  assert.match(
+    workflow,
+    /PR_HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,
+  );
+});
+
 test('keeps approval feedback and filters empty or placeholder review bodies', () => {
   const submitted_at = '2026-11-24T12:00:00Z';
   for (const [state, body, expected] of [
@@ -433,10 +466,21 @@ test('complexity score tracks branches while review hotspots use local growth an
     netStateFlags: 1,
     netBranches: 10,
     fileEntries: [
-      { file: 'Shared.ts', added: 110, deleted: 0, net: 110 },
+      {
+        file: 'Shared.ts',
+        previousFile: 'Before.ts',
+        added: 110,
+        deleted: 0,
+        net: 110,
+      },
       { file: 'Rewrite.ts', added: 320, deleted: 320, net: 0 },
     ],
-    reviewFileCounts: { 'Shared.ts': 3, 'Rewrite.ts': 3, 'Untouched.ts': 3 },
+    reviewFileCounts: {
+      'Shared.ts': 1,
+      'Before.ts': 2,
+      'Rewrite.ts': 3,
+      'Untouched.ts': 3,
+    },
   };
   const result = evaluateComplexityScore(input);
   assert.deepEqual(result.hotspots, [
@@ -477,7 +521,12 @@ test('benchmark distinguishes failed and incomplete analyses from evaluated cove
 
 test('benchmark keeps labeled simulations outside the non-bypassed rate', () => {
   const summary = summarizeBenchmarkResults([
-    { number: 1, verdict: 'PASS', amplification: {} },
+    {
+      number: 1,
+      verdict: 'PASS',
+      amplification: {},
+      complexity: { score: -3 },
+    },
     {
       number: 2,
       verdict: 'REFACTOR_REQUIRED',
@@ -488,19 +537,38 @@ test('benchmark keeps labeled simulations outside the non-bypassed rate', () => 
   assert.equal(summary.evaluatedCount, 2);
   assert.equal(summary.nonBypassedEvaluatedCount, 1);
   assert.equal(summary.interventionRate, 0);
+  assert.deepEqual(summary.passedPrs, [{ number: 1, score: -3 }]);
   assert.deepEqual(summary.bypassedSimulations, [
     { number: 2, verdict: 'REFACTOR_REQUIRED' },
   ]);
+});
 
+test('weekly benchmark paginates past 300 and stops at the exact UTC cutoff', () => {
   const weekQuery = resolveBenchmarkQuery(
     '7d',
-    Date.parse('2026-11-25T00:00:00Z'),
+    Date.parse('2026-11-25T16:30:00Z'),
   );
   assert.equal(weekQuery.mode, 'days');
   assert.equal(weekQuery.days, 7);
-  assert.equal(weekQuery.sinceDate, '2026-11-18');
-  assert.equal(weekQuery.search, 'created:>=2026-11-18');
-  assert.equal(weekQuery.limit, 300);
+  assert.equal(weekQuery.sinceMs, Date.parse('2026-11-18T16:30:00Z'));
+
+  const pages = [];
+  const prs = collectBenchmarkWindow(weekQuery, (page) => {
+    pages.push(page);
+    if (page <= 3) {
+      return Array.from({ length: 100 }, (_, i) => ({
+        number: (page - 1) * 100 + i + 1,
+        created_at: '2026-11-24T00:00:00Z',
+      }));
+    }
+    return [
+      { number: 301, created_at: '2026-11-18T16:30:00Z' },
+      { number: 302, created_at: '2026-11-18T09:00:00Z' },
+    ];
+  });
+  assert.deepEqual(pages, [1, 2, 3, 4]);
+  assert.equal(prs.length, 301);
+  assert.equal(prs.at(-1).number, 301);
 
   const countQuery = resolveBenchmarkQuery('50');
   assert.equal(countQuery.mode, 'count');
@@ -651,6 +719,42 @@ test('base alignment continues when every conflict is outside the scanned code',
   assert.equal(result.stateFlags.netStateFlags, 1);
 });
 
+test('counts later state changes after editing a multiline template closing line', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const context = Array.from(
+    { length: 24 },
+    (_, i) => `const v${i} = ${i};\n`,
+  ).join('');
+  const initial = `const title = \`\nfirst line\n\`;\n${context}`;
+  write('Shared.ts', initial);
+  const reviewed = commit();
+  const flags = Array.from(
+    { length: 4 },
+    (_, i) => `const ref${i} = useRef();\n`,
+  ).join('');
+  write('Shared.ts', initial.replace('`;\n', 'last line`;\n') + flags);
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
+test('backticks in regular-expression literals preserve subsequent executable hooks', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  write('Shared.ts', 'const initial = true;\n');
+  const reviewed = commit();
+  const flags = Array.from(
+    { length: 4 },
+    (_, i) => `const ref${i} = useRef();\n`,
+  ).join('');
+  write(
+    'Shared.ts',
+    `const initial = true;\nconst fence = /^(\`{3,}|~{3,})/;\n${flags}`,
+  );
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
 test('scans nested template expressions for state and translated copy', (t) => {
   const { write, commit, run } = createGitFixture(t);
   write('Shared.ts', 'const initial = true;\n');
@@ -679,6 +783,7 @@ test('branch-heavy changes appear in the score without literals or an extra hard
     "const url = 'https://example.com'; if (url) { start(); }",
     'const text = `catch and switch`;',
     'let isReady = false;',
+    'const options = defaults ?? { timeout: 500 };',
     ...Array.from({ length: 9 }, (_, i) => `if (value === ${i}) { start(); }`),
     ...Array.from({ length: 97 }, (_, i) => `const value${i} = ${i};`),
   ];
