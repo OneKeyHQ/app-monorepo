@@ -419,9 +419,13 @@ const SwapInputContainer = ({
     useState(false);
 
   const amountInputRef = useRef<IInputRef>(null);
+  // Set each render: true while the amount can't be typed, e.g. while a quote
+  // works it out from the receive amount.
+  const amountLockedRef = useRef(false);
   // A press anywhere on the pay card types into its amount. On web it lands
   // on mousedown, so the amount never blurs on the way to it.
   const handlePayCardPress = useCallback(() => {
+    if (amountLockedRef.current) return;
     amountInputRef.current?.focus();
   }, []);
   const handlePayCardMouseDown = useCallback(
@@ -433,6 +437,7 @@ const SwapInputContainer = ({
     }) => {
       const { target, currentTarget } = event;
       if (
+        amountLockedRef.current ||
         event.button !== 0 ||
         !(target instanceof Element) ||
         !(currentTarget instanceof HTMLElement) ||
@@ -600,6 +605,7 @@ const SwapInputContainer = ({
     }
     return false;
   }, [direction, swapTypeSwitch, fromToken, toToken]);
+  amountLockedRef.current = !!(readOnly || inputIsLoading);
   // Subdued only while the receive amount is a computed result; in Limit mode
   // it is editable and must not look disabled.
   const amountInputColor =
