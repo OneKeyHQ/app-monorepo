@@ -603,3 +603,40 @@ it.each([0, 50])(
     expect(result.current.isError).toBe(false);
   },
 );
+
+it('loads and refreshes history when Promise.withResolvers is unavailable', async () => {
+  const unsupported = jest
+    .spyOn(Promise, 'withResolvers')
+    .mockImplementation(() => {
+      throw new TypeError('Promise.withResolvers is unavailable');
+    });
+  try {
+    snapshot.mockResolvedValue(trades(1, 30));
+    const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+    await act(async () => watch.mock.calls[0][0].onStatus?.('connected'));
+    await act(async () => refreshPerpPublicTrades());
+    expect(result.current.trades).toHaveLength(30);
+    expect(snapshot).toHaveBeenCalledTimes(2);
+    expect(unsupported).not.toHaveBeenCalled();
+  } finally {
+    unsupported.mockRestore();
+  }
+});
+
+it('starts a fresh one-second HTTP backoff when the same market resumes', async () => {
+  snapshot.mockRejectedValue(new Error('history unavailable'));
+  const { result, rerender } = renderHook(
+    ({ active }) => usePerpPublicTrades(coin, active),
+    { initialProps: { active: true } },
+  );
+  await act(async () => watch.mock.calls[0][0].onStatus?.('connected'));
+  await act(async () => jest.advanceTimersByTimeAsync(1000));
+  expect(snapshot).toHaveBeenCalledTimes(2);
+  rerender({ active: false });
+  rerender({ active: true });
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  snapshot.mockResolvedValueOnce(trades(1, 30));
+  await act(async () => jest.advanceTimersByTimeAsync(1000));
+  expect(result.current.trades).toHaveLength(30);
+  expect(result.current.isError).toBe(false);
+});

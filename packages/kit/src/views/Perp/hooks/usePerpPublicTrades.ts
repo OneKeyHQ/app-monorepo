@@ -130,7 +130,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     let snapshotQueued: 'fetch' | 'reconnect' | undefined;
     let releasePending: ((successor?: Promise<void>) => void) | undefined;
     const liveTradeKeys = new Set<string>();
-    setState((previous) => ({ ...previous, isLoading: true }));
+    setState((previous) => ({ ...previous, isLoading: true, retryAttempt: 0 }));
     const mergeRows = (
       incoming: IRecentTrade[],
       evidence: IPublicTradesEvidence,
@@ -243,16 +243,19 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           nextReconnect = snapshotQueued === 'reconnect';
         } while (snapshotQueued);
       };
-      const completion = Promise.withResolvers<void>();
-      releasePending = completion.resolve;
-      const pending = completion.promise.finally(() => {
+      let start: (() => void) | undefined;
+      const completion = new Promise<void>((resolve, reject) => {
+        releasePending = resolve;
+        start = () => void run().then(resolve, reject);
+      });
+      const pending = completion.finally(() => {
         if (snapshotPending === pending) {
           snapshotPending = undefined;
           releasePending = undefined;
         }
       });
       snapshotPending = pending;
-      void run().then(completion.resolve, completion.reject);
+      start?.();
       return pending;
     }
 
