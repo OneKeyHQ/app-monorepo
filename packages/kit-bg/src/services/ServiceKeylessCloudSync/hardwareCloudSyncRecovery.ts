@@ -169,6 +169,26 @@ function canRestoreAcknowledgedMetadataFromCloud(
   );
 }
 
+// An encrypted tombstone created under another hardware key has its plaintext
+// cache cleared by buildSyncItem and cannot be re-encrypted locally. Keep it
+// for cross-space reconciliation instead of blocking hardware reconnect.
+function isRetainedForeignHardwareMetadataDeletion(
+  item: IDBCloudSyncItem,
+  activePwdHash: string,
+) {
+  return (
+    isHardwareBusinessMetadata(item) &&
+    !!item.pwdHash?.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+    item.pwdHash !== activePwdHash &&
+    item.isDeleted &&
+    item.localSceneUpdated &&
+    !item.serverUploaded &&
+    !!item.data &&
+    !item.pendingPublicAccountDeletionAt &&
+    !readRecoveryRawData(item)
+  );
+}
+
 // Only call after authenticating and unwrapping the selected hardware source.
 // Local plaintext is sufficient to re-encrypt a business version; historical
 // envelopes are not required and must not determine which edit wins.
@@ -229,6 +249,10 @@ export async function prepareHardwareCloudSyncLocalRecovery({
       original,
       currentHash,
     );
+    const retainedForeignDeletion = isRetainedForeignHardwareMetadataDeletion(
+      original,
+      currentHash,
+    );
     const knownKey = knownPwdHashes.has(original.pwdHash);
     const canRetainCiphertext =
       !original.rawData && !!original.data && knownKey;
@@ -237,6 +261,7 @@ export async function prepareHardwareCloudSyncLocalRecovery({
     const canRekey =
       !retained &&
       !canPullFromCloud &&
+      !retainedForeignDeletion &&
       !canRetainCiphertext &&
       (!original.pwdHash ||
         knownKey ||
@@ -1262,7 +1287,8 @@ export async function prepareHardwareResign({
     !(
       restoresRotatedHardwareKey &&
       (isRetainedHardwareCloudCopy(item, credential.pwdHash) ||
-        canRestoreAcknowledgedMetadataFromCloud(item, credential.pwdHash))
+        canRestoreAcknowledgedMetadataFromCloud(item, credential.pwdHash) ||
+        isRetainedForeignHardwareMetadataDeletion(item, credential.pwdHash))
     ) &&
     !(
       canSkipUnverifiedPendingWallet &&

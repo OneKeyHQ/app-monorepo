@@ -573,6 +573,42 @@ describe('hardware re-sign recovery preserves business versions', () => {
     },
   );
 
+  test('retains an offline encrypted business deletion from another hardware key without blocking reconnect', async () => {
+    const credential = syncCredential.keylessCredential;
+    if (!credential) throw new OneKeyLocalError('Missing fixture credential');
+    local = {
+      ...local,
+      dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+      pwdHash: 'hw-dek-other-hardware-wallet',
+      data: 'encrypted-under-old-hardware-wallet',
+      rawData: '',
+      isDeleted: true,
+      localSceneUpdated: true,
+      serverUploaded: false,
+    };
+    const before = { ...local };
+    const loadAuthoritativeItems = jest.fn();
+    await expect(
+      prepareHardwareResign({
+        items: [local],
+        previousPwdHashes: [],
+        existing: credential,
+        credential,
+        rebuildsLocalItemsNow: false,
+        sameSelectedSource: true,
+        sameSelectedWallet: true,
+        makeCredential: () => syncCredential,
+        loadAuthoritativeItems,
+      }),
+    ).resolves.toMatchObject({
+      recoveredItems: [],
+      restoresRotatedHardwareKey: true,
+    });
+    expect(local).toEqual(before);
+    expect(loadAuthoritativeItems).not.toHaveBeenCalled();
+    expect(build).not.toHaveBeenCalled();
+  });
+
   test.each([undefined, 200])(
     'prefers saved metadata and protects the original version (%s)',
     async (dataTime) => {
