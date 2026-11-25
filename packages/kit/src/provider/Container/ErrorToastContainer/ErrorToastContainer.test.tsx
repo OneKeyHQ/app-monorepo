@@ -132,6 +132,30 @@ describe('ErrorToastContainer', () => {
     });
   });
 
+  it('shows the shared LSE explanation with retry guidance for a general failure', async () => {
+    render(<ErrorToastContainer />);
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'LocalSecretEnvelopeUnavailable',
+        errorClassName: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+      });
+    });
+    expect(Dialog.show).not.toHaveBeenCalled();
+    const [{ title, actions }] = jest.mocked(Toast.error).mock.calls[0];
+    expect(title).toBe('无法访问本地加密数据');
+    const details = Array.isArray(actions) ? actions[0] : actions;
+    await act(async () => details?.onPress?.());
+    expect(Dialog.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title,
+        description:
+          '迁移到新设备、转移数据或重装应用后，可能会出现此问题。\n\n请重试刚才的操作。',
+        showCancelButton: false,
+      }),
+    );
+  });
+
   it('shows a persistent ban dialog instead of an actionable toast', async () => {
     render(<ErrorToastContainer />);
     await act(async () => {
