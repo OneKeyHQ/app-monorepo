@@ -396,6 +396,9 @@ it.each([
       await succeed();
       act(() => jest.advanceTimersByTime(600));
     }
+    const requests = fetchSnapshot.mock.calls.length;
+    await act(async () => jest.advanceTimersByTimeAsync(30_000));
+    expect(fetchSnapshot).toHaveBeenCalledTimes(requests);
     expect(tape.result.current.trades).toHaveLength(rowCount);
     expect(tape.result.current.isError).toBe(false);
     expect(tape.result.current.isLoading).toBe(false);
@@ -482,8 +485,11 @@ it.each([
       .mockReturnValueOnce(manual.promise)
       .mockReturnValueOnce(recovery.promise)
       .mockRejectedValueOnce(new Error('duplicate fetch'));
+    let refreshSettled = false;
     act(() => {
-      void refreshPerpPublicTrades();
+      void refreshPerpPublicTrades().then(() => {
+        refreshSettled = true;
+      });
     });
     const manualFeed = watch.mock.calls[2][0];
     act(() => {
@@ -506,6 +512,7 @@ it.each([
     });
     expect(fetchSnapshot).toHaveBeenCalledTimes(2);
     await act(async () => recovery.resolve([trade({ px: '105' })]));
+    expect(refreshSettled).toBe(true);
     await act(async () => manual.reject(new Error('late offline failure')));
     act(() => jest.advanceTimersByTime(600));
     expect(tape.result.current.trades[0]?.px).toBe('105');

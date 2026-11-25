@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -49,12 +49,14 @@ interface ITradesState {
   trades: IRecentTrade[];
   isLoading: boolean;
   error?: 'request' | 'gap';
+  retryAttempt: number;
   missingTrade?: IRecentTrade;
   isDisconnected: boolean;
 }
 
 const initialState: Omit<ITradesState, 'coin'> = {
   trades: [],
+  retryAttempt: 0,
   isLoading: true,
   isDisconnected: false,
 };
@@ -97,6 +99,7 @@ function findMissingTrade(
 }
 
 export function usePerpPublicTrades(coin: string, active: boolean) {
+  const retryHttp = useRef<(() => void) | undefined>(undefined);
   const [state, setState] = useState(() => getInitialState(coin));
   const [releasedSmallBatch, setReleasedSmallBatch] = useState(
     state.trades.length > 0,
@@ -125,8 +128,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     let snapshotPending: Promise<void> | undefined;
     let requestVersion = 0;
     let snapshotQueued: 'fetch' | 'reconnect' | undefined;
-    let snapshotRetryAttempt = 0;
-    let snapshotRetryTimer: ReturnType<typeof setTimeout> | undefined;
+    let releasePending: ((successor?: Promise<void>) => void) | undefined;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
     const mergeRows = (
@@ -163,7 +165,11 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           ...previous,
           trades,
           missingTrade,
-          ...(settled && { isLoading: false, error: undefined }),
+          ...(settled && {
+            isLoading: false,
+            error: undefined,
+            retryAttempt: 0,
+          }),
         };
       });
     };
@@ -187,35 +193,35 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           return { ...previous, isLoading: !covered, missingTrade };
         let error: ITradesState['error'];
         if (!covered) error = hasSnapshot ? 'gap' : 'request';
-        return { ...previous, isLoading: false, error, missingTrade };
+        return {
+          ...previous,
+          isLoading: false,
+          error,
+          missingTrade,
+          retryAttempt:
+            outcome === 'failure' && !covered ? previous.retryAttempt + 1 : 0,
+        };
       });
     };
     const fetchSnapshotOnce = async (reconnect: boolean, version: number) => {
-      clearTimeout(snapshotRetryTimer);
       updateSnapshotStatus('loading');
       try {
         const applied = await history.fetch(reconnect);
         if (disposed || version !== requestVersion || !applied) return;
-        snapshotRetryAttempt = 0;
         updateSnapshotStatus('success');
       } catch {
         if (disposed || version !== requestVersion) return;
         updateSnapshotStatus('failure');
-        if (liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT) {
-          snapshotRetryTimer = setTimeout(
-            () => void fetchSnapshot(),
-            Math.min(1000 * 2 ** snapshotRetryAttempt, 30_000),
-          );
-          snapshotRetryAttempt += 1;
-        }
       }
     };
 
     function supersedeRequest() {
+      const release = releasePending;
+      releasePending = undefined;
       requestVersion += 1;
       snapshotPending = undefined;
       snapshotQueued = undefined;
-      clearTimeout(snapshotRetryTimer);
+      return release;
     }
 
     function fetchSnapshot(
@@ -237,12 +243,20 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           nextReconnect = snapshotQueued === 'reconnect';
         } while (snapshotQueued);
       };
-      const pending = run().finally(() => {
-        if (snapshotPending === pending) snapshotPending = undefined;
+      const completion = Promise.withResolvers<void>();
+      releasePending = completion.resolve;
+      const pending = completion.promise.finally(() => {
+        if (snapshotPending === pending) {
+          snapshotPending = undefined;
+          releasePending = undefined;
+        }
       });
       snapshotPending = pending;
+      void run().then(completion.resolve, completion.reject);
       return pending;
     }
+
+    retryHttp.current = () => void fetchSnapshot();
 
     // After the subscription is acknowledged, the snapshot and live feed overlap.
     // A slow or unavailable socket can still display an initial HTTP snapshot.
@@ -262,9 +276,6 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
               liveTradeKeys.add(tradeKey(trade));
             }
           }
-          const fullLiveWindow =
-            liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
-          if (fullLiveWindow) clearTimeout(snapshotRetryTimer);
           mergeRows(incoming, history.evidence());
         },
         onStatus: (status) => {
@@ -279,20 +290,30 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           if (isDisconnected) {
             if (connected) {
               history.disconnect();
-              supersedeRequest();
-              setState((previous) => ({ ...previous, isLoading: false }));
+              const interrupted =
+                !!snapshotPending &&
+                liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT;
+              supersedeRequest()?.();
+              setState((previous) => ({
+                ...previous,
+                isLoading: false,
+                retryAttempt: interrupted
+                  ? Math.max(1, previous.retryAttempt)
+                  : previous.retryAttempt,
+              }));
             }
             liveTradeKeys.clear();
           } else {
             clearTimeout(fallbackTimer);
             const reconnect = connected === false;
-            if (reconnect && history.hasRecovery()) {
-              // Another consumer may already have started this reconnect while
-              // our offline HTTP request is still pending.
-              supersedeRequest();
-              manualRetry = false;
-            }
-            void fetchSnapshot(true, reconnect);
+            // Join the ticker's reconnect even if an older offline read is stalled.
+            const handoff =
+              reconnect && history.hasRecovery()
+                ? supersedeRequest()
+                : undefined;
+            if (handoff) manualRetry = false;
+            const recovery = fetchSnapshot(true, reconnect);
+            handoff?.(recovery);
             void backgroundApiProxy.serviceHyperliquidSubscription
               .getRetainedPublicTrades({ coin })
               .then((trades) => {
@@ -309,7 +330,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     let unwatch = subscribe();
     const unregisterRefresh = registerPerpPublicTradesRefresh(async () => {
       clearTimeout(fallbackTimer);
-      snapshotRetryAttempt = 0;
+      setState((previous) => ({ ...previous, retryAttempt: 0 }));
       manualRetry = true;
       const replaceRecovery = history.discardCompletedRecovery();
       if (!connected) {
@@ -321,13 +342,23 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     });
     return () => {
       disposed = true;
+      retryHttp.current = undefined;
+      supersedeRequest()?.();
       unregisterRefresh();
       history.release();
       clearTimeout(fallbackTimer);
-      clearTimeout(snapshotRetryTimer);
       unwatch();
     };
   }, [coin, active]);
+
+  useEffect(() => {
+    if (!active || state.isLoading || !state.retryAttempt) return;
+    const timer = setTimeout(
+      () => retryHttp.current?.(),
+      Math.min(1000 * 2 ** (state.retryAttempt - 1), 30_000),
+    );
+    return () => clearTimeout(timer);
+  }, [active, coin, state.isLoading, state.retryAttempt]);
 
   const smallBatch =
     state.trades.length > 0 && state.trades.length < INITIAL_BATCH_ROWS;

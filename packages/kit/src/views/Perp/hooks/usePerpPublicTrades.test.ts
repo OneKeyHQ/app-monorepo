@@ -566,3 +566,40 @@ it('queues manual refresh behind a pending automatic retry without waiting for b
   await act(async () => jest.advanceTimersByTimeAsync(30_000));
   expect(snapshot).toHaveBeenCalledTimes(3);
 });
+
+it('retries HTTP after a disconnect interrupts backoff without a new acknowledgement', async () => {
+  snapshot
+    .mockRejectedValueOnce(new Error('history unavailable'))
+    .mockResolvedValueOnce(trades(1, 30));
+  const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+  const feed = watch.mock.calls[0][0];
+  await act(async () => feed.onStatus?.('connected'));
+  expect(result.current.isError).toBe(true);
+  act(() => feed.onStatus?.('disconnected'));
+  await act(async () => jest.advanceTimersByTimeAsync(1000));
+  expect(result.current.trades).toHaveLength(30);
+  expect(result.current.isError).toBe(false);
+  expect(result.current.isDisconnected).toBe(true);
+});
+
+it.each([0, 50])(
+  'recovers an interrupted first HTTP read with %i live rows',
+  async (liveCount) => {
+    const stalled = Promise.withResolvers<IRecentTrade[]>();
+    snapshot
+      .mockReturnValueOnce(stalled.promise)
+      .mockResolvedValueOnce(trades(60, 30));
+    const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+    const feed = watch.mock.calls[0][0];
+    act(() => {
+      feed.onStatus?.('connected');
+      feed.onTrades(trades(1, liveCount));
+      feed.onStatus?.('disconnected');
+    });
+    await act(async () => jest.advanceTimersByTimeAsync(1000));
+    expect(snapshot).toHaveBeenCalledTimes(liveCount ? 1 : 2);
+    expect(result.current.trades).toHaveLength(liveCount || 30);
+    await act(async () => stalled.reject(new Error('superseded')));
+    expect(result.current.isError).toBe(false);
+  },
+);
