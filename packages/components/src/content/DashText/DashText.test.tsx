@@ -15,9 +15,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SizableText } from '../../primitives/SizeableText';
+import { YStack } from '../../primitives/Stack';
 
 import type { ISizableTextProps } from '../../primitives';
-import type { TextLayoutEvent } from 'react-native';
+import type { LayoutChangeEvent, TextLayoutEvent } from 'react-native';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -48,7 +49,7 @@ jest.mock('../../primitives/Stack', () => {
       </div>
     );
   }
-  return { XStack: Box, YStack: Box };
+  return { XStack: Box, YStack: jest.fn(Box) };
 });
 jest.mock('../../primitives/SizeableText', () => ({
   SizableText: jest.fn(({ children }: ISizableTextProps) => (
@@ -258,7 +259,19 @@ it('uses both physical line widths for wrapped Android RTL labels', () => {
   platformEnv.isNative = true;
   platformEnv.isNativeAndroid = true;
   I18nManager.isRTL = true;
-  const view = render(<DashText multiline>שלום עולם</DashText>);
+  const onTextLayout = jest.fn();
+  const view = render(
+    <DashText multiline onTextLayout={onTextLayout}>
+      שלום עולם
+    </DashText>,
+  );
+
+  expect(lastTextProps().textDecorationLine).toBe('underline');
+  expect(underlines(view.container)).toHaveLength(0);
+  layoutText([{ x: 27, y: 0, width: 40, height: 15 }]);
+  expect(lastTextProps().textDecorationLine).toBe('underline');
+  expect(underlines(view.container)).toHaveLength(0);
+
   layoutText([
     { x: 27, y: 0, width: 40, height: 15 },
     { x: 32, y: 15, width: 35, height: 15 },
@@ -273,7 +286,61 @@ it('uses both physical line widths for wrapped Android RTL labels', () => {
     expect.objectContaining({ end: 27, width: 40 }),
     expect.objectContaining({ end: 32, width: 35 }),
   ]);
+  layoutText([{ x: 0, y: 0, width: 60, height: 15 }]);
+  expect(lastTextProps().textDecorationLine).toBe('underline');
+  expect(underlines(view.container)).toHaveLength(0);
+  expect(onTextLayout).toHaveBeenCalledTimes(3);
 });
+
+it.each([false, true])(
+  'fills a native label with fractional-period dashes (multiline=%s)',
+  (multiline) => {
+    platformEnv.isNative = true;
+    const view = render(
+      <DashText
+        multiline={multiline}
+        dashOverlay
+        dashLength={0.5}
+        dashGap={0.25}
+        length={200}
+      >
+        Label
+      </DashText>,
+    );
+
+    if (multiline) {
+      layoutText([{ x: 0, y: 0, width: 120, height: 15 }]);
+    } else {
+      const handler = jest
+        .mocked(YStack)
+        .mock.calls.find(
+          ([props]) => typeof props.onLayout === 'function',
+        )?.[0].onLayout;
+      if (typeof handler !== 'function') {
+        throw new OneKeyLocalError('Missing native box layout handler');
+      }
+      void act(() =>
+        handler({
+          nativeEvent: { layout: { width: 120 } },
+        } as LayoutChangeEvent),
+      );
+    }
+    expect(underlines(view.container)[0].children).toHaveLength(160);
+
+    view.rerender(
+      <DashText
+        multiline={multiline}
+        dashOverlay
+        dashLength={0}
+        dashGap={0}
+        length={200}
+      >
+        Label
+      </DashText>,
+    );
+    expect(underlines(view.container)[0].children).toHaveLength(0);
+  },
+);
 
 it('keeps a transparent Android dash invisible', () => {
   platformEnv.isNative = true;
@@ -286,11 +353,37 @@ it('keeps a transparent Android dash invisible', () => {
 
 it('dashes only the trailing link on native, also when it wraps', () => {
   platformEnv.isNative = true;
+  const onLayout = jest.fn();
   const view = render(
-    <DashText leadingText="Sign in to continue. " dashSpacing={2} length={50}>
+    <DashText
+      width={100}
+      leadingText="Sign in to continue. "
+      dashSpacing={2}
+      length={50}
+      onLayout={onLayout}
+    >
       Learn more
     </DashText>,
   );
+  const textProps = jest.mocked(SizableText);
+  const layoutParagraph = (width: number) => {
+    const callback = textProps.mock.calls
+      .toReversed()
+      .find(([props]) => props.opacity !== 0)?.[0].onLayout;
+    if (typeof callback !== 'function') {
+      throw new OneKeyLocalError('Missing paragraph layout handler');
+    }
+    void act(() =>
+      callback({ nativeEvent: { layout: { width } } } as LayoutChangeEvent),
+    );
+  };
+  const probeWidths = () =>
+    textProps.mock.calls.slice(-2).map(([props]) => props.width);
+  expect(textProps).toHaveBeenCalledTimes(1);
+  layoutParagraph(100);
+  expect(probeWidths()).toEqual([100, 100]);
+  expect(onLayout).toHaveBeenCalledTimes(1);
+
   // Lays out the paragraph (index 0) or a leading-text probe: plain (1) or
   // ending in a word joiner (2); one 20pt line per width.
   const layout = (probe: 0 | 1 | 2, ...widths: number[]) => {
@@ -341,6 +434,17 @@ it('dashes only the trailing link on native, also when it wraps', () => {
   layout(2, 100, 70, 25);
   layout(0, 100, 90, 30);
   expect(dashes()).toEqual([[0, 62, 30]]);
+  // A narrower paragraph must wait for its own prefix measurements.
+  layoutParagraph(80);
+  expect(probeWidths()).toEqual([80, 80]);
+  layout(0, 80, 75, 65);
+  expect(dashes()).toEqual([]);
+  layout(1, 80, 45);
+  layout(2, 80, 50);
+  expect(dashes()).toEqual([
+    [50, 42, 25],
+    [0, 62, 65],
+  ]);
 });
 
 it('keeps multiline labels in the requested tooltip and native popover', () => {
