@@ -40,8 +40,9 @@ export type INativeChartScene = {
     color: string;
   })[];
   axisWidth: number;
-  // Set when the time scale runs on past the last priced point (blank slots of
-  // a window still filling in): the x a finger over them is held to.
+  // Set with `secondaryLineBlankSlots` when the time scale runs on past the
+  // last priced point (a window still filling in): the x a finger over the
+  // blank slots is held to.
   pricedEndX?: number;
   secondarySegments: IPoint[][];
   lastPoint?: IPoint;
@@ -309,7 +310,9 @@ function buildSeriesGeometry(
   }));
   const lastPriced = hoverPoints[hoverPoints.length - 1];
   const pricedEndX =
-    lastPriced && timeline[timeline.length - 1] > lastPriced.time
+    config.secondaryLineBlankSlots &&
+    lastPriced &&
+    timeline[timeline.length - 1] > lastPriced.time
       ? lastPriced.x
       : undefined;
   return {
@@ -932,17 +935,20 @@ function buildTimeLabels(context: IChartDrawingContext) {
     config,
     layout: { points: seriesPoints, secondary, indexByTime, xAtIndex },
   } = context;
-  // An overlay can carry times the series has no value for yet (a window that
-  // is still filling in). They are on the time scale, so they are labelled
-  // like any other slot.
+  // With `secondaryLineBlankSlots`, the overlay carries times the series has
+  // no value for yet (a window that is still filling in). They are on the
+  // time scale, so they are labelled like any other slot. Other overlays'
+  // gaps are not time slots of their own and stay unlabelled.
   const seriesTimes = new Set(seriesPoints.map((point) => point.time));
-  const blankSlots = secondary.flatMap((point) => {
-    const time = Number(point.time);
-    const index = indexByTime.get(time);
-    return 'value' in point || seriesTimes.has(time) || index === undefined
-      ? []
-      : [{ time, x: xAtIndex(index), isBlankSlot: true }];
-  });
+  const blankSlots = (config.secondaryLineBlankSlots ? secondary : []).flatMap(
+    (point) => {
+      const time = Number(point.time);
+      const index = indexByTime.get(time);
+      return 'value' in point || seriesTimes.has(time) || index === undefined
+        ? []
+        : [{ time, x: xAtIndex(index), isBlankSlot: true }];
+    },
+  );
   const points = blankSlots.length
     ? [...seriesPoints, ...blankSlots].toSorted((a, b) => a.time - b.time)
     : seriesPoints;

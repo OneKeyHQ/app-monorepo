@@ -576,15 +576,18 @@ it('leaves the hover dot to the pulse when asked', () => {
   expect(circles(true)).toHaveLength(0);
 });
 
+const overlayWithTrailingGaps = [
+  ...config.data,
+  { time: 400 as ILightweightChartTime },
+  { time: 500 as ILightweightChartTime },
+  { time: 600 as ILightweightChartTime },
+];
+
 it('keeps the scrub guide on the last price over blank future slots', () => {
   const chart = scene({
     hideCrosshairPriceLabel: true,
-    secondaryLineData: [
-      ...config.data,
-      { time: 400 as ILightweightChartTime },
-      { time: 500 as ILightweightChartTime },
-      { time: 600 as ILightweightChartTime },
-    ],
+    secondaryLineBlankSlots: true,
+    secondaryLineData: overlayWithTrailingGaps,
   });
   const last = chart.hoverPoints[chart.hoverPoints.length - 1];
   expect(last.time).toBe(300);
@@ -614,4 +617,27 @@ it('keeps the finger x on charts without blank future slots', () => {
       expect.objectContaining({ x: x - chart.plot.x }),
     );
   }
+});
+
+it('leaves trailing overlay gaps alone on charts without blank slots', () => {
+  // The Earn APY overlay can end in gaps past the base line in its Max range;
+  // they are not time slots to come, so nothing about them changes.
+  const axisTexts = (chart: ReturnType<typeof scene>) =>
+    chart.commands.flatMap((command) =>
+      command.kind === 'text' && command.font === 'axis' ? [command.text] : [],
+    );
+  const plain = scene({ secondaryLineData: overlayWithTrailingGaps });
+  const last = plain.hoverPoints[plain.hoverPoints.length - 1];
+  const futureX = last.x + 60;
+  expect(plain.pricedEndX).toBeUndefined();
+  expect(getNativeChartHover(plain, futureX, 100)).toEqual(
+    expect.objectContaining({ time: 300, x: futureX - plain.plot.x }),
+  );
+  expect(axisTexts(plain)).toEqual(axisTexts(scene()));
+
+  const withSlots = scene({
+    secondaryLineBlankSlots: true,
+    secondaryLineData: overlayWithTrailingGaps,
+  });
+  expect(axisTexts(withSlots).length).toBeGreaterThan(axisTexts(plain).length);
 });

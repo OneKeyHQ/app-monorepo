@@ -127,6 +127,7 @@ export function LightweightChart({
   secondaryLineColor,
   secondaryLineWidth,
   secondaryLineEndTime,
+  secondaryLineBlankSlots,
   lineWidth,
   showPriceScale,
   showHorzGridLines,
@@ -173,6 +174,8 @@ export function LightweightChart({
   const curvedOverlaySeriesRef = useRef<IDottedAreaSeriesApi | null>(null);
   const secondaryLineEndTimeRef = useRef(secondaryLineEndTime);
   secondaryLineEndTimeRef.current = secondaryLineEndTime;
+  const secondaryLineBlankSlotsRef = useRef(secondaryLineBlankSlots);
+  secondaryLineBlankSlotsRef.current = secondaryLineBlankSlots;
   const secondaryPointSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
@@ -571,9 +574,9 @@ export function LightweightChart({
           updateLastPointPosition();
         });
 
-        // Value-less overlay slots carry a running session's time scale past
-        // the last price. A pointer there points at no data, so the guide
-        // hides as if it had left the chart. (Native, scrubbed by a finger on
+        // With `secondaryLineBlankSlots`, value-less overlay slots carry a
+        // running session's time scale past the last price. A pointer there
+        // points at no data, so the guide hides as if it had left the chart. (Native, scrubbed by a finger on
         // the line, stops at the last price instead.) The guide is hidden
         // through its options rather than by clearing the position: a touch
         // long-press reads the position back as its tracking origin, and a
@@ -582,6 +585,7 @@ export function LightweightChart({
         const syncCrosshairGuide = (param: MouseEventParams<Time>) => {
           const lastBar = chartConfigRef.current.data.at(-1);
           const isOverBlankSlot =
+            !!secondaryLineBlankSlotsRef.current &&
             param.time !== undefined &&
             !!param.point &&
             !!lastBar &&

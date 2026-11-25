@@ -570,6 +570,7 @@ export function StockPriceLineChart({
         patternColor={solidLineColor}
         pulseLastPointColor={solidLineColor}
         secondaryLineData={overlayData}
+        secondaryLineBlankSlots
         secondaryLineEndTime={solidLineEndTime}
         secondaryLineColor={solidLineColor}
         secondaryLineWidth={2}
