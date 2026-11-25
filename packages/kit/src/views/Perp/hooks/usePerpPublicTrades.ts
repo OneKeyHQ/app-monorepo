@@ -210,10 +210,20 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
               .getRetainedPublicTrades({ coin })
               .then((trades) => {
                 if (disposed || !trades.length) return;
-                setState((previous) => ({
-                  ...previous,
-                  trades: latestTrades(trades, previous.trades),
-                }));
+                setState((previous) => {
+                  const merged = latestTrades(trades, previous.trades);
+                  // An unchanged retained window must not renew the UI cache TTL.
+                  if (
+                    merged.length === previous.trades.length &&
+                    merged.every(
+                      (trade, index) =>
+                        tradeKey(trade) === tradeKey(previous.trades[index]),
+                    )
+                  ) {
+                    return previous;
+                  }
+                  return { ...previous, trades: merged };
+                });
               })
               .catch(() => {
                 // The HTTP snapshot and live feed can still populate the tape.

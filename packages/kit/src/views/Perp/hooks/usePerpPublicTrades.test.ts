@@ -295,6 +295,31 @@ it('does not restore expired cached rows on a new mount', async () => {
   expect(result.current.trades).toHaveLength(0);
 });
 
+it('expires cached rows on time after an identical retained replay and a failed snapshot', async () => {
+  snapshot.mockResolvedValueOnce(trades(1, 30));
+  const first = renderHook(() => usePerpPublicTrades(coin, true));
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  first.unmount();
+  jest.advanceTimersByTime(4 * 60_000);
+
+  jest
+    .spyOn(
+      backgroundApiProxy.serviceHyperliquidSubscription,
+      'getRetainedPublicTrades',
+    )
+    .mockResolvedValueOnce(trades(1, 30));
+  snapshot.mockRejectedValueOnce(new Error('snapshot unavailable'));
+  const second = renderHook(() => usePerpPublicTrades(coin, true));
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  expect(second.result.current.trades).toHaveLength(30);
+  expect(second.result.current.isError).toBe(true);
+  second.unmount();
+
+  jest.advanceTimersByTime(60_000);
+  const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+  expect(result.current.trades).toHaveLength(0);
+});
+
 it('does not extend cached rows when a later snapshot has no matching trades', async () => {
   snapshot.mockResolvedValueOnce(trades(1, 30));
   const first = renderHook(() => usePerpPublicTrades(coin, true));
