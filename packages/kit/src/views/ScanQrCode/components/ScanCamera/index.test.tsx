@@ -43,10 +43,7 @@ jest.mock('./webQrScanner', () => ({
 }));
 jest.mock('@onekeyfe/react-native-qr-scanner/web', () => {
   class QrScannerError extends Error {
-    constructor(
-      readonly code: string,
-      message: string,
-    ) {
+    constructor(readonly code: string, message: string) {
       super(message);
     }
   }
@@ -159,4 +156,55 @@ test('clears existing feedback and ignores pending focus results on a camera swi
   expect(screen.queryByTestId('scan-camera-focus-box')).toBeNull();
   await act(async () => pendingFocus.resolve(true));
   expect(screen.queryByTestId('scan-camera-focus-box')).toBeNull();
+});
+
+test('an overlay request focuses on resume even when no camera focus is available', async () => {
+  const onPreviewTap = jest.fn();
+  const { rerender } = render(
+    <ScanCamera frozen onPreviewTap={onPreviewTap} />,
+  );
+  const video = options().video;
+  Object.defineProperties(video, {
+    videoWidth: { value: 1280 },
+    videoHeight: { value: 720 },
+  });
+  jest.spyOn(video, 'getBoundingClientRect').mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 100,
+    height: 100,
+    right: 100,
+    bottom: 100,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+  mockScanner.focus.mockResolvedValueOnce(false);
+  const focusRequest = { id: 1, x: 0, y: 0.25 };
+  rerender(
+    <ScanCamera
+      frozen={false}
+      focusRequest={focusRequest}
+      onPreviewTap={onPreviewTap}
+    />,
+  );
+  expect(mockScanner.setFrozen).toHaveBeenLastCalledWith(false);
+  expect(mockScanner.setFrozen.mock.invocationCallOrder.at(-1)).toBeLessThan(
+    mockScanner.focus.mock.invocationCallOrder.at(-1)!,
+  );
+  expect(mockScanner.focus).toHaveBeenLastCalledWith({ x: 0.218_75, y: 0.25 });
+  expect(onPreviewTap).not.toHaveBeenCalled();
+  rerender(
+    <ScanCamera
+      frozen={false}
+      focusRequest={{ ...focusRequest }}
+      onPreviewTap={onPreviewTap}
+    />,
+  );
+  expect(mockScanner.focus).toHaveBeenCalledTimes(1);
+  await act(async () => {});
+  expect(screen.queryByTestId('scan-camera-focus-box')).toBeNull();
+
+  fireEvent.click(video, { clientX: 25, clientY: 25 });
+  expect(onPreviewTap).toHaveBeenCalledTimes(1);
 });

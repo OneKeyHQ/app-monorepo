@@ -1,7 +1,7 @@
 import { createElement, useCallback, useEffect, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 
-import type { IDimensions2D } from '../../utils/multiQrSymbols';
+import type { IDimensions2D, IPoint2D } from '../../utils/multiQrSymbols';
 
 const FOCUS_BOX_SIZE = 73;
 const FOCUS_SHRINK_MS = 200;
@@ -14,15 +14,21 @@ export type IDomFocusPoint = {
   normalizedY: number;
 };
 
-export function readDomFocusPoint(
-  event: MouseEvent<HTMLElement>,
+export function mapDomFocusPoint(
+  element: HTMLElement,
   frame: IDimensions2D,
+  point: IPoint2D,
+  space: 'preview' | 'client' = 'preview',
 ): IDomFocusPoint {
-  const rect = event.currentTarget.getBoundingClientRect();
-  const width = rect.width || event.currentTarget.clientWidth || 0;
-  const height = rect.height || event.currentTarget.clientHeight || 0;
-  const x = width > 0 ? event.clientX - rect.left : FOCUS_BOX_SIZE / 2;
-  const y = height > 0 ? event.clientY - rect.top : FOCUS_BOX_SIZE / 2;
+  const rect = element.getBoundingClientRect();
+  const width = rect.width || element.clientWidth;
+  const height = rect.height || element.clientHeight;
+  const pixel =
+    space === 'client'
+      ? { x: point.x - rect.left, y: point.y - rect.top }
+      : { x: point.x * width, y: point.y * height };
+  const x = width ? pixel.x : FOCUS_BOX_SIZE / 2;
+  const y = height ? pixel.y : FOCUS_BOX_SIZE / 2;
   const scale =
     frame.width > 0 && frame.height > 0
       ? Math.max(width / frame.width, height / frame.height)
@@ -47,6 +53,18 @@ export function readDomFocusPoint(
           )
         : 0.5,
   };
+}
+
+export function readDomFocusPoint(
+  event: MouseEvent<HTMLElement>,
+  frame: IDimensions2D,
+): IDomFocusPoint {
+  return mapDomFocusPoint(
+    event.currentTarget,
+    frame,
+    { x: event.clientX, y: event.clientY },
+    'client',
+  );
 }
 
 export function useDomFocusBox() {
@@ -98,12 +116,9 @@ export function useDomFocusBox() {
             current ? { ...current, phase: 'fading' } : undefined,
           );
         }, FOCUS_SHRINK_MS + FOCUS_HOLD_MS),
-        setTimeout(
-          () => {
-            setBox(undefined);
-          },
-          FOCUS_SHRINK_MS + FOCUS_HOLD_MS + FOCUS_SHRINK_MS,
-        ),
+        setTimeout(() => {
+          setBox(undefined);
+        }, FOCUS_SHRINK_MS + FOCUS_HOLD_MS + FOCUS_SHRINK_MS),
       );
     },
     [clearTimers],
@@ -125,9 +140,9 @@ export function useDomFocusBox() {
 
   const focusBoxElement = box
     ? createElement('div', {
-        'key': box.key,
+        key: box.key,
         'data-testid': 'scan-camera-focus-box',
-        'style': {
+        style: {
           position: 'absolute',
           left: box.x - FOCUS_BOX_SIZE / 2,
           top: box.y - FOCUS_BOX_SIZE / 2,

@@ -107,6 +107,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       onFrameSymbols,
       multiSymbol,
       frozen,
+      focusRequest,
+      onPreviewTap,
       onCameraError,
       onCameraReady,
       cameraId,
@@ -122,18 +124,21 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     // Navigation events retire capture before React commits the next view.
     const requestedActivity = useRef(activity);
     const mountedRef = useRef(true);
+    const hasOnPreviewTap = typeof onPreviewTap === 'function';
     const hasOnFrameSymbols = typeof onFrameSymbols === 'function';
     const handlers = useRef({
       handleScanResult,
       onFrameSymbols,
       onCameraError,
       onCameraReady,
+      onPreviewTap,
     });
     handlers.current = {
       handleScanResult,
       onFrameSymbols,
       onCameraError,
       onCameraReady,
+      onPreviewTap,
     };
 
     const onActiveChange = useCallback((active: boolean) => {
@@ -215,6 +220,19 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
               ),
             }
           : null),
+        ...(hasOnPreviewTap
+          ? {
+              onPreviewTap: callback((generation: number) => {
+                if (
+                  isCurrent(generation) &&
+                  current?.ready &&
+                  generation === current.generation
+                ) {
+                  handlers.current.onPreviewTap?.();
+                }
+              }),
+            }
+          : null),
         onError: callback(
           (code: string, _message: string, generation: number) => {
             if (!isCurrent(generation)) return;
@@ -223,11 +241,12 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           },
         ),
       };
-    }, [epoch, hasOnFrameSymbols]);
+    }, [epoch, hasOnFrameSymbols, hasOnPreviewTap]);
 
     const extraNativeProps = {
       ...(multiSymbol !== undefined ? { multiSymbol } : null),
       ...(frozen !== undefined ? { frozen } : null),
+      ...(focusRequest ? { focusRequest } : null),
     };
 
     return (

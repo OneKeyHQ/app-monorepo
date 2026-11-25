@@ -1,3 +1,5 @@
+import { getMultipartUrKey } from '@onekeyhq/qr-wallet-sdk/src/boundedUr';
+
 export type IMultiQrCoordinateSpace = 'view' | 'frame';
 
 export type IMultiQrSymbolBounds = {
@@ -49,7 +51,8 @@ export type IDimensions2D = {
 };
 
 const UR_PREFIX = /^ur:/i;
-const MULTIPART_UR_PATTERN = /^ur:([a-z0-9-]+)\/(\d+)-(\d+)\/([a-z]+)$/i;
+// Give the live view a few new frames while the focus request is dispatched.
+const REFOCUS_GRACE_MS = 350;
 
 export function isUrFrameText(text: string): boolean {
   return UR_PREFIX.test(text.trim());
@@ -201,24 +204,6 @@ export function resolveRepelledAnchorPositions(
   return pts;
 }
 
-function extractMultipartUrKey(text: string): string | null {
-  const match = MULTIPART_UR_PATTERN.exec(text.trim());
-  if (!match) return null;
-  const [, type, seqNumStr, seqLenStr] = match;
-  const seqNum = Number(seqNumStr);
-  const seqLen = Number(seqLenStr);
-  if (
-    !type ||
-    !Number.isInteger(seqNum) ||
-    !Number.isInteger(seqLen) ||
-    seqNum < 1 ||
-    seqLen < 1
-  ) {
-    return null;
-  }
-  return `${type.toLowerCase()}/${seqLen}`;
-}
-
 export type IMultiSymbolCommitResult =
   | 'progress'
   | 'complete'
@@ -256,6 +241,7 @@ export type IMultiSymbolCoordinator = {
   receiveFastPathText(text: string): void;
   selectSymbol(symbol: IMultiQrSymbol): void;
   cancelSelection(): void;
+  refocus(): void;
   reset(): void;
   dispose(): void;
 };
@@ -268,24 +254,42 @@ export function createMultiSymbolCoordinator(
 
   let phase: IMultiSymbolPhase = 'normal';
   let pendingSymbol: IMultiQrSymbol | undefined;
-  let selectedUrKey: string | null = null;
+  let selectedUrKey: string | undefined;
   let acceptFastPathText = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pendingCommit: symbol | undefined;
   let previewVerification: symbol | undefined;
   let offered: readonly IMultiQrSymbol[] = [];
-  let dismissed: { keys: Set<string>; lastSeen: number } | undefined;
+  let dismissed: { keys: Set<string>; refocusAfter?: number } | undefined;
+  const recentUrKeys = new Map<string, string>();
 
-  function selectionKey(symbol: IMultiQrSymbol): string {
-    return extractMultipartUrKey(symbol.text) ?? symbol.text;
+  function urKey(text: string): string {
+    const cached = recentUrKeys.get(text);
+    if (cached !== undefined) return cached;
+    const messageKey = getMultipartUrKey(text);
+    const key = messageKey
+      ? `fountain:${messageKey}`
+      : text.trim().toLowerCase();
+    if (recentUrKeys.size >= 32) recentUrKeys.clear();
+    recentUrKeys.set(text, key);
+    return key;
   }
 
-  function matchesDismissed(symbols: readonly IMultiQrSymbol[]): boolean {
-    return Boolean(
-      dismissed &&
-      Date.now() - dismissed.lastSeen <= 800 &&
-      symbols.every((symbol) => dismissed?.keys.has(selectionKey(symbol))),
-    );
+  function selectionKey(symbol: IMultiQrSymbol): string {
+    return isUrFrameText(symbol.text)
+      ? urKey(symbol.text)
+      : `static:${symbol.text}`;
+  }
+
+  function requiredSelectionCount(symbols: readonly IMultiQrSymbol[]): number {
+    if (!dismissed) return 2;
+    const { keys, refocusAfter } = dismissed;
+    if (refocusAfter !== undefined && performance.now() < refocusAfter)
+      return Infinity;
+    if (symbols.some((symbol) => !keys.has(selectionKey(symbol)))) return 2;
+    // Even a single old candidate needs confirmation after refocus. A frame
+    // cannot tell us whether the other code left the scene or was missed.
+    return refocusAfter === undefined ? Infinity : 1;
   }
 
   function closeSelection() {
@@ -296,16 +300,16 @@ export function createMultiSymbolCoordinator(
   function resumeScanning() {
     phase = 'normal';
     acceptFastPathText = false;
-    selectedUrKey = null;
+    selectedUrKey = undefined;
     closeSelection();
     options.onMultiSymbolChange(true);
   }
 
-  function dismissOffered() {
+  function dismissOffered(refocusAfter?: number) {
     if (offered.length > 0) {
       dismissed = {
         keys: new Set(offered.map(selectionKey)),
-        lastSeen: Date.now(),
+        refocusAfter,
       };
       offered = [];
     }
@@ -321,9 +325,10 @@ export function createMultiSymbolCoordinator(
   function enterSelecting(symbols: IMultiQrSymbol[]) {
     clearTimer();
     pendingSymbol = undefined;
-    selectedUrKey = null;
+    selectedUrKey = undefined;
     phase = 'selecting';
     offered = symbols;
+    dismissed = undefined;
     options.onFrozenChange(true);
     options.onSelectingChange(symbols);
   }
@@ -363,7 +368,7 @@ export function createMultiSymbolCoordinator(
         dismissOffered();
         resumeScanning();
       } else if (outcome === 'progress' && starting) {
-        selectedUrKey = extractMultipartUrKey(texts[0]);
+        selectedUrKey = urKey(texts[0]);
         acceptFastPathText = !keepMultiSymbol;
         phase = 'ur-streaming';
         closeSelection();
@@ -378,7 +383,7 @@ export function createMultiSymbolCoordinator(
     if (phase === 'selecting') options.onFrozenChange(false);
     clearTimer();
     pendingSymbol = undefined;
-    selectedUrKey = null;
+    selectedUrKey = undefined;
     phase = 'resolved';
     options.onSelectingChange([]);
     const request = Symbol('static commit');
@@ -408,7 +413,7 @@ export function createMultiSymbolCoordinator(
   function matchesSelectedUr(text: string): boolean {
     return (
       isUrFrameText(text) &&
-      (selectedUrKey === null || extractMultipartUrKey(text) === selectedUrKey)
+      (selectedUrKey === undefined || urKey(text) === selectedUrKey)
     );
   }
 
@@ -426,11 +431,9 @@ export function createMultiSymbolCoordinator(
       }
     },
     needsSelection(symbols) {
-      return (
-        (phase === 'normal' || phase === 'aggregating') &&
-        dedupeSymbolsByText(symbols.filter(isVisible)).length >= 2 &&
-        !matchesDismissed(symbols.filter(isVisible))
-      );
+      if (phase !== 'normal' && phase !== 'aggregating') return false;
+      const visible = dedupeSymbolsByText(symbols.filter(isVisible));
+      return visible.length >= requiredSelectionCount(visible);
     },
     beginPreviewVerification() {
       clearTimer();
@@ -442,7 +445,7 @@ export function createMultiSymbolCoordinator(
         if (previewVerification !== verification) return;
         previewVerification = undefined;
         const visible = dedupeSymbolsByText((symbols ?? []).filter(isVisible));
-        if (visible.length >= 2 && !matchesDismissed(visible)) {
+        if (visible.length >= requiredSelectionCount(visible)) {
           enterSelecting(visible);
           return true;
         }
@@ -474,13 +477,11 @@ export function createMultiSymbolCoordinator(
         return;
       }
 
-      if (matchesDismissed(visible) && dismissed) {
-        dismissed.lastSeen = Date.now();
-        return;
-      }
+      const requiredCount = requiredSelectionCount(visible);
+      if (!Number.isFinite(requiredCount)) return;
       dismissed = undefined;
 
-      if (visible.length >= 2) {
+      if (visible.length >= requiredCount) {
         enterSelecting(visible);
         return true;
       }
@@ -535,6 +536,23 @@ export function createMultiSymbolCoordinator(
       dismissOffered();
       resumeScanning();
     },
+    refocus() {
+      if (pendingCommit || phase === 'resolved' || phase === 'ur-streaming')
+        return;
+      if (phase === 'selecting') {
+        dismissOffered(performance.now() + REFOCUS_GRACE_MS);
+        resumeScanning();
+        return;
+      }
+      if (dismissed && dismissed.refocusAfter === undefined) {
+        dismissed.refocusAfter = performance.now() + REFOCUS_GRACE_MS;
+      }
+      // A scene being aggregated or verified belongs to the previous aim.
+      clearTimer();
+      pendingSymbol = undefined;
+      previewVerification = undefined;
+      phase = 'normal';
+    },
     reset() {
       clearTimer();
       pendingSymbol = undefined;
@@ -542,6 +560,7 @@ export function createMultiSymbolCoordinator(
       previewVerification = undefined;
       dismissed = undefined;
       offered = [];
+      recentUrKeys.clear();
       resumeScanning();
     },
     dispose() {

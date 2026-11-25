@@ -9,11 +9,14 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ScanCamera } from './index.native';
 
-import type { IScanCameraRef } from './types';
+import type { IScanCameraRef, IScanFocusRequest } from './types';
 
 type IViewProps = {
   active: boolean;
   cameraId?: string;
+  frozen?: boolean;
+  focusRequest?: IScanFocusRequest;
+  onPreviewTap?: (generation: number) => void;
   onReady: (generation: number, cameraId?: string) => void;
   onFrameText: (text: string, generation: number) => void;
   onError: (code: string, message: string, generation: number) => void;
@@ -279,4 +282,34 @@ test('passes the chosen camera through and reports each ready camera', () => {
   expect(view().cameraId).toBe('back');
   view().onReady(2, 'back');
   expect(onCameraReady.mock.calls).toEqual([['built-in-back'], ['back']]);
+});
+
+test('sends the overlay focus point with unfreeze and drops taps from a retired capture', () => {
+  const screen = createNavigation();
+  useTestNavigation(screen);
+  const onPreviewTap = jest.fn();
+  const { rerender } = render(
+    <ScanCamera frozen onPreviewTap={onPreviewTap} />,
+  );
+  const oldView = view();
+  act(() => oldView.onReady(1, 'camera'));
+  const focusRequest = { id: 1, x: 0.25, y: 0.75 };
+  rerender(
+    <ScanCamera
+      frozen={false}
+      focusRequest={focusRequest}
+      onPreviewTap={onPreviewTap}
+    />,
+  );
+  expect(view().frozen).toBe(false);
+  expect(view().focusRequest).toEqual(focusRequest);
+  act(() => view().onPreviewTap?.(1));
+  expect(onPreviewTap).toHaveBeenCalledTimes(1);
+
+  act(() => {
+    screen.emit('transitionStart', { data: { closing: true } });
+    screen.emit('gestureCancel');
+  });
+  act(() => oldView.onPreviewTap?.(1));
+  expect(onPreviewTap).toHaveBeenCalledTimes(1);
 });

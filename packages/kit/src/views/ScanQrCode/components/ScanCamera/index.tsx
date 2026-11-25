@@ -15,7 +15,11 @@ import {
 } from '@onekeyfe/react-native-qr-scanner/web';
 import { StyleSheet, View } from 'react-native';
 
-import { readDomFocusPoint, useDomFocusBox } from './FocusBox';
+import {
+  mapDomFocusPoint,
+  readDomFocusPoint,
+  useDomFocusBox,
+} from './FocusBox';
 import { ensureWebQrScannerConfigured } from './webQrScanner';
 
 import type {
@@ -52,6 +56,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       onFrameSymbols,
       multiSymbol,
       frozen,
+      focusRequest,
+      onPreviewTap,
       onCameraError,
       onCameraReady,
       cameraId,
@@ -90,6 +96,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       (event: MouseEvent<HTMLVideoElement>) => {
         const scanner = scannerRef.current;
         if (frozen || !scanner) return;
+        onPreviewTap?.();
         const { videoWidth, videoHeight } = event.currentTarget;
         const point = readDomFocusPoint(event, {
           width: videoWidth,
@@ -99,7 +106,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           scanner.focus({ x: point.normalizedX, y: point.normalizedY }),
         );
       },
-      [frozen, requestFocus],
+      [frozen, onPreviewTap, requestFocus],
     );
 
     useImperativeHandle(
@@ -169,6 +176,28 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       if (nextFrozen) resetFocusBox();
       scannerRef.current?.setFrozen(nextFrozen);
     }, [frozen, observesSymbols, resetFocusBox]);
+
+    const appliedFocusRequest = useRef<number | undefined>(undefined);
+    useEffect(() => {
+      if (
+        frozen ||
+        !focusRequest ||
+        appliedFocusRequest.current === focusRequest.id
+      )
+        return;
+      appliedFocusRequest.current = focusRequest.id;
+      const scanner = scannerRef.current;
+      const video = videoRef.current;
+      if (!scanner || !video) return;
+      const point = mapDomFocusPoint(
+        video,
+        { width: video.videoWidth, height: video.videoHeight },
+        focusRequest,
+      );
+      requestFocus(point, () =>
+        scanner.focus({ x: point.normalizedX, y: point.normalizedY }),
+      );
+    }, [focusRequest, frozen, requestFocus]);
 
     useLayoutEffect(() => {
       const canvas = frozenCanvasRef.current;

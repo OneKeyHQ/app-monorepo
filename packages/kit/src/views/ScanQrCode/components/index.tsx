@@ -45,12 +45,14 @@ import { useScanCameraIsActive } from './ScanCamera/useScanCameraIsActive';
 import { useScanCameras } from './ScanCamera/useScanCameras';
 
 import type { IScanCameraRef } from './ScanCamera';
+import type { IScanFocusRequest } from './ScanCamera/types';
 import type {
   IDimensions2D,
   IMultiQrFrameEvent,
   IMultiQrSymbol,
   IMultiSymbolCommitResult,
   IMultiSymbolCoordinator,
+  IPoint2D,
 } from '../utils/multiQrSymbols';
 import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner/web';
 import type { LayoutChangeEvent } from 'react-native';
@@ -137,6 +139,8 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const [multiSymbolEnabled, setMultiSymbolEnabled] =
       useState(supportsMultiSymbol);
     const [frozen, setFrozen] = useState(false);
+    const [focusRequest, setFocusRequest] = useState<IScanFocusRequest>();
+    const focusRequestId = useRef(0);
     const [selectingSymbols, setSelectingSymbols] = useState<IMultiQrSymbol[]>(
       [],
     );
@@ -149,10 +153,12 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     }, []);
 
     useLayoutEffect(() => {
-      if (isFocused) {
-        frameGate.current.reset();
-        coordinatorRef.current?.reset();
-      }
+      setFocusRequest(undefined);
+      coordinatorRef.current?.reset();
+    }, [cameraActive, cameraId, isFocused, useWebCamera]);
+
+    useLayoutEffect(() => {
+      if (isFocused) frameGate.current.reset();
     }, [isFocused]);
 
     const reloadHandleBarCodeScanned = useCallback(
@@ -162,8 +168,9 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
 
         isHandlingFrame.current = true;
         try {
-          const { progress: progressValue, retry } =
-            await handleBarCodeScanned(data);
+          const { progress: progressValue, retry } = await handleBarCodeScanned(
+            data,
+          );
           if (retry) {
             frameGate.current.release(data);
             return 'retry';
@@ -257,7 +264,8 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         return;
       }
       return coordinator.receiveFrame(symbols);
-    }, []);
+    },
+    []);
 
     const handleSelectMultiSymbol = useCallback((symbol: IMultiQrSymbol) => {
       coordinatorRef.current?.selectSymbol(symbol);
@@ -266,6 +274,21 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const handleCancelMultiSelection = useCallback(() => {
       coordinatorRef.current?.cancelSelection();
     }, []);
+
+    const handlePreviewTap = useCallback(() => {
+      coordinatorRef.current?.refocus();
+    }, []);
+
+    const handleRefocusSelection = useCallback(
+      (point?: IPoint2D) => {
+        handlePreviewTap();
+        if (point) {
+          focusRequestId.current += 1;
+          setFocusRequest({ ...point, id: focusRequestId.current });
+        }
+      },
+      [handlePreviewTap],
+    );
 
     const showPermissionDeniedDialog = useCallback(() => {
       const canRequestExpandView =
@@ -389,6 +412,8 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         onFrameSymbols={supportsMultiSymbol ? handleFrameSymbols : undefined}
         multiSymbol={supportsMultiSymbol ? multiSymbolEnabled : false}
         frozen={supportsMultiSymbol ? frozen : false}
+        focusRequest={focusRequest}
+        onPreviewTap={supportsMultiSymbol ? handlePreviewTap : undefined}
         onCameraError={onCameraError}
         onCameraReady={onCameraReady}
         useWebCamera={useWebCamera}
@@ -439,6 +464,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
             symbols={selectingSymbols}
             onSelect={handleSelectMultiSymbol}
             onCancel={handleCancelMultiSelection}
+            onRefocus={handleRefocusSelection}
           />
         ) : null}
       </ScanCamera>
