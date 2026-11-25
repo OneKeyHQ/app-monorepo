@@ -1,5 +1,6 @@
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
 
+import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -112,6 +113,74 @@ describe('ServiceHyperliquidSubscription public depth books', () => {
       emit.mockRestore();
     }
   });
+  it('refreshes a silent retained depth feed after its latest frame expires', async () => {
+    jest.useFakeTimers();
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(false);
+    const close = jest.fn();
+    const subscribe = jest
+      .fn<
+        Promise<unknown>,
+        [string, unknown, (event: { detail: { s: IBook } }) => void]
+      >()
+      .mockResolvedValue(undefined);
+    jest.mocked(WebSocketTransport).mockImplementation(
+      () =>
+        ({
+          socket: new EventTarget(),
+          subscribe,
+          close,
+        }) as unknown as WebSocketTransport,
+    );
+    const target = { coin: 'BTC', nSigFigs: null, mantissa: null } as const;
+    const publish = (index: number) => {
+      subscribe.mock.calls[index]?.[2]({
+        detail: { s: { coin: 'BTC', levels: [[], []], time: Date.now() } },
+      });
+    };
+    const maxAge = PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS;
+    try {
+      await service.subscribePublicDepthBook(target);
+      await service.subscribePublicDepthBook(target);
+      publish(0);
+      await jest.advanceTimersByTimeAsync(maxAge - 1);
+      publish(0);
+      await service.unsubscribePublicDepthBook(target);
+      await jest.advanceTimersByTimeAsync(maxAge);
+      expect(close).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(emit).toHaveBeenLastCalledWith(
+        EAppEventBusNames.HyperliquidPublicDepthBook,
+        {
+          coin: 'BTC',
+          options: { nSigFigs: null, mantissa: null },
+          status: 'error',
+        },
+      );
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(subscribe).toHaveBeenCalledTimes(2);
+      emit.mockClear();
+      publish(0);
+      expect(emit).not.toHaveBeenCalled();
+      publish(1);
+      expect(emit).toHaveBeenLastCalledWith(
+        EAppEventBusNames.HyperliquidPublicDepthBook,
+        expect.objectContaining({ coin: 'BTC', status: 'ready' }),
+      );
+      await service.unsubscribePublicDepthBook(target);
+      await jest.advanceTimersByTimeAsync(maxAge + 5000);
+      expect(close).toHaveBeenCalledTimes(2);
+      expect(subscribe).toHaveBeenCalledTimes(2);
+    } finally {
+      await service.unsubscribePublicDepthBook(target);
+      await service.unsubscribePublicDepthBook(target);
+      jest.mocked(WebSocketTransport).mockReset();
+      emit.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
   it('falls back after two Fast snapshots are followed by invalid deltas', async () => {
     jest.useFakeTimers();
     const service = createService();

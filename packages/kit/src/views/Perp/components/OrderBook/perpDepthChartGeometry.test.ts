@@ -59,6 +59,28 @@ describe('Perp depth chart geometry', () => {
     ]);
   });
 
+  it('hits paired single-level markers within eight pixels from either side', () => {
+    const geometry = buildDepthChartGeometry({
+      bids: [{ price: '99', cumSize: '2' }],
+      asks: [{ price: '101', cumSize: '3' }],
+      referenceMidPrice: 100,
+      width: 200,
+      height: 100,
+    });
+    expect(geometry).toBeDefined();
+    if (!geometry) return;
+    const expected = [
+      { side: 'bid', price: 99, level: { cumSize: '2' } },
+      { side: 'ask', price: 101, level: { cumSize: '3' } },
+    ];
+    for (const x of [-8, 8, 192, 208]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toMatchObject(expected);
+    }
+    for (const x of [-9, 9, 100, 191, 209]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toEqual([]);
+    }
+  });
+
   it('smooths both sides through every real level without overshooting neighboring sizes', () => {
     const geometry = buildDepthChartGeometry({
       bids: [
@@ -457,6 +479,62 @@ describe('Perp depth chart domain', () => {
     ).toBeUndefined();
   });
 
+  it('recovers a single-sided book outside the last anchored window', () => {
+    const previous = updateDepthChartDomain({
+      bids,
+      asks,
+      referenceMidPrice: 100,
+      now: 0,
+    });
+    const input = {
+      bids: [
+        { price: '95', cumSize: '2' },
+        { price: '94', cumSize: '12' },
+      ],
+      asks: [],
+    };
+    const domain = updateDepthChartDomain({ ...input, previous, now: 1 });
+    expect(domain).toMatchObject({
+      minPrice: 94,
+      maxPrice: 95,
+      isZoomed: false,
+    });
+    expect(domain?.anchorMid).toBeUndefined();
+    const geometry = buildDepthChartGeometry({
+      ...input,
+      domain,
+      width: 360,
+      height: 120,
+    });
+    expect(geometry?.bids.levels).toHaveLength(2);
+    expect(geometry?.midPrice).toBeUndefined();
+  });
+
+  it('recovers both sides of a spread wider than the standard window', () => {
+    const input = {
+      bids: [
+        { price: '99', cumSize: '2' },
+        { price: '98', cumSize: '12' },
+      ],
+      asks: [
+        { price: '101', cumSize: '1' },
+        { price: '102', cumSize: '10' },
+      ],
+      referenceMidPrice: 100,
+    };
+    const domain = updateDepthChartDomain({ ...input, now: 0 });
+    const geometry = buildDepthChartGeometry({
+      ...input,
+      domain,
+      width: 360,
+      height: 120,
+    });
+    expect(geometry?.bids.levels).toHaveLength(2);
+    expect(geometry?.asks.levels).toHaveLength(2);
+    expect(geometry?.toX(100)).toBe(180);
+    expect(domain?.isZoomed).toBe(false);
+  });
+
   it('zooms within observed coverage and returns to the default view', () => {
     const thinAsks = [
       asks[0],
@@ -497,6 +575,48 @@ describe('Perp depth chart domain', () => {
       updateDepthChartDomain({ ...input, previous: full, wheelDelta: 100 }),
     ).toBe(full);
   });
+
+  it.each([0.15, 0.2])(
+    'clears manual zoom after the default price range contracts to ±%s',
+    (offset) => {
+      const input = { bids, asks, referenceMidPrice: 100, now: 0 };
+      const near = updateDepthChartDomain({
+        ...input,
+        previous: updateDepthChartDomain(input),
+        wheelDelta: -240,
+      });
+      expect(near?.isZoomed).toBe(true);
+      const thin = {
+        ...input,
+        bids: [
+          bids[0],
+          { price: '99.9', cumSize: '7' },
+          { price: String(100 - offset), cumSize: '12' },
+        ],
+        asks: [
+          asks[0],
+          { price: '100.1', cumSize: '5' },
+          { price: String(100 + offset), cumSize: '10' },
+        ],
+      };
+      const viewport = updateDepthChartDomain({ ...thin, previous: near });
+      expect(viewport?.priceRangeRatio).toBe(near?.priceRangeRatio);
+      const restored = updateDepthChartDomain({
+        ...thin,
+        previous: viewport,
+        wheelDelta: 100,
+      });
+      expect(restored?.isZoomed).toBe(false);
+      expect(restored?.priceRangeRatio).toBeCloseTo(offset / 100);
+      expect(
+        updateDepthChartDomain({
+          ...thin,
+          previous: restored,
+          wheelDelta: 100,
+        }),
+      ).toBe(restored);
+    },
+  );
 
   it('keeps two levels visible at the tightest zoom and ignores unusable zoom-in requests', () => {
     const input = { bids, asks, referenceMidPrice: 100, now: 0 };
@@ -670,6 +790,21 @@ describe('Perp depth chart domain', () => {
       level: { price: '101', cumSize: '1' },
     });
     expect(getDepthChartLevelAtPrice(askWindow, 105.1)).toBeUndefined();
+    if (!askWindow) return;
+    expect(
+      getDepthChartHoverSelections(askWindow, askWindow.toX(102.25)),
+    ).toMatchObject([
+      {
+        side: 'ask',
+        price: 102,
+        level: { plotPrice: 102, price: '101', cumSize: '1' },
+      },
+    ]);
+    expect(
+      getDepthChartHoverSelections(askWindow, askWindow.toX(103.25)),
+    ).toMatchObject([
+      { side: 'ask', price: 103, level: { price: '103', cumSize: '4' } },
+    ]);
   });
 
   it('keeps the live cumulative amount at the same selected price after a depth update', () => {

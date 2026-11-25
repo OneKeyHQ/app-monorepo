@@ -195,22 +195,39 @@ const DepthPlot = memo(function DepthPlot({
   let priceTickCount = 5;
   if (plotWidth < 480) priceTickCount = 3;
   if (plotWidth < 240) priceTickCount = 1;
-  const priceTickFractions = Array.from(
+  const midPrice = geometry.midPrice;
+  const midX = midPrice === undefined ? undefined : geometry.toX(midPrice);
+  const midPriceDecimals = Math.min(20, priceDecimals + 1);
+  const seenPriceLabels = new Set<string>();
+  if (midPrice !== undefined) {
+    seenPriceLabels.add(
+      intl.formatNumber(midPrice, {
+        minimumFractionDigits: priceDecimals,
+        maximumFractionDigits: midPriceDecimals,
+      }),
+    );
+  }
+  const priceTicks = Array.from(
     { length: priceTickCount },
     (_, index) => (index + 0.5) / priceTickCount,
-  );
+  ).flatMap((fraction) => {
+    if (fraction === 0.5 && midX !== undefined) return [];
+    const x = plotWidth * fraction;
+    const label = formatAxisPrice(geometry.toPrice(x));
+    if (seenPriceLabels.has(label)) return [];
+    seenPriceLabels.add(label);
+    return [{ x, label }];
+  });
   const sizeLabels = useMemo(
     () => formatSizeTicks(intl, geometry.maxSize),
     [geometry.maxSize, intl],
   );
-  const midX = geometry.midPrice === undefined ? undefined : plotWidth / 2;
-
   const midPriceLabel =
-    geometry.midPrice === undefined
+    midPrice === undefined
       ? undefined
-      : intl.formatNumber(geometry.midPrice, {
-          minimumFractionDigits: Math.min(20, priceDecimals + 1),
-          maximumFractionDigits: Math.min(20, priceDecimals + 1),
+      : intl.formatNumber(midPrice, {
+          minimumFractionDigits: midPriceDecimals,
+          maximumFractionDigits: midPriceDecimals,
         });
 
   return (
@@ -230,23 +247,18 @@ const DepthPlot = memo(function DepthPlot({
           stroke={axisColor}
           strokeOpacity={0.9}
         />
-        {priceTickFractions.map((fraction) => {
-          if (fraction === 0.5 && midX !== undefined) return null;
-          const x = plotWidth * fraction;
-          const price = geometry.toPrice(x);
-          return (
-            <Text
-              key={fraction}
-              x={x}
-              y={plotHeight + 16}
-              textAnchor="middle"
-              fill={labelColor}
-              {...AXIS_SVG_TEXT_PROPS}
-            >
-              {formatAxisPrice(price)}
-            </Text>
-          );
-        })}
+        {priceTicks.map(({ x, label }) => (
+          <Text
+            key={x}
+            x={x}
+            y={plotHeight + 16}
+            textAnchor="middle"
+            fill={labelColor}
+            {...AXIS_SVG_TEXT_PROPS}
+          >
+            {label}
+          </Text>
+        ))}
         <DepthArea
           side="bid"
           color={bidColor}
@@ -361,8 +373,9 @@ function DepthSelectionTooltip({
   plotWidth,
   paired,
   compact,
+  priceDecimals,
   sizeDecimals,
-}: Pick<IChartLabels, 'sizeDecimals'> & {
+}: IChartLabels & {
   selection: IDepthChartSelection;
   geometry: IDepthChartGeometry;
   height: number;
@@ -417,6 +430,26 @@ function DepthSelectionTooltip({
     geometry.midPrice === undefined
       ? null
       : getOrderBookDistanceFromMid(selection.price, geometry.midPrice);
+  const distancePercent = distance === null ? null : Number(distance);
+  const defaultDistanceDigits = compact ? 2 : 4;
+  const distanceDigits =
+    distancePercent !== null &&
+    distancePercent > 0 &&
+    distancePercent < 0.5 * 10 ** -defaultDistanceDigits
+      ? Math.ceil(-Math.log10(distancePercent))
+      : defaultDistanceDigits;
+  const distanceFormat: Parameters<typeof intl.formatNumber>[1] =
+    distanceDigits > 6
+      ? {
+          style: 'percent',
+          notation: 'scientific',
+          maximumSignificantDigits: 3,
+        }
+      : { style: 'percent', maximumFractionDigits: distanceDigits };
+  const sideSign = isBid ? '−' : '+';
+  const distanceSign = distancePercent ? sideSign : '';
+  const selectionPriceDigits =
+    selection.price === Number(selection.level.price) ? 20 : priceDecimals;
 
   return (
     <YStack
@@ -437,18 +470,15 @@ function DepthSelectionTooltip({
       animateOnly={ANIMATE_OPACITY}
       enterStyle={reducedMotion ? undefined : FADE_FROM_TRANSPARENT}
     >
-      {distance === null ? null : (
+      {distancePercent === null ? null : (
         <DepthTooltipRow
           compact={compact}
           label={intl.formatMessage({
             id: ETranslations.perp_depth_range__title,
           })}
-          value={`${isBid ? '−' : '+'}${intl.formatNumber(
-            Number(distance) / 100,
-            {
-              style: 'percent',
-              maximumFractionDigits: compact ? 2 : 4,
-            },
+          value={`${distanceSign}${intl.formatNumber(
+            distancePercent / 100,
+            distanceFormat,
           )}`}
           valueColor={color}
         />
@@ -457,7 +487,7 @@ function DepthSelectionTooltip({
         compact={compact}
         label={intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
         value={intl.formatNumber(selection.price, {
-          maximumFractionDigits: 20,
+          maximumFractionDigits: selectionPriceDigits,
         })}
       />
       <DepthTooltipRow
@@ -479,8 +509,9 @@ function DepthChartInteraction({
   width,
   height,
   plotWidth,
+  priceDecimals,
   sizeDecimals,
-}: Pick<IChartLabels, 'sizeDecimals'> & {
+}: IChartLabels & {
   geometry: IDepthChartGeometry;
   width: number;
   height: number;
@@ -505,7 +536,9 @@ function DepthChartInteraction({
   const selectFromPlotX = useCallback(
     (x: number, kind: 'hover' | 'touch') => {
       const ratio =
-        Number.isFinite(x) && x >= 0 && x <= plotWidth
+        Number.isFinite(x) &&
+        x >= -DEPTH_MARKER_HIT_SLOP &&
+        x <= plotWidth + DEPTH_MARKER_HIT_SLOP
           ? x / plotWidth
           : undefined;
       setInteraction((previous) => {
@@ -648,6 +681,7 @@ function DepthChartInteraction({
               plotWidth={plotWidth}
               paired={paired}
               compact={compact}
+              priceDecimals={priceDecimals}
               sizeDecimals={sizeDecimals}
             />
           ))}
@@ -765,6 +799,19 @@ export function PerpDepthChart({
   const chartLabel = intl.formatMessage({
     id: ETranslations.perp_order_book_depth,
   });
+  const midPriceTitle = intl.formatMessage({
+    id: ETranslations.perp_order_mid_price_title,
+  });
+  const formattedMidPrice =
+    midPrice === undefined
+      ? undefined
+      : intl.formatNumber(midPrice, {
+          maximumFractionDigits: Math.min(20, priceDigits + 1),
+        });
+  const chartDescription =
+    showHeader || formattedMidPrice === undefined
+      ? chartLabel
+      : `${chartLabel}, ${midPriceTitle} ${formattedMidPrice}`;
   const rangeLabel = `±${intl.formatNumber(
     domain?.priceRangeRatio ?? DEPTH_PRICE_RANGE_RATIO,
     {
@@ -792,8 +839,9 @@ export function PerpDepthChart({
       minHeight={CHART_MIN_HEIGHT}
       onLayout={handleLayout}
       role={platformEnv.isNative ? undefined : 'group'}
-      aria-label={platformEnv.isNative ? undefined : chartLabel}
-      accessibilityLabel={platformEnv.isNative ? chartLabel : undefined}
+      aria-label={platformEnv.isNative ? undefined : chartDescription}
+      accessible={platformEnv.isNative && !showHeader ? true : undefined}
+      accessibilityLabel={platformEnv.isNative ? chartDescription : undefined}
     >
       {showHeader ? (
         <XStack h={CHART_HEADER_HEIGHT} alignItems="center" gap="$1" px="$3">
@@ -817,9 +865,7 @@ export function PerpDepthChart({
                   color="$textSubdued"
                   numberOfLines={1}
                 >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_order_mid_price_title,
-                  })}
+                  {midPriceTitle}
                 </SizableText>
                 <SizableText
                   size="$bodySmMedium"
@@ -827,9 +873,7 @@ export function PerpDepthChart({
                   fontVariant={TABULAR_NUMS}
                   numberOfLines={1}
                 >
-                  {intl.formatNumber(midPrice, {
-                    maximumFractionDigits: Math.min(20, priceDigits + 1),
-                  })}
+                  {formattedMidPrice}
                 </SizableText>
               </>
             )}
@@ -894,6 +938,7 @@ export function PerpDepthChart({
                 width={width}
                 height={chartHeight}
                 plotWidth={plotWidth}
+                priceDecimals={priceDigits}
                 sizeDecimals={sizeDigits}
               />
             )}

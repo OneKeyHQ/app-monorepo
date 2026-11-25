@@ -1,41 +1,27 @@
-import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
-
 import { getOrderBookSubscriptionTickLabel } from '../components/OrderBook/tickSizeUtils';
 
 export const PERPS_DEPTH_BOOK_RADIUS = 0.0025;
-type IDepthBookPrice = {
+// Preserve every returned price level and fit the chart to the observed book.
+export const PERPS_DEPTH_BOOK_OPTIONS = { nSigFigs: null, mantissa: null };
+
+export function getDepthBookPriceStep({
+  price,
+  szDecimals,
+  isSpot,
+}: {
   price: number;
   szDecimals: number | undefined;
   isSpot: boolean;
-};
-
-export type IDepthBookTarget = {
-  options: IL2BookOptions;
-  step: number;
-};
-
-export function getDepthBookPriceStep(
-  { price, szDecimals, isSpot }: IDepthBookPrice,
-  options: IL2BookOptions,
-) {
-  return Number(
+}) {
+  const step = Number(
     getOrderBookSubscriptionTickLabel({
       price: String(price),
       szDecimals,
       isSpot,
-      options,
+      options: PERPS_DEPTH_BOOK_OPTIONS,
     }),
   );
-}
-
-export function getDepthBookTarget(
-  input: IDepthBookPrice,
-): IDepthBookTarget | undefined {
-  // Preserve every returned price level. The chart fits its window to the book
-  // instead of coarsening the subscription to cover a fixed percentage.
-  const options = { nSigFigs: null, mantissa: null };
-  const step = getDepthBookPriceStep(input, options);
-  return Number.isFinite(step) && step > 0 ? { options, step } : undefined;
+  return Number.isFinite(step) && step > 0 ? step : undefined;
 }
 
 export function getTrueDepthMidPrice(bid?: string, ask?: string) {

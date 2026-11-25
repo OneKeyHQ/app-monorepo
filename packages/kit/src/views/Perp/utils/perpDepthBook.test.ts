@@ -1,4 +1,4 @@
-import { getDepthBookTarget, getTrueDepthMidPrice } from './perpDepthBook';
+import { getDepthBookPriceStep, getTrueDepthMidPrice } from './perpDepthBook';
 
 describe('the independent depth book target', () => {
   it.each([
@@ -6,12 +6,11 @@ describe('the independent depth book target', () => {
     [1679.25, 4, 0.1],
     [68.9055, 2, 0.001],
   ] as const)(
-    'keeps full precision at %s instead of widening the book',
+    'derives the full-precision tick for %s',
     (price, szDecimals, step) => {
-      expect(getDepthBookTarget({ price, szDecimals, isSpot: false })).toEqual({
-        options: { nSigFigs: null, mantissa: null },
+      expect(getDepthBookPriceStep({ price, szDecimals, isSpot: false })).toBe(
         step,
-      });
+      );
     },
   );
 

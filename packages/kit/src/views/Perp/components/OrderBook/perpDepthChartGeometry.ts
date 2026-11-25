@@ -150,11 +150,14 @@ function getWheelPriceRange(
   center: number,
   current: number,
   delta: number,
+  isZoomed: boolean,
 ) {
   if (!Number.isFinite(delta) || delta === 0) return undefined;
   const defaultRange = getDefaultPriceRange(book, center);
   const zoomingOut = delta > 0;
-  if (zoomingOut && current >= defaultRange) return undefined;
+  if (zoomingOut && current >= defaultRange) {
+    return isZoomed ? defaultRange : undefined;
+  }
 
   const secondBid = book.bidLevels[1]?.numericPrice;
   const secondAsk = book.askLevels[1]?.numericPrice;
@@ -230,6 +233,15 @@ function clipSide(
   return visible;
 }
 
+function getCenteredPriceBounds(center: number, halfWidth: number) {
+  const minPrice = center - halfWidth;
+  const maxPrice = center + halfWidth;
+  if (!isPositiveFinite(minPrice) || !isPositiveFinite(maxPrice)) {
+    return undefined;
+  }
+  return maxPrice > minPrice ? { minPrice, maxPrice } : undefined;
+}
+
 function getDepthAxisCeiling(size: number) {
   const requiredStep = (size / 4) * 1.1;
   const magnitude = 10 ** Math.floor(Math.log10(requiredStep));
@@ -262,9 +274,10 @@ export function updateDepthChartDomain({
   }
 
   let anchorMid = previous?.anchorMid;
-  const center = isPositiveFinite(referenceMidPrice)
+  const liveMid = isPositiveFinite(referenceMidPrice)
     ? referenceMidPrice
-    : anchorMid;
+    : undefined;
+  const center = liveMid ?? anchorMid;
   const defaultRange =
     center === undefined
       ? DEPTH_PRICE_RANGE_RATIO
@@ -289,6 +302,7 @@ export function updateDepthChartDomain({
       center,
       priceRangeRatio,
       wheelDelta,
+      isZoomed,
     );
     if (zoomed === undefined) return previous;
     priceRangeRatio = zoomed;
@@ -298,32 +312,42 @@ export function updateDepthChartDomain({
   let { minPrice, maxPrice } =
     anchorMid === undefined ? book : (previous ?? book);
   // Keep the live midpoint centered while retaining the chosen zoom width.
-  const nextAnchor = isPositiveFinite(referenceMidPrice)
-    ? referenceMidPrice
-    : anchorMid;
-  if (nextAnchor !== undefined) {
-    const halfWidth = nextAnchor * priceRangeRatio;
-    const newMin = nextAnchor - halfWidth;
-    const newMax = nextAnchor + halfWidth;
-    if (
-      isPositiveFinite(newMin) &&
-      isPositiveFinite(newMax) &&
-      newMax > newMin
-    ) {
-      anchorMid = nextAnchor;
-      minPrice = newMin;
-      maxPrice = newMax;
+  if (center !== undefined) {
+    const viewport = getCenteredPriceBounds(center, center * priceRangeRatio);
+    if (viewport) {
+      anchorMid = center;
+      ({ minPrice, maxPrice } = viewport);
     }
   }
 
-  const maxVisibleSize = Math.max(
-    clipSide(book.bidLevels, -1, minPrice, maxPrice).at(-1)?.numericSize ?? 0,
-    clipSide(book.askLevels, 1, minPrice, maxPrice).at(-1)?.numericSize ?? 0,
-  );
-  const desired =
-    maxVisibleSize > 0
-      ? getDepthAxisCeiling(maxVisibleSize)
-      : (previous?.maxSize ?? 1);
+  const getVisibleMaxSize = () =>
+    Math.max(
+      clipSide(book.bidLevels, -1, minPrice, maxPrice).at(-1)?.numericSize ?? 0,
+      clipSide(book.askLevels, 1, minPrice, maxPrice).at(-1)?.numericSize ?? 0,
+    );
+  let maxVisibleSize = getVisibleMaxSize();
+  if (maxVisibleSize === 0) {
+    // Keep a usable viewport when a spread or a stale anchor hides every level.
+    ({ minPrice, maxPrice } = book);
+    anchorMid = undefined;
+    priceRangeRatio = DEPTH_PRICE_RANGE_RATIO;
+    isZoomed = false;
+    if (
+      liveMid !== undefined &&
+      book.bidLevels.length &&
+      book.askLevels.length
+    ) {
+      const halfWidth = Math.max(liveMid - minPrice, maxPrice - liveMid);
+      const viewport = getCenteredPriceBounds(liveMid, halfWidth);
+      if (viewport) {
+        anchorMid = liveMid;
+        priceRangeRatio = halfWidth / liveMid;
+        ({ minPrice, maxPrice } = viewport);
+      }
+    }
+    maxVisibleSize = getVisibleMaxSize();
+  }
+  const desired = getDepthAxisCeiling(maxVisibleSize);
   let maxSize = previous?.maxSize ?? desired;
   let shrinkAt = previous?.shrinkAt;
   if (desired > maxSize) {
@@ -579,29 +603,51 @@ export function getDepthChartHoverSelections(
   x: number,
 ): IDepthChartSelection[] {
   const price = geometry.toPrice(x);
-  if (
-    !Number.isFinite(price) ||
-    price < geometry.minPrice ||
-    price > geometry.maxPrice
-  ) {
-    return [];
-  }
+  if (!Number.isFinite(price)) return [];
+
+  const inViewport = price >= geometry.minPrice && price <= geometry.maxPrice;
   const mid = geometry.midPrice;
-  const distance = mid === undefined ? undefined : Math.abs(price - mid);
-  const candidates =
-    mid === undefined || distance === undefined
-      ? [getDepthChartLevel(geometry, x)]
-      : [
-          getDepthChartLevelAtPrice(geometry, mid - distance),
-          getDepthChartLevelAtPrice(geometry, mid + distance),
-        ];
+  const selectSide = (
+    side: IDepthChartSelection['side'],
+    sidePrice: number,
+    direction: -1 | 1,
+  ): IDepthChartSelection | undefined => {
+    const depth = side === 'bid' ? geometry.bids : geometry.asks;
+    const level = inViewport
+      ? getLevelOnSide(depth, sidePrice, direction, (point) => point.plotPrice)
+      : undefined;
+    if (level) return { side, level, price: sidePrice };
+
+    const marker = depth.levels.length === 1 ? depth.levels[0] : undefined;
+    return marker &&
+      Math.abs(geometry.toX(sidePrice) - marker.x) <= DEPTH_MARKER_HIT_SLOP
+      ? { side, level: marker, price: marker.plotPrice }
+      : undefined;
+  };
+  let candidates: Array<IDepthChartSelection | undefined>;
+  if (mid === undefined) {
+    candidates = [getDepthChartLevel(geometry, x)];
+  } else {
+    const distance = Math.abs(price - mid);
+    candidates = [
+      selectSide('bid', mid - distance, -1),
+      selectSide('ask', mid + distance, 1),
+    ];
+  }
+
   // Compare equal price distances, then snap each marker to an actual level.
-  // Never label interpolated curve values as real cumulative liquidity.
+  // A clipped level may carry real liquidity from a price outside the viewport.
   return candidates.flatMap((selection) => {
     if (!selection) return [];
     const levelPrice = Number(selection.level.price);
-    if (levelPrice < geometry.minPrice || levelPrice > geometry.maxPrice)
-      return [];
-    return [{ ...selection, price: levelPrice }];
+    return [
+      {
+        ...selection,
+        price:
+          levelPrice >= geometry.minPrice && levelPrice <= geometry.maxPrice
+            ? levelPrice
+            : selection.level.plotPrice,
+      },
+    ];
   });
 }

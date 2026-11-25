@@ -14,14 +14,15 @@ export function DepthChartGesture({
     callbacks.current = { onTouchMove, onTouchEnd };
   }, [onTouchEnd, onTouchMove]);
 
-  // Claim the native pan before navigation can recognize a swipe-back. Keep
-  // the recognizer stable while live book updates render the chart again.
+  // Start selection on touch-down, then give vertical drags to the page scroller.
   const gesture = useMemo(
     () =>
       Gesture.Pan()
-        .minDistance(0)
+        .activeOffsetX([-6, 6])
+        .failOffsetY([-6, 6])
         .maxPointers(1)
         .runOnJS(true)
+        .onBegin((event) => callbacks.current.onTouchMove(event.x))
         .onStart((event) => callbacks.current.onTouchMove(event.x))
         .onUpdate((event) => callbacks.current.onTouchMove(event.x))
         .onFinalize(() => callbacks.current.onTouchEnd()),

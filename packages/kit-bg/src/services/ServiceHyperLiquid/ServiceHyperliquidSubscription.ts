@@ -2043,9 +2043,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const isCurrent = () =>
         this._publicDepthBooks.get(key) === entry &&
         entry.transport === transport;
+      const clearSnapshotTimer = () => {
+        clearTimeout(entry.snapshotTimer);
+        entry.snapshotTimer = undefined;
+      };
       const handleFailure = () => {
         if (!isCurrent()) return;
-        clearTimeout(entry.snapshotTimer);
+        clearSnapshotTimer();
         entry.latest = undefined;
         entry.transport = undefined;
         transport.close();
@@ -2061,9 +2065,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         );
         entry.retries += 1;
       };
+      const freshnessWindow = PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1;
+      const armSnapshotTimer = (delayMs: number) => {
+        entry.snapshotTimer = setTimeout(() => {
+          if (!isCurrent()) return;
+          const latest = entry.latest;
+          const remaining = latest
+            ? freshnessWindow - Math.max(0, Date.now() - latest.receivedAt)
+            : 0;
+          // One timer follows the latest valid frame without reallocating on each update.
+          if (remaining > 0) armSnapshotTimer(remaining);
+          else handleFailure();
+        }, delayMs);
+      };
       transport.socket.addEventListener('close', () => {
         if (!isCurrent()) return;
-        clearTimeout(entry.snapshotTimer);
+        clearSnapshotTimer();
         fastBook = new FastL2Book(coin, options);
         entry.latest = undefined;
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicDepthBook, {
@@ -2075,12 +2092,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const publishBook = (book: IBook) => {
         if (!isCurrent() || book.coin !== coin) return;
-        clearTimeout(entry.snapshotTimer);
         entry.retries = 0;
         entry.latest = {
           book: { ...book, nSigFigs, mantissa },
           receivedAt: Date.now(),
         };
+        if (entry.snapshotTimer === undefined)
+          armSnapshotTimer(freshnessWindow);
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicDepthBook, {
           coin,
           options,
@@ -2091,9 +2109,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const expectSnapshot = () => {
         if (!isCurrent() || entry.latest) return;
-        clearTimeout(entry.snapshotTimer);
-        entry.snapshotTimer = setTimeout(
-          handleFailure,
+        clearSnapshotTimer();
+        armSnapshotTimer(
           fast
             ? ServiceHyperliquidSubscription.FAST_L2_SNAPSHOT_TIMEOUT_MS
             : PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS,

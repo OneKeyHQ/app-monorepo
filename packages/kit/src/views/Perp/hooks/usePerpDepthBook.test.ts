@@ -17,6 +17,7 @@ import {
 
 let mockBook: IBook | null = null;
 let mockBbo: IWsBbo | null = null;
+let mockMid: string | undefined;
 const mockSubscribe = jest
   .fn<Promise<undefined>, unknown[]>()
   .mockResolvedValue(undefined);
@@ -43,7 +44,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useBboForOrderPrice: () => mockBbo,
   useL2BookAtom: () => [mockBook],
-  usePerpsMidByCoin: () => '60000',
+  usePerpsMidByCoin: () => mockMid,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsWebSocketConnectedAtom: () => [true],
@@ -63,12 +64,19 @@ const instrument = {
   coin: 'BTC',
   mode: 'perp',
   assetId: 0,
-  universe: { szDecimals: 5 },
-} as IActiveTradeInstrument;
+  universe: {
+    assetId: 0,
+    name: 'BTC',
+    szDecimals: 5,
+    maxLeverage: 40,
+    marginTableId: 0,
+  },
+} satisfies IActiveTradeInstrument;
 
 beforeEach(() => {
   mockBook = null;
   mockBbo = null;
+  mockMid = '60000';
   mockSubscribe.mockClear();
   mockUnsubscribe.mockClear();
   mockDepthBookListen.mockClear();
@@ -250,6 +258,88 @@ it('requests full precision separately from the ladder and rejects coarser updat
   expect(result.current.status).toBe('ready');
   expect(result.current.referenceMidPrice).toBe(60_000);
   unmount();
+});
+
+it('starts the raw feed before pricing inputs and recovers from disconnect without resubscribing', async () => {
+  mockMid = undefined;
+  const { result, rerender, unmount } = renderHook(
+    ({ coin, hasMetadata }) =>
+      usePerpDepthBook(
+        {
+          ...instrument,
+          coin,
+          universe: hasMetadata ? instrument.universe : undefined,
+        },
+        true,
+      ),
+    { initialProps: { coin: 'BTC', hasMetadata: false } },
+  );
+  try {
+    const options: IDepthBookEvent['options'] = {
+      nSigFigs: null,
+      mantissa: null,
+    };
+    expect(mockSubscribe).toHaveBeenCalledWith({ coin: 'BTC', ...options });
+    expect(result.current.status).toBe('loading');
+    const receive = mockDepthBookListen.mock.lastCall?.[1];
+    const ready = {
+      coin: 'BTC',
+      options,
+      status: 'ready',
+      receivedAt: Date.now(),
+      book: {
+        coin: 'BTC',
+        ...options,
+        time: Date.now(),
+        levels: [
+          [{ px: '59999', sz: '5', n: 1 }],
+          [{ px: '60001', sz: '2', n: 1 }],
+        ],
+      },
+    } satisfies IDepthBookEvent;
+    await act(async () => receive?.(ready));
+    expect(result.current.status).toBe('ready');
+    expect(result.current.referenceMidPrice).toBe(60_000);
+    expect(result.current.priceStep).toBeUndefined();
+    rerender({ coin: 'BTC', hasMetadata: true });
+    expect(result.current.priceStep).toBe(1);
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      receive?.({ coin: 'BTC', options, status: 'disconnected' }),
+    );
+    expect(result.current.status).toBe('stale');
+    expect(result.current.book?.levels[0][0]?.px).toBe('59999');
+    await act(async () => receive?.(ready));
+    expect(result.current.status).toBe('ready');
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+
+    rerender({ coin: 'ETH', hasMetadata: false });
+    expect(mockUnsubscribe).toHaveBeenCalledWith({ coin: 'BTC', ...options });
+    expect(mockSubscribe).toHaveBeenLastCalledWith({ coin: 'ETH', ...options });
+    await act(async () => receive?.(ready));
+    expect(result.current.book).toBeUndefined();
+    expect(result.current.status).toBe('loading');
+  } finally {
+    unmount();
+  }
+});
+
+it('uses a fresh matching raw book before exchange precision is known', () => {
+  mockMid = undefined;
+  mockBook = {
+    coin: 'BTC',
+    nSigFigs: null,
+    mantissa: null,
+    time: Date.now(),
+    levels: [[{ px: '59999', sz: '5', n: 1 }], []],
+  };
+  const { result } = renderHook(() =>
+    usePerpDepthBook({ ...instrument, universe: undefined }, true),
+  );
+  expect(result.current.status).toBe('ready');
+  expect(result.current.book).toBe(mockBook);
+  expect(mockSubscribe).not.toHaveBeenCalled();
 });
 
 it('keeps receiving depth updates for 60 seconds after tab close, then reacquires on reopen', async () => {
