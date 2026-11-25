@@ -165,6 +165,31 @@ describe('Google Play install attribution', () => {
     },
   );
 
+  it.each([
+    [
+      'ref_code%3DABC123%26utm_source%3Dpartner=referral',
+      'ref_code=ABC123&utm_source=partner',
+    ],
+    [
+      '%3Fref_code%3DABC123%26utm_source%3Dpartner=referral',
+      '?ref_code=ABC123&utm_source=partner',
+    ],
+  ])(
+    'keeps a query-shaped escaped name as one direct parameter: %s',
+    async (rawReferrer, parameterName) => {
+      expect(
+        new URLSearchParams([[parameterName, 'referral']]).toString(),
+      ).toBe(rawReferrer);
+      getInstallReferrerMock.mockResolvedValue(rawReferrer);
+
+      await reportGooglePlayInstallAttribution();
+
+      expect(logAttributionMock).not.toHaveBeenCalled();
+      expect(markReportedMock).not.toHaveBeenCalled();
+      expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBeUndefined();
+    },
+  );
+
   it('keeps direct values and treats their encoded delimiters as literal text', () => {
     expect(
       parseGooglePlayInstallReferrer(
