@@ -695,6 +695,56 @@ describe('multicall assembly', () => {
     },
   );
 
+  it.each(['withdraw', 'transfer'] as const)(
+    'rejects a %s without sufficient public STRK for protocol fee before authorization',
+    async (kind) => {
+      const { service, client, promptPasswordVerifyByAccount } = build();
+      if (kind === 'transfer') {
+        client.getPoolRegisteredPublicKey.mockResolvedValueOnce(PUBLIC_KEY_X);
+      }
+      client.getTokenBalance.mockResolvedValue(['1000000000000000000', '0']);
+
+      await expect(
+        service.buildPrivateTransferTx({
+          ...key,
+          kind,
+          tokenAddress: ETH,
+          amount: '100',
+          ...(kind === 'transfer' ? { recipient: '0x2' } : {}),
+        }),
+      ).rejects.toMatchObject({
+        key: 'send.error_insufficient_balance',
+        info: { token: 'STRK' },
+        message: 'STRK 余额不足',
+      });
+
+      expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+      expect(createProofInvocation).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a non-STRK deposit without sufficient public token balance before authorization', async () => {
+    const { service, client, promptPasswordVerifyByAccount } = build();
+    client.getTokenBalance
+      .mockResolvedValueOnce(['10000000000000000000', '0'])
+      .mockResolvedValueOnce(['500', '0']);
+
+    await expect(
+      service.buildPrivateTransferTx({
+        ...key,
+        kind: 'deposit',
+        tokenAddress: ETH,
+        amount: '1000',
+      }),
+    ).rejects.toMatchObject({
+      key: 'send.error_insufficient_balance',
+      info: { token: 'ETH' },
+    });
+
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(createProofInvocation).not.toHaveBeenCalled();
+  });
+
   it('sums fee and amount into one approve when depositing STRK', async () => {
     const { service, client, buildPrivacyEncodedTx } = build();
 

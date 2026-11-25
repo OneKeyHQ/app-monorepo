@@ -220,35 +220,56 @@ export class PrivacyTxBuilder {
       poolAddress,
       client,
     });
-    let protocolFee: string | undefined;
-    if (p.kind === 'deposit') {
-      const { STRK_TOKEN_ADDRESS } =
-        await import('../../vaults/impls/starknet/sdkStarknet/consts');
-      const { normalizeTokenAddress, u256ToDecimalString } =
-        await import('../../vaults/impls/starknet/utils');
-      const accountAddress = await vault.getAccountAddress();
-      const [fee, [low, high]] = await Promise.all([
-        client.getPoolFeeAmount(poolAddress),
-        client.getTokenBalance({
-          tokenAddress: STRK_TOKEN_ADDRESS,
-          accountAddress,
-        }),
-      ]);
-      protocolFee = fee;
-      const required = new BigNumber(fee).plus(
-        normalizeTokenAddress(p.tokenAddress) === STRK_TOKEN_ADDRESS
-          ? amountBase
-          : 0,
+    const { STRK_TOKEN_ADDRESS, STARKNET_PRESET_TOKENS } =
+      await import('../../vaults/impls/starknet/sdkStarknet/consts');
+    const { normalizeTokenAddress, u256ToDecimalString } =
+      await import('../../vaults/impls/starknet/utils');
+    const normalizedToken = normalizeTokenAddress(p.tokenAddress);
+    const isStrk = normalizedToken === STRK_TOKEN_ADDRESS;
+    const isNonStrkDeposit = p.kind === 'deposit' && !isStrk;
+    const accountAddress = await vault.getAccountAddress();
+    const [fee, [strkLow, strkHigh], tokenBalance] = await Promise.all([
+      client.getPoolFeeAmount(poolAddress),
+      client.getTokenBalance({
+        tokenAddress: STRK_TOKEN_ADDRESS,
+        accountAddress,
+      }),
+      isNonStrkDeposit
+        ? client.getTokenBalance({
+            tokenAddress: normalizedToken,
+            accountAddress,
+          })
+        : Promise.resolve(undefined),
+    ]);
+    const protocolFee = fee;
+    const requiredStrk = new BigNumber(fee).plus(
+      p.kind === 'deposit' && isStrk ? amountBase : 0,
+    );
+    if (requiredStrk.gt(u256ToDecimalString(strkLow, strkHigh))) {
+      const key = ETranslations.send_error_insufficient_balance;
+      const info = { token: 'STRK' };
+      throw new OneKeyLocalError({
+        key,
+        info,
+        message: appLocale.intl.formatMessage({ id: key }, info),
+      });
+    }
+    if (
+      tokenBalance &&
+      new BigNumber(amountBase).gt(
+        u256ToDecimalString(tokenBalance[0], tokenBalance[1]),
+      )
+    ) {
+      const preset = STARKNET_PRESET_TOKENS[p.networkId]?.find(
+        (item) => normalizeTokenAddress(item.address) === normalizedToken,
       );
-      if (required.gt(u256ToDecimalString(low, high))) {
-        const key = ETranslations.send_error_insufficient_balance;
-        const info = { token: 'STRK' };
-        throw new OneKeyLocalError({
-          key,
-          info,
-          message: appLocale.intl.formatMessage({ id: key }, info),
-        });
-      }
+      const key = ETranslations.send_error_insufficient_balance;
+      const info = { token: preset?.symbol ?? 'Token' };
+      throw new OneKeyLocalError({
+        key,
+        info,
+        message: appLocale.intl.formatMessage({ id: key }, info),
+      });
     }
     const ctx = await this.deps.getRegisteredPrivacyContext(p);
     if (!ctx) throw strk20Error(EStrk20ErrorCode.Unavailable);
