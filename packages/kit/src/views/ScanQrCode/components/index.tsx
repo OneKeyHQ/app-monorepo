@@ -37,7 +37,10 @@ import {
 import { CameraSwitchButton } from './CameraSwitchButton';
 import { MultiQrSelectionOverlay } from './MultiQrSelectionOverlay';
 import { ScanCamera } from './ScanCamera';
-import { effectiveCameraId } from './ScanCamera/cameraChoice';
+import {
+  effectiveCameraId,
+  supportsDesktopQrCapture,
+} from './ScanCamera/cameraChoice';
 import { useScanCameraIsActive } from './ScanCamera/useScanCameraIsActive';
 import { useScanCameras } from './ScanCamera/useScanCameras';
 
@@ -71,7 +74,17 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
   ) {
     const intl = useIntl();
     const frameGate = useRef(createScannedFrameGate());
-    const [useWebCamera, setUseWebCamera] = useState(false);
+    const [webFallback, setWebFallback] = useState(false);
+    // Dedicated hardware-wallet UR flows stay on the single-symbol fast path.
+    const supportsMultiSymbol = !qrWalletScene && !disableNavigationGuard;
+    const usesNativeDesktopCamera =
+      platformEnv.isDesktop &&
+      !webFallback &&
+      supportsDesktopQrCapture(
+        globalThis.desktopApi?.qrScanner,
+        supportsMultiSymbol,
+      );
+    const useWebCamera = platformEnv.isDesktop && !usesNativeDesktopCamera;
     const [cameraError, setCameraError] = useState<QrScannerErrorCode>();
     const [readyCamera, setReadyCamera] = useState<{
       id?: string;
@@ -84,10 +97,6 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       loaded: camerasLoaded,
       pending,
     } = useScanCameras(readyCamera?.revision ?? 0, useWebCamera, cameraActive);
-    const usesNativeDesktopCamera =
-      platformEnv.isDesktop &&
-      !useWebCamera &&
-      !!globalThis.desktopApi?.qrScanner;
     const cameraPreferenceKey = usesNativeDesktopCamera
       ? EAppSyncStorageKeys.last_scan_desktop_native_camera_id
       : EAppSyncStorageKeys.last_scan_camera_id;
@@ -118,8 +127,6 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const isFocused = useIsFocused();
     const [progress, setProgress] = useState<number | undefined>();
     const isHandlingFrame = useRef(false);
-    // Dedicated hardware-wallet UR flows stay on the single-symbol fast path.
-    const supportsMultiSymbol = !qrWalletScene && !disableNavigationGuard;
     const [multiSymbolEnabled, setMultiSymbolEnabled] =
       useState(supportsMultiSymbol);
     const [frozen, setFrozen] = useState(false);
@@ -152,7 +159,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
             await handleBarCodeScanned(data);
           if (retry) {
             frameGate.current.release(data);
-            return 'ignored';
+            return 'retry';
           }
           if (progressValue) {
             setProgress(progressValue);
@@ -208,7 +215,9 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
 
     const handleFrameSymbols = useCallback(function receiveFrame(
       event: IMultiQrFrameEvent,
-      selectionOnly = false,
+      finishVerification?: ReturnType<
+        IMultiSymbolCoordinator['beginPreviewVerification']
+      >,
     ): boolean | void {
       const coordinator = coordinatorRef.current;
       if (!coordinator) return;
@@ -229,16 +238,15 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
           return { ...sym, centerX: pt.x, centerY: pt.y };
         });
       }
-      if (selectionOnly && !coordinator.needsSelection(symbols)) return;
+      if (finishVerification) return finishVerification(symbols);
       if (event.verifyPreview && coordinator.needsSelection(symbols)) {
-        event.verifyPreview((verifiedFrame) => {
-          if (
-            coordinatorRef.current !== coordinator ||
-            verifiedFrame.symbols.length < 2
-          )
-            return;
-          return receiveFrame(verifiedFrame, true);
-        });
+        const finish = coordinator.beginPreviewVerification();
+        void event
+          .verifyPreview((verifiedFrame) => receiveFrame(verifiedFrame, finish))
+          .then(
+            () => finish(),
+            () => finish(),
+          );
         return;
       }
       return coordinator.receiveFrame(symbols);
@@ -335,7 +343,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
           EAppSyncStorageKeys.last_scan_camera_id,
         ) || undefined,
       );
-      setUseWebCamera(true);
+      setWebFallback(true);
     }, []);
 
     const retryCamera = useCallback(() => {

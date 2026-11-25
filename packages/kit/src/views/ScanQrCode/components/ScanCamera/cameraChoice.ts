@@ -1,3 +1,5 @@
+import type { IDesktopQrScanner } from '@onekeyhq/shared/types/desktopQrScanner';
+
 import type { IScanCameraInfo } from './types';
 
 /**
@@ -31,4 +33,14 @@ export function nextCamera(
 ): IScanCameraInfo | undefined {
   if (cameras.length < 2) return undefined;
   return cameras[(resolveCameraIndex(cameras, chosenId) + 1) % cameras.length];
+}
+
+export function supportsDesktopQrCapture(
+  scanner: IDesktopQrScanner | undefined,
+  requiresPreviewFreeze: boolean,
+): boolean {
+  return Boolean(
+    scanner &&
+    (!requiresPreviewFreeze || typeof scanner.setPreviewFrozen === 'function'),
+  );
 }

@@ -13,6 +13,7 @@ import type { IAnimationValue, IQRCodeHandler } from '../type';
 
 let decoder = new URDecoder();
 let parts: string[] = [];
+let completingFrame: string | undefined;
 
 // ur://bytes/1-3/1ABC
 // ur://bytes/2-3/2ABC
@@ -57,6 +58,13 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
     };
   }
   if (decoder.isSuccess()) {
+    if (fragmentAccepted) completingFrame = value;
+    if (value !== completingFrame) {
+      return {
+        type: EQRCodeHandlerType.ANIMATION_CODE,
+        data: animationData,
+      };
+    }
     const ur = decoder.resultUR();
     try {
       assertBoundedCbor(ur.cbor);
@@ -91,4 +99,5 @@ export function resetAnimationQrcodeScan() {
   console.log('resetAnimationQrcodeScan >>>>>> ');
   decoder = new URDecoder();
   parts = [];
+  completingFrame = undefined;
 }

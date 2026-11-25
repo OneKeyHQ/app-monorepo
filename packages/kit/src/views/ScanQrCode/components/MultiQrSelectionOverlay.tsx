@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { overlayStore } from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
 import { Image, Pressable } from 'react-native';
 
@@ -107,6 +108,8 @@ export function MultiQrSelectionOverlay({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const visible = symbols.length > 0;
+  const cancelRef = useRef(onCancel);
+  cancelRef.current = onCancel;
 
   // Mobile haptics: light impact when entering multi-QR selection mode.
   useEffect(() => {
@@ -118,6 +121,8 @@ export function MultiQrSelectionOverlay({
     if (!visible || platformEnv.isNative || typeof document === 'undefined') {
       return;
     }
+    const entry = overlayStore.request({ blocking: false, dismissible: true });
+    let ownsEscape = false;
     const handleEscape = (event: KeyboardEvent) => {
       if (
         event.key !== 'Escape' ||
@@ -126,18 +131,27 @@ export function MultiQrSelectionOverlay({
       ) {
         return;
       }
+      if (event.type === 'keydown') {
+        const top = overlayStore.resolveBack();
+        ownsEscape = top.kind === 'dismiss' && top.id === entry.id;
+      }
+      if (!ownsEscape) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       // The modal closes on keyup. Keep the selection mounted through both events.
-      if (event.type === 'keyup') onCancel();
+      if (event.type === 'keyup') {
+        ownsEscape = false;
+        cancelRef.current();
+      }
     };
     document.addEventListener('keydown', handleEscape, true);
     document.addEventListener('keyup', handleEscape, true);
     return () => {
+      overlayStore.finalize(entry.id);
       document.removeEventListener('keydown', handleEscape, true);
       document.removeEventListener('keyup', handleEscape, true);
     };
-  }, [onCancel, visible]);
+  }, [visible]);
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;

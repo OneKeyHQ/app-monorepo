@@ -15,6 +15,7 @@ import {
 
 import { MultiQrSelectionOverlay } from './MultiQrSelectionOverlay';
 
+import type { IMultiSymbolCoordinatorOptions } from '../utils/multiQrSymbols';
 import type { LayoutChangeEvent, ViewProps } from 'react-native';
 import type { ReactTestRenderer } from 'react-test-renderer';
 
@@ -127,6 +128,47 @@ describe('MultiQrSelectionOverlay', () => {
       onBackdropPress();
     });
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives Escape to the photo picker above the live picker', () => {
+    (platformEnv as { isNative?: boolean }).isNative = false;
+    const dismissLive = jest.fn();
+    const dismissPhoto = jest.fn();
+    const live = (
+      <MultiQrSelectionOverlay
+        symbols={symbols}
+        onSelect={jest.fn()}
+        onCancel={dismissLive}
+      />
+    );
+    let renderer: ReactTestRenderer;
+    act(() => {
+      renderer = create(
+        <>
+          {live}
+          <MultiQrSelectionOverlay
+            symbols={symbols}
+            imageUri="file:///picked.png"
+            onSelect={jest.fn()}
+            onCancel={dismissPhoto}
+          />
+        </>,
+      );
+    });
+    const escape = () => {
+      for (const type of ['keydown', 'keyup']) {
+        document.body.dispatchEvent(
+          new KeyboardEvent(type, { key: 'Escape', bubbles: true }),
+        );
+      }
+    };
+    act(escape);
+    expect(dismissPhoto).toHaveBeenCalledTimes(1);
+    expect(dismissLive).not.toHaveBeenCalled();
+    act(() => renderer!.update(<>{live}</>));
+    act(escape);
+    expect(dismissLive).toHaveBeenCalledTimes(1);
+    act(() => renderer!.unmount());
   });
 
   it('renders picked album image and handles Escape key on web/desktop', () => {
@@ -258,4 +300,101 @@ test('markers with coincident clamped coordinates keep separate hit targets', ()
   expect(Math.hypot(left.x - right.x, left.y - right.y)).toBeGreaterThanOrEqual(
     44,
   );
+});
+
+test('retrying a blocked camera submission reopens static scanning', async () => {
+  const address = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+  const onCommitText = jest
+    .fn<
+      ReturnType<IMultiSymbolCoordinatorOptions['onCommitText']>,
+      Parameters<IMultiSymbolCoordinatorOptions['onCommitText']>
+    >()
+    .mockResolvedValueOnce('retry')
+    .mockResolvedValueOnce('ignored');
+  const coordinator = createMultiSymbolCoordinator({
+    aggregationWindowMs: 0,
+    onFrozenChange: jest.fn(),
+    onMultiSymbolChange: jest.fn(),
+    onSelectingChange: jest.fn(),
+    onCommitText,
+  });
+  await act(async () => {
+    coordinator.receiveFrame([address]);
+  });
+  expect(coordinator.phase).toBe('normal');
+  await act(async () => {
+    coordinator.receiveFrame([address]);
+  });
+  expect(onCommitText).toHaveBeenCalledTimes(2);
+});
+
+test('preview verification cancels a pending static result and ignores fresh frames until it settles', () => {
+  jest.useFakeTimers();
+  try {
+    const address = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+    const ur = { text: 'ur:bytes/1-2/first', centerX: 0.8, centerY: 0.5 };
+    const onCommitText = jest
+      .fn<Promise<'ignored'>, [string, 'static' | 'ur']>()
+      .mockResolvedValue('ignored');
+    const coordinator = createMultiSymbolCoordinator({
+      onFrozenChange: jest.fn(),
+      onMultiSymbolChange: jest.fn(),
+      onSelectingChange: jest.fn(),
+      onCommitText,
+    });
+    coordinator.receiveFrame([address]);
+    expect(coordinator.needsSelection([address, ur])).toBe(true);
+    const finish = coordinator.beginPreviewVerification();
+    coordinator.receiveFrame([ur]);
+    jest.advanceTimersByTime(200);
+    expect(onCommitText).not.toHaveBeenCalled();
+    expect(finish([address, ur])).toBe(true);
+    expect(coordinator.phase).toBe('selecting');
+    coordinator.reset();
+    coordinator.receiveFrame([address]);
+    const fail = coordinator.beginPreviewVerification();
+    fail();
+    jest.advanceTimersByTime(200);
+    expect(onCommitText).not.toHaveBeenCalled();
+    expect(coordinator.phase).toBe('normal');
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('a rejected or duplicated UR does not starve the advancing part in the same frame', async () => {
+  const address = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+  const first = { text: 'ur:bytes/1-2/first', centerX: 0.8, centerY: 0.5 };
+  const foreign = { ...first, text: 'ur:bytes/2-2/foreign' };
+  const duplicate = { ...first, text: 'ur:bytes/1-2/dup' };
+  const next = { ...first, text: 'ur:bytes/2-2/next' };
+  const onCommitText = jest
+    .fn<
+      ReturnType<IMultiSymbolCoordinatorOptions['onCommitText']>,
+      Parameters<IMultiSymbolCoordinatorOptions['onCommitText']>
+    >()
+    .mockResolvedValueOnce('progress')
+    .mockResolvedValueOnce('ignored')
+    .mockResolvedValueOnce('duplicate')
+    .mockResolvedValueOnce('complete');
+  const coordinator = createMultiSymbolCoordinator({
+    onFrozenChange: jest.fn(),
+    onMultiSymbolChange: jest.fn(),
+    onSelectingChange: jest.fn(),
+    onCommitText,
+  });
+  coordinator.receiveFrame([address, first]);
+  await act(async () => {
+    coordinator.selectSymbol(first);
+  });
+  await act(async () => {
+    coordinator.receiveFrame([foreign, duplicate, next]);
+  });
+  expect(onCommitText.mock.calls.map(([text]) => text)).toEqual([
+    first.text,
+    foreign.text,
+    duplicate.text,
+    next.text,
+  ]);
+  expect(coordinator.phase).toBe('normal');
 });

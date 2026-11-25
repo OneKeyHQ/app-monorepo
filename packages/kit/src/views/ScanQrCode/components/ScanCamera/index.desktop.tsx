@@ -13,6 +13,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { desktopQrPreviewPrefix } from '@onekeyhq/shared/types/desktopQrScanner';
 
+import { supportsDesktopQrCapture } from './cameraChoice';
 import { readDomFocusPoint, useDomFocusBox } from './FocusBox';
 import { ScanCamera as WebScanCamera } from './index.tsx';
 import { ensureWebQrScannerConfigured } from './webQrScanner';
@@ -127,44 +128,41 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         stopSession();
         handlers.current.onWebCameraFallback?.();
       };
-      const verifyPreview: NonNullable<IMultiQrFrameEvent['verifyPreview']> = (
-        receive,
-      ) => {
+      const verifyPreview: NonNullable<
+        IMultiQrFrameEvent['verifyPreview']
+      > = async (receive) => {
         if (verifyingPreview || !scanner.setPreviewFrozen) return;
         verifyingPreview = true;
         // Native symbols and shared textures arrive on separate channels. Decode
         // the pinned canvas before attaching selectable payloads to its pixels.
-        scanner.setPreviewFrozen(sessionId, true);
-        void (async () => {
-          let selected = false;
-          try {
-            ensureWebQrScannerConfigured();
-            const image = await new Promise<Blob | null>((resolve) =>
-              preview.toBlob(resolve),
-            );
-            if (!image || !active) return;
-            const { symbols, width, height, partial } =
-              await decodeQrImageSymbols(image);
-            if (active && !partial && symbols.length >= 2) {
-              selected =
-                receive({
-                  symbols,
-                  coordinateSpace: 'frame',
-                  frameWidth: width,
-                  frameHeight: height,
-                }) === true;
-            }
-          } catch (error) {
-            console.error(
-              '[ScanCamera] Could not verify the frozen preview',
-              error,
-            );
-          } finally {
-            verifyingPreview = false;
-            if (active && !selected)
-              scanner.setPreviewFrozen?.(sessionId, false);
+        let selected = false;
+        try {
+          scanner.setPreviewFrozen(sessionId, true);
+          ensureWebQrScannerConfigured();
+          const image = await new Promise<Blob | null>((resolve) =>
+            preview.toBlob(resolve),
+          );
+          if (!image || !active) return;
+          const { symbols, width, height, partial } =
+            await decodeQrImageSymbols(image);
+          if (active && !partial && symbols.length >= 2) {
+            selected =
+              receive({
+                symbols,
+                coordinateSpace: 'frame',
+                frameWidth: width,
+                frameHeight: height,
+              }) === true;
           }
-        })();
+        } catch (error) {
+          console.error(
+            '[ScanCamera] Could not verify the frozen preview',
+            error,
+          );
+        } finally {
+          verifyingPreview = false;
+          if (active && !selected) scanner.setPreviewFrozen?.(sessionId, false);
+        }
       };
       const unsubscribe = scanner.onEvent((event) => {
         if (!active || event.sessionId !== sessionId) return;
@@ -253,8 +251,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     const scanner = globalThis.desktopApi?.qrScanner;
     if (
       useWebCamera ||
-      !scanner ||
-      (props.onFrameSymbols && !scanner.setPreviewFrozen)
+      !supportsDesktopQrCapture(scanner, Boolean(props.onFrameSymbols))
     ) {
       return <WebScanCamera {...props} ref={ref} />;
     }

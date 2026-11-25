@@ -205,7 +205,7 @@ test('desktop keeps native and Chromium camera choices independent across visits
   Object.defineProperty(globalThis, 'desktopApi', {
     configurable: true,
     writable: true,
-    value: { qrScanner: {} },
+    value: { qrScanner: { setPreviewFrozen: jest.fn() } },
   });
   mockGetString.mockImplementation((key) => (key === nativeKey ? 'a' : 'b'));
   try {
@@ -241,7 +241,7 @@ test('desktop waits for discovery and retains the selected device when enumerati
   Object.defineProperty(globalThis, 'desktopApi', {
     configurable: true,
     writable: true,
-    value: { qrScanner: {} },
+    value: { qrScanner: { setPreviewFrozen: jest.fn() } },
   });
   mockGetString.mockReturnValue('usb');
   mockDiscovery = { cameras: [], loaded: false, pending: true };
@@ -323,3 +323,25 @@ test.each([{ qrWalletScene: true }, { disableNavigationGuard: true }])(
     ).toBe('false');
   },
 );
+
+test('desktop without freezing loads browser camera preferences from first render', () => {
+  const previousDesktopApi = globalThis.desktopApi;
+  mockIsDesktop = true;
+  Object.defineProperty(globalThis, 'desktopApi', {
+    configurable: true,
+    writable: true,
+    value: { qrScanner: {} },
+  });
+  const chromiumKey = EAppSyncStorageKeys.last_scan_camera_id;
+  mockGetString.mockImplementation((key) => (key === chromiumKey ? 'b' : 'a'));
+  try {
+    render(<ScanQrCode handleBarCodeScanned={async () => ({})} />);
+    expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe(
+      'b',
+    );
+    fireEvent.click(screen.getByText('Ready'));
+    expect(mockPersist).toHaveBeenLastCalledWith(chromiumKey, 'b');
+  } finally {
+    globalThis.desktopApi = previousDesktopApi;
+  }
+});

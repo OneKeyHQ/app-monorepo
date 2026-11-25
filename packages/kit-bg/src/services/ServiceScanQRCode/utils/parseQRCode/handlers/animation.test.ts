@@ -19,6 +19,18 @@ describe('animated QR handler', () => {
 
   beforeEach(() => resetAnimationQrcodeScan());
 
+  it('replays a completed result only for the frame that completed it', async () => {
+    const frame = singlePart('44deadbeef');
+    const completed = await animation(frame, {} as never);
+    const other = await animation(singlePart('44abcdef01'), {} as never);
+    const replayed = await animation(frame, {} as never);
+
+    expect(completed?.data.fullData).toBeTruthy();
+    expect(other?.data.fullData).toBeUndefined();
+    expect(replayed?.data.fullData).toBe(completed?.data.fullData);
+    expect(replayed?.data.fragmentAccepted).toBe(false);
+  });
+
   it.each([
     [
       'declaring more parts than any code has',
