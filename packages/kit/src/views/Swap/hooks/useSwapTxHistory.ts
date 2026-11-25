@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { getSwapProviderOrderIdFromContext } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
@@ -183,7 +184,11 @@ export async function generateSwapHistoryItemForContext(
 ) {
   const item = buildSwapHistoryItemForContext(params, context);
   if (!item) return;
-  const result = await backgroundApiProxy.serviceSwap.addSwapHistoryItem(item);
+  // The Monero Vault hands off the order before the broadcast reply.
+  const result =
+    params.txId && isXmrSwapNetwork(item.baseInfo.fromToken.networkId)
+      ? undefined
+      : await backgroundApiProxy.serviceSwap.addSwapHistoryItem(item);
   if (params.swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
     void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
       ERookieTaskType.SWAP,
@@ -201,6 +206,9 @@ function pickXmrHistoryToken(token: ISwapToken): ISwapToken {
     name,
     logoURI,
     isNative,
+    balanceMultiplier,
+    price,
+    currency,
   } = token;
   return {
     networkId,
@@ -210,6 +218,9 @@ function pickXmrHistoryToken(token: ISwapToken): ISwapToken {
     name,
     logoURI,
     isNative,
+    balanceMultiplier,
+    price,
+    currency,
   };
 }
 
@@ -217,7 +228,10 @@ export function buildXmrPendingHistoryItem(
   swapTxInfo: ISwapTxInfo,
   context: Parameters<typeof buildSwapHistoryItemForContext>[1],
 ) {
-  const item = buildSwapHistoryItemForContext({ swapTxInfo }, context);
+  const item = buildSwapHistoryItemForContext(
+    { swapTxInfo: { ...swapTxInfo, isNetworkFeeSponsored: false } },
+    context,
+  );
   if (!item) return;
   const { provider, providerName, providerLogo } = item.swapInfo.provider;
   const providerOrderId = getSwapProviderOrderIdFromContext(provider, item.ctx);
@@ -225,16 +239,13 @@ export function buildXmrPendingHistoryItem(
   return {
     ...item,
     baseInfo: {
+      ...item.baseInfo,
       fromToken: pickXmrHistoryToken(item.baseInfo.fromToken),
       toToken: pickXmrHistoryToken(item.baseInfo.toToken),
-      fromAmount: item.baseInfo.fromAmount,
-      toAmount: item.baseInfo.toAmount,
     },
     swapInfo: {
+      ...item.swapInfo,
       provider: { provider, providerName, providerLogo },
-      instantRate: item.swapInfo.instantRate,
-      orderId: item.swapInfo.orderId,
-      orderSupportUrl: item.swapInfo.orderSupportUrl,
     },
     ctx:
       provider === 'SwapChangelly'

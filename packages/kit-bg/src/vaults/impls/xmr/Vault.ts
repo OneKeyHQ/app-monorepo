@@ -912,32 +912,32 @@ export default class Vault extends VaultBase {
       );
     }
 
-    if (broadcast === 'unknown') {
-      // Fails like BTC. The runtime keeps the tx pending: a later scan
-      // confirms it, or the pending check frees its inputs.
-      const pendingSwap = signedTx.swapInfo?.xmrPendingHistoryItem;
-      if (pendingSwap) {
-        const now = Date.now();
-        try {
-          const { durable } =
-            await this.backgroundApi.serviceSwap.addSwapHistoryItem({
-              ...pendingSwap,
-              txInfo: {
-                ...pendingSwap.txInfo,
-                txId: txid,
-                gasFeeInNative: new BigNumber(reviewed.feeAtomic)
-                  .shiftedBy(-XMR_DECIMALS)
-                  .toFixed(),
-              },
-              date: { created: now, updated: now },
-            });
-          if (!durable) {
-            console.error('[xmr] pending swap history is not durable');
-          }
-        } catch {
-          console.error('[xmr] could not persist pending swap history');
+    const pendingSwap = signedTx.swapInfo?.xmrPendingHistoryItem;
+    if (pendingSwap) {
+      const now = Date.now();
+      try {
+        const { durable } =
+          await this.backgroundApi.serviceSwap.addSwapHistoryItem({
+            ...pendingSwap,
+            txInfo: {
+              ...pendingSwap.txInfo,
+              txId: txid,
+              gasFeeInNative: new BigNumber(reviewed.feeAtomic)
+                .shiftedBy(-XMR_DECIMALS)
+                .toFixed(),
+            },
+            date: { created: now, updated: now },
+          });
+        if (!durable) {
+          console.error('[xmr] pending swap history is not durable');
         }
+      } catch {
+        console.error('[xmr] could not persist pending swap history');
       }
+    }
+
+    if (broadcast === 'unknown') {
+      // The runtime keeps the tx pending until a later scan resolves it.
       console.error('[xmr] broadcast outcome unknown');
       throw new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),

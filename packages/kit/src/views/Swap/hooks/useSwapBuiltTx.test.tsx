@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 
 import { OrderKind, normalizeOrder } from '@cowprotocol/contracts';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
@@ -15,6 +16,7 @@ import {
   PasswordPromptDialogCancel,
 } from '@onekeyhq/shared/src/errors';
 import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
+import { createSwapReviewSigningFailure } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -544,9 +546,11 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
       const { result, state, store } = await prepareReview();
       const errorMessage = 'Monero needs to sync before sending';
       mockSignAndSendTransaction.mockRejectedValueOnce(
-        Object.assign(new OneKeyLocalError(errorMessage), {
-          code: XMR_NOT_SYNCED_ERROR_CODE,
-        }),
+        createSwapReviewSigningFailure(
+          Object.assign(new OneKeyLocalError(errorMessage), {
+            code: XMR_NOT_SYNCED_ERROR_CODE,
+          }),
+        ),
       );
       await act(async () => {
         await result.current.preSwapStepsStart(state);
@@ -558,6 +562,36 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
       });
       expect(step?.submitResultUnknown).not.toBe(true);
       expect(mockGenerateSwapHistory).not.toHaveBeenCalled();
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    });
+
+    it('lets the same review retry after the device disconnects before broadcast', async () => {
+      const { result, state, store } = await prepareReview();
+      const errorMessage = 'Device disconnected while signing';
+      mockSignAndSendTransaction.mockRejectedValueOnce(
+        createSwapReviewSigningFailure(
+          new OneKeyLocalError({
+            message: errorMessage,
+            code: HardwareErrorCode.BridgeDeviceDisconnected,
+          }),
+        ),
+      );
+
+      await act(async () => {
+        await result.current.preSwapStepsStart(state);
+      });
+      const failed = store.get(swapStepsAtom());
+      expect(failed.steps[0]).toMatchObject({
+        status: ESwapStepStatus.FAILED,
+        canRetry: true,
+        errorMessage,
+      });
+      expect(failed.steps[0]?.submitResultUnknown).not.toBe(true);
+
+      await act(async () => {
+        await result.current.preSwapStepsStart(failed);
+      });
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
       expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
     });
 

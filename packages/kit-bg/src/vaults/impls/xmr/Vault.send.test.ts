@@ -465,6 +465,45 @@ describe('xmr send: broadcast', () => {
     expect(broadcast).not.toHaveBeenCalled();
   });
 
+  it.each(['accepted', undefined] as const)(
+    'records a swap before returning a successful broadcast (%s)',
+    async (broadcast) => {
+      const { vault, addSwapHistoryItem } = createVault({
+        broadcast: async () => JSON.stringify({ txid: 'deadbeef', broadcast }),
+      });
+      jest.spyOn(vault, 'xmrHasPendingSend').mockResolvedValue(false);
+      const pendingHistoryItem = {
+        status: ESwapTxHistoryStatus.PENDING,
+        txInfo: {
+          sender: PRIMARY,
+          receiver: RECIPIENT,
+          gasFeeFiatValue: '0.01',
+        },
+        swapInfo: { orderId: 'service-order' },
+        ctx: { rocketXOrderId: 'provider-order' },
+      };
+      await expect(
+        vault.broadcastTransaction({
+          signedTx: {
+            txid: 'deadbeef',
+            rawTx: '00ff',
+            encodedTx: broadcastEncodedTx,
+            swapInfo: { xmrPendingHistoryItem: pendingHistoryItem },
+          },
+        } as never),
+      ).resolves.toMatchObject({ txid: 'deadbeef' });
+      expect(addSwapHistoryItem).toHaveBeenCalledWith({
+        ...pendingHistoryItem,
+        txInfo: {
+          ...pendingHistoryItem.txInfo,
+          txId: 'deadbeef',
+          gasFeeInNative: '0.00003',
+        },
+        date: { created: expect.any(Number), updated: expect.any(Number) },
+      });
+    },
+  );
+
   it('refuses to fund a swap if another send is now pending', async () => {
     const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
     const { vault } = createVault({ broadcast });

@@ -39,14 +39,16 @@ import type {
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { XMR_NOT_SYNCED_ERROR_CODE } from '@onekeyhq/shared/src/config/xmr';
 import {
   BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
-import { isSwapReviewQuoteExpiredWithoutSubmission } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
+import {
+  isSwapReviewQuoteExpiredWithoutSubmission,
+  isSwapReviewSigningFailureBeforeBroadcast,
+} from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isGasAccountSubmitResultUnknownError } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
@@ -3293,10 +3295,7 @@ export function useSwapBuildTx({
                       networkId: fromAccountNetworkId,
                       accountId: fromAccountId,
                       transfersInfo: [xmrTransfer],
-                      swapInfo: {
-                        ...swapInfo,
-                        xmrPendingHistoryItem: pendingHistory,
-                      },
+                      swapInfo,
                       isInternalSwap: true,
                     },
                   );
@@ -3338,7 +3337,26 @@ export function useSwapBuildTx({
                   feeInfo,
                   nativeTokenPrice: common.nativeTokenPrice ?? 0,
                 });
-                return { unsignedTx, totalAtomic, fee: { ...fee, feeInfo } };
+                return {
+                  unsignedTx: {
+                    ...unsignedTx,
+                    swapInfo: {
+                      ...swapInfo,
+                      ...unsignedTx.swapInfo,
+                      xmrPendingHistoryItem: {
+                        ...pendingHistory,
+                        txInfo: {
+                          ...pendingHistory.txInfo,
+                          gasFeeFiatValue: common.nativeTokenPrice
+                            ? fee.totalFiat
+                            : undefined,
+                        },
+                      },
+                    },
+                  },
+                  totalAtomic,
+                  fee: { ...fee, feeInfo },
+                };
               },
             );
           }
@@ -3558,17 +3576,12 @@ export function useSwapBuildTx({
         });
       } catch (error) {
         const sendError = error as IOneKeyError | undefined;
-        const isSyncRejected =
-          !!error &&
-          typeof error === 'object' &&
-          'code' in error &&
-          error.code === XMR_NOT_SYNCED_ERROR_CODE;
         const expiredBeforeSend =
           isSwapReviewQuoteExpiredWithoutSubmission(error);
         if (
           !enteredSend ||
           expiredBeforeSend ||
-          isSyncRejected ||
+          isSwapReviewSigningFailureBeforeBroadcast(error) ||
           sendError?.key === ETranslations.privacy_error_pending_send__msg ||
           sendError?.name ===
             EOneKeyErrorClassNames.PasswordPromptDialogCancel ||
@@ -6048,6 +6061,12 @@ export function useSwapBuildTx({
                   id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
                 }),
               });
+              if (
+                isXmrSource &&
+                isSwapReviewSigningFailureBeforeBroadcast(error)
+              ) {
+                failedStepPatch.canRetry = true;
+              }
               updateExecutionState((prevSteps) => {
                 if (shouldFallback) {
                   return {

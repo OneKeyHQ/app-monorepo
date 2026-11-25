@@ -67,6 +67,7 @@ export function SwapXmrPrivacyNotice({
   const { state, readiness, balance } = result;
   let message: string | undefined;
   let openSettings = false;
+  let showPasswordAlert = false;
   if (isSource) {
     try {
       assertXmrSwapSyncReady({ state, readiness, intl });
@@ -77,6 +78,9 @@ export function SwapXmrPrivacyNotice({
         !state.privacyDisabled &&
         (!state.enabled || state.paused || readiness?.status === 'chainPaused');
     }
+    showPasswordAlert =
+      !message &&
+      balance?.frozen?.some((part) => part.reason === 'needsPassword') === true;
     const amountAtomic = readXmrSwapAmountAtomic(fromAmount);
     if (
       !message &&
@@ -90,11 +94,38 @@ export function SwapXmrPrivacyNotice({
         message = error.message;
       }
     }
-    if (
-      !message &&
-      balance?.frozen?.some((part) => part.reason === 'needsPassword')
-    ) {
-      return (
+  } else if (!state.enabled || state.paused) {
+    message = intl.formatMessage({
+      id: ETranslations.privacy_receive_needs_sync__msg,
+    });
+    openSettings = !state.privacyDisabled;
+  }
+  if (!message && !showPasswordAlert) return null;
+
+  return (
+    <>
+      {message ? (
+        <Alert
+          testID="swap-xmr-privacy-notice"
+          type={isSource ? 'warning' : 'default'}
+          description={message}
+          action={
+            openSettings
+              ? {
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_settings,
+                  }),
+                  onPrimaryPress: () =>
+                    navigation.pushModal(EModalRoutes.SettingModal, {
+                      screen: EModalSettingRoutes.SettingPrivacyNetwork,
+                      params: { networkId, walletId },
+                    }),
+                }
+              : undefined
+          }
+        />
+      ) : null}
+      {showPasswordAlert ? (
         <LocalWalletPasswordAlert
           networkId={networkId}
           accountId={accountId}
@@ -103,35 +134,7 @@ export function SwapXmrPrivacyNotice({
             onBalanceVerified?.();
           }}
         />
-      );
-    }
-  } else if (!state.enabled || state.paused) {
-    message = intl.formatMessage({
-      id: ETranslations.privacy_receive_needs_sync__msg,
-    });
-    openSettings = !state.privacyDisabled;
-  }
-  if (!message) return null;
-
-  return (
-    <Alert
-      testID="swap-xmr-privacy-notice"
-      type={isSource ? 'warning' : 'default'}
-      description={message}
-      action={
-        openSettings
-          ? {
-              primary: intl.formatMessage({
-                id: ETranslations.global_settings,
-              }),
-              onPrimaryPress: () =>
-                navigation.pushModal(EModalRoutes.SettingModal, {
-                  screen: EModalSettingRoutes.SettingPrivacyNetwork,
-                  params: { networkId, walletId },
-                }),
-            }
-          : undefined
-      }
-    />
+      ) : null}
+    </>
   );
 }
