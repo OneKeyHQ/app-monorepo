@@ -4,10 +4,12 @@ import { act, renderHook } from '@testing-library/react';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { refreshPerpPublicTrades } from '../../../utils/perpPublicTradesRefresh';
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 
-import { usePerpPublicTrades } from './usePerpPublicTrades';
+import {
+  refreshPerpPublicTrades,
+  usePerpPublicTrades,
+} from './usePerpPublicTrades';
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,

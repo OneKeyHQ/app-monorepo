@@ -7,8 +7,32 @@ import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/pe
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { registerPerpPublicTradesRefresh } from '../../../utils/perpPublicTradesRefresh';
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
+
+// Callbacks live in the UI runtime and are registered only by active feeds.
+const refreshers = new Set<{
+  refresh: () => Promise<void>;
+  pending?: Promise<void>;
+}>();
+
+function registerPerpPublicTradesRefresh(refresh: () => Promise<void>) {
+  const entry = { refresh };
+  refreshers.add(entry);
+  return () => {
+    refreshers.delete(entry);
+  };
+}
+
+export async function refreshPerpPublicTrades() {
+  await Promise.all(
+    [...refreshers].map((entry) => {
+      entry.pending ??= entry.refresh().finally(() => {
+        entry.pending = undefined;
+      });
+      return entry.pending;
+    }),
+  );
+}
 
 interface ITradesState {
   coin: string;

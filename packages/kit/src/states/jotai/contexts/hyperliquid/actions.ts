@@ -7,7 +7,6 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { refreshPerpPublicTrades } from '@onekeyhq/kit/src/utils/perpPublicTradesRefresh';
 import { isPerpsOrderFormDataOfInstrument } from '@onekeyhq/kit/src/views/Perp/utils/perpsMarketDataFreshness';
 import { buildPerpsAssetCtxsByDexFromAllDexsSnapshot } from '@onekeyhq/kit/src/views/Perp/utils/tokenSelectorInitialListCache';
 import {
@@ -4683,7 +4682,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
     const [didRefresh] = await Promise.all([
       backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData(),
-      refreshPerpPublicTrades(),
+      import('@onekeyhq/kit/src/views/Perp/hooks/usePerpPublicTrades').then(
+        ({ refreshPerpPublicTrades }) => refreshPerpPublicTrades(),
+      ),
     ]);
     if (didRefresh) {
       this.lastRefreshAllPerpsDataTime = now;
