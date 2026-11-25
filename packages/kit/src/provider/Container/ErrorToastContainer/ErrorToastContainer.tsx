@@ -20,10 +20,6 @@ import {
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
-import {
-  showLocalSecretEnvelopeDetailsToast,
-  showLocalSecretEnvelopeRecoveryDialog,
-} from '../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery';
 import { useFirmwareUpdateActions } from '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { shouldSuppressErrorToast, showErrorToast } from './ErrorToastListener';
@@ -99,6 +95,7 @@ export function ErrorToastContainer() {
   );
 
   useEffect(() => {
+    let active = true;
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       const isPrimeUserBanned = Number(p.errorCode) === PRIME_USER_BANNED_CODE;
       if (!p.title && !isPrimeUserBanned) {
@@ -113,12 +110,22 @@ export function ErrorToastContainer() {
           EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable ||
         p.errorName === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable
       ) {
-        showLocalSecretEnvelopeDetailsToast({
-          intl,
-          toastId: 'lse-unavailable',
-          onDetails: () =>
-            showLocalSecretEnvelopeRecoveryDialog({ intl, context: 'retry' }),
-        });
+        void import('../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery')
+          .then((recovery) => {
+            if (!active) return;
+            recovery.showLocalSecretEnvelopeDetailsToast({
+              intl,
+              toastId: 'lse-unavailable',
+              onDetails: () =>
+                recovery.showLocalSecretEnvelopeRecoveryDialog({
+                  intl,
+                  context: 'retry',
+                }),
+            });
+          })
+          .catch(() => {
+            if (active) showErrorToast(p);
+          });
         return;
       }
 
@@ -203,6 +210,7 @@ export function ErrorToastContainer() {
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);
     return () => {
+      active = false;
       appEventBus.off(EAppEventBusNames.ShowToast, fn);
     };
   }, [intl]);

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { randomUUID } from 'node:crypto';
 
-import { render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { ScanCamera } from './index.desktop';
 import { useScanCameraIsActive } from './useScanCameraIsActive.desktop';
@@ -15,8 +15,18 @@ const mockStart = jest
   .fn<Promise<boolean>, [string, string?]>()
   .mockResolvedValue(true);
 const mockStop = jest.fn(async (_id: string) => {});
+const mockFocus = jest
+  .fn<Promise<boolean>, [string, number, number]>()
+  .mockResolvedValue(true);
 const mockUnsubscribe = jest.fn();
 let mockStageStep: 'off' | 'processing' | 'scanQr' = 'off';
+
+jest.mock('@onekeyfe/react-native-qr-scanner/web', () => ({
+  decodeQrImageSymbols: jest.fn(),
+}));
+jest.mock('./webQrScanner', () => ({
+  ensureWebQrScannerConfigured: jest.fn(),
+}));
 
 jest.mock('react-native', () => ({
   StyleSheet: { create: (styles: unknown) => styles },
@@ -35,7 +45,7 @@ function StageAwareCamera(props: IScanCameraProps) {
   return <ScanCamera {...props} cameraActive={cameraActive} />;
 }
 
-it('restarts the same modal camera after DeviceStage releases capture', () => {
+it('restarts the same modal camera after DeviceStage releases capture', async () => {
   const previousDesktopApi = globalThis.desktopApi;
   const previousUuid = Object.getOwnPropertyDescriptor(crypto, 'randomUUID');
   Object.defineProperty(crypto, 'randomUUID', {
@@ -49,6 +59,7 @@ it('restarts the same modal camera after DeviceStage releases capture', () => {
       qrScanner: {
         start: mockStart,
         stop: mockStop,
+        focus: mockFocus,
         onEvent: () => mockUnsubscribe,
       },
     },
@@ -96,6 +107,29 @@ it('restarts the same modal camera after DeviceStage releases capture', () => {
     const [resumedSession] = mockStart.mock.calls[2];
     expect(mockStart).toHaveBeenLastCalledWith(resumedSession, 'modal-camera');
     expect(resumedSession).not.toBe(modalSession);
+
+    const canvas = document.querySelector('canvas')!;
+    canvas.width = 1280;
+    canvas.height = 720;
+    jest.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 240,
+      height: 240,
+      right: 240,
+      bottom: 240,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    await act(async () => {
+      fireEvent.click(canvas, { clientX: 0, clientY: 60 });
+    });
+    const [focusedSession, x, y] = mockFocus.mock.lastCall!;
+    expect(focusedSession).toBe(resumedSession);
+    expect(x).toBeCloseTo(0.218_75);
+    expect(y).toBe(0.25);
+    expect(screen.getByTestId('scan-camera-focus-box')).not.toBeNull();
   } finally {
     globalThis.desktopApi = previousDesktopApi;
     if (previousUuid) {

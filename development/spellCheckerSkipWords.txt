@@ -819,6 +819,11 @@ Stax
 sr25519
 starcoin
 Starcoin
+starknet
+Starknet
+STARKNET
+Starkscan
+STRK
 stc
 Stc
 stderr
@@ -1687,3 +1692,13 @@ misttrack
 Borsh
 Galxe
 Hookable
+blastapi
+Braavos
+undeployed
+hpke
+ohttp
+dhkem
+panva
+subchannels
+undeposited
+multicall
