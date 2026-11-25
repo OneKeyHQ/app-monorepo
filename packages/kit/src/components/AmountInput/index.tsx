@@ -101,6 +101,8 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       popover?: ITokenSelectorPopoverProps;
     } & IXStackProps;
     reversible?: boolean;
+    // The text size of the row under the amount (value, balance, Max).
+    footerSize?: 'small' | 'medium';
   } & Omit<IStackProps, 'onChange'>
 >;
 
@@ -116,9 +118,15 @@ export function AmountInput({
   valueProps,
   balanceProps,
   balanceHelperProps,
+  footerSize = 'small',
   ...rest
 }: IAmountInputFormItemProps) {
   const intl = useIntl();
+  const footerText = footerSize === 'medium' ? '$bodyMd' : '$bodySm';
+  const footerTextMedium =
+    footerSize === 'medium' ? '$bodyMdMedium' : '$bodySmMedium';
+  // Loading placeholders keep the row as tall as the text they stand in for.
+  const footerSkeletonPy = footerSize === 'medium' ? '$1' : '$0.5';
 
   const sharedStyles = getSharedInputStyles({
     error: hasError,
@@ -193,7 +201,7 @@ export function AmountInput({
 
     if (valueProps.loading)
       return (
-        <Stack py="$0.5">
+        <Stack py={footerSkeletonPy}>
           <Skeleton h="$3" w="$16" />
         </Stack>
       );
@@ -206,7 +214,7 @@ export function AmountInput({
             currency: valueProps.currency,
             tokenSymbol: valueProps.tokenSymbol,
           }}
-          size="$bodySm"
+          size={footerText}
           color={valueProps.color ?? '$textSubdued'}
           pr="$0.5"
         >
@@ -218,7 +226,7 @@ export function AmountInput({
         ) : null}
       </>
     );
-  }, [valueProps, reversible]);
+  }, [valueProps, reversible, footerSkeletonPy, footerText]);
 
   const TokenSelectorTrigger = useMemo(() => {
     const {
@@ -383,9 +391,15 @@ export function AmountInput({
     if (balanceProps.loading) {
       return (
         <XStack m="$1" px="$2.5" py="$1" alignItems="center">
-          <Skeleton h="$4" w="$16" />
+          <Stack py={footerSize === 'medium' ? '$0.5' : '$0'}>
+            <Skeleton h="$4" w="$16" />
+          </Stack>
           {enableMaxAmount ? (
-            <SizableText pl="$1" size="$bodySmMedium" color="$textPlaceholder">
+            <SizableText
+              pl="$1"
+              size={footerTextMedium}
+              color="$textPlaceholder"
+            >
               {maxAmountText ??
                 intl.formatMessage({ id: ETranslations.send_max })}
             </SizableText>
@@ -397,7 +411,7 @@ export function AmountInput({
       let balanceLeadingElement: ReactElement | null = null;
       if (balanceProps.iconText) {
         balanceLeadingElement = (
-          <SizableText color="$textSubdued" size="$bodySm" mr="$1">
+          <SizableText color="$textSubdued" size={footerText} mr="$1">
             {balanceProps.iconText}
           </SizableText>
         );
@@ -442,7 +456,7 @@ export function AmountInput({
           {balanceLeadingElement}
           <>
             <NumberSizeableText
-              size="$bodySm"
+              size={footerText}
               color="$textSubdued"
               formatter="balance"
             >
@@ -450,7 +464,7 @@ export function AmountInput({
             </NumberSizeableText>
           </>
           {balanceProps.tokenSymbol ? (
-            <SizableText pl="$1" size="$bodySm" color="$textSubdued">
+            <SizableText pl="$1" size={footerText} color="$textSubdued">
               {balanceProps.tokenSymbol}
             </SizableText>
           ) : null}
@@ -466,7 +480,7 @@ export function AmountInput({
           {enableMaxAmount && !balanceProps.actionIconName ? (
             <SizableText
               pl="$1"
-              size="$bodySmMedium"
+              size={footerTextMedium}
               color={balanceActionColor}
             >
               {maxAmountText ??
@@ -488,7 +502,16 @@ export function AmountInput({
       return contentComponent;
     }
     return null;
-  }, [balanceHelperProps, balanceProps, enableMaxAmount, intl, maxAmountText]);
+  }, [
+    balanceHelperProps,
+    balanceProps,
+    enableMaxAmount,
+    footerSize,
+    footerText,
+    footerTextMedium,
+    intl,
+    maxAmountText,
+  ]);
 
   const balanceHelper = useMemo(() => {
     if (!balanceHelperProps) {
