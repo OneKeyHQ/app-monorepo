@@ -5860,7 +5860,6 @@
   "settings_prefer_gas_account__title": "Prioritaskan Gas Account",
   "settings_protection.allowlist_content": "Saat fitur ini diaktifkan, Anda hanya dapat mengirim dana ke akun di dalam dompet atau alamat yang tersimpan di buku alamat.",
   "settings_protection.allowlist_title": "Daftar putih transfer",
-  "settings_share_log_id_with_support__desc": "Bagikan ID log ini kepada Tim Dukungan:",
   "settings_sidebar_labels__desc": "Nonaktifkan untuk hanya menampilkan ikon. Arahkan kursor untuk melihat label.",
   "settings_sidebar_labels__title": "Tampilkan label bilah sisi",
   "settings_split_view": "Tampilan terbagi",

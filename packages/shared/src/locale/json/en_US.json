@@ -5860,7 +5860,6 @@
   "settings_prefer_gas_account__title": "Prefer Gas Account",
   "settings_protection.allowlist_content": "When enabled, you can only send funds to accounts within the wallet or to any address in the address book.",
   "settings_protection.allowlist_title": "Transfer allowlist",
-  "settings_share_log_id_with_support__desc": "Share this log ID with support:",
   "settings_sidebar_labels__desc": "Turn off to show icons only. Hover to see the label.",
   "settings_sidebar_labels__title": "Show sidebar labels",
   "settings_split_view": "Split view",

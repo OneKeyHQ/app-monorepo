@@ -5860,7 +5860,6 @@
   "settings_prefer_gas_account__title": "優先使用 Gas Account",
   "settings_protection.allowlist_content": "啟用此功能後，您只能向錢包內的帳戶或地址簿中儲存的地址發送資金。",
   "settings_protection.allowlist_title": "轉帳白名單",
-  "settings_share_log_id_with_support__desc": "將此日誌編號提供給客服：",
   "settings_sidebar_labels__desc": "關閉後僅顯示圖示，游標移至上方時顯示標籤。",
   "settings_sidebar_labels__title": "顯示側邊欄標籤",
   "settings_split_view": "分割檢視",

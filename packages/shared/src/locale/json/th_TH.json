@@ -5860,7 +5860,6 @@
   "settings_prefer_gas_account__title": "ต้องการใช้ Gas Account",
   "settings_protection.allowlist_content": "เมื่อเปิดใช้งานฟีเจอร์นี้ คุณจะสามารถส่งเงินได้เฉพาะไปยังบัญชีในกระเป๋าเงินของคุณหรือที่อยู่ที่บันทึกไว้ในสมุดที่อยู่เท่านั้น",
   "settings_protection.allowlist_title": "รายการอนุญาตสำหรับการโอน",
-  "settings_share_log_id_with_support__desc": "แชร์ ID บันทึกนี้กับฝ่ายสนับสนุน:",
   "settings_sidebar_labels__desc": "ปิดเพื่อแสดงเฉพาะไอคอน เลื่อนเมาส์ชี้เพื่อดูป้ายกำกับ",
   "settings_sidebar_labels__title": "แสดงป้ายกำกับแถบด้านข้าง",
   "settings_split_view": "มุมมองแบบแยก",

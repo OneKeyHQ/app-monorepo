@@ -5860,7 +5860,6 @@
   "settings_prefer_gas_account__title": "Preferir Gas Account",
   "settings_protection.allowlist_content": "Cuando esta función está activada, solo puedes enviar fondos a cuentas de tu billetera o direcciones guardadas en la libreta de direcciones.",
   "settings_protection.allowlist_title": "Lista de permitidos para transferencias",
-  "settings_share_log_id_with_support__desc": "Comparte este ID de registro con Soporte:",
   "settings_sidebar_labels__desc": "Desactiva para mostrar solo iconos. Pasa el cursor por encima para ver la etiqueta.",
   "settings_sidebar_labels__title": "Mostrar etiquetas de la barra lateral",
   "settings_split_view": "Vista dividida",

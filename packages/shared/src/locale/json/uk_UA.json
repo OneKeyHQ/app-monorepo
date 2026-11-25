@@ -5860,7 +5860,6 @@
   "settings_prefer_gas_account__title": "Надавати перевагу Gas Account",
   "settings_protection.allowlist_content": "Коли цю функцію увімкнено, ви можете надсилати кошти лише на рахунки вашого гаманця або збережені адреси з адресної книги.",
   "settings_protection.allowlist_title": "Список дозволених адрес для переказів",
-  "settings_share_log_id_with_support__desc": "Поділіться цим ID журналу зі службою підтримки:",
   "settings_sidebar_labels__desc": "Вимкніть, щоб показувати лише значки. Наведіть курсор, щоб побачити підпис.",
   "settings_sidebar_labels__title": "Показувати підписи бічної панелі",
   "settings_split_view": "Розділений вигляд",

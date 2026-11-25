@@ -5860,7 +5860,6 @@
   "settings_prefer_gas_account__title": "Gas Account 우선 사용",
   "settings_protection.allowlist_content": "이 기능을 활성화하면 지갑 내 계정이나 주소록에 저장된 주소로만 자금을 전송할 수 있습니다.",
   "settings_protection.allowlist_title": "전송 허용 목록",
-  "settings_share_log_id_with_support__desc": "이 로그 ID를 지원팀과 공유하세요:",
   "settings_sidebar_labels__desc": "끄면 아이콘만 표시됩니다. 마우스를 올리면 라벨이 표시됩니다.",
   "settings_sidebar_labels__title": "사이드바 라벨 표시",
   "settings_split_view": "분할 보기",

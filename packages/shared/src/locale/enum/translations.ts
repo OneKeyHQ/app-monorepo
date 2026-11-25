@@ -5865,7 +5865,6 @@ export enum ETranslations {
   settings_prefer_gas_account__title = 'settings_prefer_gas_account__title',
   settings_protection_allowlist_content = 'settings_protection.allowlist_content',
   settings_protection_allowlist_title = 'settings_protection.allowlist_title',
-  settings_share_log_id_with_support__desc = 'settings_share_log_id_with_support__desc',
   settings_sidebar_labels__desc = 'settings_sidebar_labels__desc',
   settings_sidebar_labels__title = 'settings_sidebar_labels__title',
   settings_split_view = 'settings_split_view',
