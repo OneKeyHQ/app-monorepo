@@ -334,6 +334,30 @@ describe('ServiceLightningSpark connects', () => {
     expect(removeSparkStorage).toHaveBeenCalledTimes(1);
   });
 
+  it('does not hold App Reset on a connect still asking for its password', async () => {
+    const { service, breez, backgroundApi, ensureConnected } = setup();
+    const password = deferred<void>();
+    backgroundApi.servicePassword.promptPasswordVerifyByWallet.mockImplementationOnce(
+      async () => {
+        await password.promise;
+        return { password: 'pw' };
+      },
+    );
+    const connecting = ensureConnected('hd-1').catch(
+      (error: Error) => error.message,
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    await service.removeAllStorage();
+    expect(removeSparkStorage).toHaveBeenCalledTimes(1);
+
+    password.resolve();
+    await expect(connecting).resolves.toBe('Lightning connect was superseded');
+    expect(breez.connect).not.toHaveBeenCalled();
+  });
+
   it('does not connect the next wallet when the app locks while the previous one shuts down', async () => {
     const { service, internals, breez, sdkOf, ensureConnected } = setup();
     await ensureConnected('hd-1');

@@ -83,6 +83,8 @@ type ISparkConnectIntent = {
   walletId: string;
   generation: number;
   cancelled: boolean;
+  // Set once it acquires the SDK, the only step that touches the storage.
+  acquiring: boolean;
   settled: Promise<void>;
 };
 
@@ -287,6 +289,9 @@ class ServiceLightningSpark extends ServiceBase {
   // once the last of them settles.
   private isIdleExpiryDeferred = false;
 
+  // A held screen's connect waited for SDK calls in flight to settle.
+  private isHeldConnectDeferred = false;
+
   private paymentRefreshTimers: ReturnType<typeof setTimeout>[] = [];
 
   private getConnectedSdk(): { sdk: ISparkSdk; walletId: string } {
@@ -464,6 +469,10 @@ class ServiceLightningSpark extends ServiceBase {
       return await run(call.sdk);
     } finally {
       this.sdkCalls.delete(call);
+      if (this.isHeldConnectDeferred && !this.hasCallsFor(this.sdk)) {
+        this.isHeldConnectDeferred = false;
+        void this.connectHeldSession();
+      }
       if (this.isIdleExpiryDeferred && !this.hasCallsFor(this.sdk)) {
         this.isIdleExpiryDeferred = false;
         if (this.sessionHolders.size === 0 && this.sdk) {
@@ -513,6 +522,16 @@ class ServiceLightningSpark extends ServiceBase {
   private async connectHeldSession() {
     const held = [...this.sessionHolders.values()].at(-1);
     if (!held) {
+      return;
+    }
+    // A connect in flight goes first, so the cache is read right before this
+    // connect and a passive connect never asks for the password.
+    while (this.connecting) {
+      await this.connecting.catch(() => undefined);
+    }
+    // Calls in flight keep their SDK; this connect follows once they settle.
+    if (this.hasCallsFor(this.sdk)) {
+      this.isHeldConnectDeferred = true;
       return;
     }
     // Reading the cache this way does not extend its lifetime.
@@ -567,6 +586,7 @@ class ServiceLightningSpark extends ServiceBase {
       walletId,
       generation: this.connectGeneration,
       cancelled: false,
+      acquiring: false,
       settled: new Promise<void>((resolve) => {
         settle = resolve;
       }),
@@ -585,6 +605,7 @@ class ServiceLightningSpark extends ServiceBase {
       if (intent.generation !== this.connectGeneration || intent.cancelled) {
         throw new OneKeyLocalError('Lightning connect was superseded');
       }
+      intent.acquiring = true;
       return await this.connectWithChildMnemonic({
         intent,
         network,
@@ -1036,7 +1057,13 @@ class ServiceLightningSpark extends ServiceBase {
     intents.forEach((intent) => {
       intent.cancelled = true;
     });
-    await Promise.all(intents.map((intent) => intent.settled));
+    // One still at its password prompt or key derivation stops at its next
+    // check without touching the storage, so only acquiring ones are awaited.
+    await Promise.all(
+      intents
+        .filter((intent) => intent.acquiring)
+        .map((intent) => intent.settled),
+    );
   }
 
   /**
