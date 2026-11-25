@@ -445,6 +445,12 @@ class ServiceStarknetPrivacy extends ServiceBase {
     return this.history.fetchPrivateHistory(p);
   }
 
+  rememberPendingPrivateHistoryTx(
+    p: IStrk20AccountKey & { poolAddress: string; tx: IAccountHistoryTx },
+  ): void {
+    this.history.rememberPendingTx(buildPrivacyCacheKey(p), p.tx);
+  }
+
   @backgroundMethod()
   async buildRegisterTx(
     p: IStrk20AccountKey & { resumeOnly?: boolean },

@@ -1964,3 +1964,153 @@ describe('getHomePrivateBalances', () => {
     emitSpy.mockRestore();
   });
 });
+
+describe('in-memory pending private history & public-only localHistory redaction', () => {
+  it('serves in-memory pending private tx, redacts settled disk writes, clears on lock, and still merges public fees into Discovery rows', async () => {
+    const { service, client, backgroundApi } = build();
+    await service.buildRegisterTx(key);
+
+    const pendingTx = {
+      id: 'local-private-mem',
+      isLocalCreated: true,
+      decodedTx: {
+        txid: '0x456',
+        owner: ACCOUNT_ADDRESS,
+        signer: ACCOUNT_ADDRESS,
+        networkId: NETWORK_ID,
+        accountId: ACCOUNT_ID,
+        nonce: 9,
+        status: EDecodedTxStatus.Pending,
+        totalFeeInNative: '2',
+        protocolFeeInNative: '0.5',
+        extraInfo: {
+          privacy: {
+            kind: 'transfer',
+            poolAddress: MAINNET_POOL,
+            tokenAddress: STRK,
+            amount: '10000000000000000000',
+            recipient: '0x7b',
+          },
+        },
+        actions: [
+          {
+            type: 'assetTransfer',
+            assetTransfer: {
+              from: ACCOUNT_ADDRESS,
+              to: '0x7b',
+              sends: [
+                {
+                  from: ACCOUNT_ADDRESS,
+                  to: '0x7b',
+                  amount: '10',
+                  tokenIdOnNetwork: STRK,
+                },
+              ],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as import('@onekeyhq/shared/types/history').IAccountHistoryTx;
+
+    service.rememberPendingPrivateHistoryTx({
+      ...key,
+      poolAddress: MAINNET_POOL,
+      tx: pendingTx,
+    });
+
+    jest.mocked(fetchStrk20HistoryPage).mockResolvedValue({
+      transactions: [],
+      cursor: { subchannels: [], historyComplete: true },
+    });
+    client.getTransactionReceipt.mockResolvedValueOnce({
+      execution_status: 'SUCCEEDED',
+      finality_status: 'ACCEPTED_ON_L2',
+      block_number: 88,
+      actual_fee: { unit: 'FRI', amount: '0xde0b6b3a7640000' },
+    });
+
+    const first = await service.fetchPrivateHistory({
+      ...key,
+      tokenAddress: STRK,
+    });
+    expect(first.txs).toHaveLength(1);
+    expect(first.txs[0].decodedTx.status).toBe(EDecodedTxStatus.Confirmed);
+    expect(
+      first.txs[0].decodedTx.actions[0].assetTransfer?.sends[0].amount,
+    ).toBe('10');
+
+    const savedBatch = (
+      backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs.mock
+        .calls as unknown as [
+        {
+          confirmedTxsToSave: import('@onekeyhq/shared/types/history').IAccountHistoryTx[];
+        }[],
+      ][]
+    )[0][0][0];
+    const savedTx = savedBatch.confirmedTxsToSave[0];
+    expect(savedTx.decodedTx.totalFeeInNative).toBe('1');
+    expect(savedTx.decodedTx.protocolFeeInNative).toBe('0.5');
+    expect(
+      (
+        savedTx.decodedTx.extraInfo as {
+          privacy?: Record<string, unknown>;
+        }
+      )?.privacy,
+    ).toEqual({
+      kind: 'transfer',
+      poolAddress: MAINNET_POOL,
+    });
+    expect(savedTx.decodedTx.actions[0].type).toBe('FUNCTION_CALL');
+
+    // Lock clears in-memory pending private history.
+    await service.clearViewingKeyCache();
+    await service.buildRegisterTx(key);
+
+    // Disk only holds the redacted public-fee row; Discovery provides private details.
+    backgroundApi.serviceHistory.getAccountLocalHistoryConfirmedTxs.mockResolvedValue(
+      [savedTx],
+    );
+    jest.mocked(fetchStrk20HistoryPage).mockResolvedValueOnce({
+      transactions: [],
+      cursor: { subchannels: [], historyComplete: true },
+    });
+    const afterLockEmpty = await service.fetchPrivateHistory({
+      ...key,
+      tokenAddress: STRK,
+    });
+    expect(afterLockEmpty.txs).toHaveLength(0);
+
+    // Once Discovery returns 0x456, public fees from disk are still merged in.
+    jest.mocked(fetchStrk20HistoryPage).mockResolvedValueOnce({
+      transactions: [
+        {
+          transactionHash: 0x4_56n,
+          blockNumber: 88,
+          notes: [],
+          deposits: [],
+          withdrawals: [],
+          openNoteDeposits: [],
+        },
+      ],
+      cursor: { subchannels: [], historyComplete: true },
+    });
+    jest.mocked(getStrk20HistoryTransfers).mockResolvedValueOnce([
+      {
+        kind: 'transfer',
+        from: BigInt(ACCOUNT_ADDRESS),
+        to: 0x7bn,
+        token: BigInt(STRK),
+        amount: 10_000_000_000_000_000_000n,
+      },
+    ]);
+    const merged = await service.fetchPrivateHistory({
+      ...key,
+      tokenAddress: STRK,
+    });
+    expect(merged.txs).toHaveLength(1);
+    expect(merged.txs[0].decodedTx.totalFeeInNative).toBe('1');
+    expect(merged.txs[0].decodedTx.protocolFeeInNative).toBe('0.5');
+    expect(merged.txs[0].decodedTx.nonce).toBe(9);
+  });
+});

@@ -124,6 +124,7 @@ import {
   assertStarknetPrivacyBuildIsFresh,
   buildStarknetPrivacyDecodedAction,
   noteStarknetPrivacyBroadcastSubmitted,
+  redactStarknetPrivacyHistoryTx,
 } from './starknetPrivacyVaultHelper';
 import {
   buildErc20TransferCall,
@@ -2023,6 +2024,33 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxStarknet | undefined,
   ) {
     return assertStarknetPrivacyBuildIsFresh({ client, encodedTx });
+  }
+
+  override async buildHistoryTx(
+    params: Parameters<VaultBase['buildHistoryTx']>[0],
+  ): Promise<IAccountHistoryTx> {
+    const historyTx = await super.buildHistoryTx(params);
+    const extraInfo = historyTx.decodedTx.extraInfo as
+      | IDecodedTxExtraStarknet
+      | undefined;
+    const encodedTx = historyTx.decodedTx.encodedTx as
+      | IEncodedTxStarknet
+      | undefined;
+    const privacy = extraInfo?.privacy ?? encodedTx?.privacy;
+    if (!privacy || privacy.kind === 'register') {
+      return historyTx;
+    }
+    if (params.isLocalCreated) {
+      this.backgroundApi.serviceStarknetPrivacy?.rememberPendingPrivateHistoryTx?.(
+        {
+          networkId: this.networkId,
+          accountId: this.accountId,
+          poolAddress: privacy.poolAddress,
+          tx: historyTx,
+        },
+      );
+    }
+    return redactStarknetPrivacyHistoryTx(historyTx);
   }
 
   override async getCustomRpcEndpointStatus(

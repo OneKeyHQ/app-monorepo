@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type {
+  IDecodedTxExtraStarknet,
   IEncodedTxStarknet,
   IEncodedTxStarknetPrivacy,
 } from '@onekeyhq/core/src/chains/starknet/types';
@@ -8,6 +9,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { starknetPrivacyOperationTitles } from '@onekeyhq/shared/src/locale/starknetPrivacy';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EStrk20ErrorCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import {
   EDecodedTxActionType,
@@ -225,4 +227,75 @@ export async function noteStarknetPrivacyBroadcastSubmitted(params: {
   } catch {
     // Broadcast already succeeded; recording its public status must not change the result.
   }
+}
+
+/**
+ * Strips sensitive private transfer details (`amount`, `recipient`, `tokenAddress`,
+ * and clear `ASSET_TRANSFER` actions) before a history row is persisted to
+ * `simpleDb.localHistory`. Public on-chain fields (txid, status, block, fees,
+ * poolAddress, kind) are preserved so Discovery rows can still merge local fees.
+ */
+export function redactStarknetPrivacyHistoryTx(
+  tx: IAccountHistoryTx,
+): IAccountHistoryTx {
+  const extraInfo = tx.decodedTx.extraInfo as
+    | IDecodedTxExtraStarknet
+    | undefined;
+  const encodedTx = tx.decodedTx.encodedTx as IEncodedTxStarknet | undefined;
+  const privacy = extraInfo?.privacy ?? encodedTx?.privacy;
+  if (!privacy || privacy.kind === 'register') {
+    return tx;
+  }
+
+  const stripSensitiveFields = <
+    T extends { amount?: string; recipient?: string; tokenAddress?: string },
+  >(
+    value: T,
+  ): Omit<T, 'amount' | 'recipient' | 'tokenAddress'> => {
+    const {
+      amount: _amount,
+      recipient: _recipient,
+      tokenAddress: _tokenAddress,
+      ...publicFields
+    } = value;
+    return publicFields;
+  };
+
+  const pool = normalizeStarknetAddress(privacy.poolAddress);
+  const publicAction: IDecodedTxAction = {
+    type: EDecodedTxActionType.FUNCTION_CALL,
+    functionCall: {
+      from: tx.decodedTx.owner || tx.decodedTx.signer,
+      to: pool,
+      functionName: appLocale.intl.formatMessage({
+        id: starknetPrivacyOperationTitles[privacy.kind],
+      }),
+      args: [],
+    },
+  };
+
+  return {
+    ...tx,
+    decodedTx: {
+      ...tx.decodedTx,
+      actions: [publicAction],
+      outputActions: undefined,
+      ...(encodedTx?.privacy
+        ? {
+            encodedTx: {
+              ...encodedTx,
+              privacy: stripSensitiveFields(encodedTx.privacy),
+            },
+          }
+        : {}),
+      ...(extraInfo?.privacy
+        ? {
+            extraInfo: {
+              ...extraInfo,
+              privacy: stripSensitiveFields(extraInfo.privacy),
+            },
+          }
+        : {}),
+    },
+  };
 }

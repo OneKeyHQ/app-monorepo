@@ -23,6 +23,12 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IStrk20InternalHistoryCursor } from '../../vaults/impls/starknet/strk20Adapter';
 
 const MAX_HISTORY_CURSORS = 32;
+const MAX_PENDING_PRIVATE_TXS = 64;
+
+type IStoredPendingPrivateTx = {
+  scopeKey: string;
+  tx: IAccountHistoryTx;
+};
 
 type IPrivacyHistoryStoreDeps = {
   backgroundApi: IBackgroundApi;
@@ -37,12 +43,19 @@ type IPrivacyHistoryStoreDeps = {
 
 /**
  * Background-only store for STRK20 private history pagination cursors
- * (so channelKeys never cross IPC) and merging discovered + local private txs.
+ * (so channelKeys never cross IPC), in-memory pending private txs
+ * (cleared on lock/account removal so clear amounts never hit disk),
+ * and merging discovered + local private txs.
  */
 export class PrivacyHistoryStore {
   private readonly deps: IPrivacyHistoryStoreDeps;
 
   private readonly historyCursors = new Map<string, IStoredHistoryCursor>();
+
+  private readonly pendingPrivateTxs = new Map<
+    string,
+    IStoredPendingPrivateTx
+  >();
 
   constructor(deps: IPrivacyHistoryStoreDeps) {
     this.deps = deps;
@@ -50,6 +63,7 @@ export class PrivacyHistoryStore {
 
   clear(): void {
     this.historyCursors.clear();
+    this.pendingPrivateTxs.clear();
   }
 
   dropScope(scopeKey: string): void {
@@ -58,6 +72,30 @@ export class PrivacyHistoryStore {
         this.historyCursors.delete(cursorId);
       }
     }
+    for (const [hash, stored] of this.pendingPrivateTxs.entries()) {
+      if (stored.scopeKey === scopeKey) {
+        this.pendingPrivateTxs.delete(hash);
+      }
+    }
+  }
+
+  rememberPendingTx(scopeKey: string, tx: IAccountHistoryTx): void {
+    let hash: string;
+    try {
+      hash = BigInt(tx.decodedTx.txid).toString();
+    } catch {
+      return;
+    }
+    if (
+      !this.pendingPrivateTxs.has(hash) &&
+      this.pendingPrivateTxs.size >= MAX_PENDING_PRIVATE_TXS
+    ) {
+      const oldestKey = this.pendingPrivateTxs.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.pendingPrivateTxs.delete(oldestKey);
+      }
+    }
+    this.pendingPrivateTxs.set(hash, { scopeKey, tx });
   }
 
   private storeHistoryCursor(entry: IStoredHistoryCursor): string {
@@ -160,18 +198,22 @@ export class PrivacyHistoryStore {
         }),
       ),
     );
-    const localTxs = await this.fetchLocalPrivateHistory({
-      ...p,
-      ctx,
-      getTokenInfo,
-    });
+    const { txs: localTxs, localMetaByHash } =
+      await this.fetchLocalPrivateHistory({
+        ...p,
+        scopeKey,
+        ctx,
+        getTokenInfo,
+      });
     const byHash = new Map(
       localTxs.map((tx) => [BigInt(tx.decodedTx.txid).toString(), tx]),
     );
     for (const tx of txs) {
       if (tx) {
         const hash = BigInt(tx.decodedTx.txid).toString();
-        const local = byHash.get(hash);
+        // Once Discovery indexes the tx, drop the in-memory pending copy.
+        this.pendingPrivateTxs.delete(hash);
+        const local = byHash.get(hash) ?? localMetaByHash.get(hash);
         const localExtra = local?.decodedTx.extraInfo as
           | IDecodedTxExtraStarknet
           | undefined;
@@ -239,40 +281,84 @@ export class PrivacyHistoryStore {
 
   private async fetchLocalPrivateHistory(
     params: IStrk20AccountKey & {
+      scopeKey: string;
       tokenAddress: string;
       ctx: IStarknetPrivacyContext;
       getTokenInfo: () => Promise<IToken | undefined>;
     },
-  ): Promise<IAccountHistoryTx[]> {
+  ): Promise<{
+    txs: IAccountHistoryTx[];
+    localMetaByHash: Map<string, IAccountHistoryTx>;
+  }> {
     const { serviceHistory } = this.deps.backgroundApi;
     const query = {
       networkId: params.networkId,
       accountAddress: params.ctx.account.address,
-      tokenIdOnNetwork: params.tokenAddress,
     };
     const [pending, confirmed] = await Promise.all([
       serviceHistory.getAccountLocalHistoryPendingTxs(query),
       serviceHistory.getAccountLocalHistoryConfirmedTxs(query),
     ]);
-    const txs = [...pending, ...confirmed].filter((tx) => {
+    const localMetaByHash = new Map<string, IAccountHistoryTx>();
+    const diskDisplayTxs: IAccountHistoryTx[] = [];
+    for (const tx of [...pending, ...confirmed]) {
       const intent = (
         tx.decodedTx.extraInfo as IDecodedTxExtraStarknet | undefined
       )?.privacy;
-      return (
+      if (
         intent &&
         intent.kind !== 'register' &&
-        intent.tokenAddress &&
-        BigInt(intent.tokenAddress) === BigInt(params.tokenAddress) &&
         BigInt(intent.poolAddress) === BigInt(params.ctx.poolAddress)
-      );
-    });
-    if (!txs.length) return [];
+      ) {
+        try {
+          localMetaByHash.set(BigInt(tx.decodedTx.txid).toString(), tx);
+        } catch {
+          // Ignore malformed txids.
+        }
+        if (
+          intent.tokenAddress &&
+          BigInt(intent.tokenAddress) === BigInt(params.tokenAddress)
+        ) {
+          diskDisplayTxs.push(tx);
+        }
+      }
+    }
+
+    const displayByHash = new Map<string, IAccountHistoryTx>();
+    for (const tx of diskDisplayTxs) {
+      try {
+        displayByHash.set(BigInt(tx.decodedTx.txid).toString(), tx);
+      } catch {
+        // Ignore malformed txids.
+      }
+    }
+    for (const [hash, stored] of this.pendingPrivateTxs.entries()) {
+      if (stored.scopeKey === params.scopeKey) {
+        const intent = (
+          stored.tx.decodedTx.extraInfo as IDecodedTxExtraStarknet | undefined
+        )?.privacy;
+        if (
+          intent &&
+          intent.kind !== 'register' &&
+          intent.tokenAddress &&
+          BigInt(intent.tokenAddress) === BigInt(params.tokenAddress) &&
+          BigInt(intent.poolAddress) === BigInt(params.ctx.poolAddress)
+        ) {
+          displayByHash.set(hash, stored.tx);
+        }
+      }
+    }
+
+    const txs = [...displayByHash.values()];
+    if (!txs.length) return { txs: [], localMetaByHash };
     const token = await params.getTokenInfo();
-    if (!token) return [];
+    if (!token) return { txs: [], localMetaByHash };
     const { getReceiptTxStatus, getReceiptFeeInNative } =
       await import('../../vaults/impls/starknet/utils');
     const { PRIVATE_HISTORY_POOL_ID } =
       await import('../../vaults/impls/starknet/strk20Protocol');
+    const { redactStarknetPrivacyHistoryTx } =
+      await import('../../vaults/impls/starknet/starknetPrivacyVaultHelper');
     const settled: IAccountHistoryTx[] = [];
     const projected = await Promise.all(
       txs.map(async (tx) => {
@@ -319,7 +405,20 @@ export class PrivacyHistoryStore {
                 nextFeeInNative: totalFeeInNative,
               }),
             };
-            settled.push({ ...tx, decodedTx });
+            const settledTx: IAccountHistoryTx = { ...tx, decodedTx };
+            settled.push(settledTx);
+            try {
+              const hash = BigInt(tx.decodedTx.txid).toString();
+              const cached = this.pendingPrivateTxs.get(hash);
+              if (cached) {
+                this.pendingPrivateTxs.set(hash, {
+                  ...cached,
+                  tx: settledTx,
+                });
+              }
+            } catch {
+              // Ignore malformed txids.
+            }
           }
         }
         const amount = new BigNumber(intent.amount).shiftedBy(-token.decimals);
@@ -353,26 +452,25 @@ export class PrivacyHistoryStore {
       );
       const mergedSettled = settled.map((item) => {
         const existing = latestById.get(item.id);
-        if (
+        const merged =
           !existing ||
           item.decodedTx.protocolFeeInNative !== undefined ||
           existing.decodedTx.protocolFeeInNative === undefined
-        ) {
-          return item;
-        }
-        return {
-          ...item,
-          decodedTx: {
-            ...item.decodedTx,
-            protocolFeeInNative: existing.decodedTx.protocolFeeInNative,
-            totalFeeInNative:
-              item.decodedTx.totalFeeInNative ??
-              existing.decodedTx.totalFeeInNative,
-            totalFeeFiatValue:
-              item.decodedTx.totalFeeFiatValue ??
-              existing.decodedTx.totalFeeFiatValue,
-          },
-        };
+            ? item
+            : {
+                ...item,
+                decodedTx: {
+                  ...item.decodedTx,
+                  protocolFeeInNative: existing.decodedTx.protocolFeeInNative,
+                  totalFeeInNative:
+                    item.decodedTx.totalFeeInNative ??
+                    existing.decodedTx.totalFeeInNative,
+                  totalFeeFiatValue:
+                    item.decodedTx.totalFeeFiatValue ??
+                    existing.decodedTx.totalFeeFiatValue,
+                },
+              };
+        return redactStarknetPrivacyHistoryTx(merged);
       });
       await this.deps.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs(
         [
@@ -385,6 +483,6 @@ export class PrivacyHistoryStore {
         ],
       );
     }
-    return projected;
+    return { txs: projected, localMetaByHash };
   }
 }

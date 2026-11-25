@@ -474,3 +474,110 @@ describe('actual privacy protocol payment', () => {
     expect(result.getPoolFeeCollector).not.toHaveBeenCalled();
   });
 });
+
+describe('StarknetVault.buildHistoryTx privacy redaction', () => {
+  it('stashes clear pending private tx in memory and returns a public-only row for localHistory', async () => {
+    const vault = Object.create(StarknetVault.prototype) as StarknetVault;
+    const rememberPendingPrivateHistoryTx = jest.fn();
+    Object.assign(vault, {
+      networkId: NETWORK.id,
+      accountId: ACCOUNT_ID,
+      backgroundApi: {
+        serviceAccount: {
+          getAccountAddressForApi: jest.fn(async () => '0x1'),
+          getAccountXpub: jest.fn(async () => undefined),
+        },
+        serviceStarknetPrivacy: {
+          rememberPendingPrivateHistoryTx,
+        },
+      },
+    });
+
+    const poolAddress = '0x1234';
+    const redacted = await vault.buildHistoryTx({
+      isLocalCreated: true,
+      isSigner: true,
+      decodedTx: {
+        txid: TXID,
+        owner: '0x1',
+        signer: '0x1',
+        nonce: 7,
+        networkId: NETWORK.id,
+        accountId: ACCOUNT_ID,
+        status: 'Pending',
+        totalFeeInNative: '0.02',
+        protocolFeeInNative: '1',
+        encodedTx: {
+          from: '0x1',
+          privacy: {
+            kind: 'transfer',
+            poolAddress,
+            tokenAddress: STRK_TOKEN_ADDRESS,
+            amount: '5000000000000000000',
+            recipient: '0x999',
+            builtAt: 1_780_000_000_000,
+            provingBlockId: 100,
+            proofFacts: [],
+            proof: '0xdead',
+          },
+        },
+        extraInfo: {
+          privacy: {
+            kind: 'transfer',
+            poolAddress,
+            tokenAddress: STRK_TOKEN_ADDRESS,
+            amount: '5000000000000000000',
+            recipient: '0x999',
+          },
+        },
+        actions: [
+          {
+            type: 'assetTransfer',
+            assetTransfer: {
+              from: '0x1',
+              to: '0x999',
+              sends: [
+                {
+                  from: '0x1',
+                  to: '0x999',
+                  amount: '5',
+                  tokenIdOnNetwork: STRK_TOKEN_ADDRESS,
+                },
+              ],
+              receives: [],
+            },
+          },
+        ],
+      } as unknown as Parameters<
+        StarknetVault['buildHistoryTx']
+      >[0]['decodedTx'],
+    });
+
+    expect(rememberPendingPrivateHistoryTx).toHaveBeenCalledTimes(1);
+    const stashed = rememberPendingPrivateHistoryTx.mock.calls[0][0];
+    expect(stashed.poolAddress).toBe(poolAddress);
+    expect(stashed.tx.decodedTx.extraInfo.privacy.amount).toBe(
+      '5000000000000000000',
+    );
+    expect(stashed.tx.decodedTx.actions[0].type).toBe('assetTransfer');
+
+    const persistedPrivacy = (
+      redacted.decodedTx.extraInfo as { privacy?: Record<string, unknown> }
+    ).privacy;
+    expect(persistedPrivacy).toEqual({
+      kind: 'transfer',
+      poolAddress,
+    });
+    const persistedEncodedPrivacy = (
+      redacted.decodedTx.encodedTx as { privacy?: Record<string, unknown> }
+    ).privacy;
+    expect(persistedEncodedPrivacy?.amount).toBeUndefined();
+    expect(persistedEncodedPrivacy?.recipient).toBeUndefined();
+    expect(persistedEncodedPrivacy?.tokenAddress).toBeUndefined();
+    expect(persistedEncodedPrivacy?.poolAddress).toBe(poolAddress);
+    expect(redacted.decodedTx.actions).toHaveLength(1);
+    expect(redacted.decodedTx.actions[0].type).toBe('FUNCTION_CALL');
+    expect(redacted.decodedTx.totalFeeInNative).toBe('0.02');
+    expect(redacted.decodedTx.protocolFeeInNative).toBe('1');
+  });
+});
