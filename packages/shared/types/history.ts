@@ -103,9 +103,11 @@ export type IOnChainHistoryTx = {
   from: string;
   to: string;
   timestamp: number;
-  nonce: number;
-  gasFee: string;
-  gasFeeFiatValue: string;
+  nonce?: number;
+  gasFee?: string;
+  gasFeeFiatValue?: string;
+  /** Actual protocol payment, denominated in the network fee token. */
+  protocolFeeInNative?: string;
   functionCode: string;
   params: string[];
   value: string;
@@ -218,6 +220,8 @@ export type IAccountHistoryTx = {
   privacyChainHistoryPoolIds?: number[];
   // Signed display-unit balance delta for each exact pool ID.
   privacyChainHistoryPoolDeltas?: Record<string, string>;
+  // Explicit fee source when fees are paid outside the selected balance pool.
+  privacyChainHistoryFeePoolId?: number;
 
   originalId?: string; // for ton
 };

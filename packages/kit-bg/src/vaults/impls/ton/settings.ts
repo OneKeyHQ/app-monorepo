@@ -38,6 +38,7 @@ const settings: IVaultSettings = {
   impl: IMPL_TON,
   coinTypeDefault: COINTYPE_TON,
   accountType: EDBAccountType.SIMPLE,
+  accountDeriveMode: 'walletContract',
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,

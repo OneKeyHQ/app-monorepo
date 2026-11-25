@@ -11,6 +11,12 @@
     "packages/shared/src/locale/localeJsonMap.ts",
     "packages/shared/src/modules3rdParty/stripe-v3/*",
     "packages/kit/src/routes/config/getStateFromPath.ext.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/index.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/factory.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/interfaces.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/simple-private-transfers.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/internal/**",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/utils/**",
     "dist/**",
     "build/**"
   ]
