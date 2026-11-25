@@ -103,13 +103,7 @@ const SWAP_AMOUNT_FONT_SIZE_TOKEN = '$heading4xl';
 // A raised surface: a crisp hairline and a shadow that falls only below. On
 // dark surfaces the black shadow fades out and the theme-aware hairline
 // remains. Native draws the hairline as a border instead.
-const swapRaisedShadow = (hairlineColor: string) =>
-  `0 0 0 ${DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}px var(${hairlineColor}), 0 1px 1px -0.5px rgba(0, 0, 0, 0.05), 0 3px 4px -3px rgba(0, 0, 0, 0.07)`;
-export const SWAP_RAISED_SHADOW = swapRaisedShadow('--borderSubdued');
-// The pay card is the amount input, so it shows an input's states: its
-// hairline darkens on hover and turns critical while the amount is in error.
-const SWAP_PAY_CARD_HOVER_SHADOW = swapRaisedShadow('--borderStrong');
-const SWAP_PAY_CARD_ERROR_SHADOW = swapRaisedShadow('--borderCritical');
+export const SWAP_RAISED_SHADOW = `0 0 0 ${DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}px var(--borderSubdued), 0 1px 1px -0.5px rgba(0, 0, 0, 0.05), 0 3px 4px -3px rgba(0, 0, 0, 0.07)`;
 // The token pill's edge: the same hairline as the pay card.
 const SWAP_TOKEN_PILL_EDGE = platformEnv.isNative
   ? ({
@@ -421,7 +415,6 @@ const SwapInputContainer = ({
     useState(false);
 
   const amountInputRef = useRef<IInputRef>(null);
-  const [isAmountFocused, setIsAmountFocused] = useState(false);
   // A press anywhere on the pay card types into its amount. On web it lands
   // on mousedown, so the amount never blurs on the way to it.
   const handlePayCardPress = useCallback(() => {
@@ -480,7 +473,6 @@ const SwapInputContainer = ({
   }, [autoFocusOnPageFocus, isRouteFocused]);
 
   const onFromInputFocus = () => {
-    setIsAmountFocused(true);
     setPercentageInputStageShow(true);
     // The flag raises the percentage bar above the Android keyboard; with
     // the stages in the card there is no bar to raise.
@@ -496,7 +488,6 @@ const SwapInputContainer = ({
   };
 
   const onFromInputBlur = () => {
-    setIsAmountFocused(false);
     // delay to avoid blur when select percentage stage
     if (direction === ESwapDirectionType.FROM) {
       setInAppNotification((v) => ({
@@ -611,38 +602,18 @@ const SwapInputContainer = ({
     direction === ESwapDirectionType.TO && readOnly
       ? '$textSubdued'
       : undefined;
-  const payCardHasError = !!(
-    fromInputHasError.accountError || fromInputHasError.hasBalanceError
-  );
   const payCardProps = platformEnv.isNative
     ? {
         bg: '$bg',
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: payCardHasError ? '$borderCritical' : '$borderSubdued',
+        borderColor: '$borderSubdued',
         onPress: handlePayCardPress,
       }
     : {
         bg: '$bg',
         borderWidth: '$0',
-        boxShadow: payCardHasError
-          ? SWAP_PAY_CARD_ERROR_SHADOW
-          : SWAP_RAISED_SHADOW,
-        hoverStyle: {
-          boxShadow: payCardHasError
-            ? SWAP_PAY_CARD_ERROR_SHADOW
-            : SWAP_PAY_CARD_HOVER_SHADOW,
-        },
+        boxShadow: SWAP_RAISED_SHADOW,
         onMouseDown: handlePayCardMouseDown,
-        // The focus ring the app's inputs wear, drawn around the whole card.
-        ...(isAmountFocused
-          ? {
-              outlineWidth: 2,
-              outlineStyle: 'solid',
-              outlineColor: payCardHasError
-                ? '$focusRingCritical'
-                : '$focusRing',
-            }
-          : {}),
       };
   return (
     <YStack
