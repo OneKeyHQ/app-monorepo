@@ -24,7 +24,7 @@ import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 
-import SwapInputContainer from './SwapInputContainer';
+import SwapInputContainer, { SWAP_RAISED_SHADOW } from './SwapInputContainer';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -136,6 +136,8 @@ const SwapQuoteInput = ({
             disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
             onPress={alternationToken}
             borderWidth="$1"
+            // Raised like the pay card it overlaps.
+            {...(platformEnv.isNative ? {} : { boxShadow: SWAP_RAISED_SHADOW })}
             cursor="pointer"
             hoverStyle={{}}
             pressStyle={{}}
