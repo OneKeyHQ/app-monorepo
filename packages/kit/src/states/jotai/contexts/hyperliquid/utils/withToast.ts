@@ -50,6 +50,14 @@ function extractErrorMessage(error: unknown): string {
   return extractRawErrorMessage(error);
 }
 
+function formatDiagnosticError(error: unknown): string {
+  try {
+    return String(error instanceof Error ? error.message : error);
+  } catch {
+    return 'Unable to format error';
+  }
+}
+
 async function resolveErrorToastTitle(
   error: unknown,
   errorMessage: string,
@@ -74,7 +82,7 @@ async function resolveErrorToastTitle(
             defaultLogger.perp.agentLifeCycle.trackReason({
               reason: 'runtime_invalid_agent_recovery_failed',
               statusDetails: {
-                errorMessage: e instanceof Error ? e.message : String(e),
+                errorMessage: formatDiagnosticError(e),
               },
             });
           });
@@ -106,7 +114,7 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
   let loadingToast: ReturnType<typeof Toast.loading>;
   let loadingTimer: ReturnType<typeof setTimeout> | undefined;
   const showResult = (status: 'success' | 'error', props: IToastProps) => {
-    if (loadingToast?.settle(status, props, { onlyIfFrontmostOnWeb: true })) {
+    if (loadingToast?.settle(status, props, { showAtFrontOnWeb: true })) {
       return;
     }
     loadingToast?.close();
@@ -165,7 +173,7 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
         defaultLogger.perp.agentLifeCycle.trackReason({
           reason: 'runtime_handle_error_failed',
           statusDetails: {
-            errorMessage: e instanceof Error ? e.message : String(e),
+            errorMessage: formatDiagnosticError(e),
           },
         });
       });

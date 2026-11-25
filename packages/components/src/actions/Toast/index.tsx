@@ -345,12 +345,28 @@ function closeToast(id: string, toast: IActiveToast) {
   overlayToastStore.dismiss(toast.renderId);
 }
 
+function retireToastCard(id: string) {
+  const item = overlayToastStore
+    .getSnapshot()
+    .items.find(({ spec }) => spec.id === id);
+  if (!item) return;
+
+  // A dismissed card still occupies its queue slot during the exit.
+  overlayToastStore.dismiss(id);
+  overlayToastStore.handleEvent({
+    type: 'close',
+    id,
+    generation: item.generation,
+    reason: 'programmatic',
+  });
+}
+
 function showToast(id: string, toast: IActiveToast) {
   const previous = activeToasts.get(id);
   if (previous) {
     finishToast(id, previous);
     if (previous.shown && previous.renderId !== toast.renderId) {
-      overlayToastStore.dismiss(previous.renderId);
+      retireToastCard(previous.renderId);
     }
   }
   activeToasts.set(id, toast);
@@ -439,7 +455,7 @@ export interface IToastLoadingResult {
   settle: (
     status: IToastSettleStatus,
     props: Omit<IToastBaseProps, 'toastId' | 'onClose' | 'haptic' | 'preset'>,
-    options?: { onlyIfFrontmostOnWeb?: boolean },
+    options?: { showAtFrontOnWeb?: boolean },
   ) => boolean;
 }
 
@@ -493,7 +509,7 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
 
   return {
     close: handle.close,
-    settle: (status, result, { onlyIfFrontmostOnWeb } = {}) => {
+    settle: (status, result, { showAtFrontOnWeb } = {}) => {
       if (
         settled ||
         toast.dismissed ||
@@ -503,23 +519,19 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
         return false;
       }
       const position = result.position ?? props.position;
-      if (
-        onlyIfFrontmostOnWeb &&
-        !platformEnv.isNative &&
-        toast.shown &&
-        isCoveredOnWeb(id, position)
-      ) {
-        return false;
-      }
       validateToastTitle(result.title);
       const previousRenderId = toast.renderId;
-      // Native renderers announce on attachment. A new card also puts the
-      // result in front of any toast that arrived while the task was pending.
-      const replaceNativeCard = Platform.select({
-        native: toast.shown,
+      // Native renderers announce on attachment. On web, replace only when
+      // the caller requested a front card and a newer toast covers the result.
+      const isNative = Platform.select({
+        native: true,
         default: false,
       });
-      const renderId = replaceNativeCard
+      const replaceCard =
+        toast.shown &&
+        (isNative ||
+          (showAtFrontOnWeb && isCoveredOnWeb(previousRenderId, position)));
+      const renderId = replaceCard
         ? overlayToastStore.createId()
         : previousRenderId;
       const content = createMessageContent(
@@ -539,10 +551,10 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
       Object.assign(toast, content);
       // Theme redraws keep the existing timeout.
       toast.restartLifetime = true;
-      if (replaceNativeCard) {
+      if (replaceCard) {
         toast.renderId = renderId;
         toast.shown = false;
-        overlayToastStore.dismiss(previousRenderId);
+        retireToastCard(previousRenderId);
       }
       presentToast(id, toast);
       return true;

@@ -29,6 +29,7 @@ import type {
   IToastStyleContext,
 } from './toastStyleContext';
 import type {
+  IOverlayToastEvent,
   IOverlayToastHandlers,
   IOverlayToastSpec,
   IOverlayToastText,
@@ -76,6 +77,8 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
       mockShow(spec, handlers),
     update: (spec: IOverlayToastSpec) => mockUpdate(spec),
     dismiss: (id: string) => mockDismiss(id),
+    handleEvent: (event: IOverlayToastEvent) =>
+      realToastStore.handleEvent(event),
     dismissAll: () => realToastStore.dismissAll(),
     configure: jest.fn(),
   },
@@ -325,6 +328,45 @@ it.each(['success', 'error'] as const)(
   },
 );
 
+it.each([true, false])(
+  'retains the oldest notification when settling at queue capacity (native=%s)',
+  (isNative) => {
+    jest.replaceProperty(platformEnv, 'isNative', isNative);
+    const detach = realToastStore.attachRenderer();
+    const onClose = jest.fn();
+    try {
+      Toast.notification({ title: 'Oldest notification', onClose });
+      const oldestId = latest().spec.id;
+      const loading = Toast.loading({
+        title: 'Submitting',
+        duration: Infinity,
+      });
+      const loadingId = latest().spec.id;
+      for (let index = 0; index < 18; index += 1) {
+        Toast.message({ title: `Newer toast ${index}` });
+      }
+      expect(realToastStore.getSnapshot().items).toHaveLength(20);
+
+      expect(
+        loading?.settle(
+          'success',
+          { title: 'Submitted' },
+          { showAtFrontOnWeb: true },
+        ),
+      ).toBe(true);
+
+      const items = realToastStore.getSnapshot().items;
+      expect(items).toHaveLength(20);
+      expect(items.map(({ spec }) => spec.id)).toContain(oldestId);
+      expect(items.map(({ spec }) => spec.id)).not.toContain(loadingId);
+      expect(textOf(items[0]?.spec.title)).toBe('Submitted');
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      detach();
+    }
+  },
+);
+
 it('settles Toast.promise in place and preserves custom web position', async () => {
   jest.replaceProperty(platformEnv, 'isNative', false);
   const value = await Toast.promise(
@@ -348,21 +390,31 @@ it('settles Toast.promise in place and preserves custom web position', async () 
   expect(textOf(items[0]?.spec.message)).toBe('0xabc');
 });
 
-it('settles in place unless another web card covers the result group', () => {
-  jest.replaceProperty(platformEnv, 'isNative', false);
-  const loading = Toast.loading({
-    title: 'Submitting',
-    position: 'top-center',
-  });
-  Toast.notification({ title: 'Unrelated', position: 'bottom-right' });
-  const covering = Toast.notification({ title: 'New', position: 'top-center' });
-  const result = { title: 'Submitted' };
-  const options = { onlyIfFrontmostOnWeb: true };
-  expect(loading?.settle('success', result, options)).toBe(false);
-
-  covering?.close();
-  expect(loading?.settle('success', result, options)).toBe(true);
-});
+it.each([true, false])(
+  'puts the web result at the front of its group (covered=%s)',
+  (covered) => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    const loading = Toast.loading({
+      title: 'Submitting',
+      position: 'top-center',
+    });
+    const loadingId = latest().spec.id;
+    Toast.notification({ title: 'Unrelated', position: 'bottom-right' });
+    if (covered) Toast.notification({ title: 'New', position: 'top-center' });
+    expect(
+      loading?.settle(
+        'success',
+        { title: 'Submitted' },
+        { showAtFrontOnWeb: true },
+      ),
+    ).toBe(true);
+    const result = realToastStore
+      .getSnapshot()
+      .items.find(({ spec }) => spec.position === 'top-center');
+    expect(textOf(result?.spec.title)).toBe('Submitted');
+    expect(result?.spec.id === loadingId).toBe(!covered);
+  },
+);
 
 it('gives a concurrent task with the same toast ID no feedback of its own', async () => {
   const messages = { loading: 'Submitting', success: 'Done', error: 'Failed' };
