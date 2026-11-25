@@ -166,12 +166,25 @@ export function PerpOiChart({
   }, [isActive, requestKey, setResult, snapshotKey]);
 
   const current = result?.requestKey === requestKey ? result : undefined;
+  const [lastCustom, setLastCustom] = useState<IPerpOiHistoryResult>();
+  useEffect(() => {
+    if (!cacheScope && current?.history?.length) {
+      setLastCustom(current);
+    } else {
+      setLastCustom((previous) =>
+        previous?.requestKey === requestKey ? previous : undefined,
+      );
+    }
+  }, [cacheScope, current, requestKey]);
   // Hydration and an empty or failed refresh can finish in either order.
   const cachedHistory =
     snapshotKey && current && !current.history?.length
       ? swrCacheUtils.get<IPerpOiHistoryResult>(snapshotKey)?.history
       : undefined;
-  const points = cachedHistory ?? current?.history;
+  const points = current?.history?.length
+    ? current.history
+    : (cachedHistory ??
+      (lastCustom?.requestKey === requestKey ? lastCustom.history : undefined));
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - OI_WINDOW_DAYS[range] * 86_400;
   const first = points?.findIndex(([time]) => time >= windowStart) ?? -1;

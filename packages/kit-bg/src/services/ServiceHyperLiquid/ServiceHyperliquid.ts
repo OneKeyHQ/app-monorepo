@@ -6,6 +6,7 @@ import { isEqual, isNil, omit } from 'lodash';
 import pTimeout from 'p-timeout';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
@@ -2161,20 +2162,24 @@ export default class ServiceHyperliquid extends ServiceBase {
     startTime: number;
     endTime: number;
   }): Promise<IMarketTokenChart> {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const endpoint =
-      client.defaults.headers['X-OneKey-Dev-Proxy'] ?? client.defaults.baseURL;
-    if (endpoint !== expectedEndpoint) {
+    const info = await this.getClientEndpointInfo(EServiceEndpointEnum.Utility);
+    if (info.endpoint !== expectedEndpoint) {
       throw new OneKeyLocalError('Utility endpoint changed during OI request');
     }
-    const config = { timeout: 15_000, autoHandleError: false };
-    const { data } = await client.post<
-      IApiClientResponse<{ t: number; oiUsd: string | number | null }[]>
-    >(
-      '/utility/v2/market/perps/open-interest-history',
-      { ...params, type: 'openInterestHistory', limit: 5000 },
-      config,
-    );
+    const client = await appApiClient.getBasicClient({
+      ...info,
+      autoHandleError: false,
+    });
+    const { data } = await client
+      .post<IApiClientResponse<{ t: number; oiUsd: string | number | null }[]>>(
+        '/utility/v2/market/perps/open-interest-history',
+        { ...params, type: 'openInterestHistory', limit: 5000 },
+        { timeout: 15_000 },
+      )
+      .catch((error: unknown) => {
+        errorToastUtils.toastIfErrorDisable(error);
+        throw error;
+      });
     if (data.code !== 0 || !Array.isArray(data.data)) {
       throw new OneKeyLocalError('Invalid Perps OI history response');
     }
