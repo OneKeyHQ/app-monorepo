@@ -6,8 +6,6 @@ import { fireEvent, render } from '@testing-library/react';
 
 import { TradingViewDesktopToolbarContext } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/TradingViewDesktopToolbarContext';
 
-import { MarketDetailAnalyticsProvider } from '../../../utils/marketDetailAnalytics';
-
 import { TokenDetailChart } from './TokenDetailChart';
 
 const mockSetChartDisplayMode = jest.fn();
@@ -17,23 +15,6 @@ const mockStockSimpleChart = jest.fn(
   ),
 );
 let mockChartDisplayMode: 'simple' | 'pro' = 'simple';
-const mockDexChartDisplayModeSwitch = jest.fn();
-const mockDexSimpleChartRange = jest.fn();
-
-jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: {
-    dex: {
-      tradingView: {
-        dexChartDisplayModeSwitch: (payload: unknown) => {
-          mockDexChartDisplayModeSwitch(payload);
-        },
-        dexSimpleChartRange: (payload: unknown) => {
-          mockDexSimpleChartRange(payload);
-        },
-      },
-    },
-  },
-}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -249,63 +230,5 @@ describe('TokenDetailChart', () => {
         range: 'All',
       }),
     );
-  });
-
-  describe('analytics', () => {
-    beforeEach(() => {
-      mockDexChartDisplayModeSwitch.mockClear();
-      mockDexSimpleChartRange.mockClear();
-    });
-
-    function renderInDetail() {
-      return render(
-        <MarketDetailAnalyticsProvider detailKind="topCoin">
-          <TokenDetailChart
-            chartContainerTestID="market-token-chart"
-            marketTradingView={<MockProChart />}
-            isChartFullscreen={false}
-            chartMode="native"
-            onChartSwitch={jest.fn()}
-            onEnterChartFullscreen={jest.fn()}
-          />
-        </MarketDetailAnalyticsProvider>,
-      );
-    }
-
-    it('reports nothing for the default range and mode', () => {
-      renderInDetail();
-      expect(mockDexSimpleChartRange).not.toHaveBeenCalled();
-      expect(mockDexChartDisplayModeSwitch).not.toHaveBeenCalled();
-    });
-
-    it('reports a picked range, not a re-pick of the current one', () => {
-      const view = renderInDetail();
-      fireEvent.click(view.getByTestId('market-token-chart-range-1D'));
-      expect(mockDexSimpleChartRange).not.toHaveBeenCalled();
-      fireEvent.click(view.getByTestId('market-token-chart-range-1W'));
-      expect(mockDexSimpleChartRange).toHaveBeenCalledTimes(1);
-      expect(mockDexSimpleChartRange).toHaveBeenCalledWith({
-        rangeSelect: '1W',
-        detailKind: 'topCoin',
-      });
-    });
-
-    it('reports a user switch between Simple and Pro', () => {
-      const view = renderInDetail();
-      fireEvent.click(view.getByTestId('market-token-chart-mode-pro'));
-      expect(mockDexChartDisplayModeSwitch).toHaveBeenCalledWith({
-        fromMode: 'simple',
-        toMode: 'pro',
-        detailKind: 'topCoin',
-      });
-    });
-
-    it('stays silent outside a Market detail page', () => {
-      const view = renderTokenDetailChart();
-      fireEvent.click(view.getByTestId('market-token-chart-range-1W'));
-      fireEvent.click(view.getByTestId('market-token-chart-mode-pro'));
-      expect(mockDexSimpleChartRange).not.toHaveBeenCalled();
-      expect(mockDexChartDisplayModeSwitch).not.toHaveBeenCalled();
-    });
   });
 });

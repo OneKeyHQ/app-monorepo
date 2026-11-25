@@ -77,7 +77,6 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { usePerpsNavigation } from '../../hooks/usePerpsNavigation';
 import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../../testIDs';
-import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { STOCK_MOBILE_PRICE_HEADER_HEIGHT } from '../components/InformationPanel/StockMobilePriceHeader';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
@@ -438,8 +437,6 @@ export function MobileLayout({
   }, [navigateToPerps, perpsInfo?.hlTicker]);
   const [{ mode: chartDisplayMode }] =
     useMarketDetailChartDisplayModePersistAtom();
-  const onNativeChartIntervalSelect =
-    useMarketDetailChartAnalytics()?.onNativeChartIntervalSelect;
   const isSimpleChart = shouldShowMobileSimpleChart({
     mode: chartDisplayMode,
     isChartFullscreen,
@@ -1092,7 +1089,6 @@ export function MobileLayout({
                           priceMode === 'share' || !marketTradingViewParams
                         }
                         onChartSwitch={onChartSwitch}
-                        onIntervalSelect={onNativeChartIntervalSelect}
                         onNativeChartFullscreenChange={onChartFullscreenChange}
                         onNativeChartWindowRotationChange={
                           handleChartWindowRotationChange
@@ -1215,7 +1211,6 @@ export function MobileLayout({
     networkId,
     onChartFullscreenChange,
     onChartSwitch,
-    onNativeChartIntervalSelect,
     stockPreviousClose,
     stableChartHeaderLogoUrls,
     priceMode,

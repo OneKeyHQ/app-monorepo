@@ -27,7 +27,6 @@ import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 import { MARKET_DETAIL_TABS_MIN_HEIGHT } from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
-import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
@@ -464,8 +463,6 @@ export function DesktopLayout({
   });
   const [{ mode: chartDisplayMode }] =
     useMarketDetailChartDisplayModePersistAtom();
-  const onNativeChartIntervalSelect =
-    useMarketDetailChartAnalytics()?.onNativeChartIntervalSelect;
   const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
     if (isStockSharePrice && stockId) {
       return { kind: 'stock', stockId };
@@ -585,7 +582,6 @@ export function DesktopLayout({
           // plot's leading edge instead of sitting over it.
           nativeControlsFlushHorizontalInset={hideChartTrailingControls}
           onChartSwitch={stockAwareChartSwitch}
-          onIntervalSelect={onNativeChartIntervalSelect}
           onNativeChartFullscreenChange={stockAwareFullscreenChange}
         />
       ) : null;
@@ -661,7 +657,6 @@ export function DesktopLayout({
     effectiveMarketTradingViewParams,
     marketTradingViewParams?.decimal,
     networkId,
-    onNativeChartIntervalSelect,
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
     stockId,

@@ -44,7 +44,6 @@ import {
   MARKET_DETAIL_TABS_MIN_HEIGHT,
   MARKET_DETAIL_TRADE_COLUMN_PROPS,
 } from '../../marketDesktopLayoutConstants';
-import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import { MarketAboutDescription } from '../components/MarketAboutDescription';
 import {
@@ -571,7 +570,6 @@ export function StockChart({
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
-  const chartAnalytics = useMarketDetailChartAnalytics();
   const range = resolveStockSimpleChartRangeForPriceMode({
     priceMode,
     range: selectedRange,
@@ -586,7 +584,6 @@ export function StockChart({
     (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP;
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
     setChartDisplayMode({ mode: nextMode });
-    chartAnalytics?.onChartDisplayModeSwitch(mode, nextMode);
   };
 
   // The toolbar goes to the container's footer, under the resize handle: the
@@ -628,10 +625,7 @@ export function StockChart({
                     size="small"
                     variant={range === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
-                    onPress={() => {
-                      setRange(item);
-                      chartAnalytics?.onSimpleChartRangeSelect(range, item);
-                    }}
+                    onPress={() => setRange(item)}
                   >
                     {intl.formatMessage({
                       id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],

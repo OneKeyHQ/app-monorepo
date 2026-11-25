@@ -38,10 +38,7 @@ import {
   useTokenDetailActions,
   useTokenDetailPreviewAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import {
-  EJotaiContextStoreNames,
-  useMarketDetailChartDisplayModePersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -74,11 +71,6 @@ import {
 } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import {
-  MarketDetailAnalyticsProvider,
-  logMarketDetailChartModeSwitch,
-  resolveMarketDetailAnalyticsAsset,
-} from '../utils/marketDetailAnalytics';
 import {
   finishMarketDetailTabBarTransition,
   isMarketTabDetailRoute,
@@ -304,18 +296,6 @@ function MarketDetail({
     () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
     [routeTokenDetailPreview],
   );
-  const routePreviewSymbol = [
-    tokenDetailPreview,
-    currentTokenDetailPreview,
-  ].find(
-    (preview) =>
-      preview &&
-      isMatchingMarketTokenIdentity(preview, {
-        tokenAddress: routeTokenAddress,
-        networkId: routeNetworkId,
-        isNative: routeIsNative,
-      }),
-  )?.symbol;
   // Resolve the page without rewriting the persisted favorite or its route identity.
   const { assetParams: legacyAssetParams } = useLegacyMarketAsset({
     active:
@@ -330,7 +310,15 @@ function MarketDetail({
     preserveTokenQuote:
       'preserveTokenQuote' in params && params.preserveTokenQuote === true,
     isStockRoute,
-    symbol: routePreviewSymbol,
+    symbol: [tokenDetailPreview, currentTokenDetailPreview].find(
+      (preview) =>
+        preview &&
+        isMatchingMarketTokenIdentity(preview, {
+          tokenAddress: routeTokenAddress,
+          networkId: routeNetworkId,
+          isNative: routeIsNative,
+        }),
+    )?.symbol,
   });
   const tokenAddress =
     selectedTokenVariant?.contractAddress ??
@@ -404,17 +392,8 @@ function MarketDetail({
     tokenAddress,
     networkId,
   });
-  const [{ mode: chartDisplayMode }] =
-    useMarketDetailChartDisplayModePersistAtom();
-  // Track market entry analytics, paired with one leave per entry.
-  useMarketEnterAnalytics({
-    detailVisit: {
-      isFocused: isRouteFocused,
-      chartMode: isTradingViewNative ? 'native' : 'tradingView',
-      chartDisplayMode,
-      fallbackSymbol: routePreviewSymbol,
-    },
-  });
+  // Track market entry analytics
+  useMarketEnterAnalytics();
 
   // Refresh metadata, initialize the quote, and recover it when chart updates stop.
   // Use actualNetworkId (converted from shortcode if needed) for API calls
@@ -711,7 +690,6 @@ function MarketDetailV2(
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const { isTradingViewNative, toggleChartMode } = useMarketDetailChartMode();
-  const { detailKind } = resolveMarketDetailAnalyticsAsset(props.route.params);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
   // Mobile layouts can show the native chart while TradingView is preferred,
   // e.g. for a stock's share price, so they leave fullscreen themselves when
@@ -747,17 +725,7 @@ function MarketDetailV2(
       handleChartFullscreenChange(false);
     }
     toggleChartMode();
-    logMarketDetailChartModeSwitch({
-      fromMode: isTradingViewNative ? 'native' : 'tradingView',
-      detailKind,
-    });
-  }, [
-    detailKind,
-    handleChartFullscreenChange,
-    isDesktopChartLayout,
-    isTradingViewNative,
-    toggleChartMode,
-  ]);
+  }, [handleChartFullscreenChange, isDesktopChartLayout, toggleChartMode]);
   const handleFullscreenRemove = useCallback(
     ({ data }: { data: { action: NavigationAction } }) => {
       handleChartFullscreenChange(false);
@@ -851,15 +819,13 @@ function MarketDetailV2(
             initialTokenAddress={initialTokenAddress}
           >
             <MarketSimpleChartRangeChangeProvider>
-              <MarketDetailAnalyticsProvider detailKind={detailKind}>
-                <MarketDetail
-                  {...props}
-                  isChartFullscreen={effectiveIsChartFullscreen}
-                  isTradingViewNative={isTradingViewNative}
-                  onChartSwitch={handleChartSwitch}
-                  onChartFullscreenChange={handleChartFullscreenChange}
-                />
-              </MarketDetailAnalyticsProvider>
+              <MarketDetail
+                {...props}
+                isChartFullscreen={effectiveIsChartFullscreen}
+                isTradingViewNative={isTradingViewNative}
+                onChartSwitch={handleChartSwitch}
+                onChartFullscreenChange={handleChartFullscreenChange}
+              />
             </MarketSimpleChartRangeChangeProvider>
           </StockDetailProvider>
         </MarketWatchListProviderMirrorV2>

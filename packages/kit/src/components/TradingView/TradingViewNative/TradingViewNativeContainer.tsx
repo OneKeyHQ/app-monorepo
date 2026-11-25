@@ -299,7 +299,6 @@ const TradingViewNativeContent = memo(
     onChartSwitch,
     onDataStateChange,
     onIntervalChange,
-    onIntervalSelect,
     onNativeChartClose,
     onNativeSubIndicatorCountChange,
     onNativeIndicatorQuickBarChange,
@@ -778,7 +777,6 @@ const TradingViewNativeContent = memo(
       ) => {
         const appliedInterval = applyChartInterval(interval, options);
         if (appliedInterval) publishSyncedInterval(appliedInterval);
-        return appliedInterval;
       },
       [applyChartInterval, publishSyncedInterval],
     );
@@ -786,10 +784,9 @@ const TradingViewNativeContent = memo(
     const handleChartIntervalChange = useCallback(
       (interval: string) => {
         pendingCalendarViewportTargetRef.current = null;
-        const appliedInterval = changeChartInterval(interval);
-        if (appliedInterval) onIntervalSelect?.(appliedInterval);
+        changeChartInterval(interval);
       },
-      [changeChartInterval, onIntervalSelect],
+      [changeChartInterval],
     );
 
     const handleChartTypeChange = useCallback(
