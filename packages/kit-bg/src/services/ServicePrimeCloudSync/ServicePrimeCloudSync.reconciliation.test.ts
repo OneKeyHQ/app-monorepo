@@ -2401,6 +2401,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     [200, 100, 'unreported', false],
     [200, 100, 'bare-deletion', false],
     [200, 100, 'changed-source', false],
+    [200, 100, 'unapplied-source', false],
   ] as const)(
     'checks a foreign deletion at %s against %s (%s) before uploading',
     async (sourceTime, destinationTime, mode, shouldUpload) => {
@@ -2420,7 +2421,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         rawKey: '',
         rawData: '',
         isDeleted: true,
-        localSceneUpdated: true,
+        localSceneUpdated: mode !== 'unapplied-source',
         serverUploaded: true,
       };
       h.pool.set(source.id, source);
@@ -2434,7 +2435,12 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         }
         return reply({
           diff: mode === 'typed-deletion' ? [wire] : [],
-          updated: mode === 'live' || mode === 'changed-source' ? [wire] : [],
+          updated:
+            mode === 'live' ||
+            mode === 'changed-source' ||
+            mode === 'unapplied-source'
+              ? [wire]
+              : [],
           deleted: mode === 'bare-deletion' ? [wire.key] : [],
           reconciliation: undefined,
         });
@@ -2597,6 +2603,12 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           });
         } else if (mode !== 'changed-source') {
           expect(h.pool.get(live.id)).toEqual(live);
+        }
+        if (mode === 'bare-deletion' || mode === 'retain') {
+          expect(h.config().cloudSyncReconciliation).toMatchObject({
+            status: 'complete',
+            unfinished: false,
+          });
         }
       }
     },

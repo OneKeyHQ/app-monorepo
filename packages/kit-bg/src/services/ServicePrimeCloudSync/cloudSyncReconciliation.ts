@@ -1298,6 +1298,7 @@ export function planCrossSpaceDeletionUploads({
     const source = sources.get(wire.key);
     if (
       source &&
+      source.localSceneUpdated &&
       isForeignCloudSyncDeletion(source, spaceId) &&
       !duplicates.has(wire.key) &&
       wire.dataType === source.dataType &&

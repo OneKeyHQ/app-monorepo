@@ -4174,9 +4174,12 @@ class ServicePrimeCloudSync extends ServiceBase {
               spaceId,
               sources: foreignLiveItems,
             });
+            const obsoleted = new Set(response.obsoleted);
             return [
               ...checkedDeletionUploads.keys(),
-              ...checkedLive.withheldDownloads,
+              ...Array.from(checkedLive.uploads.keys()).filter(
+                (id) => !obsoleted.has(id),
+              ),
             ];
           },
           uploadObsoleted: (input) => {
