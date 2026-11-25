@@ -1,6 +1,11 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import { SparkWebSocket, getSparkUpstream, sparkFetch } from './sparkNetwork';
+import {
+  SparkWebSocket,
+  getSparkUpstream,
+  loadingBreezWasm,
+  sparkFetch,
+} from './sparkNetwork';
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -144,12 +149,21 @@ describe('Breez SDK Spark network policy', () => {
     expect(sparkLog.requestFailed).not.toHaveBeenCalled();
   });
 
-  it('lets the SDK load its own wasm binary', async () => {
+  it('lets the SDK load its own wasm binary while it initializes only', async () => {
     const wasmUrl =
       'https://app.onekey.so/static/breez/breez_sdk_spark_wasm_bg.1a2b3c4d.wasm';
-    await sparkFetch(wasmUrl);
+    await loadingBreezWasm(() => sparkFetch(wasmUrl));
 
-    expect(stubFetch).toHaveBeenCalledWith(wasmUrl, undefined);
+    expect(stubFetch).toHaveBeenCalledWith(wasmUrl, { redirect: 'error' });
+    // Later the name of the wasm opens no host.
+    await expect(
+      sparkFetch('https://evil.example/x/breez_sdk_spark_wasm_bg.wasm'),
+    ).rejects.toThrow('Lightning Spark request blocked: evil.example');
+    await expect(
+      loadingBreezWasm(() =>
+        sparkFetch(wasmUrl, { method: 'POST', body: 'data' }),
+      ),
+    ).rejects.toThrow('Lightning Spark request blocked');
   });
 
   it('decompresses the wasm binary the extension ships gzip-compressed', async () => {
@@ -161,9 +175,9 @@ describe('Breez SDK Spark network policy', () => {
     const wasmUrl =
       'https://extension.test/static/breez/breez_sdk_spark_wasm_bg.1a2b3c4d.wasm.gz';
 
-    const response = await sparkFetch(wasmUrl);
+    const response = await loadingBreezWasm(() => sparkFetch(wasmUrl));
 
-    expect(stubFetch).toHaveBeenCalledWith(wasmUrl, undefined);
+    expect(stubFetch).toHaveBeenCalledWith(wasmUrl, { redirect: 'error' });
     // The glue compiles the wasm while it streams in only as application/wasm.
     expect(response.headers.get('content-type')).toBe('application/wasm');
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(wasm);
@@ -175,8 +189,10 @@ describe('Breez SDK Spark network policy', () => {
       async () => new Response('not found', { status: 404 }),
     );
 
-    const response = await sparkFetch(
-      'https://extension.test/static/breez/breez_sdk_spark_wasm_bg.1a2b3c4d.wasm.gz',
+    const response = await loadingBreezWasm(() =>
+      sparkFetch(
+        'https://extension.test/static/breez/breez_sdk_spark_wasm_bg.1a2b3c4d.wasm.gz',
+      ),
     );
 
     expect(response.status).toBe(404);

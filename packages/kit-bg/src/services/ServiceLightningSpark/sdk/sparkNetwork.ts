@@ -25,6 +25,19 @@ const SPARK_UPSTREAMS: Record<string, string> = {
 // development/rspack/loaders/gzipAssetLoader.js).
 const BREEZ_WASM_PATH = /breez_sdk_spark_wasm_bg(\.[0-9a-f]+)?\.wasm(\.gz)?$/;
 
+// Open only while the glue initializes, so the SDK cannot send other requests
+// to any host under the name of its wasm later.
+let isWasmLoadOpen = false;
+
+export async function loadingBreezWasm<T>(init: () => Promise<T>): Promise<T> {
+  isWasmLoadOpen = true;
+  try {
+    return await init();
+  } finally {
+    isWasmLoadOpen = false;
+  }
+}
+
 async function fetchBreezWasm(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
@@ -51,10 +64,10 @@ export async function sparkFetch(
 ): Promise<Response> {
   const request = new Request(input, init);
   const { host, pathname } = new URL(request.url);
-  if (BREEZ_WASM_PATH.test(pathname)) {
-    return fetchBreezWasm(input, init, pathname);
-  }
   const { method } = request;
+  if (isWasmLoadOpen && method === 'GET' && BREEZ_WASM_PATH.test(pathname)) {
+    return fetchBreezWasm(request.url, { redirect: 'error' }, pathname);
+  }
   const upstream = getSparkUpstream(request.url);
   if (!upstream) {
     defaultLogger.lightning.spark.requestBlocked({

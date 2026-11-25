@@ -1,6 +1,8 @@
 // cspell:ignore breeztech
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { loadingBreezWasm } from './sparkNetwork';
+
 import type { IBreezSdkSparkModule } from './types';
 
 // Caps one SDK log line in the app log.
@@ -34,7 +36,7 @@ function forwardSdkLogs(mod: typeof import('@breeztech/breez-sdk-spark')) {
 export function loadBreezSdk(): Promise<IBreezSdkSparkModule> {
   loadPromise ??= (async () => {
     const mod = await import('@breeztech/breez-sdk-spark');
-    await mod.default();
+    await loadingBreezWasm(() => mod.default());
     // Losing the SDK's own log lines must not stop the SDK from loading.
     await forwardSdkLogs(mod).catch(() => undefined);
     return mod;
