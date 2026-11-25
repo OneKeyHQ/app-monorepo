@@ -26,10 +26,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EMarketHomeEntrySource,
-  markMarketHomeEntry,
-} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
@@ -57,6 +53,7 @@ import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
+import { markMarketHomeDeeplinkEntry } from '../../../views/Market/utils/marketHomeEntryNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
@@ -401,7 +398,7 @@ async function processOneKeyAppUniversalLink(
     return true;
   }
   if (target.type === 'market') {
-    markMarketHomeEntry(EMarketHomeEntrySource.Deeplink);
+    markMarketHomeDeeplinkEntry();
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {

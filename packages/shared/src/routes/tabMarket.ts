@@ -91,6 +91,8 @@ export type ITabMarketParamList = {
     marketTokenPreviewId?: string;
     isNative?: boolean;
     from?: EEnterWay;
+    // Analytics only, see IMarketTokenDetailRouteParams.entryCategory.
+    entryCategory?: string;
     disableTrade?: boolean;
     showFavoriteButton?: boolean;
   };

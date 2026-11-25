@@ -71,7 +71,10 @@ import {
 } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
+import {
+  finishMarketDetailTabBarTransition,
+  isMarketTabDetailRoute,
+} from '../utils/marketDetailNavigation';
 import { resolveSwapMarketAsset } from '../utils/resolveSwapMarketAsset';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
@@ -621,7 +624,12 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const routeName = props.route.name;
-  useMarketDetailLeaveAnalytics(navigation);
+  useMarketDetailLeaveAnalytics(navigation, {
+    isMarketTabDetail: isMarketTabDetailRoute(
+      routeName,
+      navigation.getState().routeNames,
+    ),
+  });
   useEffect(() => {
     if (!platformEnv.isNative) return;
     defaultLogger.market.navigation.homeTokenNavigation({

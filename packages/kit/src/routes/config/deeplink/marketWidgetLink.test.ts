@@ -168,6 +168,70 @@ describe('market widget destination mapping', () => {
     expect(takeMarketHomeEntry()).toBe(EMarketHomeEntrySource.Deeplink);
   });
 
+  it.each([
+    [
+      'the Market home is focused',
+      ETabMarketRoutes.TabMarket,
+      undefined,
+      false,
+    ],
+    [
+      'a Market detail is on top of the home',
+      ETabMarketRoutes.MarketDetailV2,
+      undefined,
+      true,
+    ],
+    [
+      'a modal covers the Market home',
+      ETabMarketRoutes.TabMarket,
+      ERootRoutes.Modal,
+      true,
+    ],
+  ] as const)(
+    'marks a home widget link only when it changes focus: %s',
+    async (_, marketRouteName, overlayName, shouldMark) => {
+      resetMarketHomeEntryState();
+      const mainRoute = {
+        key: 'main',
+        name: ERootRoutes.Main,
+        state: {
+          index: 1,
+          routes: [
+            { key: 'home', name: ETabRoutes.Home },
+            {
+              key: 'market',
+              name: ETabRoutes.Market,
+              state: {
+                index: 1,
+                routes: [
+                  { key: 'list', name: ETabMarketRoutes.TabMarket },
+                  { key: 'top', name: marketRouteName },
+                ],
+              },
+            },
+          ],
+        },
+      };
+      mockGetRootState.mockReturnValue({
+        index: overlayName ? 1 : 0,
+        routes: overlayName
+          ? [mainRoute, { key: 'overlay', name: overlayName }]
+          : [mainRoute],
+      } as unknown as NavigationState);
+      await handleMarketWidgetLink({
+        target: { kind: 'home' },
+        shouldContinue: () => true,
+      });
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: { screen: ETabMarketRoutes.TabMarket },
+      });
+      expect(takeMarketHomeEntry()).toBe(
+        shouldMark ? EMarketHomeEntrySource.Deeplink : undefined,
+      );
+    },
+  );
+
   it('does not mark a home entry for a widget link that opens a detail', async () => {
     resetMarketHomeEntryState();
     await handleMarketWidgetLink({

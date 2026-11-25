@@ -19,7 +19,10 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { isInitialSectionConsumed } from '../utils/marketDetailNavigation';
+import {
+  isInitialSectionConsumed,
+  isPendingMarketAssetResolved,
+} from '../utils/marketDetailNavigation';
 
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
@@ -40,6 +43,9 @@ export function useMarketEnterAnalytics(params?: {
     // Clearing the one-shot `initialSection` rewrites params but is the same
     // entry; recording it again would double count it.
     if (isInitialSectionConsumed(previousParams, route.params)) return;
+    // Resolving `pendingMarketAsset` rewrites the asset params of the same
+    // tap; only a different entry identity is a new entry.
+    if (isPendingMarketAssetResolved(previousParams, route.params)) return;
     if (isLazyLoad && isFirstRender.current) {
       isFirstRender.current = false;
       return;
@@ -123,16 +129,18 @@ export function useMarketHomeViewAnalytics(isFocused: boolean) {
 
 /**
  * Flags the removal of a Market detail route (back, pop to top, reset), so a
- * first home view revealed by it is reported as `detailBack`.
+ * first home view revealed by it is reported as `detailBack`. Only a detail in
+ * the Market tab stack reveals the Market home; the same screen in a Swap or
+ * Market modal must not arm the flag.
  */
 export function useMarketDetailLeaveAnalytics(
   navigation: Pick<NavigationProp<ParamListBase>, 'addListener'>,
+  { isMarketTabDetail }: { isMarketTabDetail: boolean },
 ) {
-  useEffect(
-    () =>
-      navigation.addListener('beforeRemove', () => {
-        markMarketDetailLeft();
-      }),
-    [navigation],
-  );
+  useEffect(() => {
+    if (!isMarketTabDetail) return undefined;
+    return navigation.addListener('beforeRemove', () => {
+      markMarketDetailLeft();
+    });
+  }, [isMarketTabDetail, navigation]);
 }

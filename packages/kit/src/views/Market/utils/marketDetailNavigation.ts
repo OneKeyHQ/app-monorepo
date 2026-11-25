@@ -223,6 +223,23 @@ export function isFocusedMarketDetailRouteName(name?: string) {
   );
 }
 
+/**
+ * Whether a MarketDetailV2 screen lives in the Market tab stack. The same
+ * screen also renders in the Swap and Market modal stacks; the Market modal
+ * reuses the `MarketDetailV2` route name, so the stack's own route names
+ * decide, not the route name alone.
+ */
+export function isMarketTabDetailRoute(
+  routeName: string | undefined,
+  stackRouteNames: readonly string[] | undefined,
+) {
+  return Boolean(
+    routeName &&
+    MARKET_DETAIL_V2_ROUTE_NAMES.has(routeName) &&
+    stackRouteNames?.includes(ETabMarketRoutes.TabMarket),
+  );
+}
+
 export function canReuseMarketDetailRoute(
   currentName: string | undefined,
   nextName: string,
@@ -758,6 +775,25 @@ export function isInitialSectionConsumed(previous: unknown, next: unknown) {
     prev?.initialSection !== undefined &&
     cur?.initialSection === undefined &&
     isEqual(omit(prev, 'initialSection'), omit(cur, 'initialSection')),
+  );
+}
+
+/**
+ * Whether a params change only resolved the pending asset of the same entry.
+ * The detail fills in (or clears) the asset fields once the lookup settles,
+ * which is not a new entry.
+ */
+export function isPendingMarketAssetResolved(previous: unknown, next: unknown) {
+  type IEntryParams =
+    | { pendingMarketAsset?: unknown; from?: unknown; entryCategory?: unknown }
+    | undefined;
+  const prev = previous as IEntryParams;
+  const cur = next as IEntryParams;
+  return Boolean(
+    prev?.pendingMarketAsset &&
+    !cur?.pendingMarketAsset &&
+    prev.from === cur?.from &&
+    prev.entryCategory === cur?.entryCategory,
   );
 }
 

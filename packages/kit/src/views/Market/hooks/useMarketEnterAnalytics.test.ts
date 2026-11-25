@@ -15,6 +15,18 @@ import {
   resetMarketHomeEntryState,
 } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalSwapRoutes,
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+
+import {
+  isMarketTabDetailRoute,
+  isPendingMarketAssetResolved,
+} from '../utils/marketDetailNavigation';
+import { markMarketHomeDeeplinkEntry } from '../utils/marketHomeEntryNavigation';
 
 import {
   useMarketDetailLeaveAnalytics,
@@ -55,8 +67,18 @@ jest.mock('../utils/marketDetailNavigation', () => {
   const actual = jest.requireActual<
     typeof import('../utils/marketDetailNavigation')
   >('../utils/marketDetailNavigation');
-  return { isInitialSectionConsumed: actual.isInitialSectionConsumed };
+  return {
+    isInitialSectionConsumed: actual.isInitialSectionConsumed,
+    isPendingMarketAssetResolved: actual.isPendingMarketAssetResolved,
+    isMarketTabDetailRoute: actual.isMarketTabDetailRoute,
+  };
 });
+let mockRootState: unknown;
+jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: {
+    current: { getRootState: () => mockRootState },
+  },
+}));
 
 describe('useMarketEnterAnalytics', () => {
   beforeEach(() => {
@@ -87,6 +109,126 @@ describe('useMarketEnterAnalytics', () => {
     };
     rerender();
     expect(mockDexEnter).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('useMarketEnterAnalytics pending asset', () => {
+  beforeEach(() => {
+    mockDexEnter.mockClear();
+  });
+
+  const pendingParams = {
+    tokenAddress: '',
+    network: '',
+    marketTokenId: 'btc',
+    pendingMarketAsset: { symbol: 'BTC' },
+    from: EEnterWay.MarketList,
+    entryCategory: EMarketEntryCategory.Watchlist,
+  };
+
+  it('records one entry when the pending asset resolves', () => {
+    mockParams = pendingParams;
+    const { rerender } = renderHook(() => useMarketEnterAnalytics());
+    expect(mockDexEnter).toHaveBeenCalledTimes(1);
+
+    mockParams = {
+      ...pendingParams,
+      pendingMarketAsset: undefined,
+      network: 'btc',
+      tokenAddress: '',
+      isNative: true,
+      marketVariantId: 'btc-native',
+    };
+    rerender();
+    expect(mockDexEnter).toHaveBeenCalledTimes(1);
+  });
+
+  it('records one entry when the pending asset falls back to its token', () => {
+    mockParams = { ...pendingParams, network: 'eth', tokenAddress: '0xabc' };
+    const { rerender } = renderHook(() => useMarketEnterAnalytics());
+    mockParams = {
+      ...pendingParams,
+      network: 'eth',
+      tokenAddress: '0xabc',
+      pendingMarketAsset: undefined,
+      marketTokenId: undefined,
+      marketVariantId: undefined,
+      marketTokenCategory: undefined,
+    };
+    rerender();
+    expect(mockDexEnter).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a switch to another asset as a new entry', () => {
+    mockParams = {
+      tokenAddress: '0xabc',
+      network: 'eth',
+      from: EEnterWay.MarketList,
+    };
+    const { rerender } = renderHook(() => useMarketEnterAnalytics());
+    mockParams = {
+      tokenAddress: '0xdef',
+      network: 'eth',
+      from: EEnterWay.MarketList,
+    };
+    rerender();
+    expect(mockDexEnter).toHaveBeenCalledTimes(2);
+  });
+
+  it('records a different entry that clears the pending asset', () => {
+    mockParams = pendingParams;
+    const { rerender } = renderHook(() => useMarketEnterAnalytics());
+    mockParams = {
+      tokenAddress: '0xdef',
+      network: 'eth',
+      from: EEnterWay.Search,
+    };
+    rerender();
+    expect(mockDexEnter).toHaveBeenCalledTimes(2);
+    expect(mockDexEnter).toHaveBeenLastCalledWith({
+      enterWay: EEnterWay.Search,
+    });
+  });
+});
+
+describe('isPendingMarketAssetResolved', () => {
+  it.each([
+    [
+      'resolved for the same entry',
+      { pendingMarketAsset: { symbol: 'BTC' }, from: EEnterWay.MarketList },
+      { from: EEnterWay.MarketList, network: 'btc' },
+      true,
+    ],
+    [
+      'still pending',
+      { pendingMarketAsset: { symbol: 'BTC' }, from: EEnterWay.MarketList },
+      { pendingMarketAsset: { symbol: 'ETH' }, from: EEnterWay.MarketList },
+      false,
+    ],
+    [
+      'a different enter way',
+      { pendingMarketAsset: { symbol: 'BTC' }, from: EEnterWay.MarketList },
+      { from: EEnterWay.Search },
+      false,
+    ],
+    [
+      'a different entry category',
+      {
+        pendingMarketAsset: { symbol: 'BTC' },
+        from: EEnterWay.MarketList,
+        entryCategory: EMarketEntryCategory.Watchlist,
+      },
+      { from: EEnterWay.MarketList },
+      false,
+    ],
+    [
+      'no pending asset before',
+      { from: EEnterWay.MarketList },
+      { from: EEnterWay.MarketList, network: 'btc' },
+      false,
+    ],
+  ])('%s', (_, previous, next, expected) => {
+    expect(isPendingMarketAssetResolved(previous, next)).toBe(expected);
   });
 });
 
@@ -193,6 +335,7 @@ describe('useMarketDetailLeaveAnalytics', () => {
         navigation as unknown as Parameters<
           typeof useMarketDetailLeaveAnalytics
         >[0],
+        { isMarketTabDetail: true },
       ),
     );
     expect(navigation.addListener).toHaveBeenCalledWith(
@@ -208,6 +351,155 @@ describe('useMarketDetailLeaveAnalytics', () => {
       entrySource: EMarketHomeEntrySource.DetailBack,
       isFirstView: true,
     });
+  });
+});
+
+describe('useMarketDetailLeaveAnalytics route scope', () => {
+  beforeEach(() => {
+    mockMarketHomeView.mockClear();
+    resetMarketHomeEntryState();
+  });
+
+  function removeDetail(routeName: string, stackRouteNames: string[]) {
+    let beforeRemove: (() => void) | undefined;
+    const navigation = {
+      addListener: jest.fn((type: string, callback: () => void) => {
+        if (type === 'beforeRemove') beforeRemove = callback;
+        return jest.fn();
+      }),
+    };
+    const detail = renderHook(() =>
+      useMarketDetailLeaveAnalytics(
+        navigation as unknown as Parameters<
+          typeof useMarketDetailLeaveAnalytics
+        >[0],
+        {
+          isMarketTabDetail: isMarketTabDetailRoute(routeName, stackRouteNames),
+        },
+      ),
+    );
+    beforeRemove?.();
+    detail.unmount();
+  }
+
+  it.each([
+    ETabMarketRoutes.MarketDetailV2,
+    ETabMarketRoutes.MarketStockDetail,
+    ETabMarketRoutes.MarketNativeDetail,
+  ])('arms detailBack when a Market tab %s is removed', (routeName) => {
+    removeDetail(routeName, [ETabMarketRoutes.TabMarket, routeName]);
+    renderHook(() => useMarketHomeViewAnalytics(true));
+    expect(mockMarketHomeView).toHaveBeenCalledWith({
+      entrySource: EMarketHomeEntrySource.DetailBack,
+      isFirstView: true,
+    });
+  });
+
+  it.each([
+    [
+      'the Swap SwapProMarketDetail modal',
+      EModalSwapRoutes.SwapProMarketDetail,
+      [EModalSwapRoutes.SwapTokenSelect, EModalSwapRoutes.SwapProMarketDetail],
+    ],
+    [
+      'the Market modal detail',
+      ETabMarketRoutes.MarketDetailV2,
+      ['MarketDetailV2', 'MarketWidgetList'],
+    ],
+  ])('does not arm detailBack when %s is removed', (_, routeName, names) => {
+    removeDetail(routeName, names);
+    renderHook(() => useMarketHomeViewAnalytics(true));
+    expect(mockMarketHomeView).toHaveBeenCalledWith({
+      entrySource: EMarketHomeEntrySource.Other,
+      isFirstView: true,
+    });
+  });
+});
+
+describe('useMarketHomeViewAnalytics deep link entries', () => {
+  beforeEach(() => {
+    mockMarketHomeView.mockClear();
+    resetMarketHomeEntryState();
+    mockRootState = undefined;
+  });
+  afterAll(() => {
+    mockRootState = undefined;
+  });
+
+  function rootStateOnTab(tab: ETabRoutes, marketTop = 'TabMarket') {
+    return {
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            index: tab === ETabRoutes.Market ? 1 : 0,
+            routes: [
+              { name: tab === ETabRoutes.Market ? ETabRoutes.Home : tab },
+              {
+                name: ETabRoutes.Market,
+                state: {
+                  index: marketTop === 'TabMarket' ? 0 : 1,
+                  routes: [
+                    { name: ETabMarketRoutes.TabMarket },
+                    ...(marketTop === 'TabMarket' ? [] : [{ name: marketTop }]),
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+  }
+
+  it('reports a first and a later deep link entry in one runtime', () => {
+    const { rerender } = renderHook(
+      ({ isFocused }: { isFocused: boolean }) =>
+        useMarketHomeViewAnalytics(isFocused),
+      { initialProps: { isFocused: false } },
+    );
+
+    // Deep link from another tab: the first view.
+    mockRootState = rootStateOnTab(ETabRoutes.Home);
+    markMarketHomeDeeplinkEntry();
+    rerender({ isFocused: true });
+    expect(mockMarketHomeView).toHaveBeenCalledTimes(1);
+    expect(mockMarketHomeView).toHaveBeenLastCalledWith({
+      entrySource: EMarketHomeEntrySource.Deeplink,
+      isFirstView: true,
+    });
+
+    // Switch to another tab, then deep link back: a new entry, like tabBar.
+    rerender({ isFocused: false });
+    mockRootState = rootStateOnTab(ETabRoutes.Swap);
+    markMarketHomeDeeplinkEntry();
+    rerender({ isFocused: true });
+    expect(mockMarketHomeView).toHaveBeenCalledTimes(2);
+    expect(mockMarketHomeView).toHaveBeenLastCalledWith({
+      entrySource: EMarketHomeEntrySource.Deeplink,
+      isFirstView: false,
+    });
+  });
+
+  it('does not report a later detail back after a deep link to the focused home', () => {
+    mockRootState = rootStateOnTab(ETabRoutes.Market);
+    const { rerender } = renderHook(
+      ({ isFocused }: { isFocused: boolean }) =>
+        useMarketHomeViewAnalytics(isFocused),
+      { initialProps: { isFocused: true } },
+    );
+    expect(mockMarketHomeView).toHaveBeenCalledTimes(1);
+
+    // Deep link while the home is already focused: no focus change.
+    markMarketHomeDeeplinkEntry();
+    rerender({ isFocused: true });
+
+    // Open a detail and come back within the marker TTL.
+    rerender({ isFocused: false });
+    markMarketDetailLeft();
+    rerender({ isFocused: true });
+    expect(mockMarketHomeView).toHaveBeenCalledTimes(1);
   });
 });
 
