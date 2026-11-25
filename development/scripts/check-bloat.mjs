@@ -497,19 +497,62 @@ function alignReviewTree({ origBase, currentBase, preReviewSha }) {
   return { tree, conflicts };
 }
 
-function stripNonExecutable(source) {
+function stripNonExecutable(source, file) {
   const codeTokens =
     /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|[/`{}]/g;
   const regexpLiteral =
-    /\/(?![/*])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\[\n])+\/[a-z]*/y;
-  const regexpOperator = /(?:^|[=(,:!;?{[]|=>|&&|\|\|)$/;
-  const regexpKeywords = new Set(['return', 'throw', 'case', 'yield', 'await']);
-  const templateTokens = /\\[\s\S]|`|\$\{/g;
+    /\/(?![/*])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\[\n])+\/([dgimsuvy]*)/y;
+  const regexpOperator = /(?:^|[=(,:!;?{[]|=>|&&|\|\||\.\.\.)$/;
+  const regexpKeyword = /[\p{ID_Continue}$]+$/u;
+  const expressionKeywords = new Set(['return', 'throw', 'case']);
+  const contextualKeywords = new Set(['yield', 'await']);
+  const regexpTerminator = /\s*(?:\.(?!\d)|[),;:}\]?]|$)/y;
+  const explicitModule = /\.m[jt]s$/.test(file);
+  const templateTokens = /\\[\s\S]|\x60|\$\{/g;
   const mask = (text) => text.replace(/[^\n]/g, ' ');
   const maskLiteral = (text) => `0${mask(text.slice(1))}`;
   const frames = [];
+  const code = [];
   let cursor = 0;
-  let code = '';
+  let context = '';
+
+  const append = (text) => {
+    code.push(text);
+    const normalized = text.replace(/\s+/g, ' ');
+    // Preserve enough recent tokens to distinguish a spread from member access.
+    const tail =
+      context.endsWith(' ') && normalized.startsWith(' ')
+        ? normalized.slice(1)
+        : normalized;
+    context = (context + tail).slice(-16);
+  };
+
+  const readRegexp = (offset) => {
+    const prefix = context.trimEnd();
+    const word = regexpKeyword.exec(prefix);
+    const beforeWord = word ? prefix.slice(0, word.index).trimEnd() : '';
+    const standalone =
+      word && (!beforeWord.endsWith('.') || beforeWord.endsWith('...'));
+    const afterKeyword = standalone && expressionKeywords.has(word[0]);
+    const afterContextual = standalone && contextualKeywords.has(word[0]);
+    if (
+      !(
+        afterKeyword ||
+        afterContextual ||
+        regexpOperator.test(prefix.slice(-3))
+      )
+    ) {
+      return null;
+    }
+    regexpLiteral.lastIndex = offset;
+    const literal = regexpLiteral.exec(source);
+    if (literal && afterContextual && !explicitModule) {
+      // In scripts, an unflagged regex followed by a delimiter cannot be division.
+      regexpTerminator.lastIndex = regexpLiteral.lastIndex;
+      if (literal[1] || !regexpTerminator.test(source)) return null;
+    }
+    return literal;
+  };
 
   // Template text is inert. Its interpolations can contain nested blocks and templates.
   while (cursor < source.length) {
@@ -518,7 +561,7 @@ function stripNonExecutable(source) {
     tokens.lastIndex = cursor;
     const match = tokens.exec(source);
     const between = source.slice(cursor, match?.index);
-    code += inTemplate ? mask(between) : between;
+    append(inTemplate ? mask(between) : between);
     if (!match) break;
 
     const [token] = match;
@@ -526,42 +569,35 @@ function stripNonExecutable(source) {
     if (inTemplate) {
       if (token === '`') frames.pop();
       if (token === '${') frames.push('expression');
-      code += token === '${' ? ' {' : mask(token);
+      append(token === '${' ? ' {' : mask(token));
     } else if (token === '`') {
       frames.push('template');
-      code += '0';
+      append('0');
     } else if (token === '{' || token === '}') {
       if (frames.length) {
         if (token === '{') frames.push('expression');
         else frames.pop();
       }
-      code += token;
+      append(token);
     } else if (token === '/') {
-      const prefix = code.trimEnd();
-      const word = /[\p{ID_Continue}$]+$/u.exec(prefix);
-      const afterKeyword =
-        word &&
-        regexpKeywords.has(word[0]) &&
-        !prefix.slice(0, word.index).trimEnd().endsWith('.');
-      regexpLiteral.lastIndex = match.index;
-      const literal =
-        (afterKeyword || regexpOperator.test(prefix.slice(-2))) &&
-        regexpLiteral.exec(source);
+      const literal = readRegexp(match.index);
       if (literal) {
-        code += maskLiteral(literal[0]);
+        append(maskLiteral(literal[0]));
         cursor = regexpLiteral.lastIndex;
       } else {
-        code += token;
+        append(token);
       }
     } else {
-      code += token.startsWith('/') ? mask(token) : maskLiteral(token);
+      append(token.startsWith('/') ? mask(token) : maskLiteral(token));
     }
   }
 
-  return code.replace(
-    /^[ \t]*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
-    mask,
-  );
+  return code
+    .join('')
+    .replace(
+      /^[ \t]*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
+      mask,
+    );
 }
 
 function readWorktreeSource(file) {
@@ -570,7 +606,7 @@ function readWorktreeSource(file) {
     : fs.readFileSync(file, 'utf8');
 }
 
-function exactFilePathspec(file) {
+function exactFileSelector(file) {
   // A glob containing an escape matches the whole path, without matching its descendants.
   return `:(top,glob)${file.replace(/^.|[\\*?[\]]/gsu, (character) => `\\${character}`)}`;
 }
@@ -617,11 +653,11 @@ function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
     }
   };
 
-  const selectChangedText = (ranges, readSource) => {
+  const selectChangedText = (ranges, file, readSource) => {
     const changed = ranges.filter(([, length]) => length > 0);
     if (!changed.length) return [];
     // Lex the complete source before selecting zero-context ranges from the patch.
-    const source = stripNonExecutable(readSource()).split('\n');
+    const source = stripNonExecutable(readSource(), file).split('\n');
     return changed.map(([start, length]) =>
       source.slice(start - 1, start - 1 + length).join('\n'),
     );
@@ -639,6 +675,7 @@ function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
   )) {
     const oldPath = previousFile || file;
     const patch = runGit([
+      '--no-literal-pathspecs',
       'diff',
       '-M',
       '-U0',
@@ -648,7 +685,7 @@ function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
       '--no-color',
       ...rangeArgs,
       '--',
-      ...(previousFile ? [previousFile, file] : [file]).map(exactFilePathspec),
+      ...(previousFile ? [previousFile, file] : [file]).map(exactFileSelector),
     ]).stdout;
     const before = [];
     const after = [];
@@ -660,19 +697,20 @@ function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
       if (linesDeleted) before.push([Number(oldStart), Number(oldCount ?? 1)]);
       if (linesAdded) after.push([Number(newStart), Number(newCount ?? 1)]);
     }
-    const added = selectChangedText(after, () =>
+    const added = selectChangedText(after, file, () =>
       toRef
         ? runGit(['show', `${toRef}:${file}`]).stdout
         : readWorktreeSource(file),
     );
     const removed = selectChangedText(
       before,
+      oldPath,
       () => runGit(['show', `${fromRef}:${oldPath}`]).stdout,
     );
     inspectFile(file, added, removed);
   }
   for (const file of untrackedFiles) {
-    inspectFile(file, [stripNonExecutable(readWorktreeSource(file))], []);
+    inspectFile(file, [stripNonExecutable(readWorktreeSource(file), file)], []);
   }
   return { netStateFlags, netBranches, scopeCreepWarnings };
 }
@@ -1002,7 +1040,9 @@ function main() {
     process.exit(0);
   }
   if (opts.pr || opts.since || opts.benchmark) {
-    process.chdir(runGit(['rev-parse', '--show-toplevel']).stdout.trim());
+    process.chdir(
+      runGit(['rev-parse', '--show-toplevel']).stdout.replace(/\n$/, ''),
+    );
   }
   if (opts.benchmark) {
     runBenchmarkMode(opts);

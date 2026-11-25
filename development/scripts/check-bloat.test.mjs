@@ -575,9 +575,11 @@ test('weekly benchmark paginates past 300 and stops at the exact UTC cutoff', ()
   assert.equal(countQuery.limit, 50);
 });
 
-function createGitFixture(t) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'check-bloat-'));
-  t.after(() => fs.rmSync(cwd, { recursive: true }));
+function createGitFixture(t, checkout = 'checkout') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'check-bloat-'));
+  const cwd = path.join(root, checkout);
+  fs.mkdirSync(cwd);
+  t.after(() => fs.rmSync(root, { recursive: true }));
   const git = (...args) =>
     execFileSync('git', args, {
       cwd,
@@ -836,8 +838,8 @@ test('a rename scans exact paths even when its old path becomes a directory', (t
   assert.equal(report.verdict, 'PASS');
 });
 
-test('scans repository-root paths when launched from a subdirectory', (t) => {
-  const { cwd, git, write, commit, run } = createGitFixture(t);
+test('scans root paths from a subdirectory of a checkout ending in a space', (t) => {
+  const { cwd, git, write, commit, run } = createGitFixture(t, 'checkout ');
   const subdirectory = path.join(cwd, 'development', 'scripts');
   fs.mkdirSync(subdirectory, { recursive: true });
   const file = 'development/scripts/Shared.ts';
@@ -850,6 +852,57 @@ test('scans repository-root paths when launched from a subdirectory', (t) => {
     run(reviewed, process.env, subdirectory).stateFlags.netStateFlags,
     1,
   );
+});
+
+test('scans tracked changes with literal Git path parsing enabled in the environment', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  write('Shared.ts', 'const initial = true;\n');
+  const reviewed = commit();
+  const flags = Array.from(
+    { length: 4 },
+    (_, index) => `const ref${index} = useRef();\n`,
+  ).join('');
+  write('Shared.ts', `const initial = true;\n${flags}`);
+  // cspell:ignore PATHSPECS
+  const report = run(reviewed, { ...process.env, GIT_LITERAL_PATHSPECS: '1' });
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
+test('preserves hooks after a regular expression in a spread yield operand', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const initial = 'function* patterns() { return [...yield /[`~]/]; }\n';
+  write('Shared.js', initial);
+  const reviewed = commit();
+  const flags = Array.from(
+    { length: 4 },
+    (_, index) => `const ref${index} = useRef();\n`,
+  ).join('');
+  write('Shared.js', `${initial}${flags}`);
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
+test('keeps division after a CommonJS await identifier and recognizes a delimited awaited regex', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  write('Shared.cjs', 'const initial = true;\n');
+  const reviewed = commit();
+  write(
+    'Shared.cjs',
+    [
+      'function ratio(await, flag, units, g) {',
+      '  const spaced = await / (flag ? 2 : 3) / units;',
+      '  return spaced + await / (flag ? 4 : 5) /g;',
+      '}',
+      'async function read() { const pattern = await /[`~]/; return pattern; }',
+      'const ref = useRef();',
+      '',
+    ].join('\n'),
+  );
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netBranches, 2);
+  assert.equal(report.stateFlags.netStateFlags, 1);
 });
 
 test('preserves literal operands and distinguishes member names followed by division', (t) => {
