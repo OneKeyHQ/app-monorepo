@@ -5,7 +5,7 @@ export interface ITradingViewNativeIntervalSyncMember {
 }
 
 export interface ITradingViewNativeIntervalSync {
-  /** The interval the panels share; undefined until the first panel sets it. */
+  /** The interval the panels share; undefined until a panel sets it. */
   get: () => string | undefined;
   /**
    * Joins a panel. `onChange` is called when another panel changes the shared
@@ -14,10 +14,16 @@ export interface ITradingViewNativeIntervalSync {
   join: (onChange: () => void) => ITradingViewNativeIntervalSyncMember;
 }
 
-/** Holds the interval that every panel of a split view uses. */
-export function createTradingViewNativeIntervalSync(): ITradingViewNativeIntervalSync {
+/**
+ * Holds the interval that every panel of a split view uses. With `start`, the
+ * panels take that interval as they join; without one, they share nothing
+ * until a panel sets it.
+ */
+export function createTradingViewNativeIntervalSync(
+  start?: string,
+): ITradingViewNativeIntervalSync {
   const listeners = new Set<() => void>();
-  let shared: string | undefined;
+  let shared = start;
   return {
     get: () => shared,
     join: (onChange) => {
