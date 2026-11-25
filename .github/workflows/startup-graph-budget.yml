@@ -192,6 +192,9 @@ jobs:
           export MARKET_HOME_TOKEN_SEED_URL
           yarn perf:web:cold
 
+      - name: Run web service worker error auto-reload E2E
+        run: node apps/web/e2e/sw-error-auto-reload.e2e.js
+
       - name: Upload web startup/cold budget reports
         if: always()
         uses: actions/upload-artifact@v4

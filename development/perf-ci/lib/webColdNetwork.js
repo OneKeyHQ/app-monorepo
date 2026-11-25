@@ -131,7 +131,7 @@ const RECORDABLE_ENDPOINTS = [
   { route: 'GET wallet.onekeycn.com/wallet/v1/portfolio/chains' },
   {
     route: 'POST api.hyperliquid.xyz/info',
-    body: /^\{("dex":"[a-z]*",)?"type":"(allMids|allPerpMetas|meta|metaAndAssetCtxs|spotMeta|spotMetaAndAssetCtxs)"\}$/,
+    body: /^\{(("dex":"[a-z]*",)?"type":"(allMids|allPerpMetas|meta|metaAndAssetCtxs|spotMeta|spotMetaAndAssetCtxs)"|"coin":"[A-Za-z0-9:@._-]{1,64}","type":"recentTrades")\}$/,
   },
 ];
 

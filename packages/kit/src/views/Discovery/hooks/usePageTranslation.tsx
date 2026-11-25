@@ -4,7 +4,6 @@ import type { ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Button,
   IconButton,
   Popover,
@@ -298,7 +297,7 @@ export function TranslatePopoverContent({
   const { isPrimeActive, isPrimeSubscriptionActive, isLoggedIn } =
     useOneKeyAuth();
   const isPrimeUser = Boolean(isPrimeSubscriptionActive);
-  const showPrimeBadge = !isTranslated && !isPrimeUser;
+  const showPrimeIcon = !isTranslated && !isPrimeUser;
 
   // Mounted only while the popover is open (on every platform): refresh the
   // free quota so the "Translate" press below can judge an exhausted quota.
@@ -421,7 +420,7 @@ export function TranslatePopoverContent({
             size={actionButtonSize}
             onPress={handleAction}
             testID="discovery-btn"
-            iconAfter={isNative && showPrimeBadge ? 'PrimeOutline' : undefined}
+            iconAfter={showPrimeIcon ? 'PrimeOutline' : undefined}
             childrenAsText={false}
           >
             <SizableText size="$bodyLgMedium" color="$textInverse">
@@ -431,23 +430,6 @@ export function TranslatePopoverContent({
                   : ETranslations.browser_translate_start,
               })}
             </SizableText>
-            {!isNative && showPrimeBadge ? (
-              <Badge
-                testID="discovery-translate-prime-badge"
-                badgeSize="sm"
-                ml="$2"
-                // Translucent inverse tones read on the primary button in both
-                // themes.
-                bg="$bgInverseHover"
-                borderRadius="$full"
-              >
-                <Badge.Text color="$textInverseSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.prime_status_prime,
-                  })}
-                </Badge.Text>
-              </Badge>
-            ) : null}
           </Button>
           {isTranslated && onRetranslate ? (
             <IconButton
@@ -722,6 +704,10 @@ export function usePageTranslation(tabId: string) {
     showActiveRejectedFeedback,
     openPrimeDashboard,
   } = usePrimeFeatureAccess();
+  // The button may hold a callback from before the popover's quota refresh
+  // landed: judge on the snapshot of the latest render.
+  const getCachedAccessRef = useRef(getCachedAccess);
+  getCachedAccessRef.current = getCachedAccess;
   // Free-trial gate of a "Translate" press by a non-Prime user. Active
   // exhaustion is judged at press time on the quota refreshed when the
   // popover opened; a session that hits the limit later only gets a toast.
@@ -739,16 +725,24 @@ export function usePageTranslation(tabId: string) {
     });
     try {
       const userIdAtPress = userRef.current?.onekeyUserId;
+      const pageContextVersionAtPress = pageContextVersionRef.current;
+      const pageUrlAtPress = currentTabUrlRef.current;
+      const isPageOfPress = () =>
+        !isUnmountedRef.current &&
+        pageContextVersionRef.current === pageContextVersionAtPress &&
+        activeTabIdRef.current === tabId &&
+        currentTabUrlRef.current === pageUrlAtPress;
+      // A stale press must not translate, or open the dashboard over
+      // another tab.
+      const isPressContextValid = () =>
+        isPageOfPress() && userIdAtPress === userRef.current?.onekeyUserId;
       const loggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (
-        isUnmountedRef.current ||
-        userIdAtPress !== userRef.current?.onekeyUserId
-      ) {
+      if (!isPressContextValid()) {
         attempt.finish('contextChanged');
         return false;
       }
       if (loggedIn) {
-        const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
+        const access = getCachedAccessRef.current(EPrimeFeatures.DAppTranslate);
         if (access.status === 'exhausted' || access.status === 'notOpen') {
           attempt.finish(access.status, 'client');
           showActiveRejectedFeedback({
@@ -761,8 +755,6 @@ export function usePageTranslation(tabId: string) {
         attempt.finish('granted');
         return true;
       }
-      const pageContextVersionAtPress = pageContextVersionRef.current;
-      const pageUrlAtPress = currentTabUrlRef.current;
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.DAppTranslate,
         trackAttempt: false,
@@ -773,12 +765,9 @@ export function usePageTranslation(tabId: string) {
               ? 'client'
               : undefined,
           ),
-        // Same tab and page after the login, or the translate is dropped.
-        isContextValid: () =>
-          !isUnmountedRef.current &&
-          pageContextVersionRef.current === pageContextVersionAtPress &&
-          activeTabIdRef.current === tabId &&
-          currentTabUrlRef.current === pageUrlAtPress,
+        // Same tab and page after the login (which may create the first
+        // account), or the translate is dropped.
+        isContextValid: isPageOfPress,
       });
       if (access.granted)
         attempt.finish(
@@ -806,7 +795,6 @@ export function usePageTranslation(tabId: string) {
     }
   }, [
     ensureFeatureAccess,
-    getCachedAccess,
     intl,
     isPrimeSubscriptionActive,
     openPrimeDashboard,

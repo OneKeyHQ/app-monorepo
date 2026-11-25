@@ -256,6 +256,15 @@ class WebStorage implements AsyncStorageStatic {
       const result = (await indexed.get(this.tableName, key)) ?? null;
       return result as unknown as string | null;
     } catch (error) {
+      if (
+        resetUtils.getIsResetting() &&
+        error instanceof DOMException &&
+        error.name === 'AbortError' &&
+        error.message === 'The connection was closed.'
+      ) {
+        // Deleting the storage bucket aborts reads from the old renderer.
+        Object.assign(error, { autoToast: false });
+      }
       console.error(
         'WebStorageError getItem ERROR: ',
         (error as Error | undefined)?.message,

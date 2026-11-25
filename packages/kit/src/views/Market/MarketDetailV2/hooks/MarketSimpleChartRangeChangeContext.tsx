@@ -11,13 +11,25 @@ import type {
   IStockSimpleChartRangeChange,
 } from '../components/StockSimpleChart';
 
+export type IReportedSimpleChartRange = IStockSimpleChartRangeChange & {
+  widgetScope?: {
+    assetId?: string;
+    networkId: string;
+    tokenAddress: string;
+    observedAt: number;
+  };
+};
+
 type IReportRangeChange = (
-  change: IStockSimpleChartRangeChange | undefined,
+  change: IReportedSimpleChartRange | undefined,
 ) => void;
 
 // Split so the chart, which only reports, does not re-render on its own report.
 const RangeChangeValueContext = createContext<
   IStockSimpleChartRangeChange | undefined
+>(undefined);
+const WidgetRangeChangeContext = createContext<
+  IReportedSimpleChartRange | undefined
 >(undefined);
 const RangeChangeReportContext = createContext<IReportRangeChange>(
   () => undefined,
@@ -43,16 +55,20 @@ function isSameRangeChange(
 export function MarketSimpleChartRangeChangeProvider({
   children,
 }: PropsWithChildren) {
-  const [change, setChange] = useState<
-    IStockSimpleChartRangeChange | undefined
-  >();
+  const [change, setChange] = useState<IStockSimpleChartRangeChange>();
+  const [widgetChange, setWidgetChange] = useState<IReportedSimpleChartRange>();
   const report = useCallback<IReportRangeChange>((next) => {
     setChange((prev) => (isSameRangeChange(prev, next) ? prev : next));
+    setWidgetChange(
+      next?.widgetScope && next.range === '1D' ? next : undefined,
+    );
   }, []);
   return (
     <RangeChangeReportContext.Provider value={report}>
       <RangeChangeValueContext.Provider value={change}>
-        {children}
+        <WidgetRangeChangeContext.Provider value={widgetChange}>
+          {children}
+        </WidgetRangeChangeContext.Provider>
       </RangeChangeValueContext.Provider>
     </RangeChangeReportContext.Provider>
   );
@@ -60,6 +76,10 @@ export function MarketSimpleChartRangeChangeProvider({
 
 export function useReportMarketSimpleChartRangeChange() {
   return useContext(RangeChangeReportContext);
+}
+
+export function useReportedMarketSimpleChartRange() {
+  return useContext(WidgetRangeChangeContext);
 }
 
 /**

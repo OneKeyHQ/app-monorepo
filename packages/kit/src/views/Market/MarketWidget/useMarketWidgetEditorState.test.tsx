@@ -68,7 +68,7 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
     ) => mockSetEditorDraft(assets, session, visibleAssets),
     finishEditing: (session: string, saved: boolean) =>
       mockFinishEditing(session, saved),
-    searchStocks: (query: string, session?: string) =>
+    searchAssets: (query: string, session?: string) =>
       mockSearchStocks(query, session),
     get refreshEditorState() {
       return mockBackgroundRefreshSupported
@@ -77,6 +77,7 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
     },
   },
 }));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({ isNativeIOS: true }));
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: { isMaskingDataSync: () => mockMasked },
 }));
@@ -123,6 +124,40 @@ describe('market widget editor native snapshot lifecycle', () => {
   });
   afterEach(cleanup);
 
+  it('exposes the saved slot order only after a missing iOS binding recovers', async () => {
+    mockBackgroundRefreshSupported = true;
+    const missing = { ...createState('missing'), settings: [] };
+    const pending = createPendingState();
+    mockGetEditorState.mockResolvedValue(missing);
+    mockRefreshEditorState.mockReturnValue(pending.promise);
+    const { result } = renderHook(() =>
+      useMarketWidgetEditorState('session', undefined, 'binding', 'list'),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.unavailable).toBe(true);
+    expect(result.current.state).toBeUndefined();
+
+    const assets: IMarketWidgetAsset[] = ['SOL', 'BTC', 'ETH'].map(
+      (symbol) => ({
+        kind: 'asset',
+        assetId: symbol.toLowerCase(),
+        name: symbol,
+        symbol,
+      }),
+    );
+    await act(async () =>
+      pending.resolve({
+        ...missing,
+        hot: [...assets].toReversed(),
+        settings: [
+          { id: 'binding', kind: 'list', source: 'hot', name: 'List', assets },
+        ],
+      }),
+    );
+    expect(result.current.unavailable).toBe(false);
+    expect(result.current.state?.settings?.[0]?.assets).toEqual(assets);
+  });
+
   it('keeps selected assets in one native draft across searches and releases it on close', async () => {
     mockDraftSessionsSupported = true;
     mockBeginEditing.mockResolvedValue('draft-session');
@@ -148,7 +183,7 @@ describe('market widget editor native snapshot lifecycle', () => {
       'draft-session',
       [],
     );
-    await act(async () => result.current.searchStocks('AAPL'));
+    await act(async () => result.current.searchAssets('AAPL'));
     expect(result.current.state?.searchAssets).toEqual([asset]);
     expect(mockBeginEditing).toHaveBeenCalledTimes(1);
     unmount();
@@ -351,7 +386,7 @@ describe('market widget editor native snapshot lifecycle', () => {
     });
     const { result } = renderHook(useMarketWidgetEditorState);
     await waitFor(() => expect(result.current.state).toBeDefined());
-    await act(async () => result.current.searchStocks('QQQ'));
+    await act(async () => result.current.searchAssets('QQQ'));
     expect(mockSearchStocks).toHaveBeenCalledWith('QQQ', undefined);
     expect(result.current.state?.searchAssets?.[0]).toMatchObject({
       stockId: 'QQQ',
@@ -370,11 +405,11 @@ describe('market widget editor native snapshot lifecycle', () => {
       expect(result.current.state?.profiles[0].name).toBe('local'),
     );
     act(() => {
-      void result.current.searchStocks('A');
+      void result.current.searchAssets('A');
     });
     await act(async () => undefined);
     act(() => {
-      void result.current.searchStocks('AAPL');
+      void result.current.searchAssets('AAPL');
     });
     await act(async () => undefined);
     await act(async () => {
@@ -388,7 +423,7 @@ describe('market widget editor native snapshot lifecycle', () => {
     const canceled = createPendingState();
     mockSearchStocks.mockReturnValueOnce(canceled.promise);
     act(() => {
-      void result.current.searchStocks('NVDA');
+      void result.current.searchAssets('NVDA');
     });
     await act(async () => undefined);
     act(() => result.current.cancelSearch());
@@ -399,6 +434,60 @@ describe('market widget editor native snapshot lifecycle', () => {
     expect(result.current.isSearching).toBe(false);
   });
 
+  it('keeps partial search results visible and allows the same query to be retried', async () => {
+    const local = createState('local');
+    mockGetEditorState.mockResolvedValue(local);
+    const asset: IMarketWidgetAsset = {
+      kind: 'stock',
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+    };
+    mockSearchStocks
+      .mockResolvedValueOnce({
+        ...local,
+        searchResults: [asset],
+        searchIncomplete: true,
+      })
+      .mockResolvedValueOnce({
+        ...local,
+        searchResults: [asset],
+        searchIncomplete: false,
+      });
+    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => result.current.searchAssets('AAPL'));
+    expect(result.current.state?.searchResults).toEqual([asset]);
+    expect(result.current.searchError).toBe(true);
+    await act(async () => result.current.searchAssets('AAPL'));
+    expect(mockSearchStocks).toHaveBeenCalledTimes(2);
+    expect(result.current.searchError).toBe(false);
+  });
+
+  it('repeats an open picker query after the foreground snapshot has loaded', async () => {
+    const foreground = createPendingState();
+    mockGetEditorState
+      .mockResolvedValueOnce(createState('local'))
+      .mockReturnValueOnce(foreground.promise);
+    mockSearchStocks.mockResolvedValue(createState('search results'));
+    const { result } = renderHook(() =>
+      useMarketWidgetEditorState('session', 'AAPL'),
+    );
+    await waitFor(() => expect(result.current.searchQuery).toBe('AAPL'));
+
+    act(() => mockAppStateChanged?.('background'));
+    act(() => mockAppStateChanged?.('active'));
+    expect(result.current.searchQuery).toBeUndefined();
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => foreground.resolve(createState('foreground')));
+    await waitFor(() => expect(result.current.searchQuery).toBe('AAPL'));
+    expect(mockSearchStocks.mock.calls).toEqual([
+      ['AAPL', 'session'],
+      ['AAPL', 'session'],
+    ]);
+  });
+
   it('prevents stock search while masked and ignores a result received in the background', async () => {
     mockGetEditorState.mockResolvedValue(createState('local'));
     const pending = createPendingState();
@@ -407,12 +496,12 @@ describe('market widget editor native snapshot lifecycle', () => {
     await waitFor(() => expect(result.current.state).toBeDefined());
     mockMasked = true;
     await act(async () => {
-      await result.current.searchStocks('AAPL');
+      await result.current.searchAssets('AAPL');
     });
     expect(mockSearchStocks).not.toHaveBeenCalled();
     mockMasked = false;
     act(() => {
-      void result.current.searchStocks('NVDA');
+      void result.current.searchAssets('NVDA');
     });
     await act(async () => undefined);
     act(() => mockAppStateChanged?.('background'));
@@ -434,7 +523,7 @@ describe('market widget editor native snapshot lifecycle', () => {
       expect(result.current.state?.profiles[0].name).toBe('local'),
     );
     await act(async () => {
-      await result.current.searchStocks('AAPL');
+      await result.current.searchAssets('AAPL');
     });
     await act(async () => {
       metadata.resolve(createState('outdated'));

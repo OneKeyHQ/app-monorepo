@@ -3,7 +3,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 
-import { Toast } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { cloudBackupExitPreventAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -25,8 +25,12 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
-  Dialog: { confirm: jest.fn(), loading: jest.fn(() => mockProgressDialog) },
-  Toast: { success: jest.fn(), error: jest.fn() },
+  Dialog: {
+    confirm: jest.fn(),
+    loading: jest.fn(() => mockProgressDialog),
+    show: jest.fn(),
+  },
+  Toast: { success: jest.fn(), error: jest.fn(), dismiss: jest.fn() },
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -192,8 +196,122 @@ describe.each(['iOS', 'Android'])('%s local restore UI flow', (platform) => {
     });
     expect(mockPasswordDialog.close).not.toHaveBeenCalled();
     expect(service.restorePreparedLocalBackup).not.toHaveBeenCalled();
+    expect(Toast.error).not.toHaveBeenCalled();
     expect(result.current.checkLoading).toBe(false);
   });
+
+  it('retries the same backup with a fresh restore handle after a local storage failure', async () => {
+    service.prepareLocalRestore
+      .mockResolvedValueOnce({ restoreId: 'first-handle' })
+      .mockResolvedValueOnce({ restoreId: 'retry-handle' });
+    service.restorePreparedLocalBackup.mockResolvedValueOnce({
+      success: false,
+      localStorageUnavailable: true,
+    });
+    const { result } = renderHook(() => useCloudBackup());
+    await act(async () => result.current.doRestoreBackup(params));
+
+    expect(mockProgressDialog.close).toHaveBeenCalledTimes(1);
+    expect(Toast.success).not.toHaveBeenCalled();
+    expect(mockNavigation.navigate).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
+    const [{ title, actions }] = jest.mocked(Toast.error).mock.calls[0];
+    expect(title).toBe('Unable to access encrypted local data');
+    const details = Array.isArray(actions) ? actions[0] : actions;
+    await act(async () => details?.onPress?.());
+
+    const [dialog] = jest.mocked(Dialog.show).mock.calls[0];
+    expect(dialog).toMatchObject({
+      description:
+        'This can happen after switching to a new device, transferring data, or reinstalling the app.\n\nPlease try restoring this backup again.',
+      onConfirmText: 'Retry Restore',
+    });
+
+    transfer.prepareImportTask.mockResolvedValueOnce('retry-task');
+    const close = jest.fn(async () => undefined);
+    await act(async () => {
+      await dialog.onConfirm?.({
+        close,
+        getForm: () => undefined,
+        isExist: () => true,
+        preventClose: jest.fn(),
+      });
+    });
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(service.prepareLocalRestore).toHaveBeenNthCalledWith(2, {
+      recordId: params.recordId,
+      password: undefined,
+    });
+    expect(service.restorePreparedLocalBackup).toHaveBeenLastCalledWith({
+      restoreId: 'retry-handle',
+      taskUUID: 'retry-task',
+    });
+    expect(Toast.success).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['import', 'retry'])(
+    'keeps the first restore attempt in control when %s starts first',
+    async (firstAction) => {
+      jest.useFakeTimers();
+      try {
+        const preparation = Promise.withResolvers<{ restoreId: string }>();
+        service.prepareLocalRestore
+          .mockResolvedValueOnce({ restoreId: 'failed-handle' })
+          .mockReturnValueOnce(preparation.promise);
+        service.restorePreparedLocalBackup.mockResolvedValueOnce({
+          success: false,
+          localStorageUnavailable: true,
+        });
+        const { result } = renderHook(() => useCloudBackup());
+        const startImport = () => result.current.doRestoreBackup(params);
+        await act(async () => startImport());
+        act(() => jest.advanceTimersByTime(600));
+
+        const [{ actions }] = jest.mocked(Toast.error).mock.calls[0];
+        const details = Array.isArray(actions) ? actions[0] : actions;
+        await act(async () => details?.onPress?.());
+        const [dialog] = jest.mocked(Dialog.show).mock.calls[0];
+        const startRetry = () =>
+          dialog.onConfirm?.({
+            close: jest.fn(async () => undefined),
+            getForm: () => undefined,
+            isExist: () => true,
+            preventClose: jest.fn(),
+          });
+        const [startFirst, startSecond] =
+          firstAction === 'import'
+            ? [startImport, startRetry]
+            : [startRetry, startImport];
+        let activeAttempt: Promise<void> | undefined;
+        await act(async () => {
+          activeAttempt = Promise.resolve(startFirst());
+        });
+        expect(service.prepareLocalRestore).toHaveBeenCalledTimes(2);
+        expect(result.current.checkLoading).toBe(true);
+        expect(cloudBackupExitPreventAtom.set).toHaveBeenCalledTimes(3);
+
+        await act(async () => startSecond());
+        expect(service.prepareLocalRestore).toHaveBeenCalledTimes(2);
+        expect(transfer.prepareImportTask).toHaveBeenCalledTimes(1);
+        expect(result.current.checkLoading).toBe(true);
+        expect(cloudBackupExitPreventAtom.set).toHaveBeenCalledTimes(3);
+
+        transfer.prepareImportTask.mockResolvedValueOnce('active-task');
+        await act(async () => {
+          preparation.resolve({ restoreId: 'active-handle' });
+          await activeAttempt;
+        });
+        expect(service.restorePreparedLocalBackup).toHaveBeenLastCalledWith({
+          restoreId: 'active-handle',
+          taskUUID: 'active-task',
+        });
+        expect(result.current.checkLoading).toBe(false);
+        expect(cloudBackupExitPreventAtom.set).toHaveBeenCalledTimes(4);
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it('cleans up after local authorization cancellation without falling back to another password dialog', async () => {
     service.prepareLocalRestore.mockResolvedValue({

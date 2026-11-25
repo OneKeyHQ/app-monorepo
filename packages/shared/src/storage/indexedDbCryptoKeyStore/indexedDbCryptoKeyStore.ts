@@ -230,12 +230,39 @@ export async function readCryptoKeyRecord({
   dbName = INDEXED_DB_CRYPTO_KEY_DB_NAME,
   indexedDBInstance,
   keyRef,
+  existingOnly,
 }: {
   dbName?: string;
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
+  existingOnly?: boolean;
 }): Promise<IIndexedDbCryptoKeyRecord | undefined> {
-  const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
+  let db: IDBDatabase;
+  if (existingOnly) {
+    const indexedDB = getIndexedDBInstance(indexedDBInstance);
+    if (typeof indexedDB.databases === 'function') {
+      const databases = await indexedDB.databases();
+      if (!databases.some(({ name }) => name === dbName)) {
+        return undefined;
+      }
+    }
+    const request = indexedDB.open(dbName);
+    let missing = false;
+    request.onupgradeneeded = (event) => {
+      missing = event.oldVersion === 0;
+      request.transaction?.abort();
+    };
+    try {
+      db = await requestToPromise(request);
+    } catch (error) {
+      if (missing && request.error?.name === 'AbortError') {
+        return undefined;
+      }
+      throw error;
+    }
+  } else {
+    db = await openCryptoKeyDb({ dbName, indexedDBInstance });
+  }
   try {
     const transaction = db.transaction(
       INDEXED_DB_CRYPTO_KEY_STORE_NAME,

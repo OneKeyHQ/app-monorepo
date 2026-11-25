@@ -79,15 +79,7 @@
           "initialOrientation": "PORTRAIT_UP"
         }
       ],
-      "expo-secure-store",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Use Camera to scan QR Code.",
-          "microphonePermission": false,
-          "recordAudioAndroid": false
-        }
-      ]
+      "expo-secure-store"
     ]
   }
 }

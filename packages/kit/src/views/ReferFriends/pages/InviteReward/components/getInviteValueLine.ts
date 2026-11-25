@@ -1,5 +1,6 @@
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IInviteUserConfig } from '@onekeyhq/shared/src/referralCode/type';
 
 export interface IInviteValueLineItem {
   subject: string;
@@ -36,10 +37,44 @@ function formatRate(value: number) {
 export function selectInviteValueLineItems({
   commissionRates,
   configs,
+  effectiveConfigs,
+  partnerPlan,
 }: {
   commissionRates: readonly IInviteValueLineItem[];
   configs?: Record<string, IInviteValueLineConfig>;
+  effectiveConfigs?: IInviteUserConfig['configs'];
+  partnerPlan?: IInviteUserConfig['partnerPlan'];
 }): IInviteValueLineItem[] {
+  if (effectiveConfigs !== undefined) {
+    const items: IInviteValueLineItem[] = [];
+    for (const [subject, rate] of Object.entries(effectiveConfigs)) {
+      const productConfig =
+        configs?.[subject] ??
+        (subject === 'Earn' ? configs?.Onchain : undefined);
+      if (isKnownSubject(subject) && productConfig?.enabled !== false) {
+        // A partial result cannot establish the highest personal rate.
+        if (
+          rate.status !== 'ok' ||
+          typeof rate.rebate !== 'number' ||
+          !Number.isFinite(rate.rebate) ||
+          typeof rate.discount !== 'number' ||
+          !Number.isFinite(rate.discount)
+        ) {
+          return [];
+        }
+        items.push({
+          subject,
+          you: rate.rebate,
+          invitee: rate.discount,
+          enabled: true,
+        });
+      }
+    }
+    return items;
+  }
+  if (partnerPlan) {
+    return [];
+  }
   const hasKnownSubject = commissionRates.some((item) =>
     isKnownSubject(item.subject),
   );
@@ -85,6 +120,7 @@ export interface IInviteValueSummary {
 // split lives in the breakdown.
 export function getInviteValueSummary(
   items: readonly IInviteValueLineItem[],
+  { includeZeroRates = false }: { includeZeroRates?: boolean } = {},
 ): IInviteValueSummary | null {
   // `Earn` and `Onchain` share one row, which keeps the higher rate on each
   // side so a better DeFi rebate is never hidden behind the first one.
@@ -94,9 +130,12 @@ export function getInviteValueSummary(
   >();
   for (const item of sortCommissionRateItems([...items])) {
     const labelId = SUBJECT_NAME_IDS[item.subject];
-    // A disabled or 0% product is not something to advertise, so a product
-    // the backend turns off drops out of every rate line on its own.
-    if (labelId && item.enabled && item.you > 0) {
+    // Personal rates include explicit zeroes, which can override a paid tier.
+    if (
+      labelId &&
+      item.enabled &&
+      (item.you > 0 || (includeZeroRates && item.you === 0))
+    ) {
       const friendValue =
         item.invitee !== undefined && item.invitee > 0 ? item.invitee : 0;
       const existing = byLabel.get(labelId);

@@ -116,7 +116,9 @@ describe('buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter', () => {
         layerIndex: 0,
         recordId: parsed.recordId,
       }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({
+      data: { localSecretEnvelopeFailureReason: 'authentication-failed' },
+    });
     await expect(
       adapter.decrypt({
         aad,
@@ -130,6 +132,33 @@ describe('buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter', () => {
         recordId: parsed.recordId,
       }),
     ).rejects.toThrow();
+  });
+
+  it('does not create a key database when preflight checks an envelope from another device', async () => {
+    const { adapter } = buildAdapter();
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|RP|current-kdf-payload',
+      recordId: 'hd-1',
+      strength: 'profile-bound',
+    });
+    const indexedDBInstance = new IDBFactory();
+    const readOnlyAdapter =
+      buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter({
+        indexedDBInstance,
+        readExistingOnly: true,
+      });
+
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope,
+        resolveLayerAdapter: () => readOnlyAdapter,
+      }),
+    ).rejects.toMatchObject({
+      data: { localSecretEnvelopeFailureReason: 'key-missing' },
+    });
+    await expect(indexedDBInstance.databases()).resolves.toEqual([]);
   });
 
   it('keeps the original CryptoKey usable when adding a secure-storage layer', async () => {

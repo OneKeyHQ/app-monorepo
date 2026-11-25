@@ -3,6 +3,15 @@ import { OneKeyLocalError } from '../../errors';
 import type { IPhotoSavePermission, IPickedPhoto } from './type';
 
 function pickImage(): Promise<IPickedPhoto> {
+  if (globalThis.navigator.userActivation?.isActive === false) {
+    return Promise.reject(
+      new DOMException(
+        'File picker requires user activation',
+        'NotAllowedError',
+      ),
+    );
+  }
+
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';

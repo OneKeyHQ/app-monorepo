@@ -138,6 +138,7 @@ export function shouldUpdateSwapHistoryAfterTxState({
   return (
     txStatusRes.state !== swapTxHistory.status ||
     txStatusRes.crossChainStatus !== swapTxHistory.crossChainStatus ||
+    (!!txStatusRes.txId && txStatusRes.txId !== swapTxHistory.txInfo.txId) ||
     shouldTrackPrivateSendStatusChange({ swapTxHistory, txStatusRes }) ||
     shouldTrackHoudiniStateDetailChange({ swapTxHistory, txStatusRes }) ||
     shouldTrackSwapOrderHashChange({ swapTxHistory, txStatusRes }) ||

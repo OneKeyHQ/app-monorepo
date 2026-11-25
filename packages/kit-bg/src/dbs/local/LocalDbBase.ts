@@ -113,6 +113,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -167,6 +168,7 @@ import type {
   ICreateSignedTransactionParams,
 } from '@onekeyhq/shared/types/signatureRecord';
 
+import { takeRecoveryTestFault } from '../../services/recoveryTestFaults';
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import {
   canArchiveSettledForeignAccountHandoff,
@@ -196,7 +198,14 @@ import {
   rejectPublicAccountSnapshotWrite,
   rememberPublicAccountSnapshotWrite,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
-import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
+import {
+  clearWalletLocalSecretEnvelopeIssue,
+  getWalletLocalSecretEnvelopeIssue,
+  hasWalletLocalSecretEnvelopeIssue,
+  markCredentialLocalSecretEnvelopeUnavailableError,
+  recordWalletLocalSecretEnvelopeIssue,
+  reportWalletLocalSecretEnvelopeFailure,
+} from '../../utils/localSecretEnvelopeErrorUtils';
 
 import { EDBAccountType } from './consts';
 import {
@@ -213,6 +222,8 @@ import { ELocalDBStoreNames } from './localDBStoreNames';
 import {
   LOCAL_SECRET_ENVELOPE_INNER_PREFIX,
   buildLocalSecretEnvelopeLayerAdapterResolver,
+  buildLocalSecretEnvelopeReadOnlyResolver,
+  buildWalletRecoverySecureStorageLayerAdapter,
   classifyLocalSecretEnvelopeMigrationCandidate,
   cleanupLocalSecretEnvelopeLayerKeysBestEffort,
   isLocalSecretEnvelopeLayerTopologyDowngrade,
@@ -386,6 +397,7 @@ export type IUpdateDeviceStateResult =
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION = 2;
+const WALLET_LSE_REVALIDATION_TIMEOUT_MS = 1500;
 const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS = timerUtils.getTimeDurationMs({
   minute: 10,
 });
@@ -1028,6 +1040,41 @@ export type IIndexedAccountsCreationPreparedData = {
   // pre-built sync items down to the accounts that survive the in-tx recheck
   syncItemIdByIndexedAccountId: Record<string, string>;
 };
+
+type IHDWalletCreationLog = (
+  event: string,
+  details?: Partial<
+    Parameters<typeof defaultLogger.app.storage.hdWalletCreation>[0]
+  >,
+) => void;
+
+const HD_WALLET_ID_OCCUPIED = new OneKeyLocalError(
+  'HD wallet ID already exists',
+);
+
+function getHDWalletErrorDetails(error: unknown) {
+  if (error === undefined) {
+    return {};
+  }
+  const allowedNames = [
+    'AbortError',
+    'ConstraintError',
+    'InvalidStateError',
+    'NotFoundError',
+    'QuotaExceededError',
+    'TransactionInactiveError',
+  ];
+  if (error instanceof Error && allowedNames.includes(error.name)) {
+    return {
+      errorName: error.name,
+      errorCode: error instanceof DOMException ? error.code : undefined,
+    };
+  }
+  return {
+    errorName:
+      error === HD_WALLET_ID_OCCUPIED ? 'candidate_occupied' : 'unknown',
+  };
+}
 
 type IResolveExistingDeviceParams = {
   rawDeviceId: string;
@@ -2727,6 +2774,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       } catch (error) {
         if (error instanceof LocalSecretEnvelopeUnavailable) {
           markCredentialLocalSecretEnvelopeUnavailableError(error);
+          if (getWalletLocalSecretEnvelopeIssue(error, credential.id)) {
+            const walletName = await this.getWalletCredentialDisplayName(
+              credential.id,
+            );
+            if (
+              (await this.getCredentialSafe(credential.id))?.credential ===
+              originalCredential
+            ) {
+              reportWalletLocalSecretEnvelopeFailure(
+                error,
+                credential.id,
+                walletName,
+              );
+            }
+          }
         }
         throw error;
       }
@@ -3148,6 +3210,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         verifyString: originalVerifyString,
       }),
     ]);
+    await Promise.all(
+      preparedCredentialUpdates.map(({ id }) =>
+        this.revalidateWalletLocalSecretEnvelopeIssueAfterWrite(id),
+      ),
+    );
 
     // A password change re-encrypts every credential and the verifyString with
     // the new password, but records that were not already LSE-wrapped are
@@ -3265,6 +3332,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  private async getWalletCredentialDisplayName(credentialId: string) {
+    if (accountUtils.isImportedAccount({ accountId: credentialId })) {
+      const accountId = accountUtils.getAccountIdFromTonMnemonicCredentialId({
+        credentialId,
+      });
+      return (await this.getAccountSafe({ accountId }))?.name;
+    }
+    const walletId = accountUtils.getWalletIdFromAccountId({
+      accountId: credentialId,
+    });
+    return (await this.getWalletSafe({ walletId, withoutRefill: true }))?.name;
+  }
+
   async getContextVerifyStringInner({
     context,
     resolveLayerAdapter,
@@ -3313,15 +3393,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           envelope: credential.credential,
           resolveLayerAdapter,
         });
-
+      const innerCredential = await unwrapLocalSecretEnvelopeV1({
+        envelope: credential.credential,
+        expectedDataType: 'credential',
+        expectedRecordId: credential.id,
+        resolveLayerAdapter: layerAdapterResolver,
+      });
+      if (markUnavailableForWalletRecovery) {
+        void clearWalletLocalSecretEnvelopeIssue(credentialId).catch(
+          () => undefined,
+        );
+      }
       return {
         ...credential,
-        credential: await unwrapLocalSecretEnvelopeV1({
-          envelope: credential.credential,
-          expectedDataType: 'credential',
-          expectedRecordId: credential.id,
-          resolveLayerAdapter: layerAdapterResolver,
-        }),
+        credential: innerCredential,
       };
     } catch (error) {
       if (
@@ -3329,8 +3414,91 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         error instanceof LocalSecretEnvelopeUnavailable
       ) {
         markCredentialLocalSecretEnvelopeUnavailableError(error);
+        if (
+          error.data &&
+          (await this.getCredentialSafe(credentialId))?.credential ===
+            credential.credential
+        ) {
+          reportWalletLocalSecretEnvelopeFailure(error, credentialId);
+        }
       }
       throw error;
+    }
+  }
+
+  // Null means no issue was found. Undefined means the check was inconclusive.
+  async preflightWalletLocalSecretEnvelope(
+    credentialId: string,
+    expiresAt: number,
+  ) {
+    const credential = await this.getCredentialSafe(credentialId);
+    if (!credential) {
+      return undefined;
+    }
+    const isEnvelope = isLocalSecretEnvelopeString(credential.credential);
+    if (
+      !isEnvelope &&
+      !(await hasWalletLocalSecretEnvelopeIssue(credentialId))
+    ) {
+      return null;
+    }
+    try {
+      if (isEnvelope) {
+        await unwrapLocalSecretEnvelopeV1({
+          envelope: credential.credential,
+          expectedDataType: 'credential',
+          expectedRecordId: credentialId,
+          resolveLayerAdapter: buildLocalSecretEnvelopeReadOnlyResolver(),
+        });
+      }
+      if (
+        Date.now() < expiresAt &&
+        (await this.getCredentialSafe(credentialId))?.credential ===
+          credential.credential
+      ) {
+        await clearWalletLocalSecretEnvelopeIssue(credentialId);
+        return null;
+      }
+    } catch (error) {
+      if (
+        error instanceof LocalSecretEnvelopeUnavailable &&
+        Date.now() < expiresAt &&
+        (await this.getCredentialSafe(credentialId))?.credential ===
+          credential.credential
+      ) {
+        const issue = getWalletLocalSecretEnvelopeIssue(error, credentialId);
+        if (issue && Date.now() < expiresAt) {
+          await recordWalletLocalSecretEnvelopeIssue(issue);
+          return issue;
+        }
+      }
+      // An unsupported layer or interrupted read leaves preflight inconclusive.
+    }
+    return undefined;
+  }
+
+  private async revalidateWalletLocalSecretEnvelopeIssueAfterWrite(
+    credentialId: string,
+  ) {
+    try {
+      const expiresAt = Date.now() + WALLET_LSE_REVALIDATION_TIMEOUT_MS;
+      const revalidate = async () => {
+        if (
+          (await hasWalletLocalSecretEnvelopeIssue(credentialId)) &&
+          Date.now() < expiresAt
+        ) {
+          await this.preflightWalletLocalSecretEnvelope(
+            credentialId,
+            expiresAt,
+          );
+        }
+      };
+      await resolveBeforeTimeout(
+        revalidate(),
+        WALLET_LSE_REVALIDATION_TIMEOUT_MS,
+      );
+    } catch {
+      // Status refresh is best-effort after a successful commit.
     }
   }
 
@@ -3416,12 +3584,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     credential,
     credentialId,
     markUnavailableForWalletRecovery = true,
+    recoverUnavailableSecureStorageKey = false,
     requireLocalSecretEnvelope = false,
     skipLocalPasswordKdfUpgradeCheck = false,
   }: {
     credential: string;
     credentialId: string;
     markUnavailableForWalletRecovery?: boolean;
+    recoverUnavailableSecureStorageKey?: boolean;
     requireLocalSecretEnvelope?: boolean;
     skipLocalPasswordKdfUpgradeCheck?: boolean;
   }): Promise<{
@@ -3486,7 +3656,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       };
     } catch (error) {
       let wrapError = error;
-      if (config.layerAdapters.length > 1) {
+      const shouldRecoverSecureStorageKey =
+        recoverUnavailableSecureStorageKey &&
+        error instanceof Error &&
+        error.name === SECURE_STORAGE_PERMANENT_READ_ERROR_NAME &&
+        config.layerAdapters.some(
+          (adapter) => adapter.kind === 'secure-storage',
+        );
+      if (shouldRecoverSecureStorageKey) {
+        const layerAdapters = config.layerAdapters.map((adapter) =>
+          adapter.kind === 'secure-storage'
+            ? buildWalletRecoverySecureStorageLayerAdapter()
+            : adapter,
+        );
+        try {
+          return {
+            credential: await wrapLocalSecretEnvelopeV1({
+              dataType: 'credential',
+              layerAdapters,
+              plaintext: credential,
+              recordId: credentialId,
+              strength: config.strength,
+            }),
+            layerAdapters,
+          };
+        } catch (recoveryError) {
+          wrapError = recoveryError;
+        }
+      } else if (config.layerAdapters.length > 1) {
         // A layer can fail after its capability probe succeeded. Re-probe once
         // using the bounded provider policy; if only the mandatory base layer
         // remains healthy, this write may continue as single-layer LSE. The
@@ -3526,6 +3723,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         throw wrapError;
       }
       if (
+        shouldRecoverSecureStorageKey ||
         requireLocalSecretEnvelope ||
         (await this.isLocalSecretEnvelopeCredentialMigrationCompleted())
       ) {
@@ -3558,17 +3756,46 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     ).credential;
   }
 
+  private async cleanupUncommittedWalletCredential({
+    credentialId,
+    credential,
+    layerAdapters,
+  }: {
+    credentialId: string;
+    credential: string;
+    layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+  }): Promise<void> {
+    if (!layerAdapters?.length) return;
+    // A failed transaction can already have committed on IndexedDB.
+    const canDiscard = await this.getRecordById({
+      name: ELocalDBStoreNames.Credential,
+      id: credentialId,
+    }).then(
+      (record) => record?.credential !== credential,
+      () => false,
+    );
+    if (canDiscard) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: credential,
+        layerAdapters,
+      });
+    }
+  }
+
   async replaceCredentialWithLocalSecretEnvelopeIfNeeded({
     credential,
     credentialId,
+    recoverUnavailableSecureStorageKey,
   }: {
     credential: string;
     credentialId: string;
+    recoverUnavailableSecureStorageKey?: boolean;
   }): Promise<boolean> {
     const nextCredentialInfo =
       await this.buildCredentialForLocalSecretEnvelopeWrite({
         credential,
         credentialId,
+        recoverUnavailableSecureStorageKey,
       });
     const existingCredential = await this.getCredentialSafe(credentialId);
     let originalCredential: string | undefined;
@@ -3624,13 +3851,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       });
     } catch (error) {
-      if (nextCredentialInfo.layerAdapters?.length) {
+      if (recoverUnavailableSecureStorageKey) {
+        await this.cleanupUncommittedWalletCredential({
+          credentialId,
+          ...nextCredentialInfo,
+        });
+      } else if (nextCredentialInfo.layerAdapters?.length) {
         await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
           envelope: nextCredentialInfo.credential,
           layerAdapters: nextCredentialInfo.layerAdapters,
         });
       }
       throw error;
+    }
+
+    if (
+      !replaced &&
+      (!originalCredential ||
+        originalCredential !== nextCredentialInfo.credential) &&
+      nextCredentialInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: nextCredentialInfo.credential,
+        layerAdapters: nextCredentialInfo.layerAdapters,
+      });
     }
 
     if (downgradeBlocked) {
@@ -3647,18 +3891,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     if (
-      !replaced &&
-      (!originalCredential ||
-        originalCredential !== nextCredentialInfo.credential) &&
-      nextCredentialInfo.layerAdapters?.length
-    ) {
-      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
-        envelope: nextCredentialInfo.credential,
-        layerAdapters: nextCredentialInfo.layerAdapters,
-      });
-    }
-
-    if (
       replaced &&
       originalCredential &&
       originalCredential !== nextCredentialInfo.credential &&
@@ -3671,6 +3903,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     }
 
+    if (replaced) {
+      await this.revalidateWalletLocalSecretEnvelopeIssueAfterWrite(
+        credentialId,
+      );
+    }
     return replaced;
   }
 
@@ -4729,7 +4966,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     skipIfExists: boolean;
     applyRestoreSyncPolicy?: boolean;
-    walletSnapshot?: { wallet: IDBWallet; device: IDBDevice };
+    walletSnapshot?: { wallet: IDBWallet; device?: IDBDevice };
   }): Promise<IIndexedAccountsCreationPreparedData> {
     this.validateIndexedAccountWalletId({ walletId });
 
@@ -5273,7 +5510,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId,
     });
     const wallet = requireLocalDbRecord(walletRecord, 'Wallet');
-    console.log('txAddHDNextIndexedAccount get wallet', wallet);
     let nextIndex = this.getNextIdsValue({
       nextIds: wallet.nextIds,
       key: 'accountHdIndex',
@@ -6103,6 +6339,172 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     wallet: IDBWallet;
     indexedAccount: IDBIndexedAccount | undefined;
   }> {
+    const context = await this.getContext({
+      verifyPassword: params.password,
+      skipLazyUpgrade: true,
+    });
+    if (params.overrideWalletId || params.isKeylessWallet) {
+      return this.createHDWalletAtNumber({
+        params,
+        context,
+        nextHD: context.nextHD,
+      });
+    }
+
+    const operationId = stringUtils.generateUUID();
+    const startedAt = Date.now();
+    let sequence = 0;
+    const log: IHDWalletCreationLog = (event, details) => {
+      const timestamp = Date.now();
+      sequence += 1;
+      const entry: Parameters<
+        typeof defaultLogger.app.storage.hdWalletCreation
+      >[0] = {
+        operationId,
+        source: params.creationSource ?? 'unknown',
+        sequence,
+        timestamp,
+        elapsedMs: timestamp - startedAt,
+        event,
+        ...details,
+      };
+      queueMicrotask(() => defaultLogger.app.storage.hdWalletCreation(entry));
+    };
+    const userAgent = globalThis.navigator?.userAgent ?? '';
+    log('operation_start', {
+      nextHD: context.nextHD,
+      nextWalletNo: context.nextWalletNo,
+      appVersion: platformEnv.version ?? 'unknown',
+      buildNumber: platformEnv.buildNumber ?? 'unknown',
+      bundleVersion: platformEnv.bundleVersion ?? 'unknown',
+      githubSHA: platformEnv.githubSHA ?? 'unknown',
+      browserVersion: platformEnv.browserInfo ?? 'unknown',
+      platform: platformEnv.appPlatform ?? 'unknown',
+      osVersion: userAgent.match(/Windows NT ([\d.]+)/)?.[1] ?? 'unknown',
+      electronVersion: userAgent.match(/Electron\/([\d.]+)/)?.[1] ?? 'unknown',
+    });
+    const simulateOccupied =
+      params.creationSource === 'create' &&
+      (await takeRecoveryTestFault('hdWalletIdOccupied'));
+    for (const attempt of [0, 1]) {
+      const nextHD = context.nextHD + attempt;
+      const candidate = accountUtils.buildHdWalletId({ nextHD });
+      const logAttempt: IHDWalletCreationLog = (event, details) => {
+        log(event, { attempt, candidate, ...details });
+      };
+      try {
+        const occupied = await this.withTransaction(
+          EIndexedDBBucketNames.account,
+          (tx) => this.checkHDWalletNumber({ tx, candidate, log: logAttempt }),
+          { readOnly: true, skipCloudCredentialWarmup: true },
+        );
+        if (attempt === 0 && simulateOccupied) {
+          logAttempt('developer_fault_injected');
+          appEventBus.emit(EAppEventBusNames.ShowToast, {
+            method: 'error',
+            title: `开发者模拟：HD 编号 ${candidate} 已占用`,
+            message: '正在用下一编号继续创建钱包。',
+          });
+          throw HD_WALLET_ID_OCCUPIED;
+        }
+        if (occupied) {
+          throw HD_WALLET_ID_OCCUPIED;
+        }
+        const result = await this.createHDWalletAtNumber({
+          params,
+          context,
+          nextHD,
+          log: logAttempt,
+        });
+        logAttempt('operation_committed');
+        return result;
+      } catch (error) {
+        logAttempt('attempt_failed', getHDWalletErrorDetails(error));
+        try {
+          await this.withTransaction(
+            EIndexedDBBucketNames.account,
+            async (tx) => {
+              const [persisted] = await this.txGetContext({ tx });
+              await this.checkHDWalletNumber({
+                tx,
+                candidate,
+                log: logAttempt,
+                event: 'post_failure_check',
+              });
+              logAttempt('post_failure_context', {
+                nextHD: persisted?.nextHD,
+                nextWalletNo: persisted?.nextWalletNo,
+              });
+            },
+            { readOnly: true, skipCloudCredentialWarmup: true },
+          );
+        } catch (verificationError) {
+          logAttempt(
+            'post_failure_check_failed',
+            getHDWalletErrorDetails(verificationError),
+          );
+        }
+        if (error !== HD_WALLET_ID_OCCUPIED) {
+          throw error;
+        }
+        if (attempt === 1) {
+          logAttempt('retry_limit_reached');
+          throw new OneKeyLocalError(
+            'Both available HD wallet IDs are already in use. Contact OneKey support.',
+          );
+        }
+        logAttempt('retry_scheduled', {
+          newNextHD: nextHD + 1,
+        });
+      }
+    }
+    throw new OneKeyLocalError('No available HD wallet ID');
+  }
+
+  private async checkHDWalletNumber({
+    tx,
+    candidate,
+    log,
+    event = 'candidate_check',
+  }: {
+    tx: ILocalDBTransaction;
+    candidate: string;
+    log: IHDWalletCreationLog;
+    event?: string;
+  }) {
+    const [wallet, credential] = await Promise.all([
+      this.txGetRecordsCount({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        id: candidate,
+      }),
+      this.txGetRecordsCount({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        id: candidate,
+      }),
+    ]);
+    log(event, {
+      walletExists: wallet.count > 0,
+      credentialExists: credential.count > 0,
+    });
+    return wallet.count > 0 || credential.count > 0;
+  }
+
+  private async createHDWalletAtNumber({
+    params,
+    context,
+    nextHD,
+    log,
+  }: {
+    params: IDBCreateHDWalletParams;
+    context: IDBContext;
+    nextHD: number;
+    log?: IHDWalletCreationLog;
+  }): Promise<{
+    wallet: IDBWallet;
+    indexedAccount: IDBIndexedAccount | undefined;
+  }> {
     const {
       password,
       name,
@@ -6122,15 +6524,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       accountUtils.isBotWallet({ walletId: overrideWalletId }),
     );
     const shouldConsumeNextHD = !overrideWalletId;
+    const usesNumberedId = shouldConsumeNextHD && !isKeylessWallet;
     // Bot wallets reuse the parent-derived wallet id, but still need a unique
     // walletNo for sorting and fallback ordering.
     const shouldConsumeNextWalletNo = !overrideWalletId || isBotWalletOverride;
-    const context = await this.getContext({
-      verifyPassword: password,
-      skipLazyUpgrade: true,
-    });
     let walletId = accountUtils.buildHdWalletId({
-      nextHD: context.nextHD,
+      nextHD,
     });
     if (overrideWalletId) {
       walletId = overrideWalletId;
@@ -6148,7 +6547,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         xfp: walletXfp || '',
       });
     }
-    const defaultWalletName = `Wallet ${context.nextHD}`;
+    const defaultWalletName = `Wallet ${nextHD}`;
     const initWalletName = name || defaultWalletName;
 
     const firstAccountIndex = 0;
@@ -6189,12 +6588,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name: initWalletName,
       avatar: initAvatarInfo ?? randomAvatar(),
     });
-
-    const credentialToCreate =
-      await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
-        credentialId: walletId,
-        credential: rs,
-      });
 
     if (!currentWalletToCreate) {
       throw new OneKeyLocalError('currentWalletToCreate is undefined');
@@ -6269,74 +6662,190 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           : undefined,
       });
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      if (!currentWalletToCreate) {
-        return;
-      }
-
-      await syncManager.txWithSyncFlowOfDBRecordCreating({
-        tx,
-        newSyncItems,
-        existingSyncItems,
-        runDbTxFn: async () => {
-          console.log('add db wallet');
-          // add db wallet
-          await this.txAddRecords({
-            tx,
-            name: ELocalDBStoreNames.Wallet,
-            records: [currentWalletToCreate].filter(Boolean),
-          });
-          console.log('add db credential');
-
-          // add db credential
-          await this.txAddRecords({
-            tx,
-            name: ELocalDBStoreNames.Credential,
-            records: [
-              {
-                id: walletId,
-                // type: 'hd',
-                // TODO save object to realmDB?
-                credential: credentialToCreate,
-              },
-            ],
-          });
-
-          // add first indexed account
-          if (!skipAddHDNextIndexedAccount && !isBotWalletOverride) {
-            console.log('add first indexed account');
-            const { nextIndex } = await this.txAddHDNextIndexedAccount({
-              tx,
-              walletId,
-              onlyAddFirst: true,
-              skipServerSyncFlow: false,
-            });
-            addedHdAccountIndex = nextIndex;
-          }
-
-          if (shouldConsumeNextHD || shouldConsumeNextWalletNo) {
-            console.log('increase wallet counters');
-            await this.txUpdateContext({
-              tx,
-              updater: (ctx) => {
-                if (shouldConsumeNextHD) {
-                  ctx.nextHD += 1;
-                }
-                if (shouldConsumeNextWalletNo) {
-                  ctx.nextWalletNo += 1;
-                }
-                return ctx;
-              },
-            });
-          }
-        },
-      });
+    const shouldAddFirstAccount =
+      !skipAddHDNextIndexedAccount && !isBotWalletOverride;
+    const walletToCreate = currentWalletToCreate;
+    log?.('first_account_prepare_start');
+    let firstIndexedAccountPrepared:
+      | IIndexedAccountsCreationPreparedData
+      | undefined;
+    try {
+      firstIndexedAccountPrepared = shouldAddFirstAccount
+        ? await this.prepareIndexedAccountsCreationData({
+            walletId,
+            indexes: [firstAccountIndex],
+            skipIfExists: false,
+            walletSnapshot: {
+              wallet: { ...walletToCreate, avatarInfo: currentAvatarInfo },
+            },
+          })
+        : undefined;
+    } catch (error) {
+      log?.('first_account_prepare_failed', getHDWalletErrorDetails(error));
+      throw error;
+    }
+    log?.('first_account_prepare_end', {
+      stage: shouldAddFirstAccount ? 'prepared' : 'skipped',
     });
 
+    const transactionId = log ? stringUtils.generateUUID() : undefined;
+    const committedSyncItems: IDBCloudSyncItem[] = [];
+    let stage = 'candidate_check';
+    const logTransaction: IHDWalletCreationLog = (event, details) => {
+      log?.(event, { transactionId, stage, ...details });
+    };
+    const { credential: credentialToCreate, layerAdapters } =
+      await this.buildCredentialForLocalSecretEnvelopeWrite({
+        credentialId: walletId,
+        credential: rs,
+        recoverUnavailableSecureStorageKey:
+          params.recoverUnavailableSecureStorageKey,
+      });
+    await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        tx.deferCloudSyncUntilCommit = (items) => {
+          committedSyncItems.push(...items);
+        };
+        if (
+          usesNumberedId &&
+          (await this.checkHDWalletNumber({
+            tx,
+            candidate: walletId,
+            log: logTransaction,
+          }))
+        ) {
+          throw HD_WALLET_ID_OCCUPIED;
+        }
+        if (shouldConsumeNextWalletNo) {
+          const [record] = await this.txGetContext({ tx });
+          const liveContext = requireLocalDbRecord(record, 'Context');
+          if (usesNumberedId && liveContext.nextHD > nextHD) {
+            throw new OneKeyLocalError(
+              'HD wallet counter changed during creation. Try again.',
+            );
+          }
+          walletToCreate.walletNo = liveContext.nextWalletNo;
+        }
+
+        await syncManager.txWithSyncFlowOfDBRecordCreating({
+          tx,
+          newSyncItems,
+          existingSyncItems,
+          runDbTxFn: async () => {
+            try {
+              stage = 'Wallet.add';
+              logTransaction('request_start');
+              await this.txAddRecords({
+                tx,
+                name: ELocalDBStoreNames.Wallet,
+                records: [walletToCreate],
+              });
+              logTransaction('request_success');
+
+              stage = 'Credential.add';
+              logTransaction('request_start');
+              await this.txAddRecords({
+                tx,
+                name: ELocalDBStoreNames.Credential,
+                records: [{ id: walletId, credential: credentialToCreate }],
+              });
+              logTransaction('request_success');
+            } catch (error) {
+              logTransaction('request_failed', getHDWalletErrorDetails(error));
+              if (
+                usesNumberedId &&
+                error instanceof Error &&
+                error.name === 'ConstraintError'
+              ) {
+                throw HD_WALLET_ID_OCCUPIED;
+              }
+              throw error;
+            }
+
+            if (shouldAddFirstAccount) {
+              stage = 'IndexedAccount.add';
+              logTransaction('request_start');
+              const { nextIndex } = await this.txAddHDNextIndexedAccount({
+                tx,
+                walletId,
+                onlyAddFirst: true,
+                skipServerSyncFlow: false,
+                prepared: firstIndexedAccountPrepared,
+              });
+              addedHdAccountIndex = nextIndex;
+              logTransaction('request_success');
+            }
+
+            if (shouldConsumeNextHD || shouldConsumeNextWalletNo) {
+              stage = 'Context.put';
+              logTransaction('nextHD_update_start');
+              try {
+                await this.txUpdateContext({
+                  tx,
+                  updater: (ctx) => {
+                    const newNextHD = usesNumberedId
+                      ? nextHD + 1
+                      : ctx.nextHD + 1;
+                    logTransaction('context_values', {
+                      nextHD: ctx.nextHD,
+                      nextWalletNo: ctx.nextWalletNo,
+                      newNextHD: shouldConsumeNextHD ? newNextHD : ctx.nextHD,
+                      newNextWalletNo: shouldConsumeNextWalletNo
+                        ? ctx.nextWalletNo + 1
+                        : ctx.nextWalletNo,
+                    });
+                    if (shouldConsumeNextHD) {
+                      ctx.nextHD = newNextHD;
+                    }
+                    if (shouldConsumeNextWalletNo) {
+                      ctx.nextWalletNo += 1;
+                    }
+                    return ctx;
+                  },
+                });
+              } catch (error) {
+                logTransaction(
+                  'request_failed',
+                  getHDWalletErrorDetails(error),
+                );
+                throw error;
+              }
+              logTransaction('request_success');
+            }
+          },
+        });
+      },
+      {
+        confirmRollbackOnError: usesNumberedId,
+        observeIndexedTransaction: log
+          ? (event, error) =>
+              logTransaction(event, getHDWalletErrorDetails(error))
+          : undefined,
+      },
+    ).catch(async (error: unknown) => {
+      if (params.recoverUnavailableSecureStorageKey) {
+        await this.cleanupUncommittedWalletCredential({
+          credentialId: walletId,
+          credential: credentialToCreate,
+          layerAdapters,
+        });
+      }
+      throw error;
+    });
+
+    if (committedSyncItems.length) {
+      void this.backgroundApi.servicePrimeCloudSync
+        .startServerSyncFlowForItems({
+          localItems: committedSyncItems,
+        })
+        .catch(() => logTransaction('post_commit_sync_failed'));
+    }
     const result = await this.buildCreateHDAndHWWalletResult({
       walletId,
       addedHdAccountIndex,
     });
+    await this.revalidateWalletLocalSecretEnvelopeIssueAfterWrite(walletId);
     this.runPostPasswordVerifiedLazyUpgrade({ password });
     return result;
   }
@@ -10978,6 +11487,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         envelope: replacedImportedCredential,
         layerAdapters: importedCredentialToAddInfo.layerAdapters,
       });
+    }
+    if (importedCredentialId && importedCredentialToAdd) {
+      await this.revalidateWalletLocalSecretEnvelopeIssueAfterWrite(
+        importedCredentialId,
+      );
     }
 
     // saveAccountAddresses

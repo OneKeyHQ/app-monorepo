@@ -65,7 +65,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
-import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
@@ -107,6 +106,7 @@ import {
   isWebInDappMode,
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
+import { isLocalSecretEnvelopeKeyLossDevBuild } from '@onekeyhq/shared/src/utils/localSecretEnvelopeDevUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
@@ -146,6 +146,7 @@ import { SectionLoggerParityItem } from './SectionLoggerParityItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
+import { SwapLiveActivityPanel } from './SwapLiveActivityPanel';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
 const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
@@ -174,27 +175,6 @@ const LazyNativeStorageRecoveryTestPanel = LazyLoad(async () => {
 });
 
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
-
-type ILocalSecretEnvelopeSimulatedKeyLossResult = {
-  credentialCount: number;
-  deletedLayers: Array<{
-    kind: string;
-    keyRef: string;
-    recordCount: number;
-  }>;
-  lseCredentialCount: number;
-  preservedLayers: Array<{
-    kind: string;
-    keyRef: string;
-    recordCount: number;
-  }>;
-};
-
-type IServiceE2EWithLocalSecretEnvelopeDevTools = {
-  simulateLocalSecretEnvelopeCredentialKeyLoss: (
-    params: IBackgroundMethodWithDevOnlyPassword,
-  ) => Promise<ILocalSecretEnvelopeSimulatedKeyLossResult>;
-};
 
 const DevSettingsAccordionTrigger = ({
   title,
@@ -928,36 +908,31 @@ const BaseDevSettingsSection = () => {
     );
   }, [navigation]);
 
+  const canSimulateWalletKeyLoss =
+    devSettings.enabled && isLocalSecretEnvelopeKeyLossDevBuild();
   const handleSimulateLocalSecretEnvelopeCredentialKeyLoss = useCallback(() => {
+    if (!canSimulateWalletKeyLoss) return;
     showDevOnlyPasswordDialog({
-      title: 'Danger Zone: Simulate LSE Credential Key Loss',
+      title: 'Simulate a New Device for All Wallets',
       description:
-        'Deletes secure-storage / Keychain layer keys referenced by current LSE credentials when present. Falls back to CryptoKey only when there is no secure-storage layer. This simulates a migrated device missing non-portable local LSE material and may make affected wallets inaccessible until restored again.',
+        'This permanently deletes eligible local LSE keys for all existing wallets in this development app. Wallet records stay in place. Use test wallets you can re-import with their original recovery material.',
+      confirmText: 'Delete Device Keys',
       confirmButtonProps: {
         testID: SettingTestIDs.localSecretEnvelopeSimulateKeyLossConfirm,
       },
       onConfirm: async (params) => {
-        const serviceE2E =
-          backgroundApiProxy.serviceE2E as unknown as IServiceE2EWithLocalSecretEnvelopeDevTools;
         const result =
-          await serviceE2E.simulateLocalSecretEnvelopeCredentialKeyLoss(params);
-        if (result.deletedLayers.length) {
-          Toast.success({
-            title: 'LSE local keys deleted',
-            message: `${result.deletedLayers.length} key(s), ${result.lseCredentialCount} LSE credential(s) affected`,
-          });
-        } else {
-          Toast.message({
-            title: 'No LSE credential local keys found',
-            message: `${result.credentialCount} credential(s) scanned`,
-          });
-        }
-        Dialog.debugMessage({
-          debugMessage: result,
+          await backgroundApiProxy.serviceE2E.simulateLocalSecretEnvelopeCredentialKeyLoss(
+            params,
+          );
+        Dialog.show({
+          title: 'New Device Simulation Results',
+          description: `${result.affectedWalletCount} of ${result.walletCount} LSE wallets affected. ${result.skippedWalletCount} skipped. ${result.deletedKeyCount} keys deleted, ${result.protectedKeyCount} shared keys preserved, ${result.failedKeyCount} deletions failed.${result.stopped ? ' Deletion stopped when local state changed.' : ''}`,
+          showCancelButton: false,
         });
       },
     });
-  }, []);
+  }, [canSimulateWalletKeyLoss]);
 
   const handleTriggerReferralBindGuardIn10s = useCallback(() => {
     Toast.message({
@@ -1202,7 +1177,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '模拟 HD 钱包创建与 App 重置故障 故障注入 Reset App OK-67292 OK-67382 开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test Live Activity Demo 灵动岛 实时活动 AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1669,6 +1644,24 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      {devSettings.enabled ? (
+                        <SectionPressItem
+                          icon="Lab2Outline"
+                          title="模拟 HD 钱包创建与 App 重置故障"
+                          subtitle="下一次创建普通 HD 钱包模拟编号占用，下一次重置 App 模拟远程撤销超时，各触发一次"
+                          searchKeywords="故障注入 HD wallet Reset App OK-67292 OK-67382"
+                          testID="arm-recovery-fault-simulation"
+                          onPress={async () => {
+                            try {
+                              await backgroundApiProxy.serviceDevSetting.armRecoveryFaultSimulation();
+                              Toast.success({ title: '已设置两项一次性模拟' });
+                            } catch {
+                              Toast.error({ title: '设置故障模拟失败' });
+                            }
+                          }}
+                        />
+                      ) : null}
+
                       <SectionFieldItem
                         icon="LayoutWindowOutline"
                         name="showDevOverlayWindow"
@@ -1754,18 +1747,20 @@ const BaseDevSettingsSection = () => {
                         }
                       />
 
-                      <SectionPressItem
-                        icon="DeleteOutline"
-                        title="Simulate LSE Credential Key Loss"
-                        subtitle="Prefer deleting Keychain / secure-storage LSE keys; fallback to CryptoKey only when no secure-storage layer exists"
-                        testID={
-                          SettingTestIDs.localSecretEnvelopeSimulateKeyLossButton
-                        }
-                        searchKeywords="Local Secret Envelope LSE simulate migration new device key loss delete Keychain CryptoKey secureStorage IndexedDB credential"
-                        onPress={
-                          handleSimulateLocalSecretEnvelopeCredentialKeyLoss
-                        }
-                      />
+                      {canSimulateWalletKeyLoss ? (
+                        <SectionPressItem
+                          icon="DeleteOutline"
+                          title="Simulate a New Device for All Wallets"
+                          subtitle="Permanently deletes eligible LSE device keys for existing wallets"
+                          testID={
+                            SettingTestIDs.localSecretEnvelopeSimulateKeyLossButton
+                          }
+                          searchKeywords="Local Secret Envelope LSE simulate migration new device key loss Keychain CryptoKey IndexedDB"
+                          onPress={
+                            handleSimulateLocalSecretEnvelopeCredentialKeyLoss
+                          }
+                        />
+                      ) : null}
 
                       <SectionPressItem
                         icon="SwitchHorOutline"
@@ -1869,6 +1864,20 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNativeIOS ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="BTC Swap Live Activity"
+                          subtitle="OK-60951 · mock scenarios"
+                          testID="swap-live-activity-menu"
+                          onPress={() => {
+                            inPageDialog.cancel({
+                              title: 'BTC Swap Live Activity',
+                              renderContent: <SwapLiveActivityPanel />,
+                            });
+                          }}
+                        />
+                      ) : null}
                       <SectionPressItem
                         icon="SendOutline"
                         title="Notification Payload Test"

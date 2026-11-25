@@ -46,6 +46,7 @@ const mockActions = {
   finishSwapProTokenBalanceRequest: jest.fn(),
   invalidateSwapProTokenBalanceRequest: jest.fn(),
   isSwapProTokenBalanceRequestLatest: jest.fn(() => true),
+  syncSwapProReceiveTokenDetail: jest.fn().mockResolvedValue(undefined),
 };
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
@@ -73,6 +74,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
 
 jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapActions: () => ({ current: mockActions }),
+  useSwapContextData: () => ({ store: undefined }),
   useSwapProSelectTokenAtom: () => [
     mockHistoryState ? mockHistoryState.token : mockToken,
     (value?: ISwapToken) => {

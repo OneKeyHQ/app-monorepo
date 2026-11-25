@@ -200,6 +200,12 @@ export interface IMarketPresetTokenContext {
   isNative?: boolean;
 }
 
+export interface ISwapTabPrefill {
+  requestId: string;
+  fromToken: IMarketPresetTokenContext;
+  toToken: IMarketPresetTokenContext;
+}
+
 export interface ISwapInitParams {
   // The current Market token side; resolved using Swap's loaded capabilities.
   marketSwapDirection?: 'from' | 'to';
@@ -208,6 +214,9 @@ export interface ISwapInitParams {
   importAccountKey?: string;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
+  swapTabNavigationId?: string;
+  swapTabPrefill?: ISwapTabPrefill;
+  onSwapTabPrefillHandled?: (requestId: string) => void;
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
   swapSource?: ESwapSource;
@@ -262,10 +271,8 @@ export interface ISwapTokenBase {
   speedSwapDefaultAmount?: number[];
   supportProtocol?: boolean;
   isStock?: boolean;
-  // Scaled-UI (rebase) token multiplier, copied from the wallet token
-  // snapshot at the wallet->swap boundary. Swap has no end-to-end
-  // scaled-UI support; gates use this to fail-close (see swap actions).
-  // /swap/v1 responses do not populate it today.
+  // Display multiplier for scaled-UI tokens. balanceParsed and protocol
+  // amounts remain in raw token units.
   balanceMultiplier?: string;
 }
 
@@ -840,6 +847,7 @@ export interface IQuoteResultFeeOtherFeeInfo {
     symbol: string;
     price: string;
     decimals: number;
+    balanceMultiplier?: string;
     logoURI?: string;
     name?: string;
     isNative?: boolean;
@@ -1097,6 +1105,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  quoteSource?: ESwapQuoteSource;
   reviewAnalyticsContext?: ISwapReviewAnalyticsContext;
   protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
@@ -1190,6 +1199,7 @@ export interface ISwapCheckSupportResponse {
 }
 
 export interface ISwapTxHistory {
+  quoteSource?: ESwapQuoteSource;
   protocol?: EProtocolOfExchange;
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
@@ -1231,6 +1241,8 @@ export interface ISwapTxHistory {
     receiverTransactionId?: string;
   };
   swapInfo: {
+    estimatedTimeSeconds?: number;
+    liveActivityOrderKey?: string;
     provider: IFetchQuoteInfo;
     socketBridgeScanUrl?: string;
     chainFlipExplorerUrl?: string;

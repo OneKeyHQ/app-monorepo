@@ -11,7 +11,6 @@ import {
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
-import { Tooltip } from '@onekeyhq/components/src/actions/Tooltip';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -52,7 +51,7 @@ const WORKSPACE_VIEW_ITEMS: Array<{
   { key: 'chart', translationId: ETranslations.market_chart },
   ...MARKET_BOOK_TABS,
   { key: 'info', translationId: ETranslations.global_info },
-  { key: 'funding', translationId: ETranslations.perp_position_funding },
+  { key: 'funding', translationId: ETranslations.settings_data },
 ];
 
 function useWorkspaceTabList(
@@ -121,15 +120,18 @@ function WorkspaceTabButton({
   label,
   onPress,
   fullWidth,
+  testID,
 }: {
   active: boolean;
   buttonProps: ComponentProps<'button'>;
   label: string;
   onPress: () => void;
   fullWidth?: boolean;
+  testID?: string;
 }) {
-  const trigger = (
+  return (
     <XStack
+      testID={testID}
       render={
         platformEnv.isNative ? undefined : (
           <button type="button" aria-label={label} {...buttonProps} />
@@ -138,9 +140,9 @@ function WorkspaceTabButton({
       role="tab"
       aria-selected={active}
       focusable={platformEnv.isNative || undefined}
-      width={fullWidth ? '50%' : undefined}
       minWidth={0}
-      flexShrink={0}
+      flexGrow={fullWidth ? 1 : 0}
+      flexShrink={fullWidth ? 1 : 0}
       h="100%"
       p="$0"
       px={fullWidth ? '$2' : '$0'}
@@ -172,13 +174,6 @@ function WorkspaceTabButton({
         </SizableText>
       </XStack>
     </XStack>
-  );
-  return (
-    <Tooltip
-      triggerAsChild
-      renderTrigger={trigger}
-      renderContent={<Tooltip.Text>{label}</Tooltip.Text>}
-    />
   );
 }
 
@@ -401,6 +396,7 @@ export function PerpMarketWorkspacePanel({
         {workspaceViewItems.map((item) => (
           <WorkspaceTabButton
             key={item.key}
+            testID={`perp-workspace-tab-${item.key}`}
             active={visibleActiveView === item.key}
             buttonProps={tabList.getButtonProps(item.key)}
             label={intl.formatMessage({ id: item.translationId })}
