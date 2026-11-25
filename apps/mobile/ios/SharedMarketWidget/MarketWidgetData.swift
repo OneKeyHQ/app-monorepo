@@ -280,6 +280,7 @@ struct MarketWidgetProfile: Codable, Equatable, Identifiable {
   var assets: [MarketWidgetAsset]? = nil
 
   var missingSince: Date? = nil
+  var instanceNumber: Int? = nil
 
   var isValid: Bool {
     UUID(uuidString: id)?.uuidString.lowercased() == id
@@ -371,6 +372,13 @@ struct MarketWidgetSelection: Equatable {
 struct MarketWidgetInstanceBinding {
   let id: UUID
   let kind: MarketWidgetKind
+}
+
+struct MarketWidgetInstalledInstance: Encodable {
+  let id: String
+  let kind: MarketWidgetKind
+  let instanceNumber: Int
+  let symbols: [String]
 }
 
 enum MarketWidgetEditorLink {
@@ -549,24 +557,41 @@ struct MarketWidgetStore {
     return (try? storedInstanceSettings())?.first { $0.id == id && $0.kind == binding.kind }
   }
 
-  // Only the extension creates records, after WidgetKit supplies an explicitly selected binding.
+  // Only bind configurations supplied by WidgetKit, never IDs from editor links.
   func bindInstance(_ binding: MarketWidgetInstanceBinding) throws {
-    if let existing = instanceSettings(for: binding), existing.missingSince == nil { return }
+    if let existing = instanceSettings(for: binding), existing.missingSince == nil, existing.instanceNumber != nil { return }
     let directory = try preparedDirectory()
     try coordinateWrite(at: directory) {
       var records = try storedInstanceSettings()
       let id = binding.id.uuidString.lowercased()
+      let usedNumbers = Set(records.compactMap(\.instanceNumber))
+      var availableNumber = 1
+      while usedNumbers.contains(availableNumber) { availableNumber += 1 }
       if let index = records.firstIndex(where: { $0.id == id }) {
         guard records[index].kind == binding.kind else { throw MarketWidgetError.invalidProfile }
-        guard records[index].missingSince != nil else { return }
+        guard records[index].missingSince != nil || records[index].instanceNumber == nil else { return }
         records[index].missingSince = nil
+        records[index].instanceNumber = records[index].instanceNumber ?? availableNumber
       } else {
         guard let initial = desktopSettings(kind: binding.kind) else { throw MarketWidgetError.invalidConfiguration }
         records.append(MarketWidgetProfile(id: id, kind: binding.kind, name: initial.name,
-          source: initial.source, asset: initial.asset, assets: initial.assets))
+          source: initial.source, asset: initial.asset, assets: initial.assets, instanceNumber: availableNumber))
       }
       try JSONEncoder().encode(records).write(to: directory.appendingPathComponent("desktop-instances-v1.json"), options: .atomic)
     }
+  }
+
+  func installedInstancePreviews(for bindings: [MarketWidgetInstanceBinding]) throws -> [MarketWidgetInstalledInstance] {
+    guard configuration().configuration.map({ $0.privacyMasked != true }) == true else { return [] }
+    var seen = Set<UUID>()
+    let instances = try bindings.filter { seen.insert($0.id).inserted }.compactMap { binding -> MarketWidgetInstalledInstance? in
+      try bindInstance(binding)
+      let selection = selection(kind: binding.kind, instanceID: binding.id)
+      guard let instanceNumber = selection.profile?.instanceNumber else { return nil }
+      return MarketWidgetInstalledInstance(id: binding.id.uuidString.lowercased(), kind: binding.kind,
+        instanceNumber: instanceNumber, symbols: selection.assets.map { assetWithMetadata($0).displaySymbol })
+    }
+    return configuration().configuration.map { $0.privacyMasked != true } == true ? instances : []
   }
 
   func saveSettings(json: String, draftAssets: [MarketWidgetAsset] = [], instance: MarketWidgetInstanceBinding? = nil) throws -> MarketWidgetProfile {
@@ -614,7 +639,8 @@ struct MarketWidgetStore {
         canonicalAsset = assetWithMetadata(asset)
       }
       let saved = MarketWidgetProfile(id: id, kind: input.kind,
-        name: name, source: input.source, asset: canonicalAsset, assets: canonicalAssets)
+        name: name, source: input.source, asset: canonicalAsset, assets: canonicalAssets,
+        instanceNumber: existing?.instanceNumber)
       guard saved.isValid else { throw MarketWidgetError.invalidProfile }
       if let index = settings.firstIndex(where: { $0.id == id }) { settings[index] = saved }
       else { settings.append(saved) }

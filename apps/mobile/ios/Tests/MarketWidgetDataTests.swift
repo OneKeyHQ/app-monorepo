@@ -70,7 +70,11 @@ struct MarketWidgetDataTests {
     }
     let missing = try store.editorState(instance: a)
     expect(missing.settings.isEmpty, "An unknown instance cannot open shared settings")
-    try store.bindInstance(a)
+    let legacy = MarketWidgetProfile(id: a.id.uuidString.lowercased(), kind: .list, name: "Legacy list", source: .hot)
+    try JSONEncoder().encode([legacy]).write(to: directory.appendingPathComponent("desktop-instances-v1.json"))
+    let beforeEdits = try store.installedInstancePreviews(for: [a, b])
+    expect(beforeEdits.map(\.instanceNumber) == [1, 2] && beforeEdits.map(\.symbols) == [original, original].map { $0.map(\.displaySymbol) },
+      "Upgraded and new widgets with identical assets receive distinct numbers")
     let wrongKind = try store.editorState(instance: MarketWidgetInstanceBinding(id: a.id, kind: .single))
     expect(wrongKind.settings.isEmpty, "A mismatched kind cannot open shared settings")
     try store.bindInstance(b)
@@ -82,16 +86,27 @@ struct MarketWidgetDataTests {
     _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: second), instance: b)
     let reopened = MarketWidgetStore(directory: directory)
     try reopened.bindInstance(a)
-    for (binding, assets) in [(a, first), (b, second)] {
+    for (binding, assets, number) in [(a, first, 1), (b, second, 2)] {
       let editor = try reopened.editorState(instance: binding)
       expect(editor.settings.count == 1 && editor.settings.first?.assets == assets, "Each editor reopens its own saved order")
       let entry = MarketWidgetEntry.snapshot(isWatchlist: true, instanceID: binding.id, store: reopened)
       expect(entry.rows.map(\.asset) == assets, "Each widget renders its own saved order")
+      expect(entry.instanceNumber == number, "The widget uses the same number as its App row after an edit")
       let query = URLComponents(url: entry.editorURL!, resolvingAgainstBaseURL: false)?.queryItems
       expect(query?.contains(URLQueryItem(name: "profileId", value: binding.id.uuidString.lowercased())) == true,
         "The gear opens the editor for the same configuration as the timeline")
     }
     expect(reopened.selection(kind: .list).assets == original, "Independent edits preserve the existing list default")
+    let newlyInstalled = MarketWidgetInstanceBinding(id: UUID(), kind: .list)
+    let installed = try reopened.installedInstancePreviews(for: [a, newlyInstalled, a])
+    expect(installed.map(\.id) == [a, newlyInstalled].map { $0.id.uuidString.lowercased() },
+      "The settings list uses installed bindings, omits removed widgets, and deduplicates repeated bindings")
+    expect(installed.map(\.symbols) == [first, original].map { $0.map(\.displaySymbol) },
+      "The settings list shows each installed widget's own assets")
+    expect(installed.map(\.instanceNumber) == [1, 3], "Reading installed widgets preserves assigned numbers")
+    let newEditor = try reopened.editorState(instance: newlyInstalled)
+    expect(newEditor.settings.first?.id == newlyInstalled.id.uuidString.lowercased(),
+      "An installed widget is editable in the App before its first timeline runs")
     rejects("A list editor cannot overwrite a single-coin configuration") {
       _ = try reopened.saveSettings(json: settingsJSON(asset: original[0]), instance: a)
     }

@@ -237,6 +237,11 @@ struct MarketWidgetView: View {
         .lineLimit(1).minimumScaleFactor(0.65)
         .allowsTightening(true)
         .frame(maxWidth: .infinity, alignment: .leading)
+      if let number = entry.instanceNumber {
+        Text(verbatim: "#\(number)")
+          .font(.system(size: 11, weight: .medium)).monospacedDigit()
+          .foregroundStyle(secondary)
+      }
       if #available(iOS 17.0, *), let editorURL = entry.editorURL {
         Link(destination: editorURL) {
           ZStack {

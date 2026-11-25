@@ -19,6 +19,23 @@ private func installedMarketWidgets() async throws -> [WidgetInfo] {
 
 extension MarketWidgetStore {
   @available(iOS 17.0, *)
+  func installedInstancePreviews() async throws -> [MarketWidgetInstalledInstance] {
+    guard configuration().configuration.map({ $0.privacyMasked != true }) == true else { return [] }
+    let widgets = try await installedMarketWidgets()
+    let bindings = widgets.compactMap { info -> MarketWidgetInstanceBinding? in
+      let kind: MarketWidgetKind
+      switch info.kind {
+      case MarketWidgetKind.single.timelineKind: kind = .single
+      case MarketWidgetKind.list.timelineKind: kind = .list
+      default: return nil
+      }
+      guard let id = info.widgetConfigurationIntent(of: MarketWidgetInstanceIntent.self)?.instanceID else { return nil }
+      return MarketWidgetInstanceBinding(id: id, kind: kind)
+    }
+    return try installedInstancePreviews(for: bindings)
+  }
+
+  @available(iOS 17.0, *)
   func reconcileInstalledInstances() async throws {
     let snapshot = try storedInstanceSettings()
     guard !snapshot.isEmpty else { return }
