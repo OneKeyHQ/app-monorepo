@@ -55,16 +55,11 @@ const DESKTOP_NETWORK_TRIGGER_PROPS: IXStackProps = {
 // width of "7" and leave "+17" looking loosely spaced.
 const PROPORTIONAL_NUMS: ['proportional-nums'] = ['proportional-nums'];
 
-// Same size as the loaded chips, so the copy button and the page below do not
-// move when the networks arrive (only shown without a cached list).
-function DesktopNetworksSkeleton() {
+// Same size as the loaded chips, so what sits beside them does not move when
+// the networks arrive (only shown without a cached list).
+function NetworkChipsSkeleton() {
   return (
-    <XStack
-      {...DESKTOP_HEADER_TRIGGER_SHAPE}
-      py="$0.5"
-      my="$-0.5"
-      alignItems="center"
-    >
+    <>
       <NetworkChipFrame cut="next">
         <Skeleton w="$6" h="$6" radius="round" />
       </NetworkChipFrame>
@@ -74,6 +69,19 @@ function DesktopNetworksSkeleton() {
       <NetworkChipFrame ml="$-2">
         <Skeleton w="$8" h="$6" radius="round" />
       </NetworkChipFrame>
+    </>
+  );
+}
+
+function DesktopNetworksSkeleton() {
+  return (
+    <XStack
+      {...DESKTOP_HEADER_TRIGGER_SHAPE}
+      py="$0.5"
+      my="$-0.5"
+      alignItems="center"
+    >
+      <NetworkChipsSkeleton />
       <Stack w="$5" h="$5" />
     </XStack>
   );
@@ -268,7 +276,17 @@ function AllNetworksManagerTrigger({
     !isCompatQueryReady ||
     !enabledNetworksCompatibleWithWalletId
   ) {
-    return desktopHeader ? <DesktopNetworksSkeleton /> : <Stack h={36} />;
+    if (desktopHeader) return <DesktopNetworksSkeleton />;
+    // Without a chevron the trigger sits in the phone home header's pill,
+    // which an empty slot would leave blank.
+    if (hideChevron) {
+      return (
+        <XStack alignItems="center">
+          <NetworkChipsSkeleton />
+        </XStack>
+      );
+    }
+    return <Stack h={36} />;
   }
 
   const desktopTriggerProps: IXStackProps | undefined = desktopHeader
@@ -426,7 +444,8 @@ function AllNetworksManagerTrigger({
               borderRadius="$full"
               alignItems="center"
               justifyContent="center"
-              h={24}
+              // The logos' $6, which Android scales on narrow screens.
+              h="$6"
             >
               <SizableText size="$bodySm" fontVariant={PROPORTIONAL_NUMS}>
                 +{hiddenCount}

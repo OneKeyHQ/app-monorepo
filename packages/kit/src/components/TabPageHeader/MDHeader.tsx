@@ -145,17 +145,19 @@ function HomeHeaderSearchButton({
 // The pill already reads as pressable, so the trigger drops its chevron.
 function HomeHeaderNetworkTrigger({ plain }: { plain: boolean }) {
   const {
-    activeAccount: { wallet, account, network },
+    activeAccount: { wallet, account, network, accountName },
   } = useActiveAccount({ num: 0 });
-  if (
-    accountUtils.hasNoUsableWallet({ wallet, account }) ||
-    (wallet?.type === WALLET_TYPE_HD && !wallet.backuped)
-  ) {
-    return null;
-  }
   const isAllNetworks =
     network?.isAllNetworks &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' });
+  if (
+    accountUtils.hasNoUsableWallet({ wallet, account }) ||
+    (wallet?.type === WALLET_TYPE_HD && !wallet.backuped) ||
+    // The single-network trigger hides without an account; so does its pill.
+    (!isAllNetworks && !accountName)
+  ) {
+    return null;
+  }
   // Liquid Glass reacts to the press itself, so the trigger's own press tint
   // would only add a gray box inside it.
   const glass = !plain && isLiquidGlassAvailable();

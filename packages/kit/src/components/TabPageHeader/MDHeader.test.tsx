@@ -218,6 +218,7 @@ describe('MDHeader window controls', () => {
       mockActiveAccount = {
         wallet,
         account,
+        accountName: 'Account #1',
         network: { id: 'evm--1', isAllNetworks: false },
       };
       const { rerender } = render(header());
