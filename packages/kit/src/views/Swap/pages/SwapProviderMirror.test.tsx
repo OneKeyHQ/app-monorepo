@@ -341,3 +341,58 @@ describe('Market modal initial token selection', () => {
     },
   );
 });
+
+describe('a draft that belongs to one account', () => {
+  const storeName = EJotaiContextStoreNames.swapHomeTradePanel;
+  const ownerA = 'wallet-1|account-1|default';
+  const ownerB = 'wallet-1|account-2|default';
+  const eth = {
+    networkId: 'evm--1',
+    contractAddress: '',
+    symbol: 'ETH',
+    decimals: 18,
+    isNative: true,
+  };
+
+  function leaveDraftFor(owner: string) {
+    const view = render(
+      <SwapProviderMirror storeName={storeName} draftOwnerKey={owner} />,
+    );
+    const store = jotaiContextStore.prepareStoreForImmediateUse({ storeName });
+    act(() => {
+      store.set(swapSelectFromTokenAtom(), eth);
+      store.set(swapFromTokenAmountAtom(), { value: '1.5', isInput: true });
+      store.set(swapInitialSelectedTokensSyncedAtom(), true);
+    });
+    view.unmount();
+    return store;
+  }
+
+  it('keeps the draft when the same account mounts the form again', () => {
+    const store = leaveDraftFor(ownerA);
+    const view = render(
+      <SwapProviderMirror storeName={storeName} draftOwnerKey={ownerA} />,
+    );
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(eth);
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('1.5');
+    view.unmount();
+  });
+
+  it('starts the draft over for another account', () => {
+    const store = leaveDraftFor(ownerA);
+    const view = render(
+      <SwapProviderMirror storeName={storeName} draftOwnerKey={ownerB} />,
+    );
+    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
+    view.unmount();
+  });
+
+  it('leaves forms without an owner as they were', () => {
+    const store = leaveDraftFor(ownerA);
+    const view = render(<SwapProviderMirror storeName={storeName} />);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(eth);
+    view.unmount();
+  });
+});

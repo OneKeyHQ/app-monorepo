@@ -15,12 +15,14 @@ import {
   swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapManualSelectQuoteProvidersAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
   swapStockSelectedTokenAtom,
+  swapToAnotherAccountAddressAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
   useSwapStockSelectedTokenAtom,
@@ -37,6 +39,34 @@ import {
   useSwapContextStoreInitData,
 } from './SwapRootProvider';
 
+type ISwapContextStore = ReturnType<
+  typeof jotaiContextStore.prepareStoreForImmediateUse
+>;
+
+// For forms whose draft belongs to one account (the Home trade column follows
+// the Home account): the account each store's draft was last made for.
+const draftOwnerByStore = new Map<EJotaiContextStoreNames, string>();
+
+function clearSwapDraft(store: ISwapContextStore) {
+  store.set(swapSelectFromTokenAtom(), undefined);
+  store.set(swapSelectToTokenAtom(), undefined);
+  store.set(swapSelectedFromTokenBalanceAtom(), '');
+  store.set(swapSelectedToTokenBalanceAtom(), '');
+  store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+  store.set(swapToTokenAmountAtom(), { value: '', isInput: false });
+  store.set(swapSelectedTokensColdStartContextAtom(), undefined);
+  store.set(swapStockSelectedTokenAtom(), undefined);
+  store.set(swapManualSelectQuoteProvidersAtom(), undefined);
+  store.set(swapToAnotherAccountAddressAtom(), {
+    networkId: undefined,
+    address: undefined,
+    accountInfo: undefined,
+  });
+  store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+  // Lets the default pair load again for the new account.
+  store.set(swapInitialSelectedTokensSyncedAtom(), false);
+}
+
 function SwapProviderMirrorColdStartCacheSync() {
   useSwapStockSelectedTokenAtom();
   return null;
@@ -47,6 +77,9 @@ export const SwapProviderMirror = memo(
     props: PropsWithChildren & {
       storeName: EJotaiContextStoreNames;
       homeSelectedAccountOnInit?: IAccountSelectorSelectedAccount | null;
+      // The account the form's draft belongs to: another account starts the
+      // draft over before any entry seeding.
+      draftOwnerKey?: string;
       initialSelectedTokensOnInit?: {
         accountKey?: string;
         fromToken?: ISwapToken;
@@ -59,6 +92,7 @@ export const SwapProviderMirror = memo(
   ) => {
     const {
       children,
+      draftOwnerKey,
       initialSelectedTokensOnInit,
       homeSelectedAccountOnInit,
       storeName,
@@ -66,6 +100,17 @@ export const SwapProviderMirror = memo(
 
     const data = useSwapContextStoreInitData(storeName);
     const store = jotaiContextStore.prepareStoreForImmediateUse(data);
+    const hasCheckedDraftOwnerRef = useRef(false);
+    if (!hasCheckedDraftOwnerRef.current) {
+      hasCheckedDraftOwnerRef.current = true;
+      if (draftOwnerKey !== undefined) {
+        const previousOwner = draftOwnerByStore.get(storeName);
+        if (previousOwner !== undefined && previousOwner !== draftOwnerKey) {
+          clearSwapDraft(store);
+        }
+        draftOwnerByStore.set(storeName, draftOwnerKey);
+      }
+    }
     const hasInitializedSelectedTokensRef = useRef(false);
     if (!hasInitializedSelectedTokensRef.current) {
       if (homeSelectedAccountOnInit !== undefined) {

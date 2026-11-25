@@ -249,6 +249,8 @@ interface ISwapMainLoadProps {
   stockTradeToken?: ISwapToken;
   initialInputAmountDraft?: ISwapInputAmountDraft;
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
+  /** The account the draft belongs to; another one starts the draft over. */
+  draftOwnerKey?: string;
 }
 
 type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
@@ -2498,6 +2500,7 @@ const SwapMainLoad = ({
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const {
+    draftOwnerKey,
     initialInputAmountDraft,
     pageType,
     singleSwapBridgeHeader,
@@ -2659,6 +2662,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   return (
     <SwapProviderMirror
       storeName={storeName}
+      draftOwnerKey={draftOwnerKey}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
       homeSelectedAccountOnInit={homeSelectedAccountOnInit}
     >

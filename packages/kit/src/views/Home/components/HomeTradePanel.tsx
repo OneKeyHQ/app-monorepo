@@ -46,6 +46,7 @@ type IEmbeddedSwapProps = {
   singleSwapBridgeTitle?: string;
   swapInitParams?: ISwapInitParams;
   reviewContextKey?: string;
+  draftOwnerKey?: string;
 };
 
 function TradePanelLoading() {
@@ -124,6 +125,9 @@ function HomeTradePanel({
                 })}
                 swapInitParams={swapInitParams}
                 reviewContextKey={`home-trade-panel:${formKey}`}
+                // The store outlives the form, so another home account has to
+                // clear the draft it left.
+                draftOwnerKey={importAccountKey}
               />
             </Stack>
           </AccountSelectorProviderMirror>
