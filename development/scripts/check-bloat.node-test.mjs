@@ -16,6 +16,7 @@ import {
   isTargetCodeFile,
   reconcileBaseAdvancedStats,
   selectEarliestReviewAnchor,
+  summarizeBenchmarkResults,
 } from './check-bloat.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -408,4 +409,59 @@ test('excludes lockfiles, manifests, Podfile, generated code, e2e, and node-test
       `expected included: ${included}`,
     );
   }
+});
+
+test('summarizeBenchmarkResults computes intervention rate and calibration advice', () => {
+  const summary = summarizeBenchmarkResults([
+    {
+      number: 101,
+      title: 'skipped pr',
+      skipped: true,
+      verdict: 'PASS',
+    },
+    {
+      number: 102,
+      title: 'clean refactor',
+      skipped: false,
+      verdict: 'PASS',
+      amplification: { origNet: 200, fixNet: 40, deletionRatio: 0.45 },
+      stateFlags: { netStateFlags: 0 },
+      equilibrium: { netPayoff: 140 },
+    },
+    {
+      number: 103,
+      title: 'patch spin',
+      skipped: false,
+      verdict: 'REFACTOR_REQUIRED',
+      amplification: { origNet: 150, fixNet: 180, deletionRatio: 0.1 },
+      stateFlags: { netStateFlags: 5 },
+      equilibrium: { netPayoff: -210 },
+    },
+    {
+      number: 104,
+      title: 'normal fix',
+      skipped: false,
+      verdict: 'PASS',
+      amplification: { origNet: 100, fixNet: 25, deletionRatio: 0.3 },
+      stateFlags: { netStateFlags: 0 },
+      equilibrium: { netPayoff: 110 },
+    },
+    {
+      number: 105,
+      title: 'another clean fix',
+      skipped: false,
+      verdict: 'PASS',
+      amplification: { origNet: 300, fixNet: 50, deletionRatio: 0.35 },
+      stateFlags: { netStateFlags: 1 },
+      equilibrium: { netPayoff: 95 },
+    },
+  ]);
+
+  assert.equal(summary.totalPrs, 5);
+  assert.equal(summary.evaluatedCount, 4);
+  assert.equal(summary.passedCount, 3);
+  assert.equal(summary.refactorRequiredCount, 1);
+  assert.equal(summary.interventionRate, 0.25);
+  assert.equal(summary.falsePositiveCandidates.length, 0);
+  assert.match(summary.recommendations[0], /^CALIBRATED:/);
 });

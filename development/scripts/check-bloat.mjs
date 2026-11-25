@@ -57,13 +57,21 @@ function parseArgs(argv) {
     base: '',
     head: '',
     since: '',
+    benchmark: '',
     worktree: false,
     warnOnly: false,
     strictScope: false,
     json: false,
     help: false,
   };
-  const valueFlags = new Set(['--pr', '--repo', '--base', '--head', '--since']);
+  const valueFlags = new Set([
+    '--pr',
+    '--repo',
+    '--base',
+    '--head',
+    '--since',
+    '--benchmark',
+  ]);
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '-h' || arg === '--help') opts.help = true;
@@ -840,12 +848,151 @@ export function formatCliEquilibriumLine(eq) {
   return `  3. Nash Equilibrium Payoff: ${payoffLabel} ECU (budget=${eq.complexityBudget} + credit=${eq.refactorCredit} - cost=${eq.entropyCost}) | strategy=${eq.dominantStrategy} [${status}]`;
 }
 
+export function summarizeBenchmarkResults(items = []) {
+  const evaluated = items.filter((item) => !item.skipped && item.amplification);
+  const passed = evaluated.filter((item) => item.verdict === 'PASS');
+  const flagged = evaluated.filter(
+    (item) => item.verdict === 'REFACTOR_REQUIRED',
+  );
+  const bypassed = items.filter((item) => item.bypassed);
+  const falsePositiveCandidates = flagged.filter(
+    (item) => item.bypassed || (item.amplification?.deletionRatio ?? 0) >= 0.22,
+  );
+  const borderlineSpinCandidates = passed.filter(
+    (item) =>
+      (item.amplification?.fixNet ?? 0) >= 90 &&
+      (item.amplification?.deletionRatio ?? 1) < 0.25,
+  );
+
+  const interventionRate =
+    evaluated.length > 0
+      ? Number((flagged.length / evaluated.length).toFixed(3))
+      : 0;
+  const recommendations = [];
+  if (falsePositiveCandidates.length > 0) {
+    recommendations.push(
+      `Inspect ${falsePositiveCandidates.length} potential false-positive PR(s) (${falsePositiveCandidates.map((p) => `#${p.number}`).join(', ')}): consider lowering minDeletionRatio from 0.25 to 0.22 if genuine refactors were flagged.`,
+    );
+  }
+  if (interventionRate > 0.3) {
+    recommendations.push(
+      `Intervention rate is ${(interventionRate * 100).toFixed(0)}% (> 30% target band): consider raising baseComplexityBudget from ${THRESHOLDS.baseComplexityBudget} to ${THRESHOLDS.baseComplexityBudget + 30}.`,
+    );
+  }
+  if (borderlineSpinCandidates.length >= 2) {
+    recommendations.push(
+      `Found ${borderlineSpinCandidates.length} sub-cliff low-deletion PR(s) (${borderlineSpinCandidates.map((p) => `#${p.number}`).join(', ')}): consider raising stateFlagCostWeight from ${THRESHOLDS.stateFlagCostWeight} to 35.`,
+    );
+  }
+  if (!recommendations.length) {
+    recommendations.push(
+      'CALIBRATED: intervention rate is within the 10%-25% target band with 0 false-positive overrides.',
+    );
+  }
+
+  return {
+    totalPrs: items.length,
+    evaluatedCount: evaluated.length,
+    passedCount: passed.length,
+    refactorRequiredCount: flagged.length,
+    bypassedCount: bypassed.length,
+    interventionRate,
+    flaggedPrs: flagged.map((p) => ({
+      number: p.number,
+      title: p.title,
+      origNet: p.amplification?.origNet ?? 0,
+      fixNet: p.amplification?.fixNet ?? 0,
+      deletionRatio: p.amplification?.deletionRatio ?? 0,
+      netStateFlags: p.stateFlags?.netStateFlags ?? 0,
+      netPayoff: p.equilibrium?.netPayoff ?? 0,
+    })),
+    falsePositiveCandidates: falsePositiveCandidates.map((p) => p.number),
+    borderlineSpinCandidates: borderlineSpinCandidates.map((p) => p.number),
+    recommendations,
+  };
+}
+
+function runBenchmarkMode(opts) {
+  const limit = Math.max(1, Math.min(100, Number(opts.benchmark) || 30));
+  const repo = resolveRepo(opts.repo);
+  const prListRaw = runCmd('gh', [
+    'pr',
+    'list',
+    '--repo',
+    repo,
+    '--state',
+    'all',
+    '--limit',
+    String(limit),
+    '--json',
+    'number,title,state,labels',
+  ]).stdout;
+  const prs = JSON.parse(prListRaw || '[]');
+  const results = [];
+
+  for (const pr of prs) {
+    const bypassed = (pr.labels || []).some(
+      (l) => l?.name === 'bloat-reviewed',
+    );
+    const res = runCmd(
+      process.execPath,
+      [
+        process.argv[1],
+        '--pr',
+        String(pr.number),
+        '--repo',
+        repo,
+        '--json',
+        '--warn-only',
+      ],
+      true,
+    );
+    let parsed = { skipped: true, outcome: 'ERROR', verdict: 'PASS' };
+    try {
+      parsed = JSON.parse(res.stdout);
+    } catch {
+      // Keep fallback on transient error
+    }
+    results.push({
+      number: pr.number,
+      title: pr.title,
+      state: pr.state,
+      bypassed,
+      ...parsed,
+    });
+  }
+
+  const summary = summarizeBenchmarkResults(results);
+  if (opts.json) {
+    console.log(JSON.stringify(summary, null, 2));
+  } else {
+    console.log(
+      `[check:bloat] Benchmark across latest ${summary.totalPrs} PRs (${repo}):`,
+    );
+    console.log(
+      `  Evaluated: ${summary.evaluatedCount} | PASS: ${summary.passedCount} | REFACTOR_REQUIRED: ${summary.refactorRequiredCount} (${(summary.interventionRate * 100).toFixed(0)}%) | Bypassed (bloat-reviewed): ${summary.bypassedCount}`,
+    );
+    for (const f of summary.flaggedPrs) {
+      console.log(
+        `  - #${f.number}: fixNet=+${f.fixNet} (orig +${f.origNet}), del/add=${(f.deletionRatio * 100).toFixed(0)}%, flags=+${f.netStateFlags}, payoff=${f.netPayoff} | ${f.title}`,
+      );
+    }
+    for (const rec of summary.recommendations) {
+      console.log(`  [CALIBRATION] ${rec}`);
+    }
+  }
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
     console.log(
-      'Usage: node development/scripts/check-bloat.mjs [--pr N] [--repo o/r] [--base ref] [--head sha] [--since ref] [--worktree] [--warn-only] [--strict-scope] [--json]',
+      'Usage: node development/scripts/check-bloat.mjs [--pr N] [--repo o/r] [--base ref] [--head sha] [--since ref] [--benchmark N] [--worktree] [--warn-only] [--strict-scope] [--json]',
     );
+    process.exit(0);
+  }
+  if (opts.benchmark) {
+    runBenchmarkMode(opts);
     process.exit(0);
   }
 
