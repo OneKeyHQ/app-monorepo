@@ -53,6 +53,7 @@ import {
 import {
   canUseHardwareCloudSyncSessionAt,
   getHardwareCloudSyncPreviousPwdHashes,
+  matchesRecordFields,
   verifiedSessionBaseURL,
 } from './hardwareCloudSyncSession';
 
@@ -355,19 +356,8 @@ export function matchesHardwareRecoverySource(
   original: IDBCloudSyncItem,
 ) {
   return (
-    record.id === original.id &&
-    record.pwdHash === original.pwdHash &&
-    record.data === original.data &&
-    record.dataType === original.dataType &&
-    record.rawKey === original.rawKey &&
-    record.rawData === original.rawData &&
-    record.serverUploaded === original.serverUploaded &&
-    record.localSceneUpdated === original.localSceneUpdated &&
-    record.dataTime === original.dataTime &&
-    record.isDeleted === original.isDeleted &&
     !record.pendingPublicAccountDeletionAt &&
-    record.pendingPublicAccountDeletionHash ===
-      original.pendingPublicAccountDeletionHash
+    matchesRecordFields(record, original)
   );
 }
 

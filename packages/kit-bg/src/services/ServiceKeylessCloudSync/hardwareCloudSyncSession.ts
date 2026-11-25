@@ -1390,3 +1390,40 @@ export const HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE = 90_705;
 export function isHardwareCloudSyncNonceInvalidError(error: unknown) {
   return hasErrorCode(error, HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE);
 }
+
+// Realm materializes unset optional fields as null on live objects, whereas
+// read projections (.record) and IndexedDB snapshots normalize them to
+// undefined. Treat null and undefined as equivalent when comparing fields.
+export function isEqualNullableValue(a: unknown, b: unknown): boolean {
+  return (a ?? undefined) === (b ?? undefined);
+}
+
+export function matchesRecordFields<
+  TRecord extends object,
+  TExpected extends object,
+  K extends keyof TRecord & keyof TExpected = keyof TRecord & keyof TExpected,
+>(record: TRecord, expected: TExpected, fields?: readonly K[]): boolean {
+  if (fields) {
+    return fields.every((field) =>
+      isEqualNullableValue(record[field], expected[field]),
+    );
+  }
+  const source =
+    'record' in record && record.record && typeof record.record === 'object'
+      ? (record.record as Record<string, unknown>)
+      : (record as Record<string, unknown>);
+  const target = expected as Record<string, unknown>;
+  const keys = new Set([
+    ...Object.keys(record),
+    ...Object.keys(source),
+    ...Object.keys(target),
+  ]);
+  for (const key of keys) {
+    const recordValue =
+      key in record ? (record as Record<string, unknown>)[key] : source[key];
+    if (!isEqualNullableValue(recordValue, target[key])) {
+      return false;
+    }
+  }
+  return true;
+}

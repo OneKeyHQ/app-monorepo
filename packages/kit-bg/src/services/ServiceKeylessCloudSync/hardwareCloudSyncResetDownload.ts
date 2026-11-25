@@ -4,7 +4,10 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { logHardwareCloudSyncDiagnostic } from './hardwareCloudSyncLog';
-import { canUseHardwareCloudSyncSessionAt } from './hardwareCloudSyncSession';
+import {
+  canUseHardwareCloudSyncSessionAt,
+  matchesRecordFields,
+} from './hardwareCloudSyncSession';
 
 import type {
   IHardwareCloudSyncDataKey,
@@ -185,6 +188,22 @@ export async function prepareHardwareCloudSyncResetRecords({
   };
 }
 
+const POOL_REKEY_BASE_FIELDS = [
+  'pwdHash',
+  'data',
+  'rawData',
+  'dataTime',
+  'isDeleted',
+] as const;
+
+const POOL_REKEY_GUARDED_FIELDS = [
+  ...POOL_REKEY_BASE_FIELDS,
+  'dataType',
+  'rawKey',
+  'pendingPublicAccountDeletionAt',
+  'pendingPublicAccountDeletionHash',
+] as const;
+
 export function preparePoolRekey(
   originalItems: IDBCloudSyncItem[],
   items: IDBCloudSyncItem[],
@@ -194,6 +213,9 @@ export function preparePoolRekey(
 ): Parameters<LocalDbBase['updateSyncItem']>[0] {
   const originalsById = new Map(originalItems.map((item) => [item.id, item]));
   const replacementsById = new Map(items.map((item) => [item.id, item]));
+  const matchFields = isCurrent
+    ? POOL_REKEY_GUARDED_FIELDS
+    : POOL_REKEY_BASE_FIELDS;
   return {
     ids: items.map((item) => item.id),
     isCurrent,
@@ -205,18 +227,7 @@ export function preparePoolRekey(
       if (
         original &&
         replacement &&
-        record.pwdHash === original.pwdHash &&
-        record.data === original.data &&
-        (!isCurrent ||
-          (record.dataType === original.dataType &&
-            record.rawKey === original.rawKey &&
-            (record.pendingPublicAccountDeletionAt ?? undefined) ===
-              (original.pendingPublicAccountDeletionAt ?? undefined) &&
-            (record.pendingPublicAccountDeletionHash ?? undefined) ===
-              (original.pendingPublicAccountDeletionHash ?? undefined))) &&
-        record.rawData === original.rawData &&
-        (record.dataTime ?? undefined) === (original.dataTime ?? undefined) &&
-        record.isDeleted === original.isDeleted
+        matchesRecordFields(record, original, matchFields)
       ) {
         record.data = replacement.data;
         record.pwdHash = replacement.pwdHash;

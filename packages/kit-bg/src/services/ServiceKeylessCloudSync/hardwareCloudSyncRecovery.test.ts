@@ -5,12 +5,14 @@ import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeClo
 
 import localDb from '../../dbs/local/localDb';
 import { LocalDbBase } from '../../dbs/local/LocalDbBase';
+import { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import {
   commitHardwareCloudSyncLocalRecovery,
   hasPendingDeletionFromPreviousHardwareKey,
+  matchesHardwareRecoverySource,
   prepareHardwareCloudSyncLocalRecovery,
   prepareHardwareResign,
 } from './hardwareCloudSyncRecovery';
@@ -20,6 +22,10 @@ import type { IDBCloudSyncItem } from '../../dbs/local/types';
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: { updateSyncItem: jest.fn() },
+}));
+
+jest.mock('../../dbs/local/realm/base/RealmObjectBase', () => ({
+  RealmObjectBase: jest.fn(),
 }));
 
 const syncCredential: ICloudSyncCredential = {
@@ -632,4 +638,82 @@ describe('hardware re-sign recovery preserves business versions', () => {
       reason: expect.stringContaining('Local hardware sync record'),
     });
   });
+
+  test.each([
+    'unchanged',
+    'new data',
+    'new rawData',
+    'new dataTime',
+    'pending deletion at',
+    'pending deletion hash',
+  ] as const)(
+    'matches live Realm row with null optional fields against read projection (%s)',
+    async (change) => {
+      const live: unknown = Reflect.construct(RealmSchemaCloudSyncItem, []);
+      if (!(live instanceof RealmSchemaCloudSyncItem))
+        throw new OneKeyLocalError('Missing Realm fixture');
+      Object.assign(live, {
+        id: 'realm-recovery-item',
+        rawKey: 'realm-recovery-key',
+        rawData: null,
+        dataType: EPrimeCloudSyncDataType.AddressBook,
+        data: null,
+        dataTime: null,
+        isDeleted: false,
+        pwdHash: 'hw-dek-previous',
+        localSceneUpdated: true,
+        serverUploaded: false,
+        pendingPublicAccountDeletionAt: null,
+        pendingPublicAccountDeletionHash: null,
+      });
+      const original = live.record;
+      expect(original.data).toBeUndefined();
+      expect(original.rawData).toBeUndefined();
+      expect(original.dataTime).toBeUndefined();
+      expect(original.pendingPublicAccountDeletionAt).toBeUndefined();
+      expect(original.pendingPublicAccountDeletionHash).toBeUndefined();
+
+      if (change === 'new data') Object.assign(live, { data: 'other-cipher' });
+      if (change === 'new rawData')
+        Object.assign(live, { rawData: '{"changed":true}' });
+      if (change === 'new dataTime') Object.assign(live, { dataTime: 300 });
+      if (change === 'pending deletion at')
+        Object.assign(live, { pendingPublicAccountDeletionAt: 300 });
+      if (change === 'pending deletion hash')
+        Object.assign(live, { pendingPublicAccountDeletionHash: 'hash-1' });
+
+      expect(matchesHardwareRecoverySource(live, original)).toBe(
+        change === 'unchanged',
+      );
+
+      jest
+        .spyOn(localDb, 'updateSyncItem')
+        .mockImplementationOnce(async ({ updater }) => {
+          await updater(live);
+        });
+      const before = { ...live.record };
+      await commitHardwareCloudSyncLocalRecovery([
+        {
+          original,
+          replacement: {
+            ...original,
+            data: 'rebuilt-cipher',
+            rawData: 'rebuilt-raw',
+            pwdHash: 'hw-dek-current',
+          },
+          replaceRawData: true,
+        },
+      ]);
+      if (change === 'unchanged') {
+        expect(live).toMatchObject({
+          data: 'rebuilt-cipher',
+          rawData: 'rebuilt-raw',
+          pwdHash: 'hw-dek-current',
+          serverUploaded: false,
+        });
+      } else {
+        expect(live.record).toEqual(before);
+      }
+    },
+  );
 });
