@@ -3435,7 +3435,7 @@
   "market_trading_hours_underlying__desc": "Les horaires affichés sont ceux du marché de l'action sous-jacente. Les tokens d'actions peuvent se négocier 24h/24 et 7j/7 ou selon d'autres horaires.",
   "market_trading_hours_underlying_market__title": "Marché de l'action sous-jacente",
   "market_trading_hours_weekday_at__desc": "{weekday} à {time}",
-  "market_widget_bind__desc": "Maintenez le widget de l’écran d’accueil appuyé, touchez « Modifier le widget », puis choisissez la configuration enregistrée sous « Configuration ».",
+  "market_widget_bind__desc": "Maintenez le widget de l’écran d’accueil appuyé, touchez « Modifier le widget », puis choisissez « Nouvelle configuration » sous « Configuration ».",
   "market_widget_coin__title": "Crypto",
   "market_widget_coin_removed__msg": "Cette crypto n’est plus dans la source sélectionnée. Choisissez-en une autre.",
   "market_widget_configuration_missing__msg": "Cette configuration n’existe plus. Revenez en arrière et choisissez-en une autre.",

@@ -1,11 +1,15 @@
 import {
   EOnChainHistoryTransferType,
   type IAccountHistoryTx,
+  type IOnChainHistoryTx,
   type IOnChainHistoryTxTransfer,
 } from '../../types/history';
+import { EDecodedTxStatus } from '../../types/tx';
 
 import {
   convertHistoryTxsFiatCurrency,
+  convertToSectionGroups,
+  getHistoryTxDetailInfo,
   getOnChainHistoryTransferDisplayAddress,
   getUtxoHistoryDisplayValue,
   scaleFeeFiatValueToNativeFee,
@@ -384,4 +388,88 @@ describe('scaleFeeFiatValueToNativeFee', () => {
       }),
     ).toBeUndefined();
   });
+});
+
+describe('history without calendar timestamps', () => {
+  it('keeps undated private rows in order without headings and groups dated rows by date', () => {
+    const item: IAccountHistoryTx = {
+      id: '0x1',
+      isLocalCreated: false,
+      decodedTx: {
+        txid: '0x1',
+        owner: '0x1',
+        signer: '0x1',
+        accountId: 'test',
+        networkId: 'starknet--mainnet',
+        nonce: 0,
+        actions: [],
+        extraInfo: null,
+        status: EDecodedTxStatus.Confirmed,
+        block: 123,
+      },
+    };
+    const date = jest.fn(() => 'calendar date');
+    const dated = {
+      ...item,
+      id: 'dated',
+      decodedTx: { ...item.decodedTx, createdAt: 1000 },
+    };
+    const older = {
+      ...item,
+      id: 'older',
+      decodedTx: { ...item.decodedTx, block: 120 },
+    };
+    const result = convertToSectionGroups({
+      items: [item, older, dated],
+      formatDate: date,
+      hideUndatedHeaders: true,
+    });
+    expect(result).toEqual([
+      { data: [item, older] },
+      { title: 'calendar date', data: [dated] },
+    ]);
+    expect(date).toHaveBeenCalledTimes(1);
+    expect(date).toHaveBeenCalledWith(1000);
+  });
+});
+
+it('scales the detail fiat fee when a receipt replaces the local estimated fee', () => {
+  const historyTx = {
+    decodedTx: { nonce: 7, totalFeeInNative: '2', totalFeeFiatValue: '0.1' },
+  } as IAccountHistoryTx;
+  const txDetails = { gasFee: '1' } as IOnChainHistoryTx;
+  expect(getHistoryTxDetailInfo({ txDetails, historyTx })).toMatchObject({
+    gasFee: '1',
+    gasFeeFiatValue: '0.05',
+    nonce: 7,
+  });
+  expect(
+    getHistoryTxDetailInfo({
+      txDetails: { ...txDetails, gasFee: undefined },
+      historyTx,
+    }),
+  ).toMatchObject({ gasFee: '2', gasFeeFiatValue: '0.1' });
+});
+
+it('adds an actual protocol payment only in the fee display, leaving network gas intact', () => {
+  const txDetails = {
+    gasFee: '2',
+    gasFeeFiatValue: '0.06',
+    protocolFeeInNative: '4.5',
+  } as IOnChainHistoryTx;
+  expect(
+    getHistoryTxDetailInfo({ txDetails, historyTx: undefined }),
+  ).toMatchObject({
+    gasFee: '2',
+    gasFeeFiatValue: '0.06',
+    protocolFeeInNative: '4.5',
+    feeInNative: '6.5',
+    feeFiatValue: '0.195',
+  });
+  expect(
+    getHistoryTxDetailInfo({
+      txDetails: { ...txDetails, protocolFeeInNative: '0' },
+      historyTx: undefined,
+    }),
+  ).toMatchObject({ feeInNative: '2', feeFiatValue: '0.06' });
 });

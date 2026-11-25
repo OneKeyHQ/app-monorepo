@@ -35,3 +35,5 @@
 "market_widget_market_closed__title" = "Closed";
 "market_widget_stock_chart__desc" = "Chart";
 "market_widget_asset__title" = "Asset";
+"market_widget_new_configuration__title" = "New configuration";
+"global.default" = "Default";

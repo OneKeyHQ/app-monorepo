@@ -22,4 +22,8 @@ export enum EAddressEncodings {
 
   // kaspa
   KASPA_ORG = 'KaspaOrg',
+
+  // starknet: the default derive type is the Argent account
+  STARKNET_OZ = 'StarknetOZ',
+  STARKNET_OKX = 'StarknetOKX',
 }

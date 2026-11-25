@@ -19,6 +19,8 @@ import {
 import type { IIndexedDbCryptoKeyRecord } from '@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
+import { localSecretEnvelopeLayerFailure } from './layerFailure';
+
 import type {
   ILocalSecretEnvelopeLayerAdapter,
   ILocalSecretEnvelopeLayerCapabilities,
@@ -42,6 +44,16 @@ const DEFAULT_INDEXED_DB_CRYPTO_KEY_LSE_KEY_REF_PREFIX =
 
 const AES_GCM_NONCE_BYTES = INDEXED_DB_CRYPTO_KEY_AES_GCM_NONCE_BYTES;
 const KEY_REF_RANDOM_BYTES = 16;
+
+export function isLocalSecretEnvelopeIndexedDbKeyRef(keyRef: string) {
+  const parts = keyRef.split(':');
+  const nonce = parts.pop();
+  return (
+    parts.join(':') === DEFAULT_INDEXED_DB_CRYPTO_KEY_LSE_KEY_REF_PREFIX &&
+    nonce?.length === KEY_REF_RANDOM_BYTES * 2 &&
+    /^[0-9a-f]+$/.test(nonce)
+  );
+}
 
 type IIndexedDbCryptoKeyLayerParams = {
   cryptoGlobal?: Crypto | null;
@@ -76,10 +88,12 @@ async function getExistingCryptoKey({
   dbName,
   indexedDBInstance,
   keyRef,
+  existingOnly,
 }: {
   dbName: string;
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
+  existingOnly?: boolean;
 }) {
   let existingRecord: IIndexedDbCryptoKeyRecord | undefined;
   try {
@@ -87,6 +101,7 @@ async function getExistingCryptoKey({
       dbName,
       indexedDBInstance,
       keyRef,
+      existingOnly,
     });
   } catch {
     // IndexedDB transiently unavailable (storage pressure / private mode /
@@ -102,8 +117,9 @@ async function getExistingCryptoKey({
     // retryable unavailable error rather than a generic failure. web/ext rely
     // solely on this layer, and a generic error here is treated by the unlock
     // UI as a wrong password and could drive a silent app reset.
-    throw new LocalSecretEnvelopeUnavailable({
-      message: `Local secret envelope wrapping key unavailable: kind=${INDEXED_DB_CRYPTO_KEY_LSE_LAYER_KIND}`,
+    throw localSecretEnvelopeLayerFailure({
+      kind: INDEXED_DB_CRYPTO_KEY_LSE_LAYER_KIND,
+      reason: 'key-missing',
     });
   }
   return existingRecord.key;
@@ -111,16 +127,19 @@ async function getExistingCryptoKey({
 
 export async function readIndexedDbCryptoKeyForLocalSecretEnvelope({
   dbName = DEFAULT_INDEXED_DB_CRYPTO_KEY_LSE_DB_NAME,
+  existingOnly,
   indexedDBInstance,
   keyRef,
 }: {
   dbName?: string;
+  existingOnly?: boolean;
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
 }): Promise<CryptoKey | undefined> {
   return (
     await readCryptoKeyRecord({
       dbName,
+      existingOnly,
       indexedDBInstance,
       keyRef,
     })
@@ -149,7 +168,10 @@ export function buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter({
   indexedDBInstance,
   keyRefPrefix = DEFAULT_INDEXED_DB_CRYPTO_KEY_LSE_KEY_REF_PREFIX,
   randomBytes = defaultRandomBytes,
-}: IIndexedDbCryptoKeyLayerParams = {}): ILocalSecretEnvelopeLayerAdapter {
+  readExistingOnly,
+}: IIndexedDbCryptoKeyLayerParams & {
+  readExistingOnly?: boolean;
+} = {}): ILocalSecretEnvelopeLayerAdapter {
   return {
     kind: INDEXED_DB_CRYPTO_KEY_LSE_LAYER_KIND,
     prepareLayer: async () => {
@@ -210,16 +232,28 @@ export function buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter({
         dbName,
         indexedDBInstance,
         keyRef: layer.keyRef,
+        existingOnly: readExistingOnly,
       });
-      const decrypted = await cryptoInstance.subtle.decrypt(
-        {
-          additionalData: toWebCryptoBytes(bufferUtils.utf8ToBytes(aad)),
-          iv: readAesGcmLayerIv(layer),
-          name: 'AES-GCM',
-        },
-        key,
-        toWebCryptoBytes(bufferUtils.base64ToBytes(ciphertext)),
-      );
+      const algorithm = {
+        additionalData: toWebCryptoBytes(bufferUtils.utf8ToBytes(aad)),
+        iv: readAesGcmLayerIv(layer),
+        name: 'AES-GCM',
+      };
+      const data = toWebCryptoBytes(bufferUtils.base64ToBytes(ciphertext));
+      let decrypted: ArrayBuffer;
+      try {
+        decrypted = await cryptoInstance.subtle.decrypt(algorithm, key, data);
+      } catch (error) {
+        if (
+          (error as { name?: string } | undefined)?.name === 'OperationError'
+        ) {
+          throw localSecretEnvelopeLayerFailure({
+            kind: INDEXED_DB_CRYPTO_KEY_LSE_LAYER_KIND,
+            reason: 'authentication-failed',
+          });
+        }
+        throw error;
+      }
       return bufferUtils.bytesToUtf8(new Uint8Array(decrypted), {
         checkIsValidUtf8: true,
       });

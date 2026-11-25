@@ -90,6 +90,7 @@ function TxConfirm() {
     isQueueMode,
     unsignedTxQueue,
     gasAccountScenario,
+    transactionStep,
   } = route.params;
 
   const {
@@ -626,7 +627,14 @@ function TxConfirm() {
       testID={SignatureConfirmTestIDs.TxConfirmPage}
     >
       <Page.Header
-        title={txConfirmTitle}
+        title={
+          transactionStep && txConfirmTitle
+            ? `${txConfirmTitle} · ${intl.formatMessage(
+                { id: ETranslations.defi_lending_step_of_total },
+                transactionStep,
+              )}`
+            : txConfirmTitle
+        }
         headerRight={shouldRenderHeaderRight ? renderHeaderRight : undefined}
         unstable_headerRightItems={undefined}
       />

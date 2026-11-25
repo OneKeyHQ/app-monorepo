@@ -11,6 +11,7 @@ export enum EAtomNames {
   termsConsentPersistAtom = 'termsConsentPersistAtom',
   settingsAtom = 'settingsAtom',
   devSettingsPersistAtom = 'devSettingsPersistAtom',
+  walletLocalSecretEnvelopeStatusAtom = 'walletLocalSecretEnvelopeStatusAtom',
   currencyPersistAtom = 'currencyPersistAtom',
   settingsLastActivityAtom = 'settingsLastActivityAtom',
   cloudBackupPersistAtom = 'cloudBackupPersistAtom',
