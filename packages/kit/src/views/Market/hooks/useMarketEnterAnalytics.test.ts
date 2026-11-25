@@ -72,6 +72,7 @@ jest.mock('../utils/marketDetailNavigation', () => {
     isInitialSectionConsumed: actual.isInitialSectionConsumed,
     isPendingMarketAssetResolved: actual.isPendingMarketAssetResolved,
     markPendingMarketAssetResolved: actual.markPendingMarketAssetResolved,
+    isSwapTokenLookupResolved: actual.isSwapTokenLookupResolved,
     isMarketTabDetailRoute: actual.isMarketTabDetailRoute,
   };
 });

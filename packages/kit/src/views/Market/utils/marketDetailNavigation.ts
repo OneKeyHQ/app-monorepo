@@ -814,6 +814,42 @@ export function isPendingMarketAssetResolved(previous: unknown, next: unknown) {
   return isLookupUpdate;
 }
 
+// Route params whose Swap token lookup just rewrote them. `swapTokenSymbol` is
+// a string, so the params object it was read from is the per-route key.
+const resolvedSwapTokenLookups = new WeakSet<object>();
+
+/** Called by the Swap token lookup right before it rewrites the route. */
+export function markSwapTokenLookupResolved(routeParams: unknown) {
+  if (routeParams && typeof routeParams === 'object') {
+    resolvedSwapTokenLookups.add(routeParams);
+  }
+}
+
+/**
+ * Whether a params change is the Swap token lookup of the same entry filling
+ * in the asset and clearing `swapTokenSymbol`, which is not a new entry.
+ */
+export function isSwapTokenLookupResolved(previous: unknown, next: unknown) {
+  type IEntryParams =
+    | { swapTokenSymbol?: unknown; from?: unknown; entryCategory?: unknown }
+    | undefined;
+  const prev = previous as IEntryParams;
+  const cur = next as IEntryParams;
+  const isLookupUpdate = Boolean(
+    prev &&
+    typeof prev === 'object' &&
+    resolvedSwapTokenLookups.has(prev) &&
+    prev.swapTokenSymbol !== undefined &&
+    cur?.swapTokenSymbol === undefined &&
+    prev.from === cur?.from &&
+    prev.entryCategory === cur?.entryCategory,
+  );
+  if (isLookupUpdate) {
+    resolvedSwapTokenLookups.delete(prev as object);
+  }
+  return isLookupUpdate;
+}
+
 // Detail routes (by key) opened by Swap's "view full data" whose trip back to
 // Swap has ended: the user left the Market tab another way, so a later back
 // from that detail belongs to Market again. A new entry restarts the trip.

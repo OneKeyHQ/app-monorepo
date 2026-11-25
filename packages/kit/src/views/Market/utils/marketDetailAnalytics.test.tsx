@@ -115,18 +115,42 @@ describe('resolveMarketDetailAnalyticsAsset', () => {
     });
   });
 
-  it('identifies a trending token without a Market id by its contract', () => {
+  it('identifies an in-app trending entry without a Market id by its contract', () => {
     expect(
       resolveMarketDetailAnalyticsAsset({
         tokenAddress: '0xabc',
         network: 'eth',
         marketTokenCategory: 'trending',
+        from: 'marketList',
       }),
     ).toEqual({
       detailKind: 'trending',
       network: 'evm--1',
       marketAssetId: '0xabc',
     });
+  });
+
+  it('never takes the contract of an external link as the asset id', () => {
+    const linkParams = {
+      tokenAddress: '0xabc',
+      network: 'eth',
+      marketTokenCategory: 'trending',
+    };
+    const external = {
+      detailKind: 'trending',
+      network: 'evm--1',
+    };
+    expect(resolveMarketDetailAnalyticsAsset(linkParams)).toEqual(external);
+    // The caller's entry source wins over the params' own `from`.
+    expect(
+      resolveMarketDetailAnalyticsAsset(
+        { ...linkParams, from: 'marketList' },
+        { isInAppEntry: false },
+      ),
+    ).toEqual(external);
+    expect(
+      resolveMarketDetailAnalyticsAsset(linkParams, { isInAppEntry: true }),
+    ).toEqual({ ...external, marketAssetId: '0xabc' });
   });
 
   it('sends only what an unresolved asset entry knows', () => {
@@ -191,6 +215,23 @@ describe('createMarketDetailVisitTimer', () => {
     timer.setActive(true);
     now = 62_500;
     expect(timer.getDurationMs()).toBe(5500);
+  });
+
+  it('reads the monotonic clock by default', () => {
+    let now = 500;
+    const performanceNow = jest
+      .spyOn(globalThis.performance, 'now')
+      .mockImplementation(() => now);
+    const dateNow = jest.spyOn(Date, 'now');
+    try {
+      const timer = createMarketDetailVisitTimer({ isActive: true });
+      now = 3500;
+      expect(timer.getDurationMs()).toBe(3000);
+      expect(dateNow).not.toHaveBeenCalled();
+    } finally {
+      performanceNow.mockRestore();
+      dateNow.mockRestore();
+    }
   });
 
   it('starts paused for an entry that opens inactive', () => {

@@ -29,7 +29,16 @@ function nonEmptyString(value: unknown): string | undefined {
  */
 export function resolveMarketDetailAnalyticsAsset(
   routeParams: unknown,
-  { fallbackSymbol }: { fallbackSymbol?: string } = {},
+  {
+    fallbackSymbol,
+    isInAppEntry,
+  }: {
+    fallbackSymbol?: string;
+    // Whether our own navigation opened the route (it passes `from`). Only
+    // then is the route's contract address trusted as an asset id; external
+    // links can carry any address. Defaults to the params' own `from`.
+    isInAppEntry?: boolean;
+  } = {},
 ): IMarketDetailAnalyticsAsset {
   const params = (routeParams ?? {}) as {
     stockId?: unknown;
@@ -41,6 +50,7 @@ export function resolveMarketDetailAnalyticsAsset(
     pendingMarketAsset?: { symbol?: unknown };
     legacyTokenPreview?: unknown;
     swapTokenSymbol?: unknown;
+    from?: unknown;
   };
   const stockId = nonEmptyString(params.stockId);
   const detailKind: IDexDetailKind = resolveMarketMobileDetailKind({
@@ -61,11 +71,14 @@ export function resolveMarketDetailAnalyticsAsset(
       nonEmptyString(params.swapTokenSymbol) ??
       nonEmptyString(fallbackSymbol));
   // Listed assets carry a Market id. Trending tokens have none, so their
-  // contract address (unique per `network`) stands in for it.
+  // contract address (unique per `network`) stands in for it, but only for
+  // in-app entries.
+  const trustsTokenAddress =
+    isInAppEntry ?? Boolean(nonEmptyString(params.from));
   const marketAssetId =
     stockId ??
     nonEmptyString(params.marketTokenId) ??
-    nonEmptyString(params.tokenAddress);
+    (trustsTokenAddress ? nonEmptyString(params.tokenAddress) : undefined);
   return {
     detailKind,
     ...(tokenSymbol ? { tokenSymbol } : undefined),
@@ -90,6 +103,11 @@ export function mergeMarketDetailAnalyticsAsset(
   };
 }
 
+// Monotonic, so wall clock changes never skew a visit.
+function monotonicNow() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
 /**
  * Measures the time a detail visit is active: focused and in the foreground.
  * Inactive stretches (another page on top, app in background, hidden tab)
@@ -97,7 +115,7 @@ export function mergeMarketDetailAnalyticsAsset(
  */
 export function createMarketDetailVisitTimer({
   isActive,
-  now = Date.now,
+  now = monotonicNow,
 }: {
   isActive: boolean;
   now?: () => number;

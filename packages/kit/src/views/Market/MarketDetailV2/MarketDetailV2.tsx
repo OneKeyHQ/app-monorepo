@@ -13,6 +13,7 @@ import {
   useFocusEffect,
   useIsFocused,
   useNavigationState,
+  useRoute,
 } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -32,7 +33,10 @@ import {
   useSafeAreaInsets,
   useSplitSubView,
 } from '@onekeyhq/components';
-import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  getRootRoutersLength,
+  useRouteIsFocused,
+} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
 import {
   useTokenDetailActions,
@@ -83,6 +87,7 @@ import {
   finishMarketDetailTabBarTransition,
   isMarketTabDetailRoute,
   isSwapStockTripEnded,
+  markSwapTokenLookupResolved,
 } from '../utils/marketDetailNavigation';
 import { resolveSwapMarketAsset } from '../utils/resolveSwapMarketAsset';
 
@@ -206,6 +211,13 @@ function MarketDetail({
   } = useStockDetail();
   const [currentTokenDetailPreview] = useTokenDetailPreviewAtom();
   const isRouteFocused = useIsFocused();
+  // Unlike raw focus, false behind the lock screen, which keeps this mounted.
+  const isVisitFocused = useRouteIsFocused();
+  // The navigation route's own params (a legacy link renders other params);
+  // entry analytics compares these.
+  const navigationRouteParams = useRoute().params;
+  const navigationRouteParamsRef = useRef(navigationRouteParams);
+  navigationRouteParamsRef.current = navigationRouteParams;
   const media = useMedia();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { top: safeAreaTop } = useSafeAreaInsets();
@@ -274,6 +286,8 @@ function MarketDetail({
           !controller.signal.aborted &&
           currentLookup.current === lookupScope
         ) {
+          // The rewrite completes this entry; analytics must not split it.
+          markSwapTokenLookupResolved(navigationRouteParamsRef.current);
           navigation.setParams({ ...identity, swapTokenSymbol: undefined });
         }
       },
@@ -409,7 +423,8 @@ function MarketDetail({
   // Track market entry analytics, paired with one leave per entry.
   useMarketEnterAnalytics({
     detailVisit: {
-      isFocused: isRouteFocused,
+      isFocused: isVisitFocused,
+      assetParams: route.params,
       chartMode: isTradingViewNative ? 'native' : 'tradingView',
       chartDisplayMode,
       fallbackSymbol: routePreviewSymbol,

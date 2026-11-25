@@ -8,7 +8,11 @@ import {
   EMarketEntryCategory,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 
-import { markPendingMarketAssetResolved } from '../utils/marketDetailNavigation';
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import {
+  markPendingMarketAssetResolved,
+  markSwapTokenLookupResolved,
+} from '../utils/marketDetailNavigation';
 
 import { useMarketEnterAnalytics } from './useMarketEnterAnalytics';
 
@@ -18,6 +22,7 @@ const mockDexEnter = jest.fn();
 const mockDexLeave = jest.fn();
 let mockParams: Record<string, unknown> = {};
 let mockAppVisible = true;
+let mockAppLocked = false;
 const mockVisibilityListeners = new Set<(visible: boolean) => void>();
 
 jest.mock('@react-navigation/native', () => ({
@@ -57,6 +62,14 @@ jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
 }));
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: { current: undefined },
+}));
+jest.mock('@react-navigation/core', () => ({
+  // The auto-lock screen keeps the detail mounted and focused underneath.
+  useIsFocused: () => true,
+  useNavigation: () => ({}),
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
+  useAppIsLockedAtom: () => [mockAppLocked],
 }));
 
 function setAppVisible(visible: boolean) {
@@ -101,6 +114,7 @@ describe('useMarketEnterAnalytics detail visit', () => {
     mockDexEnter.mockClear();
     mockDexLeave.mockClear();
     mockAppVisible = true;
+    mockAppLocked = false;
     mockVisibilityListeners.clear();
   });
   afterEach(() => {
@@ -299,6 +313,211 @@ describe('useMarketEnterAnalytics detail visit', () => {
     view.unmount();
     expect(mockDexEnter).toHaveBeenCalledTimes(1);
     expect(mockDexLeave).toHaveBeenCalledTimes(1);
+  });
+
+  it('excludes time behind the lock screen', () => {
+    mockParams = tokenParams;
+    // Wired like the detail screen: lock-aware focus, not raw focus.
+    const view = renderHook(() =>
+      useMarketEnterAnalytics({
+        detailVisit: {
+          isFocused: useRouteIsFocused(),
+          chartMode: 'native',
+          chartDisplayMode: 'simple',
+        },
+      }),
+    );
+    jest.advanceTimersByTime(2000);
+    mockAppLocked = true;
+    view.rerender();
+    jest.advanceTimersByTime(120_000);
+    mockAppLocked = false;
+    view.rerender();
+    jest.advanceTimersByTime(1000);
+    view.unmount();
+    expect(mockDexEnter).toHaveBeenCalledTimes(1);
+    expect(mockDexLeave).toHaveBeenCalledTimes(1);
+    expect(mockDexLeave.mock.calls[0][0]).toMatchObject({ durationMs: 3000 });
+  });
+
+  describe('on a legacy detail link', () => {
+    // `/market/tokens/:token` keeps its own params; the screen renders the
+    // params loaded for it.
+    const legacyRouteParams = { token: 'bitcoin' };
+    const legacyAssetParams = {
+      marketTokenId: 'bitcoin',
+      network: 'eth',
+      tokenAddress: '0xwbtc',
+      isNative: false,
+      legacyTokenPreview: {
+        address: '0xwbtc',
+        networkId: 'evm--1',
+        isNative: false,
+        name: 'Bitcoin',
+        symbol: 'BTC',
+        decimals: 8,
+        selectedAt: 1,
+      },
+    };
+
+    function renderLegacyDetail() {
+      let assetParams: unknown = legacyAssetParams;
+      const view = renderHook(() =>
+        useMarketEnterAnalytics({
+          detailVisit: {
+            isFocused: true,
+            chartMode: 'native',
+            chartDisplayMode: 'simple',
+            assetParams,
+          },
+        }),
+      );
+      return {
+        ...view,
+        setAssetParams(next: unknown) {
+          assetParams = next;
+          view.rerender();
+        },
+      };
+    }
+
+    it('reports the loaded asset on enter and leave', () => {
+      mockParams = legacyRouteParams;
+      const view = renderLegacyDetail();
+      const asset = {
+        detailKind: 'trending',
+        tokenSymbol: 'BTC',
+        network: 'evm--1',
+        marketAssetId: 'bitcoin',
+      };
+      expect(mockDexEnter).toHaveBeenCalledWith({
+        enterWay: EEnterWay.Others,
+        ...asset,
+        chartMode: 'native',
+        chartDisplayMode: 'simple',
+      });
+      jest.advanceTimersByTime(1500);
+      view.unmount();
+      expect(mockDexLeave).toHaveBeenCalledWith({
+        enterWay: EEnterWay.Others,
+        durationMs: 1500,
+        ...asset,
+        chartMode: 'native',
+        chartDisplayMode: 'simple',
+      });
+    });
+
+    it('counts entries by the navigation route, not the loaded params', () => {
+      mockParams = legacyRouteParams;
+      const view = renderLegacyDetail();
+      // A reload of the same link yields a new params object.
+      view.setAssetParams({ ...legacyAssetParams });
+      view.unmount();
+      expect(mockDexEnter).toHaveBeenCalledTimes(1);
+      expect(mockDexLeave).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('takes a contract address as the asset id only for in-app entries', () => {
+    const trendingParams = {
+      tokenAddress: '0xabc',
+      network: 'eth',
+      marketTokenCategory: 'trending',
+    };
+    mockParams = { ...trendingParams, from: EEnterWay.MarketList };
+    renderDetail().unmount();
+    expect(mockDexEnter.mock.calls[0][0]).toMatchObject({
+      marketAssetId: '0xabc',
+    });
+    expect(mockDexLeave.mock.calls[0][0]).toMatchObject({
+      marketAssetId: '0xabc',
+    });
+
+    // A link (or any route without `from`) can carry any address.
+    mockParams = trendingParams;
+    renderDetail().unmount();
+    expect(mockDexEnter.mock.calls[1][0]).toMatchObject({
+      enterWay: EEnterWay.Others,
+      network: 'evm--1',
+    });
+    expect(mockDexEnter.mock.calls[1][0]).not.toHaveProperty('marketAssetId');
+    expect(mockDexLeave.mock.calls[1][0]).not.toHaveProperty('marketAssetId');
+  });
+
+  describe('when the Swap token lookup resolves', () => {
+    const swapParams = {
+      tokenAddress: '0xpepe',
+      network: 'eth',
+      isNative: false,
+      swapTokenSymbol: 'PEPE',
+      from: EEnterWay.SwapPro,
+    };
+
+    it('keeps one visit and adds the resolved fields', () => {
+      mockParams = swapParams;
+      const view = renderDetail();
+      expect(mockDexEnter).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enterWay: EEnterWay.SwapPro,
+          tokenSymbol: 'PEPE',
+        }),
+      );
+      jest.advanceTimersByTime(2000);
+      markSwapTokenLookupResolved(mockParams);
+      mockParams = {
+        ...swapParams,
+        swapTokenSymbol: undefined,
+        marketTokenId: 'pepe',
+        marketTokenCategory: 'trending',
+      };
+      view.rerender();
+      expect(mockDexEnter).toHaveBeenCalledTimes(1);
+      expect(mockDexLeave).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1000);
+      view.unmount();
+      expect(mockDexLeave).toHaveBeenCalledTimes(1);
+      expect(mockDexLeave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enterWay: EEnterWay.SwapPro,
+          durationMs: 3000,
+          tokenSymbol: 'PEPE',
+          network: 'evm--1',
+          marketAssetId: 'pepe',
+        }),
+      );
+    });
+
+    it('still splits a genuine switch that clears the lookup', () => {
+      mockParams = swapParams;
+      const view = renderDetail();
+      // Not the lookup: a new selection on the same screen.
+      mockParams = {
+        tokenAddress: '0xwif',
+        network: 'eth',
+        marketTokenId: 'wif',
+        from: EEnterWay.DetailSwitch,
+      };
+      view.rerender();
+      expect(mockDexEnter).toHaveBeenCalledTimes(2);
+      expect(mockDexLeave).toHaveBeenCalledTimes(1);
+      view.unmount();
+      expect(mockDexLeave).toHaveBeenCalledTimes(2);
+    });
+
+    it('still splits a switch after a resolved lookup changes the entry', () => {
+      mockParams = swapParams;
+      const view = renderDetail();
+      markSwapTokenLookupResolved(mockParams);
+      mockParams = {
+        ...swapParams,
+        swapTokenSymbol: undefined,
+        from: EEnterWay.DetailSwitch,
+      };
+      view.rerender();
+      expect(mockDexEnter).toHaveBeenCalledTimes(2);
+      expect(mockDexLeave).toHaveBeenCalledTimes(1);
+      view.unmount();
+    });
   });
 
   it('sends no leave and no asset fields without a detail visit', () => {

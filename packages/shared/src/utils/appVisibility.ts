@@ -70,8 +70,20 @@ export function getCurrentVisibilityState(): boolean {
   return true;
 }
 
+function isKnownDesktopAppState(state: unknown) {
+  return state === 'active' || state === 'background' || state === 'blur';
+}
+
 export function onVisibilityStateChange(
   callback: (visible: boolean) => void,
+  {
+    ignoreUnknownDesktopState = false,
+  }: {
+    // Electron resets the app state to undefined on fullscreen toggles while
+    // the window keeps focus. Opt in to skip those signals instead of
+    // reporting them as hidden.
+    ignoreUnknownDesktopState?: boolean;
+  } = {},
 ): () => void {
   if (platformEnv.isNative) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -86,6 +98,7 @@ export function onVisibilityStateChange(
   }
   if (platformEnv.isDesktop && globalThis.desktopApi?.onAppState) {
     return globalThis.desktopApi.onAppState((state) => {
+      if (ignoreUnknownDesktopState && !isKnownDesktopAppState(state)) return;
       callback(state === 'active');
     });
   }

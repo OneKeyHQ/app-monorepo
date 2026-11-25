@@ -35,6 +35,7 @@ import {
 import {
   isInitialSectionConsumed,
   isPendingMarketAssetResolved,
+  isSwapTokenLookupResolved,
 } from '../utils/marketDetailNavigation';
 
 import type {
@@ -44,8 +45,12 @@ import type {
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 export type IMarketDetailVisitOptions = {
-  // Whether the detail screen is the focused route.
+  // Whether the detail screen is the focused route and the app is unlocked.
   isFocused: boolean;
+  // The params the detail screen renders, when they differ from its
+  // navigation route (a legacy `/market/tokens/:token` link loads them).
+  // Entry identity and `enterWay` always come from the navigation route.
+  assetParams?: unknown;
   chartMode: IDexChartMode;
   chartDisplayMode: IDexChartDisplayMode;
   // Symbol of a token preview matching the route, when the route has none.
@@ -114,13 +119,18 @@ export function useMarketEnterAnalytics(params?: {
       // Clearing the one-shot `initialSection` rewrites params but is the
       // same entry; recording it again would double count it.
       isInitialSectionConsumed(previousParams, route.params) ||
-      // Resolving `pendingMarketAsset` rewrites the asset params of the same
-      // tap; only a different entry identity is a new entry.
-      isPendingMarketAssetResolved(previousParams, route.params);
+      // Resolving `pendingMarketAsset` or the Swap token lookup rewrites the
+      // asset params of the same tap; only a different entry identity is a
+      // new entry.
+      isPendingMarketAssetResolved(previousParams, route.params) ||
+      isSwapTokenLookupResolved(previousParams, route.params);
     const options = detailVisitRef.current;
     const asset = options
-      ? resolveMarketDetailAnalyticsAsset(route.params, {
+      ? resolveMarketDetailAnalyticsAsset(options.assetParams ?? route.params, {
           fallbackSymbol: options.fallbackSymbol,
+          isInAppEntry: Boolean(
+            (route.params as { from?: unknown } | undefined)?.from,
+          ),
         })
       : undefined;
     if (isSameEntry) {
@@ -196,10 +206,14 @@ export function useMarketEnterAnalytics(params?: {
     if (!isDetailVisitTracked) return undefined;
     isAppVisibleRef.current = getCurrentVisibilityState();
     visitRef.current?.timer.setActive(isVisitActive());
-    const unsubscribe = onVisibilityStateChange((visible) => {
-      isAppVisibleRef.current = visible;
-      visitRef.current?.timer.setActive(isVisitActive());
-    });
+    const unsubscribe = onVisibilityStateChange(
+      (visible) => {
+        isAppVisibleRef.current = visible;
+        visitRef.current?.timer.setActive(isVisitActive());
+      },
+      // A desktop fullscreen toggle keeps the window focused; keep counting.
+      { ignoreUnknownDesktopState: true },
+    );
     return () => {
       unsubscribe();
       endVisit();
