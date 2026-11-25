@@ -132,6 +132,31 @@ describe('isSwapApprovalFlowActive', () => {
     ).toBe(false);
   });
 
+  it('does not treat the home trade column as active under another Swap', () => {
+    const unregister = registerMarketSwapApprovalFlow(
+      'home-flow-hidden',
+      'homeTab',
+    );
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        isInHomeTab: true,
+        hasModal: true,
+        isHasSwapModal: true,
+        isSwapModalOnTheTop: true,
+        marketSwapApprovalFlowId: 'home-flow-hidden',
+      }),
+    ).toBe(false);
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        isInSwapTab: true,
+        marketSwapApprovalFlowId: 'home-flow-hidden',
+      }),
+    ).toBe(false);
+    unregister();
+  });
+
   it('does not treat the home trade column as active under a modal', () => {
     const unregister = registerMarketSwapApprovalFlow(
       'home-flow-covered',

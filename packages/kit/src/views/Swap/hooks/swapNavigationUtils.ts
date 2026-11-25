@@ -58,12 +58,15 @@ export function isSwapApprovalFlowActive({
   const embeddedFlowHost = marketSwapApprovalFlowId
     ? activeMarketSwapApprovalFlowIds.get(marketSwapApprovalFlowId)
     : undefined;
+  // The Home column's approval is active only while the column shows: a
+  // modal over Home (Settings, another Swap) or the Swap tab hides it, so the
+  // approval falls back to the toast that resumes the trade.
+  if (embeddedFlowHost === 'homeTab') {
+    return isInHomeTab && !hasModal;
+  }
   return (
     (isInSwapTab && !hasModal) ||
     (!isInSwapTab && isSwapModalOnTheTop && isHasSwapModal) ||
-    (isInMarketDetail && embeddedFlowHost === 'marketDetail') ||
-    // A modal over Home (e.g. Settings) hides the column, so the approval
-    // falls back to the toast that resumes the trade.
-    (isInHomeTab && !hasModal && embeddedFlowHost === 'homeTab')
+    (isInMarketDetail && embeddedFlowHost === 'marketDetail')
   );
 }
