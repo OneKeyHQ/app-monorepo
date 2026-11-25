@@ -4,6 +4,7 @@ import { act, renderHook } from '@testing-library/react';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { refreshPerpPublicTrades } from '../../../utils/perpPublicTradesRefresh';
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 
 import { usePerpPublicTrades } from './usePerpPublicTrades';
@@ -254,6 +255,99 @@ it('does not restore expired cached rows on a new mount', async () => {
   jest.advanceTimersByTime(5 * 60_000);
   const { result } = renderHook(() => usePerpPublicTrades(coin, true));
   expect(result.current.trades).toHaveLength(0);
+});
+
+it('does not extend cached rows when a later snapshot has no matching trades', async () => {
+  snapshot.mockResolvedValueOnce(trades(1, 30));
+  const first = renderHook(() => usePerpPublicTrades(coin, true));
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  first.unmount();
+  jest.advanceTimersByTime(4 * 60_000);
+
+  snapshot.mockResolvedValueOnce(
+    trades(31, 30).map((trade) => ({
+      ...trade,
+      coin: `other:${coin}`,
+    })),
+  );
+  const second = renderHook(() => usePerpPublicTrades(coin, true));
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  expect(second.result.current.trades).toHaveLength(30);
+  expect(second.result.current.isLoading).toBe(false);
+  second.unmount();
+
+  jest.advanceTimersByTime(2 * 60_000);
+  const third = renderHook(() => usePerpPublicTrades(coin, true));
+  expect(third.result.current.trades).toHaveLength(0);
+});
+
+it.each(['connected', 'disconnected'] as const)(
+  'refreshes a %s active feed immediately and coalesces simultaneous requests',
+  async (status) => {
+    snapshot.mockResolvedValueOnce(trades(1, 30));
+    const { result, unmount } = renderHook(() =>
+      usePerpPublicTrades(coin, true),
+    );
+    const feed = watch.mock.calls.at(-1)?.[0];
+    await act(async () => feed?.onStatus?.('connected'));
+    act(() => feed?.onStatus?.(status));
+    snapshot.mockResolvedValueOnce(trades(31, 30));
+    await act(async () => {
+      await Promise.all([refreshPerpPublicTrades(), refreshPerpPublicTrades()]);
+    });
+    expect(snapshot).toHaveBeenCalledTimes(2);
+    expect(result.current.trades[0].tid).toBe(60);
+    expect(watch).toHaveBeenCalledTimes(status === 'connected' ? 1 : 2);
+    if (status === 'disconnected') {
+      expect(watch.mock.results[0].value).toHaveBeenCalledTimes(1);
+    }
+    unmount();
+    await act(async () => refreshPerpPublicTrades());
+    expect(snapshot).toHaveBeenCalledTimes(2);
+  },
+);
+
+it('refreshes during snapshot backoff without restarting a connected watcher', async () => {
+  snapshot.mockRejectedValueOnce(new Error('unavailable'));
+  const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  snapshot.mockResolvedValueOnce(trades(1, 30));
+  await act(async () => refreshPerpPublicTrades());
+  expect(result.current.isError).toBe(false);
+  expect(result.current.trades).toHaveLength(30);
+  await act(async () => jest.advanceTimersByTimeAsync(30_000));
+  expect(snapshot).toHaveBeenCalledTimes(2);
+  expect(watch).toHaveBeenCalledTimes(1);
+});
+
+it('refreshes the new market while the previous market snapshot is still pending', async () => {
+  let resolveOld: (value: IRecentTrade[]) => void = () => undefined;
+  snapshot.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveOld = resolve;
+    }),
+  );
+  const { result, rerender } = renderHook(
+    ({ market }) => usePerpPublicTrades(market, true),
+    { initialProps: { market: coin } },
+  );
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = refreshPerpPublicTrades();
+  });
+  const nextCoin = `next:${coin}`;
+  rerender({ market: nextCoin });
+  snapshot.mockResolvedValueOnce(
+    trades(100, 30).map((trade) => ({ ...trade, coin: nextCoin })),
+  );
+  await act(async () => refreshPerpPublicTrades());
+  expect(snapshot).toHaveBeenLastCalledWith({ coin: nextCoin });
+  expect(result.current.trades[0].coin).toBe(nextCoin);
+  await act(async () => {
+    resolveOld(trades(1, 30));
+    await pending;
+  });
+  expect(result.current.trades[0].coin).toBe(nextCoin);
 });
 
 it('stops snapshot retries when paused and resumes with cached rows', async () => {

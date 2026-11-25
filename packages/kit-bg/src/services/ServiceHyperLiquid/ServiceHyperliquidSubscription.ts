@@ -1342,8 +1342,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     return true;
   }
 
+  private _refreshAllPerpsDataPromise: Promise<boolean> | null = null;
+
   @backgroundMethod()
   async refreshAllPerpsData(): Promise<boolean> {
+    if (!this._refreshAllPerpsDataPromise) {
+      this._refreshAllPerpsDataPromise = this._refreshAllPerpsData().finally(
+        () => {
+          this._refreshAllPerpsDataPromise = null;
+        },
+      );
+    }
+    return this._refreshAllPerpsDataPromise;
+  }
+
+  private async _refreshAllPerpsData(): Promise<boolean> {
     const client = await this.getWebSocketClient();
     const isSocketOpen =
       client?.transport?.socket?.readyState === WebSocket.OPEN;

@@ -261,6 +261,12 @@ interface IOrderBookProps {
   variant: IOrderBookVariant;
 }
 
+const VERTICAL_COLUMN_WIDTHS = {
+  price: '33%',
+  size: '30%',
+  total: '37%',
+} as const;
+
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
@@ -341,34 +347,22 @@ const styles = StyleSheet.create({
   },
   verticalHeaderPrice: {
     paddingLeft: 8,
-    width: '33%',
+    width: VERTICAL_COLUMN_WIDTHS.price,
     alignItems: 'flex-start',
   },
   verticalHeaderSize: {
-    width: '30%',
+    width: VERTICAL_COLUMN_WIDTHS.size,
     alignItems: 'flex-end',
   },
-  desktopVerticalHeaderPrice: {
-    width: 'auto',
-    flexShrink: 0,
-  },
-  // Share unused price-label space according to the two headers' text widths.
   desktopVerticalHeaderSize: {
-    width: 'auto',
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 0,
     paddingLeft: 8,
   },
   verticalHeaderTotal: {
     paddingRight: 8,
-    width: '37%',
+    width: VERTICAL_COLUMN_WIDTHS.total,
     alignItems: 'flex-end',
   },
   desktopVerticalHeaderTotal: {
-    width: 'auto',
-    minWidth: '37%',
-    flexShrink: 1,
     paddingLeft: 8,
   },
   desktopVerticalHeaderText: {
@@ -397,15 +391,15 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   verticalRowCellPrice: {
-    width: '33%',
+    width: VERTICAL_COLUMN_WIDTHS.price,
     alignItems: 'flex-start',
   },
   verticalRowCellSize: {
-    width: '30%',
+    width: VERTICAL_COLUMN_WIDTHS.size,
     alignItems: 'flex-end',
   },
   verticalRowCellTotal: {
-    width: '37%',
+    width: VERTICAL_COLUMN_WIDTHS.total,
     alignItems: 'flex-end',
   },
   bodySm: {
@@ -1882,12 +1876,7 @@ export function OrderBook({
         position="right-center"
       >
         <View style={{ flexDirection: 'row' }}>
-          <View
-            style={[
-              styles.verticalHeaderPrice,
-              isDesktopVertical && styles.desktopVerticalHeaderPrice,
-            ]}
-          >
+          <View style={styles.verticalHeaderPrice}>
             <PerpBookText
               numberOfLines={isDesktopVertical ? 1 : undefined}
               style={[

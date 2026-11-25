@@ -7,6 +7,7 @@ import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/pe
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { registerPerpPublicTradesRefresh } from '../../../utils/perpPublicTradesRefresh';
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 
 interface ITradesState {
@@ -41,6 +42,7 @@ function tradeKey(trade: IRecentTrade) {
 }
 
 function latestTrades(incoming: IRecentTrade[], previous: IRecentTrade[]) {
+  if (incoming.length === 0) return previous;
   const unique = uniqBy([...incoming, ...previous], tradeKey);
   return orderBy(unique, ['time', 'tid'], ['desc', 'desc']).slice(
     0,
@@ -125,43 +127,58 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
       () => void fetchSnapshot(),
       SNAPSHOT_FALLBACK_DELAY_MS,
     );
-    const unwatch = watchHyperliquidPublicTrades({
-      coin,
-      limit: PERPS_RECENT_TRADES_LIMIT,
-      onTrades: (incoming) => {
-        if (disposed) return;
-        const matchingTrades = incoming.filter((trade) => trade.coin === coin);
-        for (const trade of matchingTrades) {
-          if (liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT) break;
-          liveTradeKeys.add(tradeKey(trade));
-        }
-        const fullLiveWindow = liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
-        if (fullLiveWindow) clearTimeout(snapshotRetryTimer);
-        setState((previous) => ({
-          ...previous,
-          trades: latestTrades(matchingTrades, previous.trades),
-          ...(fullLiveWindow && { isError: false, isLoading: false }),
-        }));
-      },
-      onStatus: (status) => {
-        if (disposed) return;
-        const isDisconnected = status !== 'connected';
-        setState((previous) =>
-          previous.isDisconnected === isDisconnected
-            ? previous
-            : { ...previous, isDisconnected },
-        );
-        if (isDisconnected) {
-          liveTradeKeys.clear();
-        } else if (!connected) {
-          clearTimeout(fallbackTimer);
-          void fetchSnapshot();
-        }
-        connected = !isDisconnected;
-      },
+    const subscribe = () =>
+      watchHyperliquidPublicTrades({
+        coin,
+        limit: PERPS_RECENT_TRADES_LIMIT,
+        onTrades: (incoming) => {
+          if (disposed) return;
+          const matchingTrades = incoming.filter(
+            (trade) => trade.coin === coin,
+          );
+          for (const trade of matchingTrades) {
+            if (liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT) break;
+            liveTradeKeys.add(tradeKey(trade));
+          }
+          const fullLiveWindow =
+            liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
+          if (fullLiveWindow) clearTimeout(snapshotRetryTimer);
+          setState((previous) => ({
+            ...previous,
+            trades: latestTrades(matchingTrades, previous.trades),
+            ...(fullLiveWindow && { isError: false, isLoading: false }),
+          }));
+        },
+        onStatus: (status) => {
+          if (disposed) return;
+          const isDisconnected = status !== 'connected';
+          setState((previous) =>
+            previous.isDisconnected === isDisconnected
+              ? previous
+              : { ...previous, isDisconnected },
+          );
+          if (isDisconnected) {
+            liveTradeKeys.clear();
+          } else if (!connected) {
+            clearTimeout(fallbackTimer);
+            void fetchSnapshot();
+          }
+          connected = !isDisconnected;
+        },
+      });
+    let unwatch = subscribe();
+    const unregisterRefresh = registerPerpPublicTradesRefresh(async () => {
+      clearTimeout(fallbackTimer);
+      snapshotRetryAttempt = 0;
+      if (!connected) {
+        unwatch();
+        unwatch = subscribe();
+      }
+      await fetchSnapshot();
     });
     return () => {
       disposed = true;
+      unregisterRefresh();
       clearTimeout(fallbackTimer);
       clearTimeout(snapshotRetryTimer);
       unwatch();
