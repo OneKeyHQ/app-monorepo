@@ -133,6 +133,30 @@ describe('withToast', () => {
     }
   });
 
+  it('closes the loading toast and preserves the rejection if error extraction throws', async () => {
+    jest.useFakeTimers();
+    try {
+      const close = jest.fn();
+      const settle = jest.fn(() => true);
+      jest.mocked(Toast.loading).mockReturnValueOnce({ close, settle });
+      const operation = Promise.withResolvers<void>();
+      const error = { message: Object.create(null) as object };
+      const result = withToast({
+        actionType: EActionType.PLACE_ORDER,
+        asyncFn: () => operation.promise,
+      });
+
+      await jest.advanceTimersByTimeAsync(300);
+      operation.reject(error);
+      await expect(result).rejects.toBe(error);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(settle).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('localizes wrapped HyperLiquid order errors from server config', async () => {
     const wrappedMessage =
       'Failed to place market order open: ApiRequestError: Order 0: Insufficient margin to place order. asset=0';

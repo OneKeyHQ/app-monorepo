@@ -2,7 +2,7 @@ import type { RefObject } from 'react';
 import { createRef } from 'react';
 
 import { overlayToastStore } from '@onekeyfe/react-native-native-overlay';
-import { AccessibilityInfo } from 'react-native';
+import { Platform } from 'react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -224,6 +224,7 @@ const handleToastId = ({
 };
 
 interface IActiveToast {
+  renderId: string;
   build: (context: IToastStyleContext) => IOverlayToastSpec;
   /** The row as last built, for routing a press to its handler. */
   actions: () => IToastAction[];
@@ -268,13 +269,13 @@ function reconcileActiveToasts() {
   }
   const liveIds = new Set(snapshot.items.map((item) => item.spec.id));
   const evicted = [...activeToasts.entries()].filter(
-    ([id, toast]) => toast.shown && !liveIds.has(id),
+    ([, toast]) => toast.shown && !liveIds.has(toast.renderId),
   );
   evicted.forEach(([id, toast]) => {
     if (
       !toast.closed &&
       activeToasts.get(id) === toast &&
-      !isToastLiveInStore(id)
+      !isToastLiveInStore(toast.renderId)
     ) {
       finishToast(id, toast);
     }
@@ -302,15 +303,14 @@ function presentToast(id: string, toast: IActiveToast) {
     overlayToastStore.update(spec);
     return;
   }
-  const announceResult = platformEnv.isNative && toast.shown;
   toast.shown = true;
   toast.restartLifetime = false;
   overlayToastStore.show(spec, {
     onDismiss: () => {
-      toast.dismissed = true;
+      if (toast.renderId === spec.id) toast.dismissed = true;
     },
     onClose: () => {
-      finishToast(id, toast);
+      if (toast.renderId === spec.id) finishToast(id, toast);
     },
     onAction: (actionId) => {
       const action = toast
@@ -327,18 +327,6 @@ function presentToast(id: string, toast: IActiveToast) {
     onPress: () => toast.onPress?.(),
   });
   reconcileActiveToasts();
-  if (announceResult && !toast.closed && !toast.dismissed) {
-    // The native renderer announces newly attached cards automatically.
-    const announcement = [spec.title, spec.message]
-      .map((line) =>
-        line?.paragraphs
-          .map((runs) => runs.map((run) => run.text).join(''))
-          .join('\n'),
-      )
-      .filter(Boolean)
-      .join('. ');
-    if (announcement) AccessibilityInfo.announceForAccessibility(announcement);
-  }
 }
 
 subscribeToastStyleContext(() => {
@@ -354,13 +342,16 @@ function closeToast(id: string, toast: IActiveToast) {
     return;
   }
   toast.dismissed = true;
-  overlayToastStore.dismiss(id);
+  overlayToastStore.dismiss(toast.renderId);
 }
 
 function showToast(id: string, toast: IActiveToast) {
   const previous = activeToasts.get(id);
   if (previous) {
     finishToast(id, previous);
+    if (previous.shown && previous.renderId !== toast.renderId) {
+      overlayToastStore.dismiss(previous.renderId);
+    }
   }
   activeToasts.set(id, toast);
   presentToast(id, toast);
@@ -428,6 +419,7 @@ function showMessageToast(props: IToastBaseProps) {
   const id = toastId ?? overlayToastStore.createId();
   const toast: IActiveToast = {
     ...createMessageContent(props, id, () => closeToast(id, toast)),
+    renderId: id,
     onClose: handleClose,
     shown: false,
     closed: false,
@@ -443,7 +435,7 @@ export type IToastSettleStatus = 'success' | 'error' | 'warning' | 'info';
 
 export interface IToastLoadingResult {
   close: () => void;
-  /** Starts the result's timeout on the same card. Returns false if it cannot settle in place. */
+  /** Shows the result and starts its timeout. Returns false if the caller must show it separately. */
   settle: (
     status: IToastSettleStatus,
     props: Omit<IToastBaseProps, 'toastId' | 'onClose' | 'haptic' | 'preset'>,
@@ -520,13 +512,23 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
         return false;
       }
       validateToastTitle(result.title);
+      const previousRenderId = toast.renderId;
+      // Native renderers announce on attachment. A new card also puts the
+      // result in front of any toast that arrived while the task was pending.
+      const replaceNativeCard = Platform.select({
+        native: toast.shown,
+        default: false,
+      });
+      const renderId = replaceNativeCard
+        ? overlayToastStore.createId()
+        : previousRenderId;
       const content = createMessageContent(
         {
           ...result,
           position,
           haptic: status,
         },
-        id,
+        renderId,
         handle.close,
       );
       settled = true;
@@ -535,9 +537,13 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
         entry[1] = (result.duration ?? DEFAULT_MESSAGE_DURATION) + 500;
       }
       Object.assign(toast, content);
-      // A normal redraw keeps the timeout. A result is a new generation of the
-      // same card, even if the theme context is temporarily unavailable.
+      // Theme redraws keep the existing timeout.
       toast.restartLifetime = true;
+      if (replaceNativeCard) {
+        toast.renderId = renderId;
+        toast.shown = false;
+        overlayToastStore.dismiss(previousRenderId);
+      }
       presentToast(id, toast);
       return true;
     },
@@ -648,6 +654,7 @@ function toastNotification({
     return resolvedActions;
   };
   const instance = showToast(id, {
+    renderId: id,
     build: (context) =>
       buildNotificationToastSpec(context, {
         id,

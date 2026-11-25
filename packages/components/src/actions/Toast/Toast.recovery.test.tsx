@@ -85,6 +85,15 @@ jest.mock('react-native', () => ({
     announceForAccessibility: (message: string) =>
       mockAnnounceForAccessibility(message),
   },
+  Platform: {
+    select: ({
+      native,
+      default: fallback,
+    }: {
+      native: boolean;
+      default: boolean;
+    }) => (platformEnv.isNative ? native : fallback),
+  },
   useWindowDimensions: () => ({ height: 900 }),
   I18nManager: { isRTL: false },
 }));
@@ -227,6 +236,7 @@ afterEach(() => jest.restoreAllMocks());
 it.each(['success', 'error'] as const)(
   'settles a loading toast as %s in place and resets its lifetime once',
   (status) => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
     const onClose = jest.fn();
     const toastId = 'loading-status-test';
     const loading = Toast.loading({
@@ -263,16 +273,55 @@ it.each(['success', 'error'] as const)(
     expect(onClose).not.toHaveBeenCalled();
 
     setToastStyleContext(createContext());
-    expect(mockAnnounceForAccessibility).toHaveBeenCalledTimes(1);
-    expect(mockAnnounceForAccessibility).toHaveBeenCalledWith(
-      'Result. Details',
-    );
     expect(mockUpdate).toHaveBeenCalledTimes(1);
     expect(realToastStore.getSnapshot().items[0]?.generation).toBe(
       items[0]?.generation,
     );
     loading?.close();
     expect(onClose).toHaveBeenCalledTimes(1);
+  },
+);
+
+it.each(['success', 'error'] as const)(
+  'gives a native %s result its own front card and keeps the loading handle',
+  (status) => {
+    const detach = realToastStore.attachRenderer();
+    const onClose = jest.fn();
+    const toastId = 'native-settlement';
+    try {
+      const loading = Toast.loading({ title: 'Submitting', toastId, onClose });
+      Toast.notification({ title: 'Newer notification', duration: Infinity });
+      expect(loading?.settle(status, { title: 'Result' })).toBe(true);
+
+      const resultId = latest().spec.id;
+      expect(resultId).not.toBe(toastId);
+      expect(realToastStore.getSnapshot().items[0]?.spec).toMatchObject({
+        id: resultId,
+        duration: 5000,
+        statusIcon: { status },
+      });
+      realToastStore.handleEvent({
+        type: 'close',
+        id: toastId,
+        reason: 'programmatic',
+      });
+      expect(onClose).not.toHaveBeenCalled();
+      expect(Toast.success({ title: 'Duplicate', toastId })).toBeUndefined();
+
+      setToastStyleContext(createContext());
+      expect(mockShow).toHaveBeenCalledTimes(3);
+      expect(mockAnnounceForAccessibility).not.toHaveBeenCalled();
+      loading?.close();
+      expect(mockDismiss).toHaveBeenLastCalledWith(resultId);
+      realToastStore.handleEvent({
+        type: 'close',
+        id: resultId,
+        reason: 'programmatic',
+      });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      detach();
+    }
   },
 );
 
@@ -332,10 +381,10 @@ it('gives a concurrent task with the same toast ID no feedback of its own', asyn
   resolve(2);
   await expect(original).resolves.toBe(2);
   expect(mockShow).toHaveBeenCalledTimes(2);
-  expect(latest().spec).toMatchObject({
-    id: options.toastId,
-    statusIcon: { status: 'success' },
-  });
+  expect(latest().spec).toMatchObject({ statusIcon: { status: 'success' } });
+  expect(latest().spec.id).not.toBe(options.toastId);
+  expect(realToastStore.getSnapshot().items).toHaveLength(1);
+  expect(mockAnnounceForAccessibility).not.toHaveBeenCalled();
 });
 
 it('settles a synchronous task failure at the loading position', async () => {
@@ -650,49 +699,62 @@ it('evicts the oldest toast past 20 items, fires its onClose once, and stops reb
   expect(closeCallbacks[0]).toHaveBeenCalledTimes(1);
 });
 
-it('preserves deduplication record when replacing an unclosed toast with the same toastId', () => {
-  let now = 1_000_000;
-  jest.spyOn(Date, 'now').mockImplementation(() => now);
-  const firstClose = jest.fn();
-  const secondClose = jest.fn();
-  const thirdClose = jest.fn();
+it.each([false, true])(
+  'preserves deduplication when replacing an unclosed toast (native result=%s)',
+  (settled) => {
+    let now = 1_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    const firstClose = jest.fn();
+    const secondClose = jest.fn();
+    const thirdClose = jest.fn();
 
-  Toast.error({
-    toastId: 'rate-limit-429',
-    title: 'First 429',
-    duration: 1000,
-    onClose: firstClose,
-  });
-  const firstHandlers = latest().handlers;
-  expect(mockShow).toHaveBeenCalledTimes(1);
+    const first = {
+      toastId: 'rate-limit-429',
+      title: 'First 429',
+      duration: 1000,
+      onClose: firstClose,
+    };
+    if (settled) {
+      Toast.loading(first)?.settle('error', {
+        title: first.title,
+        duration: first.duration,
+      });
+    } else {
+      Toast.error(first);
+    }
+    const initialShows = settled ? 2 : 1;
+    const firstHandlers = latest().handlers;
+    expect(mockShow).toHaveBeenCalledTimes(initialShows);
 
-  // Advance past the first deduplication window (duration + 500ms) while the
-  // first card is still active (e.g. paused or in exit animation).
-  now += 1600;
-  Toast.error({
-    toastId: 'rate-limit-429',
-    title: 'Second 429',
-    duration: 1000,
-    onClose: secondClose,
-  });
-  expect(firstClose).toHaveBeenCalledTimes(1);
-  expect(mockShow).toHaveBeenCalledTimes(2);
+    // Advance past the first deduplication window (duration + 500ms) while the
+    // first card is still active (e.g. paused or in exit animation).
+    now += 1600;
+    Toast.error({
+      toastId: 'rate-limit-429',
+      title: 'Second 429',
+      duration: 1000,
+      onClose: secondClose,
+    });
+    expect(firstClose).toHaveBeenCalledTimes(1);
+    expect(mockShow).toHaveBeenCalledTimes(initialShows + 1);
+    expect(realToastStore.getSnapshot().items).toHaveLength(1);
 
-  // Even if the first card's SDK onClose fires late, the second card's
-  // deduplication window must remain intact.
-  firstHandlers.onClose?.('timeout');
-  now += 100;
-  const duplicateResult = Toast.error({
-    toastId: 'rate-limit-429',
-    title: 'Duplicate 429 within window',
-    duration: 1000,
-    onClose: thirdClose,
-  });
-  expect(duplicateResult).toBeUndefined();
-  expect(mockShow).toHaveBeenCalledTimes(2);
-  expect(secondClose).not.toHaveBeenCalled();
-  expect(thirdClose).not.toHaveBeenCalled();
-});
+    // Even if the first card's SDK onClose fires late, the second card's
+    // deduplication window must remain intact.
+    firstHandlers.onClose?.('timeout');
+    now += 100;
+    const duplicateResult = Toast.error({
+      toastId: 'rate-limit-429',
+      title: 'Duplicate 429 within window',
+      duration: 1000,
+      onClose: thirdClose,
+    });
+    expect(duplicateResult).toBeUndefined();
+    expect(mockShow).toHaveBeenCalledTimes(initialShows + 1);
+    expect(secondClose).not.toHaveBeenCalled();
+    expect(thirdClose).not.toHaveBeenCalled();
+  },
+);
 
 it('does not prematurely finish a follow-up toast created inside an evicted onClose callback', () => {
   const followUpOnClose = jest.fn();

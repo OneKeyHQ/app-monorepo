@@ -151,12 +151,15 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     return result;
   } catch (error) {
     if (loadingTimer) clearTimeout(loadingTimer);
-    const fallbackTitle = extractErrorMessage(error);
-    void resolveBeforeTimeout(
-      resolveErrorToastTitle(error, fallbackTitle),
-      ERROR_LOCALIZATION_TIMEOUT_MS,
-    )
-      .then((title) => showResult('error', { title: title ?? fallbackTitle }))
+    void Promise.resolve()
+      .then(async () => {
+        const fallbackTitle = extractErrorMessage(error);
+        const title = await resolveBeforeTimeout(
+          resolveErrorToastTitle(error, fallbackTitle),
+          ERROR_LOCALIZATION_TIMEOUT_MS,
+        );
+        showResult('error', { title: title ?? fallbackTitle });
+      })
       .catch((e: unknown) => {
         loadingToast?.close();
         defaultLogger.perp.agentLifeCycle.trackReason({
