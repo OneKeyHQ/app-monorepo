@@ -15,6 +15,25 @@ struct MarketWidgetDataTests {
 
   static func json(_ value: String) -> Data { Data(value.utf8) }
 
+  private static func testQuotePermissionReads() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    for _ in 0..<3 { try store.bindInstance(MarketWidgetInstanceBinding(id: UUID(), kind: .list)) }
+    var reads: [String: Int] = [:]
+    let reader = MarketWidgetStore(directory: directory) { url in
+      reads[url.lastPathComponent, default: 0] += 1
+      return try Data(contentsOf: url)
+    }
+    let asset = MarketWidgetAsset.defaults[2]
+    expect(reader.permitsRequests(for: asset), "Unpinned Hot Coins widgets permit the fallback asset")
+    expect(reads["trending-v1.json"] == 1 && reads["configuration-v1.json"] == 1,
+      "All widget permissions must share one catalog and watchlist read")
+    try store.saveTrending(MarketWidgetCatalog(assets: [MarketWidgetAsset.defaults[0]], fetchedAt: Date()))
+    expect(!reader.permitsRequests(for: asset), "The next permission check must observe the replaced catalog")
+  }
+
   private static func testIndependentListSettings() throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -364,6 +383,7 @@ struct MarketWidgetDataTests {
   }
 
   static func main() async throws {
+    try testQuotePermissionReads()
     try testIndependentListSettings()
     try testDesktopStockSearchCandidates()
     try testEditorDraftSurvivesCandidateEviction()

@@ -304,14 +304,7 @@ const MarketWidgetEditorForm = ({
     },
   });
 
-  const unavailable = !!(
-    platformEnv.isNativeIOS &&
-    routeProfileId &&
-    routeKind &&
-    editor.state &&
-    editor.state.settings?.length === 0
-  );
-  const isReady = !!editor.state && !editor.privacyMasked && !unavailable;
+  const isReady = !!editor.state && !editor.privacyMasked;
   const showFooter = isReady && !isPickingAsset;
   let title = kind === 'single' ? copy.singleCoin : copy.marketList;
   if (isPickingAsset) title = copy.coin;
@@ -325,11 +318,7 @@ const MarketWidgetEditorForm = ({
       />
       <Page.Body>
         {!isReady ? (
-          <MarketWidgetStateView
-            {...editor}
-            unavailable={unavailable}
-            onRetry={editor.refresh}
-          />
+          <MarketWidgetStateView {...editor} onRetry={editor.refresh} />
         ) : null}
         {isReady && isPickingAsset ? (
           <YStack flex={1}>

@@ -10,6 +10,7 @@ import type {
   IMarketWidgetEditorState,
   IMarketWidgetKind,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 export function useMarketWidgetEditorState(
@@ -324,11 +325,18 @@ export function useMarketWidgetEditorState(
     }, [editorSession, refresh, cancelSearch, cancelDraft, releaseSession]),
   );
 
+  const unavailable = !!(
+    platformEnv.isNativeIOS &&
+    instanceId &&
+    instanceKind &&
+    state?.settings?.length === 0
+  );
   return {
     editorSession: nativeSession,
     cancelDraft,
     retainDraft,
-    state,
+    state: unavailable ? undefined : state,
+    unavailable,
     isLoading,
     hasError,
     privacyMasked,

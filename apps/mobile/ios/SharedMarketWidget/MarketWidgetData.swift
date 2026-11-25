@@ -400,9 +400,13 @@ struct MarketWidgetStore {
   static let appGroup = "group.so.onekey.wallet"
   let directory: URL?
 
+  private let readData: (URL) throws -> Data
+
   init(directory: URL? = FileManager.default.containerURL(
     forSecurityApplicationGroupIdentifier: appGroup
-  )?.appendingPathComponent("MarketWidget", isDirectory: true)) {
+  )?.appendingPathComponent("MarketWidget", isDirectory: true),
+       readData: @escaping (URL) throws -> Data = { try Data(contentsOf: $0) }) {
+    self.readData = readData
     self.directory = directory
   }
 
@@ -410,7 +414,7 @@ struct MarketWidgetStore {
     guard let directory else { return .invalid }
     let url = directory.appendingPathComponent("configuration-v1.json")
     guard FileManager.default.fileExists(atPath: url.path) else { return .available(.initial) }
-    guard let data = try? Data(contentsOf: url), data.count <= MarketWidgetConfiguration.maximumBytes,
+    guard let data = try? readData(url), data.count <= MarketWidgetConfiguration.maximumBytes,
           let configuration = try? JSONDecoder().decode(MarketWidgetConfiguration.self, from: data),
           configuration.isValid else { return .invalid }
     return .available(configuration)
@@ -474,10 +478,14 @@ struct MarketWidgetStore {
 
   func desktopSettings(kind: MarketWidgetKind) -> MarketWidgetProfile? {
     guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return nil }
-    if let settings = try? storedDesktopSettings(), let saved = settings.first(where: { $0.kind == kind }) {
-      return saved
-    }
-    if let previous = profiles(kind: kind).last { return previous }
+    return Self.desktopSettings(kind: kind, saved: (try? storedDesktopSettings()) ?? [],
+      profiles: (try? storedProfiles()) ?? [])
+  }
+
+  private static func desktopSettings(kind: MarketWidgetKind, saved: [MarketWidgetProfile],
+                                      profiles: @autoclosure () -> [MarketWidgetProfile]) -> MarketWidgetProfile {
+    if let settings = saved.first(where: { $0.kind == kind }) { return settings }
+    if let previous = profiles().last(where: { $0.kind == kind }) { return previous }
     return MarketWidgetProfile(id: Self.desktopSettingsID(kind: kind), kind: kind,
       name: kind == .single ? "Single coin" : "Market list", source: .hot,
       asset: kind == .single ? MarketWidgetAsset.defaults[0] : nil)
@@ -848,16 +856,17 @@ struct MarketWidgetStore {
       instanceSettings(for: MarketWidgetInstanceBinding(id: id, kind: kind))
     }
     let settings = instance ?? desktopSettings(kind: kind)
-    let resolved = resolvedDesktopAssets(kind: kind, settings: settings)
+    let resolved = resolvedDesktopAssets(kind: kind, settings: settings, availableAssets: desktopAssets(for:))
     return MarketWidgetSelection(configuration: configuration, profile: settings, profileID: instanceID?.uuidString.lowercased(),
       source: settings?.source ?? .hot, assets: resolved.assets, selectionUnavailable: resolved.unavailable, profileUnavailable: false)
   }
 
-  private func resolvedDesktopAssets(kind: MarketWidgetKind, settings: MarketWidgetProfile?) -> (assets: [MarketWidgetAsset], unavailable: Bool) {
+  private func resolvedDesktopAssets(kind: MarketWidgetKind, settings: MarketWidgetProfile?,
+                                    availableAssets: (MarketWidgetSource) -> [MarketWidgetAsset]) -> (assets: [MarketWidgetAsset], unavailable: Bool) {
     let source = settings?.source ?? .hot
     if let pinned = settings?.assets { return (pinned, false) }
     let selected = settings?.asset
-    let available = desktopAssets(for: source)
+    let available = availableAssets(source)
     let resolved: [MarketWidgetAsset]
     var unavailable = false
     if kind == .single, let selected {
@@ -987,15 +996,21 @@ struct MarketWidgetStore {
 
   private func permittedAssets() -> [MarketWidgetAsset] {
     guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return [] }
-    let desktopAssets = [MarketWidgetKind.single, .list].flatMap { kind -> [MarketWidgetAsset] in
-      resolvedDesktopAssets(kind: kind, settings: desktopSettings(kind: kind)).assets
+    let catalog = trending()?.assets
+    let profiles = (try? storedProfiles()) ?? []
+    let saved = (try? storedDesktopSettings()) ?? []
+    let defaults = [MarketWidgetKind.single, .list].map {
+      Self.desktopSettings(kind: $0, saved: saved, profiles: profiles)
     }
-    let instanceAssets = ((try? storedInstanceSettings()) ?? []).flatMap {
-      resolvedDesktopAssets(kind: $0.kind, settings: $0).assets
+    let instances = (try? storedInstanceSettings()) ?? []
+    let desktopAssets = (defaults + instances).flatMap { settings in
+      resolvedDesktopAssets(kind: settings.kind, settings: settings) { source in
+        source == .hot ? catalog ?? MarketWidgetAsset.defaults : configuration.assets
+      }.assets
     }
-    return configuration.assets + (trending()?.assets ?? []) + savedHotSelections()
-      + ((try? storedProfiles()) ?? []).filter { $0.source == .hot }.compactMap(\.asset)
-      + desktopAssets + instanceAssets + lockScreenAssets()
+    return configuration.assets + (catalog ?? []) + savedHotSelections()
+      + profiles.filter { $0.source == .hot }.compactMap(\.asset)
+      + desktopAssets + readLockScreenAssets(filename: "lock-screen-assets-v1.json")
   }
 
   func lockScreenAsset(id: String) -> MarketWidgetAsset? {
@@ -1007,9 +1022,12 @@ struct MarketWidgetStore {
   }
 
   private func storedLockScreenAssets(filename: String) -> [MarketWidgetAsset] {
-    guard let configuration = configuration().configuration, configuration.privacyMasked != true,
-          let directory,
-          let data = try? Data(contentsOf: directory.appendingPathComponent(filename)),
+    guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return [] }
+    return readLockScreenAssets(filename: filename)
+  }
+
+  private func readLockScreenAssets(filename: String) -> [MarketWidgetAsset] {
+    guard let directory, let data = try? Data(contentsOf: directory.appendingPathComponent(filename)),
           data.count <= 1_048_576,
           let stored = try? JSONDecoder().decode(MarketWidgetLockScreenAssets.self, from: data),
           stored.schemaVersion == 1, stored.assets.count <= 256,
@@ -1079,7 +1097,7 @@ struct MarketWidgetStore {
 
   func trending() -> MarketWidgetCatalog? {
     guard let directory,
-          let data = try? Data(contentsOf: directory.appendingPathComponent("trending-v1.json")),
+          let data = try? readData(directory.appendingPathComponent("trending-v1.json")),
           data.count <= 1_048_576,
           let catalog = try? JSONDecoder().decode(MarketWidgetCatalog.self, from: data),
           catalog.isValid else { return nil }
