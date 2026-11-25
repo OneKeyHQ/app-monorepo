@@ -12,6 +12,7 @@ import {
   HardwareCloudSyncError,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isSameServiceBaseURL } from '@onekeyhq/shared/src/request/helpers/serviceRequestUrl';
 import timerUtils, {
   resolveBeforeTimeout,
 } from '@onekeyhq/shared/src/utils/timerUtils';
@@ -49,13 +50,19 @@ import {
   logHardwareCloudSyncDiagnostic,
   summarizeHardwareCloudSyncRestoreItems,
 } from './hardwareCloudSyncLog';
-import { verifiedSessionBaseURL } from './hardwareCloudSyncSession';
+import {
+  canUseHardwareCloudSyncSessionAt,
+  getHardwareCloudSyncPreviousPwdHashes,
+  matchesRecordFields,
+  verifiedSessionBaseURL,
+} from './hardwareCloudSyncSession';
 
 import type {
   IHardwareCloudSyncHistory,
   IServerSyncRecord,
 } from './hardwareCloudSyncSession';
 import type ServiceKeylessCloudSync from './ServiceKeylessCloudSync';
+import type { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
 import type {
   IDBCloudSyncItem,
   IDBDevice,
@@ -69,6 +76,7 @@ type IRecoveredItem = {
   original: IDBCloudSyncItem;
   replacement: IDBCloudSyncItem;
   replaceRawData?: boolean;
+  preserveUploadState?: boolean;
 };
 
 export function hasPendingDeletionFromPreviousHardwareKey({
@@ -86,6 +94,98 @@ export function hasPendingDeletionFromPreviousHardwareKey({
       !!item.pendingPublicAccountDeletionAt &&
       item.pwdHash !== currentPwdHash &&
       previousPwdHashes.has(item.pwdHash),
+  );
+}
+
+function hasOriginalDataTime(item: IDBCloudSyncItem) {
+  return Number.isSafeInteger(item.dataTime) && (item.dataTime ?? 0) > 0;
+}
+
+function isHardwareBusinessMetadata(item: IDBCloudSyncItem) {
+  return (
+    isSupportedCloudSyncDataType(item.dataType) &&
+    item.dataType !== EPrimeCloudSyncDataType.Lock &&
+    item.dataType !== EPrimeCloudSyncDataType.Wallet &&
+    item.dataType !== EPrimeCloudSyncDataType.Account
+  );
+}
+
+function readRecoveryRawData(item: IDBCloudSyncItem) {
+  if (!item.rawData) return undefined;
+  try {
+    const value: unknown = JSON.parse(item.rawData);
+    if (
+      value &&
+      typeof value === 'object' &&
+      'dataType' in value &&
+      value.dataType === item.dataType &&
+      'rawKey' in value &&
+      typeof value.rawKey === 'string' &&
+      !!value.rawKey &&
+      (item.rawKey
+        ? value.rawKey === item.rawKey
+        : sha512ProSync({ data: value.rawKey }) === item.id) &&
+      'payload' in value &&
+      isPlainObject(value.payload)
+    ) {
+      return value as ICloudSyncRawDataJson;
+    }
+  } catch {
+    // A malformed cache may still be rebuilt from an exact business record.
+  }
+  return undefined;
+}
+
+async function canDecryptRecoveryCiphertext(
+  item: IDBCloudSyncItem,
+  syncCredential: ICloudSyncCredential,
+) {
+  const encryptionKey = syncCredential.keylessCredential?.encryptionKey;
+  if (!item.data || !encryptionKey) return false;
+  try {
+    await keylessCloudSyncUtils.decryptWithKeylessKey({
+      encryptedData: item.data,
+      encryptionKey,
+      itemId: item.id,
+      dataType: item.dataType,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function canRestoreAcknowledgedMetadataFromCloud(
+  item: IDBCloudSyncItem,
+  activePwdHash: string,
+) {
+  return (
+    isHardwareBusinessMetadata(item) &&
+    !!item.pwdHash?.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+    item.pwdHash !== activePwdHash &&
+    item.serverUploaded &&
+    !item.pendingPublicAccountDeletionAt &&
+    (!hasOriginalDataTime(item) || !readRecoveryRawData(item))
+  );
+}
+
+// An encrypted tombstone created under another hardware key has its plaintext
+// cache cleared by buildSyncItem and cannot be re-encrypted locally. Keep it
+// for cross-space reconciliation instead of blocking hardware reconnect.
+function isRetainedForeignHardwareMetadataDeletion(
+  item: IDBCloudSyncItem,
+  activePwdHash: string,
+) {
+  return (
+    isHardwareBusinessMetadata(item) &&
+    !!item.pwdHash?.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+    item.pwdHash !== activePwdHash &&
+    item.isDeleted &&
+    item.localSceneUpdated &&
+    !item.serverUploaded &&
+    !!item.data &&
+    !item.pendingPublicAccountDeletionAt &&
+    !readRecoveryRawData(item)
   );
 }
 
@@ -107,102 +207,146 @@ export async function prepareHardwareCloudSyncLocalRecovery({
 }): Promise<IRecoveredItem[]> {
   const currentHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
   const recovered: IRecoveredItem[] = [];
-  const isKnownOpaqueCopy = (item: IDBCloudSyncItem) =>
-    !item.rawData &&
-    !item.isDeleted &&
-    !!item.rawKey &&
-    item.localSceneUpdated &&
-    knownPwdHashes.has(item.pwdHash) &&
-    isRetainedHardwareCloudCopy(item, currentHash);
-  const opaqueCopies = items.filter(isKnownOpaqueCopy);
-  if (loadAuthoritativeItems && opaqueCopies.length) {
-    const candidates = await loadAuthoritativeItems(opaqueCopies);
-    const byId = new Map<string, IDBCloudSyncItem | undefined>();
-    for (const candidate of candidates) {
-      byId.set(candidate.id, byId.has(candidate.id) ? undefined : candidate);
-    }
-    for (const item of opaqueCopies) {
-      const replacement = byId.get(item.id);
-      if (
-        replacement?.data &&
-        replacement.rawData &&
-        replacement.rawKey === item.rawKey &&
-        replacement.dataType === item.dataType &&
-        replacement.pwdHash === currentHash &&
-        !replacement.isDeleted
-      ) {
+  const businessFallbacks: {
+    original: IDBCloudSyncItem;
+    mustRecover: boolean;
+  }[] = [];
+
+  const prepareItem = async (item: IDBCloudSyncItem) => {
+    if (
+      item.pendingPublicAccountDeletionAt ||
+      !isSupportedCloudSyncDataType(item.dataType) ||
+      item.dataType === EPrimeCloudSyncDataType.Lock ||
+      (item.pwdHash &&
+        !item.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX))
+    )
+      return;
+
+    const original = { ...item };
+    if (await canDecryptRecoveryCiphertext(original, syncCredential)) {
+      if (original.pwdHash !== currentHash) {
         recovered.push({
-          original: { ...item },
-          replacement,
-          replaceRawData: true,
+          original,
+          replacement: { ...original, pwdHash: currentHash },
+          preserveUploadState: true,
         });
       }
+      return;
     }
-  }
-  const candidates = items.filter((item) => {
-    // Downloaded records can still be waiting for scene decryption. Preserve
-    // their ciphertext when the authenticated history already accepts the key.
-    const canRetainCiphertext =
-      !item.rawData && item.data && knownPwdHashes.has(item.pwdHash);
-    return (
-      // An encrypted old-space server copy can have stale or corrupt cached
-      // plaintext. Retain it unless the scoped loader above rebuilt it.
-      !isRetainedHardwareCloudCopy(item, currentHash) &&
-      !canRetainCiphertext &&
-      (!item.pwdHash ||
-        knownPwdHashes.has(item.pwdHash) ||
-        // The local write path can create a plaintext-only version before
-        // a credential is available, but downloaded ciphertext is not proof
-        // that its cached rawData belongs to this source.
-        (!item.data &&
-          !!item.rawData &&
-          item.localSceneUpdated &&
-          !item.serverUploaded) ||
-        (item.dataType !== EPrimeCloudSyncDataType.Wallet &&
-          item.dataType !== EPrimeCloudSyncDataType.Account)) &&
-      !item.pendingPublicAccountDeletionAt &&
-      isSupportedCloudSyncDataType(item.dataType) &&
-      item.dataType !== EPrimeCloudSyncDataType.Lock &&
-      (!item.pwdHash ||
-        item.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)) &&
-      !(item.pwdHash === currentHash && item.data)
+
+    const raw = readRecoveryRawData(original);
+    // An encrypted public snapshot requires its existing authenticated import
+    // path, even if an obsolete plaintext cache is still present.
+    if (
+      original.data &&
+      raw?.dataType === EPrimeCloudSyncDataType.Account &&
+      raw.payload.publicAccountSnapshot
+    )
+      return;
+
+    const retained = isRetainedHardwareCloudCopy(original, currentHash);
+    const canPullFromCloud = canRestoreAcknowledgedMetadataFromCloud(
+      original,
+      currentHash,
     );
-  });
-  for (const item of candidates) {
-    const original = { ...item };
-    let raw: unknown;
-    try {
-      raw = JSON.parse(original.rawData ?? '');
-    } catch {
+    const retainedForeignDeletion = isRetainedForeignHardwareMetadataDeletion(
+      original,
+      currentHash,
+    );
+    const knownKey = knownPwdHashes.has(original.pwdHash);
+    const canRetainCiphertext =
+      !original.rawData && !!original.data && knownKey;
+    // Settled wallet/account payloads can be foreign or stale. Reuse their
+    // existing source checks rather than taking cached plaintext as authority.
+    const canRekey =
+      !retained &&
+      !canPullFromCloud &&
+      !retainedForeignDeletion &&
+      !canRetainCiphertext &&
+      (!original.pwdHash ||
+        knownKey ||
+        (!original.data &&
+          !!raw &&
+          original.localSceneUpdated &&
+          !original.serverUploaded) ||
+        isHardwareBusinessMetadata(original));
+    // Only an applied version or a local edit can supply the timestamp for
+    // a fresh read from the business database.
+    const canReadBusiness =
+      !!loadAuthoritativeItems &&
+      !raw &&
+      !original.isDeleted &&
+      original.localSceneUpdated &&
+      hasOriginalDataTime(original) &&
+      (isHardwareBusinessMetadata(original)
+        ? canPullFromCloud ||
+          original.pwdHash === currentHash ||
+          (!original.serverUploaded && (!original.data || knownKey))
+        : !!original.rawKey &&
+          knownKey &&
+          (retained ||
+            original.pwdHash === currentHash ||
+            (!original.serverUploaded && !original.data)));
+    if (!raw && canReadBusiness) {
+      businessFallbacks.push({ original, mustRecover: canRekey });
+      return;
+    }
+    if (!canRekey) return;
+    // Existing versions must never enter the upload path with a synthetic time.
+    if (original.pwdHash && !hasOriginalDataTime(original)) {
       throw createHardwareCloudSyncDataError(
-        'Local hardware sync record cannot be rebuilt',
+        'Local hardware sync record has no original modification time',
       );
     }
-    if (
-      !raw ||
-      typeof raw !== 'object' ||
-      !('dataType' in raw) ||
-      raw.dataType !== original.dataType ||
-      !('rawKey' in raw) ||
-      typeof raw.rawKey !== 'string' ||
-      (original.rawKey && raw.rawKey !== original.rawKey) ||
-      !('payload' in raw) ||
-      !raw.payload ||
-      typeof raw.payload !== 'object'
-    ) {
+    if (!raw) {
       throw createHardwareCloudSyncDataError(
-        'Local hardware sync record has invalid plaintext metadata',
+        original.rawData
+          ? 'Local hardware sync record has invalid plaintext metadata'
+          : 'Local hardware sync record cannot be rebuilt',
       );
     }
     const replacement = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson(
       {
         key: original.id,
-        rawDataJson: raw as ICloudSyncRawDataJson,
+        rawDataJson: raw,
         syncCredential,
         dataTime: original.dataTime,
       },
     );
     recovered.push({ original, replacement });
+  };
+  for (const item of items) {
+    await prepareItem(item);
+  }
+
+  if (loadAuthoritativeItems && businessFallbacks.length) {
+    const candidates = await loadAuthoritativeItems(
+      businessFallbacks.map(({ original }) => original),
+    );
+    const byId = new Map<string, IDBCloudSyncItem | undefined>();
+    for (const candidate of candidates) {
+      byId.set(candidate.id, byId.has(candidate.id) ? undefined : candidate);
+    }
+    for (const { original, mustRecover } of businessFallbacks) {
+      const replacement = byId.get(original.id);
+      if (
+        replacement?.data &&
+        replacement.rawData &&
+        replacement.rawKey &&
+        (original.rawKey
+          ? replacement.rawKey === original.rawKey
+          : sha512ProSync({ data: replacement.rawKey }) === original.id) &&
+        replacement.dataType === original.dataType &&
+        replacement.pwdHash === currentHash &&
+        !replacement.isDeleted
+      ) {
+        recovered.push({ original, replacement, replaceRawData: true });
+      } else if (mustRecover) {
+        throw createHardwareCloudSyncDataError(
+          'Local hardware sync record cannot be rebuilt',
+        );
+      }
+    }
   }
   return recovered;
 }
@@ -216,31 +360,30 @@ export async function commitHardwareCloudSyncLocalRecovery(
     ids: [...byId.keys()],
     updater: (record) => {
       const item = byId.get(record.id);
-      if (
-        item &&
-        record.pwdHash === item.original.pwdHash &&
-        record.data === item.original.data &&
-        record.dataType === item.original.dataType &&
-        record.rawKey === item.original.rawKey &&
-        record.rawData === item.original.rawData &&
-        record.serverUploaded === item.original.serverUploaded &&
-        record.localSceneUpdated === item.original.localSceneUpdated &&
-        record.dataTime === item.original.dataTime &&
-        record.isDeleted === item.original.isDeleted &&
-        !record.pendingPublicAccountDeletionAt
-      ) {
+      if (item && matchesHardwareRecoverySource(record, item.original)) {
         // Keep the business version, tombstone and pending scene state. A
         // concurrent edit is left untouched for the following full sync.
         record.data = item.replacement.data;
         if (item.replaceRawData) {
           record.rawData = item.replacement.rawData;
+          record.rawKey = item.replacement.rawKey;
         }
         record.pwdHash = item.replacement.pwdHash;
-        record.serverUploaded = false;
+        if (!item.preserveUploadState) record.serverUploaded = false;
       }
       return record;
     },
   });
+}
+
+export function matchesHardwareRecoverySource(
+  record: IDBCloudSyncItem | RealmSchemaCloudSyncItem,
+  original: IDBCloudSyncItem,
+) {
+  return (
+    !record.pendingPublicAccountDeletionAt &&
+    matchesRecordFields(record, original)
+  );
 }
 
 type IVerifiedWalletCache = {
@@ -514,8 +657,7 @@ export async function commitVerifiedWalletCaches(
             verifiedEdit.expectedCloudSyncWalletName !== wallet.name ||
             verifiedEdit.cloudSyncSource !== incoming ||
             verifiedEdit.name !== scene.payload.name ||
-            verifiedEdit.avatar !== scene.payload.avatar ||
-            verifiedEdit.deferCloudSyncWalletName)
+            verifiedEdit.avatar !== scene.payload.avatar)
         )
           return;
         const matching = wallets.filter(
@@ -710,79 +852,82 @@ async function commitVerifiedAccountRotations(
           snapshot,
           wallets,
         );
-        if (projections.size !== 1) return;
-        const match = projections.values().next().value;
-        if (!match) return;
-        const { wallet, expected } = match;
-        if (snapshot.wallet.kind === 'hardware') {
-          if (!wallet.associatedDevice) return;
-          const {
-            records: [device],
-          } = await localDb.txGetRecordsByIds({
-            tx,
-            name: ELocalDBStoreNames.Device,
-            ids: [wallet.associatedDevice],
-          });
-          if (!device) return;
-          try {
-            const settings = JSON.parse(device.settingsRaw || '{}') as {
-              vendor?: EHardwareVendor;
-            };
-            if (
-              !settings ||
-              typeof settings !== 'object' ||
-              Array.isArray(settings) ||
-              (settings.vendor ?? EHardwareVendor.onekey) !==
-                EHardwareVendor.onekey
-            )
-              return;
-          } catch {
-            return;
-          }
-        } else {
-          const {
-            records: [credential],
-          } = await localDb.txGetRecordsByIds({
-            tx,
-            name: ELocalDBStoreNames.Credential,
-            ids: [wallet.id],
-          });
-          if (!credential?.credential) return;
-        }
-        current();
-        const indexedId = expected.indexedAccountId;
-        if (!indexedId) return;
-        const {
-          records: [account],
-        } = await localDb.txGetRecordsByIds({
-          tx,
-          name: ELocalDBStoreNames.Account,
-          ids: [expected.id],
-        });
-        const {
-          records: [indexed],
-        } = await localDb.txGetRecordsByIds({
-          tx,
-          name: ELocalDBStoreNames.IndexedAccount,
-          ids: [indexedId],
-        });
         if (
-          !account ||
-          account.indexedAccountId !== indexedId ||
-          indexed?.walletId !== wallet.id ||
-          indexed.index !== expected.pathIndex ||
-          account.name !== expected.name ||
-          (indexed.name && indexed.name !== expected.name) ||
-          !publicAccountIdentityEqual(
-            {
-              ...account,
-              createAtNetwork: account.createAtNetwork ?? undefined,
-              relPath: account.relPath ?? undefined,
-            },
-            expected,
-          )
+          !projections.size ||
+          (snapshot.wallet.kind !== 'hardware' && projections.size !== 1)
         )
           return;
+        for (const { wallet, expected } of projections.values()) {
+          if (snapshot.wallet.kind === 'hardware') {
+            if (!wallet.associatedDevice) return;
+            const {
+              records: [device],
+            } = await localDb.txGetRecordsByIds({
+              tx,
+              name: ELocalDBStoreNames.Device,
+              ids: [wallet.associatedDevice],
+            });
+            if (!device) return;
+            try {
+              const settings = JSON.parse(device.settingsRaw || '{}') as {
+                vendor?: EHardwareVendor;
+              };
+              if (
+                !settings ||
+                typeof settings !== 'object' ||
+                Array.isArray(settings) ||
+                (settings.vendor ?? EHardwareVendor.onekey) !==
+                  EHardwareVendor.onekey
+              )
+                return;
+            } catch {
+              return;
+            }
+          } else {
+            const {
+              records: [credential],
+            } = await localDb.txGetRecordsByIds({
+              tx,
+              name: ELocalDBStoreNames.Credential,
+              ids: [wallet.id],
+            });
+            if (!credential?.credential) return;
+          }
+          current();
+          const indexedId = expected.indexedAccountId;
+          if (!indexedId) return;
+          const {
+            records: [account],
+          } = await localDb.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.Account,
+            ids: [expected.id],
+          });
+          const {
+            records: [indexed],
+          } = await localDb.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.IndexedAccount,
+            ids: [indexedId],
+          });
+          if (
+            !account ||
+            account.indexedAccountId !== indexedId ||
+            indexed?.walletId !== wallet.id ||
+            indexed.index !== expected.pathIndex ||
+            account.name !== expected.name ||
+            (indexed.name && indexed.name !== expected.name) ||
+            !publicAccountIdentityEqual(
+              {
+                ...account,
+                createAtNetwork: account.createAtNetwork ?? undefined,
+                relPath: account.relPath ?? undefined,
+              },
+              expected,
+            )
+          )
+            return;
+        }
 
         const {
           records: [source],
@@ -815,22 +960,18 @@ export function getVerifiedRecoveryRecords(
   history: IHardwareCloudSyncHistory,
   session: IHardwareCloudSyncSession | undefined,
   pwdHash: string,
+  baseURL = session?.boundBaseURL,
 ): readonly IServerSyncRecord[] | undefined {
   if (
     !session?.boundBaseURLVerified ||
-    !session.boundBaseURL?.startsWith('https://')
+    !baseURL?.startsWith('https://') ||
+    !canUseHardwareCloudSyncSessionAt(session, baseURL)
   )
     return undefined;
   const { serverData, pwdHash: responseHash } = history.data.data;
   if (responseHash !== undefined && responseHash !== pwdHash) return undefined;
   try {
-    if (
-      verifiedSessionBaseURL(
-        history,
-        session.boundBaseURL,
-        '/prime/v1/sync/download',
-      )
-    )
+    if (verifiedSessionBaseURL(history, baseURL, '/prime/v1/sync/download'))
       return serverData;
   } catch {
     // Unverifiable transport cannot authorize a cache change.
@@ -866,7 +1007,6 @@ async function applyVerifiedWalletRecoveryScene({
     item: candidate.incoming,
     isCurrent,
     applyVerifiedRecovery: async (update: IDBSetWalletNameAndAvatarParams) =>
-      !update.deferCloudSyncWalletName &&
       update.expectedCloudSyncWalletName === candidate.wallet.name &&
       (await commit(() =>
         commitVerifiedWalletCaches([candidate], isCurrent, update),
@@ -889,20 +1029,34 @@ export async function recoverVerifiedWalletCaches({
   service,
   items,
   history,
-  previousPwdHashes,
+  previousPwdHashes = [],
+  resume,
   key,
   isCurrent,
 }: {
   items: readonly IDBCloudSyncItem[];
   history: IHardwareCloudSyncHistory;
-  previousPwdHashes: readonly string[];
+  previousPwdHashes?: readonly string[];
+  resume?: { baseURL: string; signal: AbortSignal };
   key: IKeylessCloudSyncCredential;
   isCurrent: () => boolean;
   service: IHardwareWalletRecoveryService;
 }) {
   const session = key.hardwareSession;
-  const records = getVerifiedRecoveryRecords(history, session, key.pwdHash);
-  if (!records || !session) return;
+  const baseURL = resume?.baseURL ?? session?.boundBaseURL;
+  const records = getVerifiedRecoveryRecords(
+    history,
+    session,
+    key.pwdHash,
+    baseURL,
+  );
+  if (!records || !session || resume?.signal.aborted || !isCurrent()) return;
+  const knownPwdHashes = new Set(
+    resume
+      ? getHardwareCloudSyncPreviousPwdHashes(history, key.pwdHash)
+      : previousPwdHashes,
+  );
+  if (!knownPwdHashes.size) return;
   const generation = service.getHardwareUploadGeneration();
   let changed = false;
   const invalidate = () => {
@@ -911,6 +1065,7 @@ export async function recoverVerifiedWalletCaches({
   const watch = devSettingsPersistAtom.sub(invalidate);
   const stillSelected = () =>
     !changed &&
+    !resume?.signal.aborted &&
     isCurrent() &&
     generation !== undefined &&
     generation === service.getHardwareUploadGeneration();
@@ -924,15 +1079,17 @@ export async function recoverVerifiedWalletCaches({
         const recovery = {
           items,
           records,
-          knownPwdHashes: new Set(previousPwdHashes),
+          knownPwdHashes,
           syncCredential: service.buildSyncCredentialWithKeylessCredential(key),
           isCurrent: stillSelected,
         };
         const commit = async <T>(apply: () => Promise<T>) => {
           if (
             !stillSelected() ||
-            (await service.getHardwareWalletRetryOrigin()) !==
-              session.boundBaseURL ||
+            !isSameServiceBaseURL(
+              await service.getHardwareWalletRetryOrigin(),
+              baseURL,
+            ) ||
             (await serviceApp.isAppLocked()) ||
             !stillSelected()
           )
@@ -985,7 +1142,7 @@ export async function recoverVerifiedWalletCaches({
           })(),
         ]);
       })(),
-      1000,
+      resume ? 5000 : 1000,
     );
   } finally {
     invalidate();
@@ -1105,7 +1262,11 @@ export async function prepareHardwareResign({
     credential.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX);
   const recoveredItems = restoresRotatedHardwareKey
     ? await prepareHardwareCloudSyncLocalRecovery({
-        items,
+        // A current encrypted row will be authenticated when applied. Only a
+        // key mismatch or missing ciphertext needs the re-sign preflight.
+        items: items.filter(
+          (item) => item.pwdHash !== credential.pwdHash || !item.data,
+        ),
         knownPwdHashes,
         syncCredential: makeCredential(),
         loadAuthoritativeItems: (opaqueCopies) =>
@@ -1125,7 +1286,9 @@ export async function prepareHardwareResign({
     !recoveredIds.has(item.id) &&
     !(
       restoresRotatedHardwareKey &&
-      isRetainedHardwareCloudCopy(item, credential.pwdHash)
+      (isRetainedHardwareCloudCopy(item, credential.pwdHash) ||
+        canRestoreAcknowledgedMetadataFromCloud(item, credential.pwdHash) ||
+        isRetainedForeignHardwareMetadataDeletion(item, credential.pwdHash))
     ) &&
     !(
       canSkipUnverifiedPendingWallet &&

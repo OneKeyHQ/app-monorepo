@@ -500,11 +500,20 @@ function projectPublicAccountIdentity(account: IDBAccount) {
         }
       : {}),
     networks: account.networks ? [...account.networks].toSorted() : [],
-    createAtNetwork: account.createAtNetwork,
   };
 }
 
 export function publicAccountIdentityEqual(
+  a: IDBAccount,
+  b: IDBAccount,
+): boolean {
+  return (
+    a.createAtNetwork === b.createAtNetwork &&
+    publicAccountSyncIdentityEqual(a, b)
+  );
+}
+
+export function publicAccountSyncIdentityEqual(
   a: IDBAccount,
   b: IDBAccount,
 ): boolean {
@@ -520,9 +529,10 @@ export function getPublicAccountSnapshotIdentityHash(
   // Wallet identity is checked by the snapshot ID; the projection checks
   // canonical public account fields and does not use the device's local ID.
   const account = publicAccountSnapshotToAccount(snapshot, 'hd-0');
-  const identity = stringUtils.stableStringify(
-    projectPublicAccountIdentity(account),
-  );
+  const identity = stringUtils.stableStringify({
+    ...projectPublicAccountIdentity(account),
+    createAtNetwork: account.createAtNetwork,
+  });
   return Buffer.from(
     appCrypto.hash.sha256Sync(Buffer.from(identity, 'utf8')),
   ).toString('hex');

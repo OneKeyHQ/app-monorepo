@@ -179,7 +179,10 @@ describe('Privacy storage reset when the database cannot be read', () => {
       >,
       {
         backgroundApi: {
-          serviceCustomRpc: { resolveDefaultRpcUrl: async () => undefined },
+          serviceCustomRpc: {
+            resolveDefaultRpcUrl: async () => undefined,
+            getCustomRpcForNetwork: async () => undefined,
+          },
         },
       },
     );

@@ -96,8 +96,12 @@ export async function signInHardwareCloudSync({
     device.credentialId,
   );
   const env = await getHardwareCloudSyncEnvironment();
+  const baseURL = client.defaults?.baseURL;
   const assertEnvironmentUnchanged = async () => {
-    if (env !== (await getHardwareCloudSyncEnvironment())) {
+    if (
+      env !== (await getHardwareCloudSyncEnvironment()) ||
+      baseURL !== client.defaults?.baseURL
+    ) {
       throw new OneKeyError('Cloud sync environment changed. Try again.');
     }
   };
@@ -133,7 +137,7 @@ export async function signInHardwareCloudSync({
     signature,
   });
   await assertEnvironmentUnchanged();
-  return session;
+  return { ...session, environment: env };
 }
 
 function unlockError() {
