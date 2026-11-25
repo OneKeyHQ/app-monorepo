@@ -25,6 +25,7 @@ import {
 import {
   isMarketTabDetailRoute,
   isPendingMarketAssetResolved,
+  markPendingMarketAssetResolved,
 } from '../utils/marketDetailNavigation';
 import { markMarketHomeDeeplinkEntry } from '../utils/marketHomeEntryNavigation';
 
@@ -70,6 +71,7 @@ jest.mock('../utils/marketDetailNavigation', () => {
   return {
     isInitialSectionConsumed: actual.isInitialSectionConsumed,
     isPendingMarketAssetResolved: actual.isPendingMarketAssetResolved,
+    markPendingMarketAssetResolved: actual.markPendingMarketAssetResolved,
     isMarketTabDetailRoute: actual.isMarketTabDetailRoute,
   };
 });
@@ -131,6 +133,7 @@ describe('useMarketEnterAnalytics pending asset', () => {
     const { rerender } = renderHook(() => useMarketEnterAnalytics());
     expect(mockDexEnter).toHaveBeenCalledTimes(1);
 
+    markPendingMarketAssetResolved(pendingParams.pendingMarketAsset);
     mockParams = {
       ...pendingParams,
       pendingMarketAsset: undefined,
@@ -146,6 +149,7 @@ describe('useMarketEnterAnalytics pending asset', () => {
   it('records one entry when the pending asset falls back to its token', () => {
     mockParams = { ...pendingParams, network: 'eth', tokenAddress: '0xabc' };
     const { rerender } = renderHook(() => useMarketEnterAnalytics());
+    markPendingMarketAssetResolved(pendingParams.pendingMarketAsset);
     mockParams = {
       ...pendingParams,
       network: 'eth',
@@ -157,6 +161,22 @@ describe('useMarketEnterAnalytics pending asset', () => {
     };
     rerender();
     expect(mockDexEnter).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a new selection that clears a still pending asset', () => {
+    const switchParams = { ...pendingParams, from: EEnterWay.DetailSwitch };
+    delete (switchParams as { entryCategory?: string }).entryCategory;
+    mockParams = switchParams;
+    const { rerender } = renderHook(() => useMarketEnterAnalytics());
+    // The selector replaces the asset before the lookup settles.
+    mockParams = {
+      tokenAddress: '0xdef',
+      network: 'eth',
+      from: EEnterWay.DetailSwitch,
+      pendingMarketAsset: undefined,
+    };
+    rerender();
+    expect(mockDexEnter).toHaveBeenCalledTimes(2);
   });
 
   it('records a switch to another asset as a new entry', () => {
@@ -228,7 +248,33 @@ describe('isPendingMarketAssetResolved', () => {
       false,
     ],
   ])('%s', (_, previous, next, expected) => {
+    markPendingMarketAssetResolved(
+      'pendingMarketAsset' in previous
+        ? previous.pendingMarketAsset
+        : undefined,
+    );
     expect(isPendingMarketAssetResolved(previous, next)).toBe(expected);
+  });
+
+  it('is not the lookup when another update cleared the pending asset', () => {
+    const previous = {
+      pendingMarketAsset: { symbol: 'BTC' },
+      from: EEnterWay.DetailSwitch,
+    };
+    expect(
+      isPendingMarketAssetResolved(previous, { from: EEnterWay.DetailSwitch }),
+    ).toBe(false);
+  });
+
+  it('consumes the lookup mark once', () => {
+    const previous = {
+      pendingMarketAsset: { symbol: 'BTC' },
+      from: EEnterWay.MarketList,
+    };
+    const next = { from: EEnterWay.MarketList };
+    markPendingMarketAssetResolved(previous.pendingMarketAsset);
+    expect(isPendingMarketAssetResolved(previous, next)).toBe(true);
+    expect(isPendingMarketAssetResolved(previous, next)).toBe(false);
   });
 });
 
@@ -414,6 +460,40 @@ describe('useMarketDetailLeaveAnalytics route scope', () => {
       isFirstView: true,
     });
   });
+
+  it.each([
+    ['still on its way back to Swap', true, EMarketHomeEntrySource.Other],
+    ['back in the Market tab', false, EMarketHomeEntrySource.DetailBack],
+  ])(
+    'arms detailBack for a Swap stock detail only when it is %s',
+    (_, isReturningToSwap, entrySource) => {
+      let beforeRemove: (() => void) | undefined;
+      const navigation = {
+        addListener: jest.fn((type: string, callback: () => void) => {
+          if (type === 'beforeRemove') beforeRemove = callback;
+          return jest.fn();
+        }),
+      };
+      const detail = renderHook(() =>
+        useMarketDetailLeaveAnalytics(
+          navigation as unknown as Parameters<
+            typeof useMarketDetailLeaveAnalytics
+          >[0],
+          {
+            isMarketTabDetail: true,
+            isReturningToSwap: () => isReturningToSwap,
+          },
+        ),
+      );
+      beforeRemove?.();
+      detail.unmount();
+      renderHook(() => useMarketHomeViewAnalytics(true));
+      expect(mockMarketHomeView).toHaveBeenCalledWith({
+        entrySource,
+        isFirstView: true,
+      });
+    },
+  );
 });
 
 describe('useMarketHomeViewAnalytics deep link entries', () => {

@@ -148,6 +148,9 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
   },
   navigate(destination) {
     const navigation = appGlobals.$rootAppNavigation;
+    // Check focus before More is dismissed: dismissing it can reveal the
+    // Market home, which would then look focused already.
+    if (destination.kind === 'home') markMarketHomeDeeplinkEntry();
     if (destination.kind !== 'editor') dismissAndroidMoreMenu();
     if (destination.kind === 'editor') {
       logMarketWidgetEvent('link.open_editor', {}, destination.editorSession);
@@ -185,7 +188,6 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
         params: destination.detail,
       });
     } else {
-      markMarketHomeDeeplinkEntry();
       navigation?.navigate(ERootRoutes.Main, {
         screen: ETabRoutes.Market,
         params: { screen: ETabMarketRoutes.TabMarket },

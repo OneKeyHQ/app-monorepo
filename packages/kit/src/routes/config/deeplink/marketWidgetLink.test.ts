@@ -283,6 +283,38 @@ describe('market widget destination mapping', () => {
     );
   });
 
+  it('marks a home link from Android More before dismissing it reveals the home', async () => {
+    resetMarketHomeEntryState();
+    const { getState } = setRootStack([
+      {
+        name: ERootRoutes.FullScreenPush,
+        screen: EFullScreenPushRoutes.ActionCenter,
+      },
+    ]);
+    // The Market home sits under More, focused once More is gone.
+    (getState().routes[0] as { state?: unknown }).state = {
+      index: 0,
+      routes: [
+        {
+          key: 'market',
+          name: ETabRoutes.Market,
+          state: {
+            index: 0,
+            routes: [{ key: 'list', name: ETabMarketRoutes.TabMarket }],
+          },
+        },
+      ],
+    };
+    await handleMarketWidgetLink({
+      target: { kind: 'home' },
+      shouldContinue: () => true,
+    });
+    expect(getState().routes.map(({ name }) => name)).toEqual([
+      ERootRoutes.Main,
+    ]);
+    expect(takeMarketHomeEntry()).toBe(EMarketHomeEntrySource.Deeplink);
+  });
+
   it('preserves other root flows when only the top More page is dismissed', async () => {
     const { getState } = setRootStack([
       { name: ERootRoutes.Modal, screen: EModalRoutes.SendModal },

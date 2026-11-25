@@ -258,11 +258,22 @@ export function useMarketHomeViewAnalytics(isFocused: boolean) {
  */
 export function useMarketDetailLeaveAnalytics(
   navigation: Pick<NavigationProp<ParamListBase>, 'addListener'>,
-  { isMarketTabDetail }: { isMarketTabDetail: boolean },
+  {
+    isMarketTabDetail,
+    isReturningToSwap,
+  }: {
+    isMarketTabDetail: boolean;
+    // A Swap "view full data" detail goes back to Swap, not to the Market
+    // home, until its trip has ended.
+    isReturningToSwap?: () => boolean;
+  },
 ) {
+  const isReturningToSwapRef = useRef(isReturningToSwap);
+  isReturningToSwapRef.current = isReturningToSwap;
   useEffect(() => {
     if (!isMarketTabDetail) return undefined;
     return navigation.addListener('beforeRemove', () => {
+      if (isReturningToSwapRef.current?.()) return;
       markMarketDetailLeft();
     });
   }, [isMarketTabDetail, navigation]);

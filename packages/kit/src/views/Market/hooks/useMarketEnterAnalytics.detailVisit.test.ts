@@ -8,6 +8,8 @@ import {
   EMarketEntryCategory,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 
+import { markPendingMarketAssetResolved } from '../utils/marketDetailNavigation';
+
 import { useMarketEnterAnalytics } from './useMarketEnterAnalytics';
 
 import type { IMarketDetailVisitOptions } from './useMarketEnterAnalytics';
@@ -261,6 +263,7 @@ describe('useMarketEnterAnalytics detail visit', () => {
       chartDisplayMode: 'simple',
     });
     jest.advanceTimersByTime(3000);
+    markPendingMarketAssetResolved(pendingParams.pendingMarketAsset);
     mockParams = {
       ...pendingParams,
       pendingMarketAsset: undefined,

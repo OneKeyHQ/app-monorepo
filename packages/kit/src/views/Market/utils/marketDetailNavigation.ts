@@ -778,10 +778,18 @@ export function isInitialSectionConsumed(previous: unknown, next: unknown) {
   );
 }
 
+// The pending asset whose lookup just rewrote the route, so analytics can
+// tell that rewrite from a new selection that also clears the pending asset.
+let resolvedPendingMarketAsset: unknown;
+
+/** Called by the pending-asset lookup right before it rewrites the route. */
+export function markPendingMarketAssetResolved(pendingMarketAsset: unknown) {
+  resolvedPendingMarketAsset = pendingMarketAsset;
+}
+
 /**
- * Whether a params change only resolved the pending asset of the same entry.
- * The detail fills in (or clears) the asset fields once the lookup settles,
- * which is not a new entry.
+ * Whether a params change is the pending-asset lookup of the same entry
+ * filling in (or clearing) the asset fields, which is not a new entry.
  */
 export function isPendingMarketAssetResolved(previous: unknown, next: unknown) {
   type IEntryParams =
@@ -789,12 +797,15 @@ export function isPendingMarketAssetResolved(previous: unknown, next: unknown) {
     | undefined;
   const prev = previous as IEntryParams;
   const cur = next as IEntryParams;
-  return Boolean(
+  const isLookupUpdate = Boolean(
     prev?.pendingMarketAsset &&
+    prev.pendingMarketAsset === resolvedPendingMarketAsset &&
     !cur?.pendingMarketAsset &&
     prev.from === cur?.from &&
     prev.entryCategory === cur?.entryCategory,
   );
+  if (isLookupUpdate) resolvedPendingMarketAsset = undefined;
+  return isLookupUpdate;
 }
 
 // Detail routes (by key) opened by Swap's "view full data" whose trip back to

@@ -82,6 +82,7 @@ import {
 import {
   finishMarketDetailTabBarTransition,
   isMarketTabDetailRoute,
+  isSwapStockTripEnded,
 } from '../utils/marketDetailNavigation';
 import { resolveSwapMarketAsset } from '../utils/resolveSwapMarketAsset';
 
@@ -645,11 +646,18 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const routeName = props.route.name;
+  const routeKey = props.route.key;
+  const routeFrom = props.route.params?.from;
+  const isReturningToSwap = useCallback(
+    () => routeFrom === EEnterWay.SwapStock && !isSwapStockTripEnded(routeKey),
+    [routeFrom, routeKey],
+  );
   useMarketDetailLeaveAnalytics(navigation, {
     isMarketTabDetail: isMarketTabDetailRoute(
       routeName,
       navigation.getState().routeNames,
     ),
+    isReturningToSwap,
   });
   useEffect(() => {
     if (!platformEnv.isNative) return;
