@@ -696,6 +696,10 @@ const SwapInputContainer = ({
           ref: amountInputRef,
           height: SWAP_AMOUNT_INPUT_HEIGHT,
           fontSize: getFontSize(SWAP_AMOUNT_FONT_SIZE_TOKEN),
+          // Native text fields clip the amount to the box inside their
+          // padding, and the Input's vertical padding leaves that shorter
+          // than the digits.
+          ...(platformEnv.isNative ? { py: '$0' } : {}),
           placeholder: '0.0',
           // The receive amount is worked out from the pay amount, so its
           // empty 0.0 sits lighter than the pay placeholder until a quote
