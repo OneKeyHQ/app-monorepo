@@ -104,13 +104,22 @@ function readFromReferrer<T>({
       return [];
     }
     try {
-      // Mixed delimiters can also occur in direct parameters with escaped names.
-      if (segment.includes('=')) {
-        const rawKey = segment.slice(0, firstAssignment.index);
-        const key = decodeURIComponent(
-          index === 0 ? rawKey.replace(/^\?/u, '') : rawKey,
+      const literalAssignment = segment.indexOf('=');
+      if (literalAssignment !== -1) {
+        // A direct parameter's value starts after its literal delimiter. Only
+        // assignments in the prefix can identify a mixed-encoded bundle.
+        const decodedPrefix = decodeURIComponent(
+          segment.slice(0, literalAssignment),
         );
-        if (!referrerKeys.has(key)) {
+        const prefix =
+          index === 0 ? decodedPrefix.replace(/^\?/u, '') : decodedPrefix;
+        const hasEncodedKey = prefix.split('&').some((field) => {
+          const assignment = field.indexOf('=');
+          return (
+            assignment !== -1 && referrerKeys.has(field.slice(0, assignment))
+          );
+        });
+        if (!hasEncodedKey) {
           return [];
         }
       }

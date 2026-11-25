@@ -108,6 +108,8 @@ describe('Google Play install attribution', () => {
   it.each([
     'ref_code%3DABC123%26utm_source%3Dpartner=referral',
     '?ref%5Fcode%3DABC123%26utm_source%3Dpartner=referral',
+    '%3Fref_code%3DABC123%26utm_source%3Dpartner=referral',
+    'channel%3Dlanding%26utm_source%3Dpartner=referral%26ref_code%3DABC123',
   ])(
     'preserves encoded attribution and invite fields with a literal equals sign: %s',
     (rawReferrer) => {
@@ -117,6 +119,23 @@ describe('Google Play install attribution', () => {
       expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBe('ABC123');
     },
   );
+
+  it('accepts metadata first in a referrer serialized like a Utility short link', () => {
+    const rawReferrer = new URLSearchParams({
+      referrer: new URLSearchParams({
+        channel: 'dashboard',
+        utm_source: 'partner=referral',
+        ref_code: 'ABC123',
+      }).toString(),
+    })
+      .toString()
+      .slice('referrer='.length);
+
+    expect(parseGooglePlayInstallReferrer(rawReferrer)).toEqual({
+      utmSource: 'partner=referral',
+    });
+    expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBe('ABC123');
+  });
 
   it('keeps nested fields opaque when a direct parameter name contains an escaped equals sign', async () => {
     const rawReferrer =
