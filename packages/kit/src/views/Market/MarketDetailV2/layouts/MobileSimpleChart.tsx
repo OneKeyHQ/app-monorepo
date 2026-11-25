@@ -15,6 +15,7 @@ import { TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/com
 import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import {
   type IStockSimpleChartRange,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
@@ -74,10 +75,12 @@ export function MobileChartModeControl() {
   const intl = useIntl();
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
+  const chartAnalytics = useMarketDetailChartAnalytics();
   const nextMode = mode === 'simple' ? 'pro' : 'simple';
   const handleModeChange = useCallback(() => {
     setChartDisplayMode({ mode: nextMode });
-  }, [nextMode, setChartDisplayMode]);
+    chartAnalytics?.onChartDisplayModeSwitch(mode, nextMode);
+  }, [chartAnalytics, mode, nextMode, setChartDisplayMode]);
 
   return (
     <ChartModeButton
@@ -107,6 +110,7 @@ export function MobileSimpleChart({
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const { stockId } = useStockDetail();
   const { priceMode } = useStockPriceSource();
+  const chartAnalytics = useMarketDetailChartAnalytics();
   const range = resolveStockSimpleChartRangeForPriceMode({
     priceMode,
     range: selectedRange,
@@ -143,7 +147,10 @@ export function MobileSimpleChart({
               size="small"
               variant={range === item ? 'secondary' : 'tertiary'}
               borderRadius="$full"
-              onPress={() => setRange(item)}
+              onPress={() => {
+                setRange(item);
+                chartAnalytics?.onSimpleChartRangeSelect(range, item);
+              }}
             >
               {intl.formatMessage({
                 id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
