@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,11 +17,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import {
-  type IStockSimpleChartRange,
-  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
-  TOKEN_SIMPLE_CHART_RANGES,
-  resolveStockSimpleChartRangeForPriceMode,
+  StockSimpleChartTimeRangeSelect,
+  hasStockSimpleChartSessions,
+  useStockSimpleChartSelection,
 } from '../components/StockSimpleChart';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
@@ -31,10 +30,11 @@ import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleCh
 // Keep Simple compact and independent of Pro's indicator panes: a 280pt plot
 // plus the chart's own 28pt time axis.
 export const MOBILE_SIMPLE_CHART_HEIGHT = 308;
-// The range row mirrors the Pro interval bar (TradingViewChartControls on a
-// non-compact mobile layout): 8pt padding, 30pt pills, at least 42pt wide.
+// The range row follows the Pro interval bar's 30pt pills, packed tighter
+// (8pt side padding, at least 36pt wide) so the time-range capsule and the
+// range buttons fit one row without scrolling.
 const RANGE_BUTTON_HEIGHT = 30;
-const RANGE_BUTTON_MIN_WIDTH = 42;
+const RANGE_BUTTON_MIN_WIDTH = 36;
 
 const RANGE_ROW_STYLE = {
   flexGrow: 1,
@@ -107,18 +107,23 @@ export function MobileSimpleChart({
   marketAssetId?: string;
 }) {
   const intl = useIntl();
-  const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
-  const { stockId } = useStockDetail();
+  const { stockDetail, stockId } = useStockDetail();
   const { priceMode } = useStockPriceSource();
   const chartAnalytics = useMarketDetailChartAnalytics();
-  const range = resolveStockSimpleChartRangeForPriceMode({
+  const {
+    range,
+    session,
+    capsuleSession,
+    selectedRange,
+    selectRange,
+    selectSession,
+    showsSessions,
+    chartRanges,
+  } = useStockSimpleChartSelection(
     priceMode,
-    range: selectedRange,
-  });
-  const chartRanges =
-    priceMode === 'share'
-      ? STOCK_SHARE_SIMPLE_CHART_RANGES
-      : TOKEN_SIMPLE_CHART_RANGES;
+    stockDetail?.marketStatus?.session,
+    hasStockSimpleChartSessions(stockDetail),
+  );
 
   return (
     <YStack width="100%" testID="market-mobile-simple-chart">
@@ -135,6 +140,16 @@ export function MobileSimpleChart({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={RANGE_ROW_STYLE}
         >
+          {showsSessions ? (
+            <StockSimpleChartTimeRangeSelect
+              testID="market-mobile-chart-time-range"
+              height={RANGE_BUTTON_HEIGHT}
+              activateOnPress
+              capsuleSession={capsuleSession}
+              session={session}
+              onSessionChange={selectSession}
+            />
+          ) : null}
           {chartRanges.map((item) => (
             <Button
               key={item}
@@ -142,13 +157,13 @@ export function MobileSimpleChart({
               minWidth={RANGE_BUTTON_MIN_WIDTH}
               height={RANGE_BUTTON_HEIGHT}
               m="$0"
-              px="$2.5"
+              px="$2"
               borderWidth={0}
               size="small"
-              variant={range === item ? 'secondary' : 'tertiary'}
+              variant={selectedRange === item ? 'secondary' : 'tertiary'}
               borderRadius="$full"
               onPress={() => {
-                setRange(item);
+                selectRange(item);
                 chartAnalytics?.onSimpleChartRangeSelect(range, item);
               }}
             >
@@ -165,6 +180,7 @@ export function MobileSimpleChart({
           initialHeight={MOBILE_SIMPLE_CHART_HEIGHT}
           marketAssetId={marketAssetId}
           range={range}
+          session={session}
           priceMode={priceMode}
           priceScaleFormat={stockId ? 'stock' : 'full'}
         />
