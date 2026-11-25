@@ -28,6 +28,7 @@ import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
@@ -1336,6 +1337,7 @@ export function useTrayDataProvider() {
               marketTokenId: assetId,
               marketVariantId: variant.variantId,
               marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+              from: EEnterWay.DesktopTray,
             };
             // A newer tray action can land during the overlay-dismiss wait
             // inside switchTabAsync; let it abandon the tab switch too, not

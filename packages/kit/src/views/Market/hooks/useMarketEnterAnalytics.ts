@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
-import { debounce } from 'lodash';
+import { debounce, omit } from 'lodash';
 
 import {
   EAppEventBusNames,
@@ -59,7 +59,8 @@ export type IMarketDetailVisitOptions = {
 
 type IMarketDetailVisit = {
   enterWay: EEnterWay;
-  asset: IMarketDetailAnalyticsAsset;
+  // `detailKind` is missing until a pending Swap token lookup resolves it.
+  asset: Partial<IMarketDetailAnalyticsAsset>;
   timer: IMarketDetailVisitTimer;
 };
 
@@ -177,21 +178,31 @@ export function useMarketEnterAnalytics(params?: {
       // A new entry on the same screen leaves the previous asset.
       endVisit();
     }
+    // A Swap entry has no category until its token lookup resolves, so its
+    // kind is unknown here; the paired leave reports the resolved kind.
+    const isSwapTokenLookupPending = Boolean(
+      (route.params as { swapTokenSymbol?: unknown } | undefined)
+        ?.swapTokenSymbol,
+    );
+    const entryAsset: Partial<IMarketDetailAnalyticsAsset> | undefined =
+      asset && isSwapTokenLookupPending
+        ? omit(asset, 'detailKind')
+        : asset;
     defaultLogger.dex.enter.dexEnter({
       enterWay,
       ...(marketTokenCategory ? { marketTokenCategory } : undefined),
-      ...(options && asset
+      ...(options && entryAsset
         ? {
-            ...asset,
+            ...entryAsset,
             chartMode: options.chartMode,
             chartDisplayMode: options.chartDisplayMode,
           }
         : undefined),
     });
-    if (asset) {
+    if (entryAsset) {
       visitRef.current = {
         enterWay,
-        asset,
+        asset: entryAsset,
         timer: createMarketDetailVisitTimer({ isActive: isVisitActive() }),
       };
     }

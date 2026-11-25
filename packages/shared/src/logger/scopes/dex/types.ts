@@ -20,6 +20,8 @@ export enum EEnterWay {
   DetailSwitch = 'DetailSwitch',
   // An asset row of the Market Highlights page.
   Highlights = 'Highlights',
+  // A Market row of the desktop tray menu (watchlist, assets).
+  DesktopTray = 'DesktopTray',
 }
 
 // Analytics-only list context for detail entries whose route has no

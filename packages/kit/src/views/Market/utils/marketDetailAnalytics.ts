@@ -92,7 +92,7 @@ export function resolveMarketDetailAnalyticsAsset(
  * later params update (a resolved pending asset) leaves them out.
  */
 export function mergeMarketDetailAnalyticsAsset(
-  previous: IMarketDetailAnalyticsAsset,
+  previous: Partial<IMarketDetailAnalyticsAsset>,
   next: IMarketDetailAnalyticsAsset,
 ): IMarketDetailAnalyticsAsset {
   return {

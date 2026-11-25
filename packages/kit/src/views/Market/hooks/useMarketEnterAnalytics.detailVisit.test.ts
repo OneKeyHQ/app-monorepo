@@ -462,13 +462,15 @@ describe('useMarketEnterAnalytics detail visit', () => {
           tokenSymbol: 'PEPE',
         }),
       );
+      // The kind is unknown until the lookup resolves the category.
+      expect(mockDexEnter.mock.calls[0][0]).not.toHaveProperty('detailKind');
       jest.advanceTimersByTime(2000);
       markSwapTokenLookupResolved(mockParams);
       mockParams = {
         ...swapParams,
         swapTokenSymbol: undefined,
         marketTokenId: 'pepe',
-        marketTokenCategory: 'trending',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
       };
       view.rerender();
       expect(mockDexEnter).toHaveBeenCalledTimes(1);
@@ -480,6 +482,7 @@ describe('useMarketEnterAnalytics detail visit', () => {
         expect.objectContaining({
           enterWay: EEnterWay.SwapPro,
           durationMs: 3000,
+          detailKind: 'topCoin',
           tokenSymbol: 'PEPE',
           network: 'evm--1',
           marketAssetId: 'pepe',
