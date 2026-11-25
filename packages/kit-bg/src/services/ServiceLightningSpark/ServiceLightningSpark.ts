@@ -1085,12 +1085,19 @@ class ServiceLightningSpark extends ServiceBase {
   private async disconnectAndSettle() {
     const pendingConnects = [...this.pendingSdkConnects];
     const closing = [...this.closingSdks];
-    await this.disconnect();
-    await Promise.all([
+    // Every shutdown ends first, this one's included. A failed one then fails
+    // the caller, as its SDK may still hold the storage open.
+    const results = await Promise.allSettled([
+      this.disconnect(),
+      ...closing,
       ...pendingConnects,
-      // Their own callers handle their errors.
-      ...closing.map((shutdown) => shutdown.catch(() => undefined)),
     ]);
+    const failure = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    if (failure) {
+      throw failure.reason;
+    }
     return pendingConnects.length;
   }
 
@@ -1106,6 +1113,9 @@ class ServiceLightningSpark extends ServiceBase {
       this.pendingSdkConnects.size > 0
     ) {
       await this.disconnectAndSettle();
+    } else {
+      // A lock or an idle expiry may still be closing this wallet's SDK.
+      await Promise.all(this.closingSdks);
     }
     const storageDirs = new Set(
       SPARK_NETWORKS.map((network) =>

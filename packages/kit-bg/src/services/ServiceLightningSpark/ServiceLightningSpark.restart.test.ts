@@ -147,10 +147,10 @@ function setup() {
   const beforeRestart = jest
     .mocked(addBeforeAppRestartHandler)
     .mock.calls.at(-1)?.[0] as () => Promise<void>;
-  const connect = () =>
+  const connect = (walletId = 'hd-1') =>
     internals.connectWithChildMnemonic({
       intent: {
-        walletId: 'hd-1',
+        walletId,
         generation: internals.connectGeneration,
         cancelled: false,
         settled: Promise.resolve(),
@@ -206,6 +206,34 @@ describe('ServiceLightningSpark before an app restart', () => {
     await restarting;
     expect(restart).toHaveBeenCalledTimes(1);
     expect(sdk.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('still waits for an earlier shutdown when its own disconnect fails', async () => {
+    const { service, breez, beforeRestart, connect, asSdk } = setup();
+    const first = makeSdk();
+    const firstClosed = deferred<undefined>();
+    first.disconnect.mockReturnValueOnce(firstClosed.promise);
+    const second = makeSdk();
+    second.disconnect.mockRejectedValueOnce(new Error('disconnect failed'));
+    breez.connect
+      .mockResolvedValueOnce(asSdk(first))
+      .mockResolvedValueOnce(asSdk(second));
+    await connect();
+    // A lock closes the first SDK while another wallet's connect opens the
+    // second.
+    void service.disconnect();
+    await connect('hd-2');
+
+    const failed = jest.fn();
+    const restarting = beforeRestart().catch(failed);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(failed).not.toHaveBeenCalled();
+
+    firstClosed.resolve(undefined);
+    await restarting;
+    expect(failed).toHaveBeenCalledWith(new Error('disconnect failed'));
   });
 
   it('waits for a connect in flight and disconnects the SDK it returns', async () => {
