@@ -1042,35 +1042,11 @@ export default class Vault extends VaultBase {
             ),
         );
       if (privacyKind === 'deposit' || privacyKind === 'withdraw') {
-        const publicSide = appLocale.intl.formatMessage({
-          id: ETranslations.privacy_balance_public__title,
-        });
-        const privateSide = appLocale.intl.formatMessage({
-          id: ETranslations.privacy_history_shielded__title,
-        });
-        const direction: IDisplayComponent[] = [
-          {
-            type: EParseTxComponentType.Default,
-            label: appLocale.intl.formatMessage({
-              id: ETranslations.global_from,
-            }),
-            value: privacyKind === 'deposit' ? publicSide : privateSide,
-          },
-          {
-            type: EParseTxComponentType.Default,
-            label: appLocale.intl.formatMessage({
-              id: ETranslations.global_to,
-            }),
-            value: privacyKind === 'deposit' ? privateSide : publicSide,
-          },
-        ];
-        components = [
-          typeComponent,
-          ...direction,
-          ...components.filter(
-            (component) => component.type !== EParseTxComponentType.Address,
-          ),
-        ];
+        // The modal title already states the direction (self public <-> private),
+        // so omit redundant Type / From / To rows and the internal pool address.
+        components = components.filter(
+          (component) => component.type !== EParseTxComponentType.Address,
+        );
       } else {
         components = [typeComponent, ...components];
       }
