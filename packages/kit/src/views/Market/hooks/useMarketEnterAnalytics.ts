@@ -185,9 +185,7 @@ export function useMarketEnterAnalytics(params?: {
         ?.swapTokenSymbol,
     );
     const entryAsset: Partial<IMarketDetailAnalyticsAsset> | undefined =
-      asset && isSwapTokenLookupPending
-        ? omit(asset, 'detailKind')
-        : asset;
+      asset && isSwapTokenLookupPending ? omit(asset, 'detailKind') : asset;
     defaultLogger.dex.enter.dexEnter({
       enterWay,
       ...(marketTokenCategory ? { marketTokenCategory } : undefined),
