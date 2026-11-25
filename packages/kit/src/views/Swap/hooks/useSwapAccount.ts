@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
@@ -72,23 +79,35 @@ function isSameSwapRecipientAddress({
   return address.toLowerCase() === targetAddress.toLowerCase();
 }
 
+export const SwapTabPrefillPendingContext = createContext(false);
+
 /**
  * Synchronizes the selected swap account networks with the currently selected swap tokens and manages the "swap to another account" state.
  *
  * Ensures that the account network selection matches the chosen swap tokens for both "from" and "to" directions. Automatically resets the "swap to another account" switch and address if the selected network or account becomes invalid or unsupported. Triggers synchronization on relevant changes, tab focus, and modal state transitions.
  */
-export function useSwapFromAccountNetworkSync() {
+export function useSwapFromAccountNetworkSync(prefillPending = false) {
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
   isFocusedRef.current = isFocused;
   const scope = useSwapColdStartScopeKey();
   const isRootSwap = scope === `store:${EJotaiContextStoreNames.swap}`;
+  // Returning from Pro restores the parked pair before the prefill resolves.
+  // Synchronize account networks once the final pair owns the form.
+  const pauseForPrefill = isRootSwap && prefillPending;
+  // The router keeps the callback registered on mount.
+  const pauseForPrefillRef = useRef(pauseForPrefill);
+  pauseForPrefillRef.current = pauseForPrefill;
   const isTabVisibleRef = useRef(isFocused);
   const syncAuthorityRef = useRef({ active: false, generation: 0 });
   const recipientRetryRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  if (!isFocused || (isRootSwap && !isTabVisibleRef.current)) {
+  if (
+    !isFocused ||
+    pauseForPrefill ||
+    (isRootSwap && !isTabVisibleRef.current)
+  ) {
     if (syncAuthorityRef.current.active) {
       syncAuthorityRef.current.generation += 1;
     }
@@ -195,6 +214,7 @@ export function useSwapFromAccountNetworkSync() {
     const toNetworkId = toTokenRef.current?.networkId;
     const shouldCommit = () =>
       syncAuthorityRef.current.active &&
+      !pauseForPrefillRef.current &&
       syncAuthorityRef.current.generation === generation &&
       isSelectedTokensColdStartContextValidRef.current &&
       fromTokenRef.current?.networkId === fromNetworkId &&
@@ -281,7 +301,7 @@ export function useSwapFromAccountNetworkSync() {
         return;
       }
       isTabVisibleRef.current = isFocus && !isHideByModal;
-      if (!isTabVisibleRef.current) {
+      if (!isTabVisibleRef.current || pauseForPrefillRef.current) {
         cancelNetworkSync();
       } else if (isFocusedRef.current) {
         syncAuthorityRef.current.active = true;
@@ -291,7 +311,11 @@ export function useSwapFromAccountNetworkSync() {
   );
 
   useEffect(() => {
-    if (!isFocused || (isRootSwap && !isTabVisibleRef.current)) {
+    if (
+      !isFocused ||
+      pauseForPrefill ||
+      (isRootSwap && !isTabVisibleRef.current)
+    ) {
       cancelNetworkSync();
       return;
     }
@@ -302,6 +326,7 @@ export function useSwapFromAccountNetworkSync() {
     checkTokenForAccountNetworkDebounce,
     isFocused,
     isRootSwap,
+    pauseForPrefill,
     fromToken?.networkId,
     fromToken?.contractAddress,
     toToken?.networkId,

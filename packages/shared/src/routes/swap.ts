@@ -81,6 +81,7 @@ export type IModalSwapParamList = {
     onTradeAgain?: (params: ISwapInitParams) => boolean;
   };
   [EModalSwapRoutes.SwapHistoryDetail]: {
+    liveActivityOrderKey?: string;
     txHistoryOrderId?: string;
     txHistoryList?: ISwapTxHistory[];
     onTradeAgain?: (params: ISwapInitParams) => boolean;

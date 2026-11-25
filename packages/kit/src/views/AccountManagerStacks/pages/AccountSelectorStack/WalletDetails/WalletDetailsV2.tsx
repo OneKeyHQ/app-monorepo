@@ -934,6 +934,13 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
         (candidate) => candidate.key === event.rowKey,
       );
       if (!record) return;
+      if (event.actionKey === 'account.lse.details' && record.lseIssue) {
+        appEventBus.emit(
+          EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+          record.lseIssue,
+        );
+        return;
+      }
       if (
         event.actionKey === 'account-more' &&
         event.anchor &&
