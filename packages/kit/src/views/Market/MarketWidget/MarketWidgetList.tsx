@@ -16,7 +16,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
-import type { IMarketWidgetKind } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import type {
+  IMarketWidgetInstalledInstance,
+  IMarketWidgetKind,
+} from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
@@ -43,6 +46,8 @@ export const MarketWidgetList = () => {
   const [isActive, setIsActive] = useState(
     () => (AppState.currentState ?? 'active') === 'active',
   );
+  const [lastInstalled, setLastInstalled] =
+    useState<IMarketWidgetInstalledInstance[]>();
   const shouldListInstances =
     platformEnv.isNativeIOS &&
     !needsBinding &&
@@ -89,6 +94,11 @@ export const MarketWidgetList = () => {
     };
   }, [refreshInstalled, shouldListInstances]);
 
+  const instances = shouldListInstances
+    ? (installed?.instances ?? lastInstalled)
+    : undefined;
+  if (instances !== lastInstalled) setLastInstalled(instances);
+
   if (needsBinding) {
     return (
       <Page scrollEnabled>
@@ -103,7 +113,7 @@ export const MarketWidgetList = () => {
   }
 
   const items = [
-    ...(shouldListInstances ? (installed?.instances ?? []) : []),
+    ...(instances ?? []),
     ...kinds.map((kind) => ({
       kind,
       id: undefined,

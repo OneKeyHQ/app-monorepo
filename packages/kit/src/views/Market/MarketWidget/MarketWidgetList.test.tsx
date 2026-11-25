@@ -42,6 +42,15 @@ jest.mock('@onekeyhq/components', () => {
     Page: Object.assign(Container, { Header: () => null, Body: Container }),
     YStack: Container,
     SizableText: Container,
+    Empty: ({
+      buttonProps,
+    }: {
+      buttonProps: { children: string; onPress: () => Promise<void> };
+    }) => (
+      <button type="button" onClick={() => void buttonProps.onPress()}>
+        {buttonProps.children}
+      </button>
+    ),
     getCurrentVisibilityState: () => true,
     onVisibilityStateChange: () => () => {},
     useDeferredPromise,
@@ -138,11 +147,11 @@ it('refreshes installed symbols after configuration sync while focused', async (
   await screen.findByRole('button', {
     name: 'market_widget_list__title #1 BTC',
   });
-  mockGetInstalledInstances.mockResolvedValueOnce(
-    instances.map((instance) => ({
-      ...instance,
-      symbols: instance.instanceNumber === 1 ? ['ETH'] : instance.symbols,
-    })),
+  let rejectRefresh: (error: Error) => void = () => {};
+  mockGetInstalledInstances.mockReturnValueOnce(
+    new Promise((_, reject) => {
+      rejectRefresh = reject;
+    }),
   );
   act(() => {
     appEventBus.emit(
@@ -150,10 +159,26 @@ it('refreshes installed symbols after configuration sync while focused', async (
       undefined,
     );
   });
+  expect(
+    screen.getByRole('button', { name: 'market_widget_list__title #1 BTC' }),
+  ).toBeDefined();
+
+  await act(async () => rejectRefresh(new Error('WidgetKit unavailable')));
+  const retry = screen.getByRole('button', { name: 'global.retry' });
+  expect(
+    screen.getByRole('button', { name: 'market_widget_list__title #1 BTC' }),
+  ).toBeDefined();
+  mockGetInstalledInstances.mockResolvedValueOnce(
+    instances.map((instance) => ({
+      ...instance,
+      symbols: instance.instanceNumber === 1 ? ['ETH'] : instance.symbols,
+    })),
+  );
+  fireEvent.click(retry);
   await screen.findByRole('button', {
     name: 'market_widget_list__title #1 ETH',
   });
-  expect(mockGetInstalledInstances).toHaveBeenCalledTimes(2);
+  expect(mockGetInstalledInstances).toHaveBeenCalledTimes(3);
 
   mockFocused = false;
   rerender(<MarketWidgetList />);
@@ -163,5 +188,5 @@ it('refreshes installed symbols after configuration sync while focused', async (
       undefined,
     );
   });
-  expect(mockGetInstalledInstances).toHaveBeenCalledTimes(2);
+  expect(mockGetInstalledInstances).toHaveBeenCalledTimes(3);
 });

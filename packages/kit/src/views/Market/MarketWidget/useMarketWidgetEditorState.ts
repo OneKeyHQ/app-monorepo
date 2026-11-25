@@ -50,6 +50,7 @@ export function useMarketWidgetEditorState(
   const activeRef = useRef(true);
   const lifecycleRef = useRef(0);
   const requestRef = useRef(0);
+  const pendingBrowseRef = useRef<number | undefined>(undefined);
   const searchRequestRef = useRef(0);
   const draftRequestRef = useRef(0);
   const acceptedDraftRef = useRef<{ searchAssets?: IMarketWidgetAsset[] }>(
@@ -133,6 +134,8 @@ export function useMarketWidgetEditorState(
           const session = await getEditorSession();
           if (!isCurrent()) return false;
           if (!session || !marketWidget.setEditorDraft) return true;
+          const browseRequest = requestRef.current;
+          const browseWasIdle = pendingBrowseRef.current !== browseRequest;
           // Preserve the visible selection until JS accepts its replacement.
           const next = await marketWidget.setEditorDraft(
             assets,
@@ -155,9 +158,14 @@ export function useMarketWidgetEditorState(
           }
           const draft = { searchAssets: next.searchAssets };
           acceptedDraftRef.current = draft;
+          // The draft response can include a newer native Trending cache.
+          const browse =
+            browseWasIdle && browseRequest === requestRef.current
+              ? { watchlist: next.watchlist, hot: next.hot }
+              : undefined;
           setSnapshot((current) =>
             current.state
-              ? { ...current, state: { ...current.state, ...draft } }
+              ? { ...current, state: { ...current.state, ...draft, ...browse } }
               : current,
           );
           return true;
@@ -261,6 +269,12 @@ export function useMarketWidgetEditorState(
       if (!focusedRef.current || !activeRef.current) return;
       requestRef.current += 1;
       const request = requestRef.current;
+      pendingBrowseRef.current = request;
+      const finishBrowse = () => {
+        if (pendingBrowseRef.current === request) {
+          pendingBrowseRef.current = undefined;
+        }
+      };
       const started = Date.now();
       const isCurrent = () =>
         focusedRef.current &&
@@ -299,11 +313,12 @@ export function useMarketWidgetEditorState(
         });
         return !masked;
       };
-      if (travelModeManager.isMaskingDataSync()) {
-        publish();
-        return;
-      }
+      let refreshingMetadata = false;
       try {
+        if (travelModeManager.isMaskingDataSync()) {
+          publish();
+          return;
+        }
         const session =
           marketWidget.beginEditing && !editorSession
             ? await getEditorSession()
@@ -323,8 +338,9 @@ export function useMarketWidgetEditorState(
           return;
         }
         // Display the local snapshot first; network metadata must not block navigation.
-        void marketWidget
-          .refreshEditorState(session)
+        const metadata = marketWidget.refreshEditorState(session);
+        refreshingMetadata = true;
+        void metadata
           .then((updated) => {
             if (isCurrent()) publish(updated);
           })
@@ -335,7 +351,8 @@ export function useMarketWidgetEditorState(
               editorSession,
               error,
             );
-          });
+          })
+          .finally(finishBrowse);
       } catch (error) {
         logMarketWidgetEvent(
           'editor.read_failed',
@@ -350,6 +367,8 @@ export function useMarketWidgetEditorState(
               : { state: undefined, isLoading: false, hasError: true },
           );
         }
+      } finally {
+        if (!refreshingMetadata) finishBrowse();
       }
     },
     [cancelSearch, editorSession, getEditorSession],

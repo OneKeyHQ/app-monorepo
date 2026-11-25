@@ -645,6 +645,37 @@ describe('market widget editor native snapshot lifecycle', () => {
     expect(mockConfigurationSynced).toBeUndefined();
   });
 
+  it('uses the latest native Trending list from a draft when browse reads have finished', async () => {
+    const local = createState('local');
+    const btc: IMarketWidgetAsset = {
+      kind: 'asset',
+      assetId: 'btc',
+      symbol: 'BTC',
+      name: 'Bitcoin',
+    };
+    const eth: IMarketWidgetAsset = {
+      kind: 'asset',
+      assetId: 'eth',
+      symbol: 'ETH',
+      name: 'Ethereum',
+    };
+    mockGetEditorState.mockResolvedValue({ ...local, hot: [btc] });
+    mockSetEditorDraft.mockResolvedValue({
+      ...local,
+      hot: [eth],
+      searchAssets: [btc],
+    });
+    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
+    await waitFor(() => expect(result.current.state?.hot).toEqual([btc]));
+
+    await act(async () =>
+      expect(await result.current.retainDraft([btc])).toBe(true),
+    );
+
+    expect(result.current.state?.hot).toEqual([eth]);
+    expect(result.current.state?.searchAssets).toEqual([btc]);
+  });
+
   it.each([true, false])(
     'retains draft candidates and refreshed browse lists when draft finishes first: %s',
     async (draftFirst) => {
