@@ -905,6 +905,38 @@ test('keeps division after a CommonJS await identifier and recognizes a delimite
   assert.equal(report.stateFlags.netStateFlags, 1);
 });
 
+test('counts added hooks after flagged and commented regex operands', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const initial = [
+    'async function read() { return await /[`~]/i; }',
+    'function* scan() { yield /[`~]/ /* annotation */; }',
+    '',
+  ].join('\n');
+  write('Shared.cjs', initial);
+  const reviewed = commit();
+  const flags = Array.from(
+    { length: 4 },
+    (_, i) => `const ref${i} = useRef();\n`,
+  ).join('');
+  write('Shared.cjs', `${initial}${flags}`);
+
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
+test('keeps executable tokens after quoted JSX text', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const initial = 'const copy = <Text>escape ` if needed</Text>;\n';
+  write('Shared.tsx', initial);
+  const reviewed = commit();
+  write('Shared.tsx', `${initial}const ref = useRef();\n`);
+
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 1);
+  assert.equal(report.stateFlags.netBranches, 0);
+});
+
 test('preserves literal operands and distinguishes member names followed by division', (t) => {
   const { write, commit, run } = createGitFixture(t);
   write('Shared.ts', 'const initial = true;\n');

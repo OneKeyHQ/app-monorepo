@@ -13,6 +13,8 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
+import { parse } from '@babel/parser';
+
 export const THRESHOLDS = {
   minFixNetLines: 120,
   maxAbsoluteFixNetLines: 300,
@@ -497,7 +499,71 @@ function alignReviewTree({ origBase, currentBase, preReviewSha }) {
   return { tree, conflicts };
 }
 
+const mask = (text) => text.replace(/[^\n]/g, ' ');
+const maskLiteral = (text) => `0${mask(text.slice(1))}`;
+
 function stripNonExecutable(source, file) {
+  const isTypeScript = /\.[cm]?tsx?$/.test(file);
+  const plugins = ['decorators-legacy'];
+  if (isTypeScript) plugins.push('typescript');
+  if (!isTypeScript || file.endsWith('.tsx')) plugins.push('jsx');
+
+  let sourceType = 'unambiguous';
+  if (/\.m[jt]s$/.test(file)) sourceType = 'module';
+  else if (/\.c[jt]s$/.test(file)) sourceType = 'script';
+
+  let tokens;
+  try {
+    ({ tokens } = parse(source, {
+      sourceType,
+      plugins,
+      tokens: true,
+      errorRecovery: true,
+      attachComment: false,
+      allowReturnOutsideFunction: sourceType !== 'module',
+    }));
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    // A worktree can contain edits that are temporarily invalid.
+    return stripUnparsedSource(source, file);
+  }
+
+  const parts = [];
+  let cursor = 0;
+  for (const [index, token] of tokens.entries()) {
+    const label = token.type.label ?? token.type;
+    const isLiteral =
+      label === 'string' ||
+      label === 'regexp' ||
+      (label === '`' && tokens[index + 1]?.type.label === 'template');
+    if (
+      isLiteral ||
+      label === 'CommentBlock' ||
+      label === 'CommentLine' ||
+      label === 'template' ||
+      label === 'jsxText' ||
+      label === '`'
+    ) {
+      const text = source.slice(token.start, token.end);
+      parts.push(
+        source.slice(cursor, token.start),
+        isLiteral ? maskLiteral(text) : mask(text),
+      );
+      cursor = token.end;
+    }
+  }
+  parts.push(source.slice(cursor));
+  return stripDeclarationLines(parts.join(''));
+}
+
+function stripDeclarationLines(source) {
+  return source.replace(
+    /^[ \t]*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
+    mask,
+  );
+}
+
+function stripUnparsedSource(source, file) {
   const codeTokens =
     /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|[/`{}]/g;
   const regexpLiteral =
@@ -509,8 +575,6 @@ function stripNonExecutable(source, file) {
   const regexpTerminator = /\s*(?:\.(?!\d)|[),;:}\]?]|$)/y;
   const explicitModule = /\.m[jt]s$/.test(file);
   const templateTokens = /\\[\s\S]|\x60|\$\{/g;
-  const mask = (text) => text.replace(/[^\n]/g, ' ');
-  const maskLiteral = (text) => `0${mask(text.slice(1))}`;
   const frames = [];
   const code = [];
   let cursor = 0;
@@ -592,12 +656,7 @@ function stripNonExecutable(source, file) {
     }
   }
 
-  return code
-    .join('')
-    .replace(
-      /^[ \t]*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
-      mask,
-    );
+  return stripDeclarationLines(code.join(''));
 }
 
 function readWorktreeSource(file) {
