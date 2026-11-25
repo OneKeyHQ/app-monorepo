@@ -11,6 +11,40 @@ import type { ViewInstance } from 'react-native';
 
 const TOOLTIP_ANIMATION = { enter: { type: 'none' } } as const;
 
+type IPoint = { x: number; y: number };
+
+function useChartWindowAnchor() {
+  const anchorRef = useRef<ViewInstance>(null);
+  const [geometry, setGeometry] = useState<{
+    anchor?: IPoint;
+    offset?: IPoint;
+    request: number;
+  }>({ request: 0 });
+  const measureAnchor = useCallback(() => {
+    anchorRef.current?.measureInWindow((x, y) => {
+      setGeometry((previous) => ({
+        ...previous,
+        anchor: { x, y },
+        request: previous.request + 1,
+      }));
+    });
+  }, []);
+  const handleWindowOffset = useCallback((offset: IPoint) => {
+    setGeometry((previous) => ({ ...previous, offset }));
+  }, []);
+  const { anchor, offset, request } = geometry;
+  return {
+    anchorRef,
+    measureAnchor,
+    handleWindowOffset,
+    request,
+    origin:
+      anchor && offset
+        ? { x: anchor.x + offset.x, y: anchor.y + offset.y }
+        : undefined,
+  };
+}
+
 export function PerpChartTooltip({
   children,
   testID,
@@ -28,17 +62,9 @@ export function PerpChartTooltip({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const anchorRef = useRef<ViewInstance>(null);
-  const [anchor, setAnchor] = useState<{ x: number; y: number }>();
-  const [offset, setOffset] = useState<{ x: number; y: number }>();
-  const [offsetRequest, setOffsetRequest] = useState(0);
+  const { anchorRef, measureAnchor, handleWindowOffset, request, origin } =
+    useChartWindowAnchor();
   const [height, setHeight] = useState(0);
-  const measureAnchor = useCallback(() => {
-    anchorRef.current?.measureInWindow((anchorX, anchorY) => {
-      setAnchor({ x: anchorX, y: anchorY });
-      setOffsetRequest((request) => request + 1);
-    });
-  }, []);
   useLayoutEffect(() => {
     measureAnchor();
   }, [measureAnchor, x, y, chartWidth, window.width, window.height]);
@@ -48,10 +74,6 @@ export function PerpChartTooltip({
     Math.max(0, chartWidth - 16),
     Math.max(0, window.width - insets.left - insets.right - 16),
   );
-  const origin =
-    anchor && offset
-      ? { x: anchor.x + offset.x, y: anchor.y + offset.y }
-      : undefined;
   const left = Math.max(
     insets.left + 8,
     Math.min(
@@ -87,8 +109,8 @@ export function PerpChartTooltip({
         backdrop={false}
         dismissOnBackPress={false}
         animation={TOOLTIP_ANIMATION}
-        windowOffsetRequest={offsetRequest}
-        onWindowOffset={setOffset}
+        windowOffsetRequest={request}
+        onWindowOffset={handleWindowOffset}
       >
         <YStack
           position="absolute"
