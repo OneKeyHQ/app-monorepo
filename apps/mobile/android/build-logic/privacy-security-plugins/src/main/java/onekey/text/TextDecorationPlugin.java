@@ -24,7 +24,8 @@ import org.objectweb.asm.commons.Method;
  * or paint under unstyled characters when the text changes direction within a line.
  *
  * <p>Full lines use their visual edges. Partial lines use Android's selection geometry
- * to draw each styled interval separately.
+ * to coalesce touching runs and restart the decoration only after a visual gap.
+ * Wavy strokes are clipped to each interval because the last curve may extend past it.
  *
  * <ul>
  *   <li>{@code שלום עולם} with a dashed underline wraps between words. Both lines
@@ -44,11 +45,18 @@ public class TextDecorationPlugin implements Plugin<Project> {
     private static final Type BOUNDS =
             Type.getObjectType("so/onekey/app/wallet/text/TextDecorationBounds");
     private static final String LAYOUT = "android/text/Layout";
+    private static final Type CANVAS = Type.getObjectType("android/graphics/Canvas");
+    private static final Type DECORATION_STYLE =
+            Type.getObjectType("com/facebook/react/views/text/TextDecorationStyle");
     private static final Method DRAW_LINE = new Method("drawDecorationLine",
             "(Landroid/graphics/Canvas;Landroid/graphics/Paint;FFFFF"
                     + "Lcom/facebook/react/views/text/TextDecorationStyle;Landroid/graphics/Path;)V");
     private static final Method LINE_INTERVALS =
             new Method("forLine", "(Landroid/text/Layout;III)[F");
+    private static final Method DRAW_PATH =
+            new Method("drawPath", "(Landroid/graphics/Path;Landroid/graphics/Paint;)V");
+    private static final Method DRAW_CLIPPED_WAVE = new Method("drawClippedWave",
+            "(Landroid/graphics/Canvas;Landroid/graphics/Path;Landroid/graphics/Paint;FF)V");
 
     @Override
     public void apply(Project project) {
@@ -81,8 +89,14 @@ public class TextDecorationPlugin implements Plugin<Project> {
             public MethodVisitor visitMethod(int access, String name, String descriptor,
                     String signature, String[] exceptions) {
                 MethodVisitor method = super.visitMethod(access, name, descriptor, signature, exceptions);
-                if (method != null && name.equals("drawSpannedDecoration")) {
+                if (method == null) {
+                    return null;
+                }
+                if (name.equals("drawSpannedDecoration")) {
                     return new DecorationVisitor(method, access, name, descriptor);
+                }
+                if (name.equals(DRAW_LINE.getName()) && descriptor.equals(DRAW_LINE.getDescriptor())) {
+                    return new WaveClipVisitor(method, access, name, descriptor);
                 }
                 return method;
             }
@@ -177,6 +191,35 @@ public class TextDecorationPlugin implements Plugin<Project> {
             invokeStatic(RENDERER, DRAW_LINE);
             iinc(offset, 2);
             goTo(loop);
+            mark(done);
+        }
+    }
+    private static final class WaveClipVisitor extends AdviceAdapter {
+        WaveClipVisitor(MethodVisitor next, int access, String name, String descriptor) {
+            super(Opcodes.ASM9, next, access, name, descriptor);
+        }
+
+        @Override
+        public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
+                boolean isInterface) {
+            if (opcode != INVOKEVIRTUAL || !owner.equals(CANVAS.getInternalName())
+                    || !name.equals(DRAW_PATH.getName()) || !descriptor.equals(DRAW_PATH.getDescriptor())) {
+                super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                return;
+            }
+
+            // Keep the Canvas, Path and Paint arguments already on the stack.
+            loadArg(7); // Decoration style
+            getStatic(DECORATION_STYLE, "WAVY", DECORATION_STYLE);
+            Label original = newLabel();
+            ifCmp(DECORATION_STYLE, NE, original);
+            loadArg(2); // Left edge
+            loadArg(3); // Right edge
+            invokeStatic(BOUNDS, DRAW_CLIPPED_WAVE);
+            Label done = newLabel();
+            goTo(done);
+            mark(original);
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
             mark(done);
         }
     }

@@ -5,9 +5,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextPaint;
+
+import com.facebook.react.views.text.TextDecorationStyle;
+import com.facebook.react.views.text.TextDecorationStyleKt;
 
 import org.junit.Test;
 
@@ -48,6 +54,52 @@ public class TextDecorationBoundsTest {
         assertTrue(intervals[1] < intervals[2]);
         assertTrue(intervals[2] < intervals[3]);
         assertTrue(intervals[3] < layout.getLineRight(0));
+    }
+
+    @Test
+    public void touchingBidiRunsShareOneDashPattern() {
+        String text = "abc אבג DEF";
+        Layout layout = layout(text, textPaint(), 400);
+        int end = text.indexOf('D') + 1;
+
+        assertArrayEquals(
+                new float[] {layout.getPrimaryHorizontal(1), layout.getPrimaryHorizontal(end)},
+                TextDecorationBounds.forLine(layout, 1, end, 0),
+                0.5f);
+    }
+
+    @Test
+    public void wavyDecorationLeavesTheGapUndecorated() {
+        String text = "abc אבג DEF";
+        TextPaint paint = textPaint();
+        int end = text.indexOf('א') + 1;
+        for (float density : new float[] {1f, 1.5f, 2f, 3f}) {
+            paint.density = density;
+            Layout layout = layout(text, paint, 400);
+            float[] intervals = TextDecorationBounds.forLine(layout, 0, end, 0);
+            assertEquals(4, intervals.length);
+
+            Bitmap bitmap = Bitmap.createBitmap(
+                    layout.getWidth(), layout.getHeight() + 16, Bitmap.Config.ARGB_8888);
+            TextDecorationStyleKt.drawSpannedDecoration(
+                    0, end, new Canvas(bitmap), layout, Color.RED, TextDecorationStyle.WAVY,
+                    (stroke, baseline, thickness) -> baseline + 4f);
+
+            assertTrue(hasPaint(bitmap, (int) Math.ceil(intervals[0]), (int) intervals[1]));
+            assertTrue(hasPaint(bitmap, (int) Math.ceil(intervals[2]), (int) intervals[3]));
+            assertFalse(hasPaint(bitmap, (int) Math.ceil(intervals[1]), (int) intervals[2]));
+        }
+    }
+
+    private static boolean hasPaint(Bitmap bitmap, int from, int to) {
+        for (int x = from; x < to; x++) {
+            for (int y = 0; y < bitmap.getHeight(); y++) {
+                if (Color.alpha(bitmap.getPixel(x, y)) != 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static TextPaint textPaint() {
