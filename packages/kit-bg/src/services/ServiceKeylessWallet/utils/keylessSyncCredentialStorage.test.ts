@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -130,6 +132,153 @@ describe('shared Cloud credential storage source changes', () => {
     await expect(
       keylessSyncCredentialStorage.getCredential(credential.keylessWalletId),
     ).resolves.toBeNull();
+  });
+
+  test('rejects unbound hardware sessions while preserving pending migration journals for local recovery', async () => {
+    const session = {
+      deviceKeyJwk: {
+        kty: 'EC' as const,
+        crv: 'P-256' as const,
+        x: 'public-x',
+        y: 'public-y',
+        d: 'fixture-d',
+      },
+      accessToken: 'fixture-access',
+      accessTokenExpiresAt: 1,
+      refreshToken: 'fixture-refresh',
+      sessionId: 'fixture-session',
+      dekId: 'fixture-dek',
+    };
+    const stale: IKeylessCloudSyncCredential = {
+      ...credential,
+      hardwareSession: session,
+      pendingDataKey: {
+        dek: 'fixture-data',
+        dekId: 'fixture-pending',
+        pwdHash: 'fixture-hash',
+      },
+      pendingHardwareKeyMigration: {
+        target: { ...credential, hardwareSession: session },
+        recordsHash: 'fixture-records',
+        phase: 'committing',
+      },
+    };
+    await keylessSyncCredentialStorage.saveCredential(stale);
+    await expect(
+      keylessSyncCredentialStorage.getCredential(stale.keylessWalletId),
+    ).resolves.toBeNull();
+    await expect(
+      keylessSyncCredentialStorage.getPendingHardwareKeyMigration(),
+    ).resolves.toEqual(stale);
+    await keylessSyncCredentialStorage.saveCredential({
+      ...stale,
+      hardwareSession: { ...session, environment: 'test' },
+    });
+    await expect(
+      keylessSyncCredentialStorage.getPendingHardwareKeyMigration(),
+    ).resolves.toBeUndefined();
+    const fresh = {
+      ...credential,
+      hardwareSession: {
+        ...session,
+        boundBaseURL: 'https://prime.example.invalid',
+      },
+    };
+    await keylessSyncCredentialStorage.saveCredential(fresh);
+    await expect(
+      keylessSyncCredentialStorage.getCredential(stale.keylessWalletId),
+    ).resolves.toEqual({
+      ...fresh,
+      hardwareSession: {
+        ...fresh.hardwareSession,
+        environment: mockEnvironment,
+      },
+    });
+  });
+
+  test('only exposes the local data key for a matching interrupted reset', async () => {
+    const source = {
+      type: 'hardware' as const,
+      credentialId: credential.keylessWalletId,
+      derivationVersion: 1 as const,
+      deviceType: EDeviceType.Pro,
+      deviceName: 'Fixture',
+    };
+    const session = {
+      deviceKeyJwk: {
+        kty: 'EC' as const,
+        crv: 'P-256' as const,
+        x: 'fixture-x',
+        y: 'fixture-y',
+        d: 'fixture-d',
+      },
+      accessToken: 'fixture-access',
+      accessTokenExpiresAt: 1,
+      refreshToken: 'fixture-refresh',
+      sessionId: 'fixture-session',
+      dekId: 'fixture-old-dek',
+    };
+    const pending = {
+      dek: 'fixture-next-data',
+      dekId: 'fixture-next-dek',
+      pwdHash: 'hw-dek-fixture-next',
+    };
+    const old: IKeylessCloudSyncCredential = {
+      ...credential,
+      source,
+      pwdHash: 'hw-dek-fixture-old',
+      pendingDataKey: pending,
+    };
+    const current: IKeylessCloudSyncCredential = {
+      ...credential,
+      source,
+      encryptionKey: pending.dek,
+      pwdHash: pending.pwdHash,
+      hardwareSession: {
+        ...session,
+        dekId: pending.dekId,
+        boundBaseURL: 'https://prime.example.invalid',
+        environment: 'prod',
+      },
+    };
+
+    for (const hardwareSession of [session, undefined]) {
+      await keylessSyncCredentialStorage.saveCredential({
+        ...old,
+        hardwareSession,
+      });
+      await expect(
+        keylessSyncCredentialStorage.getCredential(source.credentialId),
+      ).resolves.toBeNull();
+      await expect(
+        keylessSyncCredentialStorage.getInterruptedHardwareResetKey(
+          source,
+          current,
+        ),
+      ).resolves.toEqual({ dek: old.encryptionKey, pwdHash: old.pwdHash });
+    }
+    await expect(
+      keylessSyncCredentialStorage.getInterruptedHardwareResetKey(source, {
+        ...current,
+        encryptionKey: 'fixture-unrelated-key',
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      keylessSyncCredentialStorage.getInterruptedHardwareResetKey(
+        { ...source, credentialId: 'fixture-unrelated-wallet' },
+        current,
+      ),
+    ).resolves.toBeUndefined();
+    await keylessSyncCredentialStorage.saveCredential({
+      ...old,
+      hardwareSession: { ...session, environment: 'test' },
+    });
+    await expect(
+      keylessSyncCredentialStorage.getInterruptedHardwareResetKey(
+        source,
+        current,
+      ),
+    ).resolves.toBeUndefined();
   });
 });
 

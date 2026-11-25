@@ -86,6 +86,7 @@ export interface ILightweightChartConfig {
   secondaryPointData?: LineData[];
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
+  secondaryLineBlankSlots?: boolean;
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -145,6 +146,12 @@ export interface ILightweightChartProps {
   // this time. Unlike passing a shorter series, the curve keeps the shape it
   // has over the full series.
   secondaryLineEndTime?: number;
+  // The overlay's value-less points past the last price are time slots still
+  // to come (a session filling in). They are labelled on the time axis and
+  // the crosshair stays off them: web hides the guide there, native holds it
+  // at the last price. Charts that leave it unset treat those points as plain
+  // gaps, as before.
+  secondaryLineBlankSlots?: boolean;
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;

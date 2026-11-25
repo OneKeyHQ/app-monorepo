@@ -13,6 +13,7 @@ type IPreviousSnapshotVersion = Pick<
   rawKey?: string;
   pendingPublicAccountDeletionAt?: number;
   pendingPublicAccountDeletionHash?: string;
+  requirePending?: boolean;
 };
 
 // These guards belong to one background operation, never to DB or wire data.
@@ -85,8 +86,12 @@ function versionOf(item: IDBCloudSyncItem): IPreviousSnapshotVersion {
 export function rememberPublicAccountSnapshotWrite(
   item: IDBCloudSyncItem,
   previous?: IDBCloudSyncItem,
+  { requirePending = false }: { requirePending?: boolean } = {},
 ): IDBCloudSyncItem {
-  previousVersions.set(item, previous ? versionOf(previous) : null);
+  previousVersions.set(
+    item,
+    previous ? { ...versionOf(previous), requirePending } : null,
+  );
   return item;
 }
 
@@ -177,7 +182,8 @@ export function matchesPublicAccountSnapshotWrite(
   const previous = previousVersions.get(item);
   if (previous === undefined) return true;
   if (previous === null) return current === undefined;
-  if (!current) return false;
+  if (!current || (previous.requirePending && current.serverUploaded))
+    return false;
   if (
     rawPublicAccountFills.has(item) &&
     current.remoteHardwareAccountTombstoneProof !== undefined

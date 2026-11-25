@@ -970,6 +970,161 @@ describe('LightweightChart', () => {
     expect(pulseX()).toBe('20');
   });
 
+  async function renderCrosshairChart(
+    secondaryLineData: [number, number | null][],
+    { secondaryLineBlankSlots = true } = {},
+  ) {
+    const crosshairListeners: ((param: unknown) => void)[] = [];
+    // Each series is its own mock, so an event keyed by the overlay finds
+    // nothing under the primary series.
+    const createSeries = () => ({
+      setData: jest.fn(),
+      priceToCoordinate: jest.fn((price: number) => price),
+    });
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn((time: number) => time * 10),
+    };
+    const chart = {
+      addSeries: jest.fn(createSeries),
+      addCustomSeries: jest.fn(createSeries),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      clearCrosshairPosition: jest.fn(),
+      subscribeCrosshairMove: jest.fn((listener: (param: unknown) => void) => {
+        crosshairListeners.push(listener);
+      }),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+    const onHover = jest.fn();
+    render(
+      <LightweightChart
+        data={
+          [
+            [1, 10],
+            [2, 20],
+          ] as IMarketTokenChart
+        }
+        secondaryLineData={secondaryLineData}
+        secondaryLineBlankSlots={secondaryLineBlankSlots}
+        height={240}
+        pulseLastPoint
+        onHover={onHover}
+      />,
+    );
+    await waitFor(() => expect(createChart).toHaveBeenCalledTimes(1));
+    const [series, overlaySeries] = chart.addSeries.mock.results.map(
+      (result) => result.value as ReturnType<typeof createSeries>,
+    );
+    act(() => {
+      flushAnimationFrames();
+    });
+    const move = (param: unknown) =>
+      act(() => {
+        crosshairListeners.forEach((listener) => listener(param));
+      });
+    // The vertical guide's visibility as last applied, undefined if never set.
+    const guideVisible = () =>
+      (
+        chart.applyOptions.mock.calls as unknown as [
+          { crosshair?: { vertLine?: { visible?: boolean } } },
+        ][]
+      )
+        .map(([options]) => options.crosshair?.vertLine?.visible)
+        .filter((visible) => visible !== undefined)
+        .at(-1);
+    return { chart, series, overlaySeries, onHover, move, guideVisible };
+  }
+
+  it('hides the crosshair guide over the blank time slots past the last price', async () => {
+    const { chart, series, onHover, move, guideVisible } =
+      await renderCrosshairChart([
+        [1, 10],
+        [2, 20],
+        [3, null],
+        [4, null],
+      ]);
+
+    // The cursor sits on a blank slot ahead of the last price.
+    move({ time: 4, point: { x: 40, y: 5 }, seriesData: new Map() });
+
+    expect(guideVisible()).toBe(false);
+    // The position is kept: a touch long-press reads it back as its origin.
+    expect(chart.clearCrosshairPosition).not.toHaveBeenCalled();
+    expect(onHover).toHaveBeenLastCalledWith({
+      time: undefined,
+      price: undefined,
+      secondaryPrice: undefined,
+      x: undefined,
+      y: undefined,
+    });
+    // The pulse stays on the tail.
+    expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
+      '20',
+    );
+
+    // Back over the priced series the guide returns and follows the cursor.
+    move({
+      time: 1,
+      point: { x: 10, y: 5 },
+      seriesData: new Map([[series, { value: 10 }]]),
+    });
+    expect(guideVisible()).toBe(true);
+    expect(onHover).toHaveBeenLastCalledWith(
+      expect.objectContaining({ time: 1, price: 10, x: 10 }),
+    );
+    expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
+      '10',
+    );
+  });
+
+  it('keeps the crosshair guide on overlay values past the last price', async () => {
+    const { series, overlaySeries, move, guideVisible } =
+      await renderCrosshairChart([
+        [1, 5],
+        [2, 6],
+        [3, 7],
+      ]);
+    expect(overlaySeries).toBeDefined();
+    expect(overlaySeries).not.toBe(series);
+
+    move({
+      time: 3,
+      point: { x: 30, y: 5 },
+      seriesData: new Map([[overlaySeries, { value: 7 }]]),
+    });
+
+    expect(guideVisible()).toBeUndefined();
+  });
+
+  it('leaves the guide and hover as they were on charts without blank slots', async () => {
+    // The Earn APY chart: its overlay can end in gaps past the base line.
+    const { chart, onHover, move, guideVisible } = await renderCrosshairChart(
+      [
+        [1, 5],
+        [2, 6],
+        [3, null],
+      ],
+      { secondaryLineBlankSlots: false },
+    );
+
+    move({ time: 3, point: { x: 30, y: 5 }, seriesData: new Map() });
+
+    expect(guideVisible()).toBeUndefined();
+    expect(chart.clearCrosshairPosition).not.toHaveBeenCalled();
+    expect(onHover).toHaveBeenLastCalledWith({
+      time: undefined,
+      price: undefined,
+      secondaryPrice: undefined,
+      x: undefined,
+      y: undefined,
+    });
+  });
+
   it('replaces the overlay data without re-fitting the chart', async () => {
     let visibleTimeRangeListener: (() => void) | undefined;
     const timeToCoordinate = jest.fn(() => 100);

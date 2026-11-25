@@ -485,6 +485,15 @@ test('setup displays the original key rollback error', async () => {
   expect(dialog.description).toBe(reason);
 });
 
+test('setup shows the data check reason below the translated error', async () => {
+  const reason = 'Cloud sync data version is unavailable';
+  mockEnable.mockRejectedValueOnce(
+    toPlainErrorObject(new HardwareCloudSyncDataError(reason)),
+  );
+  const dialog = await pickDeviceA();
+  expect(dialog.description).toBe(`cloud_sync_data_unreadable__msg\n${reason}`);
+});
+
 test.each([
   [
     HardwareErrorCode.BlePoweredOff,

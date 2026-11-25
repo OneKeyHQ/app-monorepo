@@ -59,8 +59,10 @@ export default class ServiceBase {
   getClientEndpointInfo = async (name: EServiceEndpointEnum) =>
     getEndpointInfo({ name });
 
-  getClient = async (name: EServiceEndpointEnum) =>
-    appApiClient.getClient(await getEndpointInfo({ name }));
+  getClient = async (name: EServiceEndpointEnum, officialEndpoint?: string) =>
+    officialEndpoint
+      ? appApiClient.getOfficialClient({ name, endpoint: officialEndpoint })
+      : appApiClient.getClient(await getEndpointInfo({ name }));
 
   getRawDataClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getRawDataClient(await getEndpointInfo({ name }));

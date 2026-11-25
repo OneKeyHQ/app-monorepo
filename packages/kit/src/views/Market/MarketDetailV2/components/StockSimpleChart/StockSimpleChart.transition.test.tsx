@@ -146,6 +146,7 @@ it.each(['1D', '1W', '1M'] as const)(
         previousClose: '168.89',
         priceUpdatedAt: '2026-11-11T21:00:00Z',
         marketStatus: { isOpen: true },
+        tags: ['US'],
       } as IMarketStockPublicDetail,
       onRangeChange,
       onPriceUpdate,
@@ -172,7 +173,8 @@ it.each(['1D', '1W', '1M'] as const)(
       expect(onRangeChange).toHaveBeenLastCalledWith({
         priceMode: 'share',
         range,
-        baseline: range === '1D' ? 168.89 : 170,
+        // Both ranges are rolling windows, measured from their first point.
+        baseline: 170,
         latest: 173.73,
       });
       expect(onPriceUpdate).toHaveBeenLastCalledWith(158.8);
@@ -437,4 +439,60 @@ it('reports the drawn range and clears it while the next range loads or fails', 
   });
   rerender(<StockSimpleChartContent {...props} range="1W" requestError />);
   expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+});
+
+it('keeps a retained trading-day series on its own rules until the replacement lands', () => {
+  // The chart answered before the stock detail, so the first series was the
+  // trading day of a listing not yet known to have sessions.
+  const onRangeChange = jest.fn();
+  const shareBase = {
+    networkId: '',
+    tokenAddress: '',
+    priceMode: 'share' as const,
+    stockId: 'NVDA',
+    range: '1D' as const,
+  };
+  const tradingDay = [
+    [1_800_000_000, 110],
+    [1_800_000_300, 106],
+  ] as IMarketTokenChart;
+  mockPromiseResult.mockReturnValue({
+    result: {
+      data: tradingDay,
+      range: '1D',
+      scopeKey: buildStockSimpleChartScopeKey({
+        ...shareBase,
+        sessionsSupported: false,
+      }),
+      assetKey: buildStockSimpleChartAssetKey(shareBase),
+      sessionsSupported: false,
+      status: 'success',
+    } as ReturnType<typeof result>,
+    isLoading: true,
+    run: jest.fn(),
+  });
+  // The US tag has arrived and the session request is still in flight.
+  render(
+    <StockSimpleChartContent
+      {...shareBase}
+      isNative={false}
+      retainPreviousRange
+      session="fullHours"
+      onRangeChange={onRangeChange}
+      stockDetail={
+        {
+          price: '106',
+          previousClose: '104',
+          tags: ['US'],
+        } as IMarketStockPublicDetail
+      }
+    />,
+  );
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'share',
+    range: '1D',
+    isTradingDay: true,
+    baseline: 104,
+    latest: 106,
+  });
 });
