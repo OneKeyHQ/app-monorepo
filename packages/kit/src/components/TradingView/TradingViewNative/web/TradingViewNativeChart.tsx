@@ -278,6 +278,10 @@ export const TradingViewNativeChart = memo(
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
     >([]);
+    // Every order or position line drawn, also one that takes no press.
+    const referenceLineRectsRef = useRef<
+      ITradingViewNativeReferenceLineHitRegion['rect'][]
+    >([]);
     const [cancelLoadingRegions, setCancelLoadingRegions] = useState<
       ITradingViewNativeReferenceLineHitRegion[]
     >([]);
@@ -648,6 +652,7 @@ export const TradingViewNativeChart = memo(
           scene?.subIndicatorLegendHitRegions ?? [];
         referenceLineHitRegionsRef.current =
           scene?.referenceLineHitRegions ?? [];
+        referenceLineRectsRef.current = scene?.referenceLineRects ?? [];
         const loadingRegions = referenceLineHitRegionsRef.current.filter(
           (region) => region.loadingColor !== undefined,
         );
@@ -1175,12 +1180,15 @@ export const TradingViewNativeChart = memo(
             x: event.clientX - canvasRect.left,
             y: event.clientY - canvasRect.top,
           });
-        // An order line whose label takes no press, e.g. one being cancelled,
-        // is still no part of the plot.
+        // An order line that takes no press, e.g. one whose order or cancel
+        // is pending, is still no part of the plot.
         plotPressesRef.current[1] =
           subIndicatorSettingsTarget === null &&
           !isTradingViewNativeReferenceLineAt(
-            referenceLineHitRegionsRef.current,
+            {
+              hitRegions: referenceLineHitRegionsRef.current,
+              lineRects: referenceLineRectsRef.current,
+            },
             event.clientX - canvasRect.left,
             event.clientY - canvasRect.top,
           );
@@ -1978,14 +1986,18 @@ export const TradingViewNativeChart = memo(
                 ) : null;
               })
             : null}
-          {maximize && measuredChartWidth > 0 ? (
+          {/* Only in the empty corner where the price axis meets the time
+              axis. Without a price axis every edge of the plot and the axis
+              hold controls of their own, so a double click is the way. */}
+          {maximize &&
+          measuredChartWidth > 0 &&
+          chartSettings.options.yAxis &&
+          measuredPriceAxisWidth > 0 ? (
             <TradingViewNativeMaximizeButton
               backgroundColor={background}
               isMaximized={maximize.isMaximized}
               onPress={maximize.toggle}
-              priceAxisWidth={
-                chartSettings.options.yAxis ? measuredPriceAxisWidth : 0
-              }
+              priceAxisWidth={measuredPriceAxisWidth}
               testID={testID}
               timeAxisHeight={timeAxisHeight}
             />

@@ -9,16 +9,13 @@ interface ITradingViewNativeMaximizeButtonProps {
   backgroundColor: string;
   isMaximized: boolean;
   onPress: () => void;
-  /** The price axis column; 0 while the chart shows no price axis. */
   priceAxisWidth: number;
   testID?: string;
   timeAxisHeight: number;
 }
 
 // Maximizes the chart's split-view panel, or brings the split back, from the
-// corner where the price axis meets the time axis. Without a price axis it
-// sits just above the time axis, which then runs to the edge and stays
-// draggable all along.
+// empty corner where the price axis meets the time axis.
 export function TradingViewNativeMaximizeButton({
   backgroundColor,
   isMaximized,
@@ -33,15 +30,14 @@ export function TradingViewNativeMaximizeButton({
       ? ETranslations.global_restore
       : ETranslations.global_expand,
   });
-  const hasCorner = priceAxisWidth > 0;
   return (
     <div
       role="presentation"
       style={{
         position: 'absolute',
         right: 0,
-        bottom: hasCorner ? 0 : timeAxisHeight,
-        width: hasCorner ? priceAxisWidth : timeAxisHeight,
+        bottom: 0,
+        width: priceAxisWidth,
         height: timeAxisHeight,
         display: 'flex',
         alignItems: 'center',

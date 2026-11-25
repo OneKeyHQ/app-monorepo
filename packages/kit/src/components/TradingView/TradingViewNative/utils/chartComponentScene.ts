@@ -44,6 +44,11 @@ interface ITradingViewNativeChartComponentCommandLayers {
   priceLabelCommands: ITradingViewNativeChartSceneCommand[];
   textLabelCommands: ITradingViewNativeChartSceneCommand[];
   hitRegions: ITradingViewNativeReferenceLineHitRegion[];
+  /**
+   * Where each drawn order or position line runs, also one that takes no
+   * press, e.g. while its order is pending.
+   */
+  lineRects: ITradingViewNativeChartSceneRect[];
 }
 
 export interface ITradingViewNativeReferenceLineHitRegion {
@@ -381,6 +386,7 @@ export function appendTradingViewNativeChartComponentCommands({
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const hitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
   const lineHitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
+  const lineRects: ITradingViewNativeChartSceneRect[] = [];
   const drawingLabels = drawings.flatMap((drawing, renderIndex) => {
     const point = drawing.points[0];
     if (
@@ -577,17 +583,19 @@ export function appendTradingViewNativeChartComponentCommands({
       y2: priceLayout.lineY,
     });
 
+    const lineRect = {
+      x: CHART_HORIZONTAL_PADDING,
+      y: priceLayout.lineY - 4,
+      width: priceAxisX - CHART_HORIZONTAL_PADDING,
+      height: 8,
+    };
+    lineRects.push(lineRect);
     if (canDrag) {
       lineHitRegions.push({
         id: component.id,
         action: 'drag',
         price: anchor.price,
-        rect: {
-          x: CHART_HORIZONTAL_PADDING,
-          y: priceLayout.lineY - 4,
-          width: priceAxisX - CHART_HORIZONTAL_PADDING,
-          height: 8,
-        },
+        rect: lineRect,
       });
     }
     const cancelButtonWidth = canCancel ? PRICE_LABEL_HEIGHT : 0;
@@ -756,5 +764,6 @@ export function appendTradingViewNativeChartComponentCommands({
     priceLabelCommands,
     textLabelCommands,
     hitRegions: [...lineHitRegions, ...hitRegions],
+    lineRects,
   };
 }

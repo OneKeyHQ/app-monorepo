@@ -333,6 +333,8 @@ export interface ITradingViewNativeChartScene {
   priceAxisWidth: number;
   subIndicatorLegendHitRegions: ITradingViewNativeSubIndicatorLegendHitRegion[];
   referenceLineHitRegions?: ITradingViewNativeReferenceLineHitRegion[];
+  /** Every order or position line drawn, also one that takes no press. */
+  referenceLineRects?: ITradingViewNativeChartSceneRect[];
   viewport: ITradingViewNativeChartRuntimeViewport;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
 }
@@ -1773,6 +1775,7 @@ export function buildTradingViewNativeChartScene({
     priceAxisWidth: resolvedPriceAxisWidth,
     subIndicatorLegendHitRegions,
     referenceLineHitRegions: chartComponentCommandLayers.hitRegions,
+    referenceLineRects: chartComponentCommandLayers.lineRects,
     viewport: normalizedViewport,
     visiblePointRange,
   };

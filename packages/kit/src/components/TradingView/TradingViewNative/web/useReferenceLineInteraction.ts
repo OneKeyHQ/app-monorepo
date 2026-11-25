@@ -38,14 +38,24 @@ function containsPoint(
   );
 }
 
-// Whether a point is on an order or position line the chart shows, also one
-// that takes no press now, e.g. while its cancel is pending.
+// Whether a point is on an order or position line the chart shows, its label
+// or its stroke, also one that takes no press now, e.g. while its order or
+// its cancel is pending.
 export function isTradingViewNativeReferenceLineAt(
-  regions: readonly ITradingViewNativeReferenceLineHitRegion[],
+  {
+    hitRegions,
+    lineRects,
+  }: {
+    hitRegions: readonly ITradingViewNativeReferenceLineHitRegion[];
+    lineRects: readonly ITradingViewNativeReferenceLineHitRegion['rect'][];
+  },
   x: number,
   y: number,
 ) {
-  return regions.some((region) => containsPoint(region.rect, x, y));
+  return (
+    hitRegions.some((region) => containsPoint(region.rect, x, y)) ||
+    lineRects.some((rect) => containsPoint(rect, x, y))
+  );
 }
 
 export function useReferenceLineInteraction({
