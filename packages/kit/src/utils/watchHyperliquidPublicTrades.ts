@@ -23,9 +23,17 @@ type IRecoveryGeneration = {
 type IPublicTradesHistory = {
   generation: IRecoveryGeneration;
   listeners: Set<IHistoryListener>;
+  latestLiveTrade?: IRecentTrade;
 };
 
 const histories = new Map<string, IPublicTradesHistory>();
+
+export function isLaterTrade(candidate: IRecentTrade, current: IRecentTrade) {
+  return (
+    candidate.time > current.time ||
+    (candidate.time === current.time && candidate.tid > current.tid)
+  );
+}
 
 export function mergePublicTrades(
   incoming: IRecentTrade[],
@@ -51,16 +59,36 @@ export function acquirePublicTradesHistory(
   };
   histories.set(coin, history);
   let observedGeneration = history.generation;
-  history.listeners.add(listener);
+  const recoveredAtJoin = observedGeneration.recovered
+    ? observedGeneration
+    : undefined;
+  // A ticker may only receive one trade per batch. Its newest trade proves a
+  // gap for a later subscriber, but cannot supply that subscriber's tape.
+  const liveBeforeJoin = history.latestLiveTrade;
+  const coversJoin = () => {
+    const newest = history.generation.snapshot?.[0];
+    return (
+      !liveBeforeJoin || (!!newest && !isLaterTrade(liveBeforeJoin, newest))
+    );
+  };
+  const notify: IHistoryListener = (rows, recovered) =>
+    listener(rows, recovered && coversJoin());
+  history.listeners.add(notify);
   if (history.generation.snapshot) {
-    listener(history.generation.snapshot, !!history.generation.recovered);
+    notify(history.generation.snapshot, !!history.generation.recovered);
   }
   return {
     get recovered() {
-      return !!history.generation.recovered;
+      return !!history.generation.recovered && coversJoin();
     },
-    disconnect() {
-      if (history.generation === observedGeneration) history.generation = {};
+    coversJoin,
+    disconnect(initialOffline = false) {
+      if (
+        observedGeneration === history.generation &&
+        (!initialOffline || recoveredAtJoin === history.generation)
+      ) {
+        history.generation = {};
+      }
     },
     fetch(reconnect = false) {
       const generation = history.generation;
@@ -78,7 +106,9 @@ export function acquirePublicTradesHistory(
               history.generation.snapshot ?? [],
             );
             if (reconnect) generation.recovered = true;
-            history.listeners.forEach((notify) => notify(incoming, reconnect));
+            history.listeners.forEach((receive) =>
+              receive(incoming, reconnect),
+            );
             return true;
           },
           (error: unknown) => {
@@ -91,7 +121,7 @@ export function acquirePublicTradesHistory(
       return request;
     },
     release() {
-      history.listeners.delete(listener);
+      history.listeners.delete(notify);
       if (!history.listeners.size) histories.delete(coin);
     },
   };
@@ -190,6 +220,19 @@ export function watchHyperliquidPublicTrades({
       const trades = (payload.data as IWsTrades).filter(
         (trade) => trade.coin === coin,
       );
+      const history = histories.get(coin);
+      if (history && !payload.displayOnly) {
+        for (const trade of trades) {
+          if (
+            Number.isFinite(trade.time) &&
+            Number.isFinite(trade.tid) &&
+            (!history.latestLiveTrade ||
+              isLaterTrade(trade, history.latestLiveTrade))
+          ) {
+            history.latestLiveTrade = trade;
+          }
+        }
+      }
       if (trades.length) onTrades(trades, payload.displayOnly);
     }
   };

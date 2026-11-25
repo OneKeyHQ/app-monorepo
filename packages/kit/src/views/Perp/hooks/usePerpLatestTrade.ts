@@ -4,6 +4,7 @@ import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   acquirePublicTradesHistory,
+  isLaterTrade,
   watchHyperliquidPublicTrades,
 } from '../../../utils/watchHyperliquidPublicTrades';
 
@@ -14,13 +15,6 @@ type ILatestTradeSnapshot = {
   trade: ILatestTrade;
   isLive: boolean;
 };
-
-function isLaterTrade(candidate: ILatestTrade, current: ILatestTrade) {
-  return (
-    candidate.time > current.time ||
-    (candidate.time === current.time && candidate.tid > current.tid)
-  );
-}
 
 function selectLatestTrade(trades: IWsTrades, coin: string) {
   return trades.reduce<ILatestTrade | undefined>((latest, trade) => {
@@ -93,10 +87,11 @@ function createLatestTradeStore(coin: string) {
       onTrades: (trades, displayOnly) => publish(trades, !displayOnly),
       onStatus: (status) => {
         if (disposed) return;
+        const wasConnected = connected;
         connected = status === 'connected';
         if (!connected) {
           needsReconnectBackfill = true;
-          history.disconnect();
+          if (wasConnected) history.disconnect();
           invalidate();
         } else if (needsReconnectBackfill) {
           needsReconnectBackfill = false;

@@ -45,7 +45,6 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     if (!active) return;
     let disposed = false;
     let connected: boolean | undefined;
-    let needsReconnectBackfill = false;
     let manualRetry = attempt?.session === session;
     let currentRequest: { reconnect: boolean } | undefined;
     const liveTradeKeys = new Set<string>();
@@ -69,10 +68,13 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
       try {
         const applied = await history.fetch(reconnect);
         if (!applied || disposed || currentRequest !== request) return;
+        const isError =
+          liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT &&
+          !history.coversJoin();
         setState((previous) => ({
           ...previous,
           isLoading: false,
-          isError: false,
+          isError,
         }));
       } catch {
         if (disposed || currentRequest !== request) return;
@@ -119,21 +121,19 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
             : { ...previous, isDisconnected },
         );
         if (isDisconnected) {
-          // A retry's initial offline status must keep its fresh HTTP request.
-          if (connected || !manualRetry) {
-            needsReconnectBackfill = true;
-            history.disconnect();
-          }
+          // The first offline notification samples the connection. It must not
+          // invalidate another watcher's in-flight recovery on this generation.
+          if (connected || manualRetry) history.disconnect(!connected);
           if (currentRequest?.reconnect) {
             currentRequest = undefined;
             setState((previous) => ({ ...previous, isLoading: false }));
           }
           liveTradeKeys.clear();
         } else {
-          if (needsReconnectBackfill) manualRetry = false;
+          const reconnect = connected === false;
+          if (reconnect) manualRetry = false;
           clearTimeout(fallbackTimer);
-          void fetchSnapshot(needsReconnectBackfill);
-          needsReconnectBackfill = false;
+          void fetchSnapshot(reconnect);
         }
         connected = !isDisconnected;
       },
