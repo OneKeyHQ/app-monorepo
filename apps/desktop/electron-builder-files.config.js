@@ -19,6 +19,7 @@ const baseFiles = [
 // Prebuild exclusion globs per platform.
 // Each array excludes native prebuilds for all platforms EXCEPT the target.
 const macExcludePrebuilds = [
+  '!**/node_modules/@onekeyfe/electron-qr-scanner/win/**',
   '!**/prebuilds/android-*/**',
   '!**/prebuilds/linux-*/**',
   '!**/prebuilds/win32-*/**',
@@ -40,12 +41,14 @@ const winCrossPackagingExcludes =
       ];
 
 const winExcludePrebuilds = [
+  '!**/node_modules/@onekeyfe/electron-qr-scanner/mac/**',
   '!**/prebuilds/android-*/**',
   '!**/prebuilds/darwin-*/**',
   '!**/prebuilds/linux-*/**',
   ...winCrossPackagingExcludes,
 ];
 const linuxExcludePrebuilds = [
+  '!**/node_modules/@onekeyfe/electron-qr-scanner/**',
   '!**/prebuilds/android-*/**',
   '!**/prebuilds/darwin-*/**',
   '!**/prebuilds/win32-*/**',
