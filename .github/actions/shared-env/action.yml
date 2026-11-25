@@ -24,6 +24,9 @@ inputs:
   covalent_key:
     required: true
     description: "Covalent API Key"
+  breez_api_key:
+    required: false
+    description: "Breez SDK API Key"
   sentry_token:
     required: true
     description: "Sentry Auth Token"
@@ -271,6 +274,7 @@ runs:
       shell: bash
       env:
         COVALENT_KEY: ${{ inputs.covalent_key }}
+        BREEZ_API_KEY: ${{ inputs.breez_api_key }}
         SENTRY_TOKEN: ${{ inputs.sentry_token }}
         SENTRY_PROJECT: ${{ inputs.sentry_project || '' }}
         TARGET_ENV_FILE: ${{ inputs.env_file_name || '.env' }}
@@ -292,6 +296,7 @@ runs:
         # echo "ENABLE_ANALYZER=1" >> ${TARGET_ENV_FILE}
         # echo "ENABLE_ANALYZER_HTML_REPORT=1" >> ${TARGET_ENV_FILE}
         echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> ${TARGET_ENV_FILE}
+        echo "BREEZ_API_KEY=${BREEZ_API_KEY}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> ${TARGET_ENV_FILE}
