@@ -446,10 +446,9 @@ export function AccountSelectorWalletListSideBarV2({
             tone: item.tone === 'caution' ? 'warning' : 'neutral',
           })),
           draggable: true,
-          accessibilityLabel: [
-            wallet.name,
-            ...badges.map((item) => item.label),
-          ].join(', '),
+          accessibilityLabel: [wallet.name, ...badges.map((item) => item.label)]
+            .filter(Boolean)
+            .join(', '),
         };
       };
       const getChildWallets = (wallet: IAccountSelectorWalletInfo) => {

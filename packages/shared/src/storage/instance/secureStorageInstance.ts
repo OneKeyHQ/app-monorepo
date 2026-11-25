@@ -88,6 +88,13 @@ const travelModeSecureStorage: ISecureStorage = {
       onBlocked: () => false,
     });
   },
+  async hasStoredSecureItem(key) {
+    return travelModeManager.getRuntimeEnvironmentSync().persistence.run({
+      operation: async () =>
+        getRealSecureStorageInstance().hasStoredSecureItem?.(key),
+      onBlocked: () => undefined,
+    });
+  },
   async getCredentialId() {
     return travelModeManager.getRuntimeEnvironmentSync().persistence.run({
       operation: async () =>

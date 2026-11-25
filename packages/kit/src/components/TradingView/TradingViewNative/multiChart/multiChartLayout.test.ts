@@ -324,6 +324,59 @@ describe('sync options', () => {
     );
   });
 
+  it('saves the interval the intervals start from with their option only', () => {
+    const on = setTradingViewNativeMultiChartSync(
+      layout,
+      'interval',
+      true,
+      '240',
+    );
+    expect(on).toEqual({
+      ...layout,
+      sync: { interval: true },
+      intervalSyncStart: '240',
+    });
+    expect(
+      normalizeTradingViewNativeMultiChartLayout(
+        JSON.parse(JSON.stringify(on)),
+      ),
+    ).toEqual(on);
+    // Another option leaves it alone.
+    expect(
+      setTradingViewNativeMultiChartSync(on, 'crosshair', true, '15')
+        .intervalSyncStart,
+    ).toBe('240');
+
+    const off = setTradingViewNativeMultiChartSync(on, 'interval', false);
+    expect(off).toEqual({ ...layout, sync: { interval: false } });
+    // Turned on again without one, nothing of the earlier start is left.
+    expect(setTradingViewNativeMultiChartSync(off, 'interval', true)).toEqual({
+      ...layout,
+      sync: { interval: true },
+    });
+    expect(
+      setTradingViewNativeMultiChartSync(layout, 'crosshair', true, '240'),
+    ).toEqual({ ...layout, sync: { crosshair: true } });
+
+    // Untrusted input: one saved beside an option that is off, or no string.
+    expect(
+      normalizeTradingViewNativeMultiChartLayout({
+        ...layout,
+        sync: { interval: false },
+        intervalSyncStart: '240',
+      }).intervalSyncStart,
+    ).toBeUndefined();
+    for (const intervalSyncStart of [240, '', ' ', null, {}]) {
+      expect(
+        normalizeTradingViewNativeMultiChartLayout({
+          ...layout,
+          sync: { interval: true },
+          intervalSyncStart,
+        }).intervalSyncStart,
+      ).toBeUndefined();
+    }
+  });
+
   it('survives the changes that rebuild the layout', () => {
     const synced = setTradingViewNativeMultiChartSync(
       layout,

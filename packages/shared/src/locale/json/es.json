@@ -3435,7 +3435,7 @@
   "market_trading_hours_underlying__desc": "Los horarios mostrados corresponden al mercado de la acción subyacente. Los tokens de acciones pueden negociarse 24/7 o con otro horario.",
   "market_trading_hours_underlying_market__title": "Mercado de la acción subyacente",
   "market_trading_hours_weekday_at__desc": "{weekday} a las {time}",
-  "market_widget_bind__desc": "Mantén pulsado el widget de la pantalla de inicio, toca «Editar widget» y selecciona la configuración guardada en «Configuración».",
+  "market_widget_bind__desc": "Mantén pulsado el widget de la pantalla de inicio, toca «Editar widget» y selecciona «Nueva configuración» en «Configuración».",
   "market_widget_coin__title": "Moneda",
   "market_widget_coin_removed__msg": "Esta moneda ya no está en el origen seleccionado. Elige otra.",
   "market_widget_configuration_missing__msg": "Esta configuración ya no existe. Vuelve atrás y elige otra.",

@@ -3,6 +3,25 @@ import Foundation
 import WidgetKit
 
 @available(iOS 17.0, *)
+struct MarketWidgetInstanceOptions: DynamicOptionsProvider {
+  // Generate the identifier for an explicit picker choice, never for a shared default intent.
+  func results() async throws -> IntentItemCollection<String> {
+    IntentItemCollection(sections: [IntentItemSection(items: [
+      IntentItem(UUID().uuidString, title: "market_widget_new_configuration__title")
+    ])])
+  }
+}
+
+@available(iOS 17.0, *)
+struct MarketWidgetInstanceIntent: WidgetConfigurationIntent {
+  static var title: LocalizedStringResource = "market_widget_configuration__title"
+  @Parameter(title: "market_widget_configuration__title", optionsProvider: MarketWidgetInstanceOptions())
+  var configurationID: String?
+
+  var instanceID: UUID? { configurationID.flatMap(UUID.init(uuidString:)) }
+}
+
+@available(iOS 17.0, *)
 struct MarketLockScreenAssetEntity: AppEntity {
   static var typeDisplayRepresentation: TypeDisplayRepresentation = "market_widget_asset__title"
   static var defaultQuery = MarketLockScreenAssetQuery()
@@ -204,42 +223,11 @@ struct MarketLockScreenListIntent: WidgetConfigurationIntent {
     Summary { \.$first; \.$second; \.$third }
   }
 
+  var assets: [MarketWidgetAsset] { [first, second, third].compactMap { $0?.asset } }
+
   init() {
     first = MarketLockScreenAssetEntity(asset: MarketWidgetAsset.defaults[0])
     second = MarketLockScreenAssetEntity(asset: MarketWidgetAsset.defaults[1])
     third = MarketLockScreenAssetEntity(asset: MarketWidgetAsset.defaults[2])
-  }
-}
-
-@available(iOS 17.0, *)
-struct MarketLockScreenSpotProvider: AppIntentTimelineProvider {
-  let includingChart: Bool
-  func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: false) }
-  func snapshot(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> MarketWidgetEntry {
-    if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: false) }
-    let store = MarketWidgetStore()
-    return MarketLockScreenTimeline.snapshot(assets: configuration.coin.map { [$0.asset] } ?? [], isWatchlist: false, store: store)
-      .usingChartMode(in: store)
-  }
-  func timeline(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
-    await MarketLockScreenTimeline.timeline(assets: configuration.coin.map { [$0.asset] } ?? [],
-      isWatchlist: false, includingChart: includingChart)
-  }
-}
-
-@available(iOS 17.0, *)
-struct MarketLockScreenListProvider: AppIntentTimelineProvider {
-  func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: true) }
-  func snapshot(for configuration: MarketLockScreenListIntent, in context: Context) async -> MarketWidgetEntry {
-    if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: true) }
-    let store = MarketWidgetStore()
-    return MarketLockScreenTimeline.snapshot(assets: assets(configuration), isWatchlist: true, store: store)
-      .usingChartMode(in: store)
-  }
-  func timeline(for configuration: MarketLockScreenListIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
-    await MarketLockScreenTimeline.timeline(assets: assets(configuration), isWatchlist: true, includingChart: false)
-  }
-  private func assets(_ configuration: MarketLockScreenListIntent) -> [MarketWidgetAsset] {
-    [configuration.first, configuration.second, configuration.third].compactMap { $0?.asset }
   }
 }

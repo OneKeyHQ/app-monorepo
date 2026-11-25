@@ -6,17 +6,22 @@ import { Empty, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { IMPL_STARKNET } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import debugUtils from '@onekeyhq/shared/src/utils/debug/debugUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import TokenDetailsHeader from './TokenDetailsHeader';
 import TokenDetailsHistory from './TokenDetailsHistory';
+import { TokenDetailsPager } from './TokenDetailsPager';
 
 import type { IProps } from '.';
 
@@ -154,4 +159,43 @@ function TokenDetailsViews(props: IProps) {
   );
 }
 
-export default memo(TokenDetailsViews);
+function TokenDetailsViewsWithPrivacy(props: IProps) {
+  const intl = useIntl();
+  if (
+    networkUtils.getNetworkImpl({ networkId: props.networkId }) !==
+    IMPL_STARKNET
+  ) {
+    return <TokenDetailsViews {...props} />;
+  }
+  if (
+    accountUtils.isWatchingOrExternalAccount({
+      accountId: props.accountId || props.walletId,
+    })
+  ) {
+    return <TokenDetailsViews {...props} starknetPrivacyMode="public" />;
+  }
+  return (
+    <TokenDetailsPager
+      key={`${props.accountId}_${props.networkId}_${props.tokenInfo.address}`}
+      pages={(['public', 'private'] as const).map((mode) => ({
+        key: mode,
+        name: intl.formatMessage({
+          id:
+            mode === 'public'
+              ? ETranslations.privacy_balance_public__title
+              : ETranslations.private_send_private_option,
+        }),
+        children: (
+          <TokenDetailsViews
+            {...props}
+            inTabList
+            isTabView
+            starknetPrivacyMode={mode}
+          />
+        ),
+      }))}
+    />
+  );
+}
+
+export default memo(TokenDetailsViewsWithPrivacy);

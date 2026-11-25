@@ -1736,7 +1736,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showUIProgress?: boolean;
     hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   }) {
-    errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
+    errorToastUtils.showLocalSecretEnvelopeRecoveryToastIfNeeded(error);
 
     if (this.progressInfo && showUIProgress) {
       appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {

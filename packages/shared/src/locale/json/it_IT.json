@@ -3435,7 +3435,7 @@
   "market_trading_hours_underlying__desc": "Gli orari mostrati si riferiscono al mercato dell'azione sottostante. I token azionari possono essere scambiati 24/7 o con orari diversi.",
   "market_trading_hours_underlying_market__title": "Mercato dell'azione sottostante",
   "market_trading_hours_weekday_at__desc": "{weekday} alle {time}",
-  "market_widget_bind__desc": "Tieni premuto il widget nella schermata Home, tocca «Modifica widget», quindi scegli la configurazione salvata in «Configurazione».",
+  "market_widget_bind__desc": "Tieni premuto il widget nella schermata Home, tocca «Modifica widget», quindi scegli «Nuova configurazione» in «Configurazione».",
   "market_widget_coin__title": "Moneta",
   "market_widget_coin_removed__msg": "Questa moneta non è più nell’origine selezionata. Scegline un’altra.",
   "market_widget_configuration_missing__msg": "Questa configurazione non esiste più. Torna indietro e scegline un’altra.",

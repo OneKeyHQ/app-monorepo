@@ -16,6 +16,8 @@ import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Bro
 import { NativeHistoryList } from '@onekeyhq/kit/src/views/Home/components/HomeHistoryListView/NativeHistoryList';
 import { useFrozenTopHistoryData } from '@onekeyhq/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
+import { StarknetPrivateHistory } from '@onekeyhq/kit/src/views/StarknetPrivacy/components/StarknetPrivateHistory';
+import { isStarknetPublicHistoryVisible } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import {
   useCurrencyPersistAtom,
@@ -70,6 +72,7 @@ function TokenDetailsHistoryContent({
     isTabView,
     inTabList,
     privacyHistoryPoolId,
+    starknetPrivacyMode,
   } = props;
 
   const isRouteFocused = useRouteIsFocused();
@@ -219,6 +222,11 @@ function TokenDetailsHistoryContent({
     const mergedHistory = appendedTxs.length
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
       : firstPageHistory;
+    if (starknetPrivacyMode === 'public') {
+      return mergedHistory.filter((tx) =>
+        isStarknetPublicHistoryVisible(tx.decodedTx.extraInfo),
+      );
+    }
     if (privacyHistoryPoolId === undefined) {
       return mergedHistory;
     }
@@ -236,7 +244,13 @@ function TokenDetailsHistoryContent({
           selectedPoolId: privacyHistoryPoolId,
         }),
       );
-  }, [tokenHistory, cachedHistory, appendedTxs, privacyHistoryPoolId]);
+  }, [
+    tokenHistory,
+    cachedHistory,
+    appendedTxs,
+    privacyHistoryPoolId,
+    starknetPrivacyMode,
+  ]);
 
   // OK-57070: same native top-insertion jitter fix as the wallet history tab.
   // Only engages inside the collapsible tab (where the scroll position is
@@ -408,6 +422,8 @@ function TokenDetailsHistoryWithTabFocus(props: IProps) {
 }
 
 function TokenDetailsHistory(props: IProps) {
+  if (props.starknetPrivacyMode === 'private')
+    return <StarknetPrivateHistory {...props} />;
   if (props.isTabView) {
     return <TokenDetailsHistoryWithTabFocus {...props} />;
   }

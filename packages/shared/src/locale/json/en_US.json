@@ -3435,7 +3435,7 @@
   "market_trading_hours_underlying__desc": "Hours shown are for the underlying stock market. Stock tokens may trade 24/7 or on a different schedule.",
   "market_trading_hours_underlying_market__title": "Underlying stock market",
   "market_trading_hours_weekday_at__desc": "{weekday} at {time}",
-  "market_widget_bind__desc": "Touch and hold the Home Screen widget, tap “Edit Widget”, then choose your saved configuration under “Configuration”.",
+  "market_widget_bind__desc": "Touch and hold the Home Screen widget, tap “Edit Widget”, then choose “New configuration” under “Configuration”.",
   "market_widget_coin__title": "Coin",
   "market_widget_coin_removed__msg": "This coin is no longer in the selected source. Choose another coin.",
   "market_widget_configuration_missing__msg": "This configuration no longer exists. Go back and choose another.",

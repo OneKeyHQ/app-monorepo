@@ -214,6 +214,7 @@ export function NativeHistoryList(
   props: IHomeHistoryListViewProps & {
     refreshEnabled?: boolean;
     isAllNetworks?: boolean;
+    hideUndatedHeaders?: boolean;
     webScrollHost?: HTMLElement | null;
     webContentPadding?: { top: number; bottom: number };
   },
@@ -553,46 +554,53 @@ export function NativeHistoryList(
         items: filtered,
         formatDate: (date) =>
           formatDate(new Date(date), { hideTimeForever: true }),
+        hideUndatedHeaders: props.hideUndatedHeaders,
       }),
-    [filtered],
+    [filtered, props.hideUndatedHeaders],
   );
   const rows = useMemo<RowModel[]>(
     () =>
       sections.flatMap((section, sectionIndex) => {
-        const sectionKey = historySectionKey(section.data[0].id);
         const pending =
           getHistoryTxDisplayStatus(section.data[0]) ===
           EDecodedTxStatus.Pending;
-        const header: RowModel = {
-          key: sectionKey,
-          type: 'sectionHeader',
-          variant: platformEnv.isNative ? undefined : 'history',
-          sectionKey,
-          height:
-            (sectionIndex === 0 ? 32 : 52) +
-            (pending && platformEnv.isNative ? 4 : 0),
-          // The header pairs its height with unscaled padding and lineHeight,
-          // so it must not take Android's legacy sub-400dp 0.9 scale (OK-66072).
-          heightRounding: 'nearest',
-          ...(!platformEnv.isNative ? { pressDisabled: true } : {}),
-          titleLoading: pending,
-          title: pending
-            ? intl.formatMessage({ id: ETranslations.global_confirming })
-            : section.title || intl.formatMessage({ id: section.titleKey }),
-          style: {
-            container: { contentVerticalAlignment: 'bottom' },
-            horizontalPadding: 20 - getHistoryListContentInset(),
-            verticalPadding: 8,
-            title: {
-              fontSize: 12,
-              lineHeight: 16,
-              fontWeight: 'semibold',
-              color: pending ? theme.caution : theme.secondaryText,
+        const sectionKey =
+          pending || section.title
+            ? historySectionKey(section.data[0].id)
+            : undefined;
+        const headers: RowModel[] = [];
+        if (sectionKey) {
+          headers.push({
+            key: sectionKey,
+            type: 'sectionHeader',
+            variant: platformEnv.isNative ? undefined : 'history',
+            sectionKey,
+            height:
+              (sectionIndex === 0 ? 32 : 52) +
+              (pending && platformEnv.isNative ? 4 : 0),
+            // The header pairs its height with unscaled padding and lineHeight,
+            // so it must not take Android's legacy sub-400dp 0.9 scale (OK-66072).
+            heightRounding: 'nearest',
+            ...(!platformEnv.isNative ? { pressDisabled: true } : {}),
+            titleLoading: pending,
+            title: pending
+              ? intl.formatMessage({ id: ETranslations.global_confirming })
+              : section.title || intl.formatMessage({ id: section.titleKey }),
+            style: {
+              container: { contentVerticalAlignment: 'bottom' },
+              horizontalPadding: 20 - getHistoryListContentInset(),
+              verticalPadding: 8,
+              title: {
+                fontSize: 12,
+                lineHeight: 16,
+                fontWeight: 'semibold',
+                color: pending ? theme.caution : theme.secondaryText,
+              },
             },
-          },
-        };
+          });
+        }
         return [
-          header,
+          ...headers,
           ...section.data.map((history): ActivityRow => {
             const model = models.get(history.id);
             if (!model)
@@ -937,6 +945,7 @@ export function NativeHistoryList(
     [filtered, onPressHistory, models, addressesInfo],
   );
   const empty = useMemo(() => {
+    if (props.ListEmptyComponent !== undefined) return props.ListEmptyComponent;
     if (!initialized)
       return (
         <Stack mx={-getHistoryListContentInset()}>
@@ -946,7 +955,7 @@ export function NativeHistoryList(
     if (searchKey && data.length) return <EmptySearch />;
     return (
       <EmptyHistory
-        showViewInExplorer
+        showViewInExplorer={props.showViewInExplorer ?? true}
         walletId={props.walletId}
         accountId={props.accountId}
         networkId={props.networkId}
@@ -966,6 +975,8 @@ export function NativeHistoryList(
     props.indexedAccountId,
     props.isSingleAccount,
     props.tokenMap,
+    props.showViewInExplorer,
+    props.ListEmptyComponent,
   ]);
   return (
     <View
@@ -1018,17 +1029,21 @@ export function NativeHistoryList(
         }
         listEmpty={empty}
         listFooter={
-          <ListFooterComponent
-            showFooter={props.showFooter}
-            hasItems={filtered.length > 0}
-            accountId={props.accountId}
-            networkId={props.networkId}
-            walletId={props.walletId}
-            indexedAccountId={props.indexedAccountId}
-            isSingleAccount={props.isSingleAccount}
-            isLoadingMore={isLoadingMore}
-            hasMore={hasMore}
-          />
+          props.ListFooterComponent !== undefined ? (
+            props.ListFooterComponent
+          ) : (
+            <ListFooterComponent
+              showFooter={props.showFooter}
+              hasItems={filtered.length > 0}
+              accountId={props.accountId}
+              networkId={props.networkId}
+              walletId={props.walletId}
+              indexedAccountId={props.indexedAccountId}
+              isSingleAccount={props.isSingleAccount}
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore}
+            />
+          )
         }
         onRefresh={refreshEnabled ? onRefresh : undefined}
         onEndReached={webScrollHost === undefined ? onEndReached : undefined}

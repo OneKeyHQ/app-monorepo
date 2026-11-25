@@ -85,6 +85,12 @@ export const useSwapHistoryChannelIntent = () =>
   useContext(SwapHistoryChannelIntentContext);
 
 export function getSwapHistorySourceIntentKey(params?: ISwapInitParams) {
+  if (params?.swapTabNavigationId) {
+    return JSON.stringify([
+      params.swapTabNavigationId,
+      params.swapTabSwitchType,
+    ]);
+  }
   return JSON.stringify([
     buildSwapInitParamsConsumptionKey(params),
     params?.swapTabSwitchType,
