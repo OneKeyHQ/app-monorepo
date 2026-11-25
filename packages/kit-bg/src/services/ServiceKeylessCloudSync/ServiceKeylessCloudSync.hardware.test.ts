@@ -26,6 +26,7 @@ import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import localDb from '../../dbs/local/localDb';
 import { LocalDbBase } from '../../dbs/local/LocalDbBase';
 import { LocalDbBaseContainer } from '../../dbs/local/LocalDbBaseContainer';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
@@ -156,6 +157,7 @@ jest.mock('./hardwareCloudSyncSession', () => {
     checkHardwareCloudSyncDataKey: actual.checkHardwareCloudSyncDataKey,
     canUseHardwareCloudSyncSessionAt: actual.canUseHardwareCloudSyncSessionAt,
     computeHardwareCloudSyncPwdHash: actual.computeHardwareCloudSyncPwdHash,
+    matchesRecordFields: actual.matchesRecordFields,
     getHardwareCloudSyncPreviousPwdHashes:
       actual.getHardwareCloudSyncPreviousPwdHashes,
     readLockEnvelope: actual.readLockEnvelope,
@@ -2177,12 +2179,19 @@ describe('hardware Cloud key source lifecycle', () => {
         jest.spyOn(localDb, 'getWalletBySyncPayload').mockResolvedValue(wallet),
         jest
           .spyOn(localDb, 'getRecordById')
-          .mockRejectedValue(
-            new DOMException(
+          .mockImplementation(async ({ name, id }) => {
+            if (name === ELocalDBStoreNames.CloudSyncItem) {
+              const found = items.find((item) => item.id === id);
+              if (found) return { ...found } as never;
+              throw new OneKeyLocalError(
+                `Missing synthetic CloudSyncItem: ${id}`,
+              );
+            }
+            throw new DOMException(
               'Synthetic canonical Wallet read interrupted',
               'AbortError',
-            ),
-          ),
+            );
+          }),
         jest
           .spyOn(localDb, 'getRecordsByIds')
           .mockResolvedValue({ records: items }),
