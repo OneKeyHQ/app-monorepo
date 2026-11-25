@@ -10,8 +10,8 @@ export type IProfileDrawerSignals = {
   notificationGuideOpened: boolean;
   unreadNotifications: number;
   unreadSupport: number;
-  // The Intercom identity the support count belongs to ('' when anonymous;
-  // undefined until known).
+  // The Intercom identity the support count belongs to: the signed-in user,
+  // or `visitor:<id>` for an anonymous visitor; undefined until known.
   supportOwner?: string;
   // Whether each count has loaded this launch. Until then its 0 means "not
   // known yet", so it may neither light the avatar nor move what was seen —
