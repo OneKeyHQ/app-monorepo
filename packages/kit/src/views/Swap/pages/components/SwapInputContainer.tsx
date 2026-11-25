@@ -22,6 +22,7 @@ import { DESKTOP_MODE_UI_PAGE_BORDER_WIDTH } from '@onekeyhq/components/src/util
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useRateDifferenceAtom,
   useSwapActions,
@@ -117,6 +118,9 @@ const SWAP_RECEIVE_CARD_SURFACE = {
   bg: '$bgSubdued',
   borderWidth: '$0',
 } as const;
+// In dark mode the pay card's shadow is lost against the surface and $bg sits
+// only two steps above the receive card, so a lighter fill does the lifting.
+const SWAP_PAY_CARD_DARK_BG = '$gray3';
 
 // The pay card's own controls keep their presses; anywhere else on the card a
 // press goes to the amount.
@@ -602,15 +606,17 @@ const SwapInputContainer = ({
     direction === ESwapDirectionType.TO && readOnly
       ? '$textSubdued'
       : undefined;
+  const themeVariant = useThemeVariant();
+  const payCardBg = themeVariant === 'dark' ? SWAP_PAY_CARD_DARK_BG : '$bg';
   const payCardProps = platformEnv.isNative
     ? {
-        bg: '$bg',
+        bg: payCardBg,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: '$borderSubdued',
         onPress: handlePayCardPress,
       }
     : {
-        bg: '$bg',
+        bg: payCardBg,
         borderWidth: '$0',
         boxShadow: SWAP_RAISED_SHADOW,
         onMouseDown: handlePayCardMouseDown,
