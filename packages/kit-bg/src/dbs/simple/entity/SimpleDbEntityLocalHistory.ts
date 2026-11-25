@@ -98,6 +98,18 @@ export interface ILocalHistory {
   confirmedTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
 }
 
+type ILocalHistoryUpdate = {
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+  confirmedTxs?: IAccountHistoryTx[];
+  onChainHistoryTxs?: IAccountHistoryTx[];
+  pendingTxs?: IAccountHistoryTx[];
+  confirmedTxsToSave?: IAccountHistoryTx[];
+  confirmedTxsToRemove?: IAccountHistoryTx[];
+  pendingTxsToModify?: IAccountHistoryTx[];
+};
+
 export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory> {
   entityName = 'localHistory';
 
@@ -244,7 +256,8 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
           (tx) =>
             tx.id === historyTx.id ||
             tx.replacedPrevId === historyTx.id ||
-            tx.decodedTx.nonce === historyTx.decodedTx.nonce,
+            (!isNil(historyTx.decodedTx.nonce) &&
+              tx.decodedTx.nonce === historyTx.decodedTx.nonce),
         )
       )
         return rawData ?? { pendingTxs: {}, confirmedTxs: {} };
@@ -430,21 +443,19 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   }
 
   @backgroundMethod()
-  async batchUpdateLocalHistoryTxs(
-    params: {
-      networkId: string;
-      accountAddress?: string;
-      xpub?: string;
-      confirmedTxs?: IAccountHistoryTx[];
-      onChainHistoryTxs?: IAccountHistoryTx[];
-      pendingTxs?: IAccountHistoryTx[];
-      confirmedTxsToSave?: IAccountHistoryTx[];
-      confirmedTxsToRemove?: IAccountHistoryTx[];
-      pendingTxsToModify?: IAccountHistoryTx[];
-    }[],
-  ) {
-    const rawData = await this.getRawData();
+  async batchUpdateLocalHistoryTxs(params: ILocalHistoryUpdate[]) {
+    if (!params.length) return;
+    const result = await this.setRawDataTransaction({
+      shouldCommit: () => true,
+      build: (rawData) => this.buildLocalHistoryUpdate(rawData, params),
+    });
+    return result.committed ? (result.data ?? undefined) : undefined;
+  }
 
+  private buildLocalHistoryUpdate(
+    rawData: ILocalHistory | null | undefined,
+    params: ILocalHistoryUpdate[],
+  ) {
     const pendingTxsToUpdateMap: Record<string, IAccountHistoryTx[]> = {};
     const confirmedTxsToUpdateMap: Record<string, IAccountHistoryTx[]> = {};
 
@@ -471,7 +482,8 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
       // pendingTxsToUpdate build
       let pendingTxsToUpdate: IAccountHistoryTx[] | undefined;
-      const currentPendingTxs = rawData?.pendingTxs?.[key];
+      const currentPendingTxs =
+        pendingTxsToUpdateMap[key] ?? rawData?.pendingTxs?.[key];
       if (pendingTxsFromOut) {
         if (isEmpty(pendingTxsFromOut) && isEmpty(currentPendingTxs)) {
           pendingTxsToUpdate = undefined;
@@ -535,7 +547,8 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       if (isEmpty(confirmedTxsToSave) && isEmpty(confirmedTxsToRemove)) {
         confirmedTxsToUpdate = undefined;
       } else {
-        let finalConfirmedTxs = rawData?.confirmedTxs?.[key] || [];
+        let finalConfirmedTxs =
+          confirmedTxsToUpdateMap[key] ?? rawData?.confirmedTxs?.[key] ?? [];
         finalConfirmedTxs = uniqBy(
           [
             ...sanitizeLocalHistoryTxs({
@@ -558,15 +571,19 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       }
     }
 
-    if (isEmpty(pendingTxsToUpdateMap) && isEmpty(confirmedTxsToUpdateMap)) {
-      return;
-    }
-
-    return this.setRawData({
-      ...rawData,
-      pendingTxs: assign({}, rawData?.pendingTxs, pendingTxsToUpdateMap),
-      confirmedTxs: assign({}, rawData?.confirmedTxs, confirmedTxsToUpdateMap),
-    });
+    if (isEmpty(pendingTxsToUpdateMap) && isEmpty(confirmedTxsToUpdateMap))
+      return undefined;
+    return {
+      data: {
+        ...rawData,
+        pendingTxs: assign({}, rawData?.pendingTxs, pendingTxsToUpdateMap),
+        confirmedTxs: assign(
+          {},
+          rawData?.confirmedTxs,
+          confirmedTxsToUpdateMap,
+        ),
+      },
+    };
   }
 
   @backgroundMethod()
@@ -753,8 +770,9 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       xpub,
       networkId,
     });
-    const nonceList = pendingTxs.map((tx) => tx.decodedTx.nonce);
-    return nonceList || [];
+    return pendingTxs
+      .map((tx) => tx.decodedTx.nonce)
+      .filter((nonce) => typeof nonce === 'number');
   }
 
   @backgroundMethod()
