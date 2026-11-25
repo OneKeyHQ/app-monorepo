@@ -25,10 +25,10 @@
   <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="remove" />
   <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" tools:node="remove" />
   <!--
-    RECORD_AUDIO was previously injected by expo-camera defaults; explicitly
-    removed here and disabled via recordAudioAndroid:false in app.json
-    plugin config. The app only uses the camera for QR scanning, never for
-    video recording. See SlowMist audit AND-3.
+    RECORD_AUDIO was previously injected by expo-camera defaults; keep it
+    explicitly removed so no dependency can add it back. The app only uses
+    the camera for QR scanning, never for video recording. See SlowMist
+    audit AND-3.
   -->
   <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
 

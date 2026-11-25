@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getStockPortfolioVariantKey } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/stockTokenVariant';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -57,7 +58,12 @@ export function useSwapStockPortfolioData(
           tokenAddress: token.contractAddress,
           tokenId: variant?.tokenId,
           symbol: token.symbol,
-          amount: token.balanceParsed ?? '',
+          amount: token.balanceParsed
+            ? (getSwapDisplayAmount(
+                token.balanceParsed,
+                token.balanceMultiplier,
+              ) ?? '')
+            : '',
           tokenPrice: token.price ?? '',
           totalPrice: token.fiatValue ?? '',
           currency: token.currency ?? currencyInfo.id,

@@ -732,7 +732,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (legacy) {
       const { rebindLegacyHardwareSession } =
         await import('./hardwareCloudSyncMigration');
-      return rebindLegacyHardwareSession({
+      const adoptedGeneration = await rebindLegacyHardwareSession({
         legacy,
         isCurrent: () =>
           isCurrent() &&
@@ -785,6 +785,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
           );
         },
       });
+      if (adoptedGeneration && isCurrent()) {
+        await this.recordHardwareKeyGeneration(
+          legacy.keylessWalletId,
+          adoptedGeneration.current,
+          adoptedGeneration.previous,
+        );
+      }
+      return;
     }
     const { items: localItems } =
       await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
@@ -805,17 +813,21 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // The device prompt can wait indefinitely for the user, so it runs outside
     // the Cloud key locks. Wallet reads and ordinary sync must not queue on it.
     const client = await this.getHardwareSyncClient();
+    let enabledGeneration: { previous: number; current: number } | undefined;
     let previousPwdHashes: string[] = [];
     let history: IHardwareCloudSyncHistory | undefined;
     // One device session: sign in on P_auth, read the Lock, then sign the
     // salted key message for that envelope (or for a new one).
     const unlock: IHardwareCloudKeyUnlock = async (device) => {
       const session = await this.signInHardwareCloudSync({ client, device });
+      const knownGeneration = await this.getHardwareKeyGeneration(
+        device.credentialId,
+      );
       const dataKey = await bootstrapHardwareCloudSyncDataKey({
         client,
         session,
         deriveKek: device.deriveKek,
-        minGeneration: await this.getHardwareKeyGeneration(device.credentialId),
+        minGeneration: knownGeneration,
         onHistory:
           !rebuildsLocalItems &&
           previousSource?.credentialId === device.credentialId
@@ -824,10 +836,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
               }
             : undefined,
       });
-      await this.recordHardwareKeyGeneration(
-        device.credentialId,
-        dataKey.generation,
-      );
+      enabledGeneration = {
+        previous: knownGeneration,
+        current: dataKey.generation,
+      };
       previousPwdHashes = dataKey.previousPwdHashes;
       return {
         keylessWalletId: device.credentialId,
@@ -880,6 +892,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     let restoreWalletCaches = false;
     await this.runWithCloudSyncSourceLock(() =>
       this.repairCredentialMutex.runExclusive(async () => {
+        await this.assertCloudSyncStorageScopeCurrent();
         assertCurrent();
         this.hardwareCloudKeyPending = true;
         try {
@@ -941,6 +954,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
                   opaqueCopies,
                 ),
             });
+          const adoptsOlderKey =
+            enabledGeneration &&
+            enabledGeneration.current < enabledGeneration.previous;
           assertCurrent();
           this.hardwareCloudKeyCommitting = true;
           await keylessSyncCredentialStorage.saveCredential({
@@ -967,12 +983,18 @@ class ServiceKeylessCloudSync extends ServiceBase {
             }),
             password,
             askPasswordOnlyIfHdXfpMissing: true,
-            onlyAddMissing: restoresRotatedHardwareKey,
+            onlyAddMissing: restoresRotatedHardwareKey || !!adoptsOlderKey,
             skipWalletPreparation: true,
           });
           await primeCloudSyncPersistAtom.set((value) => ({
             ...value,
             isCloudSyncEnabledKeyless: true,
+            hardwareCloudSyncKeyGenerations: this.updateHardwareKeyGenerations(
+              value.hardwareCloudSyncKeyGenerations,
+              source.credentialId,
+              enabledGeneration?.current,
+              enabledGeneration?.previous,
+            ),
           }));
           restoreWalletCaches = restoresRotatedHardwareKey;
         } catch (error) {
@@ -2328,6 +2350,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     let committedSource: IHardwareCloudSyncKeySource | undefined;
     let replacement: IKeylessCloudSyncCredential | undefined;
     let replacementGeneration = 0;
+    let knownGeneration: number | undefined;
     let migrationSource = credential;
     const beforeFlush = async () => {
       if (!isCurrent() || !(await this.isStoredHardwareSession(credential))) {
@@ -2366,13 +2389,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
             client,
             device,
           });
+          knownGeneration = await this.getHardwareKeyGeneration(
+            device.credentialId,
+          );
           const targetKey = await bootstrapHardwareCloudSyncDataKey({
             client,
             session: targetSession,
             deriveKek: device.deriveKek,
-            minGeneration: await this.getHardwareKeyGeneration(
-              device.credentialId,
-            ),
+            minGeneration: knownGeneration,
           });
           replacementGeneration = targetKey.generation;
           const target: IKeylessCloudSyncCredential = {
@@ -2417,11 +2441,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
           includeUnsupportedDataTypes: true,
         });
       this.assertUnknownSyncItemsCanMigrate(items, [credential.pwdHash]);
+      knownGeneration = await this.getHardwareKeyGeneration(
+        source.credentialId,
+      );
       rotated = await rotateHardwareCloudSyncDataKey({
         client,
         session,
         deriveKek: device.deriveKek,
-        minGeneration: await this.getHardwareKeyGeneration(source.credentialId),
+        minGeneration: knownGeneration,
         current: {
           dek: credential.encryptionKey,
           dekId: session.dekId,
@@ -2503,6 +2530,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         await this.recordHardwareKeyGeneration(
           target.keylessWalletId,
           replacementGeneration,
+          knownGeneration,
         );
         await this.revokeOtherHardwareSessions(migrationSource);
         await this.revokeCurrentHardwareSession(migrationSource);
@@ -2531,6 +2559,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       await this.recordHardwareKeyGeneration(
         source.credentialId,
         rotated.generation,
+        knownGeneration,
       );
       await this.revokeOtherHardwareSessions(updated);
       await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
@@ -2563,18 +2592,39 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async recordHardwareKeyGeneration(
     credentialId: string,
     generation: number,
+    previousGeneration?: number,
   ) {
     await primeCloudSyncPersistAtom.set((value) => {
-      const known = value.hardwareCloudSyncKeyGenerations?.[credentialId] ?? 0;
-      if (generation <= known) return value;
+      const generations = this.updateHardwareKeyGenerations(
+        value.hardwareCloudSyncKeyGenerations,
+        credentialId,
+        generation,
+        previousGeneration,
+      );
+      if (generations === value.hardwareCloudSyncKeyGenerations) return value;
       return {
         ...value,
-        hardwareCloudSyncKeyGenerations: {
-          ...value.hardwareCloudSyncKeyGenerations,
-          [credentialId]: generation,
-        },
+        hardwareCloudSyncKeyGenerations: generations,
       };
     });
+  }
+
+  private updateHardwareKeyGenerations(
+    generations: Record<string, number> | undefined,
+    credentialId: string,
+    generation: number | undefined,
+    previousGeneration?: number,
+  ) {
+    const known = generations?.[credentialId] ?? 0;
+    // Do not overwrite another operation's version with an earlier observation.
+    if (
+      generation === undefined ||
+      generation === known ||
+      (generation < known && previousGeneration !== known)
+    ) {
+      return generations;
+    }
+    return { ...generations, [credentialId]: generation };
   }
 
   // Hardware credentials never fall back to the Keyless request signature.

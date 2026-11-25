@@ -28,6 +28,8 @@ export interface IFormattedOBLevel extends IOBLevel {
 
 export type IOrderBookVariant = 'web' | 'mobileVertical' | 'mobileHorizontal';
 
+export type IOrderBookDisplayMode = 'both' | 'bids' | 'asks';
+
 export interface IAggregatedBookResult {
   bids: IFormattedOBLevel[];
   asks: IFormattedOBLevel[];

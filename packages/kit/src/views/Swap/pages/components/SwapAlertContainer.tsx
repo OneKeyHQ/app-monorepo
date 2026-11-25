@@ -269,13 +269,15 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     ],
   );
 
-  return (
-    <YStack gap="$2.5">
-      {(haveErrorAlert ? alertsSorted.toReversed() : alertsSorted).map(
-        (item, index) => createAlert(item, index),
-      )}
-    </YStack>
-  );
+  const alertNodes = (haveErrorAlert ? alertsSorted.toReversed() : alertsSorted)
+    .map((item, index) => createAlert(item, index))
+    .filter(Boolean);
+  // Some alerts render nothing. An empty container would still take a slot in
+  // the parent's gap and double the space around it.
+  if (!alertNodes.length) {
+    return null;
+  }
+  return <YStack gap="$2.5">{alertNodes}</YStack>;
 };
 
 export default memo(SwapAlertContainer);

@@ -827,17 +827,56 @@ async function createEnvelope(
   return { dataKey, envelope };
 }
 
-// A Lock older than one this device already accepted for the wallet is a
-// rollback to a key a reset was meant to retire.
-export function assertNotRolledBack(
-  envelope: IKeyEnvelope,
+export async function readLockWithGenerationRecheck(
+  readLock: () => Promise<IKeyEnvelope | undefined>,
   minGeneration: number,
-) {
-  if (envelope.generation < minGeneration) {
+): Promise<IKeyEnvelope | undefined> {
+  const lock = await readLock();
+  if (!lock || lock.generation >= minGeneration) return lock;
+
+  const rechecked = await readLock();
+  if (
+    rechecked &&
+    (rechecked.generation >= minGeneration ||
+      (rechecked.generation === lock.generation &&
+        rechecked.dekId === lock.dekId &&
+        rechecked.kekSalt === lock.kekSalt &&
+        rechecked.wrappedDek === lock.wrappedDek))
+  ) {
+    return rechecked;
+  }
+  // An inconsistent empty response must not turn a re-sign into key creation.
+  throw createHardwareCloudSyncDataError(
+    'Cloud sync key on the server is older than this device has seen',
+    { showReason: true },
+  );
+}
+
+export async function checkHardwareCloudSyncDataKey({
+  client,
+  session,
+  pwdHash,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+  pwdHash: string;
+}): Promise<number> {
+  const check = await requestWithHardwareCloudSyncSession<{
+    nonce: number;
+  }>({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/check',
+    data: { pwdHash, nonce: 0, localData: [] },
+  });
+  const nonce = check?.nonce;
+  if (typeof nonce !== 'number' || !Number.isSafeInteger(nonce) || nonce < 0) {
     throw createHardwareCloudSyncDataError(
-      'Cloud sync key on the server is older than this device has seen',
+      'Cloud sync data version is unavailable',
     );
   }
+  return nonce;
 }
 
 function envelopeRecord(envelope: IKeyEnvelope) {
@@ -946,7 +985,7 @@ export async function bootstrapHardwareCloudSyncDataKey({
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   deriveKek: IHardwareCloudSyncKekDeriver;
-  // Highest key generation this device accepted for the wallet.
+  // Known generation used to decide whether to recheck the current Lock.
   minGeneration?: number;
   onHistory?: (response: IHardwareCloudSyncHistory) => void;
 }): Promise<
@@ -957,20 +996,25 @@ export async function bootstrapHardwareCloudSyncDataKey({
   }
 > {
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const existing = await readLockEnvelope({ client, session });
+    const existing = await readLockWithGenerationRecheck(
+      () => readLockEnvelope({ client, session }),
+      minGeneration,
+    );
     if (existing) {
       logHardwareCloudSyncDiagnostic('bootstrap_existing_lock', {
         generation: existing.generation,
         minGeneration,
         attempt,
       });
-      assertNotRolledBack(existing, minGeneration);
+      const pwdHash = computeHardwareCloudSyncPwdHash(existing.dekId);
+      if (existing.generation < minGeneration) {
+        await checkHardwareCloudSyncDataKey({ client, session, pwdHash });
+      }
       logHardwareCloudSyncDiagnostic('bootstrap_derive_kek_started');
       const kek = await deriveKek(existing.kekSalt);
       logHardwareCloudSyncDiagnostic('bootstrap_unwrap_started');
       const dek = await unwrapDek({ kek, envelope: existing });
       logHardwareCloudSyncDiagnostic('bootstrap_unwrap_succeeded');
-      const pwdHash = computeHardwareCloudSyncPwdHash(existing.dekId);
       return {
         dek,
         dekId: existing.dekId,
@@ -1155,7 +1199,11 @@ export async function rotateHardwareCloudSyncDataKey({
   const { prepareHardwareCloudSyncResetRecords } =
     await import('./hardwareCloudSyncResetDownload');
   assertCurrent();
-  const existing = await readLockEnvelope({ client, session });
+  const existing = await readLockWithGenerationRecheck(() => {
+    assertCurrent();
+    return readLockEnvelope({ client, session });
+  }, minGeneration);
+  assertCurrent();
   // Nobody reset it meanwhile. The wallet itself was checked by its identity
   // before the device signs.
   if (!existing || existing.dekId !== current.dekId) {
@@ -1164,23 +1212,14 @@ export async function rotateHardwareCloudSyncDataKey({
       'Encryption key changed. Sync again.',
     );
   }
-  assertNotRolledBack(existing, minGeneration);
   // The data version the re-encrypted copy is built from. The flush is
   // refused if anything was uploaded after this, instead of dropping it.
-  const { nonce: serverNonce } = await requestWithHardwareCloudSyncSession<{
-    nonce: number;
-  }>({
+  const serverNonce = await checkHardwareCloudSyncDataKey({
     client,
     session,
-    method: 'POST',
-    urlPath: '/prime/v1/sync/check',
-    data: { pwdHash: current.pwdHash, nonce: 0, localData: [] },
+    pwdHash: current.pwdHash,
   });
-  if (!Number.isSafeInteger(serverNonce)) {
-    throw createHardwareCloudSyncDataError(
-      'Cloud sync data version is unavailable',
-    );
-  }
+  assertCurrent();
   // New salt and data key: signatures taken for the old envelope stop working.
   const { dataKey: next, envelope } = await createEnvelope(
     deriveKek,

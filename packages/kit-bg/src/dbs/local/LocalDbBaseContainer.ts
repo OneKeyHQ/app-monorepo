@@ -140,6 +140,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
         // and clear the timer when hydration wins so we don't leak a pending
         // timeout per transaction.
         let warmupTimer: ReturnType<typeof setTimeout> | undefined;
+        options?.observeIndexedTransaction?.('credential_warmup_start');
         try {
           const hydrationPromise =
             appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded(
@@ -151,15 +152,24 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
           // guard it so a later rejection can't surface as an unhandled rejection.
           void hydrationPromise.catch(() => undefined);
           const warmupTimeout = new Promise<void>((resolve) => {
-            warmupTimer = setTimeout(resolve, 5000);
+            warmupTimer = setTimeout(() => {
+              options?.observeIndexedTransaction?.('credential_warmup_timeout');
+              resolve();
+            }, 5000);
           });
           await Promise.race([hydrationPromise, warmupTimeout]);
         } catch (error) {
-          console.error(
-            'hydrateKeylessSyncCredentialFromStorageIfNeeded error',
+          options?.observeIndexedTransaction?.(
+            'credential_warmup_failed',
             error,
           );
+          if (!options?.observeIndexedTransaction)
+            console.error(
+              'hydrateKeylessSyncCredentialFromStorageIfNeeded error',
+              error,
+            );
         } finally {
+          options?.observeIndexedTransaction?.('credential_warmup_end');
           if (warmupTimer) {
             clearTimeout(warmupTimer);
           }
@@ -524,7 +534,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     );
   }
 
-  abstract reset(): Promise<void>;
+  abstract reset(onBlocked?: (bucket: string) => void): Promise<void>;
 
   async clearRecords(params: { name: ELocalDBStoreNames }) {
     const deviceWrite =

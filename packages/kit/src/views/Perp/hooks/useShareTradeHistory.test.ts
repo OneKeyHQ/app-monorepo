@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
+import type { IPerpShareParams } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import type {
   IFill,
   IPerpsAssetPosition,
@@ -9,6 +10,17 @@ import type {
 import { useShareTradeHistory } from './useShareTradeHistory';
 
 const mockShowPositionShare = jest.fn();
+const mockShareClick = jest.fn<void, [IPerpShareParams]>();
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    perp: {
+      common: {
+        perpShareClick: (params: IPerpShareParams) => mockShareClick(params),
+      },
+    },
+  },
+}));
 let mockPositions: IPerpsAssetPosition[] = [];
 let mockLastUsedLeverage: Record<string, number> = { ETH: 10 };
 
@@ -29,6 +41,7 @@ beforeEach(() => {
   mockPositions = [];
   mockLastUsedLeverage = { ETH: 10 };
   mockShowPositionShare.mockClear();
+  mockShareClick.mockClear();
 });
 jest.mock('./useShowPositionShare', () => ({
   useShowPositionShare: () => ({ showPositionShare: mockShowPositionShare }),
@@ -101,6 +114,11 @@ it.each([
     };
     const { result } = renderHook(() => useShareTradeHistory());
     await act(async () => result.current(fill));
+    expect(mockShareClick).toHaveBeenCalledTimes(1);
+    expect(mockShareClick).toHaveBeenCalledWith({ source: 'tradeHistory' });
+    expect(mockShareClick.mock.invocationCallOrder[0]).toBeLessThan(
+      mockShowPositionShare.mock.invocationCallOrder[0],
+    );
     expect(mockShowPositionShare).toHaveBeenCalledWith(
       expect.objectContaining({
         side: expectedSide,
@@ -109,6 +127,7 @@ it.each([
         pnl,
         pnlPercent,
       }),
+      'tradeHistory',
     );
   },
 );
@@ -159,6 +178,7 @@ it.each([
     await act(async () => result.current(fill));
     expect(mockShowPositionShare).toHaveBeenCalledWith(
       expect.objectContaining({ leverage, pnlPercent, pnl: '9' }),
+      'tradeHistory',
     );
   },
 );

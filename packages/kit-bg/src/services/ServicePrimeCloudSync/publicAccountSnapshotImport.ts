@@ -3,7 +3,6 @@ import {
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
@@ -17,10 +16,11 @@ import { vaultFactory } from '../../vaults/factory';
 import { preparePublicAccountIndexedNames } from './publicAccountIndexedNames';
 import {
   PublicAccountSnapshotUnsupportedError,
+  getLocalPublicAccountWalletMatchKey,
   getPublicAccountSnapshotId,
   getPublicAccountSnapshotTaprootDescriptor,
+  getPublicAccountWalletMatchKey,
   normalizePublicAccountSnapshot,
-  normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
 } from './publicAccountSnapshot';
@@ -58,24 +58,6 @@ function emptyResult(): IPublicAccountSnapshotApplyResult {
     appliedSnapshotIds: [],
     skippedSnapshotIds: [],
   };
-}
-
-function walletMatchKey(wallet: IDBWallet): string | undefined {
-  const hardware = accountUtils.isHwWallet({ walletId: wallet.id });
-  if (
-    wallet.isMocked ||
-    wallet.isTemp ||
-    (!hardware &&
-      (!accountUtils.isHdWallet({ walletId: wallet.id }) ||
-        accountUtils.isBotWallet({ walletId: wallet.id })))
-  ) {
-    return undefined;
-  }
-  try {
-    return `${hardware ? 'hardware' : 'hd'}__${normalizePublicAccountWalletXfp(wallet.xfp || '')}__${Boolean(wallet.passphraseState)}`;
-  } catch (_error) {
-    return undefined;
-  }
 }
 
 async function validatePublicAccount({
@@ -196,7 +178,7 @@ export async function importPublicAccountSnapshots({
   if (!isCurrent()) return { ...result, cancelled: true };
   const walletsByIdentity = new Map<string, IDBWallet[]>();
   for (const wallet of wallets) {
-    const key = walletMatchKey(wallet);
+    const key = getLocalPublicAccountWalletMatchKey(wallet);
     if (key) {
       const matches = walletsByIdentity.get(key) || [];
       matches.push({ ...wallet });
@@ -258,19 +240,11 @@ export async function importPublicAccountSnapshots({
           else result.rejected += 1;
           return;
         }
-        const matches =
-          walletsByIdentity.get(
-            `${snapshot.wallet.kind}__${snapshot.wallet.xfp}__${snapshot.wallet.hidden}`,
-          ) || [];
-        if (matches.length === 0) {
-          const snapshotId = getPublicAccountSnapshotId(snapshot);
-          const source = sourceItemsBySnapshotId?.get(snapshotId);
-          if (source && foreignAccountsByWireId?.has(source.id)) {
-            result.pending += 1;
-            recordIssue(snapshot, 'pending');
-          } else {
-            result.skippedSnapshotIds.push(snapshotId);
-          }
+        const matches = walletsByIdentity.get(
+          getPublicAccountWalletMatchKey(snapshot.wallet),
+        );
+        if (!matches?.length) {
+          result.skippedSnapshotIds.push(getPublicAccountSnapshotId(snapshot));
           return;
         }
         if (matches.length !== 1) {

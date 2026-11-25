@@ -1,0 +1,474 @@
+import { memo, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import {
+  Anchor,
+  Button,
+  type IXStackProps,
+  Icon,
+  Popover,
+  ScrollView,
+  SizableText,
+  Spinner,
+  XStack,
+  YStack,
+  useTheme,
+} from '@onekeyhq/components';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  getHlPriceTick,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { usePerpMarketForeground } from '../hooks/usePerpMarketForeground';
+import { usePerpPublicTrades } from '../hooks/usePerpPublicTrades';
+import { ORDER_BOOK_VERTICAL_ROW_STEP } from '../layouts/perpLayoutUtils';
+
+import { PerpBookText, orderBookTextStyles } from './OrderBook';
+import {
+  ORDER_BOOK_HORIZONTAL_ROW_HEIGHT,
+  ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP,
+} from './OrderBook/AnimatedDepthBlock.shared';
+
+function NativeSizeHeaderTrigger({
+  onPress,
+  ...props
+}: Omit<IXStackProps, 'onPress'> & { onPress?: () => void }) {
+  return (
+    <XStack
+      {...props}
+      accessible
+      onPress={onPress}
+      onAccessibilityTap={platformEnv.isNativeIOS ? onPress : undefined}
+      {...(platformEnv.isNativeAndroid && {
+        accessibilityActions: [{ name: 'activate' }],
+        onAccessibilityAction: (event: {
+          nativeEvent: { actionName: string };
+        }) => {
+          if (event.nativeEvent.actionName === 'activate') {
+            onPress?.();
+          }
+        },
+      })}
+    />
+  );
+}
+
+const SizeHeaderTrigger = platformEnv.isNative
+  ? NativeSizeHeaderTrigger
+  : XStack;
+
+function TradeLine({
+  price,
+  size,
+  sizeSymbol,
+  time,
+  hash,
+  side,
+  priceLabel,
+  inline,
+}: {
+  price: string;
+  size: string;
+  sizeSymbol?: string;
+  time: string;
+  hash?: IRecentTrade['hash'];
+  side?: IRecentTrade['side'];
+  priceLabel?: string;
+  inline: boolean;
+}) {
+  const theme = useTheme();
+  const intl = useIntl();
+  const isHeader = side === undefined;
+  const isDesktopSizeHeader =
+    isHeader && !inline && !platformEnv.isNative && !!sizeSymbol;
+  const headerStyle = inline
+    ? orderBookTextStyles.horizontalHeader
+    : orderBookTextStyles.verticalHeader;
+  const dataStyle = inline
+    ? orderBookTextStyles.horizontalTabular
+    : orderBookTextStyles.tabular;
+  const textStyle = isHeader ? headerStyle : dataStyle;
+  const textColor = isHeader ? theme.textSubdued.val : theme.text.val;
+  const priceColors = { A: theme.bgCriticalStrong.val, B: theme.bgAccent.val };
+  const priceCell = (
+    <PerpBookText
+      numberOfLines={1}
+      style={[
+        textStyle,
+        {
+          width: inline ? '24%' : '33%',
+          paddingLeft: !inline && isHeader ? 8 : 0,
+          color: side ? priceColors[side] : textColor,
+        },
+        isDesktopSizeHeader && {
+          width: 'auto',
+          flexShrink: 0,
+        },
+      ]}
+      aria-label={priceLabel}
+    >
+      {price}
+    </PerpBookText>
+  );
+  const sizeWidth = inline ? '36%' : '30%';
+  let sizeCell;
+  if (isHeader && sizeSymbol) {
+    const label = `${size} (${sizeSymbol})`;
+    const headerTextStyle = { width: 'auto', color: textColor } as const;
+    const trigger = (
+      <SizeHeaderTrigger
+        width={platformEnv.isNative ? '100%' : sizeWidth}
+        {...(isDesktopSizeHeader && {
+          width: 'auto',
+          flex: 1,
+          paddingLeft: 8,
+        })}
+        minWidth={0}
+        alignItems="center"
+        justifyContent="flex-end"
+        gap="$1"
+        aria-label={label}
+        role={platformEnv.isNative ? 'button' : undefined}
+      >
+        <PerpBookText
+          numberOfLines={1}
+          style={[textStyle, headerTextStyle, { minWidth: 0, flexShrink: 1 }]}
+        >
+          {size}
+        </PerpBookText>
+        <PerpBookText
+          numberOfLines={1}
+          style={[
+            textStyle,
+            headerTextStyle,
+            { flexShrink: 0, maxWidth: '65%' },
+          ]}
+        >
+          {`(${sizeSymbol})`}
+        </PerpBookText>
+      </SizeHeaderTrigger>
+    );
+    sizeCell = platformEnv.isNative ? (
+      <YStack width={sizeWidth} minWidth={0}>
+        <Popover
+          title={size}
+          renderTrigger={trigger}
+          renderContent={
+            <SizableText px="$5" pt="$2" pb="$5" size="$bodyMd">
+              {label}
+            </SizableText>
+          }
+        />
+      </YStack>
+    ) : (
+      trigger
+    );
+  } else {
+    sizeCell = (
+      <PerpBookText
+        numberOfLines={1}
+        style={[
+          textStyle,
+          {
+            width: sizeWidth,
+            textAlign: 'right',
+            color: textColor,
+          },
+        ]}
+      >
+        {size}
+      </PerpBookText>
+    );
+  }
+  const timeWidth = inline ? '40%' : '37%';
+  const timeRightPadding = isHeader ? 8 : 20;
+  const transactionUrl =
+    hash && /^0x[0-9a-f]{64}$/i.test(hash)
+      ? `${HYPER_LIQUID_ORIGIN}/explorer/tx/${hash}`
+      : undefined;
+  const timeCell = transactionUrl ? (
+    <XStack
+      w={timeWidth}
+      alignSelf="stretch"
+      alignItems="center"
+      justifyContent={inline ? 'flex-start' : 'flex-end'}
+      gap="$2"
+    >
+      <PerpBookText
+        numberOfLines={1}
+        style={[textStyle, { flexShrink: 1, color: textColor }]}
+      >
+        {time}
+      </PerpBookText>
+      <Anchor
+        asChild="except-style"
+        href={transactionUrl}
+        rel="noopener noreferrer"
+        showExternalIndicator={false}
+        aria-label={`${time} · ${intl.formatMessage({ id: ETranslations.settings_view_transaction_in_explorer })}`}
+      >
+        <XStack
+          render={platformEnv.isNative ? undefined : 'a'}
+          alignSelf="stretch"
+          alignItems="center"
+          cursor="pointer"
+        >
+          <Icon name="OpenOutline" size="$3" color="$iconSubdued" />
+        </XStack>
+      </Anchor>
+    </XStack>
+  ) : (
+    <PerpBookText
+      numberOfLines={1}
+      style={[
+        textStyle,
+        {
+          width: timeWidth,
+          textAlign: inline ? 'left' : 'right',
+          // Align timestamps with linked rows even when a trade has no explorer link.
+          paddingRight: inline ? 0 : timeRightPadding,
+          color: textColor,
+        },
+      ]}
+    >
+      {time}
+    </PerpBookText>
+  );
+  const dataRowHeight = inline
+    ? ORDER_BOOK_HORIZONTAL_ROW_HEIGHT
+    : ORDER_BOOK_VERTICAL_ROW_STEP - ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP;
+  const headerHeight = inline ? '$8' : '$6';
+  const verticalHorizontalPadding = isHeader ? 0 : 7;
+  return (
+    <XStack
+      h={isHeader ? headerHeight : dataRowHeight}
+      px={inline ? '$5' : verticalHorizontalPadding}
+      mt={!inline && !isHeader ? ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP : 0}
+      alignItems="center"
+    >
+      {inline ? timeCell : null}
+      {priceCell}
+      {sizeCell}
+      {inline ? null : timeCell}
+    </XStack>
+  );
+}
+
+const TradeRow = memo(function TradeRow({
+  trade,
+  priceDecimals,
+  szDecimals,
+  inline,
+}: {
+  trade: IRecentTrade;
+  priceDecimals: number;
+  szDecimals?: number;
+  inline: boolean;
+}) {
+  const intl = useIntl();
+  const isBuy = trade.side === 'B';
+  const sideLabel = intl.formatMessage({
+    id: isBuy ? ETranslations.global_buy : ETranslations.global_sell,
+  });
+  const price = formatLocalizedNumberString(
+    new BigNumber(trade.px).toFixed(priceDecimals),
+  );
+  const size =
+    szDecimals === undefined
+      ? trade.sz
+      : new BigNumber(trade.sz).toFixed(szDecimals);
+
+  return (
+    <TradeLine
+      price={price}
+      priceLabel={`${sideLabel} ${price}`}
+      size={formatLocalizedNumberString(size)}
+      time={formatTime(new Date(trade.time), { formatTemplate: 'HH:mm:ss' })}
+      hash={trade.hash}
+      side={trade.side}
+      inline={inline}
+    />
+  );
+});
+
+function RecentTradesList({
+  coin,
+  szDecimals,
+  inline,
+  active,
+  visible,
+  loadingMinHeight,
+}: {
+  coin: string;
+  szDecimals?: number;
+  inline: boolean;
+  active: boolean;
+  visible: boolean;
+  loadingMinHeight?: number;
+}) {
+  const intl = useIntl();
+  const { trades, isLoading, isError, isDisconnected, retry } =
+    usePerpPublicTrades(coin, active);
+  const priceDecimals = useMemo(() => {
+    if (!visible) return 0;
+    return trades.reduce((decimals, trade) => {
+      const price = new BigNumber(trade.px);
+      const tick =
+        szDecimals === undefined ? null : getHlPriceTick(price, szDecimals);
+      // Share precision across rows without rounding trades at price magnitude boundaries.
+      return Math.max(
+        decimals,
+        price.decimalPlaces() ?? 0,
+        tick?.decimalPlaces() ?? 0,
+      );
+    }, 0);
+  }, [trades, szDecimals, visible]);
+  if (!visible) return null;
+  const hasStatus = isError || isDisconnected;
+  const showInitialLoading =
+    active && isLoading && trades.length === 0 && !hasStatus;
+  const inlineMinHeight =
+    showInitialLoading && loadingMinHeight ? loadingMinHeight : '$20';
+  const rows = trades.map((trade) => (
+    <TradeRow
+      key={`${trade.time}:${trade.tid}`}
+      trade={trade}
+      priceDecimals={priceDecimals}
+      inline={inline}
+      szDecimals={szDecimals}
+    />
+  ));
+  const listContent = inline ? (
+    rows
+  ) : (
+    <ScrollView
+      testID="perp-recent-trades-scroll"
+      flex={1}
+      showsVerticalScrollIndicator={false}
+    >
+      {rows}
+    </ScrollView>
+  );
+  const statusMessage = intl.formatMessage({
+    id: isDisconnected
+      ? ETranslations.perp_offline
+      : ETranslations.global_network_error,
+  });
+  const retryButton = (
+    <Button
+      testID="perp-recent-trades-retry"
+      size="small"
+      variant="secondary"
+      flexShrink={0}
+      loading={isLoading}
+      disabled={isLoading}
+      onPress={retry}
+    >
+      {intl.formatMessage({ id: ETranslations.global_retry })}
+    </Button>
+  );
+
+  return (
+    <YStack
+      flex={inline ? undefined : 1}
+      minHeight={inline ? inlineMinHeight : 0}
+      padding={inline ? 0 : 1}
+      testID="perp-recent-trades"
+      aria-busy={active && isLoading}
+    >
+      <TradeLine
+        inline={inline}
+        price={intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+        size={intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+        sizeSymbol={parseDexCoin(coin).displayName}
+        time={intl.formatMessage({ id: ETranslations.global_time })}
+      />
+
+      {trades.length > 0 && !isError ? (
+        <>
+          {isDisconnected ? (
+            <XStack
+              alignItems="center"
+              justifyContent="center"
+              gap="$2"
+              py="$2"
+            >
+              <SizableText size="$bodySm" color="$textSubdued">
+                {statusMessage}
+              </SizableText>
+              {retryButton}
+            </XStack>
+          ) : null}
+          {listContent}
+        </>
+      ) : (
+        <YStack
+          flex={1}
+          minHeight={inline && hasStatus ? '$40' : undefined}
+          px="$4"
+          py="$4"
+          gap="$2"
+          alignItems="center"
+          justifyContent="center"
+        >
+          {hasStatus ? (
+            <>
+              <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {statusMessage}
+              </SizableText>
+              {retryButton}
+            </>
+          ) : null}
+          {isLoading && !hasStatus ? <Spinner /> : null}
+          {!isLoading && !hasStatus ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_no_data })}
+            </SizableText>
+          ) : null}
+        </YStack>
+      )}
+    </YStack>
+  );
+}
+
+export const useRecentTradesForeground = usePerpMarketForeground;
+
+export function PerpRecentTrades({
+  inline = false,
+  active = true,
+  visible = true,
+  loadingMinHeight,
+}: {
+  inline?: boolean;
+  active?: boolean;
+  visible?: boolean;
+  loadingMinHeight?: number;
+}) {
+  const [instrument] = useActiveTradeInstrumentAtom();
+  const foreground = useRecentTradesForeground();
+  return instrument.mode === 'perp' && instrument.coin ? (
+    <RecentTradesList
+      key={instrument.coin}
+      coin={instrument.coin}
+      szDecimals={instrument.universe?.szDecimals}
+      inline={inline}
+      active={active && foreground}
+      visible={visible}
+      loadingMinHeight={loadingMinHeight}
+    />
+  ) : null;
+}

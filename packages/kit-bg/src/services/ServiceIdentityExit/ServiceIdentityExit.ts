@@ -28,6 +28,7 @@ import type {
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import { primePersistAtom } from '../../states/jotai/atoms/prime';
 import {
   type IKeylessWalletRemovalIdentity,
@@ -411,79 +412,6 @@ class ServiceIdentityExit extends ServiceBase {
       this.markIdentityExitJournalStorageOutcomeUnknown(entry.operationId);
       throw error;
     }
-  }
-
-  private async clearAllIdentityAuthForExplicitOperation(
-    callerName: 'accountDeletion' | 'appReset',
-  ): Promise<{ oneKeyIdLoggedOut: boolean }> {
-    await this.recoverInterruptedIdentityExitOperations();
-    return identityLifecycleMutex.runExclusive(async () => {
-      const operationId = `${callerName}:${stringUtils.generateUUID()}`;
-      beginIdentityExitReservation(operationId);
-      let didStartRecoveryBarrier = false;
-      try {
-        const [user, expectedIdentityLifecycleRevision] = await Promise.all([
-          primePersistAtom.get(),
-          this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
-        ]);
-        let journal: IIdentityExitJournalEntry = {
-          operationId,
-          planId: operationId,
-          intentType: 'appReset',
-          status: 'executing',
-          startedAt: Date.now(),
-          updatedAt: Date.now(),
-          expectedLifecycleRevision: expectedIdentityLifecycleRevision,
-          target: {
-            logoutOneKeyId: true,
-            removeKeyless: false,
-            clearKeylessSession: true,
-            clearAllIdentityAuth: true,
-          },
-        };
-        markIdentityRecoveryPending(operationId);
-        didStartRecoveryBarrier = true;
-        await this.persistIdentityExitJournalEntry(journal);
-        const result =
-          await this.backgroundApi.servicePrime.clearAllIdentityAuthForExplicitOperation(
-            { callerName, expectedIdentityLifecycleRevision },
-          );
-        if (result.status !== 'committed' || !result.revision) {
-          throw new OneKeyLocalError(
-            'Identity state changed before explicit auth cleanup could commit.',
-          );
-        }
-        journal = {
-          ...journal,
-          status: 'localStateCommitted',
-          updatedAt: Date.now(),
-          committedLifecycleRevision: result.revision,
-        };
-        await this.persistIdentityExitJournalEntry(journal);
-        await this.completeIdentityExitJournal({
-          journal,
-          committedLifecycleRevision: result.revision,
-        });
-        markIdentityRecoveryReady(operationId);
-        return {
-          oneKeyIdLoggedOut: Boolean(
-            user.isLoggedIn && user.isLoggedInOnServer,
-          ),
-        };
-      } catch (error) {
-        if (didStartRecoveryBarrier) {
-          markIdentityRecoveryFailed(operationId);
-        }
-        throw error;
-      } finally {
-        endIdentityExitReservation(operationId);
-      }
-    });
-  }
-
-  @backgroundMethod()
-  async prepareIdentityAuthForAppReset(): Promise<void> {
-    await this.clearAllIdentityAuthForExplicitOperation('appReset');
   }
 
   @backgroundMethod()
@@ -3543,15 +3471,24 @@ class ServiceIdentityExit extends ServiceBase {
       return this.runMalformedKeylessRecovery(storedPlan);
     }
     if (storedPlan.target.removeKeyless) {
-      try {
-        await this.backgroundApi.servicePassword.promptPasswordVerify({
-          reason: EReasonForNeedPassword.Security,
-        });
-      } catch (error) {
-        if (errorToastUtils.isUserCancelStyleError(error)) {
-          return { status: 'cancelled' };
+      const devSettings =
+        storedPlan.intent.type === 'switchEnvironment' &&
+        storedPlan.intent.scene === 'devSettings'
+          ? await devSettingsPersistAtom.get()
+          : undefined;
+      const isLeavingTestEnvironment =
+        devSettings?.enabled && devSettings.settings?.enableTestEndpoint;
+      if (!isLeavingTestEnvironment) {
+        try {
+          await this.backgroundApi.servicePassword.promptPasswordVerify({
+            reason: EReasonForNeedPassword.Security,
+          });
+        } catch (error) {
+          if (errorToastUtils.isUserCancelStyleError(error)) {
+            return { status: 'cancelled' };
+          }
+          throw error;
         }
-        throw error;
       }
     }
 

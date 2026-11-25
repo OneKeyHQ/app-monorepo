@@ -12,7 +12,11 @@ import {
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { HardwareCloudSyncCancelledError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncDataError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
@@ -467,6 +471,18 @@ test('setup preserves a failure without a translation key', async () => {
   mockEnable.mockRejectedValueOnce(new Error('Synthetic network failure'));
   const dialog = await pickDeviceA();
   expect(dialog.description).toBe('Synthetic network failure');
+});
+
+test('setup displays the original key rollback error', async () => {
+  const reason =
+    'Cloud sync key on the server is older than this device has seen';
+  mockEnable.mockRejectedValueOnce(
+    toPlainErrorObject(
+      new HardwareCloudSyncDataError(reason, { showReason: true }),
+    ),
+  );
+  const dialog = await pickDeviceA();
+  expect(dialog.description).toBe(reason);
 });
 
 test.each([
