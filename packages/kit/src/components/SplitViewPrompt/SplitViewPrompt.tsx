@@ -7,23 +7,18 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { useIsSpanningInDualScreen } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-const DIALOG_LOAD_ATTEMPTS = 3;
-
 // Loaded on use: the dialog only opens on split-capable tablets, so it stays
-// off the startup graph. A failed load retries a few times before giving up.
+// off the startup graph. The native loader already retries a segment that
+// fails to load, so each prompt attempt imports once.
 async function loadSplitViewPromptDialog() {
-  for (let attempt = 1; attempt <= DIALOG_LOAD_ATTEMPTS; attempt += 1) {
-    try {
-      return await import('./showSplitViewPromptDialog');
-    } catch {
-      if (attempt < DIALOG_LOAD_ATTEMPTS) await timerUtils.wait(1000 * attempt);
-    }
+  try {
+    return await import('./showSplitViewPromptDialog');
+  } catch {
+    return undefined;
   }
-  return undefined;
 }
 
 // One-shot first-launch prompt for tablets / Android dual-screen devices.

@@ -1,17 +1,19 @@
 import type { PropsWithChildren } from 'react';
-import { Component, Suspense, lazy, memo } from 'react';
+import { Component, memo } from 'react';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 // Lazy: the monitor only mounts when a developer turns it on, so it stays off
-// the startup graph.
-const WebPerformanceMonitor = lazy(() =>
+// the startup graph. LazyLoad retries a transient chunk failure, and a later
+// mount imports afresh.
+const WebPerformanceMonitor = LazyLoad<Record<string, unknown>>(() =>
   import('../../../components/WebPerformanceMonitor').then((m) => ({
     default: m.WebPerformanceMonitor,
   })),
 );
 
-// A monitor chunk that fails to load drops the monitor, not the wallet.
+// A monitor chunk that still fails to load drops the monitor, not the wallet.
 class MonitorLoadBoundary extends Component<
   PropsWithChildren,
   { failed: boolean }
@@ -39,9 +41,7 @@ const BasePerformanceMonitorContainer = () => {
   }
   return (
     <MonitorLoadBoundary>
-      <Suspense fallback={null}>
-        <WebPerformanceMonitor />
-      </Suspense>
+      <WebPerformanceMonitor />
     </MonitorLoadBoundary>
   );
 };
