@@ -1119,11 +1119,16 @@ export function NativeTokenSelectorList({
               // amount (amount alone while there is no value); web index.css
               // sets the price, the second cell, in regular weight and gives
               // the four columns, Swap's included, a quarter each. Native
-              // tablets keep balance | price | Swap.
-              const [holdingsPrimary, holdingsSecondary] =
-                !platformEnv.isNative && valueText.text
-                  ? [valueText, balanceText]
-                  : [balanceText, valueText];
+              // tablets keep balance | price | Swap. An unpriced balance
+              // formats its value as '--', which is no value.
+              const hasValue =
+                !!valueText.text && amount !== UNAVAILABLE_DISPLAY;
+              let holdingsPrimary = balanceText;
+              let holdingsSecondary = valueText;
+              if (!platformEnv.isNative) {
+                holdingsPrimary = hasValue ? valueText : balanceText;
+                holdingsSecondary = hasValue ? balanceText : { text: '' };
+              }
               const holdingsColumn: DataColumn = {
                 key: 'balance',
                 text: holdingsPrimary.text,

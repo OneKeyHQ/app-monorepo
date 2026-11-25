@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -20,10 +19,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -33,9 +28,7 @@ import {
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useListStructureAtom,
@@ -400,62 +393,6 @@ function TokenListFooter(props: IProps) {
     });
   }, [account, network, wallet, navigation, indexedAccount?.id, deriveType]);
 
-  const { result: blockedTokensLength, run } = usePromiseResult(
-    async () => {
-      if (!network) return filteredRiskyTokens?.length ?? 0;
-
-      const [unblockedTokensMap, blockedTokensMap, customTokens] =
-        await Promise.all([
-          backgroundApiProxy.serviceToken.getUnblockedTokensMap({
-            networkId: network.id,
-          }),
-          backgroundApiProxy.serviceToken.getBlockedTokensMap({
-            networkId: network.id,
-          }),
-          backgroundApiProxy.serviceCustomToken.getAllCustomTokens(),
-        ]);
-
-      const customTokensMap = mapValues(
-        groupBy(customTokens, 'networkId'),
-        (tokenArray) => keyBy(tokenArray, 'address'),
-      );
-
-      const blockedTokens = [];
-
-      for (const token of filteredRiskyTokens) {
-        const tokenNetworkId = token.networkId ?? network.id;
-
-        if (
-          blockedTokensMap?.[tokenNetworkId]?.[token.address] ||
-          (!unblockedTokensMap?.[tokenNetworkId]?.[token.address] &&
-            !customTokensMap?.[tokenNetworkId]?.[token.address])
-        ) {
-          blockedTokens.push({
-            ...token,
-            isBlocked: true,
-          });
-        }
-      }
-
-      return blockedTokens.length;
-    },
-    [network, filteredRiskyTokens],
-    {
-      initResult: 0,
-    },
-  );
-
-  useEffect(() => {
-    const refresh = () => {
-      void run();
-    };
-
-    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
-    return () => {
-      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
-    };
-  }, [run]);
-
   const footerLayout = getTokenListFooterLayout({ tableLayout, plainMode });
   const { gtMd } = useMedia();
   const footerLeading = getTokenListFooterLeading(gtMd);
@@ -487,7 +424,7 @@ function TokenListFooter(props: IProps) {
           risky={
             showRisky
               ? {
-                  count: blockedTokensLength,
+                  count: filteredRiskyTokens.length,
                   onPress: handleOnPressRiskyTokens,
                 }
               : undefined
@@ -584,7 +521,7 @@ function TokenListFooter(props: IProps) {
             <ListItem.Text
               primary={intl.formatMessage(
                 { id: ETranslations.risk_assets_count__title },
-                { number: blockedTokensLength },
+                { number: filteredRiskyTokens.length },
               )}
               {...(tableLayout && {
                 primaryTextProps: { size: '$bodyMdMedium' },

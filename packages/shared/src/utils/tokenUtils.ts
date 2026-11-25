@@ -1391,10 +1391,11 @@ export function buildSelectorTokenListFromResponses({
   // be worth more than another network's `tokens`, and TokenListView renders
   // as a PLAIN concat of the two buckets (no re-sort). Concat BOTH buckets,
   // value-sort once globally, push the zero/unavailable-value tail to a stable
-  // `order` sort, then re-split with Home's rule (`splitTokensByLowValue`) so
-  // the concatenated list stays descending by value — no high-value asset
-  // stranded below a low-value one, and no floor/live reshuffle across the
-  // bucket boundary.
+  // `order` sort, then re-split with Home's rule (`splitTokensByLowValue`),
+  // the way the server splits one network. The concatenated list then reads
+  // like a single-network selector: priced assets by value, tokens without a
+  // price, then low-value ones by value — no high-value asset stranded below
+  // a low-value one, and no floor/live reshuffle across the bucket boundary.
   let mergedTokens = sortTokensByFiatValue({
     tokens: [...tokens, ...smallBalanceTokens],
     map: sortMap,
