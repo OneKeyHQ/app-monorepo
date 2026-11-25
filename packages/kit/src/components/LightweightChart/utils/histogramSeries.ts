@@ -123,7 +123,7 @@ class HistogramPaneRenderer implements ICustomSeriesPaneRenderer {
           barWidth / 2,
           height,
         );
-        if (radius > 0) {
+        if (radius > 0 && typeof ctx.roundRect === 'function') {
           ctx.beginPath();
           ctx.roundRect(
             left,

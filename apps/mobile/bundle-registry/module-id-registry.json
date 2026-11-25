@@ -25771,6 +25771,7 @@
     "packages/kit/src/views/Perp/components/InviteeReward/components/RewardHistoryList.tsx": 16367,
     "packages/kit/src/views/Perp/components/InviteeReward/components/RewardSummaryCard.tsx": 6165,
     "packages/kit/src/views/Perp/components/InviteeReward/hooks/useShowInviteeRewardModal.ts": 13396,
+    "packages/kit/src/views/Perp/components/MarketDetail/PerpChartTooltip.native.tsx": 20761,
     "packages/kit/src/views/Perp/components/MarketDetail/PerpChartTooltip.tsx": 8141,
     "packages/kit/src/views/Perp/components/MarketDetail/PerpFundingChart.tsx": 9016,
     "packages/kit/src/views/Perp/components/MarketDetail/PerpMarketDetailContent.tsx": 22532,

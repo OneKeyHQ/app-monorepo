@@ -55,6 +55,66 @@ const mockUsePerpFundingHistory = jest.fn<
 >();
 const mockSetStopPolling = jest.fn<boolean, [boolean]>(() => false);
 let mockIsNative = false;
+let mockChartWindowY = 300;
+
+jest.mock('./PerpChartTooltip', () => ({
+  PerpChartTooltip: (
+    props: import('react').ComponentProps<
+      typeof import('./PerpChartTooltip').PerpChartTooltip
+    >,
+  ) => {
+    const Component = mockIsNative
+      ? jest.requireActual<typeof import('./PerpChartTooltip.native')>(
+          './PerpChartTooltip.native',
+        ).PerpChartTooltip
+      : jest.requireActual<typeof import('./PerpChartTooltip')>(
+          './PerpChartTooltip',
+        ).PerpChartTooltip;
+    return <Component {...props} />;
+  },
+}));
+
+jest.mock('react-native', () => {
+  const { forwardRef, useImperativeHandle } =
+    jest.requireActual<typeof import('react')>('react');
+  return {
+    ...jest.requireActual<typeof import('react-native')>('react-native'),
+    View: forwardRef((_props, ref) => {
+      useImperativeHandle(ref, () => ({
+        measureInWindow: (callback: (x: number, y: number) => void) =>
+          callback(20, mockChartWindowY),
+      }));
+      return <div />;
+    }),
+    useWindowDimensions: () => ({ width: 400, height: 800 }),
+  };
+});
+
+jest.mock('@onekeyfe/react-native-native-overlay', () => {
+  const { useEffect } = jest.requireActual<typeof import('react')>('react');
+  const { createPortal } =
+    jest.requireActual<typeof import('react-dom')>('react-dom');
+  return {
+    OverlayView: ({
+      children,
+      onWindowOffset,
+      windowOffsetRequest,
+    }: {
+      children: ReactNode;
+      onWindowOffset: (offset: { x: number; y: number }) => void;
+      windowOffsetRequest: number;
+    }) => {
+      useEffect(
+        () => onWindowOffset({ x: 0, y: 0 }),
+        [onWindowOffset, windowOffsetRequest],
+      );
+      return createPortal(
+        <div data-testid="native-chart-tooltip-overlay">{children}</div>,
+        document.body,
+      );
+    },
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -81,19 +141,23 @@ jest.mock('@onekeyhq/components', () => {
     testID,
     onLayout,
     left,
+    top,
     bottom,
     width,
   }: {
     children?: ReactNode;
     onPress?: () => void;
     testID?: string;
-    onLayout?: (event: { nativeEvent: { layout: { width: number } } }) => void;
+    onLayout?: (event: {
+      nativeEvent: { layout: { width: number; height: number } };
+    }) => void;
     left?: number;
+    top?: number;
     bottom?: number;
     width?: number | string;
   }) {
     useEffect(() => {
-      onLayout?.({ nativeEvent: { layout: { width: 360 } } });
+      onLayout?.({ nativeEvent: { layout: { width: 360, height: 80 } } });
     }, [onLayout]);
     return onPress ? (
       <button type="button" data-testid={testID} onClick={onPress}>
@@ -103,6 +167,7 @@ jest.mock('@onekeyhq/components', () => {
       <div
         data-testid={testID}
         data-left={left}
+        data-top={top}
         data-bottom={bottom}
         data-width={width}
       >
@@ -125,6 +190,7 @@ jest.mock('@onekeyhq/components', () => {
     XStack: MockStack,
     YStack: MockStack,
     useThemeName: () => 'light',
+    useSafeAreaInsets: () => ({ top: 50, bottom: 34, left: 0, right: 0 }),
     getTokenValue: () => 4,
     useTheme: () => ({
       green9: { val: '#30A46C' },
@@ -202,6 +268,7 @@ describe('PerpFundingChart', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsNative = false;
+    mockChartWindowY = 300;
     mockUsePerpFundingHistory.mockReturnValue({
       result: FUNDING_HISTORY,
       isLoading: false,
@@ -436,7 +503,9 @@ describe('PerpFundingChart', () => {
     'keeps a compact tooltip outside desktop clipping and above the native plot in %s',
     (variant) => {
       mockIsNative = variant === 'mobile';
-      render(<PerpFundingChart coin="BTC" variant={variant} />);
+      const { container } = render(
+        <PerpFundingChart coin="BTC" variant={variant} />,
+      );
       const hover = mockLightweightChart.mock.calls.at(-1)?.[0].onHover;
       act(() => hover?.({ time: 28_800, price: 0.006, x: 290, y: 240 }));
       const tooltip = screen.getByTestId(
@@ -444,8 +513,12 @@ describe('PerpFundingChart', () => {
       );
       expect(tooltip.getAttribute('data-width')).toBe('200');
       if (mockIsNative) {
-        expect(tooltip.parentElement?.getAttribute('data-bottom')).toBe('226');
-        expect(tooltip.parentElement?.getAttribute('data-left')).toBe('152');
+        expect(tooltip.parentElement?.getAttribute('data-top')).toBe('208');
+        expect(tooltip.parentElement?.getAttribute('data-left')).toBe('192');
+        expect(
+          screen.getByTestId('native-chart-tooltip-overlay').contains(tooltip),
+        ).toBe(true);
+        expect(container.contains(tooltip)).toBe(false);
       } else {
         expect(
           screen.getByTestId('chart-tooltip-overlay').contains(tooltip),
@@ -459,9 +532,10 @@ describe('PerpFundingChart', () => {
       expect(within(tooltip).getByText('0.0030%')).toBeTruthy();
       expect(within(tooltip).getByText('0.0060%')).toBeTruthy();
 
+      mockChartWindowY = 40;
       act(() => hover?.({ time: 28_800, price: 0.006, x: 0, y: 0 }));
       if (mockIsNative) {
-        expect(tooltip.parentElement?.getAttribute('data-bottom')).toBe('226');
+        expect(tooltip.parentElement?.getAttribute('data-top')).toBe('58');
         expect(tooltip.parentElement?.getAttribute('data-left')).toBe('8');
       }
 

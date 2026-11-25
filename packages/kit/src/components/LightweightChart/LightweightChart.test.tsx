@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore tickmarks
 
 import type { ReactNode } from 'react';
 
@@ -758,6 +759,12 @@ describe('LightweightChart', () => {
     );
     expect(context.fill).toHaveBeenCalledTimes(2);
     expect(fillRect).toHaveBeenCalledTimes(2);
+
+    Object.defineProperty(context, 'roundRect', { value: undefined });
+    renderer.draw(target, priceConverter, false);
+    expect(fillRect).toHaveBeenCalledTimes(4);
+    expect(fillRect).toHaveBeenNthCalledWith(3, 25, 80, 10, 20);
+    expect(fillRect).toHaveBeenNthCalledWith(4, 45, 100, 10, 30);
   });
 
   it('refits the full range after resizing without recreating the chart instance', async () => {

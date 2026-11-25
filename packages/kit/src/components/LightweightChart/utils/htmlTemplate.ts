@@ -441,7 +441,7 @@ function getChartInitScript(): string {
                 ctx.fillStyle = bar.barColor || options.color;
                 var height = Math.max(1, bottomPixel - topPixel);
                 var radius = Math.min(Math.max(0, options.borderRadius || 0) * horizontalRatio, barWidth / 2, height);
-                if (radius > 0) {
+                if (radius > 0 && typeof ctx.roundRect === 'function') {
                   ctx.beginPath();
                   ctx.roundRect(left, topPixel, barWidth, height,
                     value < options.base ? [0, 0, radius, radius] : [radius, radius, 0, 0]);
