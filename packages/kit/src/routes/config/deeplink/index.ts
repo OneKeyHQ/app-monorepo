@@ -668,10 +668,17 @@ async function processDeepLinkWalletConnect({
       wcUri &&
       wcUri.toLowerCase().startsWith(`${WALLET_CONNECT_DEEP_LINK_NAME}:`)
     ) {
-      // Loaded on demand, like the pay entry above.
-      const { connectWalletConnectToDapp } =
-        await import('../../../components/WalletConnect/connectWalletConnectToDapp');
-      await connectWalletConnectToDapp(wcUri);
+      // Loaded on demand, like the pay entry above. If the helper fails to
+      // load, pairing still starts, only without its progress dialog.
+      const helper =
+        await import('../../../components/WalletConnect/connectWalletConnectToDapp').catch(
+          () => undefined,
+        );
+      if (helper) {
+        await helper.connectWalletConnectToDapp(wcUri);
+      } else {
+        await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
+      }
       return {
         type: 'walletConnect',
         url,
