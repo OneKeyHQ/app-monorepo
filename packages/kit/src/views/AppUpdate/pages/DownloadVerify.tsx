@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   EStepItemStatus,
   Page,
@@ -14,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useNetworkRestore } from '@onekeyhq/kit/src/hooks/useNetworkRestore';
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { getAppUpdateProgressScope } from '@onekeyhq/shared/src/appUpdate';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
@@ -96,6 +98,15 @@ function DownloadVerify({
   });
   usePreventRemove(!!isForceUpdate, () => {});
   const { data } = useAppUpdateInfo();
+  const { isInternetReachable } = useNetworkRestore();
+  const showOfflineAlert =
+    isInternetReachable === false &&
+    [
+      EAppUpdateStatus.downloadPackage,
+      EAppUpdateStatus.downloadPackageFailed,
+      EAppUpdateStatus.downloadASC,
+      EAppUpdateStatus.downloadASCFailed,
+    ].includes(data.status);
   const navigation = useAppNavigation();
   const {
     downloadPackage,
@@ -267,6 +278,16 @@ function DownloadVerify({
     <Page scrollEnabled>
       <Page.Header {...headerParams} />
       <Page.Body px="$5" py="$2.5">
+        {showOfflineAlert ? (
+          <Alert
+            type="warning"
+            closable={false}
+            mb="$5"
+            title={intl.formatMessage({
+              id: ETranslations.update_network_exception_check_connection,
+            })}
+          />
+        ) : null}
         <Stepper stepIndex={stepIndex} hasError={hasError}>
           <Stepper.Item
             title={intl.formatMessage({
