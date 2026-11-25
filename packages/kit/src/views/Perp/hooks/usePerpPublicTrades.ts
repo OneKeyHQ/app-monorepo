@@ -51,6 +51,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     if (!active) return;
     let disposed = false;
     let connected = false;
+    let readRetainedTrades = false;
     let snapshotId = 0;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
@@ -119,6 +120,21 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         } else if (!connected) {
           clearTimeout(fallbackTimer);
           void fetchSnapshot();
+          if (!readRetainedTrades) {
+            readRetainedTrades = true;
+            void backgroundApiProxy.serviceHyperliquidSubscription
+              .getRetainedPublicTrades({ coin })
+              .then((trades) => {
+                if (disposed || !trades.length) return;
+                setState((previous) => ({
+                  ...previous,
+                  trades: latestTrades(trades, previous.trades),
+                }));
+              })
+              .catch(() => {
+                // The HTTP snapshot and live feed can still populate the tape.
+              });
+          }
         }
         connected = !isDisconnected;
       },
