@@ -97,7 +97,10 @@ import {
 import { ChartInspector } from './drawings/ChartInspector';
 import { getDataWindowSnapshot } from './drawings/dataWindow';
 import { DrawingToolbar } from './drawings/DrawingToolbar';
-import { useChartDrawings } from './drawings/useChartDrawings';
+import {
+  isEditableKeyTarget,
+  useChartDrawings,
+} from './drawings/useChartDrawings';
 import { drawTradingViewNativeCanvasChart } from './drawTradingViewNativeCanvasChart';
 import { TradingViewNativeMaximizeButton } from './TradingViewNativeMaximizeButton';
 import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
@@ -107,7 +110,7 @@ import { useChartCrosshairSync } from './useChartCrosshairSync';
 import { useChartPriceSelection } from './useChartPriceSelection';
 import { useChartViewportSync } from './useChartViewportSync';
 import {
-  isTradingViewNativeReferenceLineAt,
+  containsPoint,
   useReferenceLineInteraction,
 } from './useReferenceLineInteraction';
 import { useTradingViewNativeCanvasRender } from './useTradingViewNativeCanvasRender';
@@ -250,28 +253,6 @@ export const TradingViewNativeChart = memo(
     // A double click maximizes the panel only when both of its presses were:
     // the first one can place a drawing and leave the cursor tool armed.
     const plotPressesRef = useRef<[boolean, boolean]>([false, false]);
-    // Pointers pressed in the chart and not released yet. Maximizing or
-    // restoring waits for them, so a gesture under way, e.g. on an order's
-    // cancel control, ends on the geometry it started with.
-    const pressedPointerIdsRef = useRef(new Set<number>());
-    const canMaximize = Boolean(maximize);
-    useEffect(() => {
-      if (!canMaximize) return undefined;
-      const pressed = pressedPointerIdsRef.current;
-      const release = ({ pointerId }: PointerEvent) => {
-        pressed.delete(pointerId);
-      };
-      const releaseAll = () => pressed.clear();
-      globalThis.addEventListener('pointerup', release, true);
-      globalThis.addEventListener('pointercancel', release, true);
-      globalThis.addEventListener('blur', releaseAll);
-      return () => {
-        globalThis.removeEventListener('pointerup', release, true);
-        globalThis.removeEventListener('pointercancel', release, true);
-        globalThis.removeEventListener('blur', releaseAll);
-        pressed.clear();
-      };
-    }, [canMaximize]);
     const drawingToolsRef = useRef<HTMLDivElement>(null);
     const getDrawingToolsCollapseGain = sharedDrawingTools?.getCollapseGain;
     // Where the plot's reference width starts: the chart's root, which holds a
@@ -300,8 +281,8 @@ export const TradingViewNativeChart = memo(
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
     >([]);
-    // Every order or position line drawn and its labels, also those that take
-    // no press, e.g. a position's PnL label.
+    // Every order or position line drawn, its labels and cancel buttons, also
+    // those that take no press, e.g. a position's PnL label.
     const referenceLineRectsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion['rect'][]
     >([]);
@@ -321,13 +302,6 @@ export const TradingViewNativeChart = memo(
       getPriceRange: getReferenceLinePriceRange,
       isInteracting: isReferenceLineInteracting,
     } = referenceLineInteraction;
-    // An order line gesture also holds off for its whole life, e.g. after a
-    // preset change has let the pressed pointers go.
-    const toggleMaximize = useCallback(() => {
-      if (pressedPointerIdsRef.current.size > 0 || isReferenceLineInteracting())
-        return;
-      maximize?.toggle();
-    }, [isReferenceLineInteracting, maximize]);
     const drawingController = useChartDrawings({
       enabled: drawingsEnabled,
       projectionRef: drawingProjectionRef,
@@ -375,13 +349,17 @@ export const TradingViewNativeChart = memo(
     const activePointerIdsRef = useRef(new Set<number>());
     const [pointerInteraction, setPointerInteraction] = useState(false);
     const trackPointerInteraction = Boolean(onInteractionChange);
+    // Maximizing a split-view panel also waits for the pressed pointers, so a
+    // gesture under way, e.g. on an order's cancel control, ends on the
+    // geometry it started with.
+    const tracksPointers = trackPointerInteraction || Boolean(maximize);
     const startPointerInteraction = useCallback(
       (event: ReactPointerEvent<HTMLDivElement>) => {
         if (event.button !== 0) return;
         activePointerIdsRef.current.add(event.pointerId);
-        setPointerInteraction(true);
+        if (trackPointerInteraction) setPointerInteraction(true);
       },
-      [],
+      [trackPointerInteraction],
     );
     const finishPointerInteraction = useCallback(
       ({ pointerId }: { pointerId: number }) => {
@@ -396,7 +374,7 @@ export const TradingViewNativeChart = memo(
         activePointerIdsRef.current.clear();
         setPointerInteraction(false);
       };
-      if (!trackPointerInteraction) {
+      if (!tracksPointers) {
         reset();
         return;
       }
@@ -421,7 +399,14 @@ export const TradingViewNativeChart = memo(
         );
         globalThis.removeEventListener('blur', reset);
       };
-    }, [finishPointerInteraction, trackPointerInteraction]);
+    }, [finishPointerInteraction, tracksPointers]);
+    // An order line gesture also holds off for its whole life, e.g. after a
+    // preset change has let the pressed pointers go.
+    const toggleMaximize = useCallback(() => {
+      if (activePointerIdsRef.current.size > 0 || isReferenceLineInteracting())
+        return;
+      maximize?.toggle();
+    }, [isReferenceLineInteracting, maximize]);
     useEffect(() => {
       onInteractionChange?.(drawingInteraction || pointerInteraction);
     }, [drawingInteraction, onInteractionChange, pointerInteraction]);
@@ -1204,23 +1189,20 @@ export const TradingViewNativeChart = memo(
           priceAxisFontSize,
         );
         const canvasRect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - canvasRect.left;
+        const y = event.clientY - canvasRect.top;
         const subIndicatorSettingsTarget =
           getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
             regions: subIndicatorLegendHitRegionsRef.current,
-            x: event.clientX - canvasRect.left,
-            y: event.clientY - canvasRect.top,
+            x,
+            y,
           });
-        // An order or position line or label that takes no press, e.g. a PnL
-        // label or a pending order, is still no part of the plot.
+        // An order or position line that takes no press, e.g. a PnL label or
+        // a pending order, is still no part of the plot.
         plotPressesRef.current[1] =
           subIndicatorSettingsTarget === null &&
-          !isTradingViewNativeReferenceLineAt(
-            {
-              hitRegions: referenceLineHitRegionsRef.current,
-              lineRects: referenceLineRectsRef.current,
-            },
-            event.clientX - canvasRect.left,
-            event.clientY - canvasRect.top,
+          !referenceLineRectsRef.current.some((rect) =>
+            containsPoint(rect, x, y),
           );
         let nextRuntimeState = runtimeStateRef.current;
         if (subIndicatorSettingsTarget === null) {
@@ -1789,8 +1771,7 @@ export const TradingViewNativeChart = memo(
           // Every press in the chart counts as one off the plot until the
           // canvas finds it on the plot.
           plotPressesRef.current = [plotPressesRef.current[1], false];
-          if (canMaximize) pressedPointerIdsRef.current.add(event.pointerId);
-          if (trackPointerInteraction) startPointerInteraction(event);
+          if (tracksPointers) startPointerInteraction(event);
         }}
         // Alt+Enter (Option+Enter) with focus in the chart maximizes its
         // split-view panel or brings the split back, also without the corner
@@ -1799,7 +1780,7 @@ export const TradingViewNativeChart = memo(
         onKeyDownCapture={(event) => {
           const { target } = event;
           if (
-            !canMaximize ||
+            !maximize ||
             event.key !== 'Enter' ||
             !event.altKey ||
             event.ctrlKey ||
@@ -1807,8 +1788,7 @@ export const TradingViewNativeChart = memo(
             event.shiftKey ||
             !(target instanceof HTMLElement) ||
             !event.currentTarget.contains(target) ||
-            target.isContentEditable ||
-            ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+            isEditableKeyTarget(target)
           ) {
             return;
           }

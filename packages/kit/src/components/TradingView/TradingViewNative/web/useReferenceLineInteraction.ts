@@ -25,7 +25,7 @@ type ILinePointer = {
   moved: boolean;
 };
 
-function containsPoint(
+export function containsPoint(
   rect: ITradingViewNativeReferenceLineHitRegion['rect'],
   x: number,
   y: number,
@@ -35,26 +35,6 @@ function containsPoint(
     x <= rect.x + rect.width &&
     y >= rect.y &&
     y <= rect.y + rect.height
-  );
-}
-
-// Whether a point is on an order or position line the chart shows, its label
-// or its stroke, also one that takes no press now, e.g. while its order or
-// its cancel is pending.
-export function isTradingViewNativeReferenceLineAt(
-  {
-    hitRegions,
-    lineRects,
-  }: {
-    hitRegions: readonly ITradingViewNativeReferenceLineHitRegion[];
-    lineRects: readonly ITradingViewNativeReferenceLineHitRegion['rect'][];
-  },
-  x: number,
-  y: number,
-) {
-  return (
-    hitRegions.some((region) => containsPoint(region.rect, x, y)) ||
-    lineRects.some((rect) => containsPoint(rect, x, y))
   );
 }
 

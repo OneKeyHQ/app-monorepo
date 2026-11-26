@@ -334,8 +334,8 @@ export interface ITradingViewNativeChartScene {
   subIndicatorLegendHitRegions: ITradingViewNativeSubIndicatorLegendHitRegion[];
   referenceLineHitRegions?: ITradingViewNativeReferenceLineHitRegion[];
   /**
-   * Every order or position line drawn and its labels, also those that take
-   * no press.
+   * Every order or position line drawn, its labels and cancel buttons, also
+   * those that take no press.
    */
   referenceLineRects?: ITradingViewNativeChartSceneRect[];
   viewport: ITradingViewNativeChartRuntimeViewport;

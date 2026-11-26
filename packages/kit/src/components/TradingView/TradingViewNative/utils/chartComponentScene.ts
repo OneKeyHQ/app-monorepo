@@ -45,8 +45,9 @@ interface ITradingViewNativeChartComponentCommandLayers {
   textLabelCommands: ITradingViewNativeChartSceneCommand[];
   hitRegions: ITradingViewNativeReferenceLineHitRegion[];
   /**
-   * Where each drawn order or position line and its labels are, also those
-   * that take no press, e.g. a position's PnL label or a pending order.
+   * Where each drawn order or position line, its labels and cancel buttons
+   * are, every hit region included, also those that take no press, e.g. a
+   * position's PnL label or a pending order.
    */
   lineRects: ITradingViewNativeChartSceneRect[];
 }
@@ -698,6 +699,7 @@ export function appendTradingViewNativeChartComponentCommands({
         width: cancelButtonWidth,
         height: PRICE_LABEL_HEIGHT,
       };
+      lineRects.push(rect);
       const centerX = rect.x + rect.width / 2;
       const centerY = rect.y + rect.height / 2;
       textLabelCommands.push({
