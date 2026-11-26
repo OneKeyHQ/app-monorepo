@@ -30,6 +30,25 @@ const MIN_COLUMN_WIDTHS = {
 
 // Character width multiplier for calculating dynamic widths
 const CHAR_WIDTH_MULTIPLIER = 9;
+// CJK, Hangul and full-width glyphs render much wider than Latin ones.
+const WIDE_CHAR_WIDTH = 15;
+const WIDE_CHAR_REGEX =
+  /[\u1100-\u11ff\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/;
+
+function estimateLabelWidth(label: string) {
+  let width = 0;
+  for (const char of label) {
+    width += WIDE_CHAR_REGEX.test(char)
+      ? WIDE_CHAR_WIDTH
+      : CHAR_WIDTH_MULTIPLIER;
+  }
+  return width;
+}
+
+// Room for the controls after a header label, so compact headers stay on one
+// line: the sort chevron plus its gap, and the info tooltip plus its gap.
+const SORT_CONTROL_WIDTH = 20;
+const TOOLTIP_CONTROL_WIDTH = 20;
 
 export interface IColumnWidths {
   address: string | number;
@@ -48,48 +67,53 @@ export function usePerpsTableColumns(isMobile: boolean) {
   // Calculate dynamic column widths based on translated text length
   const dynamicColumnWidths = useMemo(() => {
     const addressWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.global_address }).length *
-        CHAR_WIDTH_MULTIPLIER,
+      estimateLabelWidth(
+        intl.formatMessage({ id: ETranslations.global_address }),
+      ),
       MIN_COLUMN_WIDTHS.address,
     );
     const invitedAtWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_perps_invited_at })
-        .length *
-        CHAR_WIDTH_MULTIPLIER +
-        10,
+      estimateLabelWidth(
+        intl.formatMessage({ id: ETranslations.referral_perps_invited_at }),
+      ) + SORT_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.invitedAt,
     );
     const referralCodeWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_perps_referral_code })
-        .length * CHAR_WIDTH_MULTIPLIER,
+      estimateLabelWidth(
+        intl.formatMessage({ id: ETranslations.referral_perps_referral_code }),
+      ),
       MIN_COLUMN_WIDTHS.referralCode,
     );
     const firstTradeWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_perps_first_trade })
-        .length *
-        CHAR_WIDTH_MULTIPLIER +
-        20,
+      estimateLabelWidth(
+        intl.formatMessage({ id: ETranslations.referral_perps_first_trade }),
+      ) + SORT_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.firstTrade,
     );
     const volumeWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_perps_volume }).length *
-        CHAR_WIDTH_MULTIPLIER,
+      estimateLabelWidth(
+        intl.formatMessage({ id: ETranslations.referral_perps_volume }),
+      ) + SORT_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.volume,
     );
     const feeWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_perps_onekey_fee })
-        .length * CHAR_WIDTH_MULTIPLIER,
+      estimateLabelWidth(
+        intl.formatMessage({ id: ETranslations.referral_perps_onekey_fee }),
+      ) +
+        SORT_CONTROL_WIDTH +
+        TOOLTIP_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.fee,
     );
     const undistributedWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_undistributed }).length *
-        CHAR_WIDTH_MULTIPLIER,
+      estimateLabelWidth(
+        intl.formatMessage({ id: ETranslations.referral_undistributed }),
+      ),
       MIN_COLUMN_WIDTHS.undistributed,
     );
     const rewardWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_total_reward }).length *
-        CHAR_WIDTH_MULTIPLIER +
-        20,
+      estimateLabelWidth(
+        intl.formatMessage({ id: ETranslations.referral_total_reward }),
+      ) + SORT_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.reward,
     );
 

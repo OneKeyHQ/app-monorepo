@@ -97,6 +97,7 @@ export enum EAppEventBusNames {
   AllNetworksTokenListSettled = 'AllNetworksTokenListSettled',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
+  HomeDefaultTokensUpdated = 'HomeDefaultTokensUpdated',
   LocalWalletAccountsChanged = 'LocalWalletAccountsChanged',
   LocalWalletBalanceLanded = 'LocalWalletBalanceLanded',
   RefreshHistoryList = 'RefreshHistoryList',
