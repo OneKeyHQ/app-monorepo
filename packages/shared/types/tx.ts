@@ -226,6 +226,8 @@ export type IDecodedTxTransferInfo = {
   shieldedFrom?: IDecodedTxShieldedEndpoint;
   shieldedTo?: IDecodedTxShieldedEndpoint;
   amount: string;
+  // Original indexer quantity, before applying a display multiplier.
+  rawAmount?: string;
   icon: string;
   name: string;
   symbol: string;

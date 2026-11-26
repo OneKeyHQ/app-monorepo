@@ -35,7 +35,6 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -99,15 +98,8 @@ import type {
   IStakeTx,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
-import {
-  EProtocolOfExchange,
-  ESwapTxHistoryStatus,
-} from '@onekeyhq/shared/types/swap/types';
-import type {
-  ISwapToken,
-  ISwapTxHistory,
-  ISwapTxInfo,
-} from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
@@ -978,7 +970,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     try {
       const action = await this.buildHistoryTxAction({
         tx: onChainHistoryTx,
-        swapHistories: params.swapHistories,
         tokens,
         nfts,
       });
@@ -1055,12 +1046,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async buildHistoryTxAction({
-    swapHistories,
     tx,
     tokens,
     nfts,
   }: {
-    swapHistories?: ISwapTxHistory[];
     tx: IOnChainHistoryTx;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
@@ -1079,7 +1068,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       return this.buildHistoryTxUnknownAction({ tx });
     }
 
-    return this.buildHistoryTransferAction({ tx, tokens, nfts, swapHistories });
+    return this.buildHistoryTransferAction({ tx, tokens, nfts });
   }
 
   async buildHistoryTxFunctionCallAction({
@@ -1117,72 +1106,43 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async buildHistoryTransferAction({
-    swapHistories,
     tx,
     tokens,
     nfts,
   }: {
-    swapHistories?: ISwapTxHistory[];
     tx: IOnChainHistoryTx;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
   }): Promise<IDecodedTxAction> {
-    const networkId = tx.networkId || this.networkId;
-    const normalize = (value?: string) =>
-      networkId.startsWith('evm--') ? value?.toLowerCase() : value;
-    const txid = normalize(tx.tx);
-    const orders = swapHistories?.filter(
-      (order) =>
-        order.status === ESwapTxHistoryStatus.SUCCESS &&
-        !isPrivateSendSwapHistoryItem(order) &&
-        (normalize(order.txInfo.txId) === txid ||
-          normalize(order.txInfo.receiverTransactionId) === txid),
-    );
-    const decode = (transfer: IOnChainHistoryTxTransfer, receive: boolean) => {
-      const snapshot = orders?.find(({ baseInfo, txInfo }) => {
-        const token = receive ? baseInfo.toToken : baseInfo.fromToken;
-        const sameChain =
-          baseInfo.fromToken.networkId === baseInfo.toToken.networkId;
-        const hash = receive
-          ? txInfo.receiverTransactionId || (sameChain && txInfo.txId)
-          : txInfo.txId;
-        return (
-          hash &&
-          normalize(hash) === txid &&
-          token.networkId === networkId &&
-          normalize(token.contractAddress) === normalize(transfer.token) &&
-          normalize(receive ? txInfo.receiver : txInfo.sender) ===
-            normalize(receive ? transfer.to : transfer.from)
-        );
-      });
-      return this.buildHistoryTransfer({
-        transfer,
-        tokens,
-        nfts,
-        snapshotToken: receive
-          ? snapshot?.baseInfo.toToken
-          : snapshot?.baseInfo.fromToken,
-      });
-    };
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
       assetTransfer: {
         from: tx.from,
         to: tx.to,
         label: tx.label,
-        sends: tx.sends.map((transfer) => decode(transfer, false)),
-        receives: tx.receives.map((transfer) => decode(transfer, true)),
+        sends: tx.sends.map((send) =>
+          this.buildHistoryTransfer({
+            transfer: send,
+            tokens,
+            nfts,
+          }),
+        ),
+        receives: tx.receives.map((receive) =>
+          this.buildHistoryTransfer({
+            transfer: receive,
+            tokens,
+            nfts,
+          }),
+        ),
       },
     };
   }
 
   buildHistoryTransfer({
-    snapshotToken,
     transfer,
     tokens,
     nfts,
   }: {
-    snapshotToken?: ISwapToken;
     transfer: IOnChainHistoryTxTransfer;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
@@ -1195,21 +1155,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         nfts,
       });
 
-    const multiplier =
-      snapshotToken && !isNFT && !isNative
-        ? snapshotToken.balanceMultiplier
-        : balanceMultiplier;
-    const priceMultiplier = (value?: string) =>
-      tokenRebaseUtils.isValidBalanceMultiplier(value) ? value : '1';
     return {
       from: transfer.from,
       to: transfer.to,
       tokenIdOnNetwork: transfer.token,
+      rawAmount: transfer.amount,
       amount: tokenRebaseUtils.applyBalanceMultiplier({
         amount: transfer.amount,
-        balanceMultiplier: multiplier,
+        balanceMultiplier,
       }),
-      balanceMultiplier: multiplier ?? '1',
+      balanceMultiplier: balanceMultiplier ?? '1',
       label: transfer.label,
       isOwn: transfer.isOwn,
       icon,
@@ -1217,13 +1172,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       symbol,
       isNFT,
       isNative,
-      price:
-        multiplier === balanceMultiplier
-          ? price
-          : new BigNumber(price)
-              .times(priceMultiplier(balanceMultiplier))
-              .div(priceMultiplier(multiplier))
-              .toFixed(),
+      price,
     };
   }
 

@@ -19,14 +19,15 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { LRUCache, memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   convertHistoryTxsFiatCurrency,
   filterHistoryTxs,
   getOnChainHistoryTxStatus,
+  hasIndexedTokenTransfers,
   isAccountCompatibleWithTx,
   isHistoryCursorAdvanced,
-  needsHistoryTransferRefresh,
+  mapHistoryTransfers,
   scaleFeeFiatValueToNativeFee,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -45,6 +46,7 @@ import {
   isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   collectDecodedTxInvolvedAddresses,
   getStakingActionLabel,
@@ -66,6 +68,7 @@ import type {
   IFetchAccountTransactionRangeResp,
   IFetchExportTransactionHistoryTasksResp,
   IFetchHistoryTxDetailsParams,
+  IFetchHistoryTxDetailsResp,
   IFetchMergeDeriveAccountHistoryParams,
   IFetchTransferRecipientsResp,
   IFetchTxDetailsParams,
@@ -131,6 +134,115 @@ type IPrivateSendDisplayPriceTarget = {
   tokenAddress?: string;
   isNative?: boolean;
 };
+
+function applyCompletedSwapSnapshot(
+  tx: IAccountHistoryTx,
+  orders: ISwapTxHistory[],
+) {
+  const { networkId, txid } = tx.decodedTx;
+  const normalize = (value?: string) =>
+    networkId.startsWith('evm--') ? value?.toLowerCase() : value;
+  const matchesHash = (hash?: string) =>
+    !!hash && normalize(hash) === normalize(txid);
+  const candidates = orders.filter(
+    ({ txInfo }) =>
+      matchesHash(txInfo.txId) || matchesHash(txInfo.receiverTransactionId),
+  );
+  if (!candidates.length) return tx;
+  return mapHistoryTransfers(tx, (asset, side) => {
+    if (
+      asset.isNFT ||
+      asset.isNative ||
+      !asset.tokenIdOnNetwork ||
+      asset.balanceMultiplier === undefined
+    )
+      return asset;
+    const received = side === 'receives';
+    const order = candidates.find(
+      ({ baseInfo: { fromToken, toToken }, txInfo }) => {
+        const token = received ? toToken : fromToken;
+        const receipt =
+          txInfo.receiverTransactionId ||
+          (fromToken.networkId === toToken.networkId ? txInfo.txId : undefined);
+        return (
+          matchesHash(received ? receipt : txInfo.txId) &&
+          token.networkId === networkId &&
+          normalize(token.contractAddress) ===
+            normalize(asset.tokenIdOnNetwork) &&
+          normalize(received ? txInfo.receiver : txInfo.sender) ===
+            normalize(received ? asset.to : asset.from)
+        );
+      },
+    );
+    if (!order) return asset;
+    const token = received ? order.baseInfo.toToken : order.baseInfo.fromToken;
+    const unit = (v?: string) =>
+      tokenRebaseUtils.isValidBalanceMultiplier(v) ? v : '1';
+    const previous = unit(asset.balanceMultiplier);
+    const multiplier = unit(token.balanceMultiplier);
+    if (tokenRebaseUtils.equalBalanceMultipliers(previous, multiplier))
+      return asset;
+    const rawAmount =
+      asset.rawAmount ??
+      tokenRebaseUtils.removeBalanceMultiplier({
+        amount: asset.amount,
+        balanceMultiplier: previous,
+        decimals: token.decimals,
+      });
+    const amount = new BigNumber(rawAmount).times(multiplier);
+    if (!amount.isFinite()) return asset;
+    const price = new BigNumber(asset.price ?? NaN);
+    return {
+      ...asset,
+      rawAmount,
+      amount: amount.toFixed(),
+      balanceMultiplier: multiplier,
+      price: price.isFinite()
+        ? price.times(previous).div(multiplier).toFixed()
+        : asset.price,
+    };
+  });
+}
+
+function restoreHistoryAmounts(
+  tx: IAccountHistoryTx,
+  data?: IOnChainHistoryTx,
+  tokens?: Record<string, IOnChainHistoryTxToken>,
+) {
+  if (
+    data?.tx !== tx.decodedTx.txid ||
+    (data.networkId && data.networkId !== tx.decodedTx.networkId) ||
+    !tokens ||
+    !hasIndexedTokenTransfers(tx, true)
+  )
+    return tx;
+  return mapHistoryTransfers(tx, (asset, side, index) => {
+    const leg = data[side]?.[index];
+    if (
+      !leg ||
+      asset.balanceMultiplier !== undefined ||
+      asset.isNFT ||
+      asset.isNative ||
+      !asset.tokenIdOnNetwork ||
+      leg.token !== asset.tokenIdOnNetwork ||
+      leg.from !== asset.from ||
+      leg.to !== asset.to
+    )
+      return asset;
+    const token = tokens[leg.key] ?? tokens[leg.token];
+    if (!token?.info || !new BigNumber(leg.amount).isFinite()) return asset;
+    const balanceMultiplier = token.info.balanceMultiplier ?? '1';
+    return {
+      ...asset,
+      rawAmount: leg.amount,
+      balanceMultiplier,
+      amount: tokenRebaseUtils.applyBalanceMultiplier({
+        amount: leg.amount,
+        balanceMultiplier,
+      }),
+    };
+  });
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -562,58 +674,6 @@ function convertPrivateSendDisplayPrice({
   return priceBN.div(sourceRate).times(targetRate).toFixed();
 }
 
-function applyPrivateSendDisplayPricesToActions({
-  actions,
-  tx,
-  priceMap,
-}: {
-  actions?: IHistoryDecodedAction[];
-  tx: IAccountHistoryTx;
-  priceMap: Map<string, string>;
-}) {
-  if (!actions?.length) {
-    return { actions, updated: false };
-  }
-
-  let updated = false;
-  const nextActions = actions.map((action) => {
-    const { assetTransfer } = action;
-    if (!assetTransfer) {
-      return action;
-    }
-
-    const updateTransfer = (transfer: IHistoryDecodedTransfer) => {
-      const target = buildPrivateSendTransferDisplayPriceTarget({
-        tx,
-        transfer,
-      });
-      const priceKey = target
-        ? getPrivateSendTargetPriceKey(target)
-        : undefined;
-      const price = priceKey ? priceMap.get(priceKey) : undefined;
-      if (transfer.price === price) {
-        return transfer;
-      }
-      updated = true;
-      return {
-        ...transfer,
-        price,
-      };
-    };
-
-    return {
-      ...action,
-      assetTransfer: {
-        ...assetTransfer,
-        sends: assetTransfer.sends.map(updateTransfer),
-        receives: assetTransfer.receives.map(updateTransfer),
-      },
-    };
-  });
-
-  return { actions: nextActions, updated };
-}
-
 function normalizePrivateSendHistoryAddress(address?: string) {
   const normalized = address?.trim();
   return normalized || '';
@@ -913,15 +973,32 @@ class ServiceHistory extends ServiceBase {
     });
   }
 
-  private async attachPrivateSendDisplayStatus(
+  private async attachSwapHistoryForDisplay(
     txs: IAccountHistoryTx[],
+    privateSendOnly = false,
   ): Promise<IAccountHistoryTx[]> {
-    if (!txs.some((tx) => isPrivateSendAccountHistoryTx(tx))) {
+    if (
+      !txs.some(
+        (tx) =>
+          isPrivateSendAccountHistoryTx(tx) ||
+          (!privateSendOnly && hasIndexedTokenTransfers(tx)),
+      )
+    )
+      return txs;
+    let swapHistories: ISwapTxHistory[];
+    try {
+      swapHistories =
+        await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    } catch {
       return txs;
     }
-
-    const swapHistories =
-      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    const completed = privateSendOnly
+      ? []
+      : swapHistories.filter(
+          (order) =>
+            order.status === ESwapTxHistoryStatus.SUCCESS &&
+            !isPrivateSendSwapHistoryItem(order),
+        );
     const privateSendSwapHistoryByTxId = new Map<string, ISwapTxHistory>();
     swapHistories.forEach((item) => {
       if (isPrivateSendSwapHistoryItem(item) && item.txInfo.txId) {
@@ -934,7 +1011,9 @@ class ServiceHistory extends ServiceBase {
 
     return txs.map((tx) => {
       if (!isPrivateSendAccountHistoryTx(tx)) {
-        return tx;
+        return completed.length && hasIndexedTokenTransfers(tx)
+          ? applyCompletedSwapSnapshot(tx, completed)
+          : tx;
       }
 
       const swapHistory = privateSendSwapHistoryByTxId.get(tx.decodedTx.txid);
@@ -1102,15 +1181,14 @@ class ServiceHistory extends ServiceBase {
         return tx;
       }
 
-      const actionsResult = applyPrivateSendDisplayPricesToActions({
-        actions: tx.decodedTx.actions,
-        tx,
-        priceMap,
-      });
-      const outputActionsResult = applyPrivateSendDisplayPricesToActions({
-        actions: tx.decodedTx.outputActions,
-        tx,
-        priceMap,
+      const priced = mapHistoryTransfers(tx, (transfer) => {
+        const target = buildPrivateSendTransferDisplayPriceTarget({
+          tx,
+          transfer,
+        });
+        const key = target && getPrivateSendTargetPriceKey(target);
+        const price = key ? priceMap.get(key) : undefined;
+        return price === transfer.price ? transfer : { ...transfer, price };
       });
       const nativeTarget = buildPrivateSendNativeDisplayPriceTarget(tx);
       const nativePriceKey = nativeTarget
@@ -1129,22 +1207,14 @@ class ServiceHistory extends ServiceBase {
       const shouldUpdateFeeFiatValue =
         tx.decodedTx.totalFeeFiatValue !== totalFeeFiatValue;
 
-      if (
-        !actionsResult.updated &&
-        !outputActionsResult.updated &&
-        !shouldUpdateFeeFiatValue
-      ) {
+      if (priced === tx && !shouldUpdateFeeFiatValue) {
         return tx;
       }
 
       return {
         ...tx,
         decodedTx: {
-          ...tx.decodedTx,
-          ...(actionsResult.updated ? { actions: actionsResult.actions } : {}),
-          ...(outputActionsResult.updated
-            ? { outputActions: outputActionsResult.actions }
-            : {}),
+          ...priced.decodedTx,
           totalFeeFiatValue,
         },
       };
@@ -1340,7 +1410,7 @@ class ServiceHistory extends ServiceBase {
       filterLowValue,
     });
     const txsWithPrivateSendDisplayStatus =
-      await this.attachPrivateSendDisplayStatus(filtered);
+      await this.attachSwapHistoryForDisplay(filtered);
     const txsWithPrivateSendDisplayPrices =
       await this.attachPrivateSendDisplayPrices({
         txs: txsWithPrivateSendDisplayStatus,
@@ -1794,13 +1864,13 @@ class ServiceHistory extends ServiceBase {
     });
     onChainHistoryTxs = txs;
 
-    const privateSendDisplayStatusTxs =
-      await this.attachPrivateSendDisplayStatus(
-        unionBy(
-          [...confirmedTxs, ...localHistoryConfirmedTxs, ...onChainHistoryTxs],
-          (tx) => tx.id,
-        ),
-      );
+    const privateSendDisplayStatusTxs = await this.attachSwapHistoryForDisplay(
+      unionBy(
+        [...confirmedTxs, ...localHistoryConfirmedTxs, ...onChainHistoryTxs],
+        (tx) => tx.id,
+      ),
+      true,
+    );
     const privateSendDisplayStatusTxById = new Map(
       privateSendDisplayStatusTxs
         .filter((tx) => isPrivateSendAccountHistoryTx(tx))
@@ -1933,7 +2003,7 @@ class ServiceHistory extends ServiceBase {
       displayCurrency: sourceCurrency,
       currencyMap,
     });
-    result = await this.attachPrivateSendDisplayStatus(result);
+    result = await this.attachSwapHistoryForDisplay(result);
     result = await this.attachPrivateSendDisplayPrices({
       txs: result,
       targetCurrency: sourceCurrency,
@@ -2269,110 +2339,57 @@ class ServiceHistory extends ServiceBase {
     targetCurrency?: string;
     currencyMap?: Record<string, ICurrencyItem>;
   }) {
-    if (networkUtils.isAllNetwork({ networkId })) {
-      const accounts = (
+    const allNetworks = networkUtils.isAllNetwork({ networkId });
+    let confirmed: IAccountHistoryTx[];
+    let pending: IAccountHistoryTx[];
+    if (allNetworks) {
+      const { accountsInfo } =
         await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
-          {
-            accountId,
-            networkId,
-            excludeTestNetwork,
-          },
-        )
-      ).accountsInfo;
-      const allNetworksParams = accounts.map((account) => ({
+          { accountId, networkId, excludeTestNetwork },
+        );
+      const scopes = accountsInfo.map((account) => ({
         networkId: account.networkId,
         accountAddress: account.apiAddress,
         xpub: account.accountXpub,
       }));
-      const localHistoryConfirmedTxs =
-        await this.getAccountsLocalHistoryConfirmedTxs(allNetworksParams);
-
-      const localHistoryPendingTxs =
-        await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
-
-      const result = await this.gateLocalWalletCachedHistoryTxs(
-        unionBy(
-          [
-            ...localHistoryPendingTxs,
-            ...localHistoryConfirmedTxs.toSorted(
-              (b, a) =>
-                (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-                (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-            ),
-          ],
-          (tx) => tx.id,
-        ),
-      );
-
-      for (let i = 0; i < result.length; i += 1) {
-        const tx = result[i];
+      confirmed = sortHistoryTxsByTime({
+        txs: await this.getAccountsLocalHistoryConfirmedTxs(scopes),
+      });
+      pending = await this.getAccountsLocalHistoryPendingTxs(scopes);
+    } else {
+      const [accountAddress, xpub] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+      ]);
+      const scope = { accountAddress, xpub, networkId };
+      confirmed = this._normalizeLocalTxsAccountId({
+        txs: await this.getAccountLocalHistoryConfirmedTxs(scope),
+        accountId,
+      });
+      pending = this._normalizeLocalTxsAccountId({
+        txs: await this.getAccountLocalHistoryPendingTxs(scope),
+        accountId,
+      });
+    }
+    const result = await this.gateLocalWalletCachedHistoryTxs(
+      unionBy([...pending, ...confirmed], (tx) => tx.id),
+    );
+    if (allNetworks) {
+      for (const tx of result) {
         const network = await this.backgroundApi.serviceNetwork.getNetwork({
           networkId: tx.decodedTx.networkId,
         });
         tx.decodedTx.networkLogoURI = network.logoURI;
       }
-
-      const resultWithPrivateSendDisplayStatus =
-        await this.attachPrivateSendDisplayStatus(
-          await this.convertTxsToDisplayCurrency({
-            txs: result,
-            displayCurrency: sourceCurrency,
-            currencyMap,
-          }),
-        );
-      const resultWithPrivateSendDisplayPrices =
-        await this.attachPrivateSendDisplayPrices({
-          txs: resultWithPrivateSendDisplayStatus,
-          targetCurrency: sourceCurrency,
-          currencyMap,
-        });
-
-      return filterHistoryTxs({
-        txs: resultWithPrivateSendDisplayPrices,
-        sourceCurrency,
-        targetCurrency,
-        currencyMap,
-        filterScam,
-        filterLowValue,
-      });
     }
-    const [accountAddress, xpub] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-    ]);
-
-    const localHistoryConfirmedTxs = this._normalizeLocalTxsAccountId({
-      txs: await this.getAccountLocalHistoryConfirmedTxs({
-        networkId,
-        accountAddress,
-        xpub,
-      }),
-      accountId,
-    });
-    const localHistoryPendingTxs = this._normalizeLocalTxsAccountId({
-      txs: await this.getAccountLocalHistoryPendingTxs({
-        networkId,
-        accountAddress,
-        xpub,
-      }),
-      accountId,
-    });
-
-    const result = await this.gateLocalWalletCachedHistoryTxs(
-      unionBy(
-        [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
-        (tx) => tx.id,
-      ),
-    );
-
     const resultWithPrivateSendDisplayStatus =
-      await this.attachPrivateSendDisplayStatus(
+      await this.attachSwapHistoryForDisplay(
         await this.convertTxsToDisplayCurrency({
           txs: result,
           displayCurrency: sourceCurrency,
@@ -2427,6 +2444,46 @@ class ServiceHistory extends ServiceBase {
       await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
 
     return allNetworksPendingTxs;
+  }
+
+  // Only the normal reconciliation writes to SimpleDB. A slow repair cannot
+  // overwrite a newer page or resurrect a row that was cleared in flight.
+  private readonly historyBackfill = new LRUCache<
+    string,
+    IFetchHistoryTxDetailsResp | null
+  >({ max: 100, ttl: 5 * 60_000 });
+  private nextHistoryBackfillAt = 0;
+
+  private getBackfilledHistoryTx(
+    tx: IAccountHistoryTx,
+    accountAddress: string,
+    xpub?: string,
+  ) {
+    const { accountId, networkId, txid } = tx.decodedTx;
+    const requestCurrency = tx.fiatCurrency ?? USD_CURRENCY_ID;
+    const key = JSON.stringify([
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+      tx.id,
+      requestCurrency,
+    ]);
+    const cached = this.historyBackfill.get(key);
+    if (cached !== undefined || Date.now() < this.nextHistoryBackfillAt) {
+      return cached
+        ? restoreHistoryAmounts(tx, cached.data, cached.tokens)
+        : tx;
+    }
+    this.nextHistoryBackfillAt = Infinity;
+    const scope = { accountId, networkId, accountAddress, xpub };
+    void this.fetchHistoryTxDetails({ ...scope, txid, requestCurrency })
+      .catch(() => null)
+      .then((detail) => {
+        this.historyBackfill.set(key, detail ?? null);
+        this.nextHistoryBackfillAt = Date.now() + 10_000;
+      });
+    return tx;
   }
 
   @backgroundMethod()
@@ -2488,43 +2545,20 @@ class ServiceHistory extends ServiceBase {
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
 
-      const confirmedTxsToSave = (
-        await promiseAllSettledEnhanced(
-          confirmedTxs.map((tx) => async () => {
-            const onChain = mergedOnChainHistoryTxs.find((item) =>
-              this.isSameScopedHistoryTx(item, tx),
-            );
-            if (
-              onChain ||
-              vaultSettings.localWallet ||
-              !needsHistoryTransferRefresh(tx)
-            ) {
-              return onChain ?? tx;
-            }
-            const { accountId, txid } = tx.decodedTx;
-            const scope = { accountId, networkId, accountAddress, xpub };
-            const requestCurrency = tx.fiatCurrency ?? USD_CURRENCY_ID;
-            const detail = await this.fetchHistoryTxDetails({
-              ...scope,
-              txid,
-              requestCurrency,
-            });
-            if (!detail?.data || detail.data.tx !== txid) return tx;
-            const fresh = await this.decodeOnChainHistoryTx({
-              ...scope,
-              tx: detail.data,
-              tokens: detail.tokens,
-              nfts: detail.nfts,
-              cachedTx: tx,
-            });
-            return fresh && fresh !== tx
-              ? { ...fresh, fiatCurrency: requestCurrency }
-              : tx;
-          }),
-          { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
-        )
-      )
-        .map((tx, index) => tx ?? confirmedTxs[index])
+      const confirmedTxsToSave = confirmedTxs
+        .map((tx) => {
+          const fresh = mergedOnChainHistoryTxs.find((item) =>
+            this.isSameScopedHistoryTx(item, tx),
+          );
+          if (
+            fresh ||
+            vaultSettings.localWallet ||
+            !hasIndexedTokenTransfers(tx, true) ||
+            isPrivateSendAccountHistoryTx(tx)
+          )
+            return fresh ?? tx;
+          return this.getBackfilledHistoryTx(tx, accountAddress, xpub);
+        })
         .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
       const resp = unionBy(
@@ -2793,14 +2827,6 @@ class ServiceHistory extends ServiceBase {
     }
   }
 
-  private async getHistorySwapSnapshots(
-    tokens: Record<string, IOnChainHistoryTxToken>,
-  ) {
-    return Object.values(tokens).some(({ info }) => !info.isNative)
-      ? this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList()
-      : [];
-  }
-
   @backgroundMethod()
   public async fetchAccountOnChainHistory(
     params: IFetchAccountHistoryParams & {
@@ -2994,7 +3020,6 @@ class ServiceHistory extends ServiceBase {
       [accountId: string]: IDBAccount;
     } = {};
 
-    const swapHistories = await this.getHistorySwapSnapshots(tokens);
     const txs = (
       await Promise.all(
         onChainHistoryTxs.map((tx, index) =>
@@ -3005,7 +3030,6 @@ class ServiceHistory extends ServiceBase {
             accountAddress,
             xpub,
             onChainHistoryTx: tx,
-            swapHistories,
             tokens,
             nfts,
             index,
@@ -3446,14 +3470,25 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     cachedTx?: IAccountHistoryTx;
-    tx: IOnChainHistoryTx;
-    tokens: Record<string, IOnChainHistoryTxToken>;
-    nfts: Record<string, IOnChainHistoryTxNFT>;
+    tx?: IOnChainHistoryTx;
+    tokens?: Record<string, IOnChainHistoryTxToken>;
+    nfts?: Record<string, IOnChainHistoryTxNFT>;
     accountAddress?: string;
     xpub?: string;
   }) {
-    const { accountId, networkId, tx, tokens, nfts, cachedTx } = params;
-
+    const {
+      accountId,
+      networkId,
+      tx,
+      tokens = {},
+      nfts = {},
+      cachedTx,
+    } = params;
+    if (cachedTx) {
+      const restored = restoreHistoryAmounts(cachedTx, tx, tokens);
+      return (await this.attachSwapHistoryForDisplay([restored]))[0];
+    }
+    if (!tx) return;
     let accountAddress = params.accountAddress;
     let xpub = params.xpub;
 
@@ -3482,17 +3517,11 @@ class ServiceHistory extends ServiceBase {
       accountAddress: accountAddress || '',
       xpub: xpub || '',
       onChainHistoryTx: tx,
-      swapHistories: await this.getHistorySwapSnapshots(tokens),
       tokens,
       nfts,
     });
 
-    if (!cachedTx) return resp ?? undefined;
-    if (!resp || !this.isSameScopedHistoryTx(resp, cachedTx)) return cachedTx;
-    return mergeLocalTxDisplayFields({
-      localTx: cachedTx,
-      onChainHistoryTx: { ...resp, id: cachedTx.id },
-    });
+    if (resp) return (await this.attachSwapHistoryForDisplay([resp]))[0];
   }
 
   @backgroundMethod()

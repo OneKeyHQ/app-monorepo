@@ -24,6 +24,7 @@ import type {
   IOnChainHistoryTxToken,
   IOnChainHistoryTxTransfer,
 } from '../../types/history';
+import type { IDecodedTxTransferInfo } from '../../types/tx';
 
 // usd
 const LOW_VALUE_RECEIVE_TX_THRESHOLD = 0.01;
@@ -57,7 +58,10 @@ export function getOnChainHistoryTxStatus(
 }
 
 // Indexer-decoded transfers carry the multiplier used for their displayed amount.
-export function needsHistoryTransferRefresh(tx?: IAccountHistoryTx) {
+export function hasIndexedTokenTransfers(
+  tx?: IAccountHistoryTx,
+  legacyOnly = false,
+) {
   const transfer = tx?.decodedTx.actions?.[0]?.assetTransfer;
   return (
     tx?.isLocalCreated === false &&
@@ -68,7 +72,7 @@ export function needsHistoryTransferRefresh(tx?: IAccountHistoryTx) {
         asset.tokenIdOnNetwork &&
         !asset.isNative &&
         !asset.isNFT &&
-        asset.balanceMultiplier === undefined,
+        (!legacyOnly || asset.balanceMultiplier === undefined),
     )
   );
 }
@@ -443,6 +447,49 @@ export function checkIsLowValueReceiveTx({
   return totalFiatValue.lt(LOW_VALUE_RECEIVE_TX_THRESHOLD);
 }
 
+// Apply a display transform without mutating the cached history row.
+export function mapHistoryTransfers(
+  tx: IAccountHistoryTx,
+  update: (
+    asset: IDecodedTxTransferInfo,
+    side: 'sends' | 'receives',
+    index: number,
+  ) => IDecodedTxTransferInfo,
+) {
+  const mapActions = (actions: IAccountHistoryTx['decodedTx']['actions']) =>
+    actions.map((action) => {
+      const group = action.assetTransfer;
+      if (!group) return action;
+      const sends = group.sends.map((asset, i) => update(asset, 'sends', i));
+      const receives = group.receives.map((asset, i) =>
+        update(asset, 'receives', i),
+      );
+      if (
+        sends.every((a, i) => a === group.sends[i]) &&
+        receives.every((a, i) => a === group.receives[i])
+      )
+        return action;
+      return { ...action, assetTransfer: { ...group, sends, receives } };
+    });
+  const { decodedTx } = tx;
+  const actions = mapActions(decodedTx.actions);
+  const outputActions =
+    decodedTx.outputActions && mapActions(decodedTx.outputActions);
+  if (
+    actions.every((a, i) => a === decodedTx.actions[i]) &&
+    !outputActions?.some((a, i) => a !== decodedTx.outputActions?.[i])
+  )
+    return tx;
+  return {
+    ...tx,
+    decodedTx: {
+      ...decodedTx,
+      actions,
+      ...(outputActions && { outputActions }),
+    },
+  };
+}
+
 function convertHistoryTxFiatCurrency({
   tx,
   targetCurrency,
@@ -478,38 +525,16 @@ function convertHistoryTxFiatCurrency({
     const converted = new BigNumber(value).times(rate);
     return converted.isNaN() ? undefined : converted.toFixed();
   };
-  const convertActions = (actions: IAccountHistoryTx['decodedTx']['actions']) =>
-    actions.map((action) => {
-      const { assetTransfer } = action;
-      if (!assetTransfer) {
-        return action;
-      }
-      return {
-        ...action,
-        assetTransfer: {
-          ...assetTransfer,
-          sends: assetTransfer.sends.map((transfer) => ({
-            ...transfer,
-            price: convert(transfer.price),
-          })),
-          receives: assetTransfer.receives.map((transfer) => ({
-            ...transfer,
-            price: convert(transfer.price),
-          })),
-        },
-      };
-    });
-  const { decodedTx } = tx;
+  const converted = mapHistoryTransfers(tx, (asset) => ({
+    ...asset,
+    price: convert(asset.price),
+  }));
   return {
-    ...tx,
+    ...converted,
     fiatCurrency: rate ? targetCurrency : undefined,
     decodedTx: {
-      ...decodedTx,
-      totalFeeFiatValue: convert(decodedTx.totalFeeFiatValue),
-      actions: convertActions(decodedTx.actions),
-      ...(decodedTx.outputActions
-        ? { outputActions: convertActions(decodedTx.outputActions) }
-        : {}),
+      ...converted.decodedTx,
+      totalFeeFiatValue: convert(tx.decodedTx.totalFeeFiatValue),
     },
   };
 }

@@ -1,17 +1,10 @@
 /* eslint-disable import/first */
 jest.mock('../../dbs/local/localDbInstance');
 
-import { getSwapHistoryDisplayToAmount } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
-import {
-  EOnChainHistoryTransferType,
-  EOnChainHistoryTxStatus,
-  EOnChainHistoryTxType,
-} from '@onekeyhq/shared/types/history';
+import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
 import {
   EProtocolOfExchange,
   ESwapQuoteSource,
-  ESwapTxHistoryStatus,
-  type ISwapTxHistory,
   type ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
@@ -69,101 +62,8 @@ it.each([
     });
 
     expect(transfer.amount).toBe(expectedAmount);
+    expect(transfer.rawAmount).toBe(rawAmount);
     expect(transfer.price).toBe('75.5');
-  },
-);
-
-it.each([
-  ['same-chain receipt', 'fill', undefined, 'receiver', '2', '80'],
-  ['cross-chain receipt', 'bridge', 'bridge', 'receiver', '2', '80'],
-  ['unrelated transaction', 'other', undefined, 'receiver', '16', '10'],
-  [
-    'another recipient in the same transaction',
-    'fill',
-    undefined,
-    'other',
-    '16',
-    '10',
-  ],
-] as const)(
-  'decodes a %s against the completed order snapshot',
-  async (_, txid, receiverTransactionId, to, amount, price) => {
-    const { vault } = createVault();
-    const networkId = 'evm--56';
-    const token = {
-      contractAddress: '0xABC',
-      networkId,
-      symbol: 'SNDKB',
-      decimals: 18,
-      balanceMultiplier: '1',
-    };
-    const order: ISwapTxHistory = {
-      status: ESwapTxHistoryStatus.SUCCESS,
-      txInfo: {
-        txId: 'fill',
-        receiverTransactionId,
-        sender: 'sender',
-        receiver: 'receiver',
-      },
-      accountInfo: { sender: { networkId }, receiver: { networkId } },
-      baseInfo: {
-        fromToken: token,
-        toToken: token,
-        fromAmount: '2',
-        toAmount: '2',
-      },
-      swapInfo: {
-        provider: { provider: 'test', providerName: 'Test' },
-        instantRate: '1',
-      },
-      date: { created: 1, updated: 1 },
-    };
-    const action = await vault.buildHistoryTransferAction({
-      tx: {
-        tx: txid,
-        networkId,
-        from: 'sender',
-        to,
-        key: txid,
-        riskLevel: 0,
-        type: EOnChainHistoryTxType.Receive,
-        sends: [],
-        receives: [
-          {
-            key: 'asset',
-            token: '0xabc',
-            amount: '2',
-            type: EOnChainHistoryTransferType.Transfer,
-            from: 'sender',
-            to,
-            label: '',
-          },
-        ],
-        status: EOnChainHistoryTxStatus.Success,
-        timestamp: 1,
-        functionCode: '',
-        params: [],
-        value: '0',
-        label: '',
-      },
-      tokens: {
-        asset: {
-          info: {
-            address: '0xabc',
-            name: 'SNDKB',
-            symbol: 'SNDKB',
-            decimals: 18,
-            isNative: false,
-            balanceMultiplier: '8',
-          },
-          price: '10',
-        },
-      },
-      nfts: {},
-      swapHistories: [order],
-    });
-    expect(getSwapHistoryDisplayToAmount(order)).toBe('2');
-    expect(action.assetTransfer?.receives[0]).toMatchObject({ amount, price });
   },
 );
 

@@ -18,7 +18,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -49,6 +48,7 @@ import {
   maybeOpenPrivateSendHistoryDetail,
 } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -65,7 +65,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import {
   getHistoryTxDetailInfo,
-  needsHistoryTransferRefresh,
+  hasIndexedTokenTransfers,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import {
   collectPrivacyChainOwnAddresses,
@@ -483,7 +483,7 @@ function HistoryDetails() {
   );
 
   const refreshTransfer =
-    !isLocalWalletHistory && needsHistoryTransferRefresh(historyTxParam);
+    !isLocalWalletHistory && hasIndexedTokenTransfers(historyTxParam);
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (isInitialPrivateSendHistory && historyTxParam) {
@@ -525,16 +525,16 @@ function HistoryDetails() {
 
       let decodedOnChainTx: IAccountHistoryTx | undefined = historyTxParam;
 
-      if ((!decodedOnChainTx || refreshTransfer) && r?.data) {
+      if ((!decodedOnChainTx && r?.data) || refreshTransfer) {
         decodedOnChainTx =
           await backgroundApiProxy.serviceHistory.decodeOnChainHistoryTx({
             accountId,
             networkId,
             accountAddress,
-            tx: r.data,
+            tx: r?.data,
             cachedTx: historyTxParam,
-            tokens: r.tokens,
-            nfts: r.nfts,
+            tokens: r?.tokens,
+            nfts: r?.nfts,
           });
       }
 
