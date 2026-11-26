@@ -12,7 +12,7 @@ import type { ReactNode } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil, uniqBy } from 'lodash';
+import { isEmpty, isEqual, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -414,11 +414,11 @@ function TokenListBlock({
   const cellsIngestInputsRef = useRef<{
     ownerKey: string;
     nonZeroInputs: {
-      keepDefault?: boolean;
+      keepDefault: boolean;
       homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
       customTokens?: ICustomTokenItem[];
     };
-  }>({ ownerKey: '', nonZeroInputs: {} });
+  }>({ ownerKey: '', nonZeroInputs: { keepDefault: true } });
   const homeRequestRef = useRef<IHomeTokenRequest | undefined>(undefined);
   const lastSingleLiveRequestRef = useRef<IHomeTokenRequest | undefined>(
     undefined,
@@ -932,10 +932,12 @@ function TokenListBlock({
   const tokenListStore = useTokenListContextData().store!;
   const [listStructure] = useListStructureAtom();
 
-  const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
-    const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
-    return r;
-  }, []);
+  const { result: homeDefaultTokenMap, run: reloadHomeDefaultTokens } =
+    usePromiseResult(
+      () => backgroundApiProxy.serviceToken.getHomeDefaultTokenMap(),
+      [],
+      { checkIsFocused: !platformEnv.isExtensionUi },
+    );
 
   const { run } = usePromiseResult(
     async () => {
@@ -1529,16 +1531,17 @@ function TokenListBlock({
     enabled: !deferCellsTokenManagement || tokenListState.initialized,
     customTokensOnly: true,
   });
-  const cellsNonZeroInputs = useMemo(
-    () => ({
-      // Home keeps default zero-balance tokens (TokenListView defaults
-      // keepDefaultZeroBalanceTokens=true on the home path).
+  const cellsNonZeroInputs = useMemo(() => {
+    const inputs = {
       keepDefault: true,
       homeDefaultTokenMap,
-      customTokens: cellsCustomTokens,
-    }),
-    [homeDefaultTokenMap, cellsCustomTokens],
-  );
+      customTokens: cellsCustomTokens ?? [],
+    };
+    // Each structure broadcast re-reads custom tokens. Equal bridge results
+    // must not make two Home windows publish their retained snapshots again.
+    const previous = cellsIngestInputsRef.current.nonZeroInputs;
+    return isEqual(previous, inputs) ? previous : inputs;
+  }, [homeDefaultTokenMap, cellsCustomTokens]);
   useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
 
   // Per-owner token worth (OK-63873). `accountWorthAtom` is replaced on every
@@ -2153,22 +2156,23 @@ function TokenListBlock({
         return;
       }
 
-      if (!homeRequest && !a?.aggregateTokenConfigMap) {
-        await backgroundApiProxy.serviceSetting.syncWalletConfig();
-        a =
-          await backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot();
-      } else if (!homeRequest) {
-        // Refresh the cached wallet config in the background when it is stale
-        // (app/bundle version changed or TTL expired) so delisted networks get
-        // purged from the persisted aggregate-token maps. Not awaited: the
-        // current refresh renders with the cached data and the next one picks
-        // up the fresh config.
-        backgroundApiProxy.serviceSetting
-          .syncWalletConfigIfNeeded()
-          .catch(() => {
-            // Background refresh failure is non-fatal; the stale cache heals on
-            // the next refresh attempt.
-          });
+      if (!homeRequest) {
+        const configSync =
+          backgroundApiProxy.serviceSetting.syncWalletConfigIfNeeded();
+        // A window can read defaults before the first config sync completes.
+        // Both extension surfaces need the persisted defaults after that sync.
+        if (platformEnv.isExtensionUi) {
+          void configSync
+            .then(() => reloadHomeDefaultTokens())
+            .catch(() => undefined);
+        }
+        if (!a?.aggregateTokenConfigMap) {
+          await configSync;
+          a =
+            await backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot();
+        } else {
+          void configSync.catch(() => undefined);
+        }
       }
 
       if (
@@ -2212,6 +2216,7 @@ function TokenListBlock({
       isAccountEpochCurrent,
       isHomeRequestCurrent,
       getHomeRequest,
+      reloadHomeDefaultTokens,
       network?.id,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,

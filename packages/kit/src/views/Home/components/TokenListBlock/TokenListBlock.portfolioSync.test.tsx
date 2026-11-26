@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildMergedAllNetworkSnapshot } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import type {
   ICustomTokenItem,
   IFetchAccountTokensResp,
@@ -55,7 +56,9 @@ const mockEndPortfolioStage = jest.fn(
 const mockShowPortfolioProcessing = jest.fn<Promise<void>, []>(
   async () => undefined,
 );
-const mockCustomTokens: ICustomTokenItem[] = [];
+let mockCustomTokens: ICustomTokenItem[] = [];
+const mockGetHomeDefaultTokenMap = jest.fn(async () => ({}));
+const mockSyncWalletConfigIfNeeded = jest.fn(async () => undefined);
 const mockCurrencyMap = {};
 let mockEpoch = 0;
 let mockTokenWorth = '125';
@@ -457,6 +460,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockNotifySettled(...args),
     },
     serviceToken: {
+      getHomeDefaultTokenMap: mockGetHomeDefaultTokenMap,
       abortFetchAccountTokens: mockAsyncNoop,
       fetchAccountTokens: () => mockFetchTokens(),
       updateCurrentAccount: mockAsyncNoop,
@@ -490,7 +494,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getVaultSettings: (params: { networkId?: string }) =>
         mockGetVaultSettings(params),
     },
-    serviceSetting: { syncWalletConfigIfNeeded: mockAsyncNoop },
+    serviceSetting: { syncWalletConfigIfNeeded: mockSyncWalletConfigIfNeeded },
   },
 }));
 
@@ -545,6 +549,7 @@ describe('Home automatic Portfolio sync', () => {
     });
     mockEpoch = 0;
     mockVisibilityListener = undefined;
+    mockCustomTokens = [];
     platformEnv.isExtensionUi = false;
     platformEnv.isExtensionUiPopup = false;
     mockIndexedAccountReady = true;
@@ -601,6 +606,64 @@ describe('Home automatic Portfolio sync', () => {
 
     expect(mockVisibilityListener).toBeUndefined();
     expect(mockRunAllNetworks).not.toHaveBeenCalled();
+  });
+
+  it('only republishes the retained All Networks list when custom tokens change', async () => {
+    platformEnv.isExtensionUi = true;
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    const response = tokenResponse();
+    mockAllNetworkResult = [
+      {
+        ...response,
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: false,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue(
+      buildMergedAllNetworkSnapshot({
+        rounds: [],
+        mergeDeriveAssetsByNetworkId: {},
+      }),
+    );
+    const token = response.tokens.data[0];
+    mockCustomTokens = [token];
+    const { rerender } = render(<TokenListBlock />);
+    await waitFor(() =>
+      expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(1),
+    );
+
+    mockCustomTokens = [{ ...token }];
+    await act(async () => rerender(<TokenListBlock />));
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(1);
+
+    mockCustomTokens = [];
+    await act(async () => rerender(<TokenListBlock />));
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads extension Home defaults after the wallet config has been persisted', async () => {
+    platformEnv.isExtensionUi = true;
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    let finishSync!: () => void;
+    mockSyncWalletConfigIfNeeded.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishSync = () => resolve(undefined);
+      }),
+    );
+    render(<TokenListBlock />);
+    await act(async () => {
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+      });
+    });
+    expect(mockSyncWalletConfigIfNeeded).toHaveBeenCalledTimes(1);
+    expect(mockGetHomeDefaultTokenMap).not.toHaveBeenCalled();
+    await act(async () => finishSync());
+    expect(mockGetHomeDefaultTokenMap).toHaveBeenCalledTimes(1);
   });
 
   it('does not query categories until a current spot response is available', async () => {
