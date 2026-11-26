@@ -129,6 +129,7 @@ import {
   createStaleReferrerBindingError,
   isReferrerAlreadySetError,
 } from './referrerCodeBinding';
+import { WalletHyperliquidOnekey } from './ServiceHyperliquidWallet';
 import {
   getLiveUsdcWithdrawRoute,
   getUsdcWithdrawRoute,
@@ -144,10 +145,7 @@ import {
 } from './utils/orderAmend';
 
 import type { IHyperEvmRpcCall } from './cctpWithdraw';
-import type {
-  WalletHyperliquidOnekey,
-  WalletHyperliquidProxy,
-} from './ServiceHyperliquidWallet';
+import type { WalletHyperliquidProxy } from './ServiceHyperliquidWallet';
 import type { IUsdcWithdrawRoute } from './usdcWithdrawRoute';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
@@ -758,7 +756,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async extractAgentSignature(): Promise<{
+  async extractAgentSignature() {
+    return this.extractAgentSignatureFromWallet(this._wallet);
+  }
+
+  private async extractAgentSignatureFromWallet(
+    wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey | null,
+  ): Promise<{
     action: {
       type: string;
       signatureChainId: string;
@@ -771,8 +775,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     nonce: number;
     signerAddress: string;
   } | null> {
-    const wallet = this._wallet;
-
     const signedData = (
       wallet as WalletHyperliquidOnekey
     )?.getTempSignatureAndClear();
@@ -807,8 +809,48 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async approveAgent(params: IAgentApprovalRequest) {
+  async approveAgent(
+    params: IAgentApprovalRequest,
+    signer?: { accountId: string; accountAddress: IHex },
+  ) {
     await this.checkAccountCanTrade();
+    let wallet = this._wallet;
+    let exchangeClient: ExchangeClient;
+    if (signer) {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      if (
+        activeAccount.accountId !== signer.accountId ||
+        activeAccount.accountAddress?.toLowerCase() !==
+          signer.accountAddress.toLowerCase()
+      ) {
+        throw new OneKeyLocalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.active_trading_account_changed__msg,
+          }),
+        );
+      }
+      // A rotation owns its signer/client; status refreshes must not replace it.
+      const userWallet = new WalletHyperliquidOnekey(
+        signer.accountId,
+        this.backgroundApi,
+      );
+      if (
+        (await userWallet.getAddress()).toLowerCase() !==
+        signer.accountAddress.toLowerCase()
+      ) {
+        throw new OneKeyLocalError('Agent approval account address mismatch');
+      }
+      wallet = userWallet;
+      exchangeClient = this._createLoggedExchangeClient(
+        new ExchangeClient({
+          transport: new HttpTransport(),
+          wallet: userWallet,
+          signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+        }),
+      );
+    } else {
+      exchangeClient = this.exchangeClient;
+    }
     const requestPayload = {
       agentAddress: params.agent,
       agentName: params.agentName || null,
@@ -817,7 +859,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const startedAt = Date.now();
     try {
       const response = await convertHyperLiquidResponse(() =>
-        this.exchangeClient.approveAgent(requestPayload),
+        exchangeClient.approveAgent(requestPayload),
       );
       defaultLogger.perp.hyperliquid.approveAgent({
         ...context,
@@ -838,7 +880,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         response.response.type === 'default'
       ) {
         try {
-          const signatureInfo = await this.extractAgentSignature();
+          const signatureInfo =
+            await this.extractAgentSignatureFromWallet(wallet);
           if (signatureInfo) {
             void this.backgroundApi.serviceHyperliquid.reportAgentApprovalToBackend(
               signatureInfo,
