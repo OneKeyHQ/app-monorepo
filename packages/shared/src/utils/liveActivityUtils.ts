@@ -138,6 +138,28 @@ export function buildSwapLiveActivitySnapshot(
   );
   const displayName = (value: string) =>
     Array.from(value).slice(0, 64).join('');
+  const observed = {
+    status:
+      history.status === ESwapTxHistoryStatus.CANCELING &&
+      authoritativeStatus?.state === ESwapTxHistoryStatus.SUCCESS
+        ? ESwapTxHistoryStatus.CANCELED
+        : (authoritativeStatus?.state ?? history.status),
+    extraStatus: authoritativeStatus?.extraStatus ?? history.extraStatus,
+    crossChainStatus:
+      authoritativeStatus?.crossChainStatus ?? history.crossChainStatus,
+  };
+  const status = getLiveActivityStatus(observed);
+  let failureDetail: ILiveActivityContent['failureDetail'];
+  if (status === 'failed') {
+    if (observed.crossChainStatus === ESwapCrossChainStatus.REFUND_FAILED) {
+      failureDetail = 'refundFailed';
+    } else if (
+      observed.status === ESwapTxHistoryStatus.EXPIRED ||
+      observed.crossChainStatus === ESwapCrossChainStatus.EXPIRED
+    ) {
+      failureDetail = 'expired';
+    }
+  }
   return {
     order: {
       schemaVersion: 1,
@@ -172,16 +194,8 @@ export function buildSwapLiveActivitySnapshot(
       isMock: false,
     },
     content: {
-      status: getLiveActivityStatus({
-        status:
-          history.status === ESwapTxHistoryStatus.CANCELING &&
-          authoritativeStatus?.state === ESwapTxHistoryStatus.SUCCESS
-            ? ESwapTxHistoryStatus.CANCELED
-            : (authoritativeStatus?.state ?? history.status),
-        extraStatus: authoritativeStatus?.extraStatus ?? history.extraStatus,
-        crossChainStatus:
-          authoritativeStatus?.crossChainStatus ?? history.crossChainStatus,
-      }),
+      status,
+      ...(failureDetail && { failureDetail }),
       updatedAtMs: history.date.updated,
       revision: history.date.updated,
     },
