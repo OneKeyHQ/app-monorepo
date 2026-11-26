@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   ActionItem,
@@ -265,17 +271,42 @@ function StarknetPrivacyBlock({
         }
       />
       {isLocked ? (
-        <Button
-          testID="starknet-privacy-unlock"
-          alignSelf="flex-start"
-          size="small"
-          variant="secondary"
-          loading={balanceRefreshing}
-          disabled={balanceRefreshing}
-          onPress={reloadBalances}
+        <XStack
+          bg="$bgSubdued"
+          borderRadius="$3"
+          px="$3.5"
+          py="$3"
+          alignItems="center"
+          gap="$3"
         >
-          {intl.formatMessage({ id: ETranslations.global_unlock })}
-        </Button>
+          <XStack
+            w="$8"
+            h="$8"
+            borderRadius="$full"
+            bg="$bgStrong"
+            alignItems="center"
+            justifyContent="center"
+            flexShrink={0}
+          >
+            <Icon name="LockOutline" size="$4.5" color="$iconSubdued" />
+          </XStack>
+          <SizableText flex={1} size="$bodyMdMedium" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.privacy_balance_verification_pending__msg,
+            })}
+          </SizableText>
+          <Button
+            testID="starknet-privacy-unlock"
+            size="small"
+            variant="primary"
+            flexShrink={0}
+            loading={balanceRefreshing}
+            disabled={balanceRefreshing}
+            onPress={reloadBalances}
+          >
+            {intl.formatMessage({ id: ETranslations.global_unlock })}
+          </Button>
+        </XStack>
       ) : null}
       <RawActions flexWrap="wrap">
         <RawActions.Send
