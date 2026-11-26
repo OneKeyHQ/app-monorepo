@@ -97,8 +97,11 @@ function SortableHeader({
   }
 
   return (
-    <XStack w={width} ai="center" jc={jc} gap="$1">
+    <XStack w={width} minWidth={0} ai="center" jc={jc} gap="$1">
+      {/* Shrinks so long translations wrap inside the column. */}
       <XStack
+        flexShrink={1}
+        minWidth={0}
         ai="center"
         gap="$1"
         onPress={() => onSort(field)}
