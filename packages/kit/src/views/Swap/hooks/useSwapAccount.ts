@@ -506,7 +506,7 @@ export function useSwapAddressInfo(
       : undefined;
   const [stockFromAccountRefresh] = useSwapStockFromAccountRefreshAtom();
   const retryRevision =
-    type === ESwapDirectionType.FROM &&
+    (type === ESwapDirectionType.FROM || !useRecipientAccount) &&
     networkScope === 'trade' &&
     targetNetworkAccountResolveKey &&
     stockFromAccountRefresh?.scopeKey === targetNetworkAccountResolveKey
@@ -557,7 +557,7 @@ export function useSwapAddressInfo(
       try {
         const { account: targetAccount, deriveType: targetDeriveType } =
           await resolveSwapTargetNetworkAccountOnce({
-            // Join other FROM consumers in this retry, even if the original lookup is still pending.
+            // Join matching trade consumers even if the original lookup is still pending.
             key: retryRevision
               ? `${targetNetworkAccountResolveKey}|retry:${retryRevision}`
               : targetNetworkAccountResolveKey,

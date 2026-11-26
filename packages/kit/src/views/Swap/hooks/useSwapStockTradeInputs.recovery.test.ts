@@ -11,6 +11,7 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectTokenNetworkAtom,
+  swapToAnotherAccountAddressAtom,
   swapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -58,6 +59,7 @@ const mockGetNetworkAccount = jest.fn<
 const mockFetchSwapTokenDetails = jest.fn<Promise<ISwapToken[]>, []>();
 const mockAccountSelectors: Record<number, IAccountSelectorActiveAccountInfo> =
   {};
+let mockUseCustomRecipient = false;
 
 jest.mock('@onekeyhq/components', () => {
   const { useDeferredPromise } = jest.requireActual<
@@ -109,7 +111,9 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () =>
 );
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useCurrencyPersistAtom: () => [{ currencyMap: {} }],
-  useSettingsAtom: () => [{ swapToAnotherAccountSwitchOn: false }],
+  useSettingsAtom: () => [
+    { swapToAnotherAccountSwitchOn: mockUseCustomRecipient },
+  ],
   useSettingsPersistAtom: () => [{ currencyInfo: { id: 'usd', symbol: '$' } }],
 }));
 jest.mock('./useSwapStockChannel', () => {
@@ -211,20 +215,31 @@ function createActiveAccount(account: INetworkAccount) {
   return activeAccount;
 }
 
-function renderStockPay() {
+function renderStockPay({
+  selectorNetworkId = selectorNetwork,
+  customRecipientAddress,
+}: { selectorNetworkId?: string; customRecipientAddress?: string } = {}) {
   const store = createStore();
   store.set(swapSelectFromTokenAtom(), payToken);
   store.set(swapSelectToTokenAtom(), stockToken);
   store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
   store.set(swapSelectTokenNetworkAtom(), {
-    networkId: selectorNetwork,
+    networkId: selectorNetworkId,
     name: 'Arbitrum',
     symbol: 'ETH',
   });
+  if (customRecipientAddress) {
+    store.set(swapToAnotherAccountAddressAtom(), {
+      address: customRecipientAddress,
+      networkId: stockNetwork,
+      accountInfo: undefined,
+    });
+  }
   return renderHook(
     () => {
       const quote = useSwapAddressInfo(ESwapDirectionType.FROM);
       const review = useSwapAddressInfo(ESwapDirectionType.FROM);
+      const recipient = useSwapAddressInfo(ESwapDirectionType.TO);
       const selector = useSwapAddressInfo(ESwapDirectionType.FROM, {
         networkScope: 'selector',
       });
@@ -241,7 +256,7 @@ function renderStockPay() {
           ? balance.onBalanceMaxPress
           : undefined,
       });
-      return { action, balance, quote, review, selector };
+      return { action, balance, quote, review, recipient, selector };
     },
     {
       wrapper: ({ children }: { children: ReactNode }) =>
@@ -259,6 +274,7 @@ async function expectFailedAccountLookup(
     expect(result.current.balance.displayBalance).toBe('--');
     expect(result.current.quote.address).toBeUndefined();
     expect(result.current.review.address).toBeUndefined();
+    expect(result.current.recipient.address).toBeUndefined();
   });
 }
 
@@ -276,18 +292,25 @@ describe('Stocks pay balance recovery', () => {
       sourceAccount.address,
     );
     mockAccountSelectors[0] = createActiveAccount(sourceAccount);
+    mockUseCustomRecipient = false;
     mockGetNetworkAccount
       .mockReset()
       .mockRejectedValue(new Error('Network account unavailable'));
     mockFetchSwapTokenDetails.mockReset();
   });
 
-  it('recovers the payer for both quote and Review after the balance row retries', async () => {
-    const { result } = renderStockPay();
+  it('recovers the payer and default recipient with one shared retry', async () => {
+    const { result } = renderStockPay({ selectorNetworkId: stockNetwork });
     await expectFailedAccountLookup(result);
-    const selectorLookups = mockGetNetworkAccount.mock.calls.filter(
-      ([{ networkId }]) => networkId === selectorNetwork,
-    ).length;
+    await waitFor(() => {
+      expect(result.current.recipient.isRecipientValidationReady).toBe(true);
+      expect(result.current.selector.isRecipientValidationReady).toBe(true);
+    });
+    const countSharedLookups = () =>
+      mockGetNetworkAccount.mock.calls.filter(
+        ([{ dbAccount, networkId }]) => dbAccount && networkId === stockNetwork,
+      ).length;
+    expect(countSharedLookups()).toBe(1);
 
     mockGetNetworkAccount.mockResolvedValue(recoveredAccount);
     mockFetchSwapTokenDetails.mockResolvedValue([
@@ -299,17 +322,53 @@ describe('Stocks pay balance recovery', () => {
       expect(result.current.balance.displayBalance).toBe('12.5');
       expect(result.current.quote.address).toBe(recoveredAccount.address);
       expect(result.current.review.address).toBe(recoveredAccount.address);
+      expect(result.current.recipient.address).toBe(recoveredAccount.address);
+      expect(result.current.recipient.isAddressInfoReady).toBe(true);
       expect(result.current.action.testID).toBe(SwapTestIDs.maxButton);
     });
     expect(result.current.selector.address).toBeUndefined();
-    expect(
-      mockGetNetworkAccount.mock.calls.filter(
-        ([{ networkId }]) => networkId === selectorNetwork,
-      ),
-    ).toHaveLength(selectorLookups);
+    expect(countSharedLookups()).toBe(2);
   });
 
-  it('keeps the recovered payer when the original lookup fails after the retry', async () => {
+  it('keeps the explicit recipient ready while the payer retry is pending', async () => {
+    mockUseCustomRecipient = true;
+    mockAccountSelectors[1] = mockAccountSelectors[0];
+    const customRecipientAddress = '0x0000000000000000000000000000000000000002';
+    const { result } = renderStockPay({ customRecipientAddress });
+    await waitFor(() => {
+      expect(result.current.action.testID).toBe(
+        SwapTestIDs.balanceRefreshButton,
+      );
+      expect(result.current.quote.isRecipientValidationReady).toBe(true);
+      expect(result.current.recipient.isRecipientValidationReady).toBe(true);
+    });
+    expect(result.current.recipient.targetNetworkAccountResolveKey).toBe(
+      result.current.quote.targetNetworkAccountResolveKey,
+    );
+
+    const payerRetry = Promise.withResolvers<INetworkAccount>();
+    mockGetNetworkAccount.mockImplementation(({ dbAccount }) =>
+      dbAccount ? payerRetry.promise : Promise.resolve(recoveredAccount),
+    );
+    mockFetchSwapTokenDetails.mockResolvedValue([
+      { ...payToken, balanceParsed: '12.5' },
+    ]);
+    act(() => result.current.action.onPress?.());
+
+    await waitFor(() => {
+      expect(result.current.quote.isRecipientValidationReady).toBe(false);
+    });
+    expect(result.current.recipient.address).toBe(customRecipientAddress);
+    expect(result.current.recipient.isRecipientValidationReady).toBe(true);
+
+    await act(async () => payerRetry.resolve(recoveredAccount));
+    await waitFor(() => {
+      expect(result.current.quote.address).toBe(recoveredAccount.address);
+      expect(result.current.recipient.address).toBe(customRecipientAddress);
+    });
+  });
+
+  it('keeps the recovered addresses when the original lookup fails after the retry', async () => {
     const firstSenderLookup = Promise.withResolvers<INetworkAccount>();
     const getSender = jest
       .fn<Promise<INetworkAccount>, []>()
@@ -337,6 +396,7 @@ describe('Stocks pay balance recovery', () => {
     await waitFor(() => {
       expect(result.current.quote.address).toBe(recoveredAccount.address);
       expect(result.current.review.address).toBe(recoveredAccount.address);
+      expect(result.current.recipient.address).toBe(recoveredAccount.address);
       expect(result.current.balance.displayBalance).toBe('12.5');
     });
     expect(getSender).toHaveBeenCalledTimes(2);
@@ -347,6 +407,7 @@ describe('Stocks pay balance recovery', () => {
     });
     expect(result.current.quote.address).toBe(recoveredAccount.address);
     expect(result.current.review.address).toBe(recoveredAccount.address);
+    expect(result.current.recipient.address).toBe(recoveredAccount.address);
     expect(result.current.action.testID).toBe(SwapTestIDs.maxButton);
   });
 
