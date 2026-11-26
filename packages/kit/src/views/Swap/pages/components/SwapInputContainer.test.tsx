@@ -64,6 +64,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useDebounce', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockRouteFocused,
 }));
+jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
+  useThemeVariant: () => 'light',
+}));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
   useRateDifferenceAtom: () => [undefined],
   useSwapActions: () => ({ current: { loadSwapSelectTokenDetail: jest.fn() } }),
