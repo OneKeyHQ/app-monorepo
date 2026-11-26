@@ -163,6 +163,10 @@ private struct SwapActivityProgress: View {
   private let height: CGFloat = 10
 
   private var frozenProgress: Double {
+    if context.isStale, !context.state.status.isError,
+       let remoteProgress = context.state.remoteProgress, remoteProgress.isFinite {
+      return min(1, max(0, remoteProgress))
+    }
     let order = context.attributes.order
     let durationMs = order.estimatedEndAtMs - order.startedAtMs
     if let stoppedAtMs = context.state.progressStoppedAtMs ?? context.state.updatedAtMs,
