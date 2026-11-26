@@ -33,10 +33,19 @@ actor SwapLiveActivityIconCache {
     )
   }
 
-  func filename(for rawURL: String?) async -> String {
-    guard let directory, let url = MarketWidgetService.validIconURL(rawURL) else { return "" }
+  static func filename(for rawURL: String?) -> String {
+    guard let url = MarketWidgetService.validIconURL(rawURL) else { return "" }
+    return filename(for: url)
+  }
+
+  private static func filename(for url: URL) -> String {
     let digest = SHA256.hash(data: Data(url.absoluteString.utf8))
-    let name = digest.map { String(format: "%02x", $0) }.joined() + ".png"
+    return digest.map { String(format: "%02x", $0) }.joined() + ".png"
+  }
+
+  func cache(_ rawURL: String?) async -> String {
+    guard let directory, let url = MarketWidgetService.validIconURL(rawURL) else { return "" }
+    let name = Self.filename(for: url)
     let destination = directory.appendingPathComponent(name)
     if FileManager.default.fileExists(atPath: destination.path) {
       try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: destination.path)

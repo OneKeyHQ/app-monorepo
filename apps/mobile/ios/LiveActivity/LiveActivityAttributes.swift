@@ -24,6 +24,10 @@ enum SwapLiveActivityStatus: String, Codable {
   }
 }
 
+enum SwapLiveActivityFailure: String, Codable {
+  case expired, refundFailed
+}
+
 struct SwapLiveActivityToken: Codable, Hashable {
   let symbol: String
   let iconUrl: String
@@ -85,6 +89,7 @@ struct SwapLiveActivityOrder: Codable, Hashable {
 struct SwapLiveActivityAttributes: ActivityAttributes {
   struct ContentState: Codable, Hashable {
     var status: SwapLiveActivityStatus
+    var failureDetail: SwapLiveActivityFailure?
     var updatedAtMs: Double?
     var revision: Int64?
     var displayPhase: String?
@@ -98,7 +103,7 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
 
     private enum CodingKeys: String, CodingKey {
       case status, updatedAtMs, revision, displayPhase, etaMinutes, almostDone
-      case imageRevision, progressStoppedAtMs, terminalAtMs, strings, remote
+      case imageRevision, progressStoppedAtMs, terminalAtMs, strings, remote, failureDetail
     }
 
     private struct RemotePresentation: Codable, Hashable {
@@ -132,10 +137,10 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
       }
     }
 
-    var isTerminal: Bool { status.isTerminal || remote?.crossChainStatus == "REFUND_FAILED" }
-    var isRefundFailed: Bool { remote?.status == .failed && remote?.crossChainStatus == "REFUND_FAILED" }
+    var isTerminal: Bool { status.isTerminal || isRefundFailed }
+    var isRefundFailed: Bool { failureDetail == .refundFailed || remote?.crossChainStatus == "REFUND_FAILED" }
     var isPartiallyFilled: Bool { remote?.status == .partiallyFilled }
-    var isExpired: Bool { remote?.status == .expired }
+    var isExpired: Bool { failureDetail == .expired || remote?.status == .expired }
     var remoteMessage: String? { remote?.msg.flatMap { $0.isEmpty ? nil : $0 } }
     var remoteProgress: Double? { remote?.progress }
 
@@ -153,6 +158,7 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
         status = incoming.displayStatus
       } else {
         status = try values.decode(SwapLiveActivityStatus.self, forKey: .status)
+        failureDetail = try values.decodeIfPresent(SwapLiveActivityFailure.self, forKey: .failureDetail)
         updatedAtMs = try values.decode(Double.self, forKey: .updatedAtMs)
         revision = try values.decode(Int64.self, forKey: .revision)
         displayPhase = try values.decode(String.self, forKey: .displayPhase)
@@ -172,6 +178,7 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
 
     private init(
       status: SwapLiveActivityStatus,
+      failureDetail: SwapLiveActivityFailure?,
       updatedAtMs: Double,
       revision: Int64,
       displayPhase: String,
@@ -181,6 +188,7 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
       strings: SwapLiveActivityStrings?
     ) {
       self.status = status
+      self.failureDetail = status == .failed ? failureDetail : nil
       self.updatedAtMs = updatedAtMs
       self.revision = revision
       self.displayPhase = displayPhase
@@ -208,14 +216,15 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
     }
 
     mutating func preserveTerminalDate(from previous: Self, now: Date) {
-      guard status.isTerminal else { return }
-      terminalAtMs = (previous.status.isTerminal ? previous.firstTerminalDate(now: now) : now)
+      guard isTerminal else { return }
+      terminalAtMs = (previous.isTerminal ? previous.firstTerminalDate(now: now) : now)
         .timeIntervalSince1970 * 1000
     }
 
     static func make(
       order: SwapLiveActivityOrder,
       status: SwapLiveActivityStatus,
+      failureDetail: SwapLiveActivityFailure? = nil,
       revision: Int64,
       updatedAtMs: Double,
       displayPhase: String = "eta",
@@ -224,6 +233,7 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
       let remaining = max(0, order.estimatedEndAt.timeIntervalSinceNow)
       return Self(
         status: status,
+        failureDetail: failureDetail,
         updatedAtMs: updatedAtMs,
         revision: revision,
         displayPhase: displayPhase,
@@ -248,14 +258,20 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
   }
 }
 
-struct SwapLiveActivityRequest: Decodable {
-  struct IconURLs: Decodable {
-    let from: String?
-    let to: String?
-  }
+struct SwapLiveActivityIconURLs: Decodable {
+  let from: String?
+  let to: String?
+}
 
+struct SwapLiveActivityIconPrefetchRequest: Decodable {
+  let urls: SwapLiveActivityIconURLs
+  let activityId: String?
+}
+
+struct SwapLiveActivityRequest: Decodable {
   struct Content: Decodable {
     let status: SwapLiveActivityStatus
+    let failureDetail: SwapLiveActivityFailure?
     let updatedAtMs: Double
     let revision: Int64
     let strings: SwapLiveActivityStrings?
@@ -269,14 +285,17 @@ struct SwapLiveActivityRequest: Decodable {
   }
   let order: SwapLiveActivityOrder
   let content: Content
-  let iconUrls: IconURLs?
+  let iconUrls: SwapLiveActivityIconURLs?
   let supportsBtcReceivingPush: Bool?
   let terminalFallback: TerminalFallback?
 }
 
+private let swapLiveActivityAppGroup = "group.so.onekey.wallet"
+private let swapLiveActivityDefaults = UserDefaults(suiteName: swapLiveActivityAppGroup)
+
 enum SwapLiveActivitySharedLabels {
   static let key = "swapLiveActivity.localizedLabels"
-  static let defaults = UserDefaults(suiteName: "group.so.onekey.wallet")
+  static let defaults = swapLiveActivityDefaults
 
   static func decode(_ data: Data) -> [String: SwapLiveActivityStrings] {
     (try? JSONDecoder().decode([String: SwapLiveActivityStrings].self, from: data)) ?? [:]
@@ -293,9 +312,44 @@ enum SwapLiveActivitySharedLabels {
 }
 
 enum SwapLiveActivityIconFiles {
+  struct Names: Codable, Equatable {
+    let from: String
+    let to: String
+  }
+
+  private static let assignedNamesKey = "swapLiveActivity.assignedIconNames"
+
   static var directory: URL? {
-    FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.so.onekey.wallet")?
+    FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: swapLiveActivityAppGroup)?
       .appendingPathComponent("LiveActivityIcons", isDirectory: true)
+  }
+
+  private static func assignments() -> [String: Names] {
+    guard let data = swapLiveActivityDefaults?.data(forKey: assignedNamesKey) else { return [:] }
+    return (try? JSONDecoder().decode([String: Names].self, from: data)) ?? [:]
+  }
+
+  static func names(for activityId: String, attributes: SwapLiveActivityAttributes) -> Names {
+    if !attributes.fromIconName.isEmpty && !attributes.toIconName.isEmpty {
+      return Names(from: attributes.fromIconName, to: attributes.toIconName)
+    }
+    let assigned = assignments()[activityId]
+    return Names(
+      from: attributes.fromIconName.isEmpty ? (assigned?.from ?? "") : attributes.fromIconName,
+      to: attributes.toIconName.isEmpty ? (assigned?.to ?? "") : attributes.toIconName
+    )
+  }
+
+  static func assign(_ names: Names, to activityId: String, keeping activityIds: Set<String>) {
+    let previous = assignments()
+    var updated = previous.filter { activityIds.contains($0.key) }
+    updated[activityId] = names
+    guard updated != previous, let data = try? JSONEncoder().encode(updated) else { return }
+    swapLiveActivityDefaults?.set(data, forKey: assignedNamesKey)
+  }
+
+  static func clearAssignments() {
+    swapLiveActivityDefaults?.removeObject(forKey: assignedNamesKey)
   }
 }
 

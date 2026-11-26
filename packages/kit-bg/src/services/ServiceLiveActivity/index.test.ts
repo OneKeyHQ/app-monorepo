@@ -14,12 +14,14 @@ import {
   buildSwapLiveActivitySnapshot,
 } from '@onekeyhq/shared/src/utils/liveActivityUtils';
 import type {
+  ILiveActivitySubscriptionResult,
   ILiveActivitySubscriptionTransport,
   ILiveActivitySystemStatus,
 } from '@onekeyhq/shared/types/liveActivity';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -246,7 +248,7 @@ describe('Live Activity subscription lifecycle', () => {
     expect(liveActivity.getStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('still subscribes if the JPush acknowledgement arrives after the initial polling window', async () => {
+  it('subscribes before lock when JPush acknowledges at 31 seconds', async () => {
     const start = jest.mocked(liveActivity.start).getMockImplementation();
     if (!start) throw new OneKeyLocalError('Missing mock');
     jest.mocked(liveActivity.start).mockImplementation(async (request) => {
@@ -256,19 +258,77 @@ describe('Live Activity subscription lifecycle', () => {
     });
     const service = new ServiceLiveActivity({ backgroundApi: {} });
     await service.onSwapBroadcast(createHistory());
+    jest.mocked(appStorage.getItem).mockClear();
     await jest.advanceTimersByTimeAsync(30_000);
     expect(serverTransport.subscribe).not.toHaveBeenCalled();
-    jest.mocked(liveActivity.getStatus).mockClear();
+    expect(appStorage.getItem).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1000);
     status.activities[0].pushRegistration = 'registered';
-    await jest.advanceTimersByTimeAsync(59_999);
-    expect(liveActivity.getStatus).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1999);
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(1);
     expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
   });
 
+  it('prefetches Swap logo URLs without creating a card', async () => {
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    const prefetch = jest.spyOn(liveActivity, 'prefetchIcons');
+    const { fromToken, toToken } = createHistory().baseInfo;
+    fromToken.logoURI = 'https://uni.onekey-asset.com/btc.png';
+    toToken.logoURI = 'https://uni.onekey-asset.com/usdc.png';
+    await service.prefetchSwapIcons({
+      protocol: EProtocolOfExchange.SWAP,
+      fromToken,
+      toToken,
+    });
+    expect(prefetch).toHaveBeenCalledWith({
+      urls: { from: fromToken.logoURI, to: toToken.logoURI },
+    });
+    expect(liveActivity.start).not.toHaveBeenCalled();
+  });
+
+  it('restores legacy card icons from the order and generic token metadata once', async () => {
+    const history = createHistory();
+    history.baseInfo.fromToken.logoURI = 'https://uni.onekey-asset.com/btc.png';
+    Object.assign(history.baseInfo.toToken, { symbol: 'ETH', isNative: true });
+    const loaded = deferred<void>();
+    const prefetch = jest
+      .spyOn(liveActivity, 'prefetchIcons')
+      .mockImplementation(async () => loaded.resolve());
+    const lookup = jest.fn().mockResolvedValue({
+      logoURI: 'https://uni.onekey-asset.com/eth.png',
+    });
+    const readHistory = jest.fn().mockResolvedValue([history]);
+    const service = new ServiceLiveActivity({
+      backgroundApi: {
+        simpleDb: { swapHistory: { getSwapHistoryList: readHistory } },
+        serviceToken: { getNativeToken: lookup },
+      },
+    });
+    await service.onSwapBroadcast(history);
+    status.activities[0].needsIconUrls = true;
+    await service.resumeRemoteSubscriptions();
+    await loaded.promise;
+    await service.resumeRemoteSubscriptions();
+    expect(readHistory).toHaveBeenCalledTimes(1);
+    expect(lookup).toHaveBeenCalledWith({
+      networkId: 'evm--1',
+      accountId: '',
+      tokenInfoOnly: true,
+    });
+    expect(prefetch).toHaveBeenCalledTimes(1);
+    expect(prefetch).toHaveBeenCalledWith({
+      activityId: 'synthetic-activity',
+      urls: {
+        from: history.baseInfo.fromToken.logoURI,
+        to: 'https://uni.onekey-asset.com/eth.png',
+      },
+    });
+  });
+
   it.each([
     [80_007, true],
-    [80_010, true],
+    [80_010, false],
     [80_012, false],
   ] as const)(
     'uses the polled terminal status only for a definitive Notification rejection (%s)',
@@ -298,6 +358,212 @@ describe('Live Activity subscription lifecycle', () => {
       }
     },
   );
+
+  it.each([
+    [80_007, false],
+    [80_007, true],
+    [80_010, false],
+    [80_010, true],
+  ] as const)(
+    'preserves a lost response when a retry returns %s (JS restarted: %s)',
+    async (code, restart) => {
+      const history = createHistory();
+      serverTransport.subscribe
+        .mockRejectedValueOnce(new Error('response lost after server commit'))
+        .mockRejectedValueOnce(new OneKeyServerApiError({ code }));
+      const first = new ServiceLiveActivity({ backgroundApi: {} });
+      await first.onSwapBroadcast(history);
+      const service = restart
+        ? new ServiceLiveActivity({ backgroundApi: {} })
+        : first;
+      if (restart) await service.resumeRemoteSubscriptions();
+      else await jest.advanceTimersByTimeAsync(3000);
+      expect(serverTransport.subscribe).toHaveBeenCalledTimes(2);
+      await service.onSwapStatus({
+        history,
+        status: { state: ESwapTxHistoryStatus.SUCCESS },
+      });
+      expect(liveActivity.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves another runtime’s unknown POST when the first validation rejection arrives last', async () => {
+    const history = createHistory();
+    const firstPost = deferred<ILiveActivitySubscriptionResult>();
+    const started = deferred<void>();
+    serverTransport.subscribe
+      .mockImplementationOnce(() => {
+        started.resolve();
+        return firstPost.promise;
+      })
+      .mockRejectedValueOnce(new Error('response lost after server commit'));
+    const first = new ServiceLiveActivity({ backgroundApi: {} });
+    const broadcast = first.onSwapBroadcast(history);
+    await started.promise;
+    const restarted = new ServiceLiveActivity({ backgroundApi: {} });
+    await restarted.resumeRemoteSubscriptions();
+    firstPost.reject(new OneKeyServerApiError({ code: 80_007 }));
+    await broadcast;
+    await first.onSwapStatus({
+      history,
+      status: { state: ESwapTxHistoryStatus.SUCCESS },
+    });
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(2);
+    expect(liveActivity.update).not.toHaveBeenCalled();
+  });
+
+  it('continues polling another card when recovering history fails', async () => {
+    const history = createHistory();
+    const snapshot = buildSwapLiveActivitySnapshot(history);
+    if (!snapshot) throw new OneKeyLocalError('Missing snapshot');
+    status.activities = [
+      {
+        ...snapshot,
+        activityId: 'one',
+        activityState: 'active',
+        pushRegistration: 'failed',
+      },
+      {
+        ...snapshot,
+        order: {
+          ...snapshot.order,
+          orderKey: 'swap:other',
+          serviceOrderId: 'other',
+          depositTxId: 'other-tx',
+        },
+        activityId: 'two',
+        activityState: 'active',
+        pushRegistration: 'pending',
+      },
+    ];
+    const getSwapHistoryList = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('temporarily unavailable'))
+      .mockResolvedValue([
+        { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+      ]);
+    const service = new ServiceLiveActivity({
+      backgroundApi: { simpleDb: { swapHistory: { getSwapHistoryList } } },
+    });
+    await service.resumeRemoteSubscriptions();
+    status.activities[1].pushRegistration = 'registered';
+    await jest.advanceTimersByTimeAsync(3000);
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+    expect(serverTransport.subscribe).toHaveBeenCalledWith(
+      expect.objectContaining({ activityId: 'two' }),
+    );
+    expect(liveActivity.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        terminalFallback: { activityId: 'one', reason: 'jpushFailed' },
+      }),
+    );
+  });
+
+  it.each([
+    [ESwapTxHistoryStatus.EXPIRED, undefined, 'expired'],
+    [
+      ESwapTxHistoryStatus.FAILED,
+      ESwapCrossChainStatus.REFUND_FAILED,
+      'refundFailed',
+    ],
+  ] as const)(
+    'recovers %s / %s after failed push setup',
+    async (state, crossChainStatus, detail) => {
+      const history = createHistory();
+      const snapshot = buildSwapLiveActivitySnapshot(history);
+      if (!snapshot) throw new OneKeyLocalError('Missing snapshot');
+      status.activities = [
+        {
+          ...snapshot,
+          activityId: 'one',
+          activityState: 'active',
+          pushRegistration: 'failed',
+        },
+      ];
+      const service = new ServiceLiveActivity({
+        backgroundApi: {
+          simpleDb: {
+            swapHistory: {
+              getSwapHistoryList: jest
+                .fn()
+                .mockResolvedValue([
+                  { ...history, status: state, crossChainStatus },
+                ]),
+            },
+          },
+        },
+      });
+      await service.resumeRemoteSubscriptions();
+      expect(liveActivity.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.objectContaining({
+            status: 'failed',
+            failureDetail: detail,
+          }),
+          terminalFallback: { activityId: 'one', reason: 'jpushFailed' },
+        }),
+      );
+    },
+  );
+
+  it('checks for a later refund at reconciliation cadence only on an expired fallback card', async () => {
+    const history = createHistory();
+    const snapshot = buildSwapLiveActivitySnapshot(history);
+    if (!snapshot) throw new OneKeyLocalError('Missing snapshot');
+    history.status = ESwapTxHistoryStatus.EXPIRED;
+    status.activities = [
+      {
+        ...snapshot,
+        activityId: 'one',
+        activityState: 'active',
+        pushRegistration: 'failed',
+      },
+      {
+        ...snapshot,
+        order: {
+          ...snapshot.order,
+          orderKey: 'swap:other',
+          serviceOrderId: 'other',
+        },
+        activityId: 'two',
+        activityState: 'active',
+        pushRegistration: 'pending',
+      },
+    ];
+    const fetch = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceLiveActivity({
+      backgroundApi: {
+        simpleDb: {
+          swapHistory: {
+            getSwapHistoryList: jest.fn().mockResolvedValue([history]),
+          },
+        },
+        serviceSwap: { swapHistoryStatusRunFetch: fetch },
+      },
+    });
+    await service.resumeRemoteSubscriptions();
+    expect(status.activities[0].content.failureDetail).toBe('expired');
+    await jest.advanceTimersByTimeAsync(59_999);
+    expect(fetch).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(history, {
+      shouldScheduleNextFetch: false,
+      shouldShowToast: false,
+    });
+    await service.onSwapStatus({
+      history,
+      status: { state: ESwapTxHistoryStatus.REFUNDED },
+    });
+    expect(liveActivity.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({ status: 'refunded' }),
+        terminalFallback: { activityId: 'one', reason: 'jpushFailed' },
+      }),
+    );
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
 
   it('recovers a terminal order from history after JPush fails and the JS service restarts', async () => {
     const start = jest.mocked(liveActivity.start).getMockImplementation();

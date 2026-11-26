@@ -9,6 +9,7 @@ const getStatus: ILiveActivityModule['getStatus'] = async () => ({
 const liveActivity: ILiveActivityModule = {
   getStatus,
   start: getStatus,
+  prefetchIcons: async () => undefined,
   update: getStatus,
   updateStrings: getStatus,
   end: getStatus,

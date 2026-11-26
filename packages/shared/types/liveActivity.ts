@@ -55,6 +55,7 @@ export type ILiveActivityStrings = {
 // Minimal App-to-native request. The native manager derives presentation fields.
 export type ILiveActivityContent = {
   status: ILiveActivityStatus;
+  failureDetail?: 'expired' | 'refundFailed';
   updatedAtMs: number;
   revision: number;
   strings?: ILiveActivityStrings;
@@ -76,18 +77,26 @@ export type ILiveActivitySnapshot = {
   content: ILiveActivityContent;
 };
 
+export type ILiveActivityIconUrls = { from?: string; to?: string };
+
+export type ILiveActivityIconPrefetchRequest = {
+  urls: ILiveActivityIconUrls;
+  activityId?: string;
+};
+
 export type ILiveActivityStartRequest = ILiveActivitySnapshot & {
-  iconUrls?: { from?: string; to?: string };
+  iconUrls?: ILiveActivityIconUrls;
   supportsBtcReceivingPush?: boolean;
 };
 
-export type ILiveActivityTerminalFallback = {
+export type ILiveActivityPushFailureFallback = {
   activityId: string;
   reason: 'jpushFailed' | 'subscriptionRejected';
 };
 
 export type ILiveActivityUpdateRequest = ILiveActivitySnapshot & {
-  terminalFallback?: ILiveActivityTerminalFallback;
+  // Retain the original bridge key for JS updates running on older native shells.
+  terminalFallback?: ILiveActivityPushFailureFallback;
 };
 
 export type ILiveActivityInstance = Omit<ILiveActivitySnapshot, 'content'> & {
@@ -96,6 +105,7 @@ export type ILiveActivityInstance = Omit<ILiveActivitySnapshot, 'content'> & {
   activityId: string;
   activityState: string;
   pushRegistration: 'notRequested' | 'pending' | 'registered' | 'failed';
+  needsIconUrls?: boolean;
   ownershipStatus?: 'needsConfirmation';
 };
 
@@ -142,6 +152,7 @@ export type ILiveActivityModule = {
   start: (
     snapshot: ILiveActivityStartRequest,
   ) => Promise<ILiveActivitySystemStatus>;
+  prefetchIcons: (request: ILiveActivityIconPrefetchRequest) => Promise<void>;
   update: (
     snapshot: ILiveActivityUpdateRequest,
   ) => Promise<ILiveActivitySystemStatus>;

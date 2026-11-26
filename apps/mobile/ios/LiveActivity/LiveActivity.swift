@@ -80,19 +80,20 @@ private struct SwapTokenIcon: View {
 }
 
 private struct SwapTokenPair: View {
-  let attributes: SwapLiveActivityAttributes
-  let status: SwapLiveActivityStatus
+  let context: ActivityViewContext<SwapLiveActivityAttributes>
   let size: CGFloat
   var overlapping = false
 
   var body: some View {
+    let attributes = context.attributes
+    let names = SwapLiveActivityIconFiles.names(for: context.activityID, attributes: attributes)
     HStack(spacing: overlapping ? -4 : 10) {
       SwapTokenIcon(token: attributes.order.fromToken,
-                    filename: attributes.fromIconName, size: size)
+                    filename: names.from, size: size)
         .zIndex(overlapping ? 1 : 0)
       SwapTokenIcon(token: attributes.order.toToken,
-                    filename: attributes.toIconName, size: size)
-        .opacity(status.isError && !overlapping ? 0.5 : 1)
+                    filename: names.to, size: size)
+        .opacity(context.state.status.isError && !overlapping ? 0.5 : 1)
     }
   }
 }
@@ -241,7 +242,8 @@ private struct SwapActivityDetails: View {
   private var stepText: String? {
     if context.state.status.isTerminal { return nil }
     if sharedLabels == nil, let message = context.state.remoteMessage { return message }
-    if let label = context.remoteStatusLabel(strings: strings) { return label }
+    // The status beside the token pair already presents this label.
+    if context.remoteStatusLabel(strings: strings) != nil { return nil }
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
@@ -341,7 +343,7 @@ struct SwapLiveActivityWidget: Widget {
     ActivityConfiguration(for: SwapLiveActivityAttributes.self) { context in
       VStack(alignment: .leading, spacing: context.state.status == .done ? 9 : 12) {
         HStack(alignment: .top) {
-          SwapTokenPair(attributes: context.attributes, status: context.state.status, size: 46)
+          SwapTokenPair(context: context, size: 46)
           Spacer()
           Image("SwapOneKeyWordmark").resizable().scaledToFit().frame(width: 56, height: 16.2715)
         }
@@ -357,7 +359,7 @@ struct SwapLiveActivityWidget: Widget {
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          SwapTokenPair(attributes: context.attributes, status: context.state.status, size: 40)
+          SwapTokenPair(context: context, size: 40)
         }
         DynamicIslandExpandedRegion(.trailing) {
           Image("SwapOneKeyWordmark").resizable().scaledToFit()
@@ -370,8 +372,7 @@ struct SwapLiveActivityWidget: Widget {
           }
         }
       } compactLeading: {
-        SwapTokenPair(attributes: context.attributes, status: context.state.status,
-                      size: 22, overlapping: true)
+        SwapTokenPair(context: context, size: 22, overlapping: true)
       } compactTrailing: {
         SwapLocalizedContent(activityID: context.activityID) { labels in
           SwapCompactStatus(context: context, sharedLabels: labels)
@@ -381,7 +382,9 @@ struct SwapLiveActivityWidget: Widget {
           Image("SwapMinimalRing").renderingMode(.original).resizable().scaledToFit()
             .frame(width: 26, height: 26)
           SwapTokenIcon(token: context.attributes.order.fromToken,
-                        filename: context.attributes.fromIconName, size: 18)
+                        filename: SwapLiveActivityIconFiles.names(
+                          for: context.activityID, attributes: context.attributes
+                        ).from, size: 18)
         }
         .frame(width: 30, height: 30)
       }

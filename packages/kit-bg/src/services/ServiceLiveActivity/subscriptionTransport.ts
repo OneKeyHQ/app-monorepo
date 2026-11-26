@@ -1,3 +1,5 @@
+import { Mutex } from 'async-mutex';
+
 import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   OneKeyLocalError,
@@ -9,6 +11,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ILiveActivitySubscriptionTransport } from '@onekeyhq/shared/types/liveActivity';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
 import type { IDevSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import type { AxiosInstance } from 'axios';
@@ -17,9 +20,12 @@ const SUBSCRIPTIONS_PATH = '/notification/v1/live-activities/subscriptions';
 const ACTIVITY_ID_PATTERN = /^[A-Za-z0-9-]{1,128}$/;
 const CLEANUP_STORAGE_KEY = 'swapLiveActivityRemoteCleanup';
 
-export type IRemoteActivityCleanup = {
+type IRemoteActivityCleanup = {
   expiresAtMs: number;
   subscribed: boolean;
+  // Only a rejection for the sole POST can disprove a remote subscription.
+  // A retry clears this bit before sending. Legacy entries default to unknown.
+  soleRequest?: boolean;
   retryAtMs: number;
 };
 
@@ -53,7 +59,7 @@ export const liveActivityRemoteTracking = {
   },
 };
 
-export async function readLiveActivityCleanupQueue(instanceId: string) {
+async function readLiveActivityCleanupQueue(instanceId: string) {
   const serialized = await appStorage.getItem(CLEANUP_STORAGE_KEY);
   const queue = new Map<string, IRemoteActivityCleanup>();
   if (!serialized) return { queue, prune: false };
@@ -75,7 +81,8 @@ export async function readLiveActivityCleanupQueue(instanceId: string) {
   }
   const now = Date.now();
   for (const row of value.activities.filter(Array.isArray)) {
-    const [activityId, expiresAtMs, subscribed, retryAtMs] = row as unknown[];
+    const [activityId, expiresAtMs, subscribed, retryAtMs, soleRequest] =
+      row as unknown[];
     if (
       typeof activityId === 'string' &&
       ACTIVITY_ID_PATTERN.test(activityId) &&
@@ -87,13 +94,18 @@ export async function readLiveActivityCleanupQueue(instanceId: string) {
       Number.isSafeInteger(retryAtMs) &&
       retryAtMs >= 0
     ) {
-      queue.set(activityId, { expiresAtMs, subscribed, retryAtMs });
+      queue.set(activityId, {
+        expiresAtMs,
+        subscribed,
+        retryAtMs,
+        soleRequest: soleRequest === true,
+      });
     }
   }
   return { queue, prune: queue.size !== value.activities.length };
 }
 
-export async function writeLiveActivityCleanupQueue(
+async function writeLiveActivityCleanupQueue(
   instanceId: string,
   queue: Map<string, IRemoteActivityCleanup>,
 ) {
@@ -107,16 +119,84 @@ export async function writeLiveActivityCleanupQueue(
       instanceId,
       activities: Array.from(
         queue,
-        ([id, { expiresAtMs, subscribed, retryAtMs }]) => [
+        ([id, { expiresAtMs, subscribed, retryAtMs, soleRequest }]) => [
           id,
           expiresAtMs,
           subscribed,
           retryAtMs,
+          soleRequest === true,
         ],
       ),
     }),
   );
 }
+
+// The background runtime owns this queue. All service instances share its lock.
+const cleanupMutex = new Mutex();
+
+async function accessCleanupQueue(
+  mutate?: (queue: Map<string, IRemoteActivityCleanup>) => boolean,
+) {
+  return cleanupMutex.runExclusive(async () => {
+    const { instanceId } = await settingsPersistAtom.get();
+    const { queue, prune } = await readLiveActivityCleanupQueue(instanceId);
+    if (mutate?.(queue) || prune)
+      await writeLiveActivityCleanupQueue(instanceId, queue);
+    return queue;
+  });
+}
+
+function updateEntry(
+  activityId: string,
+  update: (
+    entry?: IRemoteActivityCleanup,
+  ) => IRemoteActivityCleanup | undefined,
+) {
+  return accessCleanupQueue((queue) => {
+    const previous = queue.get(activityId);
+    const next = update(previous);
+    if (next === previous) return false;
+    if (next) queue.set(activityId, next);
+    else queue.delete(activityId);
+    return true;
+  });
+}
+
+export const liveActivityCleanup = {
+  read: () => accessCleanupQueue(),
+  beforeSubscribe: (id: string, expiresAtMs: number) =>
+    updateEntry(id, (entry) => {
+      if (!entry)
+        return {
+          expiresAtMs,
+          subscribed: false,
+          soleRequest: true,
+          retryAtMs: 0,
+        };
+      return entry.soleRequest ? { ...entry, soleRequest: false } : entry;
+    }),
+  validationRejected: (id: string) =>
+    updateEntry(id, (entry) =>
+      entry?.soleRequest && !entry.subscribed ? undefined : entry,
+    ),
+  subscribed: (id: string) =>
+    updateEntry(
+      id,
+      (entry) => entry && { ...entry, subscribed: true, soleRequest: false },
+    ),
+  afterUnsubscribe: (id: string, removed: boolean) =>
+    updateEntry(id, (entry) => {
+      // A new runtime may DELETE before a previous POST has finished.
+      if (!removed && entry && !entry.subscribed)
+        return { ...entry, retryAtMs: Date.now() + 60_000 };
+      return undefined;
+    }),
+  trackForCleanup: (id: string, expiresAtMs: number) =>
+    updateEntry(
+      id,
+      (entry) => entry ?? { expiresAtMs, subscribed: false, retryAtMs: 0 },
+    ),
+};
 
 function validateActivityId(activityId: string) {
   if (typeof activityId !== 'string' || !ACTIVITY_ID_PATTERN.test(activityId)) {
