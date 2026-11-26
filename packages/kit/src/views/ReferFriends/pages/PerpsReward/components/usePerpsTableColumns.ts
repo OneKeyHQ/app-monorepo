@@ -30,6 +30,10 @@ const MIN_COLUMN_WIDTHS = {
 
 // Character width multiplier for calculating dynamic widths
 const CHAR_WIDTH_MULTIPLIER = 9;
+// Room for the controls after a header label, so compact headers stay on one
+// line: the sort chevron plus its gap, and the info tooltip plus its gap.
+const SORT_CONTROL_WIDTH = 20;
+const TOOLTIP_CONTROL_WIDTH = 20;
 
 export interface IColumnWidths {
   address: string | number;
@@ -56,7 +60,7 @@ export function usePerpsTableColumns(isMobile: boolean) {
       intl.formatMessage({ id: ETranslations.referral_perps_invited_at })
         .length *
         CHAR_WIDTH_MULTIPLIER +
-        10,
+        SORT_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.invitedAt,
     );
     const referralCodeWidth = Math.max(
@@ -68,17 +72,21 @@ export function usePerpsTableColumns(isMobile: boolean) {
       intl.formatMessage({ id: ETranslations.referral_perps_first_trade })
         .length *
         CHAR_WIDTH_MULTIPLIER +
-        20,
+        SORT_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.firstTrade,
     );
     const volumeWidth = Math.max(
       intl.formatMessage({ id: ETranslations.referral_perps_volume }).length *
-        CHAR_WIDTH_MULTIPLIER,
+        CHAR_WIDTH_MULTIPLIER +
+        SORT_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.volume,
     );
     const feeWidth = Math.max(
       intl.formatMessage({ id: ETranslations.referral_perps_onekey_fee })
-        .length * CHAR_WIDTH_MULTIPLIER,
+        .length *
+        CHAR_WIDTH_MULTIPLIER +
+        SORT_CONTROL_WIDTH +
+        TOOLTIP_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.fee,
     );
     const undistributedWidth = Math.max(
@@ -89,7 +97,7 @@ export function usePerpsTableColumns(isMobile: boolean) {
     const rewardWidth = Math.max(
       intl.formatMessage({ id: ETranslations.referral_total_reward }).length *
         CHAR_WIDTH_MULTIPLIER +
-        20,
+        SORT_CONTROL_WIDTH,
       MIN_COLUMN_WIDTHS.reward,
     );
 
