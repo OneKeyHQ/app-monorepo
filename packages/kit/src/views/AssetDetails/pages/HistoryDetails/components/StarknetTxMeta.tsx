@@ -17,7 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
-import { InfoItem } from './TxDetailsInfoItem';
+import { InfoItem, InfoItemGroup } from './TxDetailsInfoItem';
 
 function StarknetAttributes({
   decodedTx,
@@ -80,9 +80,10 @@ function StarknetAttributes({
           </SizableText>
         </XStack>
 
-        <YStack gap="$1">
+        <InfoItemGroup p="$0">
           <InfoItem
-            p="$0"
+            px="$0"
+            py="$1.5"
             label={intl.formatMessage({ id: ETranslations.content__amount })}
             renderContent={
               <NumberSizeableText
@@ -100,7 +101,8 @@ function StarknetAttributes({
           />
           {fromAddress ? (
             <InfoItem
-              p="$0"
+              px="$0"
+              py="$1.5"
               label={intl.formatMessage({ id: ETranslations.global_from })}
               renderContent={fromAddress}
               showCopy
@@ -115,7 +117,8 @@ function StarknetAttributes({
           ) : null}
           {toAddress ? (
             <InfoItem
-              p="$0"
+              px="$0"
+              py="$1.5"
               label={intl.formatMessage({ id: ETranslations.global_to })}
               renderContent={toAddress}
               showCopy
@@ -128,7 +131,7 @@ function StarknetAttributes({
               }
             />
           ) : null}
-        </YStack>
+        </InfoItemGroup>
       </YStack>
     </Stack>
   );
