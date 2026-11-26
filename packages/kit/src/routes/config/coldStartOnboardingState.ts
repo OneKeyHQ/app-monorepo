@@ -27,8 +27,9 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isFreshInstallSync } from '@onekeyhq/shared/src/utils/freshInstallDetector';
-import { parseMarketWidgetLinkUrl } from '@onekeyhq/shared/src/utils/marketWidgetUtils';
 import { readWalletPresenceHintSync } from '@onekeyhq/shared/src/utils/walletPresenceHintUtils';
+
+import { isSupportedColdStartDeepLinkUrl } from './deeplink';
 
 import type { InitialState } from '@react-navigation/native';
 
@@ -56,6 +57,7 @@ export type IColdStartEvent =
   | { type: 'interrupted'; entry: IColdStartOverride | 'launch-intent' }
   | { type: 'onboarding-ready' }
   | { type: 'late-ordinary-launch' }
+  | { type: 'unlocked-ordinary-launch' }
   | { type: 'timed-out' };
 
 export function reduceColdStart(
@@ -63,10 +65,14 @@ export function reduceColdStart(
   event: IColdStartEvent,
 ): IColdStartState {
   if (state.phase === 'ready') {
-    return state.entry === 'unknown-entry' &&
-      event.type === 'late-ordinary-launch'
-      ? { phase: 'ready', entry: 'wallet', lateOrdinaryLaunch: true }
-      : state;
+    if (
+      (state.entry === 'unknown-entry' &&
+        event.type === 'late-ordinary-launch') ||
+      (state.entry === 'locked' && event.type === 'unlocked-ordinary-launch')
+    ) {
+      return { phase: 'ready', entry: 'wallet', lateOrdinaryLaunch: true };
+    }
+    return state;
   }
   switch (event.type) {
     case 'entry-resolved':
@@ -112,6 +118,23 @@ export function useColdStart() {
 // ordinary launch branch.
 const LAUNCH_OPTIONS_TIMEOUT_MS = 300;
 const ONBOARDING_READY_TIMEOUT_MS = 5000;
+// Wait past whenAppUnlocked()'s 100ms delay so pending post-unlock intents
+// can claim navigation before resuming the legacy onboarding check.
+const POST_UNLOCK_INTENT_GRACE_MS = 200;
+
+function hasLaunchIntent(
+  url: string | null,
+  options: Awaited<ReturnType<typeof launchOptionsManager.getLaunchOptions>>,
+): boolean {
+  const hasLaunchUrl = Boolean(url && isSupportedColdStartDeepLinkUrl(url));
+  return Boolean(
+    hasLaunchUrl ||
+    options?.launchType === ELaunchOptionsLaunchType.localNotification ||
+    options?.launchType === ELaunchOptionsLaunchType.remoteNotification ||
+    options?.localNotification ||
+    options?.remoteNotification,
+  );
+}
 
 export function useNativeColdStart(hasLaunchNotification: boolean) {
   const [isLocked] = useAppIsLockedAtom();
@@ -173,17 +196,7 @@ export function useNativeColdStart(hasLaunchNotification: boolean) {
       const url =
         initialUrl ??
         (platformEnv.isNativeIOS ? Linking.getLinkingURL() : null);
-      const widgetLink = url ? parseMarketWidgetLinkUrl(url) : undefined;
-      const hasLaunchUrl = Boolean(
-        url && (!widgetLink?.matches || widgetLink.target),
-      );
-      if (
-        hasLaunchUrl ||
-        options?.launchType === ELaunchOptionsLaunchType.localNotification ||
-        options?.launchType === ELaunchOptionsLaunchType.remoteNotification ||
-        options?.localNotification ||
-        options?.remoteNotification
-      ) {
+      if (hasLaunchIntent(url, options)) {
         launchResolved.current = true;
         dispatch({ type: 'entry-resolved', entry: 'launch-intent' });
         return;
@@ -217,6 +230,41 @@ export function useNativeColdStart(hasLaunchNotification: boolean) {
       clearTimeout(timeout);
     };
   }, [hasLaunchNotification]);
+
+  useEffect(() => {
+    if (state.phase !== 'ready' || state.entry !== 'locked' || override) {
+      return;
+    }
+    if (hasLaunchNotification) {
+      return;
+    }
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      void Promise.all([
+        Linking.getInitialURL(),
+        launchOptionsManager.getLaunchOptions(),
+      ])
+        .then(([initialUrl, options]) => {
+          if (cancelled) return;
+          const url =
+            initialUrl ??
+            (platformEnv.isNativeIOS ? Linking.getLinkingURL() : null);
+          if (hasLaunchIntent(url, options)) {
+            return;
+          }
+          dispatch({ type: 'unlocked-ordinary-launch' });
+        })
+        .catch(() => {
+          if (!cancelled) {
+            dispatch({ type: 'unlocked-ordinary-launch' });
+          }
+        });
+    }, POST_UNLOCK_INTENT_GRACE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [hasLaunchNotification, override, state]);
 
   useEffect(() => {
     if (state.phase !== 'waiting-for-onboarding') {

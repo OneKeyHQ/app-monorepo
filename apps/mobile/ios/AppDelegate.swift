@@ -237,12 +237,22 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
   private(set) var needsRecoveryWindow = false
 
   private func initializeFirstLaunch() {
+    let fileManager = FileManager.default
+    let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+    let resetMarkerURL = documentsURL?.appendingPathComponent(".onekey_first_launch_reset")
+    let wasExplicitReset = resetMarkerURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
+    if wasExplicitReset, let resetMarkerURL {
+      try? fileManager.removeItem(at: resetMarkerURL)
+    }
+
     if NitroModuleBridge.hasFirstLaunchPersistedState() {
       NitroModuleBridge.initializeFirstLaunch(options: nil)
       return
     }
-    let fileManager = FileManager.default
-    let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+    if wasExplicitReset {
+      NitroModuleBridge.initializeFirstLaunch(options: ["isLegacyInstall": NSNumber(value: false)] as NSDictionary)
+      return
+    }
     let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
     let bundleId = Bundle.main.bundleIdentifier
 

@@ -23,11 +23,11 @@ export function isFreshInstallSync(): boolean {
   return false;
 }
 
-export function resetFirstLaunchState(): boolean {
+export async function resetFirstLaunchState(): Promise<boolean> {
   if (typeof globalThis.window === 'undefined') {
     return true;
   }
-  return resetFirstLaunch();
+  return Promise.resolve(resetFirstLaunch());
 }
 
 export {

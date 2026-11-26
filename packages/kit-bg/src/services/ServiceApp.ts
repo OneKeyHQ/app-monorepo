@@ -254,8 +254,8 @@ class ServiceApp extends ServiceBase {
           await import('../states/jotai/jotaiStorage');
         await clearNativeJotaiStorageForReset();
       });
-      await runCleanup('firstLaunchState', () => {
-        if (!resetFirstLaunchState()) {
+      await runCleanup('firstLaunchState', async () => {
+        if (!(await resetFirstLaunchState())) {
           throw new OneKeyLocalError(
             'Failed to reset native first-launch state',
           );
@@ -305,9 +305,9 @@ class ServiceApp extends ServiceBase {
         }
       }
       if (platformEnv.isRuntimeBrowser) {
-        await runCleanup('browserStorage', () => {
+        await runCleanup('browserStorage', async () => {
           globalThis.localStorage.clear();
-          resetFirstLaunchState();
+          await resetFirstLaunchState();
         });
         await runCleanup('browserSessionStorage', () =>
           globalThis.sessionStorage.clear(),

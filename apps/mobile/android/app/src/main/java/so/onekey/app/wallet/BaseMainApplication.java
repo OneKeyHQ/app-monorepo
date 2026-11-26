@@ -495,8 +495,21 @@ public class BaseMainApplication extends Application implements ReactApplication
   }
 
   private void initializeFirstLaunch() {
+    File filesDir = getFilesDir();
+    File resetMarker = new File(filesDir, ".onekey_first_launch_reset");
+    boolean wasExplicitReset = resetMarker.exists();
+    if (wasExplicitReset) {
+      //noinspection ResultOfMethodCallIgnored
+      resetMarker.delete();
+    }
+
     if (DeviceUtilsFirstLaunch.hasPersistedState(this)) {
       DeviceUtilsFirstLaunch.initialize(this);
+      return;
+    }
+
+    if (wasExplicitReset) {
+      DeviceUtilsFirstLaunch.initialize(this, false, null);
       return;
     }
 
@@ -506,7 +519,6 @@ public class BaseMainApplication extends Application implements ReactApplication
       isUpdatedPackage = info.firstInstallTime > 0 && info.lastUpdateTime > info.firstInstallTime;
     } catch (Exception ignored) {}
 
-    File filesDir = getFilesDir();
     boolean hasV5Realm = new File(filesDir, "OneKeyV5").exists();
     boolean hasV4Realm = new File(filesDir, "default.realm").exists();
     boolean hasMmkvSettings = new File(new File(filesDir, "mmkv"), "onekey-app-setting").exists();

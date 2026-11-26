@@ -18,6 +18,7 @@ const mockReadWallet = jest.fn<
   []
 >();
 const mockIsFreshInstallSync = jest.fn<boolean, []>();
+const mockIsSupportedColdStartDeepLinkUrl = jest.fn<boolean, [string]>();
 let mockLocked = false;
 let mockTravel = false;
 let mockForceUpdate = false;
@@ -59,6 +60,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNativeIOS: false },
 }));
+jest.mock('./deeplink', () => ({
+  isSupportedColdStartDeepLinkUrl: (url: string) =>
+    mockIsSupportedColdStartDeepLinkUrl(url),
+}));
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -69,6 +74,11 @@ beforeEach(() => {
   mockGetLaunchOptions.mockResolvedValue(null);
   mockReadWallet.mockReturnValue('no_wallet');
   mockIsFreshInstallSync.mockReturnValue(false);
+  mockIsSupportedColdStartDeepLinkUrl.mockImplementation(
+    (url) =>
+      url === 'onekey-wallet://market_detail?coinGeckoId=bitcoin' ||
+      url === 'https://app.onekey.so/market',
+  );
 });
 
 it.each([
@@ -99,7 +109,7 @@ it.each([
 });
 
 it('hands off a launch intent without a wallet probe', async () => {
-  mockGetInitialURL.mockResolvedValue('onekey-wallet://market');
+  mockGetInitialURL.mockResolvedValue('https://app.onekey.so/market');
   const { result } = renderHook(() => useNativeColdStart(false));
   await waitFor(() =>
     expect(result.current.state).toEqual({
@@ -108,6 +118,51 @@ it('hands off a launch intent without a wallet probe', async () => {
     }),
   );
   expect(mockReadWallet).not.toHaveBeenCalled();
+});
+
+it('falls back to ordinary startup for an unrecognized cold link', async () => {
+  mockGetInitialURL.mockResolvedValue('onekey-wallet://unknown');
+  const { result } = renderHook(() => useNativeColdStart(false));
+  await waitFor(() =>
+    expect(result.current.state).toEqual({ phase: 'waiting-for-onboarding' }),
+  );
+});
+
+it('resumes the legacy wallet check after unlock when no launch intent is pending', async () => {
+  jest.useFakeTimers();
+  try {
+    mockLocked = true;
+    const { result, rerender } = renderHook(() => useNativeColdStart(false));
+    expect(result.current.state).toEqual({ phase: 'ready', entry: 'locked' });
+
+    mockLocked = false;
+    rerender();
+    await act(async () => jest.advanceTimersByTimeAsync(250));
+    expect(result.current.state).toEqual({
+      phase: 'ready',
+      entry: 'wallet',
+      lateOrdinaryLaunch: true,
+    });
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('keeps locked state after unlock when a launch intent is pending', async () => {
+  jest.useFakeTimers();
+  try {
+    mockLocked = true;
+    mockGetInitialURL.mockResolvedValue('https://app.onekey.so/market');
+    const { result, rerender } = renderHook(() => useNativeColdStart(false));
+    expect(result.current.state).toEqual({ phase: 'ready', entry: 'locked' });
+
+    mockLocked = false;
+    rerender();
+    await act(async () => jest.advanceTimersByTimeAsync(250));
+    expect(result.current.state).toEqual({ phase: 'ready', entry: 'locked' });
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it.each(['has_wallet', 'unknown', undefined] as const)(

@@ -59,8 +59,8 @@ it('defaults isLegacyInstall to false when HTML preload flag is absent', () => {
   });
 });
 
-it('keeps isFreshInstallSync false on non-native platforms and delegates reset', () => {
+it('keeps isFreshInstallSync false on non-native platforms and delegates reset', async () => {
   expect(isFreshInstallSync()).toBe(false);
-  expect(resetFirstLaunchState()).toBe(true);
+  await expect(resetFirstLaunchState()).resolves.toBe(true);
   expect(mockResetFirstLaunch).toHaveBeenCalledTimes(1);
 });
