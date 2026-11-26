@@ -26,6 +26,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 jest.mock('react-native', () => ({
   I18nManager: { isRTL: false },
+  StyleSheet: { flatten: (style: unknown) => style },
   processColor: (color: string) =>
     color === 'transparent' ? 0 : 0xff_88_88_88,
 }));
@@ -196,22 +197,23 @@ it.each([false, true])(
       textDecorationLine: 'underline',
       textDecorationStyle: 'dashed',
       textDecorationColor: '$textSubdued',
+      onekeyDashText: multiline ? '0.5,1,multiline' : '0.5,0,single',
       onTextLayout,
     });
-    // No measured dash views: the wrapper only reserves the old rule height.
     expect(view.container.querySelectorAll('[data-layout]')).toHaveLength(1);
-    expect(wrapperLayout(view.container).paddingBottom).toBe(
-      multiline ? 1.5 : 0.5,
-    );
-    expect(lastTextProps().paddingBottom).toBe(multiline ? undefined : '$0.2');
+    expect(wrapperLayout(view.container).paddingBottom).toBe(0);
+    expect(lastTextProps().paddingBottom).toBe(multiline ? 1.5 : 0.5);
   },
 );
 
 it('drops native decoration and reserved height for overlay and zero length', () => {
   platformEnv.isNative = true;
   const view = render(<DashText dashOverlay>Label</DashText>);
-  expect(lastTextProps().textDecorationStyle).toBe('dashed');
-  expect(lastTextProps().paddingBottom).toBe(0);
+  expect(lastTextProps()).toMatchObject({
+    textDecorationStyle: 'dashed',
+    onekeyDashText: '0.5,0,overlay',
+    paddingBottom: 0,
+  });
   expect(wrapperLayout(view.container).paddingBottom).toBe(0);
   view.rerender(
     <DashText multiline length={0}>
@@ -222,7 +224,24 @@ it('drops native decoration and reserved height for overlay and zero length', ()
   expect(wrapperLayout(view.container).paddingBottom).toBe(0);
   view.rerender(<DashText dashThickness={0}>Label</DashText>);
   expect(lastTextProps().textDecorationLine).toBeUndefined();
+  expect(lastTextProps()).not.toHaveProperty('onekeyDashText');
 });
+
+it.each([0.3, 1, 2])(
+  'uses the requested native thickness on the first render (%s)',
+  (dashThickness) => {
+    platformEnv.isNative = true;
+    const view = render(
+      <DashText dashThickness={dashThickness}>Cost</DashText>,
+    );
+    expect(lastTextProps()).toMatchObject({
+      onekeyDashText: `${dashThickness},0,single`,
+      paddingBottom: dashThickness,
+    });
+    expect(lastTextProps().onTextLayout).toBeUndefined();
+    expect(view.container.querySelectorAll('[data-layout]')).toHaveLength(1);
+  },
+);
 
 it('keeps an explicit native dash count on each wrapped line', () => {
   platformEnv.isNative = true;

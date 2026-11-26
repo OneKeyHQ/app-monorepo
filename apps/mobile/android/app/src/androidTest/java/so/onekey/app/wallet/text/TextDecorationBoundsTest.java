@@ -10,15 +10,31 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.os.Build;
+import android.content.Context;
 import android.text.Layout;
+import android.text.Spannable;
+import android.text.SpannableString;
 import android.text.StaticLayout;
 import android.text.TextPaint;
+import android.util.TypedValue;
+import android.view.ContextThemeWrapper;
+import android.view.View;
+
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.facebook.react.bridge.JavaOnlyMap;
+import com.facebook.react.uimanager.ReactStylesDiffMap;
+import com.facebook.react.views.text.ReactTextView;
+import com.facebook.react.views.text.ReactTextViewManager;
 
 import com.facebook.react.views.text.TextDecorationStyle;
 import com.facebook.react.views.text.TextDecorationStyleKt;
+import com.facebook.react.views.text.internal.span.ReactStrikethroughSpan;
+import com.facebook.react.views.text.internal.span.ReactUnderlineSpan;
 
 import org.junit.Test;
+
+import so.onekey.app.wallet.R;
 
 import java.lang.reflect.Method;
 
@@ -48,9 +64,8 @@ public class TextDecorationBoundsTest {
 
         Bitmap bitmap = drawDashedUnderline(layout, 1, latinStart + 2);
         int decoratedEnd = Math.round(left + paint.measureText("US"));
-        int row = layout.getLineBottom(1) - 1;
-        assertTrue(hasPaint(bitmap, (int) Math.ceil(left), decoratedEnd, row, row + 1));
-        assertFalse(hasPaint(bitmap, decoratedEnd + 1, bitmap.getWidth(), row, row + 1));
+        assertTrue(hasPaint(bitmap, (int) Math.ceil(left), decoratedEnd));
+        assertFalse(hasPaint(bitmap, decoratedEnd + 1, bitmap.getWidth()));
     }
 
     @Test
@@ -108,37 +123,67 @@ public class TextDecorationBoundsTest {
     }
 
     @Test
-    public void dashedUnderlineUsesDensityScaledPatternAtLineBottom() {
-        String text = "Underline\nNext line";
-        for (float density : new float[] {1f, 1.5f, 2f, 3f}) {
-            TextPaint paint = textPaint();
-            paint.density = density;
-            Layout layout = StaticLayout.Builder.obtain(text, 0, text.length(), paint, 400)
-                    .setIncludePad(false)
-                    .setLineSpacing(12f, 1f)
-                    .build();
-            int bottom = layout.getLineBottom(0);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                bottom -= 12;
-            }
-            Bitmap bitmap = drawDashedUnderline(layout, 0, text.indexOf('\n'));
-            assertFalse(hasPaint(bitmap, 0, bitmap.getWidth(), 0, bottom - 2));
-            assertFalse("density=" + density + ", line bottom=" + bottom
-                            + ", coverage below bottom=" + Color.alpha(bitmap.getPixel(1, bottom)),
-                    hasPaint(bitmap, 0, bitmap.getWidth(), bottom, bitmap.getHeight()));
+    public void dashTextPropReachesFirstDrawWithTheRequestedThickness() {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+            ReactTextView view = new ReactTextView(new ContextThemeWrapper(context, R.style.AppTheme));
+            view.setIncludeFontPadding(false);
+            view.setTextSize(TypedValue.COMPLEX_UNIT_PX, 42);
+            view.setTextColor(Color.TRANSPARENT);
+            view.setPadding(0, 0, 0, 1);
+            view.getPaint().density = 2.625f;
+            SpannableString text = new SpannableString("Underline");
+            text.setSpan(new ReactUnderlineSpan(Color.RED, TextDecorationStyle.DASHED),
+                    0, text.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            view.setText(text);
+            view.setSpanned(text);
+            ReactTextViewManager manager = new ReactTextViewManager();
 
-            // Read the coverage of two full periods, including fractional pixels.
-            for (int x = 0; x < (int) (10 * density); x++) {
-                float period = 5f * density;
-                float dashStart = (float) Math.floor(x / period) * period;
-                float coverage = Math.max(0f, Math.min(x + 1f, dashStart + 3f * density) - x);
-                coverage += Math.max(0f, x + 1f - (dashStart + period));
-                float opacity = (Color.alpha(bitmap.getPixel(x, bottom - 1))
-                        + Color.alpha(bitmap.getPixel(x, bottom - 2))) / 255f;
-                assertEquals("density=" + density + ", x=" + x,
-                        coverage * 0.5f * density, opacity, 0.12f);
-            }
-        }
+            setDashText(manager, view, "0.5,0,single");
+            Bitmap ordinary = drawTextView(view);
+            int row = view.getLayout().getLineBottom(0);
+            assertEquals(view.getHeight() - 1, row);
+            assertFalse(hasPaint(ordinary, 0, ordinary.getWidth(), 0, row));
+            assertEquals(Color.RED, ordinary.getPixel(1, row));
+            assertEquals(Color.TRANSPARENT, ordinary.getPixel(10, row));
+            assertEquals(Color.RED, ordinary.getPixel(16, row));
+
+            setDashText(manager, view, "0.3,0,single");
+            Bitmap thin = drawTextView(view);
+            int opacity = Color.alpha(thin.getPixel(1, row));
+            assertTrue(opacity > 0 && opacity < 255);
+
+            // At some pixel positions Yoga rounds the 0.3dp reservation to zero.
+            view.setPadding(0, 0, 0, 0);
+            Bitmap withoutRoundedPadding = drawTextView(view);
+            assertEquals(opacity, Color.alpha(withoutRoundedPadding.getPixel(
+                    1, withoutRoundedPadding.getHeight() - 1)));
+
+            text.removeSpan(text.getSpans(0, text.length(), ReactUnderlineSpan.class)[0]);
+            text.setSpan(new ReactStrikethroughSpan(Color.RED, TextDecorationStyle.DASHED),
+                    0, text.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            Bitmap strikeWithProp = drawTextView(view);
+            setDashText(manager, view, null);
+            Bitmap strikeWithoutProp = drawTextView(view);
+            assertTrue(hasPaint(strikeWithProp, 0, strikeWithProp.getWidth()));
+            assertTrue(strikeWithProp.sameAs(strikeWithoutProp));
+        });
+    }
+
+    private static void setDashText(ReactTextViewManager manager, ReactTextView view, String value) {
+        JavaOnlyMap props = new JavaOnlyMap();
+        props.putString("onekeyDashText", value);
+        manager.updateProperties(view, new ReactStylesDiffMap(props));
+    }
+
+    private static Bitmap drawTextView(ReactTextView view) {
+        view.measure(View.MeasureSpec.makeMeasureSpec(400, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        view.layout(0, 0, view.getMeasuredWidth(), view.getMeasuredHeight());
+        Bitmap bitmap = Bitmap.createBitmap(
+                view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
+        view.draw(new Canvas(bitmap));
+        return bitmap;
     }
 
     @Test
@@ -157,7 +202,7 @@ public class TextDecorationBoundsTest {
             TextDecorationStyleKt.drawSpannedDecoration(
                     0, text.length(), new Canvas(actual), layout, Color.RED, style,
                     (stroke, baseline, thickness) -> {
-                        float y = baseline + (style == TextDecorationStyle.DASHED ? -8f : 4f);
+                        float y = baseline + 4f;
                         try {
                             originalDraw.invoke(null, new Canvas(expected), stroke,
                                     layout.getLineLeft(0), layout.getLineRight(0),
@@ -174,7 +219,7 @@ public class TextDecorationBoundsTest {
 
     private static Bitmap drawDashedUnderline(Layout layout, int start, int end) {
         Bitmap bitmap = Bitmap.createBitmap(
-                layout.getWidth(), layout.getHeight(), Bitmap.Config.ARGB_8888);
+                layout.getWidth(), layout.getHeight() + 16, Bitmap.Config.ARGB_8888);
         TextDecorationStyleKt.drawSpannedDecoration(
                 start, end, new Canvas(bitmap), layout, Color.RED, TextDecorationStyle.DASHED,
                 (stroke, baseline, thickness) -> baseline + thickness + 1f);

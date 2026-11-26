@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react';
 
-import { I18nManager, processColor } from 'react-native';
+import { I18nManager, StyleSheet, processColor } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,7 +21,7 @@ import { useTheme } from '../../shared/tamagui';
 import type { IPopoverProps } from '../../actions/Popover';
 import type { ITooltipProps } from '../../actions/Tooltip';
 import type { ISizableTextProps } from '../../primitives';
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, StyleProp, TextStyle } from 'react-native';
 
 export interface IDashTextProps extends ISizableTextProps {
   dashLength?: number;
@@ -320,11 +320,17 @@ function DashTextCore({
   }
 
   const hasDashes = length > 0 && dashThickness > 0;
+  const textStyle = StyleSheet.flatten(textProps.style as StyleProp<TextStyle>);
   const useMeasuredDashes =
     hasDashes &&
     (leadingText !== undefined ||
       maxDashCount !== undefined ||
       textProps.textDecorationLine !== undefined ||
+      textStyle?.textDecorationLine !== undefined ||
+      textStyle?.paddingBottom !== undefined ||
+      textStyle?.paddingVertical !== undefined ||
+      textStyle?.padding !== undefined ||
+      (multiline && textProps.paddingBottom !== undefined) ||
       dashLength !== DEFAULT_DASH_LENGTH ||
       dashGap !== DEFAULT_DASH_GAP);
 
@@ -334,15 +340,27 @@ function DashTextCore({
     : undefined;
   const hasVisibleDashColor =
     typeof nativeDashColor !== 'number' || nativeDashColor >>> 24 !== 0;
+  let nativeDashMode = 'single';
+  if (dashOverlay) {
+    nativeDashMode = 'overlay';
+  } else if (multiline) {
+    nativeDashMode = 'multiline';
+  }
   const decorationProps =
     hasDashes && !useMeasuredDashes && hasVisibleDashColor
       ? ({
           textDecorationLine: 'underline',
           textDecorationStyle: 'dashed',
           textDecorationColor: dashColor,
+          onekeyDashText: `${dashThickness},${nativeDashMode === 'multiline' ? dashSpacing : 0},${nativeDashMode}`,
         } as const)
       : undefined;
   const reservesDashHeight = !dashOverlay && length > 0;
+  // Put the existing space for the rule inside the text's drawable bounds.
+  const nativeDashPadding =
+    decorationProps && reservesDashHeight
+      ? (multiline ? dashSpacing : 0) + dashThickness
+      : undefined;
 
   const renderDashes = (width: number) => {
     const period = dashLength + dashGap;
@@ -374,11 +392,18 @@ function DashTextCore({
     return (
       <YStack
         maxWidth="100%"
-        paddingBottom={reservesDashHeight ? dashSpacing + dashThickness : 0}
+        paddingBottom={
+          reservesDashHeight && nativeDashPadding === undefined
+            ? dashSpacing + dashThickness
+            : 0
+        }
       >
         <SizableText
           {...textProps}
           {...decorationProps}
+          {...(nativeDashPadding === undefined
+            ? undefined
+            : { paddingBottom: nativeDashPadding })}
           onLayout={hasLeadingText ? handleParagraphLayout : onLayout}
           onTextLayout={
             hasLeadingText || useMeasuredDashes
@@ -438,7 +463,7 @@ function DashTextCore({
       {...textProps}
       {...decorationProps}
       onTextLayout={onTextLayout}
-      paddingBottom={dashOverlay ? 0 : '$0.2'}
+      paddingBottom={nativeDashPadding ?? (dashOverlay ? 0 : '$0.2')}
     >
       {children}
     </SizableText>
@@ -447,7 +472,11 @@ function DashTextCore({
     <YStack
       alignItems="flex-start"
       paddingBottom={
-        !useMeasuredDashes && reservesDashHeight ? dashThickness : 0
+        !useMeasuredDashes &&
+        reservesDashHeight &&
+        nativeDashPadding === undefined
+          ? dashThickness
+          : 0
       }
     >
       {useMeasuredDashes ? (
