@@ -198,11 +198,12 @@ it.each([false, true])(
       textDecorationStyle: 'dashed',
       textDecorationColor: '$textSubdued',
       onekeyDashText: multiline ? '0.5,1,multiline' : '0.5,0,single',
-      onTextLayout,
     });
     expect(view.container.querySelectorAll('[data-layout]')).toHaveLength(1);
     expect(wrapperLayout(view.container).paddingBottom).toBe(0);
     expect(lastTextProps().paddingBottom).toBe(multiline ? 1.5 : 0.5);
+    layoutText([{ x: 0, y: 0, width: 60, height: 14 }]);
+    expect(onTextLayout).toHaveBeenCalledTimes(1);
   },
 );
 
@@ -286,7 +287,6 @@ it('keeps wrapped Android RTL labels on the native decoration path', () => {
   );
 
   expect(lastTextProps().textDecorationLine).toBe('underline');
-  expect(lastTextProps().onTextLayout).toBe(onTextLayout);
 
   layoutText([
     { x: 27, y: 0, width: 40, height: 15 },
@@ -295,9 +295,63 @@ it('keeps wrapped Android RTL labels on the native decoration path', () => {
 
   expect(lastTextProps().textDecorationLine).toBe('underline');
   expect(underlines(view.container)).toHaveLength(0);
-  expect(jest.mocked(SizableText)).toHaveBeenCalledTimes(1);
   expect(onTextLayout).toHaveBeenCalledTimes(1);
 });
+
+it('reuses native overlay lines when the caller changes the dash pattern', () => {
+  platformEnv.isNative = true;
+  const onTextLayout = jest.fn();
+  const view = render(
+    <DashText multiline dashOverlay onTextLayout={onTextLayout}>
+      Label
+    </DashText>,
+  );
+  const lines = [{ x: 12, y: 0, width: 24, height: 15 }];
+  layoutText(lines);
+  expect(underlines(view.container)).toHaveLength(0);
+
+  view.rerender(
+    <DashText multiline dashOverlay dashGap={3} onTextLayout={onTextLayout}>
+      Label
+    </DashText>,
+  );
+
+  const draws = underlines(view.container);
+  expect(draws).toHaveLength(1);
+  expect(JSON.parse(draws[0].dataset.layout ?? '{}')).toMatchObject({
+    gap: 3,
+    start: 12,
+    top: 14.5,
+    width: 24,
+  });
+  expect(onTextLayout).toHaveBeenCalledTimes(1);
+  expect(onTextLayout).toHaveBeenCalledWith({ nativeEvent: { lines } });
+});
+
+it.each([
+  { paddingBottom: 4 },
+  { paddingVertical: 4 },
+  { padding: 4 },
+  { pb: 4 },
+  { py: 4 },
+  { p: 4 },
+])(
+  'preserves direct multiline padding while drawing the dash (%j)',
+  (padding) => {
+    platformEnv.isNative = true;
+    const view = render(
+      <DashText multiline {...padding}>
+        Label
+      </DashText>,
+    );
+
+    expect(lastTextProps()).toMatchObject(padding);
+    expect(lastTextProps().textDecorationLine).toBeUndefined();
+    expect(wrapperLayout(view.container).paddingBottom).toBe(1.5);
+    layoutText([{ x: 0, y: 0, width: 40, height: 15 }]);
+    expect(underlines(view.container)).toHaveLength(1);
+  },
+);
 
 it.each([{ dashLength: 4 }, { dashGap: 3 }])(
   'measures native dashes when only one pattern dimension changes (%j)',

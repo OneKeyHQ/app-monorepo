@@ -330,7 +330,13 @@ function DashTextCore({
       textStyle?.paddingBottom !== undefined ||
       textStyle?.paddingVertical !== undefined ||
       textStyle?.padding !== undefined ||
-      (multiline && textProps.paddingBottom !== undefined) ||
+      (multiline &&
+        (textProps.paddingBottom !== undefined ||
+          textProps.paddingVertical !== undefined ||
+          textProps.padding !== undefined ||
+          textProps.pb !== undefined ||
+          textProps.py !== undefined ||
+          textProps.p !== undefined)) ||
       dashLength !== DEFAULT_DASH_LENGTH ||
       dashGap !== DEFAULT_DASH_GAP);
 
@@ -406,9 +412,9 @@ function DashTextCore({
             : { paddingBottom: nativeDashPadding })}
           onLayout={hasLeadingText ? handleParagraphLayout : onLayout}
           onTextLayout={
-            hasLeadingText || useMeasuredDashes
+            hasLeadingText || useMeasuredDashes || onTextLayout
               ? handleTextLayout
-              : onTextLayout
+              : undefined
           }
         >
           {leadingText}

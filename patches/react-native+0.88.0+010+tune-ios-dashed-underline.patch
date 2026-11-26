@@ -11,7 +11,7 @@ index 11c8691..b01ff1a 100644
      android_hyphenationFrequency: true,
      lineBreakStrategyIOS: true,
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
-index 228ec0d..711f09b 100644
+index 228ec0d..a20937d 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
 @@ -42,6 +42,7 @@ @interface RCTParagraphTextView : UIView
@@ -26,7 +26,7 @@ index 228ec0d..711f09b 100644
 
    _paragraphAttributes = newParagraphProps.paragraphAttributes;
    _textView.paragraphAttributes = _paragraphAttributes;
-+  if (newParagraphProps.onekeyDashText != oldParagraphProps.onekeyDashText) {
++  if (oldProps == nullptr || newParagraphProps.onekeyDashText != oldParagraphProps.onekeyDashText) {
 +    _textView.onekeyDashText = [NSString stringWithUTF8String:newParagraphProps.onekeyDashText.c_str()];
 +    [_textView setNeedsDisplay];
 +  }
@@ -151,18 +151,62 @@ index a4b9be7..f5e48c8 100644
 
  - (facebook::react::LinesMeasurements)getLinesForAttributedString:(facebook::react::AttributedString)attributedString
 diff --git a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
-index 5f9847a..9e94ad6 100644
+index 5f9847a..6518238 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
 +++ b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
-@@ -8,6 +8,7 @@
+@@ -7,7 +7,10 @@
+
  #import "RCTTextLayoutManager.h"
 
++#import <algorithm>
  #import <array>
 +#import <cmath>
++#import <vector>
 
  #import "RCTAttributedTextUtils.h"
 
-@@ -130,6 +131,10 @@ - (CGRect)drawingFrameForAttributedString:(AttributedString)attributedString
+@@ -20,6 +23,40 @@
+
+ using namespace facebook::react;
+
++static void RCTAddDashTextSegments(
++    CGContextRef context,
++    NSLayoutManager *layoutManager,
++    NSTextContainer *container,
++    NSRange glyphRange,
++    CGFloat originX,
++    CGFloat x1,
++    CGFloat x2,
++    CGFloat y)
++{
++  std::vector<unsigned char> bidiLevels(glyphRange.length);
++  [layoutManager getGlyphsInRange:glyphRange
++                          glyphs:nullptr
++                      properties:nullptr
++                characterIndexes:nullptr
++                      bidiLevels:bidiLevels.data()];
++  if (x2 > x1 && std::none_of(bidiLevels.begin(), bidiLevels.end(), [](unsigned char level) { return level != 0; })) {
++    CGContextMoveToPoint(context, x1, y);
++    CGContextAddLineToPoint(context, x2, y);
++    return;
++  }
++
++  [layoutManager
++      enumerateEnclosingRectsForGlyphRange:glyphRange
++                  withinSelectedGlyphRange:NSMakeRange(NSNotFound, 0)
++                           inTextContainer:container
++                                usingBlock:^(CGRect rect, __unused BOOL *stop) {
++                                  if (!CGRectIsEmpty(rect)) {
++                                    CGContextMoveToPoint(context, CGRectGetMinX(rect) + originX, y);
++                                    CGContextAddLineToPoint(context, CGRectGetMaxX(rect) + originX, y);
++                                  }
++                                }];
++}
++
+ @implementation RCTTextLayoutManager {
+   SimpleThreadSafeCache<AttributedString, std::shared_ptr<void>, 256> _cache;
+ }
+@@ -130,6 +167,10 @@ - (CGRect)drawingFrameForAttributedString:(AttributedString)attributedString
  - (void)drawAttributedString:(AttributedString)attributedString
           paragraphAttributes:(ParagraphAttributes)paragraphAttributes
                         frame:(CGRect)frame
@@ -173,7 +217,7 @@ index 5f9847a..9e94ad6 100644
             drawHighlightPath:(void (^_Nullable)(UIBezierPath *highlightPath))block
  {
    NSTextStorage *textStorage = [self
-@@ -156,6 +161,12 @@ - (void)drawAttributedString:(AttributedString)attributedString
+@@ -156,6 +197,12 @@ - (void)drawAttributedString:(AttributedString)attributedString
    CGContextRestoreGState(context);
  #endif
 
@@ -186,17 +230,20 @@ index 5f9847a..9e94ad6 100644
    // Custom decoration pass: enumerate `RCTCustomDecorationAttributeName`
    // ranges and paint each one ourselves. Covers wavy (no UIKit equivalent),
    // dotted, and dashed (UIKit's pattern bits don't match browser geometry).
-@@ -236,6 +247,40 @@ - (void)drawAttributedString:(AttributedString)attributedString
+@@ -236,6 +283,50 @@ - (void)drawAttributedString:(AttributedString)attributedString
 
                                                     // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
                                                     for (NSString *line in lines) {
 +                                                     // OneKey patch: Draw the DashText rule in the text's reserved padding.
 +                                                     if (dashThickness > 0.0 && std::isfinite(dashThickness) &&
-+                                                         scale > 0.0 && x2 > x1 && [style isEqualToString:@"dashed"] &&
++                                                         scale > 0.0 && [style isEqualToString:@"dashed"] &&
 +                                                         [line isEqualToString:@"underline"]) {
 +                                                       constexpr std::array<CGFloat, 2> intervals = {3.0, 2.0};
 +                                                       CGFloat lineBottom = CGRectGetMaxY(lineRect) + frame.origin.y;
-+                                                       CGFloat bottom = floor(drawingBottom * scale);
++                                                       CGFloat bottom = round(drawingBottom * scale);
++                                                       if (bottom < 1.0) {
++                                                         continue;
++                                                       }
 +                                                       CGFloat height = MAX(1.0, round(dashThickness * scale));
 +                                                       CGFloat top;
 +                                                       if ([dashMode isEqualToString:@"overlay"]) {
@@ -210,16 +257,23 @@ index 5f9847a..9e94ad6 100644
 +                                                       } else {
 +                                                         top = round((lineBottom + dashSpacing) * scale);
 +                                                       }
-+                                                       top = MIN(top, bottom - 1.0);
-+                                                       height = MIN(height, bottom - top);
++                                                       height = MIN(height, bottom);
++                                                       top = MAX(0.0, MIN(top, bottom - height));
 +                                                       CGFloat dashY = (top + height / 2.0) / scale;
 +
 +                                                       CGContextSaveGState(ctx);
 +                                                       CGContextSetLineWidth(ctx, height / scale);
 +                                                       CGContextSetLineDash(ctx, 0, intervals.data(), intervals.size());
 +                                                       CGContextBeginPath(ctx);
-+                                                       CGContextMoveToPoint(ctx, x1, dashY);
-+                                                       CGContextAddLineToPoint(ctx, x2, dashY);
++                                                       RCTAddDashTextSegments(
++                                                           ctx,
++                                                           layoutManager,
++                                                           container,
++                                                           intersection,
++                                                           frame.origin.x,
++                                                           x1,
++                                                           x2,
++                                                           dashY);
 +                                                       CGContextStrokePath(ctx);
 +                                                       CGContextRestoreGState(ctx);
 +                                                       continue;
