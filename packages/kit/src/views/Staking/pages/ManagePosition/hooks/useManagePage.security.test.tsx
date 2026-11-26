@@ -26,7 +26,12 @@ import { renderHook } from '@testing-library/react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EManagePositionType } from '@onekeyhq/shared/types/staking';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EManagePageActionType,
+  EManagePositionType,
+  EStakeProtocolGroupEnum,
+} from '@onekeyhq/shared/types/staking';
 
 import { useManagePage } from './useManagePage';
 import { buildManagePageRequestKey } from './useManagePage.utils';
@@ -135,6 +140,64 @@ it('loads a disabled position from the registered catalog and disables only depo
   expect(result.current.depositDisabled).toBe(true);
   expect(result.current.withdrawDisabled).toBe(false);
 });
+
+it('loads a matured Pendle withdrawal using the resolved network account', async () => {
+  const selection = {
+    ...params,
+    accountId: '',
+    indexedAccountId: 'indexed-account',
+    networkId: 'evm--1',
+    symbol: 'sUSDe' as const,
+    provider: 'Pendle',
+  };
+  const networkAccountId = 'derived-ethereum-account';
+  const accountAddress = '0x1111111111111111111111111111111111111111';
+  const staking = jest.mocked(backgroundApiProxy.serviceStaking);
+  const protocolList = [
+    {
+      network: { networkId: selection.networkId },
+      provider: {
+        name: selection.provider,
+        vault,
+        group: EStakeProtocolGroupEnum.WithdrawOnly,
+      },
+    },
+  ] as Awaited<ReturnType<typeof staking.getProtocolList>>;
+  const managePageData = {
+    buy: { payButton: { type: EManagePageActionType.Buy, disabled: true } },
+    sell: {
+      payButton: { type: EManagePageActionType.Redeem, disabled: false },
+    },
+  } satisfies Awaited<ReturnType<typeof staking.getManagePage>>;
+  staking.getEarnAccount.mockResolvedValue({
+    accountId: networkAccountId,
+    accountAddress,
+  } as NonNullable<Awaited<ReturnType<typeof staking.getEarnAccount>>>);
+  staking.getManagePage.mockImplementation(async ({ accountId }) => {
+    if (accountId !== networkAccountId) {
+      throw new OneKeyLocalError('Earn protocol is unavailable');
+    }
+    return managePageData;
+  });
+  staking.getProtocolList.mockImplementation(async ({ accountId }) =>
+    accountId === networkAccountId ? protocolList : [],
+  );
+  staking.getStakingConfigs.mockResolvedValue({ enabled: true } as NonNullable<
+    Awaited<ReturnType<typeof staking.getStakingConfigs>>
+  >);
+
+  const hook = jest.mocked(usePromiseResult);
+  hook.mockReturnValue(response());
+  const { result, rerender } = renderHook(() => useManagePage(selection));
+  const fetched = await hook.mock.lastCall![0]();
+  hook.mockReturnValue({ ...response(), result: fetched });
+  rerender({});
+
+  expect(result.current.protocolInfo?.vault).toBe(vault);
+  expect(result.current.depositDisabled).toBe(true);
+  expect(result.current.withdrawDisabled).toBe(false);
+});
+
 it('keeps the registered vault when the URL uses checksum casing', () => {
   const selection = { ...params, vault: vault.toUpperCase() };
   jest.mocked(usePromiseResult).mockReturnValue(response(selection));
