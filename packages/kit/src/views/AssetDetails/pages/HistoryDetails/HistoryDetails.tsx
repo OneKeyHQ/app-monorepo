@@ -63,7 +63,6 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   collectPrivacyChainOwnAddresses,
   getPrivacyChainEndpointFlow,
@@ -1632,10 +1631,17 @@ function HistoryDetails() {
     txDetails,
     historyTx,
   });
+  const { result: nativeFeeToken } = usePromiseResult(async () => {
+    const token = await backgroundApiProxy.serviceToken.getNativeToken({
+      accountId,
+      networkId,
+      tokenInfoOnly: true,
+    });
+    return { networkId, symbol: token?.symbol };
+  }, [accountId, networkId]);
   const feeTokenSymbol =
     historyTx?.decodedTx.feeInfo?.common?.nativeSymbol ||
-    (network?.id === networkId && network.symbol) ||
-    networkUtils.getLocalNetworkInfo(networkId)?.symbol;
+    (nativeFeeToken?.networkId === networkId && nativeFeeToken?.symbol);
 
   const renderFeeInfo = useCallback(() => {
     // A private receive funded by someone else's transparent inputs has a fee this wallet cannot see;

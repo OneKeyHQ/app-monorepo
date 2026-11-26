@@ -45,7 +45,7 @@ function mockGate() {
 }
 
 function mockGatedHistory() {
-  return mockHistory.decodedTx.networkId.startsWith('btc')
+  return /^(btc|evm)--/.test(mockHistory.decodedTx.networkId)
     ? mockHistory
     : gateLocalWalletHistoryTx(mockGate(), mockHistory);
 }
@@ -60,11 +60,13 @@ function mockGatedDetails() {
 }
 
 let mockDeepLink = false;
+let mockNativeSymbol: string | undefined;
 
 beforeEach(() => {
   mockTxDetails = undefined;
   mockAccountAddresses = undefined;
   mockDeepLink = false;
+  mockNativeSymbol = 'XMR';
 });
 
 // Messages with values render from the English catalog; others stay ids.
@@ -141,8 +143,19 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/components/NumberSizeableTextWrapper', () => ({
   __esModule: true,
-  default: ({ children }: { children?: ReactNode }) => (
-    <span data-testid="formatted-number">{children}</span>
+  default: ({
+    children,
+    formatterOptions,
+  }: {
+    children?: ReactNode;
+    formatterOptions?: { tokenSymbol?: string };
+  }) => (
+    <span
+      data-testid="formatted-number"
+      data-unit={formatterOptions?.tokenSymbol}
+    >
+      {children}
+    </span>
   ),
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
@@ -220,7 +233,10 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (_request: unknown, deps: unknown[]) => ({
     result:
       deps.length === 2
-        ? { symbol: 'XMR' }
+        ? {
+            networkId: mockHistory.decodedTx.networkId,
+            symbol: mockNativeSymbol,
+          }
         : {
             txDetails: mockGatedDetails(),
             decodedOnChainTx: mockDeepLink ? mockHistory : undefined,
@@ -245,9 +261,6 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
   swrCacheNamespaces: { historyTxDetail: 'detail' },
   swrCacheUtils: { removeByPrefix: jest.fn(), flushNow: jest.fn() },
   swrKeys: { historyTxDetail: () => 'test-detail' },
-}));
-jest.mock('@onekeyhq/shared/src/utils/historyUtils', () => ({
-  getHistoryTxDetailInfo: () => ({}),
 }));
 jest.mock('../../utils', () => ({ getHistoryTxMeta: () => undefined }));
 jest.mock('./components/TxKYTRiskCheck', () => ({
@@ -657,6 +670,17 @@ it('shows our transparent change address beside the displayed t1', () => {
   expect(result.queryByTestId('history-details-to-pool')).toBeNull();
   expect(result.getAllByText(OWN_T)).toHaveLength(1);
   expect(result.getAllByText(external)).toHaveLength(1);
+});
+
+it('waits for the native asset before showing a Manta Pacific fee in ETH', () => {
+  mockHistory = history('evm--169', '1');
+  mockHistory.decodedTx.totalFeeInNative = '0.007';
+  mockNativeSymbol = undefined;
+  const result = render(<HistoryDetails />);
+  expect(result.queryByText('0.007')).toBeNull();
+  mockNativeSymbol = 'ETH';
+  result.rerender(<HistoryDetails />);
+  expect(result.getByText('0.007').getAttribute('data-unit')).toBe('ETH');
 });
 
 // A privacy chain cannot always see the fee of a payment someone else funded.
