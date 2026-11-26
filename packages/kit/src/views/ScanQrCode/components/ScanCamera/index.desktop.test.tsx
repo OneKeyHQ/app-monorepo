@@ -7,12 +7,13 @@ import { randomUUID } from 'node:crypto';
 import { decodeQrImageSymbols } from '@onekeyfe/react-native-qr-scanner/web';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import type { IDesktopQrEvent } from '@onekeyhq/shared/types/desktopQrScanner';
+
 import { ScanCamera } from './index.desktop';
 import { useScanCameraIsActive } from './useScanCameraIsActive.desktop';
 
 import type { IScanCameraProps } from './types';
 import type { IMultiQrFrameEvent } from '../../utils/multiQrSymbols';
-import type { IDesktopQrEvent } from '@onekeyhq/shared/types/desktopQrScanner';
 
 const mockStart = jest
   .fn<Promise<boolean>, [string, string?]>()
