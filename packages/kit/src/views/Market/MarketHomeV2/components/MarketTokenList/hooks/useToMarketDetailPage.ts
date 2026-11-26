@@ -54,6 +54,8 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
   tokenDetailPreview?: IMarketTokenDetailPreview;
+  // Symbol a stock route keeps for its preview and analytics.
+  stockPreviewSymbol?: string;
 }
 
 interface IUseToDetailPageOptions {
@@ -266,6 +268,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             network: tokenParams.network,
             isNative: tokenParams.isNative,
             from: options?.from,
+            ...(resolvedItem.stockPreviewSymbol
+              ? { stockPreviewSymbol: resolvedItem.stockPreviewSymbol }
+              : undefined),
             ...(stockEntryCategory
               ? { entryCategory: stockEntryCategory }
               : undefined),
@@ -326,6 +331,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         if (stockId) {
           await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
             stockId,
+            ...(resolvedItem.stockPreviewSymbol
+              ? { stockPreviewSymbol: resolvedItem.stockPreviewSymbol }
+              : undefined),
             tokenAddress: tokenParams.tokenAddress,
             network: tokenParams.network,
             isNative: tokenParams.isNative,

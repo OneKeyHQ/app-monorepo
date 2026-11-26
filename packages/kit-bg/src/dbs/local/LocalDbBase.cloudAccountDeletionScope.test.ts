@@ -461,13 +461,14 @@ it.each([
   'only treats an absent Realm creation network as matching: $createAtNetwork',
   async ({ createAtNetwork, matches }) => {
     const h = await fixture({ unsent: true });
+    const expectedCreateAtNetwork = createAtNetwork ?? undefined;
     const realmRecord = Object.assign(
       Object.create(RealmSchemaAccount.prototype) as RealmSchemaAccount,
       h.account,
       { createAtNetwork },
     ).record;
     expect(h.snapshot.account.createAtNetwork).toBeUndefined();
-    expect(realmRecord.createAtNetwork).toBe(createAtNetwork);
+    expect(realmRecord.createAtNetwork).toBe(expectedCreateAtNetwork);
     await h.db.withTransaction(
       EIndexedDBBucketNames.account,
       (tx) =>
@@ -490,7 +491,7 @@ it.each([
     expect(
       (await h.other.getAccountSafe({ accountId: h.account.id }))
         ?.createAtNetwork,
-    ).toBe(createAtNetwork);
+    ).toBe(expectedCreateAtNetwork);
   },
 );
 
@@ -501,6 +502,7 @@ it.each([
 ])(
   'only treats an absent Realm TRON relative path as matching: $relPath',
   async ({ relPath, matches }) => {
+    const expectedRelPath = relPath ?? undefined;
     const tron = (await publicAccountAllChainFixtures()).find(
       (item) => item.impl === 'tron' && item.kind === 'hd',
     );
@@ -519,7 +521,7 @@ it.each([
       h.account,
       { relPath },
     ).record;
-    expect(realmRecord.relPath).toBe(relPath);
+    expect(realmRecord.relPath).toBe(expectedRelPath);
     await h.db.withTransaction(
       EIndexedDBBucketNames.account,
       (tx) =>
@@ -541,7 +543,7 @@ it.each([
     );
     expect(
       (await h.other.getAccountSafe({ accountId: h.account.id }))?.relPath,
-    ).toBe(relPath);
+    ).toBe(expectedRelPath);
   },
 );
 

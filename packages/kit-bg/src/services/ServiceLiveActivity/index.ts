@@ -1,5 +1,3 @@
-import { Semaphore } from 'async-mutex';
-
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
@@ -27,15 +25,20 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   ILiveActivityInstance,
   ILiveActivityMockScenario,
+  ILiveActivityPushFailureFallback,
   ILiveActivitySnapshot,
+  ILiveActivityStartRequest,
   ILiveActivityStatus,
+  ILiveActivitySubscriptionRequest,
   ILiveActivitySubscriptionResult,
   ILiveActivitySystemStatus,
 } from '@onekeyhq/shared/types/liveActivity';
 import type {
   IFetchSwapTxHistoryStatusResponse,
+  ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 import ServiceBase from '../ServiceBase';
@@ -52,19 +55,40 @@ import {
 import {
   createMockLiveActivitySubscriptionTransport,
   createServerLiveActivitySubscriptionTransport,
+  liveActivityCleanup,
   liveActivityRemoteTracking,
-  readLiveActivityCleanupQueue,
-  writeLiveActivityCleanupQueue,
 } from './subscriptionTransport';
 
-import type { IRemoteActivityCleanup } from './subscriptionTransport';
+const REGISTRATION_POLL_MS = 3000;
+const RETRY_POLL_MS = 15_000;
+const RECONCILE_POLL_MS = 60_000;
+const MAX_ICON_RETRY_MS = 15 * RECONCILE_POLL_MS;
 
-function usesRemotePush(order: ILiveActivitySnapshot['order']) {
+function hasFinalContent(content: ILiveActivityInstance['content']) {
   return (
-    order.isPushTest === true ||
-    (!order.isMock &&
-      order.fromToken.networkId === 'btc--0' &&
-      order.fromToken.isNative === true)
+    isLiveActivityTerminal(content.status) ||
+    content.failureDetail === 'refundFailed'
+  );
+}
+
+// A failed or expired order can still progress to a refund.
+function canPresentAfterPushFailure(status: ILiveActivityStatus) {
+  return (
+    isLiveActivityTerminal(status) ||
+    status === 'failed' ||
+    status === 'refunding'
+  );
+}
+
+function findActivityHistory(
+  histories: ISwapTxHistory[],
+  order: ILiveActivityInstance['order'],
+) {
+  return histories.find(
+    (item) =>
+      getSwapLiveActivityOrderKey(item) === order.orderKey &&
+      item.swapInfo.orderId === order.serviceOrderId &&
+      item.baseInfo.fromToken.networkId === order.networkId,
   );
 }
 
@@ -110,8 +134,6 @@ class ServiceLiveActivity extends ServiceBase {
 
   private testEndpointGeneration = 0;
 
-  private readonly remoteCleanupMutex = new Semaphore(1);
-
   private get activityHalted() {
     return this.privacyHalted || this.changingEndpoint;
   }
@@ -129,7 +151,19 @@ class ServiceLiveActivity extends ServiceBase {
 
   private unsubscribing = new Map<string, Promise<void>>();
 
-  private remoteSyncTimer?: ReturnType<typeof setTimeout>;
+  private fallbackChecks = new Map<string, { nextRefundCheckAtMs: number }>();
+
+  private iconRetries = new Map<
+    string,
+    { retryAtMs: number; delayMs: number }
+  >();
+
+  private remoteSyncTimer?: {
+    handle: ReturnType<typeof setTimeout>;
+    atMs: number;
+  };
+
+  private remoteReconcile?: { nextAtMs: number; cleanupPending: boolean };
 
   private remoteTransport?: ReturnType<
     typeof createServerLiveActivitySubscriptionTransport
@@ -148,17 +182,61 @@ class ServiceLiveActivity extends ServiceBase {
   }
 
   private scheduleRemoteSync(delayMs: number) {
-    if (this.activityHalted || this.remoteSyncTimer) return;
-    this.remoteSyncTimer = setTimeout(() => {
-      this.remoteSyncTimer = undefined;
-      void this.resumeRemoteSubscriptions().catch(() => {
-        this.scheduleRemoteSync(15_000);
-      });
-    }, delayMs);
+    const atMs = Date.now() + delayMs;
+    if (this.activityHalted || (this.remoteSyncTimer?.atMs ?? Infinity) <= atMs)
+      return;
+    this.cancelRemoteSync();
+    this.remoteSyncTimer = {
+      atMs,
+      handle: setTimeout(() => {
+        this.remoteSyncTimer = undefined;
+        void this.syncRemoteSubscriptions(
+          delayMs !== REGISTRATION_POLL_MS,
+        ).catch(() => {
+          this.scheduleRemoteSync(RETRY_POLL_MS);
+        });
+      }, delayMs),
+    };
+  }
+
+  private cancelRemoteSync() {
+    clearTimeout(this.remoteSyncTimer?.handle);
+    this.remoteSyncTimer = undefined;
+  }
+
+  private scheduleNextRemoteSync(
+    activities: ILiveActivityInstance[],
+    cleanupPending = false,
+  ) {
+    const now = Date.now();
+    const awaitingRegistration = activities.some(
+      (item) =>
+        item.order.expiresAtMs > now &&
+        item.pushRegistration !== 'notRequested' &&
+        !this.subscriptions.has(item.activityId) &&
+        !this.subscribing.has(item.activityId) &&
+        item.pushRegistration !== 'failed' &&
+        !hasFinalContent(item.content) &&
+        (this.remoteAttempts.get(item.activityId)?.retryAtMs ?? 0) <=
+          now + REGISTRATION_POLL_MS,
+    );
+    const hasRetry = [...this.remoteAttempts.values()].some(
+      (attempt) =>
+        attempt.expiresAtMs > now && Number.isFinite(attempt.retryAtMs),
+    );
+    const retryDelay =
+      cleanupPending || hasRetry ? RETRY_POLL_MS : RECONCILE_POLL_MS;
+    this.scheduleRemoteSync(
+      awaitingRegistration ? REGISTRATION_POLL_MS : retryDelay,
+    );
   }
 
   @backgroundMethod()
   async resumeRemoteSubscriptions() {
+    await this.syncRemoteSubscriptions(true);
+  }
+
+  private async syncRemoteSubscriptions(forceReconcile: boolean) {
     const generation = this.testEndpointGeneration;
     if (
       this.activityHalted ||
@@ -172,29 +250,56 @@ class ServiceLiveActivity extends ServiceBase {
     if (this.activityHalted || generation !== this.testEndpointGeneration) {
       return;
     }
-    const [reconciliation, deferredCleanup] = await Promise.allSettled([
-      this.reconcile(status),
-      this.flushRemoteCleanup(status),
-    ]);
-    const cleanupPending =
-      reconciliation.status === 'rejected' ||
-      deferredCleanup.status === 'rejected' ||
-      deferredCleanup.value;
-    if (this.activityHalted || generation !== this.testEndpointGeneration) {
-      return;
-    }
     const trackedActivities = status.activities.filter(
       (item) => !item.order.isMock || item.order.isPushTest === true,
     );
-    await Promise.all(
+    // A pending native registration needs a fresh status, not a full cleanup scan on every read.
+    const reconcileNow =
+      forceReconcile ||
+      !trackedActivities.length ||
+      Date.now() >= (this.remoteReconcile?.nextAtMs ?? 0);
+    if (reconcileNow) {
+      const [reconciliation, deferredCleanup] = await Promise.allSettled([
+        this.reconcile(status),
+        this.flushRemoteCleanup(status),
+      ]);
+      if (this.activityHalted || generation !== this.testEndpointGeneration) {
+        return;
+      }
+      const cleanupPending =
+        reconciliation.status === 'rejected' ||
+        deferredCleanup.status === 'rejected' ||
+        deferredCleanup.value;
+      this.remoteReconcile = {
+        cleanupPending,
+        nextAtMs:
+          Date.now() + (cleanupPending ? RETRY_POLL_MS : RECONCILE_POLL_MS),
+      };
+    }
+    const cleanupPending = this.remoteReconcile?.cleanupPending ?? false;
+    void this.recoverIconUrls(trackedActivities);
+    const results = await Promise.allSettled(
       trackedActivities.map(async (item) => {
         if (item.order.expiresAtMs <= Date.now()) {
           await liveActivity.end(item.order.orderKey);
-        } else if (usesRemotePush(item.order)) {
+        } else if (item.pushRegistration !== 'notRequested') {
           await this.syncSubscription(item);
+          await this.recoverAfterPushFailure(item, reconcileNow);
         }
       }),
     );
+    const failed = results.find((item) => item.status === 'rejected');
+    if (failed) {
+      defaultLogger.notification.jpush.consoleError(
+        'Live Activity reconciliation failed',
+        {
+          errorType:
+            failed.reason instanceof Error
+              ? failed.reason.name
+              : 'UnknownError',
+        },
+      );
+    }
     if (
       trackedActivities.length ||
       cleanupPending ||
@@ -203,16 +308,10 @@ class ServiceLiveActivity extends ServiceBase {
         (subscription) => subscription.remote,
       )
     ) {
-      const now = Date.now();
-      const awaitingRegistration = trackedActivities.some(
-        (item) =>
-          usesRemotePush(item.order) &&
-          !this.subscriptions.has(item.activityId) &&
-          item.pushRegistration !== 'failed' &&
-          (this.remoteAttempts.get(item.activityId)?.retryAtMs ?? 0) <=
-            now + 3000,
+      this.scheduleNextRemoteSync(
+        trackedActivities,
+        cleanupPending || !!failed,
       );
-      this.scheduleRemoteSync(awaitingRegistration ? 3000 : 15_000);
     }
   }
 
@@ -301,6 +400,12 @@ class ServiceLiveActivity extends ServiceBase {
 
   private async reconcile(status: ILiveActivitySystemStatus) {
     const activeIds = new Set(status.activities.map((item) => item.activityId));
+    for (const id of this.fallbackChecks.keys()) {
+      if (!activeIds.has(id)) this.fallbackChecks.delete(id);
+    }
+    for (const id of this.iconRetries.keys()) {
+      if (!activeIds.has(id)) this.iconRetries.delete(id);
+    }
     const activeSubscriptions = new Map(
       status.activities.map((item) => [item.activityId, item]),
     );
@@ -319,40 +424,12 @@ class ServiceLiveActivity extends ServiceBase {
     );
   }
 
-  private async updateRemoteCleanup(
-    activityId: string,
-    update: (
-      previous: IRemoteActivityCleanup | undefined,
-    ) => IRemoteActivityCleanup | undefined,
-  ) {
-    return this.remoteCleanupMutex.runExclusive(async () => {
-      const { instanceId } = await settingsPersistAtom.get();
-      const { queue, prune } = await readLiveActivityCleanupQueue(instanceId);
-      const previous = queue.get(activityId);
-      const next = update(previous);
-      if (next === previous && !prune) return;
-      if (next) {
-        queue.set(activityId, next);
-      } else {
-        queue.delete(activityId);
-      }
-      await writeLiveActivityCleanupQueue(instanceId, queue);
-    });
-  }
-
   private async flushRemoteCleanup(
     status: ILiveActivitySystemStatus,
     signal?: AbortSignal,
   ) {
     if (this.privacyHalted || (!signal && this.changingEndpoint)) return false;
-    const queue = await this.remoteCleanupMutex.runExclusive(async () => {
-      const { instanceId } = await settingsPersistAtom.get();
-      const result = await readLiveActivityCleanupQueue(instanceId);
-      if (result.prune) {
-        await writeLiveActivityCleanupQueue(instanceId, result.queue);
-      }
-      return result.queue;
-    });
+    const queue = await liveActivityCleanup.read();
     const active = new Set(status.activities.map((item) => item.activityId));
     const orphaned = [...queue].filter(
       ([activityId]) => !active.has(activityId),
@@ -418,13 +495,7 @@ class ServiceLiveActivity extends ServiceBase {
         ...(signal ? { signal } : {}),
       });
       if (remote && !this.privacyHalted) {
-        await this.updateRemoteCleanup(activityId, (pending) => {
-          // A fresh runtime may delete before an outstanding POST commits.
-          if (!removed && pending && !pending.subscribed) {
-            return { ...pending, retryAtMs: Date.now() + 60_000 };
-          }
-          return undefined;
-        });
+        await liveActivityCleanup.afterUnsubscribe(activityId, removed);
       }
       if (orderKey) {
         this.mockTimers.get(orderKey)?.forEach(clearTimeout);
@@ -441,7 +512,7 @@ class ServiceLiveActivity extends ServiceBase {
     }
   }
 
-  private async present(snapshot: ILiveActivitySnapshot, create: boolean) {
+  private async present(snapshot: ILiveActivityStartRequest, create: boolean) {
     if (!platformEnv.isNativeIOS || this.activityHalted) {
       return;
     }
@@ -468,14 +539,13 @@ class ServiceLiveActivity extends ServiceBase {
       const presentation = (async () => {
         // An update may arrive before native creation has completed.
         await previous?.catch(() => undefined);
-        if (
-          this.activityHalted ||
-          generation !== this.testEndpointGeneration ||
-          isBlockedOrder(orderKey) ||
-          isReplacedDeposit(networkId, depositTxId)
-        )
-          return undefined;
-        const localizedSnapshot: ILiveActivitySnapshot = {
+        const canPresent = () =>
+          !this.activityHalted &&
+          generation === this.testEndpointGeneration &&
+          !isBlockedOrder(orderKey) &&
+          !isReplacedDeposit(networkId, depositTxId);
+        if (!canPresent()) return undefined;
+        const localizedSnapshot: ILiveActivityStartRequest = {
           ...snapshot,
           content: {
             ...snapshot.content,
@@ -486,9 +556,34 @@ class ServiceLiveActivity extends ServiceBase {
             }),
           },
         };
-        return create
-          ? liveActivity.start(localizedSnapshot)
-          : liveActivity.update(localizedSnapshot);
+        if (create) return liveActivity.start(localizedSnapshot);
+        if (
+          !snapshot.order.isMock &&
+          canPresentAfterPushFailure(snapshot.content.status)
+        ) {
+          const currentStatus = await liveActivity.getStatus();
+          const instance = currentStatus.activities.find(
+            ({ order }) =>
+              order.orderKey === orderKey &&
+              order.networkId === networkId &&
+              order.serviceOrderId === snapshot.order.serviceOrderId,
+          );
+          if (!instance) return undefined;
+          if (instance.pushRegistration !== 'notRequested') {
+            const terminalFallback =
+              await this.getPushFailureFallback(instance);
+            if (!terminalFallback || !canPresent()) return undefined;
+            // The provider may have normalized the deposit tx ID since the
+            // card was created. Target the identity stored on the native card.
+            return liveActivity.update({
+              ...localizedSnapshot,
+              order: instance.order,
+              terminalFallback,
+            });
+          }
+          if (!canPresent()) return undefined;
+        }
+        return liveActivity.update(localizedSnapshot);
       })();
       this.presenting.set(orderKey, presentation);
       let status: ILiveActivitySystemStatus | undefined;
@@ -512,10 +607,11 @@ class ServiceLiveActivity extends ServiceBase {
         (activity) => activity.order.orderKey === snapshot.order.orderKey,
       );
       if (instance) {
-        if (!instance.order.isMock || instance.order.isPushTest === true) {
-          this.scheduleRemoteSync(3000);
-        }
+        if (create) void this.recoverIconUrls([instance]);
         await this.syncSubscription(instance);
+        if (!instance.order.isMock || instance.order.isPushTest === true) {
+          this.scheduleNextRemoteSync([instance]);
+        }
       }
     } catch (error) {
       defaultLogger.notification.jpush.consoleError('Live Activity failed', {
@@ -525,23 +621,172 @@ class ServiceLiveActivity extends ServiceBase {
     }
   }
 
+  async prefetchSwapIcons({
+    protocol,
+    fromToken,
+    toToken,
+  }: {
+    protocol: EProtocolOfExchange;
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+  }) {
+    if (
+      protocol !== EProtocolOfExchange.SWAP ||
+      (!fromToken.logoURI && !toToken.logoURI) ||
+      ![fromToken, toToken].some(
+        (token) => token.networkId === 'btc--0' && token.isNative === true,
+      ) ||
+      !(await this.canTrackRealActivity())
+    )
+      return;
+    await liveActivity.prefetchIcons({
+      urls: { from: fromToken.logoURI, to: toToken.logoURI },
+    });
+  }
+
+  private async resolveTokenIconUrl(token: ISwapToken) {
+    if (token.logoURI) return token.logoURI;
+    const { networkId } = token;
+    const service = this.backgroundApi.serviceToken;
+    if (token.isNative === true) {
+      return (
+        await service.getNativeToken({
+          networkId,
+          accountId: '',
+          tokenInfoOnly: true,
+        })
+      )?.logoURI;
+    }
+    if (!token.contractAddress) return undefined;
+    return (
+      await service.getToken({
+        networkId,
+        tokenIdOnNetwork: token.contractAddress,
+        accountId: '',
+        tokenInfoOnly: true,
+      })
+    )?.logoURI;
+  }
+
+  private async recoverIconUrls(activities: ILiveActivityInstance[]) {
+    const generation = this.testEndpointGeneration;
+    const now = Date.now();
+    const pending = activities.filter(
+      ({ activityId, order, content, needsIconUrls }) =>
+        needsIconUrls &&
+        !order.isMock &&
+        order.expiresAtMs > now &&
+        !hasFinalContent(content) &&
+        (this.iconRetries.get(activityId)?.retryAtMs ?? 0) <= now,
+    );
+    if (!pending.length || this.activityHalted) return;
+    try {
+      const histories =
+        this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList({
+          includePendingWrites: true,
+        });
+      await Promise.all(
+        pending.map(async ({ activityId, order }) => {
+          const previous = this.iconRetries.get(activityId);
+          const attempt = {
+            retryAtMs: Infinity,
+            delayMs: previous
+              ? Math.min(previous.delayMs * 2, MAX_ICON_RETRY_MS)
+              : RECONCILE_POLL_MS,
+          };
+          this.iconRetries.set(activityId, attempt);
+          const canRecover = () =>
+            !this.activityHalted &&
+            generation === this.testEndpointGeneration &&
+            this.iconRetries.get(activityId) === attempt &&
+            order.expiresAtMs > Date.now() &&
+            !isBlockedOrder(order.orderKey);
+          try {
+            const history = findActivityHistory(await histories, order);
+            if (!history || !canRecover()) return;
+            const { fromToken, toToken } = history.baseInfo;
+            const [from, to] = await Promise.all([
+              this.resolveTokenIconUrl(fromToken),
+              this.resolveTokenIconUrl(toToken),
+            ]);
+            if ((from || to) && canRecover()) {
+              await liveActivity.prefetchIcons({
+                activityId,
+                urls: { from, to },
+              });
+            }
+          } finally {
+            // Native reports disk readiness on the next status snapshot.
+            attempt.retryAtMs = Date.now() + attempt.delayMs;
+          }
+        }),
+      );
+    } catch (error) {
+      defaultLogger.notification.jpush.consoleError(
+        'Live Activity icon recovery failed',
+        {
+          errorType: error instanceof Error ? error.name : 'UnknownError',
+        },
+      );
+    }
+  }
+
+  private async postRemoteSubscription(
+    request: ILiveActivitySubscriptionRequest,
+    generation: number,
+  ) {
+    const transport = await this.getRemoteTransport();
+    if (this.activityHalted || generation !== this.testEndpointGeneration)
+      return;
+    const { activityId, order } = request;
+    await liveActivityCleanup.beforeSubscribe(activityId, order.expiresAtMs);
+    if (
+      !(await liveActivityRemoteTracking.isReady()) ||
+      this.activityHalted ||
+      generation !== this.testEndpointGeneration
+    )
+      return;
+    this.remoteAttempts.set(activityId, {
+      orderKey: order.orderKey,
+      expiresAtMs: order.expiresAtMs,
+      retryAtMs: 0,
+      attempts: (this.remoteAttempts.get(activityId)?.attempts ?? 0) + 1,
+    });
+    try {
+      return await transport.subscribe(request);
+    } catch (error) {
+      // Validation rejects this POST before insertion. A binding conflict (80010)
+      // or an earlier POST may still own a subscription for this ActivityKit ID.
+      if (
+        error instanceof OneKeyServerApiError &&
+        error.code === 80_007 &&
+        !this.activityHalted &&
+        generation === this.testEndpointGeneration
+      ) {
+        await liveActivityCleanup.validationRejected(activityId);
+      }
+      throw error;
+    }
+  }
+
   private async syncSubscription(instance: ILiveActivityInstance) {
-    const { activityId, order, content } = instance;
+    const { activityId, order, content, pushRegistration } = instance;
     if (
       this.activityHalted ||
       this.subscriptions.has(activityId) ||
       this.subscribing.has(activityId) ||
-      this.unsubscribing.has(activityId)
+      this.unsubscribing.has(activityId) ||
+      (pushRegistration !== 'notRequested' && hasFinalContent(content))
     ) {
       return;
     }
-    const remote = usesRemotePush(order);
-    if (!remote && !order.isMock) return;
+    const remote = pushRegistration !== 'notRequested';
+    if (!remote && (!order.isMock || order.isPushTest === true)) return;
     const generation = this.testEndpointGeneration;
     const attempt = this.remoteAttempts.get(activityId);
     if (
       remote &&
-      (instance.pushRegistration !== 'registered' ||
+      (pushRegistration !== 'registered' ||
         order.expiresAtMs <= Date.now() ||
         (attempt && attempt.retryAtMs > Date.now()))
     ) {
@@ -549,36 +794,19 @@ class ServiceLiveActivity extends ServiceBase {
     }
     const subscribe = (async () => {
       try {
-        const transport = remote
-          ? await this.getRemoteTransport()
-          : this.mockSubscriptions;
-        if (this.activityHalted) return;
-        if (remote) {
-          // Keep enough identity to clean up when the response is lost.
-          await this.updateRemoteCleanup(activityId, () => ({
-            expiresAtMs: order.expiresAtMs,
-            subscribed: false,
-            retryAtMs: 0,
-          }));
-          if (
-            !(await liveActivityRemoteTracking.isReady()) ||
-            this.activityHalted ||
-            generation !== this.testEndpointGeneration
-          )
-            return;
-          this.remoteAttempts.set(activityId, {
-            orderKey: order.orderKey,
-            expiresAtMs: order.expiresAtMs,
-            retryAtMs: 0,
-            attempts: (attempt?.attempts ?? 0) + 1,
-          });
-        }
-        const result = await transport.subscribe({
+        const request: ILiveActivitySubscriptionRequest = {
           schemaVersion: 1,
           activityId,
           order,
-        });
-        if (this.activityHalted || generation !== this.testEndpointGeneration) {
+        };
+        const result = remote
+          ? await this.postRemoteSubscription(request, generation)
+          : await this.mockSubscriptions.subscribe(request);
+        if (
+          !result ||
+          this.activityHalted ||
+          generation !== this.testEndpointGeneration
+        ) {
           return;
         }
         this.subscriptions.set(activityId, {
@@ -591,9 +819,7 @@ class ServiceLiveActivity extends ServiceBase {
         });
         this.remoteAttempts.delete(activityId);
         if (remote) {
-          await this.updateRemoteCleanup(activityId, (pending) =>
-            pending ? { ...pending, subscribed: true } : undefined,
-          );
+          await liveActivityCleanup.subscribed(activityId);
         }
       } catch (error) {
         const failed = this.remoteAttempts.get(activityId);
@@ -631,19 +857,118 @@ class ServiceLiveActivity extends ServiceBase {
     }
   }
 
+  private async getPushFailureFallback(
+    instance: ILiveActivityInstance,
+  ): Promise<ILiveActivityPushFailureFallback | undefined> {
+    const { activityId, order, content, pushRegistration } = instance;
+    const jpushFailed = pushRegistration === 'failed';
+    const rejectedCode = this.remoteAttempts.get(activityId)?.errorCode;
+    if (rejectedCode === 80_010) return undefined;
+    const subscriptionRejected = rejectedCode === 80_007;
+    if (
+      (!jpushFailed && !subscriptionRejected) ||
+      order.isMock ||
+      order.expiresAtMs <= Date.now() ||
+      hasFinalContent(content) ||
+      this.subscriptions.has(activityId) ||
+      this.subscribing.has(activityId)
+    )
+      return undefined;
+    const queue = await liveActivityCleanup.read();
+    // A previous POST can have reached Notification even if its response was lost.
+    if (
+      queue.has(activityId) ||
+      this.subscriptions.has(activityId) ||
+      this.subscribing.has(activityId)
+    )
+      return undefined;
+    return {
+      activityId,
+      reason: subscriptionRejected ? 'subscriptionRejected' : 'jpushFailed',
+    };
+  }
+
+  private async recoverAfterPushFailure(
+    instance: ILiveActivityInstance,
+    reconcileNow: boolean,
+  ) {
+    const { activityId, order } = instance;
+    const generation = this.testEndpointGeneration;
+    if (!reconcileNow && this.fallbackChecks.has(activityId)) return;
+    if (!(await this.getPushFailureFallback(instance))) return;
+    // Swap stops polling after its terminal result. Recover it from history if
+    // the result arrived before push setup failed, including after a JS restart.
+    const histories =
+      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    if (
+      this.activityHalted ||
+      generation !== this.testEndpointGeneration ||
+      order.expiresAtMs <= Date.now() ||
+      isBlockedOrder(order.orderKey)
+    )
+      return;
+    const check = this.fallbackChecks.get(activityId) ?? {
+      nextRefundCheckAtMs: 0,
+    };
+    this.fallbackChecks.set(activityId, check);
+    const history = findActivityHistory(histories, order);
+    if (!history) return;
+    const snapshot = buildSwapLiveActivitySnapshot(history);
+    if (!snapshot || !canPresentAfterPushFailure(snapshot.content.status))
+      return;
+    if (
+      reconcileNow &&
+      instance.content.revision !== undefined &&
+      (snapshot.content.status === 'failed' ||
+        snapshot.content.status === 'refunding') &&
+      instance.content.status === snapshot.content.status &&
+      instance.content.failureDetail === snapshot.content.failureDetail &&
+      !hasFinalContent(snapshot.content)
+    ) {
+      const startedAtMs = Date.now();
+      if (startedAtMs < check.nextRefundCheckAtMs) return;
+      // A slow provider must not hold up JPush registration for another card.
+      check.nextRefundCheckAtMs = Infinity;
+      void this.backgroundApi.serviceSwap
+        .swapHistoryStatusRunFetch(history, {
+          shouldScheduleNextFetch: false,
+          shouldShowToast: false,
+        })
+        .catch((error: unknown) => {
+          defaultLogger.notification.jpush.consoleError(
+            'Live Activity refund status refresh failed',
+            { errorType: error instanceof Error ? error.name : 'UnknownError' },
+          );
+        })
+        .finally(() => {
+          check.nextRefundCheckAtMs = startedAtMs + RECONCILE_POLL_MS;
+        });
+    } else {
+      await this.present(snapshot, false);
+    }
+  }
+
   @backgroundMethod()
   async onSwapBroadcast(history: ISwapTxHistory) {
     if (!(await this.canTrackRealActivity())) return;
     const snapshot = buildSwapLiveActivitySnapshot(history);
-    if (
-      snapshot?.order.serviceOrderId &&
-      !isLiveActivityTerminal(snapshot.content.status)
-    ) {
+    if (snapshot?.order.serviceOrderId && !hasFinalContent(snapshot.content)) {
       this.lastStatusRevision = Math.max(
         this.lastStatusRevision,
         snapshot.content.revision,
       );
-      await this.present(snapshot, true);
+      const { fromToken, toToken } = history.baseInfo;
+      await this.present(
+        {
+          ...snapshot,
+          supportsBtcReceivingPush: true,
+          iconUrls:
+            fromToken.logoURI || toToken.logoURI
+              ? { from: fromToken.logoURI, to: toToken.logoURI }
+              : undefined,
+        },
+        true,
+      );
     }
   }
 
@@ -658,6 +983,15 @@ class ServiceLiveActivity extends ServiceBase {
     if (!(await this.canTrackRealActivity())) return;
     const snapshot = buildSwapLiveActivitySnapshot(history, status);
     if (snapshot) {
+      // A subscribed activity receives its state through ActivityKit pushes.
+      if (
+        [...this.subscriptions.values()].some(
+          (subscription) =>
+            subscription.remote &&
+            subscription.orderKey === snapshot.order.orderKey,
+        )
+      )
+        return;
       snapshot.content.updatedAtMs = Date.now();
       this.lastStatusRevision = Math.max(
         snapshot.content.updatedAtMs,
@@ -716,10 +1050,10 @@ class ServiceLiveActivity extends ServiceBase {
       const updates = status.activities.map((activity) => {
         const orderKey = activity.order.orderKey;
         const { revision, updatedAtMs } = activity.content;
+        const needsRevision = activity.pushRegistration === 'notRequested';
         if (
           isBlockedOrder(orderKey) ||
-          revision === undefined ||
-          updatedAtMs === undefined
+          (needsRevision && revision === undefined)
         )
           return Promise.resolve();
         const previous = this.presenting.get(orderKey);
@@ -778,8 +1112,7 @@ class ServiceLiveActivity extends ServiceBase {
   async withTestEndpointDisabled<T>(update: () => Promise<T>): Promise<T> {
     this.changingEndpoint = true;
     this.testEndpointGeneration += 1;
-    clearTimeout(this.remoteSyncTimer);
-    this.remoteSyncTimer = undefined;
+    this.cancelRemoteSync();
     try {
       const { closing, remaining } = await this.closeActivitiesForTransition({
         testOnly: true,
@@ -793,18 +1126,10 @@ class ServiceLiveActivity extends ServiceBase {
           (async () => {
             for (const { activityId, order, pushRegistration } of closing) {
               if (controller.signal.aborted || this.privacyHalted) return;
-              if (
-                usesRemotePush(order) ||
-                pushRegistration !== 'notRequested'
-              ) {
-                await this.updateRemoteCleanup(
+              if (pushRegistration !== 'notRequested') {
+                await liveActivityCleanup.trackForCleanup(
                   activityId,
-                  (previous) =>
-                    previous ?? {
-                      expiresAtMs: order.expiresAtMs,
-                      subscribed: false,
-                      retryAtMs: 0,
-                    },
+                  order.expiresAtMs,
                 );
               }
             }
@@ -827,7 +1152,7 @@ class ServiceLiveActivity extends ServiceBase {
     } finally {
       this.changingEndpoint = false;
       if (await liveActivityRemoteTracking.isReady()) {
-        this.scheduleRemoteSync(3000);
+        this.scheduleRemoteSync(REGISTRATION_POLL_MS);
       }
     }
   }
@@ -836,8 +1161,7 @@ class ServiceLiveActivity extends ServiceBase {
   async stopForPrivacyTransition() {
     if (!platformEnv.isNativeIOS) return;
     this.privacyHalted = true;
-    clearTimeout(this.remoteSyncTimer);
-    this.remoteSyncTimer = undefined;
+    this.cancelRemoteSync();
     for (const timers of this.mockTimers.values()) timers.forEach(clearTimeout);
     this.mockTimers.clear();
     await this.closeActivitiesForTransition({ testOnly: false });

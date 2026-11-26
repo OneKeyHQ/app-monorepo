@@ -630,7 +630,7 @@ describe('CloudSyncFlowManagerWallet', () => {
       'failure-with-avatar',
       'hang-with-avatar',
     ] as const)(
-      'does not apply the unarchived name or acknowledge the scene after a %s',
+      'applies the confirmed name even when history stalls or fails (%s)',
       async (scenario) => {
         jest.useFakeTimers();
         try {
@@ -666,15 +666,15 @@ describe('CloudSyncFlowManagerWallet', () => {
               : payload,
             isCurrent: () => isCurrent,
           });
-          await jest.advanceTimersByTimeAsync(1500);
-          await expect(apply).resolves.toBe(false);
-          if (hasAvatar) {
+          await jest.advanceTimersByTimeAsync(3000);
+          const cancelled = scenario === 'cancelled';
+          await expect(apply).resolves.toBe(!cancelled);
+          if (!cancelled) {
             expect(updateFromCloud).toHaveBeenCalledWith(
               expect.objectContaining({
-                name: undefined,
-                avatar: { img: 'bear' },
+                name: payload.name,
+                avatar: hasAvatar ? { img: 'bear' } : undefined,
                 cloudSyncSource: item,
-                deferCloudSyncWalletName: true,
               }),
               expect.any(Function),
             );
@@ -682,7 +682,7 @@ describe('CloudSyncFlowManagerWallet', () => {
           retained.resolve(true);
           await Promise.resolve();
           expect(update).not.toHaveBeenCalled();
-          expect(updateFromCloud).toHaveBeenCalledTimes(hasAvatar ? 1 : 0);
+          expect(updateFromCloud).toHaveBeenCalledTimes(cancelled ? 0 : 1);
         } finally {
           jest.useRealTimers();
         }
@@ -759,7 +759,7 @@ describe('CloudSyncFlowManagerWallet', () => {
       },
     );
 
-    test('a deferred old name leaves the scene pending and does not block the next Wallet', async () => {
+    test('a failed name backup does not block scene acknowledgment or the next Wallet', async () => {
       const secondWallet = { ...wallet, id: 'hd-second', hash: 'second-hash' };
       const firstWallet = { ...wallet, hash: 'first-hash' };
       const secondItem = { ...item, dataTime: 901 };
@@ -827,11 +827,14 @@ describe('CloudSyncFlowManagerWallet', () => {
           ],
           forceSync: true,
         });
-        expect(update).toHaveBeenCalledTimes(1);
+        expect(update).toHaveBeenCalledTimes(2);
         expect(update).toHaveBeenCalledWith(
           expect.objectContaining({ walletId: secondWallet.id }),
         );
-        expect(updateSyncItem).toHaveBeenCalledTimes(1);
+        expect(updateSyncItem).toHaveBeenCalledTimes(2);
+        expect(updateSyncItem).toHaveBeenCalledWith(
+          expect.objectContaining({ ids: [firstKey.key] }),
+        );
         expect(updateSyncItem).toHaveBeenCalledWith(
           expect.objectContaining({ ids: [secondKey.key] }),
         );

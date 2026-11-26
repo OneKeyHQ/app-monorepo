@@ -14,7 +14,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyErrorI18nInfo,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -234,7 +237,7 @@ function showCloudSyncHardwareRecovery(failure: IOneKeyError): boolean {
 }
 
 async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
-  const failure = error as IOneKeyError | undefined;
+  const failure = error as IOneKeyError<IOneKeyErrorI18nInfo> | undefined;
   const standardPinRequired = isHardwareCloudSyncStandardPinRequired(error);
   const directSdkDialog = isHardwareCloudSyncDirectSdkDialogError(error);
   if (
@@ -264,6 +267,14 @@ async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
       { id: failure.key, defaultMessage: failure.message },
       failure.info,
     );
+    const reason = failure.info?.hardwareCloudSyncDataErrorReason;
+    if (
+      failure.key === ETranslations.cloud_sync_data_unreadable__msg &&
+      typeof reason === 'string' &&
+      reason
+    ) {
+      description += `\n${reason}`;
+    }
   } else {
     description =
       failure?.message ||

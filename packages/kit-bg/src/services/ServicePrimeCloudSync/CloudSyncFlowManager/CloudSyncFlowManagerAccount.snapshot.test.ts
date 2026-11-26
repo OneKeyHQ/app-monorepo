@@ -197,6 +197,7 @@ describe('public account snapshot Cloud scene integration', () => {
         added: action === 'delete' ? 0 : snapshots.length,
         deleted: action === 'delete' ? snapshots.length : 0,
         skippedSnapshotIds: [],
+        updated: 0,
         indexedAccountsChanged: false,
         issuesBySnapshotId: {},
         unchanged: 0,
@@ -304,6 +305,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [matchingId],
       skippedSnapshotIds: [missingId],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 1,
       deleted: 0,
@@ -354,6 +356,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [],
       skippedSnapshotIds: [id],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 0,
       deleted: 0,
@@ -385,6 +388,7 @@ describe('public account snapshot Cloud scene integration', () => {
         getPublicAccountSnapshotId(publicAccountTestSnapshot()),
       ],
       skippedSnapshotIds: [],
+      updated: 0,
       indexedAccountsChanged: true,
       added: 0,
       deleted: 0,
@@ -502,6 +506,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [],
       skippedSnapshotIds: [],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 0,
       deleted: 0,

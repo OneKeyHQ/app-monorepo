@@ -21,6 +21,7 @@ import {
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swrCacheNamespaceName } from '@onekeyhq/shared/src/storage/SnapshotCache';
 import {
@@ -32,7 +33,11 @@ import {
   swrCacheUtils,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
-import { fetchPerpOiHistory } from '../../utils/fetchPerpOiHistory';
+import {
+  OI_WINDOW_DAYS,
+  fetchPerpOiHistory,
+  getPerpOiSource,
+} from '../../utils/fetchPerpOiHistory';
 
 import { PerpChartTooltip } from './PerpChartTooltip';
 
@@ -40,11 +45,6 @@ import type { IPerpOiHistoryRange } from '../../utils/fetchPerpOiHistory';
 
 const OI_CHART_HEIGHT = 214;
 const OI_CACHE_NAMESPACE = swrCacheNamespaces.perpsOiHistory;
-const OI_WINDOW_DAYS: Record<IPerpOiHistoryRange, number> = {
-  '24h': 1,
-  '7d': 7,
-  history: 90,
-};
 const USE_WEB_SNAPSHOT_STORE = Platform.select({
   native: false,
   default: true,
@@ -108,7 +108,11 @@ export function PerpOiChart({
   const [range, setRange] = useState<IPerpOiHistoryRange>('24h');
   const [chartWidth, setChartWidth] = useState(0);
   const [hoveredPoint, setHoveredPoint] = useState<IOiHoverPoint>();
-  const requestKey = `${OI_CACHE_NAMESPACE}:rogue-iq-usd-v1:${coin}:${range}`;
+  const [devSettings] = useDevSettingsPersistAtom();
+  const { endpoint, cacheScope } = getPerpOiSource(devSettings);
+  const requestKey = `${OI_CACHE_NAMESPACE}:${cacheScope ?? endpoint}:${coin}:${range}`;
+  // Custom URLs can contain credentials and must stay out of persisted snapshots.
+  const snapshotKey = coin && cacheScope ? requestKey : undefined;
   const pollingInterval = range === 'history' ? 60 * 60_000 : 5 * 60_000;
   const { result, isLoading, run, setResult } = usePromiseResult<
     IPerpOiHistoryResult | undefined
@@ -116,14 +120,14 @@ export function PerpOiChart({
     async () => {
       if (!coin) return undefined;
 
-      const history = await fetchPerpOiHistory(coin, range).catch(
+      const history = await fetchPerpOiHistory(coin, range, endpoint).catch(
         () => undefined,
       );
       return history
         ? { requestKey, history }
         : { requestKey, refreshFailed: true };
     },
-    [coin, range, requestKey],
+    [coin, range, endpoint, requestKey],
     {
       overrideIsFocused: (isFocused) => isFocused && isActive && Boolean(coin),
       revalidateOnFocus: true,
@@ -131,25 +135,25 @@ export function PerpOiChart({
       pollingInterval: coin ? pollingInterval : undefined,
       runImmediatelyOnMount: true,
       runImmediatelyOnPollingIntervalChange: true,
-      swrKey: coin ? requestKey : undefined,
+      swrKey: snapshotKey,
       swrShouldPersist: (snapshot) =>
-        Boolean(snapshot?.history?.data.length && !snapshot.refreshFailed),
+        Boolean(snapshot?.history?.length && !snapshot.refreshFailed),
     },
   );
 
   useEffect(() => {
-    if (!USE_WEB_SNAPSHOT_STORE || !isActive || !coin) return;
+    if (!USE_WEB_SNAPSHOT_STORE || !isActive || !snapshotKey) return;
 
     let isCurrent = true;
     void restoreWebOiSnapshots().then(() => {
       if (!isCurrent) return;
-      const cached = swrCacheUtils.get<IPerpOiHistoryResult>(requestKey);
-      if (!cached?.history?.data.length) return;
+      const cached = swrCacheUtils.get<IPerpOiHistoryResult>(snapshotKey);
+      if (!cached?.history?.length) return;
 
       setResult((previous) => {
         if (
           previous &&
-          (previous.requestKey !== requestKey || previous.history?.data.length)
+          (previous.requestKey !== requestKey || previous.history?.length)
         ) {
           return previous;
         }
@@ -159,15 +163,28 @@ export function PerpOiChart({
     return () => {
       isCurrent = false;
     };
-  }, [coin, isActive, requestKey, setResult]);
+  }, [isActive, requestKey, setResult, snapshotKey]);
 
   const current = result?.requestKey === requestKey ? result : undefined;
+  const [lastCustom, setLastCustom] = useState<IPerpOiHistoryResult>();
+  useEffect(() => {
+    if (!cacheScope && current?.history?.length) {
+      setLastCustom(current);
+    } else {
+      setLastCustom((previous) =>
+        previous?.requestKey === requestKey ? previous : undefined,
+      );
+    }
+  }, [cacheScope, current, requestKey]);
   // Hydration and an empty or failed refresh can finish in either order.
   const cachedHistory =
-    current && !current.history?.data.length
-      ? swrCacheUtils.get<IPerpOiHistoryResult>(requestKey)?.history
+    snapshotKey && current && !current.history?.length
+      ? swrCacheUtils.get<IPerpOiHistoryResult>(snapshotKey)?.history
       : undefined;
-  const points = (cachedHistory ?? current?.history)?.data;
+  const points = current?.history?.length
+    ? current.history
+    : (cachedHistory ??
+      (lastCustom?.requestKey === requestKey ? lastCustom.history : undefined));
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - OI_WINDOW_DAYS[range] * 86_400;
   const first = points?.findIndex(([time]) => time >= windowStart) ?? -1;
