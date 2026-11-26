@@ -86,7 +86,14 @@ under separate owners:
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,
-  and the layout picker sits in that row. The same context gives the selected
+  and the layout picker sits in that row. Every panel still shows its own
+  interval, selected or not: the grid gives the host `intervalControl` to
+  place, e.g. after the token's quote in a panel header, and the chart puts a
+  compact interval picker there through the same context
+  (`renderIntervalControl`). A pick there is the chart's own, as one in its
+  controls row, so it moves every panel while the intervals are synced, and a
+  press on it selects the panel like any press in it. A host that places none,
+  e.g. for a single chart, shows none. The same context gives the selected
   chart one drawing tools column at the left of the grid (`drawingTools`).
   The chart keeps the properties of its selected drawing, its hints and its
   object panels on itself, and the column's menus reach over the panels. The

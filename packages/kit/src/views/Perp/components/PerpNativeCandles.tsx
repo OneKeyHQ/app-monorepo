@@ -169,9 +169,11 @@ function PerpChartPanelQuote({
  * read-only. Selecting a panel only changes these props, so no chart remounts.
  * Only the selected panel's controls are on screen, above the grid, so every
  * panel gets the page-level controls; in a split each panel shows its token,
- * price and 24h change instead. The token is a picker: a press on it selects
- * the panel like any press in it, and a pick selects the panel with the
- * picked token, so one switch of the trade instrument decides both.
+ * price, 24h change and interval instead. The token is a picker: a press on
+ * it selects the panel like any press in it, and a pick selects the panel
+ * with the picked token, so one switch of the trade instrument decides both.
+ * The interval is the chart's own picker, so a pick there changes only its
+ * panel's interval, or every panel's while the intervals are synced.
  */
 function PerpNativeSplitPanel({
   activeDisplay,
@@ -189,8 +191,16 @@ function PerpNativeSplitPanel({
   /** The token of a panel switch still on its way. */
   switchingCoin?: string;
 }) {
-  const { id, isActive, isMain, isSplit, layoutControl, selectSource, source } =
-    panel;
+  const {
+    id,
+    intervalControl,
+    isActive,
+    isMain,
+    isSplit,
+    layoutControl,
+    selectSource,
+    source,
+  } = panel;
   const coin = source.kind === 'hyperliquid' ? source.coin : '';
   const activeInstrument = useActivePerpsChartInstrument();
   const { display, instrument: panelInstrument } =
@@ -260,6 +270,7 @@ function PerpNativeSplitPanel({
             assetId={instrument.assetId}
             isLive={isVisible}
           />
+          {intervalControl}
         </XStack>
       ) : null}
       <TradingViewNative

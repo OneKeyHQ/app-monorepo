@@ -23308,6 +23308,7 @@
     "packages/kit/src/components/TradingView/TradingViewChartControls/indicatorSelector/NativeIndicatorSelector.tsx": 16874,
     "packages/kit/src/components/TradingView/TradingViewChartControls/indicatorSelector/indicatorUtils.ts": 5222,
     "packages/kit/src/components/TradingView/TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState.ts": 6658,
+    "packages/kit/src/components/TradingView/TradingViewChartControls/intervalSelector/NativeIntervalDropdown.tsx": 6255,
     "packages/kit/src/components/TradingView/TradingViewChartControls/intervalSelector/NativeIntervalGrid.tsx": 19137,
     "packages/kit/src/components/TradingView/TradingViewChartControls/intervalSelector/NativeIntervalSelector.tsx": 12012,
     "packages/kit/src/components/TradingView/TradingViewChartControls/intervalSelector/NativeIntervalUtils.ts": 11118,

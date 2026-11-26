@@ -23,6 +23,7 @@ import type { ITradingViewNativeMultiChartLayout } from '@onekeyhq/shared/types/
 import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
 import { PerpTestIDs } from '../testIDs';
 
+import { CtxPriceDisplay } from './FavoritesBar/FavoriteTokenItem';
 import {
   PerpDesktopOrderBookPanel,
   PerpMarketWorkspacePanel,
@@ -80,6 +81,10 @@ const mockQuote = jest.fn<
 >(() => null);
 // Panel quotes currently mounted.
 let mockMountedQuotes = 0;
+// Stands in for where the grid has a panel's chart show its interval picker.
+function MockPanelInterval(_: { panelId: string }) {
+  return null;
+}
 const mockSwitchTradeInstrument = jest.fn<
   Promise<boolean>,
   [{ mode: 'perp' | 'spot'; coin: string }]
@@ -258,6 +263,7 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
             isSymbolSynced,
             source,
             layoutControl: null,
+            intervalControl: <MockPanelInterval panelId={id} />,
             selectSource: (picked: ITradingViewNativeSource) =>
               mockSelectSource(id, picked),
           })}
@@ -615,12 +621,39 @@ describe('split view', () => {
     );
   });
 
+  it('puts each panel interval picker after its token quote', async () => {
+    const view = renderTradingViewCandles();
+    await waitFor(() =>
+      expect(mockQuote).toHaveBeenCalledWith(
+        expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
+      ),
+    );
+
+    // In tree order: each header ends with its own panel's picker.
+    const headerItems = view.UNSAFE_root.findAll(
+      (node) =>
+        node.type === CtxPriceDisplay || node.type === MockPanelInterval,
+    ).map((node) =>
+      node.type === CtxPriceDisplay
+        ? `quote:${(node.props as { coinName: string }).coinName}`
+        : `interval:${(node.props as { panelId: string }).panelId}`,
+    );
+    expect(headerItems).toEqual([
+      'quote:BTC',
+      'interval:main',
+      'quote:ETH',
+      'interval:panel-2',
+    ]);
+  });
+
   it('leaves a single chart to the page header', () => {
     mockMultiChartLayout = { preset: '1', panels: {} };
-    renderTradingViewCandles();
+    const view = renderTradingViewCandles();
 
     expect(mockTokenSelector).not.toHaveBeenCalled();
     expect(mockQuote).not.toHaveBeenCalled();
+    // Its interval stays in its controls row.
+    expect(view.UNSAFE_queryAllByType(MockPanelInterval)).toEqual([]);
   });
 
   it('streams spot quotes while a chart that is not trading shows spot', () => {

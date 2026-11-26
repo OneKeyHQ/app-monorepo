@@ -210,6 +210,12 @@ type IPanelSync = Pick<
   'crosshair' | 'interval' | 'viewport'
 >;
 
+/** A panel's slot as the grid gives it; the panel adds its interval picker. */
+type IGridControlsSlot = Omit<
+  ITradingViewNativeMultiChartControlsSlot,
+  'renderIntervalControl'
+>;
+
 interface IIntervalSyncState {
   /** Null while every panel keeps its own interval. */
   channel: ITradingViewNativeIntervalSync | null;
@@ -229,6 +235,7 @@ interface IIntervalSyncIntent {
 
 const Panel = memo(
   ({
+    controlsSlot,
     id,
     index,
     indicatorSettings,
@@ -243,6 +250,7 @@ const Panel = memo(
     source,
     sync,
   }: {
+    controlsSlot: IGridControlsSlot;
     id: string;
     index: number;
     indicatorSettings: ITradingViewNativeIndicatorSettings;
@@ -267,6 +275,21 @@ const Panel = memo(
       () => ({ ...sync, isMain, reportInterval, instrumentKey }),
       [instrumentKey, isMain, reportInterval, sync],
     );
+    // Where the host placed `intervalControl`. It generates no box, so the
+    // picker lays out as one of the host's own items, e.g. in its header row.
+    const [intervalSlot, setIntervalSlot] = useState<HTMLElement | null>(null);
+    const intervalControl = useMemo(
+      () => <span ref={setIntervalSlot} style={{ display: 'contents' }} />,
+      [],
+    );
+    const slot = useMemo<ITradingViewNativeMultiChartControlsSlot>(
+      () => ({
+        ...controlsSlot,
+        renderIntervalControl: (control) =>
+          intervalSlot ? createPortal(control, intervalSlot) : null,
+      }),
+      [controlsSlot, intervalSlot],
+    );
     const panel = useMemo<ITradingViewNativeMultiChartPanel>(
       () => ({
         id,
@@ -277,11 +300,13 @@ const Panel = memo(
         isSymbolSynced,
         source,
         layoutControl: isActive ? layoutControl : null,
+        intervalControl,
         selectSource: (picked) => onSelectSource(id, picked),
       }),
       [
         id,
         index,
+        intervalControl,
         isActive,
         isMain,
         isSplit,
@@ -292,24 +317,26 @@ const Panel = memo(
       ],
     );
     const content = renderPanel(panel);
-    // The provider stays mounted whatever the panels sync, so turning an
-    // option on or off never remounts a chart.
+    // The providers stay mounted whatever the panels sync and whichever is
+    // selected, so neither an option nor a selection remounts a chart.
     return (
-      <TradingViewNativeMultiChartSyncContext.Provider value={syncScope}>
-        {/* The first panel stays outside the scope: it keeps the host's own
-            interval and indicators whether or not the view is split. */}
-        {isMain ? (
-          content
-        ) : (
-          <PanelScope
-            panelId={id}
-            indicatorSettings={indicatorSettings}
-            onLayoutChange={onLayoutChange}
-          >
-            {content}
-          </PanelScope>
-        )}
-      </TradingViewNativeMultiChartSyncContext.Provider>
+      <TradingViewNativeMultiChartControlsContext.Provider value={slot}>
+        <TradingViewNativeMultiChartSyncContext.Provider value={syncScope}>
+          {/* The first panel stays outside the scope: it keeps the host's own
+              interval and indicators whether or not the view is split. */}
+          {isMain ? (
+            content
+          ) : (
+            <PanelScope
+              panelId={id}
+              indicatorSettings={indicatorSettings}
+              onLayoutChange={onLayoutChange}
+            >
+              {content}
+            </PanelScope>
+          )}
+        </TradingViewNativeMultiChartSyncContext.Provider>
+      </TradingViewNativeMultiChartControlsContext.Provider>
     );
   },
 );
@@ -1142,7 +1169,7 @@ export function TradingViewNativeMultiChart({
     const createSlot = (
       index: number,
       isActive: boolean,
-    ): ITradingViewNativeMultiChartControlsSlot => ({
+    ): IGridControlsSlot => ({
       renderControls: (controls) =>
         isActive && controlsBar ? createPortal(controls, controlsBar) : null,
       drawingTools: {
@@ -1330,31 +1357,28 @@ export function TradingViewNativeMultiChart({
                         }
                   }
                 >
-                  <TradingViewNativeMultiChartControlsContext.Provider
-                    value={
-                      controlsSlots[index][isActive ? 'active' : 'inactive']
-                    }
-                  >
-                    {source ? (
-                      <Panel
-                        id={id}
-                        index={index}
-                        isActive={isActive}
-                        isSplit={isSplit}
-                        isSymbolSynced={isSymbolSynced}
-                        source={source}
-                        sync={panelSync}
-                        indicatorSettings={
-                          state?.indicatorSettings ?? defaultIndicatorSettings
-                        }
-                        layoutControl={layoutControl}
-                        onIntervalReport={handleIntervalReport}
-                        onLayoutChange={onLayoutChange}
-                        onSelectSource={handleSelectPanel}
-                        renderPanel={renderPanel}
-                      />
-                    ) : null}
-                  </TradingViewNativeMultiChartControlsContext.Provider>
+                  {source ? (
+                    <Panel
+                      controlsSlot={
+                        controlsSlots[index][isActive ? 'active' : 'inactive']
+                      }
+                      id={id}
+                      index={index}
+                      isActive={isActive}
+                      isSplit={isSplit}
+                      isSymbolSynced={isSymbolSynced}
+                      source={source}
+                      sync={panelSync}
+                      indicatorSettings={
+                        state?.indicatorSettings ?? defaultIndicatorSettings
+                      }
+                      layoutControl={layoutControl}
+                      onIntervalReport={handleIntervalReport}
+                      onLayoutChange={onLayoutChange}
+                      onSelectSource={handleSelectPanel}
+                      renderPanel={renderPanel}
+                    />
+                  ) : null}
                 </div>
                 {isSplit && isActive ? (
                   <Stack
