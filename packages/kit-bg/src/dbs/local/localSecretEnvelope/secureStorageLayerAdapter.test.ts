@@ -4,6 +4,7 @@ import {
   wrapLocalSecretEnvelopeV1,
 } from '.';
 
+import { LocalSecretEnvelopeUnavailable } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
 
@@ -320,6 +321,55 @@ describe('buildSecureStorageLocalSecretEnvelopeLayerAdapter', () => {
         }),
       ).resolves.toBe('|RP|warmup-recovered');
       expect(readCount).toBe(2);
+    } finally {
+      androidEnv.restore();
+    }
+  });
+
+  it('keeps Android reads retryable when hasStoredSecureItem returns undefined', async () => {
+    const { secureStorage } = buildMemorySecureStorage();
+    const verifyOperational = jest.fn(async () => true);
+    const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      secureStorage: {
+        ...secureStorage,
+        hasStoredSecureItem: async () => undefined,
+        verifySecureStorageOperational: verifyOperational,
+      },
+    });
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|RP|unknown-presence',
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    const readAdapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      secureStorage: {
+        ...secureStorage,
+        getSecureItem: async () => null,
+        hasStoredSecureItem: async () => undefined,
+        verifySecureStorageOperational: verifyOperational,
+      },
+    });
+    const androidEnv = jest.replaceProperty(
+      platformEnv,
+      'isNativeAndroid',
+      true,
+    );
+    try {
+      const error = await unwrapLocalSecretEnvelopeV1({
+        envelope,
+        resolveLayerAdapter: () => readAdapter,
+      }).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+      expect(
+        (
+          error as LocalSecretEnvelopeUnavailable & {
+            data?: { localSecretEnvelopeFailureReason?: string };
+          }
+        ).data?.localSecretEnvelopeFailureReason,
+      ).toBeUndefined();
+      expect(verifyOperational).not.toHaveBeenCalled();
     } finally {
       androidEnv.restore();
     }

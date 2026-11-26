@@ -45,6 +45,7 @@ import type {
   IAccountDeriveTypes,
   IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -76,9 +77,16 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import type { IAccountToken, IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { WalletLocalSecretEnvelopeStatus } from '../../../components/AccountSelector/WalletLocalSecretEnvelopeStatus';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
 import { HighlightAddress } from '../../../components/HighlightAddress';
 import { FormatHyperlinkText } from '../../../components/HyperlinkText';
+import {
+  getWalletLocalSecretEnvelopeCredentialId,
+  getWalletLocalSecretEnvelopeUnavailableIssue,
+  showWalletLocalSecretEnvelopeRecoveryDialog,
+  useWalletLocalSecretEnvelopeIssue,
+} from '../../../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import {
   NetworkAvatar,
   NetworkAvatarBase,
@@ -652,7 +660,57 @@ function ReceiveToken() {
     isHardwareWallet,
   ]);
 
+  const effectiveWalletId = wallet?.id ?? walletId;
+  const effectiveAccountId = currentAccount?.id ?? accountId;
+  const lseCredentialId = getWalletLocalSecretEnvelopeCredentialId({
+    walletId: effectiveWalletId,
+    accountId: effectiveAccountId,
+  });
+  const lseStatusIssue = useWalletLocalSecretEnvelopeIssue({
+    walletId: effectiveWalletId,
+    accountId: effectiveAccountId,
+  });
+  const [checkedLseIssue, setCheckedLseIssue] = useState<
+    | {
+        credentialId: string;
+        issue: ILocalSecretEnvelopeCredentialIssue;
+      }
+    | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (!lseCredentialId || lseStatusIssue) {
+      setCheckedLseIssue(undefined);
+      return;
+    }
+    let cancelled = false;
+    void getWalletLocalSecretEnvelopeUnavailableIssue({
+      walletId: effectiveWalletId,
+      accountId: effectiveAccountId,
+    }).then((issue) => {
+      if (cancelled) return;
+      setCheckedLseIssue(
+        issue ? { credentialId: lseCredentialId, issue } : undefined,
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveAccountId, effectiveWalletId, lseCredentialId, lseStatusIssue]);
+
+  const walletLocalSecretEnvelopeIssue =
+    lseStatusIssue ??
+    (checkedLseIssue &&
+    lseCredentialId &&
+    checkedLseIssue.credentialId === lseCredentialId
+      ? checkedLseIssue.issue
+      : undefined);
+  const isWalletLocalSecretEnvelopeUnavailable = Boolean(
+    walletLocalSecretEnvelopeIssue,
+  );
+
   const shouldShowQRCode = useMemo(() => {
+    if (isWalletLocalSecretEnvelopeUnavailable) return false;
     if (!displayAddress) return false;
     if (!isHardwareWallet) {
       return true;
@@ -666,7 +724,12 @@ function ReceiveToken() {
     }
 
     return false;
-  }, [addressState, isHardwareWallet, displayAddress]);
+  }, [
+    addressState,
+    isHardwareWallet,
+    displayAddress,
+    isWalletLocalSecretEnvelopeUnavailable,
+  ]);
 
   useEffect(() => {
     const url = network?.logoURI;
@@ -690,6 +753,12 @@ function ReceiveToken() {
   }, [network?.logoURI]);
 
   const handleCopyAddress = useCallback(() => {
+    if (walletLocalSecretEnvelopeIssue) {
+      showWalletLocalSecretEnvelopeRecoveryDialog(
+        walletLocalSecretEnvelopeIssue,
+      );
+      return;
+    }
     if (!displayAddress) return;
     if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
       copyAddressWithDeriveType({
@@ -709,6 +778,7 @@ function ReceiveToken() {
     displayAddress,
     network?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    walletLocalSecretEnvelopeIssue,
   ]);
 
   // Auto-navigate to ExchangeOpenRedirect after HW address verification
@@ -1293,6 +1363,7 @@ function ReceiveToken() {
   );
 
   const shareData = useMemo<IReceiveShareData | null>(() => {
+    if (isWalletLocalSecretEnvelopeUnavailable) return null;
     if (!network || !displayAddress) return null;
     return {
       title: pageTitleText,
@@ -1305,6 +1376,7 @@ function ReceiveToken() {
       address: displayAddress,
     };
   }, [
+    isWalletLocalSecretEnvelopeUnavailable,
     network,
     displayAddress,
     pageTitleText,
@@ -1313,7 +1385,11 @@ function ReceiveToken() {
     intl,
   ]);
 
-  const canShowShareEntry = shouldShowQRCode && !!displayAddress && !!shareData;
+  const canShowShareEntry =
+    !isWalletLocalSecretEnvelopeUnavailable &&
+    shouldShowQRCode &&
+    !!displayAddress &&
+    !!shareData;
 
   // pre-generate the share image before opening the dialog so the preview
   // shows instantly and the dialog doesn't jump while the image loads
@@ -1321,6 +1397,12 @@ function ReceiveToken() {
   const [isPreparingShare, setIsPreparingShare] = useState(false);
 
   const handleSharePress = useCallback(async () => {
+    if (walletLocalSecretEnvelopeIssue) {
+      showWalletLocalSecretEnvelopeRecoveryDialog(
+        walletLocalSecretEnvelopeIssue,
+      );
+      return;
+    }
     if (!shareData || isPreparingShare) return;
     setIsPreparingShare(true);
     let presetImage = '';
@@ -1338,7 +1420,7 @@ function ReceiveToken() {
     showReceiveShareDialog(shareData, {
       presetImage: presetImage || undefined,
     });
-  }, [networkId, shareData, isPreparingShare]);
+  }, [networkId, shareData, isPreparingShare, walletLocalSecretEnvelopeIssue]);
 
   const handleDonePress = useCallback(() => {
     navigation.popStack();
@@ -2327,7 +2409,25 @@ function ReceiveToken() {
               </SizableText>
             ) : null}
           </YStack>
-          {currentAccount && network && wallet && displayAddress ? (
+          {walletLocalSecretEnvelopeIssue && lseCredentialId ? (
+            <ReceiveCard headerLeft={cardHeaderLeft}>
+              <ReceiveCardCell
+                p="$6"
+                minHeight={240}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <WalletLocalSecretEnvelopeStatus
+                  credentialId={lseCredentialId}
+                />
+              </ReceiveCardCell>
+            </ReceiveCard>
+          ) : null}
+          {!isWalletLocalSecretEnvelopeUnavailable &&
+          currentAccount &&
+          network &&
+          wallet &&
+          displayAddress ? (
             <ReceiveCard
               headerLeft={cardHeaderLeft}
               headerRight={cardHeaderRight}

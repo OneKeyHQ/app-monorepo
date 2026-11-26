@@ -202,9 +202,10 @@ export function buildSecureStorageLocalSecretEnvelopeLayerAdapter({
           // An existing entry may be unreadable either during transient
           // Keystore warmup OR after OEM phone migration (which copies
           // SharedPreferences + MMKV without the hardware-bound KeyStore key).
-          // Verify KeyStore health in an isolated namespace before treating
-          // the failure as permanent, without deleting the stored entry.
-          if (stored !== false) {
+          // Require confirmed entry presence (`stored === true`) and verify
+          // KeyStore health in an isolated namespace before treating the
+          // failure as permanent, without deleting the stored entry.
+          if (stored === true) {
             if (await isAndroidSecureStorageOperational(secureStorage)) {
               const retried = await secureStorage.getSecureItem(storageKeyRef);
               if (retried !== null) {
@@ -216,6 +217,11 @@ export function buildSecureStorageLocalSecretEnvelopeLayerAdapter({
               permanentError.name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
               throw permanentError;
             }
+            throw new OneKeyLocalError(
+              'Secure storage key status is unavailable',
+            );
+          }
+          if (stored !== false) {
             throw new OneKeyLocalError(
               'Secure storage key status is unavailable',
             );

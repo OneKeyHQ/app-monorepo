@@ -11,11 +11,23 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-
 const ON_DEMAND_PREFLIGHT_TIMEOUT_MS = 1500;
+
+function getBackgroundApiProxy():
+  | typeof import('../../background/instance/backgroundApiProxy').default
+  | undefined {
+  // Resolve lazily so importing read-only guard helpers never pulls the full
+  // background proxy / connector graph into unrelated UI module evaluations.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return (
+    require('../../background/instance/backgroundApiProxy') as {
+      default?: typeof import('../../background/instance/backgroundApiProxy').default;
+    }
+  )?.default;
+}
 
 const confirmedReadableCredentialIds = new Set<string>();
 let cacheListenersRegistered = false;
@@ -126,19 +138,23 @@ export async function getWalletLocalSecretEnvelopeUnavailableIssue({
     status,
     credentialId,
   );
-  if (existingIssue) {
+  const shouldReverifyExistingAndroidAuthFailure =
+    platformEnv.isNativeAndroid &&
+    existingIssue?.reason === 'authentication-failed';
+  if (existingIssue && !shouldReverifyExistingAndroidAuthFailure) {
     return existingIssue;
   }
 
-  if (confirmedReadableCredentialIds.has(credentialId)) {
+  if (!existingIssue && confirmedReadableCredentialIds.has(credentialId)) {
     return undefined;
   }
 
+  const backgroundApiProxy = getBackgroundApiProxy();
   if (
-    typeof backgroundApiProxy.serviceAccount
+    typeof backgroundApiProxy?.serviceAccount
       ?.preflightWalletLocalSecretEnvelope !== 'function'
   ) {
-    return undefined;
+    return existingIssue;
   }
 
   const expiresAt = Date.now() + ON_DEMAND_PREFLIGHT_TIMEOUT_MS;
@@ -149,8 +165,9 @@ export async function getWalletLocalSecretEnvelopeUnavailableIssue({
         { credentialId, expiresAt },
       );
   } catch {
-    // An interrupted or unavailable background runtime is inconclusive.
-    return undefined;
+    // An interrupted or unavailable background runtime is inconclusive;
+    // preserve a previously confirmed issue but never block healthy wallets.
+    return existingIssue;
   }
 
   if (result) {
@@ -158,8 +175,9 @@ export async function getWalletLocalSecretEnvelopeUnavailableIssue({
   }
   if (result === null && Date.now() < expiresAt) {
     markWalletLocalSecretEnvelopeConfirmedReadable(credentialId);
+    return undefined;
   }
-  return undefined;
+  return existingIssue;
 }
 
 export async function blockIfWalletLocalSecretEnvelopeUnavailable({

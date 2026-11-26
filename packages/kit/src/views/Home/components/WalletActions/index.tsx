@@ -227,6 +227,19 @@ function WalletActionSend({
                         showBotWalletDisabledToast('addMoney');
                         return;
                       }
+                      if (
+                        await blockIfWalletLocalSecretEnvelopeUnavailable({
+                          walletId: wallet?.id,
+                          accountId: account?.id,
+                          presentDialog: async (show) => {
+                            safeResolve(false);
+                            await dialogRef.close();
+                            show();
+                          },
+                        })
+                      ) {
+                        return;
+                      }
                       logZeroGas('buy');
                       safeResolve(false);
                       void dialogRef.close();

@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   blockIfWalletLocalSecretEnvelopeUnavailable,
@@ -290,6 +291,54 @@ describe('walletLocalSecretEnvelopeGuard', () => {
         await blockIfWalletLocalSecretEnvelopeUnavailable({ walletId: 'hd-4' }),
       ).toBe(false);
       expect(mockPreflight).toHaveBeenCalledTimes(1);
+    });
+
+    it('re-verifies Android authentication-failed issues so healed warmup unblocks while persistent failures stay blocked', async () => {
+      const credentialKey = getLocalSecretEnvelopeCredentialKey(
+        SESSION_ID,
+        'hd-5',
+      );
+      const issue: ILocalSecretEnvelopeCredentialIssue = {
+        credentialKey,
+        reason: 'authentication-failed',
+      };
+      setLseIssues({ [credentialKey]: issue });
+
+      const androidEnv = jest.replaceProperty(
+        platformEnv,
+        'isNativeAndroid',
+        true,
+      );
+      const onShowDialog = jest.fn();
+      appEventBus.on(
+        EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+        onShowDialog,
+      );
+      try {
+        // Still unreadable or inconclusive -> stays blocked.
+        mockPreflight.mockResolvedValueOnce(undefined);
+        expect(
+          await blockIfWalletLocalSecretEnvelopeUnavailable({
+            walletId: 'hd-5',
+          }),
+        ).toBe(true);
+        expect(onShowDialog).toHaveBeenCalledWith(issue);
+
+        // KeyStore warmed up and credential decrypted -> self-heals and unblocks.
+        mockPreflight.mockResolvedValueOnce(null);
+        expect(
+          await blockIfWalletLocalSecretEnvelopeUnavailable({
+            walletId: 'hd-5',
+          }),
+        ).toBe(false);
+        expect(mockPreflight).toHaveBeenCalledTimes(2);
+      } finally {
+        androidEnv.restore();
+        appEventBus.off(
+          EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+          onShowDialog,
+        );
+      }
     });
   });
 });
