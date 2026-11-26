@@ -5,12 +5,13 @@ import { useIntl } from 'react-intl';
 import type { IBadgeProps } from '@onekeyhq/components';
 import { Badge, Button, Icon } from '@onekeyhq/components';
 import { useWalletLocalSecretEnvelopeStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/walletLocalSecretEnvelopeStatus';
-import { getLocalSecretEnvelopeCredentialKey } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+
+import {
+  getWalletLocalSecretEnvelopeIssueFromStatus,
+  showWalletLocalSecretEnvelopeRecoveryDialog,
+} from '../LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 
 import type { IntlShape } from 'react-intl';
 
@@ -25,32 +26,30 @@ export function formatWalletLocalSecretEnvelopeStatus(intl: IntlShape) {
 
 export function WalletLocalSecretEnvelopeStatus({
   credentialId,
+  issue: checkedIssue,
   compact,
   fallback = null,
   ml = '$1.5',
   testID = 'wallet-lse-unavailable-details',
 }: {
   credentialId?: string;
+  issue?: ILocalSecretEnvelopeCredentialIssue;
   compact?: boolean;
   fallback?: ReactNode;
   ml?: IBadgeProps['ml'];
   testID?: string;
 }) {
   const intl = useIntl();
-  const [{ issues, sessionId }] = useWalletLocalSecretEnvelopeStatusAtom();
+  const [status] = useWalletLocalSecretEnvelopeStatusAtom();
   const issue =
-    credentialId && sessionId
-      ? issues[getLocalSecretEnvelopeCredentialKey(sessionId, credentialId)]
-      : undefined;
+    checkedIssue ??
+    getWalletLocalSecretEnvelopeIssueFromStatus(status, credentialId);
   if (!issue) {
     return fallback;
   }
   const label = formatWalletLocalSecretEnvelopeStatus(intl);
   const openDetails = () => {
-    appEventBus.emit(
-      EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
-      issue,
-    );
+    showWalletLocalSecretEnvelopeRecoveryDialog(issue);
   };
   if (compact) {
     return (

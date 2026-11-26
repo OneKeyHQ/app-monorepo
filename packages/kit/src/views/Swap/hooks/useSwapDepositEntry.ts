@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -146,6 +147,26 @@ export function useSwapDepositEntryPress({
         if (buildSwapDepositSelectionKey(latest.current) !== pressedKey) {
           return;
         }
+      }
+      if (!mountedRef.current) return;
+      if (requestId !== latestRequestIdRef.current) return;
+      if (
+        await blockIfWalletLocalSecretEnvelopeUnavailable({
+          walletId:
+            depositAccountInfo?.wallet?.id ?? pressed.activeAccount?.wallet?.id,
+          accountId:
+            depositAccountInfo?.dbAccount?.id ??
+            depositAccountInfo?.account?.id ??
+            pressed.activeAccount?.dbAccount?.id ??
+            pressed.activeAccount?.account?.id,
+          presentDialog: (show) => {
+            if (!mountedRef.current) return;
+            if (requestId !== latestRequestIdRef.current) return;
+            show();
+          },
+        })
+      ) {
+        return;
       }
       if (!mountedRef.current) return;
       if (requestId !== latestRequestIdRef.current) return;
