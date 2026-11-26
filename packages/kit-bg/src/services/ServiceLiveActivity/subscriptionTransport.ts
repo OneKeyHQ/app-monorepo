@@ -1,19 +1,18 @@
 import { Mutex } from 'async-mutex';
 
-import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ILiveActivitySubscriptionTransport } from '@onekeyhq/shared/types/liveActivity';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
-import type { IDevSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+import { isStandardLiveActivityTestEndpoint } from './testEndpoint';
+
 import type { AxiosInstance } from 'axios';
 
 const SUBSCRIPTIONS_PATH = '/notification/v1/live-activities/subscriptions';
@@ -28,23 +27,6 @@ type IRemoteActivityCleanup = {
   soleRequest?: boolean;
   retryAtMs: number;
 };
-
-export function isStandardLiveActivityTestEndpoint({
-  enabled,
-  settings,
-}: IDevSettingsPersistAtom) {
-  return (
-    !!enabled &&
-    !!settings?.enableTestEndpoint &&
-    !settings.customApiEndpoints?.some(
-      ({ enabled: customEnabled, serviceModule, api }) =>
-        customEnabled &&
-        (serviceModule === EServiceEndpointEnum.Notification ||
-          serviceModule === EServiceEndpointEnum.Swap) &&
-        api !== endpointsMap.test[serviceModule],
-    )
-  );
-}
 
 export const liveActivityRemoteTracking = {
   isReady: async (): Promise<boolean> => {
