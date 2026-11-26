@@ -52,6 +52,9 @@ interface IHeaderContentProps {
   sortBy: IPerpsInvitesSortBy;
   sortOrder: IPerpsInvitesSortOrder;
   onSort: (field: IPerpsInvitesSortBy) => void;
+  // Only the single-row desktop table can grow its header; the compact table
+  // must keep it one line to stay aligned with the pinned address column.
+  wrapLabels?: boolean;
 }
 
 interface ISortableHeaderProps {
@@ -63,6 +66,7 @@ interface ISortableHeaderProps {
   width: string | number;
   jc?: 'flex-start' | 'flex-end';
   tooltipContent?: string;
+  wrapLabel?: boolean;
 }
 
 // Module-level constants to avoid re-creating on every render
@@ -83,6 +87,7 @@ function SortableHeader({
   width,
   jc = 'flex-start',
   tooltipContent,
+  wrapLabel,
 }: ISortableHeaderProps) {
   const isActive = sortBy === field;
   let iconName:
@@ -98,9 +103,9 @@ function SortableHeader({
 
   return (
     <XStack w={width} minWidth={0} ai="center" jc={jc} gap="$1">
-      {/* Shrinks so long translations wrap inside the column. */}
       <XStack
-        flexShrink={1}
+        // Lets long translations wrap inside the column.
+        flexShrink={wrapLabel ? 1 : undefined}
         minWidth={0}
         ai="center"
         gap="$1"
@@ -281,6 +286,7 @@ function ScrollableHeaderContent({
   sortBy,
   sortOrder,
   onSort,
+  wrapLabels,
 }: IHeaderContentProps) {
   const intl = useIntl();
 
@@ -295,6 +301,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.invitedAt}
+        wrapLabel={wrapLabels}
       />
 
       <XStack w={columnWidths.referralCode}>
@@ -318,6 +325,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.firstTrade}
+        wrapLabel={wrapLabels}
       />
 
       <SortableHeader
@@ -329,6 +337,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.volume}
+        wrapLabel={wrapLabels}
       />
 
       <SortableHeader
@@ -340,6 +349,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.fee}
+        wrapLabel={wrapLabels}
         tooltipContent={intl.formatMessage({
           id: ETranslations.referral_perps_onekey_fee_exclusion_notice,
         })}
@@ -364,6 +374,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.reward}
+        wrapLabel={wrapLabels}
         jc="flex-end"
       />
     </>
@@ -504,6 +515,7 @@ export function PerpsRecordTable({
           sortBy={sortBy}
           sortOrder={sortOrder}
           onSort={onSort}
+          wrapLabels
         />
       </XStack>
       {records.map((record) => (
