@@ -39,6 +39,11 @@ const mockRouteCallback = jest.fn<
 >();
 let mockScan: (value: string) => ReturnType<IRouteCallback>;
 
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: { serviceScanQRCode: { resetAnimationData: jest.fn() } },
+}));
+
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({
     key: 'scan',

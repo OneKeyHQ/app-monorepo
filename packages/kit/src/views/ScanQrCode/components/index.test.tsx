@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { ScanQrCode } from '.';
 
-import { UR, UREncoder } from '@ngraveio/bc-ur';
+import { UR, URDecoder, UREncoder } from '@ngraveio/bc-ur';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -367,11 +367,13 @@ test.each([
         });
       }
       expect(screen.getByText(/25%$/)).toBeTruthy();
-      fireEvent.click(screen.getByText('Switch'));
+      await act(async () => {
+        fireEvent.click(screen.getByText('Switch'));
+      });
       expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe(
         'b',
       );
-      expect(screen.getByText(/25%$/)).toBeTruthy();
+      expect(Boolean(screen.queryByText(/25%$/))).toBe(selected);
       await act(async () => {
         frame([address]);
         jest.advanceTimersByTime(300);
@@ -391,6 +393,73 @@ test.each([
     }
   },
 );
+
+test('camera switch drains an automatic UR frame and resets the decoder before feeding a new message', async () => {
+  const previous = new UREncoder(UR.fromBuffer(Buffer.alloc(200, 7)), 40);
+  const next = new UREncoder(UR.fromBuffer(Buffer.alloc(200, 8)), 40);
+  const firstPart = previous.nextPart();
+  const inFlightPart = previous.nextPart();
+  const nextMessagePart = next.nextPart();
+  const oldFrameFinished = Promise.withResolvers<void>();
+  const decoderResetFinished = Promise.withResolvers<void>();
+  let decoder = new URDecoder();
+  const onScan = jest.fn(async (text: string) => {
+    if (text === inFlightPart) await oldFrameFinished.promise;
+    return decoder.receivePart(text)
+      ? { progress: decoder.estimatedPercentComplete() }
+      : {};
+  });
+  const onResetAnimationData = jest.fn(async () => {
+    await decoderResetFinished.promise;
+    decoder = new URDecoder();
+  });
+  render(
+    <ScanQrCode
+      handleBarCodeScanned={onScan}
+      onResetAnimationData={onResetAnimationData}
+    />,
+  );
+  const frame = (text: string) =>
+    mockReceiveFrame?.({
+      coordinateSpace: 'view',
+      symbols: [{ text, centerX: 0.5, centerY: 0.5 }],
+    });
+  await act(async () => {
+    frame(firstPart);
+  });
+  expect(screen.getByText(/\d+%$/)).toBeTruthy();
+  act(() => {
+    frame(inFlightPart);
+  });
+  fireEvent.click(screen.getByText('Switch'));
+  expect(screen.queryByText(/\d+%$/)).toBeNull();
+  expect(onResetAnimationData).not.toHaveBeenCalled();
+  act(() => {
+    frame(nextMessagePart);
+  });
+  expect(onScan.mock.calls).toEqual([[firstPart], [inFlightPart]]);
+  await act(async () => {
+    oldFrameFinished.resolve();
+  });
+  expect(onResetAnimationData).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(/\d+%$/)).toBeNull();
+  act(() => {
+    frame(nextMessagePart);
+  });
+  expect(onScan).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    decoderResetFinished.resolve();
+  });
+  await act(async () => {
+    frame(nextMessagePart);
+  });
+  expect(onScan.mock.calls).toEqual([
+    [firstPart],
+    [inFlightPart],
+    [nextMessagePart],
+  ]);
+  expect(screen.getByText(/\d+%$/)).toBeTruthy();
+});
 
 test('a live selection detected under the album stays hidden until the album closes', () => {
   const onScan = jest.fn(async () => ({}));

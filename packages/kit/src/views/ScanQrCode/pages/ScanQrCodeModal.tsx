@@ -21,6 +21,7 @@ import { NavCloseButton } from '@onekeyhq/components/src/layouts/Navigation/Head
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { glassBarItem } from '@onekeyhq/components/src/primitives/Button/GlassHeaderContext';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -417,6 +418,12 @@ export default function ScanQrCodeModal() {
     [callback],
   );
 
+  const onResetAnimationData = useCallback(async () => {
+    if (scan.current.mounted && scan.current.phase === 'open') {
+      await backgroundApiProxy.serviceScanQRCode.resetAnimationData();
+    }
+  }, []);
+
   // A phone sheet wider than it is tall (iPhone Duo inner display in
   // landscape) can't fit a full-width square camera above the hints, so
   // put the hints beside it and fit the camera to the remaining space.
@@ -507,6 +514,7 @@ export default function ScanQrCodeModal() {
                 <ScanQrCode
                   ref={scannerRef}
                   handleBarCodeScanned={onCameraScanned}
+                  onResetAnimationData={onResetAnimationData}
                   qrWalletScene={qrWalletScene}
                   selectionCovered={Boolean(pickedImageSelection)}
                 />

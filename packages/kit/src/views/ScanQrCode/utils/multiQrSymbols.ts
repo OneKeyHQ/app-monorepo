@@ -242,7 +242,8 @@ export type IMultiSymbolCoordinator = {
   selectSymbol(symbol: IMultiQrSymbol): void;
   cancelSelection(): void;
   refocus(): void;
-  resetCapture(): void;
+  /** Returns true when changing cameras abandons an automatically acquired UR. */
+  resetCapture(): boolean;
   reset(): void;
   dispose(): void;
 };
@@ -579,14 +580,16 @@ export function createMultiSymbolCoordinator(
     },
     resetCapture() {
       if (!activeUr?.selected) {
+        const abandonedAutomaticUr = activeUr !== undefined;
         reset();
-        return;
+        return abandonedAutomaticUr;
       }
       // Keep assembling the stream the user picked after the camera changes.
       phase = 'ur-streaming';
       acceptFastPathText = false;
       closeSelection();
       options.onMultiSymbolChange(true);
+      return false;
     },
     reset,
     dispose() {
