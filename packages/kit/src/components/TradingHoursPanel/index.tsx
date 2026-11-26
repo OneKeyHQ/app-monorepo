@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -284,6 +285,7 @@ function TradingHoursClosedTimeline({
   nextSessionKey,
 }: IClosedTimelineModel) {
   const intl = useIntl();
+  const clampedProgress = Math.min(Math.max(progress, 0), 1);
   const closedRatio = nextSessionKey ? 1 - CLOSED_TIMELINE_NEXT_RATIO : 1;
   const parts: Array<{ key: string; ratio: number; label: string }> = [
     {
@@ -310,11 +312,23 @@ function TradingHoursClosedTimeline({
             h="$2"
             borderRadius="$1"
             bg="$bgStrong"
+            // The closure part carries the marker, so it is what a screen
+            // reader announces as the progress through the closure.
+            {...(part.key === 'closed'
+              ? {
+                  role: 'progressbar' as const,
+                  'aria-label': part.label,
+                  'aria-valuemin': 0,
+                  'aria-valuemax': 100,
+                  'aria-valuenow': Math.round(clampedProgress * 100),
+                  testID: 'trading-hours-closure-progress',
+                }
+              : null)}
           >
             {part.key === 'closed' ? (
               <Stack
                 position="absolute"
-                left={`${Math.min(Math.max(progress, 0), 1) * 100}%`}
+                left={`${clampedProgress * 100}%`}
                 top={-NOW_LINE_OVERHANG}
                 w={0}
                 alignItems="center"
@@ -1085,7 +1099,41 @@ const DIALOG_CLOSE_BUTTON_HEIGHT = 32;
  * let it scroll; when the content fits, the ScrollView collapses to content
  * height.
  */
-function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
+/**
+ * The latest stock the trigger has rendered with. `Dialog.show` mounts its
+ * content once, so the sheet subscribes to this instead of keeping the
+ * stock it opened with — a refresh that brings a reopen time then updates
+ * the countdown and the timeline while the sheet stays open.
+ */
+interface ILiveStock {
+  get: () => IMarketStockInfo;
+  set: (stock: IMarketStockInfo) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+
+function createLiveStock(initial: IMarketStockInfo): ILiveStock {
+  let current = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (stock) => {
+      if (stock === current) {
+        return;
+      }
+      current = stock;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+function TradingHoursDialogBody({ liveStock }: { liveStock: ILiveStock }) {
+  const stock = useSyncExternalStore(liveStock.subscribe, liveStock.get);
   const { height: windowHeight } = useWindowDimensions();
   // Window resizes only move the ScrollView bound — keep the panel subtree
   // from re-reconciling on every resize tick.
@@ -1120,11 +1168,11 @@ function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
   );
 }
 
-function showTradingHoursDialog(stock: IMarketStockInfo) {
+function showTradingHoursDialog(liveStock: ILiveStock) {
   Dialog.show({
     showFooter: false,
     contentContainerProps: { px: '$0', pb: '$0' },
-    renderContent: <TradingHoursDialogBody stock={stock} />,
+    renderContent: <TradingHoursDialogBody liveStock={liveStock} />,
   });
 }
 
@@ -1306,16 +1354,20 @@ export function TradingHoursTrigger({
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
+  const [liveStock] = useState(() => createLiveStock(stock));
+  useEffect(() => {
+    liveStock.set(stock);
+  }, [liveStock, stock]);
   const openOnLoad = useRef(defaultOpen);
   useEffect(() => {
     if (openOnLoad.current) {
       openOnLoad.current = false;
       if (useSheetDialog && stock.isUSListing !== false) {
-        showTradingHoursDialog(stock);
+        showTradingHoursDialog(liveStock);
       }
       onDefaultOpenConsumed?.();
     }
-  }, [onDefaultOpenConsumed, stock, useSheetDialog]);
+  }, [liveStock, onDefaultOpenConsumed, stock, useSheetDialog]);
 
   // US trading hours describe nothing about a non-US listing.
   if (stock.isUSListing === false) {
@@ -1330,7 +1382,7 @@ export function TradingHoursTrigger({
           // The chip often sits inside a pressable header row (which opens the
           // token selector) — keep this tap to ourselves.
           e.stopPropagation();
-          showTradingHoursDialog(stock);
+          showTradingHoursDialog(liveStock);
         }}
       >
         {renderTrigger}

@@ -10,6 +10,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFetchUSMarketStatusResult } from '@onekeyhq/shared/types/swap/types';
 
 let mockStatus: IFetchUSMarketStatusResult | undefined;
+let mockMediaMd = false;
+let mockDialogContent: ReactNode;
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en',
@@ -65,9 +67,15 @@ jest.mock('@onekeyhq/components', () => {
     opacity,
     testID,
     onPress,
+    role,
+    'aria-label': ariaLabel,
+    'aria-valuenow': ariaValueNow,
   }: PropsWithChildren<{
     bg?: string;
     left?: string | number;
+    role?: string;
+    'aria-label'?: string;
+    'aria-valuenow'?: number;
     opacity?: number;
     testID?: string;
     onPress?: (event: unknown) => void;
@@ -78,7 +86,14 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </button>
     ) : (
-      <div data-bg={bg} data-left={left} data-testid={testID}>
+      <div
+        data-bg={bg}
+        data-left={left}
+        data-testid={testID}
+        role={role}
+        aria-label={ariaLabel}
+        aria-valuenow={ariaValueNow}
+      >
         {children}
       </div>
     );
@@ -151,13 +166,22 @@ jest.mock('@onekeyhq/components', () => {
         {renderContent}
       </div>
     ),
-    useMedia: () => ({ md: false }),
+    Dialog: {
+      show: ({ renderContent }: { renderContent: ReactNode }) => {
+        mockDialogContent = renderContent;
+      },
+      Header: ({ children }: PropsWithChildren) => <>{children}</>,
+    },
+    ScrollView: Frame,
+    useMedia: () => ({ md: mockMediaMd }),
   };
 });
 
 afterEach(() => {
   jest.useRealTimers();
   mockStatus = undefined;
+  mockMediaMd = false;
+  mockDialogContent = undefined;
 });
 
 const CLOSED_NOTE = 'Closed on weekends and US market holidays.';
@@ -478,6 +502,45 @@ describe('closed timeline', () => {
       'Pre',
     ]);
     expect(nowLinePercent()).toBeCloseTo((359 / 1440) * 100, 6);
+    const progress = screen.getByRole('progressbar', {
+      name: ETranslations.market_status_closed,
+    });
+    expect(progress.getAttribute('aria-valuenow')).toBe('25');
+  });
+
+  it('updates an open sheet when a refresh brings the reopen time', () => {
+    mockMediaMd = true;
+    // Thu 10:00 EST, weekday closure with no reopen time yet
+    jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+    const stock = {
+      title: 'AAPL',
+      subtitle: 'Apple',
+      source: 'bstock',
+      sourceLogoUri: '',
+      isUSListing: true,
+      isOpen: false,
+    };
+    const { rerender } = render(
+      <TradingHoursTrigger stock={stock} renderTrigger={<span>status</span>} />,
+    );
+    // The sheet trigger is the only button before the sheet mounts.
+    fireEvent.click(screen.getByRole('button'));
+    render(<>{mockDialogContent}</>);
+    expect(timelineLabels()).toEqual([ETranslations.market_status_closed]);
+
+    act(() => {
+      rerender(
+        <TradingHoursTrigger
+          stock={{ ...stock, nextOpenTime: '2026-11-27T09:01:00Z' }}
+          renderTrigger={<span>status</span>}
+        />,
+      );
+    });
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      'Pre',
+    ]);
+    expect(screen.getByText('Pre-market starts in')).toBeTruthy();
   });
 
   it('runs a holiday to the same evening overnight', () => {
