@@ -272,9 +272,6 @@ export const TradingViewNativeChart = memo(
         pressed.clear();
       };
     }, [canMaximize]);
-    const toggleMaximize = useCallback(() => {
-      if (pressedPointerIdsRef.current.size === 0) maximize?.toggle();
-    }, [maximize]);
     const drawingToolsRef = useRef<HTMLDivElement>(null);
     const getDrawingToolsCollapseGain = sharedDrawingTools?.getCollapseGain;
     // Where the plot's reference width starts: the chart's root, which holds a
@@ -324,6 +321,13 @@ export const TradingViewNativeChart = memo(
       getPriceRange: getReferenceLinePriceRange,
       isInteracting: isReferenceLineInteracting,
     } = referenceLineInteraction;
+    // An order line gesture also holds off for its whole life, e.g. after a
+    // preset change has let the pressed pointers go.
+    const toggleMaximize = useCallback(() => {
+      if (pressedPointerIdsRef.current.size > 0 || isReferenceLineInteracting())
+        return;
+      maximize?.toggle();
+    }, [isReferenceLineInteracting, maximize]);
     const drawingController = useChartDrawings({
       enabled: drawingsEnabled,
       projectionRef: drawingProjectionRef,
