@@ -279,7 +279,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       loading: isLoading,
       // Custom content or colors from the caller can't take the disabled
       // colors, so those buttons still fade. An element child draws its own
-      // color, so only plain text counts as text here.
+      // color, so only plain text counts as text here. A caller that sets
+      // the opacity decides how its disabled button looks.
       disabledColors:
         childrenAsText &&
         Children.toArray(children).every(
@@ -288,7 +289,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
         !outerColor &&
         !outerIconColor &&
         rest.bg === undefined &&
-        rest.backgroundColor === undefined,
+        rest.backgroundColor === undefined &&
+        rest.opacity === undefined,
     }) as {
       sharedFrameStyles: ISharedFrameStylesProps;
       iconColor: ColorTokens;
