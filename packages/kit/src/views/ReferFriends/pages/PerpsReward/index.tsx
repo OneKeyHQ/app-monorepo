@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -136,36 +136,31 @@ function PerpsRewardPageWrapper() {
       : filterState.timeRange;
 
   // Fetch counts for both tabs
-  const fetchCounts = useCallback(async () => {
-    const [undistributedResult, totalResult] = await Promise.allSettled([
-      backgroundApiProxy.serviceReferralCode.getPerpsInvites({
-        tab: 'undistributed',
-        timeRange: effectiveTimeRange,
-        startTime: filterState.startTime,
-        endTime: filterState.endTime,
-        inviteCode: filterState.inviteCode,
-      }),
-      backgroundApiProxy.serviceReferralCode.getPerpsInvites({
-        tab: 'total',
-        timeRange: effectiveTimeRange,
-        startTime: filterState.startTime,
-        endTime: filterState.endTime,
-        inviteCode: filterState.inviteCode,
-      }),
-    ]);
-
-    if (undistributedResult.status === 'fulfilled') {
-      setUndistributedCount(undistributedResult.value.total);
-    }
-    if (totalResult.status === 'fulfilled') {
-      setTotalCount(totalResult.value.total);
-    }
-  }, [
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-  ]);
+  const fetchCounts = useCallback(
+    () =>
+      Promise.allSettled([
+        backgroundApiProxy.serviceReferralCode.getPerpsInvites({
+          tab: 'undistributed',
+          timeRange: effectiveTimeRange,
+          startTime: filterState.startTime,
+          endTime: filterState.endTime,
+          inviteCode: filterState.inviteCode,
+        }),
+        backgroundApiProxy.serviceReferralCode.getPerpsInvites({
+          tab: 'total',
+          timeRange: effectiveTimeRange,
+          startTime: filterState.startTime,
+          endTime: filterState.endTime,
+          inviteCode: filterState.inviteCode,
+        }),
+      ]),
+    [
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+      filterState.inviteCode,
+    ],
+  );
 
   const fetchInvitesPage = useCallback(
     async (cursor: string | undefined) => {
@@ -224,8 +219,14 @@ function PerpsRewardPageWrapper() {
     }
   }, [activeTab, loadFirstPage]);
 
+  // Drops summary and count results from a superseded load.
+  const dashboardIdRef = useRef(0);
+
   const loadDashboard = useCallback(
     async (includeList: boolean) => {
+      dashboardIdRef.current += 1;
+      const dashboardId = dashboardIdRef.current;
+      const isLatest = () => dashboardId === dashboardIdRef.current;
       setIsLoading(true);
       try {
         await Promise.all([
@@ -236,14 +237,30 @@ function PerpsRewardPageWrapper() {
               endTime: filterState.endTime,
               inviteCode: filterState.inviteCode,
             })
-            .then(setCumulativeRewards),
-          fetchCounts(),
+            .then((result) => {
+              if (isLatest()) {
+                setCumulativeRewards(result);
+              }
+            }),
+          fetchCounts().then(([undistributedResult, totalResult]) => {
+            if (!isLatest()) {
+              return;
+            }
+            if (undistributedResult.status === 'fulfilled') {
+              setUndistributedCount(undistributedResult.value.total);
+            }
+            if (totalResult.status === 'fulfilled') {
+              setTotalCount(totalResult.value.total);
+            }
+          }),
           includeList ? fetchCurrentTab() : undefined,
         ]);
       } catch (error) {
         console.error('Failed to fetch perps data:', error);
       } finally {
-        setIsLoading(false);
+        if (isLatest()) {
+          setIsLoading(false);
+        }
       }
     },
     [
