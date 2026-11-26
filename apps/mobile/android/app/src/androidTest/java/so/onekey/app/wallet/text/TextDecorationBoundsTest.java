@@ -64,8 +64,11 @@ public class TextDecorationBoundsTest {
 
         Bitmap bitmap = drawDashedUnderline(layout, 1, latinStart + 2);
         int decoratedEnd = Math.round(left + paint.measureText("US"));
-        assertTrue(hasPaint(bitmap, (int) Math.ceil(left), decoratedEnd));
-        assertFalse(hasPaint(bitmap, decoratedEnd + 1, bitmap.getWidth()));
+        int secondLineTop = layout.getLineBaseline(1);
+        assertTrue(hasPaint(bitmap, (int) Math.ceil(left), decoratedEnd,
+                secondLineTop, bitmap.getHeight()));
+        assertFalse(hasPaint(bitmap, decoratedEnd + 1, bitmap.getWidth(),
+                secondLineTop, bitmap.getHeight()));
     }
 
     @Test

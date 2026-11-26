@@ -11,7 +11,7 @@ index 11c8691..b01ff1a 100644
      android_hyphenationFrequency: true,
      lineBreakStrategyIOS: true,
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
-index 228ec0d..03cd3d7 100644
+index 228ec0d..711f09b 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
 @@ -42,6 +42,7 @@ @interface RCTParagraphTextView : UIView
@@ -41,12 +41,13 @@ index 228ec0d..03cd3d7 100644
    _accessibilityProvider = nil;
  }
 
-@@ -455,6 +461,9 @@ - (void)drawRect:(CGRect)rect
+@@ -455,6 +461,10 @@ - (void)drawRect:(CGRect)rect
    [nativeTextLayoutManager drawAttributedString:stateData.attributedString
                              paragraphAttributes:_paragraphAttributes
                                            frame:frame
 +                                  onekeyDashText:self.onekeyDashText
 +                                  drawingBottom:CGRectGetMaxY(self.bounds)
++                          pixelSnappedBottomPadding:stateData.pixelSnappedBottomPadding
 +                                          scale:self.contentScaleFactor
                                drawHighlightPath:^(UIBezierPath *highlightPath) {
                                  if (highlightPath) {
@@ -87,22 +88,70 @@ index d5bb11a..9ae3cc5 100644
  #pragma mark - DebugStringConvertible
 
  #if RN_DEBUG_STRING_CONVERTIBLE
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/text/ParagraphShadowNode.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/text/ParagraphShadowNode.cpp
+index 17b14c4..2d25370 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/text/ParagraphShadowNode.cpp
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/text/ParagraphShadowNode.cpp
+@@ -171,7 +171,15 @@ void ParagraphShadowNode::updateStateIfNeeded(const Content& content) {
+   auto& state = getStateData();
+
+   react_native_assert(textLayoutManager_);
++#ifdef __APPLE__
++  const auto pixelSnappedBottomPadding = getConcreteProps().onekeyDashText.empty()
++      ? 0.0f
++      : yogaNode_.getLayout().pixelSnappedBottomPadding;
++  if (state.attributedString == content.attributedString &&
++      state.pixelSnappedBottomPadding == pixelSnappedBottomPadding) {
++#else
+   if (state.attributedString == content.attributedString) {
++#endif
+     return;
+   }
+
+@@ -179,7 +187,11 @@ void ParagraphShadowNode::updateStateIfNeeded(const Content& content) {
+       ParagraphState{
+           content.attributedString,
+           content.paragraphAttributes,
+-          textLayoutManager_});
++          textLayoutManager_,
++#ifdef __APPLE__
++          pixelSnappedBottomPadding,
++#endif
++      });
+ }
+
+ MeasuredPreparedTextLayout* ParagraphShadowNode::findUsableLayout() {
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/text/platform/cxx/react/renderer/components/text/ParagraphState.h b/node_modules/react-native/ReactCommon/react/renderer/components/text/platform/cxx/react/renderer/components/text/ParagraphState.h
+index 3b351ae..749f704 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/text/platform/cxx/react/renderer/components/text/ParagraphState.h
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/text/platform/cxx/react/renderer/components/text/ParagraphState.h
+@@ -39,6 +39,9 @@ class ParagraphState final {
+    * `AttributedString`.
+    */
+   std::weak_ptr<const TextLayoutManager> layoutManager;
++#ifdef __APPLE__
++  Float pixelSnappedBottomPadding{};
++#endif
+ };
+
+ } // namespace facebook::react
 diff --git a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.h b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.h
-index a4b9be7..1895032 100644
+index a4b9be7..f5e48c8 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.h
 +++ b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.h
-@@ -40,6 +40,9 @@ using RCTTextLayoutFragmentEnumerationBlock =
+@@ -40,6 +40,10 @@ using RCTTextLayoutFragmentEnumerationBlock =
  - (void)drawAttributedString:(facebook::react::AttributedString)attributedString
           paragraphAttributes:(facebook::react::ParagraphAttributes)paragraphAttributes
                         frame:(CGRect)frame
 +               onekeyDashText:(nullable NSString *)onekeyDashText
 +               drawingBottom:(CGFloat)drawingBottom
++       pixelSnappedBottomPadding:(CGFloat)pixelSnappedBottomPadding
 +                        scale:(CGFloat)scale
             drawHighlightPath:(void (^_Nullable)(UIBezierPath *highlightPath))block;
 
  - (facebook::react::LinesMeasurements)getLinesForAttributedString:(facebook::react::AttributedString)attributedString
 diff --git a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
-index 5f9847a..1fd621d 100644
+index 5f9847a..9e94ad6 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
 +++ b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
 @@ -8,6 +8,7 @@
@@ -113,17 +162,18 @@ index 5f9847a..1fd621d 100644
 
  #import "RCTAttributedTextUtils.h"
 
-@@ -130,6 +131,9 @@ - (CGRect)drawingFrameForAttributedString:(AttributedString)attributedString
+@@ -130,6 +131,10 @@ - (CGRect)drawingFrameForAttributedString:(AttributedString)attributedString
  - (void)drawAttributedString:(AttributedString)attributedString
           paragraphAttributes:(ParagraphAttributes)paragraphAttributes
                         frame:(CGRect)frame
 +               onekeyDashText:(nullable NSString *)onekeyDashText
 +               drawingBottom:(CGFloat)drawingBottom
++       pixelSnappedBottomPadding:(CGFloat)pixelSnappedBottomPadding
 +                        scale:(CGFloat)scale
             drawHighlightPath:(void (^_Nullable)(UIBezierPath *highlightPath))block
  {
    NSTextStorage *textStorage = [self
-@@ -156,6 +160,12 @@ - (void)drawAttributedString:(AttributedString)attributedString
+@@ -156,6 +161,12 @@ - (void)drawAttributedString:(AttributedString)attributedString
    CGContextRestoreGState(context);
  #endif
 
@@ -136,7 +186,7 @@ index 5f9847a..1fd621d 100644
    // Custom decoration pass: enumerate `RCTCustomDecorationAttributeName`
    // ranges and paint each one ourselves. Covers wavy (no UIKit equivalent),
    // dotted, and dashed (UIKit's pattern bits don't match browser geometry).
-@@ -236,6 +246,37 @@ - (void)drawAttributedString:(AttributedString)attributedString
+@@ -236,6 +247,40 @@ - (void)drawAttributedString:(AttributedString)attributedString
 
                                                     // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
                                                     for (NSString *line in lines) {
@@ -152,6 +202,9 @@ index 5f9847a..1fd621d 100644
 +                                                       if ([dashMode isEqualToString:@"overlay"]) {
 +                                                         top = round(MIN(lineBottom, drawingBottom) * scale) - height;
 +                                                       } else if ([dashMode isEqualToString:@"single"]) {
++                                                         // The old rule occupied its own Yoga box, with independently
++                                                         // rounded edges even when fractional padding rounds outward.
++                                                         height = MAX(1.0, round(pixelSnappedBottomPadding * scale));
 +                                                         // TextKit's fragment can end one pixel above the old text view.
 +                                                         top = round(MIN(lineBottom, CGRectGetMaxY(frame)) * scale) + 1.0;
 +                                                       } else {
@@ -174,3 +227,42 @@ index 5f9847a..1fd621d 100644
                                                       CGFloat y = 0.0f;
                                                       if ([line isEqualToString:@"underline"]) {
                                                         if ([style isEqualToString:@"wavy"]) {
+diff --git a/node_modules/react-native/ReactCommon/yoga/yoga/algorithm/PixelGrid.cpp b/node_modules/react-native/ReactCommon/yoga/yoga/algorithm/PixelGrid.cpp
+index 5c5a3b7..3a619c9 100644
+--- a/node_modules/react-native/ReactCommon/yoga/yoga/algorithm/PixelGrid.cpp
++++ b/node_modules/react-native/ReactCommon/yoga/yoga/algorithm/PixelGrid.cpp
+@@ -85,6 +85,17 @@ void roundLayoutResultsToPixelGrid(
+     // If a node has a custom measure function we never want to round down its
+     // size as this could lead to unwanted text truncation.
+     const bool textRounding = node->getNodeType() == NodeType::Text;
++#ifdef __APPLE__
++    if (textRounding) {
++      const auto bottomPadding = node->getLayout().padding(PhysicalEdge::Bottom);
++      node->getLayout().pixelSnappedBottomPadding = bottomPadding > 0.0f
++          ? roundValueToPixelGrid(
++                absoluteNodeBottom, pointScaleFactor, false, false) -
++              roundValueToPixelGrid(
++                absoluteNodeBottom - bottomPadding, pointScaleFactor, false, false)
++          : 0.0f;
++    }
++#endif
+
+     node->setLayoutPosition(
+         roundValueToPixelGrid(nodeLeft, pointScaleFactor, false, textRounding),
+diff --git a/node_modules/react-native/ReactCommon/yoga/yoga/node/LayoutResults.h b/node_modules/react-native/ReactCommon/yoga/yoga/node/LayoutResults.h
+index 24d353f..1855183 100644
+--- a/node_modules/react-native/ReactCommon/yoga/yoga/node/LayoutResults.h
++++ b/node_modules/react-native/ReactCommon/yoga/yoga/node/LayoutResults.h
+@@ -118,6 +118,12 @@ struct LayoutResults {
+     padding_[yoga::to_underlying(physicalEdge)] = dimension;
+   }
+
++#ifdef __APPLE__
++  // Paints inside a text node can need ordinary view rounding even though
++  // the text box itself rounds outward to avoid truncating glyphs.
++  float pixelSnappedBottomPadding = 0.0f;
++#endif
++
+   bool operator==(LayoutResults layout) const;
+
+  private:
