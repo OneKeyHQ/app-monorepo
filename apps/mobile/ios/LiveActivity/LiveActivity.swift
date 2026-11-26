@@ -162,21 +162,25 @@ private struct SwapActivityProgress: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
   private let height: CGFloat = 10
 
-  private var frozenProgress: Double {
-    if context.isStale, !context.state.status.isError,
-       let remoteProgress = context.state.remoteProgress, remoteProgress.isFinite {
-      return min(1, max(0, remoteProgress))
-    }
+  private var fixedProgress: Double? {
+    let state = context.state
     let order = context.attributes.order
+    // Real orders and push tests get their progress from ActivityKit updates.
+    if order.isRealOrderOrPushTest, let progress = state.remoteProgress {
+      return (0...1).contains(progress) ? progress : 0
+    }
+    if state.isTerminal && !state.isRefundFailed { return 1 }
+    if order.isRealOrderOrPushTest { return 0 }
+    guard state.status.isError || context.isStale else { return nil }
     let durationMs = order.estimatedEndAtMs - order.startedAtMs
-    if let stoppedAtMs = context.state.progressStoppedAtMs ?? context.state.updatedAtMs,
+    if let stoppedAtMs = state.progressStoppedAtMs ?? state.updatedAtMs,
        durationMs > 0 {
       return min(1, max(0, (stoppedAtMs - order.startedAtMs) / durationMs))
     }
-    return min(1, max(0, context.state.remoteProgress ?? 0))
+    return 0
   }
 
-  private func pendingTrack(width: CGFloat) -> some View {
+  private func mockTimerTrack(width: CGFloat) -> some View {
     let order = context.attributes.order
     return ProgressView(timerInterval: order.startedAt...order.estimatedEndAt, countsDown: false) {
       EmptyView()
@@ -191,16 +195,14 @@ private struct SwapActivityProgress: View {
   var body: some View {
     GeometryReader { geometry in
       Group {
-        if context.state.isTerminal && !context.state.isRefundFailed {
-          Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
-        } else if context.state.status.isError || context.isStale {
+        if let progress = fixedProgress {
           ZStack(alignment: .leading) {
             Capsule().fill(.white.opacity(0.2))
             Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
-              .frame(width: geometry.size.width * frozenProgress)
+              .frame(width: geometry.size.width * progress)
           }
         } else {
-          pendingTrack(width: geometry.size.width)
+          mockTimerTrack(width: geometry.size.width)
         }
       }
       .clipShape(Capsule())
