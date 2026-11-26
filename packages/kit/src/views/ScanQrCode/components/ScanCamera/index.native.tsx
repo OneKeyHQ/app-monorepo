@@ -177,62 +177,23 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     }, []);
 
     const { epoch } = activity;
-    const nativeCallbacks = useMemo(() => {
+    const nativeCapture = useMemo(() => {
       let current: { generation: number; ready: boolean } | undefined;
       const isCurrent = (generation: number) =>
         mountedRef.current &&
         requestedActivity.current.status === 'active' &&
         requestedActivity.current.epoch === epoch &&
         generation >= (current?.generation ?? 0);
-
       return {
+        acceptsFrame: (generation: number) =>
+          isCurrent(generation) &&
+          current?.ready &&
+          generation === current.generation,
         onReady: callback((generation: number, activeCameraId?: string) => {
           if (!isCurrent(generation)) return;
           current = { generation, ready: true };
           handlers.current.onCameraReady?.(activeCameraId);
         }),
-        onFrameText: callback((text: string, generation: number) => {
-          if (
-            !isCurrent(generation) ||
-            !current?.ready ||
-            generation !== current.generation
-          ) {
-            return;
-          }
-          handlers.current.handleScanResult?.(text);
-        }),
-        ...(hasOnFrameSymbols
-          ? {
-              onFrameSymbols: callback(
-                (symbols: IMultiQrSymbol[], generation: number) => {
-                  if (
-                    !isCurrent(generation) ||
-                    !current?.ready ||
-                    generation !== current.generation
-                  ) {
-                    return;
-                  }
-                  handlers.current.onFrameSymbols?.({
-                    symbols,
-                    coordinateSpace: 'view',
-                  });
-                },
-              ),
-            }
-          : null),
-        ...(hasOnPreviewTap
-          ? {
-              onPreviewTap: callback((generation: number) => {
-                if (
-                  isCurrent(generation) &&
-                  current?.ready &&
-                  generation === current.generation
-                ) {
-                  handlers.current.onPreviewTap?.();
-                }
-              }),
-            }
-          : null),
         onError: callback(
           (code: string, _message: string, generation: number) => {
             if (!isCurrent(generation)) return;
@@ -241,7 +202,51 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           },
         ),
       };
-    }, [epoch, hasOnFrameSymbols, hasOnPreviewTap]);
+    }, [epoch]);
+
+    const frameIdentity = useMemo(() => ({}), [frozen]);
+    const committedFrame = useRef<object | undefined>(undefined);
+    useLayoutEffect(() => {
+      committedFrame.current = frozen ? undefined : frameIdentity;
+      return () => {
+        committedFrame.current = undefined;
+      };
+    }, [frameIdentity, frozen]);
+
+    const nativeCallbacks = useMemo(() => {
+      const acceptsFrame = (generation: number) =>
+        committedFrame.current === frameIdentity &&
+        nativeCapture.acceptsFrame(generation);
+      return {
+        onReady: nativeCapture.onReady,
+        onError: nativeCapture.onError,
+        onFrameText: callback((text: string, generation: number) => {
+          if (acceptsFrame(generation))
+            handlers.current.handleScanResult?.(text);
+        }),
+        ...(hasOnFrameSymbols
+          ? {
+              onFrameSymbols: callback(
+                (symbols: IMultiQrSymbol[], generation: number) => {
+                  if (acceptsFrame(generation)) {
+                    handlers.current.onFrameSymbols?.({
+                      symbols,
+                      coordinateSpace: 'view',
+                    });
+                  }
+                },
+              ),
+            }
+          : null),
+        ...(hasOnPreviewTap
+          ? {
+              onPreviewTap: callback((generation: number) => {
+                if (acceptsFrame(generation)) handlers.current.onPreviewTap?.();
+              }),
+            }
+          : null),
+      };
+    }, [frameIdentity, hasOnFrameSymbols, hasOnPreviewTap, nativeCapture]);
 
     const extraNativeProps = {
       ...(multiSymbol !== undefined ? { multiSymbol } : null),

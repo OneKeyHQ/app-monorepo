@@ -10,6 +10,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ScanCamera } from './index.native';
 
 import type { IScanCameraRef, IScanFocusRequest } from './types';
+import type { IMultiQrSymbol } from '../../utils/multiQrSymbols';
 
 type IViewProps = {
   active: boolean;
@@ -17,6 +18,7 @@ type IViewProps = {
   frozen?: boolean;
   focusRequest?: IScanFocusRequest;
   onPreviewTap?: (generation: number) => void;
+  onFrameSymbols?: (symbols: IMultiQrSymbol[], generation: number) => void;
   onReady: (generation: number, cameraId?: string) => void;
   onFrameText: (text: string, generation: number) => void;
   onError: (code: string, message: string, generation: number) => void;
@@ -312,4 +314,37 @@ test('sends the overlay focus point with unfreeze and drops taps from a retired 
   });
   act(() => oldView.onPreviewTap?.(1));
   expect(onPreviewTap).toHaveBeenCalledTimes(1);
+});
+
+test('drops Nitro callbacks queued before freeze when the capture resumes at the same generation', () => {
+  const screen = createNavigation();
+  useTestNavigation(screen);
+  const handleScanResult = jest.fn();
+  const onFrameSymbols = jest.fn();
+  const handlers = { handleScanResult, onFrameSymbols };
+  const { rerender } = render(<ScanCamera {...handlers} />);
+  const previous = view();
+  act(() => previous.onReady(1, 'camera'));
+
+  rerender(<ScanCamera {...handlers} frozen />);
+  const old = [{ text: 'old', centerX: 0.2, centerY: 0.5 }];
+  act(() => previous.onFrameText('old', 1));
+  rerender(<ScanCamera {...handlers} frozen={false} />);
+  act(() => {
+    previous.onFrameText('old', 1);
+    previous.onFrameSymbols?.(old, 1);
+  });
+  expect(handleScanResult).not.toHaveBeenCalled();
+  expect(onFrameSymbols).not.toHaveBeenCalled();
+
+  const fresh = [{ ...old[0], text: 'fresh' }];
+  act(() => {
+    view().onFrameText('fresh', 1);
+    view().onFrameSymbols?.(fresh, 1);
+  });
+  expect(handleScanResult).toHaveBeenCalledWith('fresh');
+  expect(onFrameSymbols).toHaveBeenCalledWith({
+    coordinateSpace: 'view',
+    symbols: fresh,
+  });
 });
