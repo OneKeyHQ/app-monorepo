@@ -74,6 +74,7 @@ export function useMarketHolders({
       tokenAddress,
       networkId,
       isTabFocused,
+      keepResultIfError: true,
     },
   );
 

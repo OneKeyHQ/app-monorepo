@@ -199,6 +199,84 @@ describe('useMarketTokenListRequest', () => {
 });
 
 describe('useMarketHolders request ownership', () => {
+  it.each(['mount', 'focus'])(
+    'handles a conflict during automatic %s refresh and recovers on the next poll',
+    async (trigger) => {
+      mockFetchHolders
+        .mockResolvedValueOnce({
+          list: [holderA, { ...holderA, amount: '999' }],
+        })
+        .mockResolvedValue({ list: [holderA] });
+      const { result, rerender } = renderHook(
+        (props) => useMarketHolders(props),
+        {
+          initialProps: {
+            ...initialScope,
+            isTabFocused: trigger === 'mount',
+          },
+        },
+      );
+      if (trigger === 'focus') {
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(0);
+        });
+        expect(mockFetchHolders).not.toHaveBeenCalled();
+        rerender({ ...initialScope, isTabFocused: true });
+      }
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(mockFetchHolders).toHaveBeenCalledTimes(1);
+      expect(result.current.holders).toEqual([]);
+      expect(result.current.isInitialPending).toBe(false);
+      expect(result.current.isRefreshing).toBe(false);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockFetchHolders).toHaveBeenCalledTimes(2);
+      expect(result.current.holders).toEqual([
+        { ...holderA, percentage: '1.00' },
+      ]);
+    },
+  );
+
+  it('keeps valid holders through conflicting automatic polls and recovers', async () => {
+    const updatedHolder = { ...holderA, amount: '11', fiatValue: '22' };
+    const conflict = { list: [holderA, { ...holderA, fiatValue: '1998' }] };
+    mockFetchHolders
+      .mockResolvedValueOnce({ list: [holderA] })
+      .mockResolvedValueOnce(conflict)
+      .mockResolvedValueOnce(conflict)
+      .mockResolvedValue({ list: [updatedHolder] });
+    const { result } = renderHook(() =>
+      useMarketHolders({ ...initialScope, isTabFocused: true }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.holders).toEqual([
+      { ...holderA, percentage: '1.00' },
+    ]);
+    for (const requestCount of [2, 3]) {
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockFetchHolders).toHaveBeenCalledTimes(requestCount);
+      expect(result.current.holders).toEqual([
+        { ...holderA, percentage: '1.00' },
+      ]);
+      expect(result.current.isInitialPending).toBe(false);
+      expect(result.current.isRefreshing).toBe(false);
+    }
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(5000);
+    });
+    expect(mockFetchHolders).toHaveBeenCalledTimes(4);
+    expect(result.current.holders).toEqual([
+      { ...updatedHolder, percentage: '1.10' },
+    ]);
+  });
+
   it.each([true, false])(
     'collapses matching holder balances with token detail available: %s',
     async (hasTokenDetail) => {
@@ -252,7 +330,7 @@ describe('useMarketHolders request ownership', () => {
     { amount: '999', fiatValue: holderA.fiatValue, reverse: true },
     { amount: holderA.amount, fiatValue: '1998', reverse: false },
     { amount: holderA.amount, fiatValue: '1998', reverse: true },
-  ])('rejects conflicting holder balances: %j', async (conflict) => {
+  ])('does not publish conflicting holder balances: %j', async (conflict) => {
     const list = [
       holderA,
       holderB,
@@ -266,9 +344,7 @@ describe('useMarketHolders request ownership', () => {
       jest.advanceTimersByTime(0);
     });
     await act(async () => {
-      await expect(
-        result.current.fetchHolders({ alwaysSetState: true }),
-      ).rejects.toThrow('Conflicting token holder balances');
+      await result.current.fetchHolders({ alwaysSetState: true });
     });
     expect(result.current.holders).toEqual([]);
     expect(result.current.isInitialPending).toBe(false);
@@ -287,9 +363,7 @@ describe('useMarketHolders request ownership', () => {
       list: [holderA, { ...holderA, amount: '999', fiatValue: '1998' }],
     });
     await act(async () => {
-      await expect(
-        result.current.fetchHolders({ alwaysSetState: true }),
-      ).rejects.toThrow('Conflicting token holder balances');
+      await result.current.fetchHolders({ alwaysSetState: true });
     });
     expect(result.current.holders).toEqual([holderA]);
     expect(result.current.isRefreshing).toBe(false);

@@ -10,10 +10,12 @@ export function useMarketTokenListRequest<T>(
     networkId,
     tokenAddress,
     isTabFocused,
+    keepResultIfError = false,
   }: {
     networkId: string;
     tokenAddress: string;
     isTabFocused: boolean;
+    keepResultIfError?: boolean;
   },
 ) {
   const [scope, setScope] = useState({ networkId, tokenAddress });
@@ -40,6 +42,7 @@ export function useMarketTokenListRequest<T>(
     [scope, isMountedRef],
     {
       watchLoading: true,
+      keepResultIfError,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
       overrideIsFocused: (isFocused) => isFocused && isTabFocused,
       revalidateOnFocus: true,
