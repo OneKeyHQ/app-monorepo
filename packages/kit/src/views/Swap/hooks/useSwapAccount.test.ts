@@ -108,6 +108,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapProSelectTokenAtom: () => [mockProToken],
   useSwapProUseSelectBuyTokenAtom: () => [undefined],
   useSwapProSellToTokenAtom: () => [undefined],
+  useSwapStockFromAccountRefreshAtom: () => [undefined],
   useSwapToAnotherAccountAddressAtom: () => [mockRecipient, mockSetRecipient],
 }));
 jest.mock('react-intl', () => ({

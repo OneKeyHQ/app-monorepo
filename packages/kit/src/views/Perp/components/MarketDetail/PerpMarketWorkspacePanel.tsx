@@ -41,7 +41,7 @@ type IPerpMarketWorkspaceView =
 
 const MARKET_BOOK_TABS = [
   { key: 'orderBook', translationId: ETranslations.perps_order_book },
-  { key: 'trades', translationId: ETranslations.swap_page_recent_trade },
+  { key: 'trades', translationId: ETranslations.perps_trades__title },
 ] as const;
 
 const WORKSPACE_VIEW_ITEMS = [
@@ -166,7 +166,7 @@ function WorkspaceTabButton({
         borderBottomColor={active ? '$borderActive' : 'transparent'}
       >
         <SizableText
-          size={fullWidth ? '$bodySmMedium' : '$bodyMdMedium'}
+          size="$bodyMdMedium"
           numberOfLines={1}
           minWidth={0}
           flexShrink={1}

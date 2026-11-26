@@ -17,6 +17,7 @@ import {
   TradingViewNativeFullscreenIndicatorPanel,
   getTradingViewNativeFullscreenIndicatorPanelWidth,
 } from './TradingViewNativeFullscreenIndicatorPanel';
+import { TradingViewNativeFullscreenTrailingInsetContext } from './TradingViewNativeFullscreenTrailingInsetContext';
 
 import type { ITradingViewNativeAnyIndicator } from './utils/chartIndicators';
 import type { ITradingViewIndicatorOption } from '../TradingViewChartControls/types';
@@ -35,7 +36,17 @@ jest.mock('react-native', () => ({
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
   default: {
-    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+    View: ({
+      children,
+      style,
+    }: {
+      children?: ReactNode;
+      style?: { width?: number }[];
+    }) => (
+      <div data-width={style?.find((item) => item.width !== undefined)?.width}>
+        {children}
+      </div>
+    ),
   },
   Easing: {
     cubic: (value: number) => value,
@@ -66,6 +77,8 @@ type IMockProps = {
   loading?: boolean;
   accessibilityLabel?: string;
   accessibilityState?: { selected?: boolean; disabled?: boolean };
+  right?: number;
+  pr?: number | string;
 };
 
 jest.mock('@onekeyhq/components', () => {
@@ -75,6 +88,8 @@ jest.mock('@onekeyhq/components', () => {
     onPress,
     accessibilityState,
     accessibilityLabel,
+    right,
+    pr,
   }: IMockProps) =>
     onPress || accessibilityState ? (
       <button
@@ -88,7 +103,9 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </button>
     ) : (
-      <div data-testid={testID}>{children}</div>
+      <div data-testid={testID} style={{ right, paddingRight: pr }}>
+        {children}
+      </div>
     );
   const Button = ({
     children,
@@ -165,6 +182,7 @@ function renderPanel({
   onIndicatorToggle = jest.fn(),
   onSave = jest.fn(),
   onClose = jest.fn(),
+  clearTrailingInset = 0,
 }: {
   initialIndicatorId?: ITradingViewNativeAnyIndicator;
   activeIndicatorValues?: ReadonlySet<string>;
@@ -172,20 +190,25 @@ function renderPanel({
   onIndicatorToggle?: jest.Mock;
   onSave?: jest.Mock;
   onClose?: jest.Mock;
+  clearTrailingInset?: number;
 } = {}) {
   render(
-    <TradingViewNativeFullscreenIndicatorPanel
-      initialIndicatorId={initialIndicatorId}
-      mainIndicators={MAIN_INDICATORS}
-      subIndicators={SUB_INDICATORS}
-      activeIndicatorValues={activeIndicatorValues}
-      canToggleIndicatorOn={canToggleIndicatorOn}
-      onIndicatorToggle={onIndicatorToggle}
-      value={createTradingViewNativeIndicatorSettingsValue()}
-      defaultValue={createTradingViewNativeIndicatorSettingsValue()}
-      onSave={onSave}
-      onClose={onClose}
-    />,
+    <TradingViewNativeFullscreenTrailingInsetContext.Provider
+      value={clearTrailingInset}
+    >
+      <TradingViewNativeFullscreenIndicatorPanel
+        initialIndicatorId={initialIndicatorId}
+        mainIndicators={MAIN_INDICATORS}
+        subIndicators={SUB_INDICATORS}
+        activeIndicatorValues={activeIndicatorValues}
+        canToggleIndicatorOn={canToggleIndicatorOn}
+        onIndicatorToggle={onIndicatorToggle}
+        value={createTradingViewNativeIndicatorSettingsValue()}
+        defaultValue={createTradingViewNativeIndicatorSettingsValue()}
+        onSave={onSave}
+        onClose={onClose}
+      />
+    </TradingViewNativeFullscreenTrailingInsetContext.Provider>,
   );
   return { onIndicatorToggle, onSave, onClose };
 }
@@ -316,4 +339,20 @@ describe('TradingViewNativeFullscreenIndicatorPanel', () => {
     fireEvent.click(screen.getByTestId(`${PANEL}-backdrop`));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it.each([0, 62])(
+    'covers %ipt of clear trailing inset while its content keeps its place',
+    (clearTrailingInset) => {
+      renderPanel({ clearTrailingInset });
+      expect(screen.getByTestId(`${PANEL}-layer`).style.right).toBe(
+        `${-clearTrailingInset}px`,
+      );
+      const panel = screen.getByTestId(PANEL);
+      expect(panel.style.paddingRight).toBe(`${clearTrailingInset}px`);
+      // 480pt for the 844pt window, plus the inset the panel covers.
+      expect(panel.parentElement?.dataset.width).toBe(
+        String(480 + clearTrailingInset),
+      );
+    },
+  );
 });
