@@ -21648,6 +21648,7 @@
     "packages/kit-bg/src/dbs/simple/base/SimpleDbProxy.ts": 19267,
     "packages/kit-bg/src/dbs/simple/base/retryUnreadableStorageRead.ts": 12969,
     "packages/kit-bg/src/dbs/simple/base/simpleDbFacadeCompatibility.ts": 1305,
+    "packages/kit-bg/src/dbs/simple/base/simpleDbSnapshotCacheUtils.ts": 22596,
     "packages/kit-bg/src/dbs/simple/base/unreadableStorageValueError.ts": 4208,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector.ts": 17034,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountValue.ts": 22648,

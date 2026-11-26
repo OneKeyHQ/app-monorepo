@@ -38,13 +38,14 @@ type ISnapshotCacheRecord<T> = {
 
 export type ISnapshotCacheSync<T> = {
   get: (key: string) => { data: T; updatedAt: number } | undefined;
-  set: (key: string, data: T) => void;
+  /** Returns whether the storage accepted this write. */
+  set: (key: string, data: T) => boolean;
   /**
    * One commit for many keys. Two runtimes write some of these namespaces, so
    * a flush that committed per key would both cost a manifest round trip each
    * time and lose more races than it needs to.
    */
-  setMany: (entries: readonly (readonly [string, T])[]) => void;
+  setMany: (entries: readonly (readonly [string, T])[]) => boolean;
   remove: (key: string) => void;
   /**
    * Marks an existing record as most recently used without rewriting its
@@ -100,7 +101,7 @@ export function createSnapshotCacheSync<T>({
     entries: Array<{ key: string; value: string }>;
     removeKeys: string[];
   }) => {
-    storage.commit({
+    return storage.commit({
       entries,
       commitMarker: {
         key: SNAPSHOT_CACHE_MANIFEST_KEY,
@@ -138,11 +139,11 @@ export function createSnapshotCacheSync<T>({
 
     set(key, data) {
       if (!isValidSnapshotCacheKey(key)) {
-        return;
+        return false;
       }
       const timestamp = now();
       let entries: Array<{ key: string; value: string }> | undefined;
-      const write = (attempt: number) => {
+      const write = (attempt: number): boolean => {
         const { raw, manifest } = readManifest();
         const plan = planSnapshotCacheWrite({
           manifest,
@@ -159,23 +160,27 @@ export function createSnapshotCacheSync<T>({
               value: JSON.stringify({ d: data, t: timestamp }),
             },
           ];
-          commitManifest({
-            raw,
-            manifest: plan.manifest,
-            entries,
-            removeKeys: plan.removeKeys,
-          });
+          return (
+            commitManifest({
+              raw,
+              manifest: plan.manifest,
+              entries,
+              removeKeys: plan.removeKeys,
+            }) !== false
+          );
         } catch {
           // A concurrent writer moved the marker; re-read and try again.
           if (attempt < MAX_COMMIT_ATTEMPTS - 1) {
-            write(attempt + 1);
+            return write(attempt + 1);
           }
+          return false;
         }
       };
       try {
-        write(0);
+        return write(0);
       } catch {
         // Persisting a snapshot must never fail the caller.
+        return false;
       }
     },
 
@@ -190,11 +195,11 @@ export function createSnapshotCacheSync<T>({
     setMany(entries) {
       const valid = entries.filter(([key]) => isValidSnapshotCacheKey(key));
       if (valid.length === 0) {
-        return;
+        return false;
       }
       const timestamp = now();
       let serializedEntries: Array<{ key: string; value: string }> | undefined;
-      const write = (attempt: number) => {
+      const write = (attempt: number): boolean => {
         const { raw, manifest } = readManifest();
         const plan = planSnapshotCacheWriteMany({
           manifest,
@@ -207,22 +212,26 @@ export function createSnapshotCacheSync<T>({
             key: dataKey(key),
             value: JSON.stringify({ d: data, t: timestamp }),
           }));
-          commitManifest({
-            raw,
-            manifest: plan.manifest,
-            entries: serializedEntries,
-            removeKeys: plan.removeKeys,
-          });
+          return (
+            commitManifest({
+              raw,
+              manifest: plan.manifest,
+              entries: serializedEntries,
+              removeKeys: plan.removeKeys,
+            }) !== false
+          );
         } catch {
           if (attempt < MAX_COMMIT_ATTEMPTS - 1) {
-            write(attempt + 1);
+            return write(attempt + 1);
           }
+          return false;
         }
       };
       try {
-        write(0);
+        return write(0);
       } catch {
         // Persisting a snapshot must never fail the caller.
+        return false;
       }
     },
 

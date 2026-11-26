@@ -57,8 +57,8 @@ export function createNamespacedSnapshotCache<T>({
 function createInertSnapshotCache<T>(): ISnapshotCacheSync<T> {
   return {
     get: () => undefined,
-    set: () => undefined,
-    setMany: () => undefined,
+    set: () => false,
+    setMany: () => false,
     remove: () => undefined,
     touch: () => undefined,
     keys: () => [],

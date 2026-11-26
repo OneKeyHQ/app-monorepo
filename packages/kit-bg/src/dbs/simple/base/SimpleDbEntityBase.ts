@@ -68,6 +68,8 @@ abstract class SimpleDbEntityBase<T> {
 
   protected readonly rejectInvalidStoredData: boolean = false;
 
+  protected readonly enableReferenceEqualityWriteSkip: boolean = false;
+
   protected validateStoredData(_data: unknown): void {}
 
   get entityKey() {
@@ -276,6 +278,19 @@ abstract class SimpleDbEntityBase<T> {
             const rawData = await this.getRawDataInner();
             assertCanCommit?.();
             data = await dataOrBuilder(rawData);
+            if (
+              this.enableReferenceEqualityWriteSkip &&
+              rawData !== null &&
+              rawData !== undefined &&
+              Object.is(data, rawData)
+            ) {
+              if (this.enableCache) {
+                this.cachedRawData = data;
+              }
+              this.cachedRawDataPromise = null;
+              onCommitted?.(data);
+              return data;
+            }
           } else {
             data = dataOrBuilder;
           }

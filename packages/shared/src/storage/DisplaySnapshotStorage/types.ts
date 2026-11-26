@@ -33,7 +33,7 @@ export interface IDisplaySnapshotStorage {
 export interface IDisplaySnapshotStorageSync {
   read(key: string): string | undefined;
   readMany(keys: readonly string[]): ReadonlyMap<string, string>;
-  commit(input: IDisplaySnapshotCommit): void;
+  commit(input: IDisplaySnapshotCommit): void | false;
   remove(keys: readonly string[]): void;
   clearNamespace(): void;
   compact(): void;
@@ -51,7 +51,7 @@ export interface IDisplaySnapshotStorageBackend {
 export interface IDisplaySnapshotStorageSyncBackend {
   read(key: string): string | undefined;
   readMany(keys: readonly string[]): ReadonlyMap<string, string>;
-  commit(input: IDisplaySnapshotCommit): void;
+  commit(input: IDisplaySnapshotCommit): void | false;
   remove(keys: readonly string[]): void;
   clearNamespace(): void;
   compact(): void;

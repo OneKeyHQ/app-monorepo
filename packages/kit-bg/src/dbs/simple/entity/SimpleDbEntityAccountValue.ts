@@ -1,12 +1,24 @@
+import { isFunction } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import {
+  createSimpleDbSnapshotCache,
+  decodeSnapshotSubKey,
+  encodeSnapshotSubKey,
+  ensureSimpleDbSnapshotNamespaceReady,
+  isEntityMethodMocked,
+  isSimpleDbSnapshotPersistenceAllowed,
+} from '../base/simpleDbSnapshotCacheUtils';
 
 import type ServiceAccount from '../../../services/ServiceAccount/ServiceAccount';
 
@@ -46,7 +58,33 @@ export interface IAccountValueDb {
   _migrationVersion?: number;
 }
 
+type ILegacyAccountValueDb = IAccountValueDb & {
+  data?: IAccountValueDb['_legacy_data'];
+  all?: IAccountValueDb['_legacy_all'];
+};
+
 const CURRENT_MIGRATION_VERSION = 1;
+const ACCOUNT_VALUE_SNAPSHOT_NAMESPACE = 'sdb-account-value' as const;
+const ACCOUNT_VALUE_SINGLE_PREFIX = 'single:';
+const ACCOUNT_VALUE_ALL_PREFIX = 'all:';
+const ACCOUNT_VALUE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const ACCOUNT_VALUE_MAX_ENTRIES = 512;
+const ACCOUNT_VALUE_MAX_RECORD_BYTES = 512 * 1024;
+
+const DEFAULT_APP_STORAGE =
+  storageHub.$webStorageSimpleDB || storageHub.appStorage;
+
+type IAccountValueSnapshotValue =
+  | IAccountValueEntry
+  | IAllNetworkAccountValueEntry;
+
+const accountValueSnapshotCache =
+  createSimpleDbSnapshotCache<IAccountValueSnapshotValue>({
+    namespace: ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+    maxAgeMs: ACCOUNT_VALUE_MAX_AGE_MS,
+    maxEntries: ACCOUNT_VALUE_MAX_ENTRIES,
+    maxRecordBytes: ACCOUNT_VALUE_MAX_RECORD_BYTES,
+  });
 
 export interface IAccountValueSingleItem {
   networkId: string;
@@ -74,6 +112,210 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   entityName = 'accountValue';
 
   override enableCache = false;
+
+  private usesNativeSnapshotCache(): boolean {
+    return (
+      platformEnv.isNative === true && this.appStorage === DEFAULT_APP_STORAGE
+    );
+  }
+
+  private canUseDirectShardedAccess(): boolean {
+    return (
+      this.usesNativeSnapshotCache() &&
+      !isEntityMethodMocked(this, 'getRawData') &&
+      !isEntityMethodMocked(this, 'setRawData') &&
+      !isEntityMethodMocked(this, 'setRawDataWithCommitGuard')
+    );
+  }
+
+  private readShardedSingleEntry(
+    rawKey: string,
+  ): IAccountValueEntry | undefined {
+    const encodedKey = encodeSnapshotSubKey(
+      ACCOUNT_VALUE_SINGLE_PREFIX,
+      rawKey,
+    );
+    return accountValueSnapshotCache.get(encodedKey)?.data as
+      | IAccountValueEntry
+      | undefined;
+  }
+
+  private readShardedAllEntry(
+    rawKey: string,
+  ): IAllNetworkAccountValueEntry | undefined {
+    const encodedKey = encodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, rawKey);
+    return accountValueSnapshotCache.get(encodedKey)?.data as
+      | IAllNetworkAccountValueEntry
+      | undefined;
+  }
+
+  private readAllShardedData(): IAccountValueDb | null {
+    const keys = accountValueSnapshotCache.keys();
+    if (keys.length === 0) {
+      return null;
+    }
+    const byAddress: Record<string, IAccountValueEntry> = {};
+    const allByAddress: Record<string, IAllNetworkAccountValueEntry> = {};
+    let hasAny = false;
+
+    keys.forEach((encodedKey) => {
+      const singleKey = decodeSnapshotSubKey(
+        ACCOUNT_VALUE_SINGLE_PREFIX,
+        encodedKey,
+      );
+      if (singleKey !== undefined) {
+        const entry = accountValueSnapshotCache.get(encodedKey)?.data as
+          | IAccountValueEntry
+          | undefined;
+        if (entry) {
+          byAddress[singleKey] = entry;
+          hasAny = true;
+        }
+        return;
+      }
+      const allKey = decodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, encodedKey);
+      if (allKey !== undefined) {
+        const entry = accountValueSnapshotCache.get(encodedKey)?.data as
+          | IAllNetworkAccountValueEntry
+          | undefined;
+        if (entry) {
+          allByAddress[allKey] = entry;
+          hasAny = true;
+        }
+      }
+    });
+
+    return hasAny ? { byAddress, allByAddress } : null;
+  }
+
+  private writeAllShardedData(
+    rawData: IAccountValueDb | null | undefined,
+  ): void {
+    if (!rawData) {
+      accountValueSnapshotCache.clear();
+      return;
+    }
+    const nextEncodedKeys = new Set<string>();
+    const entriesToWrite: Array<readonly [string, IAccountValueSnapshotValue]> =
+      [];
+
+    for (const [rawKey, entry] of Object.entries(rawData.byAddress ?? {})) {
+      const encodedKey = encodeSnapshotSubKey(
+        ACCOUNT_VALUE_SINGLE_PREFIX,
+        rawKey,
+      );
+      nextEncodedKeys.add(encodedKey);
+      entriesToWrite.push([encodedKey, entry]);
+    }
+    for (const [rawKey, entry] of Object.entries(rawData.allByAddress ?? {})) {
+      const encodedKey = encodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, rawKey);
+      nextEncodedKeys.add(encodedKey);
+      entriesToWrite.push([encodedKey, entry]);
+    }
+
+    accountValueSnapshotCache.keys().forEach((existingKey) => {
+      if (!nextEncodedKeys.has(existingKey)) {
+        accountValueSnapshotCache.remove(existingKey);
+      }
+    });
+
+    if (entriesToWrite.length > 0) {
+      accountValueSnapshotCache.setMany(entriesToWrite);
+    }
+  }
+
+  @backgroundMethod()
+  override async getRawData(): Promise<IAccountValueDb | undefined | null> {
+    if (!this.usesNativeSnapshotCache()) {
+      return super.getRawData();
+    }
+    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+      return undefined;
+    }
+    await ensureSimpleDbSnapshotNamespaceReady(
+      ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+    );
+    return this.readAllShardedData();
+  }
+
+  @backgroundMethod()
+  override async setRawData(
+    dataOrBuilder:
+      | IAccountValueDb
+      | ((rawData: IAccountValueDb | null | undefined) => IAccountValueDb)
+      | ((
+          rawData: IAccountValueDb | null | undefined,
+        ) => Promise<IAccountValueDb>),
+  ): Promise<IAccountValueDb | undefined> {
+    if (!this.usesNativeSnapshotCache()) {
+      return super.setRawData(dataOrBuilder);
+    }
+    return this.setRawDataWithCommitGuard(dataOrBuilder);
+  }
+
+  protected override async setRawDataWithCommitGuard(
+    dataOrBuilder:
+      | IAccountValueDb
+      | ((rawData: IAccountValueDb | null | undefined) => IAccountValueDb)
+      | ((
+          rawData: IAccountValueDb | null | undefined,
+        ) => Promise<IAccountValueDb>),
+    assertCanCommit?: () => void,
+    onCommitted?: (data: IAccountValueDb) => void,
+  ): Promise<IAccountValueDb | undefined> {
+    if (!this.usesNativeSnapshotCache()) {
+      return super.setRawDataWithCommitGuard(
+        dataOrBuilder,
+        assertCanCommit,
+        onCommitted,
+      );
+    }
+    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+      return undefined;
+    }
+    await ensureSimpleDbSnapshotNamespaceReady(
+      ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+    );
+    return this.mutex.runExclusive(async () => {
+      assertCanCommit?.();
+      let nextData: IAccountValueDb;
+      if (isFunction(dataOrBuilder)) {
+        const current = this.readAllShardedData();
+        assertCanCommit?.();
+        nextData = await dataOrBuilder(current);
+        if (current !== null && Object.is(nextData, current)) {
+          onCommitted?.(nextData);
+          return nextData;
+        }
+      } else {
+        nextData = dataOrBuilder;
+      }
+      assertCanCommit?.();
+      this.writeAllShardedData(nextData);
+      onCommitted?.(nextData);
+      return nextData;
+    });
+  }
+
+  @backgroundMethod()
+  override async clearRawData(): Promise<void> {
+    if (!this.usesNativeSnapshotCache()) {
+      await super.clearRawData();
+      return;
+    }
+    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+      return;
+    }
+    await ensureSimpleDbSnapshotNamespaceReady(
+      ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+    );
+    await this.mutex.runExclusive(async () => {
+      // Remove the source before its marker so a failed clear cannot re-import it.
+      await this.appStorage.removeItem(this.entityKey);
+      await this.appStorage.removeItem(this.snapshotMigrationKey);
+      accountValueSnapshotCache.clear();
+    });
+  }
 
   private buildSingleKey({
     networkId,
@@ -104,6 +346,23 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   }
 
   async getAccountsValue({ items }: { items: IAccountValueSingleItem[] }) {
+    if (this.canUseDirectShardedAccess()) {
+      const allowed = await isSimpleDbSnapshotPersistenceAllowed();
+      if (allowed) {
+        await ensureSimpleDbSnapshotNamespaceReady(
+          ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+        );
+      }
+      return items.map((it) => {
+        const key = this.buildSingleKey(it);
+        const entry =
+          allowed && key ? this.readShardedSingleEntry(key) : undefined;
+        return {
+          value: entry?.value,
+          currency: entry?.currency,
+        };
+      });
+    }
     const raw = await this.getRawData();
     return items.map((it) => {
       const key = this.buildSingleKey(it);
@@ -132,6 +391,25 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     if (!key) {
       return;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+      );
+      await this.mutex.runExclusive(async () => {
+        const existing = this.readShardedSingleEntry(key);
+        if (existing?.value === value && existing?.currency === currency) {
+          return;
+        }
+        accountValueSnapshotCache.set(
+          encodeSnapshotSubKey(ACCOUNT_VALUE_SINGLE_PREFIX, key),
+          { value, currency },
+        );
+      });
+      return;
+    }
     const existing = (await this.getRawData())?.byAddress?.[key];
     if (existing?.value === value && existing?.currency === currency) {
       return;
@@ -153,6 +431,23 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   }: {
     items: IAccountValueAllItem[];
   }) {
+    if (this.canUseDirectShardedAccess()) {
+      const allowed = await isSimpleDbSnapshotPersistenceAllowed();
+      if (allowed) {
+        await ensureSimpleDbSnapshotNamespaceReady(
+          ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+        );
+      }
+      return items.map((it) => {
+        const key = this.buildAllKey(it);
+        const entry =
+          allowed && key ? this.readShardedAllEntry(key) : undefined;
+        return {
+          value: entry?.value,
+          currency: entry?.currency,
+        };
+      });
+    }
     const raw = await this.getRawData();
     return items.map((it) => {
       const key = this.buildAllKey(it);
@@ -176,6 +471,40 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   }) {
     const owners = [xpub, accountAddress].filter((o): o is string => !!o);
     if (owners.length === 0) return;
+
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+      );
+      await this.mutex.runExclusive(async () => {
+        owners.forEach((owner) => {
+          const singleKey = accountUtils.buildAccountLocalAssetsKey({
+            networkId,
+            accountAddress: owner,
+          });
+          accountValueSnapshotCache.remove(
+            encodeSnapshotSubKey(ACCOUNT_VALUE_SINGLE_PREFIX, singleKey),
+          );
+          const allKey = accountUtils.buildAccountLocalAssetsKey({
+            accountAddress: owner,
+          });
+          const entry = this.readShardedAllEntry(allKey);
+          if (entry && networkId in entry.value) {
+            const value = { ...entry.value };
+            delete value[networkId];
+            accountValueSnapshotCache.set(
+              encodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, allKey),
+              { ...entry, value },
+            );
+          }
+        });
+      });
+      return;
+    }
+
     await this.setRawData((rawData) => {
       const base = rawData ?? emptyData();
       const byAddress = { ...base.byAddress };
@@ -208,15 +537,6 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   }: {
     items: IAccountValueAllWriteItem[];
     currency: 'usd';
-    // When `updateAll === true` the caller has completed a full token
-    // snapshot for the covered address keys, so the per-network map for
-    // each touched address is replaced — networkIds that no longer appear
-    // (network removed/disabled, refresh produced no value) are dropped to
-    // avoid stale entries leaking into ChainSelector / AccountSelector /
-    // UniversalSearch. Address keys NOT covered by this refresh are left
-    // untouched so a sibling wallet's data for an unrelated address is
-    // preserved. When `updateAll === false` writes are partial and merge
-    // by networkId.
     updateAll?: boolean;
   }) {
     // Group write items by addressKey so a single setRawData call handles
@@ -229,6 +549,48 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       }
     }
     if (Object.keys(grouped).length === 0) {
+      return;
+    }
+
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+      );
+      await this.mutex.runExclusive(async () => {
+        const entriesToWrite: Array<
+          readonly [string, IAccountValueSnapshotValue]
+        > = [];
+        for (const [key, valueMap] of Object.entries(grouped)) {
+          const prev = this.readShardedAllEntry(key);
+          const isSingleNoop = (() => {
+            if (!prev || prev.currency !== currency) return false;
+            if (updateAll) {
+              const prevKeys = Object.keys(prev.value);
+              const nextKeys = Object.keys(valueMap);
+              if (prevKeys.length !== nextKeys.length) return false;
+              return nextKeys.every((nId) => prev.value[nId] === valueMap[nId]);
+            }
+            return Object.entries(valueMap).every(
+              ([nId, v]) => prev.value[nId] === v,
+            );
+          })();
+          if (!isSingleNoop) {
+            entriesToWrite.push([
+              encodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, key),
+              {
+                value: updateAll ? valueMap : { ...prev?.value, ...valueMap },
+                currency,
+              },
+            ]);
+          }
+        }
+        if (entriesToWrite.length > 0) {
+          accountValueSnapshotCache.setMany(entriesToWrite);
+        }
+      });
       return;
     }
 
@@ -282,14 +644,12 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   }: {
     serviceAccount: ServiceAccount;
   }) {
+    if (this.canUseDirectShardedAccess()) {
+      await this.migrateLegacySnapshotToShards(serviceAccount);
+      return;
+    }
     const raw = (await this.getRawData()) as
-      | (IAccountValueDb & {
-          data?: Record<string, { value: string; currency: string }>;
-          all?: Record<
-            string,
-            { value: Record<string, string>; currency: string }
-          >;
-        })
+      | ILegacyAccountValueDb
       | null
       | undefined;
 
@@ -319,6 +679,155 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       return;
     }
 
+    const { byAddress, allByAddress, hadResolveError } =
+      await this.resolveLegacyAccountValues({
+        legacyData,
+        legacyAll,
+        serviceAccount,
+      });
+
+    await this.setRawData((current) => {
+      // Merge so that any writes that landed during the migration window —
+      // and any post-migration writes preserved across a version-bump
+      // re-run — survive. `current` wins over the legacy-derived snapshot;
+      // legacy values only fill keys that don't already exist.
+      const mergedByAddress: Record<string, IAccountValueEntry> = {
+        ...byAddress,
+        ...current?.byAddress,
+      };
+      const mergedAllByAddress: Record<string, IAllNetworkAccountValueEntry> = {
+        ...current?.allByAddress,
+      };
+      for (const [key, legacyEntry] of Object.entries(allByAddress)) {
+        const cur = mergedAllByAddress[key];
+        mergedAllByAddress[key] = cur
+          ? {
+              value: { ...legacyEntry.value, ...cur.value },
+              currency: cur.currency,
+            }
+          : legacyEntry;
+      }
+
+      return {
+        ...(current ?? emptyData()),
+        byAddress: mergedByAddress,
+        allByAddress: mergedAllByAddress,
+        // Preserve legacy snapshot once, even on re-run, so a future
+        // migration version can re-derive without losing data.
+        _legacy_data: current?._legacy_data ?? legacyData,
+        _legacy_all: current?._legacy_all ?? legacyAll,
+        _migratedAt: Date.now(),
+        // Hold the version back when any legacy entry failed to resolve so
+        // a later launch retries; otherwise a single transient DB error
+        // would permanently strip that account's cached worth.
+        _migrationVersion: hadResolveError
+          ? (current?._migrationVersion ?? 0)
+          : CURRENT_MIGRATION_VERSION,
+      };
+    });
+
+    // Nudge consumers that already read the empty buckets during the
+    // pre-migration window to re-fetch and pick up the freshly-merged data.
+    appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
+  }
+
+  private get snapshotMigrationKey(): string {
+    return `${this.entityKey}:snapshot-migration-v1`;
+  }
+
+  private async migrateLegacySnapshotToShards(serviceAccount: ServiceAccount) {
+    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+      return;
+    }
+    await ensureSimpleDbSnapshotNamespaceReady(
+      ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+    );
+    const published = await this.mutex.runExclusive(async () => {
+      if (await this.appStorage.getItem(this.snapshotMigrationKey)) {
+        return false;
+      }
+      const raw = (await super.getRawData()) as
+        | ILegacyAccountValueDb
+        | null
+        | undefined;
+      if (!raw) {
+        return false;
+      }
+      const resolved =
+        (raw._migrationVersion ?? 0) < CURRENT_MIGRATION_VERSION
+          ? await this.resolveLegacyAccountValues({
+              legacyData: raw.data ?? raw._legacy_data ?? {},
+              legacyAll: raw.all ?? raw._legacy_all ?? {},
+              serviceAccount,
+            })
+          : undefined;
+      const entries: Array<readonly [string, IAccountValueSnapshotValue]> = [];
+      let available = Math.max(
+        0,
+        ACCOUNT_VALUE_MAX_ENTRIES - accountValueSnapshotCache.keys().length,
+      );
+      for (const [key, entry] of Object.entries({
+        ...resolved?.byAddress,
+        ...raw.byAddress,
+      })) {
+        if (available > 0 && !this.readShardedSingleEntry(key)) {
+          entries.push([
+            encodeSnapshotSubKey(ACCOUNT_VALUE_SINGLE_PREFIX, key),
+            entry,
+          ]);
+          available -= 1;
+        }
+      }
+      const legacyAll = { ...resolved?.allByAddress };
+      for (const [key, entry] of Object.entries(raw.allByAddress ?? {})) {
+        legacyAll[key] = {
+          ...entry,
+          value: { ...legacyAll[key]?.value, ...entry.value },
+        };
+      }
+      for (const [key, entry] of Object.entries(legacyAll)) {
+        const current = this.readShardedAllEntry(key);
+        if (current) {
+          if (
+            Object.keys(entry.value).some(
+              (networkId) => !Object.hasOwn(current.value, networkId),
+            )
+          ) {
+            entries.push([
+              encodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, key),
+              { ...current, value: { ...entry.value, ...current.value } },
+            ]);
+          }
+        } else if (available > 0) {
+          entries.push([
+            encodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, key),
+            entry,
+          ]);
+          available -= 1;
+        }
+      }
+      const accepted =
+        entries.length === 0 || accountValueSnapshotCache.setMany(entries);
+      if (accepted && !resolved?.hadResolveError) {
+        // Keep the legacy source for rollback. The marker has no cache expiry.
+        await this.appStorage.setItem(this.snapshotMigrationKey, '1');
+      }
+      return accepted && entries.length > 0;
+    });
+    if (published) {
+      appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
+    }
+  }
+
+  private async resolveLegacyAccountValues({
+    legacyData,
+    legacyAll,
+    serviceAccount,
+  }: {
+    legacyData: NonNullable<IAccountValueDb['_legacy_data']>;
+    legacyAll: NonNullable<IAccountValueDb['_legacy_all']>;
+    serviceAccount: ServiceAccount;
+  }) {
     const byAddress: Record<string, IAccountValueEntry> = {};
     const allByAddress: Record<string, IAllNetworkAccountValueEntry> = {};
 
@@ -422,49 +931,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       }
     }
 
-    await this.setRawData((current) => {
-      // Merge so that any writes that landed during the migration window —
-      // and any post-migration writes preserved across a version-bump
-      // re-run — survive. `current` wins over the legacy-derived snapshot;
-      // legacy values only fill keys that don't already exist.
-      const mergedByAddress: Record<string, IAccountValueEntry> = {
-        ...byAddress,
-        ...current?.byAddress,
-      };
-      const mergedAllByAddress: Record<string, IAllNetworkAccountValueEntry> = {
-        ...current?.allByAddress,
-      };
-      for (const [key, legacyEntry] of Object.entries(allByAddress)) {
-        const cur = mergedAllByAddress[key];
-        mergedAllByAddress[key] = cur
-          ? {
-              value: { ...legacyEntry.value, ...cur.value },
-              currency: cur.currency,
-            }
-          : legacyEntry;
-      }
-
-      return {
-        ...(current ?? emptyData()),
-        byAddress: mergedByAddress,
-        allByAddress: mergedAllByAddress,
-        // Preserve legacy snapshot once, even on re-run, so a future
-        // migration version can re-derive without losing data.
-        _legacy_data: current?._legacy_data ?? legacyData,
-        _legacy_all: current?._legacy_all ?? legacyAll,
-        _migratedAt: Date.now(),
-        // Hold the version back when any legacy entry failed to resolve so
-        // a later launch retries; otherwise a single transient DB error
-        // would permanently strip that account's cached worth.
-        _migrationVersion: hadResolveError
-          ? (current?._migrationVersion ?? 0)
-          : CURRENT_MIGRATION_VERSION,
-      };
-    });
-
-    // Nudge consumers that already read the empty buckets during the
-    // pre-migration window to re-fetch and pick up the freshly-merged data.
-    appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
+    return { byAddress, allByAddress, hadResolveError };
   }
 
   // Drop cached worth belonging to deleted accounts. `byAddress` keys are
@@ -474,6 +941,37 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   // See ServiceAppCleanup.cleanupOrphanedAssetCaches.
   @backgroundMethod()
   async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+      );
+      const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+      await this.mutex.runExclusive(async () => {
+        accountValueSnapshotCache.keys().forEach((encodedKey) => {
+          const singleKey = decodeSnapshotSubKey(
+            ACCOUNT_VALUE_SINGLE_PREFIX,
+            encodedKey,
+          );
+          const rawKey =
+            singleKey !== undefined
+              ? singleKey
+              : decodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, encodedKey);
+          if (
+            rawKey !== undefined &&
+            !accountUtils.isLocalAssetsKeyOwnedBy({
+              key: rawKey,
+              validOwners: validOwnerSet,
+            })
+          ) {
+            accountValueSnapshotCache.remove(encodedKey);
+          }
+        });
+      });
+      return;
+    }
     const existing = await this.getRawData();
     if (!existing) {
       return;
