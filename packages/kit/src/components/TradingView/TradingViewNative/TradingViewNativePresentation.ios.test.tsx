@@ -439,7 +439,7 @@ it.each([
   { isPad: true, isFoldable: false },
   { isPad: false, isFoldable: true },
 ])(
-  'keeps both side insets on windows that keep their orientation (iPad: $isPad, foldable: $isFoldable)',
+  'extends only on regular iPhones, not here (iPad: $isPad, iPhone Duo: $isFoldable)',
   ({ isPad, isFoldable }) => {
     mockIsNativeIOSPad = isPad;
     mockIsFoldableIPhone = isFoldable;

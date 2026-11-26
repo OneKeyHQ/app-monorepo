@@ -85,13 +85,18 @@ export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscr
 const keepsDeviceOrientation = () =>
   platformEnv.isNativeIOSPad || isFoldableIPhone();
 
+// Only regular iPhones: iPad and foldable iPhones (iPhone Duo) keep the device
+// orientation and their own insets.
+const isRegularIPhone = () =>
+  !platformEnv.isNativeIOSPad && !isFoldableIPhone();
+
 // iPhones reserve the same safe-area inset on both sides in landscape, though
 // only the side with the sensor housing needs it. Landscape right puts the
 // housing on the left and leaves the right inset clear; the phone can turn to
 // either side while the chart is fullscreen.
 function useIsTrailingInsetClear() {
   const interfaceOrientation = useInterfaceOrientation();
-  return !keepsDeviceOrientation() && interfaceOrientation === 'landscapeRight';
+  return isRegularIPhone() && interfaceOrientation === 'landscapeRight';
 }
 
 // Reads the page's own insets, which follow the rotated window.
