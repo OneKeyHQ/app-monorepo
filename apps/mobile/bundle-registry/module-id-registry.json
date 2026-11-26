@@ -5512,6 +5512,7 @@
     "node_modules/@onekeyfe/react-native-capture-protection/lib/module/index.js": 34752,
     "node_modules/@onekeyfe/react-native-check-biometric-auth-changed/lib/module/index.js": 38226,
     "node_modules/@onekeyfe/react-native-cloud-kit-module/lib/module/index.js": 58812,
+    "node_modules/@onekeyfe/react-native-device-utils/lib/module/firstLaunch.native.js": 31556,
     "node_modules/@onekeyfe/react-native-device-utils/lib/module/index.js": 32540,
     "node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/index.js": 56900,
     "node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/shared.js": 30238,

@@ -87,12 +87,6 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     }
   }
 
-  publishWalletPresenceHint() {
-    if (platformEnv.isNativeBackgroundThread) {
-      writeWalletPresenceHint(this.readWalletPresence());
-    }
-  }
-
   private trackWalletPresenceWrite(name: ELocalDBStoreNames) {
     if (
       platformEnv.isNativeBackgroundThread &&

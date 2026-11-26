@@ -96,21 +96,6 @@ describe('nativeSyncStorageMirror', () => {
     jest.restoreAllMocks();
   });
 
-  it('keeps the pre-startup install decision even when the latest settings are populated', async () => {
-    mockCallNativeStorage.mockResolvedValueOnce({
-      freshInstallAtStartup: true,
-      settings: [['onekey_developer_mode_enabled', false]],
-      devSettings: [],
-    });
-    const {
-      bootstrapNativeSyncStorageMirrors,
-      wasNativeSettingsEmptyAtStartup,
-    } = loadMirror();
-    expect(wasNativeSettingsEmptyAtStartup()).toBe(false);
-    await bootstrapNativeSyncStorageMirrors();
-    expect(wasNativeSettingsEmptyAtStartup()).toBe(true);
-  });
-
   it('primes synchronous UI reads from a bg-owned bootstrap snapshot', async () => {
     mockCallNativeStorage.mockResolvedValueOnce({
       settings: [['setting', true]],

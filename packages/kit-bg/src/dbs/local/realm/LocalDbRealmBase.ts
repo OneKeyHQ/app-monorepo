@@ -111,7 +111,6 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
     const db = new RealmDBAgent(realm);
     // init db records here
     await this._initDBRecords(db);
-    db.publishWalletPresenceHint();
     return db;
   }
 

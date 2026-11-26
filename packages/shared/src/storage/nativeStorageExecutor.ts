@@ -401,7 +401,6 @@ async function recoverAppStorageRepairTransaction(
   context.onComplete();
 }
 let recoveryActionPromise: Promise<void> | undefined;
-let freshInstallAtBackgroundStartup = false;
 let asyncStorageRequestChain: Promise<void> = Promise.resolve();
 // Main drains one request at a time per store, so only the latest acknowledgement
 // for each main-runtime/store pair is needed to deduplicate a timed-out replay.
@@ -1294,13 +1293,6 @@ async function migrateAppStorageFromLegacy() {
 async function processRecoveryAction() {
   const action = await peekNativeStorageRecoveryAction();
   if (!action) {
-    // Capture the owner's settings before any deferred startup services run.
-    try {
-      freshInstallAtBackgroundStartup =
-        getSyncStorageMMKV('settings').getAllKeys().length === 0;
-    } catch {
-      freshInstallAtBackgroundStartup = false;
-    }
     return;
   }
   if (action === 'auto_repair') {
@@ -2407,7 +2399,6 @@ async function buildBootstrapSnapshot(
       : [];
   const snapshot = {
     settings: readStore('settings'),
-    freshInstallAtStartup: freshInstallAtBackgroundStartup,
     devSettings: readStore('devSettings'),
     ...(emergencyStatus ? { appStorageEmergency: emergencyStatus } : {}),
   };

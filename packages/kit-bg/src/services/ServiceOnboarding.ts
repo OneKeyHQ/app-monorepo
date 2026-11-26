@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { writeWalletPresenceHint } from '@onekeyhq/shared/src/utils/walletPresenceHintUtils';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
@@ -28,6 +29,9 @@ class ServiceOnboarding extends ServiceBase {
       // watching\imported\external 3 wallets created in default
       // TODO lazy _addSingletonWalletRecord
       walletsCount > 3;
+
+    // Backfill the cold-start hint after migration-first checks have resolved.
+    writeWalletPresenceHint(isOnboardingDone);
 
     return {
       accountsCount,

@@ -32,7 +32,6 @@ export enum ELaunchOptionsLaunchType {
 }
 
 export interface ILaunchOptions {
-  deepLink?: string;
   localNotification?: ILaunchOptionsNotificationInfo;
   remoteNotification?: ILaunchOptionsNotificationInfo;
   launchType: ELaunchOptionsLaunchType;
