@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { rootNavigationRef, useIsOverlayPage } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EJotaiContextStoreNames,
@@ -17,7 +17,6 @@ import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/sce
 import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapQuote';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -79,6 +78,7 @@ import {
   isSwapMaxAmountCurrent,
 } from '../utils/swapAmountUtils';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
+import { isSwapProviderSelectRouteActive } from '../utils/swapProviderSelectRoute';
 import {
   getStockTradeAnalyticsPayload,
   getSwapAnalyticsCategory,
@@ -97,61 +97,6 @@ export function isSwapQuoteTabEffectivelyVisible({
   isHiddenModel: boolean;
 }) {
   return isFocus && !isHiddenModel;
-}
-
-function getActiveQuoteRoute(
-  route: unknown,
-): { name: string; params?: unknown } | undefined {
-  if (!route || typeof route !== 'object') {
-    return undefined;
-  }
-  if ('routes' in route && Array.isArray(route.routes)) {
-    const index =
-      'index' in route && typeof route.index === 'number'
-        ? route.index
-        : route.routes.length - 1;
-    return getActiveQuoteRoute(route.routes[index]);
-  }
-  if ('state' in route && route.state) {
-    return getActiveQuoteRoute(route.state);
-  }
-  if ('params' in route) {
-    const destination = getActiveQuoteRoute(route.params);
-    if (destination) {
-      return destination;
-    }
-  }
-  if ('screen' in route && typeof route.screen === 'string') {
-    return {
-      name: route.screen,
-      params: 'params' in route ? route.params : undefined,
-    };
-  }
-  return 'name' in route && typeof route.name === 'string'
-    ? { name: route.name, params: 'params' in route ? route.params : undefined }
-    : undefined;
-}
-
-export function shouldKeepSwapQuoteAliveOnFocusLoss(
-  routeName?: string,
-  rootState?: unknown,
-  storeName?: EJotaiContextStoreNames,
-) {
-  const route = getActiveQuoteRoute(rootState);
-  if (storeName !== undefined) {
-    return (
-      route?.name === EModalSwapRoutes.SwapProviderSelect &&
-      !!route.params &&
-      typeof route.params === 'object' &&
-      'storeName' in route.params &&
-      route.params.storeName === storeName &&
-      !('providerSelect' in route.params && route.params.providerSelect)
-    );
-  }
-  return (
-    routeName === EModalSwapRoutes.SwapProviderSelect ||
-    route?.name === EModalSwapRoutes.SwapProviderSelect
-  );
 }
 
 /**
@@ -323,13 +268,7 @@ export function useSwapQuote({
   const shouldUseRouteQuoteLifecycle = isModalPage || isMarketEmbeddedSwap;
   const isTabVisibleRef = useRef(isRouteFocused);
   const isProviderSelectRouteActive = useCallback(
-    () =>
-      shouldKeepSwapQuoteAliveOnFocusLoss(
-        rootNavigationRef.current?.getCurrentRoute()?.name,
-        rootNavigationRef.current?.getRootState?.() ??
-          rootNavigationRef.current?.getCurrentRoute(),
-        storeName,
-      ),
+    () => isSwapProviderSelectRouteActive(storeName),
     [storeName],
   );
   const isQuoteVisibleRef = useRef(false);

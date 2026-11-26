@@ -6,7 +6,9 @@ import { useIntl } from 'react-intl';
 
 import type { EPageType } from '@onekeyhq/components';
 import {
+  BUTTON_DISABLED_COLORS,
   Button,
+  GlassButtonCapsule,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -107,7 +109,10 @@ import { resolveSwapStockReviewToken } from '../../utils/swapStockReviewUtils';
 import { isQuoteRequestForStockTrade } from '../../utils/swapStockTradeControl';
 
 import SwapActionsState from './SwapActionsState';
-import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
+import {
+  SwapSettingsHeaderButton,
+  SwapStockHeaderRightActionContainer,
+} from './SwapHeaderRightActionContainer';
 import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapInputActions, {
   SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE,
@@ -191,6 +196,10 @@ interface ISwapStockDesktopContainerProps {
   // the positions span the page below both.
   chartPanelCapable?: boolean;
 }
+
+type ISwapStockMobileContainerProps = ISwapStockDesktopContainerProps & {
+  marketStockTrade?: boolean;
+};
 
 const STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT = 24;
 const STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT = 20;
@@ -699,6 +708,12 @@ function StockActionGate({
         disabled
         borderRadius="$full"
         childrenAsText={!hasPositiveInputAmount}
+        // The spinner is custom content, which Button would fade; like the
+        // Swap quote dots, it sits on Button's disabled fill instead.
+        {...(hasPositiveInputAmount && {
+          opacity: 1,
+          bg: BUTTON_DISABLED_COLORS.bg,
+        })}
       >
         {hasPositiveInputAmount ? (
           <Spinner
@@ -706,7 +721,7 @@ function StockActionGate({
             alignItems="center"
             justifyContent="center"
             size="small"
-            color="$iconInverse"
+            color="$icon"
           />
         ) : (
           intl.formatMessage({
@@ -1571,9 +1586,10 @@ export function SwapStockDesktopContainer(
   );
 }
 
-function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
+function SwapStockMobileContent(props: ISwapStockMobileContainerProps) {
   const {
     embedded,
+    marketStockTrade,
     pageType,
     storeName,
     onSelectToken,
@@ -1664,6 +1680,22 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     />
   );
 
+  let tradeModalSettings: ReactNode;
+  if (marketStockTrade) {
+    tradeModalSettings = isDesktopModalPage ? (
+      <SwapStockHeaderRightActionContainer storeName={storeName} />
+    ) : (
+      <GlassButtonCapsule circular>
+        <SwapSettingsHeaderButton
+          pageType={pageType}
+          storeName={storeName}
+          swapType={ESwapTabSwitchType.STOCK}
+          iconSize="$6"
+        />
+      </GlassButtonCapsule>
+    );
+  }
+
   return (
     <Keyboard.AwareScrollView
       keyboardShouldPersistTaps="handled"
@@ -1738,7 +1770,9 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           </XStack>
         ) : (
           <>
-            {embedded ? null : <SwapStockMobileHeader />}
+            {embedded ? null : (
+              <SwapStockMobileHeader tradeModalSettings={tradeModalSettings} />
+            )}
             {stockTradeTicket}
           </>
         )}
@@ -1746,6 +1780,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           <SwapStockMobilePositions
             networks={supportNetworksList}
             storeName={storeName}
+            lockToCurrentStock={marketStockTrade}
           />
         )}
       </YStack>
@@ -1754,7 +1789,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
 }
 
 export function SwapStockMobileContainer(
-  props: ISwapStockDesktopContainerProps,
+  props: ISwapStockMobileContainerProps,
 ) {
   const { stockSpeedConfig, stockTradeToken, storeName } = props;
   return (
