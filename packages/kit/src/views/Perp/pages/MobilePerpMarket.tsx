@@ -8,7 +8,6 @@ import {
 } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import {
   Dimensions,
@@ -22,15 +21,12 @@ import {
   Button,
   GlassButtonCapsule,
   Icon,
-  NavBackButton,
   Page,
   ScrollView,
   SizableText,
   XStack,
   YStack,
-  useIsOverlayPage,
   useIsSplitDetailActive,
-  useMedia,
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -90,6 +86,7 @@ import {
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
+import type { IMobilePerpMarketPageProps } from './MobilePerpMarketRoute';
 import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
 
 // Android can reserve more space for system gestures than for the navigation bar.
@@ -423,7 +420,9 @@ function MobilePerpCandlesStatic({
   );
 }
 
-function MobilePerpMarket() {
+function MobilePerpMarket({
+  inPageHeaderGeometry,
+}: IMobilePerpMarketPageProps) {
   const route = useAppRoute<
     IModalPerpParamList,
     EModalPerpRoutes.MobilePerpMarket
@@ -504,39 +503,9 @@ function MobilePerpMarket() {
   ]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
-  const isOverlayPage = useIsOverlayPage();
-  const isFocused = useIsFocused();
-  const media = useMedia();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight } = useWindowDimensions();
   const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
   const isTitleInLeftItem = isFoldableIPhone();
-  const isInPageHeaderTarget =
-    platformEnv.isNativeIOS26Plus &&
-    !platformEnv.isNativeIOSPad &&
-    !isTitleInLeftItem &&
-    !isOverlayPage &&
-    !isSplitDetailActive;
-  const portraitHeaderGeometryRef = useRef<{
-    width: number;
-    top: number;
-  } | null>(null);
-  // Match Market detail: keep the header in the page during interactive pop,
-  // and retain portrait geometry while a fullscreen chart owns orientation.
-  if (
-    isInPageHeaderTarget &&
-    isFocused &&
-    media.md &&
-    windowWidth <= windowHeight &&
-    safeAreaTop > 0
-  ) {
-    portraitHeaderGeometryRef.current = {
-      width: windowWidth,
-      top: safeAreaTop,
-    };
-  }
-  const inPageHeaderGeometry = isInPageHeaderTarget
-    ? portraitHeaderGeometryRef.current
-    : null;
   const usesInPageHeader = Boolean(inPageHeaderGeometry);
   // Android native tabs measure the inline SUB page by intrinsic content, so
   // its flex-only chart needs an explicit viewport bound to avoid collapsing.
@@ -764,31 +733,30 @@ function MobilePerpMarket() {
 
   // Page-owned headers replace the native bar. Split-view detail (SUB) keeps
   // its inline controls because it is not rendered as a navigator screen.
-  const pageHeader = useMemo(
-    () =>
-      isSplitDetailActive || usesInPageHeader ? (
-        <Page.Header headerShown={false} />
-      ) : (
-        <Page.Header
-          headerShown
-          headerRight={renderHeaderRight}
-          {...(isTitleInLeftItem
-            ? {
-                headerTitle: '',
-                unstable_headerLeftItems: buildHeaderLeftItems,
-              }
-            : { headerTitle: renderHeaderTitle })}
-        />
-      ),
-    [
-      buildHeaderLeftItems,
-      isSplitDetailActive,
-      isTitleInLeftItem,
-      renderHeaderTitle,
-      renderHeaderRight,
-      usesInPageHeader,
-    ],
-  );
+  const pageHeader = useMemo(() => {
+    if (usesInPageHeader) return null;
+    return isSplitDetailActive ? (
+      <Page.Header headerShown={false} />
+    ) : (
+      <Page.Header
+        headerShown
+        headerRight={renderHeaderRight}
+        {...(isTitleInLeftItem
+          ? {
+              headerTitle: '',
+              unstable_headerLeftItems: buildHeaderLeftItems,
+            }
+          : { headerTitle: renderHeaderTitle })}
+      />
+    );
+  }, [
+    buildHeaderLeftItems,
+    isSplitDetailActive,
+    isTitleInLeftItem,
+    renderHeaderTitle,
+    renderHeaderRight,
+    usesInPageHeader,
+  ]);
   const inlineHeader = useMemo(
     () =>
       isSplitDetailActive ? (
@@ -898,16 +866,8 @@ function MobilePerpMarket() {
           pb={10}
           gap="$3"
         >
-          <GlassButtonCapsule circular>
-            <NavBackButton
-              onPress={() => navigation.pop()}
-              borderWidth={0}
-              hitSlop={4}
-              accessibilityLabel={intl.formatMessage({
-                id: ETranslations.global_back,
-              })}
-            />
-          </GlassButtonCapsule>
+          {/* The route owns the back button, including while this module loads. */}
+          <XStack w="$11" h="$11" />
           <XStack flex={1} minWidth={0} justifyContent="center">
             {renderHeaderTitle()}
           </XStack>
@@ -1047,11 +1007,11 @@ function MobilePerpMarket() {
   );
 }
 
-function MobilePerpMarketWithProvider() {
+function MobilePerpMarketWithProvider(props: IMobilePerpMarketPageProps) {
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>
-        <MobilePerpMarket />
+        <MobilePerpMarket {...props} />
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>
   );
