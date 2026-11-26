@@ -1,10 +1,23 @@
 /* cspell:ignore hoverable */
 import type { ReactElement } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { LazyPopover, LazyTooltip } from '@onekeyhq/components/src/actions';
+import {
+  ActionList,
+  LazyPopover,
+  LazyTooltip,
+  closeAllTooltips,
+} from '@onekeyhq/components/src/actions';
 import type {
   IActionListSection,
   IPopoverProps,
@@ -17,6 +30,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
+import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -30,13 +44,23 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { BrowserSubmenuColumn } from './BrowserSubmenuColumn';
 import { DesktopTabItem } from './DesktopTabItem';
+import { getLastBrowserRoute } from './lastBrowserRoute';
 import { MenuHamburger } from './Menu';
+import {
+  SidebarAppearanceContext,
+  useSidebarIconsOnly,
+} from './SidebarAppearanceContext';
+import {
+  SidebarTooltipGroup,
+  useSidebarTooltipOpen,
+} from './sidebarTooltipGroup';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
@@ -48,6 +72,38 @@ import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 
 // Estimated height per tab item (icon ~40px + gap + label ~16-30px + padding 12px)
 const ESTIMATED_TAB_ITEM_HEIGHT = 70;
+// 40px icon button plus the item's 12px vertical padding, without the label.
+const ESTIMATED_ICON_ONLY_TAB_ITEM_HEIGHT = 52;
+
+// The app-wide shortcuts that switch to each sidebar tab.
+const TAB_SHORTCUTS: Partial<Record<string, EShortcutEvents>> = {
+  [ETabRoutes.Home]: EShortcutEvents.TabWallet,
+  [ETabRoutes.Market]: EShortcutEvents.TabMarket,
+  [ETabRoutes.Swap]: EShortcutEvents.TabSwap,
+  [ETabRoutes.Perp]: EShortcutEvents.TabPerps,
+  [ETabRoutes.WebviewPerpTrade]: EShortcutEvents.TabPerps,
+  [ETabRoutes.Earn]: EShortcutEvents.TabEarn,
+  [ETabRoutes.ReferFriends]: EShortcutEvents.TabReferAFriend,
+  [ETabRoutes.Discovery]: EShortcutEvents.TabBrowser,
+  [ETabRoutes.DeviceManagement]: EShortcutEvents.TabMyOneKey,
+};
+
+function getTabShortcut(routeName: string) {
+  return platformEnv.isDesktop ? TAB_SHORTCUTS[routeName] : undefined;
+}
+
+function getTabTitle(
+  route: NavigationState['routes'][0],
+  options: BottomTabNavigationOptions & { collapseTabBarLabel?: string },
+) {
+  return (
+    options.collapseTabBarLabel ??
+    (typeof options.tabBarLabel === 'string'
+      ? options.tabBarLabel
+      : undefined) ??
+    route.name
+  );
+}
 
 const TAB_BAR_STYLE_WIDTH_40 = { width: 40 };
 const TAB_BAR_STYLE_ARRAY_WIDTH_40 = [{ width: 40 }];
@@ -67,8 +123,6 @@ const PLATFORM_WEB_SHADOW_STYLE = {
 const HOVER_STYLE_BG_HOVER = { bg: '$bgHover' } as const;
 const PRESS_STYLE_BG_ACTIVE = { bg: '$bgActive' } as const;
 const PLATFORM_WEB_APP_REGION_DRAG = { 'app-region': 'drag' } as const;
-
-let lastBrowserRoute: string = ETabRoutes.Discovery;
 
 function DesktopWinSidebarTop() {
   return (
@@ -122,6 +176,10 @@ function BasicTabItemView({
   onPressOut?: () => void;
   options: ITabItemOptions;
 }) {
+  const iconsOnly = useSidebarIconsOnly();
+  const title = getTabTitle(route, options);
+  const shortcutKey = getTabShortcut(route.name);
+  const tooltip = useSidebarTooltipOpen(iconsOnly);
   useEffect(() => {
     // @ts-expect-error
     const activeIcon = options?.tabBarIcon?.(true) as IKeyOfIcons;
@@ -132,23 +190,36 @@ function BasicTabItemView({
   }, [options]);
 
   const [isContainerHovered, setIsContainerHovered] = useState(false);
+  // The whole item, not the lazily loaded tooltip trigger, owns the hover: one
+  // boundary for the tooltip, and the first hover counts before it loads.
+  const onTooltipOpenChange = iconsOnly ? tooltip.onOpenChange : undefined;
+  const closeTooltip = tooltip.close;
   const handleHoverIn = useCallback(() => {
     setIsContainerHovered(true);
-  }, []);
+    onTooltipOpenChange?.(true);
+  }, [onTooltipOpenChange]);
   const handleHoverOut = useCallback(() => {
     setIsContainerHovered(false);
-  }, []);
+    onTooltipOpenChange?.(false);
+  }, [onTooltipOpenChange]);
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
       setIsContainerHovered(false);
+      closeTooltip();
       const press = (options.tabbarOnPress ?? onPress) as (
         event: GestureResponderEvent,
       ) => void | undefined;
       press?.(event);
       onPressOut?.();
     },
-    [onPress, onPressOut, options],
+    [closeTooltip, onPress, onPressOut, options],
   );
+  // Pressing the current tab (e.g. Market back to its home) navigates too.
+  const onPressWhenSelected = options.onPressWhenSelected;
+  const handlePressWhenSelected = useCallback(() => {
+    closeTooltip();
+    onPressWhenSelected?.();
+  }, [closeTooltip, onPressWhenSelected]);
 
   const tabBarStyleMemo = useMemo(
     () =>
@@ -169,13 +240,15 @@ function BasicTabItemView({
           pt={6}
           pb={6}
           onPress={handlePress}
+          onPressIn={closeTooltip}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >
           <DesktopTabItem
+            onPressIn={closeTooltip}
             isContainerHovered={isContainerHovered}
             onPress={handlePress}
-            onPressWhenSelected={options.onPressWhenSelected}
+            onPressWhenSelected={handlePressWhenSelected}
             trackId={options.trackId}
             aria-current={isActive ? 'page' : undefined}
             selected={isActive}
@@ -183,31 +256,43 @@ function BasicTabItemView({
             // @ts-expect-error
             icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
             label=""
+            tooltipLabel={iconsOnly ? title : undefined}
+            tooltipOpen={iconsOnly ? tooltip.open : undefined}
+            shortcutKey={iconsOnly ? shortcutKey : undefined}
+            aria-label={title}
             actionList={options.actionList}
             testID={route.name.toLowerCase()}
           />
-          <SizableText
-            size="$bodyXsMedium"
-            cursor="default"
-            color="$text"
-            textAlign="center"
-            numberOfLines={2}
-            wordWrap="break-word"
-            maxWidth="100%"
-          >
-            {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
-          </SizableText>
+          {iconsOnly ? null : (
+            <SizableText
+              size="$bodyXsMedium"
+              cursor="default"
+              color="$text"
+              textAlign="center"
+              numberOfLines={2}
+              wordWrap="break-word"
+              maxWidth="100%"
+            >
+              {title}
+            </SizableText>
+          )}
         </YStack>
       ),
     [
+      closeTooltip,
       handlePress,
+      handlePressWhenSelected,
       handleHoverIn,
       handleHoverOut,
+      iconsOnly,
       isActive,
       isContainerHovered,
       options,
       route.name,
+      shortcutKey,
       tabBarStyleMemo,
+      title,
+      tooltip.open,
     ],
   );
 
@@ -293,12 +378,24 @@ function SidebarBottomItem({
 }) {
   // @ts-expect-error tabBarIcon returns icon name string, not ReactNode
   const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
-  const label =
-    options.collapseTabBarLabel ??
-    (typeof options.tabBarLabel === 'string'
-      ? options.tabBarLabel
-      : undefined) ??
-    route.name;
+  const label = getTabTitle(route, options);
+  const shortcutKey = getTabShortcut(route.name);
+  const iconsOnly = useSidebarIconsOnly();
+  const tooltip = useSidebarTooltipOpen(iconsOnly);
+  const closeTooltip = tooltip.close;
+  const handlePress = useCallback(() => {
+    closeTooltip();
+    onPress();
+  }, [closeTooltip, onPress]);
+  const onTooltipOpenChange = iconsOnly ? tooltip.onOpenChange : undefined;
+  const handleHoverIn = useCallback(
+    () => onTooltipOpenChange?.(true),
+    [onTooltipOpenChange],
+  );
+  const handleHoverOut = useCallback(
+    () => onTooltipOpenChange?.(false),
+    [onTooltipOpenChange],
+  );
 
   const renderTriggerMemo = useMemo(
     () => (
@@ -310,7 +407,10 @@ function SidebarBottomItem({
         hoverStyle={HOVER_STYLE_BG_HOVER}
         pressStyle={PRESS_STYLE_BG_ACTIVE}
         cursor="default"
-        onPress={onPress}
+        onPress={handlePress}
+        onPressIn={closeTooltip}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
       >
         <Icon
           name={iconName}
@@ -319,14 +419,25 @@ function SidebarBottomItem({
         />
       </YStack>
     ),
-    [isActive, onPress, iconName, route.name],
+    [
+      closeTooltip,
+      isActive,
+      handlePress,
+      handleHoverIn,
+      handleHoverOut,
+      iconName,
+      route.name,
+    ],
   );
 
+  // With labels shown it keeps its own name-only tooltip.
   return (
     <LazyTooltip
       placement="right"
       renderTrigger={renderTriggerMemo}
       renderContent={label}
+      shortcutKey={iconsOnly ? shortcutKey : undefined}
+      open={iconsOnly ? tooltip.open : undefined}
     />
   );
 }
@@ -346,12 +457,7 @@ function OverflowMenuItem({
 }) {
   // @ts-expect-error tabBarIcon returns icon name string, not ReactNode
   const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
-  const label =
-    options.collapseTabBarLabel ??
-    (typeof options.tabBarLabel === 'string'
-      ? options.tabBarLabel
-      : undefined) ??
-    route.name;
+  const label = getTabTitle(route, options);
 
   return (
     <XStack
@@ -404,6 +510,16 @@ function OverflowMenuItemWithHandler({
   setIsOpen: (value: boolean) => void;
 }) {
   const handlePress = useCallback(() => {
+    // Same as the sidebar Browser icon: return to the browser page left.
+    if (
+      route.name === ETabRoutes.Discovery &&
+      !isActive &&
+      getLastBrowserRoute() !== ETabRoutes.Discovery
+    ) {
+      switchTab(getLastBrowserRoute());
+      setIsOpen(false);
+      return;
+    }
     handleTabPress(route, isActive, {
       tabbarOnPress: (options as { tabbarOnPress?: () => void }).tabbarOnPress,
       onPressWhenSelected: (options as { onPressWhenSelected?: () => void })
@@ -438,6 +554,7 @@ function OverflowMoreButton({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const intl = useIntl();
+  const iconsOnly = useSidebarIconsOnly();
   const [isOpen, setIsOpen] = useState(false);
   const handleTabPress = useTabAction(navigation);
 
@@ -475,25 +592,40 @@ function OverflowMoreButton({
           icon={isAnyOverflowActive ? 'DotHorSolid' : 'DotHorOutline'}
           label=""
           showTooltip={false}
+          aria-label={moreLabel}
           testID="tab-more"
         />
-        <SizableText
-          size="$bodyXsMedium"
-          cursor="default"
-          color="$text"
-          textAlign="center"
-          numberOfLines={1}
-        >
-          {moreLabel}
-        </SizableText>
+        {iconsOnly ? null : (
+          <SizableText
+            size="$bodyXsMedium"
+            cursor="default"
+            color="$text"
+            textAlign="center"
+            numberOfLines={1}
+          >
+            {moreLabel}
+          </SizableText>
+        )}
       </YStack>
     ),
-    [isAnyOverflowActive, isOpen, moreLabel],
+    [iconsOnly, isAnyOverflowActive, isOpen, moreLabel],
   );
 
   const overflowPopoverContent = useMemo(
     () => (
       <YStack p="$1">
+        {/* Icons only: the button has no visible name, so the list shows it. */}
+        {iconsOnly ? (
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            px="$3"
+            pt="$2"
+            pb="$1"
+          >
+            {moreLabel}
+          </SizableText>
+        ) : null}
         {overflowRoutes.map((route) => {
           const currentFocusedRouteName = state.routes[state.index]?.name;
           const isActive = isRouteActive(
@@ -520,6 +652,8 @@ function OverflowMoreButton({
       descriptors,
       extraConfig?.name,
       handleTabPress,
+      iconsOnly,
+      moreLabel,
       overflowRoutes,
       state.index,
       state.routes,
@@ -564,9 +698,9 @@ function BasicVisibleTabItemView({
     if (
       route.name === ETabRoutes.Discovery &&
       !isActive &&
-      lastBrowserRoute !== ETabRoutes.Discovery
+      getLastBrowserRoute() !== ETabRoutes.Discovery
     ) {
-      switchTab(lastBrowserRoute as ETabRoutes);
+      switchTab(getLastBrowserRoute());
     } else {
       handleTabPress(route, isActive);
     }
@@ -603,6 +737,51 @@ export function DesktopLeftSideBar({
   bottomMenu: ReactElement;
   webPageTabBar: ReactElement;
 }) {
+  const intl = useIntl();
+  const appearance = useContext(SidebarAppearanceContext);
+  const iconsOnly = appearance?.showLabels === false;
+
+  // Right click anywhere on the sidebar toggles the labels. Bubble phase:
+  // items with their own menu (DesktopTabItem actionList) stop it first.
+  const sidebarRef = useRef<TamaguiElement>(null);
+  useEffect(() => {
+    const sidebar = sidebarRef.current as HTMLElement | null;
+    if (!appearance || !sidebar?.addEventListener) {
+      return undefined;
+    }
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+      closeAllTooltips();
+      const title = intl.formatMessage({
+        id: ETranslations.settings_sidebar_labels__title,
+      });
+      ActionList.show({
+        title,
+        triggerPosition: { x: event.clientX, y: event.clientY },
+        sections: [
+          {
+            items: [
+              {
+                label: title,
+                icon: 'SidebarOutline',
+                testID: 'sidebar-show-labels',
+                // A check mark like a native menu; the row toggles it.
+                extra: appearance.showLabels ? (
+                  <Icon name="CheckLargeOutline" size="$4" color="$icon" />
+                ) : null,
+                onPress: () => {
+                  appearance.setShowLabels(!appearance.showLabels);
+                },
+              },
+            ],
+          },
+        ],
+      });
+    };
+    sidebar.addEventListener('contextmenu', handleContextMenu);
+    return () => sidebar.removeEventListener('contextmenu', handleContextMenu);
+  }, [appearance, intl]);
+
   const { routes } = state;
   const { top } = useSafeAreaInsets(); // used for ipad
   const handleTabPress = useTabAction(navigation);
@@ -612,22 +791,20 @@ export function DesktopLeftSideBar({
   // Current focused route for browser submenu
   const focusedRouteName = state.routes[state.index]?.name;
 
-  // Track last active browser route (Discovery or MultiTabBrowser)
-  useEffect(() => {
-    if (focusedRouteName === ETabRoutes.Discovery) {
-      lastBrowserRoute = ETabRoutes.Discovery;
-    } else if (extraConfig?.name && focusedRouteName === extraConfig.name) {
-      lastBrowserRoute = extraConfig.name;
-    }
-  }, [focusedRouteName, extraConfig?.name]);
-
-  const [maxVisibleCount, setMaxVisibleCount] = useState(0);
+  // The container height does not change with the labels, so toggling them
+  // must recompute the count without waiting for a new layout pass.
+  const [tabsContainerHeight, setTabsContainerHeight] = useState(0);
   const handleTabsContainerLayout = useCallback((event: LayoutChangeEvent) => {
     const height = event.nativeEvent.layout.height;
     if (height <= 0) return;
-    const count = Math.floor(height / ESTIMATED_TAB_ITEM_HEIGHT);
-    setMaxVisibleCount((prev) => (prev === count ? prev : count));
+    setTabsContainerHeight(height);
   }, []);
+  const maxVisibleCount = Math.floor(
+    tabsContainerHeight /
+      (iconsOnly
+        ? ESTIMATED_ICON_ONLY_TAB_ITEM_HEIGHT
+        : ESTIMATED_TAB_ITEM_HEIGHT),
+  );
 
   const { visibleRoutes, overflowRoutes, deviceRoute } = useMemo(() => {
     let currentDeviceRoute: (typeof routes)[0] | undefined;
@@ -700,7 +877,7 @@ export function DesktopLeftSideBar({
       pt={top}
       zIndex={2}
     >
-      <YStack w={MIN_SIDEBAR_WIDTH}>
+      <YStack ref={sidebarRef} w={MIN_SIDEBAR_WIDTH}>
         {/* eslint-disable no-nested-ternary */}
         {platformEnv.isDesktopMac ? (
           // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
@@ -730,49 +907,52 @@ export function DesktopLeftSideBar({
                 />
               </XStack>
             ) : null}
-            <YStack
-              flex={1}
-              px="$3"
-              alignItems="center"
-              onLayout={handleTabsContainerLayout}
-            >
-              {visibleRoutes.map((route) => {
-                const isActive = isRouteActive(
-                  route,
-                  focusedRouteName,
-                  extraConfig?.name,
-                );
-                return (
-                  <VisibleTabItemView
-                    key={route.key}
-                    route={route}
-                    isActive={isActive}
-                    options={descriptors[route.key].options}
-                    handleTabPress={handleTabPress}
+            {/* Icons-only tooltips follow the pointer across the icons. */}
+            <SidebarTooltipGroup>
+              <YStack
+                flex={1}
+                px="$3"
+                alignItems="center"
+                onLayout={handleTabsContainerLayout}
+              >
+                {visibleRoutes.map((route) => {
+                  const isActive = isRouteActive(
+                    route,
+                    focusedRouteName,
+                    extraConfig?.name,
+                  );
+                  return (
+                    <VisibleTabItemView
+                      key={route.key}
+                      route={route}
+                      isActive={isActive}
+                      options={descriptors[route.key].options}
+                      handleTabPress={handleTabPress}
+                    />
+                  );
+                })}
+                {overflowRoutes.length > 0 ? (
+                  <OverflowMoreButton
+                    overflowRoutes={overflowRoutes}
+                    isAnyOverflowActive={isAnyOverflowActive}
+                    state={state}
+                    descriptors={descriptors}
+                    navigation={navigation}
+                    extraConfig={extraConfig}
                   />
-                );
-              })}
-              {overflowRoutes.length > 0 ? (
-                <OverflowMoreButton
-                  overflowRoutes={overflowRoutes}
-                  isAnyOverflowActive={isAnyOverflowActive}
-                  state={state}
-                  descriptors={descriptors}
-                  navigation={navigation}
-                  extraConfig={extraConfig}
-                />
-              ) : null}
-            </YStack>
-            {deviceRoute ? (
-              <YStack px="$3" pb="$2" alignItems="center">
-                <SidebarBottomItem
-                  route={deviceRoute}
-                  isActive={isDeviceActive}
-                  options={descriptors[deviceRoute.key].options}
-                  onPress={handleDevicePress}
-                />
+                ) : null}
               </YStack>
-            ) : null}
+              {deviceRoute ? (
+                <YStack px="$3" pb="$2" alignItems="center">
+                  <SidebarBottomItem
+                    route={deviceRoute}
+                    isActive={isDeviceActive}
+                    options={descriptors[deviceRoute.key].options}
+                    onPress={handleDevicePress}
+                  />
+                </YStack>
+              ) : null}
+            </SidebarTooltipGroup>
             {bottomMenu}
           </YStack>
         </YStack>

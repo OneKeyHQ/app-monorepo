@@ -14,18 +14,24 @@ import {
   CommonActions,
   NavigationContext,
   type ParamListBase,
+  StackActions,
   StackRouter,
   createNavigationContainerRef,
   createNavigatorFactory,
   useIsFocused,
+  useNavigation,
   useNavigationBuilder,
 } from '@react-navigation/core';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 import type { IDustSweepSnapshot } from '@onekeyhq/shared/types/swap/dustSweep';
+
+import { urlAccountNavigation } from '../Home/pages/urlAccount/urlAccountUtils';
 
 import DustSweepPage from './DustSweepPage';
 import { useDustSweep } from './DustSweepProvider';
@@ -261,6 +267,15 @@ jest.mock('@react-navigation/elements', () => ({
   useHeaderHeight: () => 0,
   getDefaultHeaderHeight: () => 0,
 }));
+jest.mock('@react-navigation/native', () =>
+  jest.requireActual<typeof import('@react-navigation/routers')>(
+    '@react-navigation/routers',
+  ),
+);
+jest.mock(
+  '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
+  () => ({}),
+);
 jest.mock('@onekeyhq/shared/src/tabBar/hideTabBarRequests', () => ({
   createHideTabBarOwnerId: (scope: string) => scope,
   requestHideTabBar: jest.fn(),
@@ -514,6 +529,19 @@ jest.mock('./components/DustSweepFilters', () => ({
 function Home() {
   return <span>Home</span>;
 }
+function UrlWallet() {
+  const { dispatch } = useNavigation();
+  return (
+    <Button
+      testID="url-wallet-back"
+      onPress={() =>
+        urlAccountNavigation.goBack({ dispatch } as IAppNavigation)
+      }
+    >
+      URL Wallet back
+    </Button>
+  );
+}
 function Modal() {
   return (
     <ModalStack.Navigator>
@@ -537,9 +565,9 @@ function mountFlow(modal = false) {
         initialState={{
           index: 1,
           routes: [
-            { name: 'Home' },
+            { name: ETabHomeRoutes.TabHome },
             {
-              name: modal ? 'Modal' : 'Dust',
+              name: modal ? 'Modal' : ETabHomeRoutes.TabHomeDustSweep,
               params: {
                 walletId: 'wallet',
                 accountId: 'account',
@@ -550,8 +578,15 @@ function mountFlow(modal = false) {
         }}
       >
         <ParentStack.Navigator>
-          <ParentStack.Screen name="Home" component={Home} />
-          <ParentStack.Screen name="Dust" component={DustSweepPage} />
+          <ParentStack.Screen name={ETabHomeRoutes.TabHome} component={Home} />
+          <ParentStack.Screen
+            name={ETabHomeRoutes.TabHomeDustSweep}
+            component={DustSweepPage}
+          />
+          <ParentStack.Screen
+            name={ETabHomeRoutes.TabHomeUrlAccountPage}
+            component={UrlWallet}
+          />
           <ParentStack.Screen name="Modal" component={Modal} />
           <ParentStack.Screen name="Other" component={Home} />
         </ParentStack.Navigator>
@@ -561,8 +596,10 @@ function mountFlow(modal = false) {
   );
 }
 function flowRoutes() {
-  return ref.getRootState().routes.find((route) => route.name === 'Dust')?.state
-    ?.routes;
+  return ref
+    .getRootState()
+    .routes.find((route) => route.name === ETabHomeRoutes.TabHomeDustSweep)
+    ?.state?.routes;
 }
 function activeButton(name: string) {
   return screen.getByRole('button', { name });
@@ -788,6 +825,31 @@ it.each([false, true])(
   },
 );
 
+it('returns from URL Wallet to the running wide-screen Dust Sweep without prompting to leave', async () => {
+  mockOverlay = false;
+  const pending = deferred<IResult>();
+  execute.mockImplementation(async ({ onBuilding, onSigning }) => {
+    onBuilding();
+    onSigning();
+    return pending.promise;
+  });
+  mountFlow();
+  fireEvent.click(activeButton('Convert twice'));
+  const dustSweepKey = ref.getRootState().routes.at(-1)?.key;
+
+  act(() =>
+    ref.dispatch(StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage)),
+  );
+  fireEvent.click(activeButton('URL Wallet back'));
+
+  expect(otherDialogCalls()).toHaveLength(0);
+  expect(ref.getRootState().routes.at(-1)?.key).toBe(dustSweepKey);
+  expect(screen.getByText('running:focused')).toBeTruthy();
+  expect(mockProviderUnmounts).toBe(0);
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  await act(async () => pending.resolve(success));
+});
+
 it.each([false, true])(
   'keeps a newly unknown signing result in the same session until a second explicit Leave (native: %s)',
   async (native) => {
@@ -820,7 +882,7 @@ it.each([false, true])(
     });
     fireEvent.click(activeButton('Local back'));
     await act(async () => confirmDialog().onConfirm?.(dialogInstance));
-    expect(ref.getCurrentRoute()?.name).toBe('Home');
+    expect(ref.getCurrentRoute()?.name).toBe(ETabHomeRoutes.TabHome);
     expect(execute).toHaveBeenCalledTimes(1);
   },
 );
@@ -1025,7 +1087,7 @@ it('bubbles completed Back through a modal whose owning Dust route is at index z
   await act(async () => fireEvent.click(activeButton('Convert twice')));
   expect(ref.getRootState().routes[1].state?.index).toBe(0);
   fireEvent.click(activeButton('Local back'));
-  expect(ref.getCurrentRoute()?.name).toBe('Home');
+  expect(ref.getCurrentRoute()?.name).toBe(ETabHomeRoutes.TabHome);
   expect(mockProviderUnmounts).toBe(1);
   expect(mockDialog).not.toHaveBeenCalled();
 });
@@ -1090,7 +1152,7 @@ it('does not replace the closing result sheet when Execution blurs and refocuses
 it('bubbles selection Back through the first modal screen without starting execution', () => {
   mountFlow(true);
   fireEvent.click(activeButton('Local back'));
-  expect(ref.getCurrentRoute()?.name).toBe('Home');
+  expect(ref.getCurrentRoute()?.name).toBe(ETabHomeRoutes.TabHome);
   expect(mockProviderUnmounts).toBe(1);
   expect(execute).not.toHaveBeenCalled();
   expect(mockDialog).not.toHaveBeenCalled();
@@ -1132,7 +1194,7 @@ it('allows Cancel, waits for signing on Leave, then exits the whole native modal
     await leaving;
   });
   expect(confirmed.onBeforeClose?.()).toBe(true);
-  expect(ref.getCurrentRoute()?.name).toBe('Home');
+  expect(ref.getCurrentRoute()?.name).toBe(ETabHomeRoutes.TabHome);
   expect(mockProviderUnmounts).toBe(1);
 });
 
@@ -1141,7 +1203,7 @@ it('provides a visible parent Back on the initial nested page for native tab ent
   mockOverlay = false;
   mountFlow();
   fireEvent.click(activeButton('Header back'));
-  expect(ref.getCurrentRoute()?.name).toBe('Home');
+  expect(ref.getCurrentRoute()?.name).toBe(ETabHomeRoutes.TabHome);
   expect(execute).not.toHaveBeenCalled();
 });
 
@@ -1175,7 +1237,7 @@ it('keeps a back control in a desktop-width modal without the Home tab top bar',
   mountFlow();
   expect(screen.queryByTestId('tab-page-header')).toBeNull();
   fireEvent.click(screen.getByTestId('dust-sweep-back'));
-  expect(ref.getCurrentRoute()?.name).toBe('Home');
+  expect(ref.getCurrentRoute()?.name).toBe(ETabHomeRoutes.TabHome);
 });
 
 it.each([false, true])(

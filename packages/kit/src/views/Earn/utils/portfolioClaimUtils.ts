@@ -167,5 +167,10 @@ export function resolvePortfolioClaimProtocolIdentity({
     return null;
   }
 
+  // Airdrops that omit the vault have no source position to resolve.
+  if (!assetVault) {
+    return assetSymbol.trim() ? { symbol: assetSymbol } : null;
+  }
+
   return sourceIdentity?.symbol ? sourceIdentity : null;
 }
