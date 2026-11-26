@@ -7,3 +7,16 @@ import { createContext } from 'react';
 // so the presentation and the chart controls share it without importing each
 // other.
 export const TradingViewNativeFullscreenTrailingInsetContext = createContext(0);
+
+// The indicator rail and the exit control above it stop this far short of the
+// clear inset, so they stay aligned in one column a little off the screen edge.
+export const TRADING_VIEW_NATIVE_FULLSCREEN_TRAILING_EDGE_GAP = 8;
+
+export function getTradingViewNativeFullscreenTrailingReach(
+  clearTrailingInset: number,
+) {
+  return Math.max(
+    clearTrailingInset - TRADING_VIEW_NATIVE_FULLSCREEN_TRAILING_EDGE_GAP,
+    0,
+  );
+}

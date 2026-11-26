@@ -473,8 +473,8 @@ describe('TradingView chart controls', () => {
       />,
     );
     const row = () => screen.getByTestId('trading-view-chart-controls');
-    // The exit control moves toward the edge but keeps 12pt off the corner.
-    expect(row().getAttribute('data-mr')).toBe('-50');
+    // The exit control at the row's end moves with the indicator rail.
+    expect(row().getAttribute('data-mr')).toBe('-62');
 
     rerender(
       <TradingViewChartControls

@@ -94,9 +94,15 @@ describe('TradingViewNativeFullscreenIndicatorRail', () => {
     expect(onOpenPanel).toHaveBeenCalledTimes(1);
   });
 
-  it.each([0, 62])(
-    'reaches %ipt into the clear trailing inset of the fullscreen layer',
-    (clearTrailingInset) => {
+  it.each([
+    [0, 0],
+    // An inset narrower than the edge gap leaves the rail where it is.
+    [6, 0],
+    // Reaches the clear inset but stops 8pt short of the screen edge.
+    [62, 54],
+  ])(
+    'reaches into a %ipt clear trailing inset by %ipt',
+    (clearTrailingInset, reach) => {
       render(
         <TradingViewNativeFullscreenTrailingInsetContext.Provider
           value={clearTrailingInset}
@@ -111,9 +117,7 @@ describe('TradingViewNativeFullscreenIndicatorRail', () => {
           />
         </TradingViewNativeFullscreenTrailingInsetContext.Provider>,
       );
-      expect(screen.getByTestId(RAIL).style.marginRight).toBe(
-        `${-clearTrailingInset}px`,
-      );
+      expect(screen.getByTestId(RAIL).style.marginRight).toBe(`${-reach}px`);
     },
   );
 });

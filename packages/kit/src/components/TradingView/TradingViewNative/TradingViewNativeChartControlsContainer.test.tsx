@@ -80,9 +80,12 @@ describe('TradingViewNative chart controls', () => {
     jest.clearAllMocks();
   });
 
-  it.each([0, 62])(
-    'hands the %ipt clear trailing inset of the fullscreen page to the controls row',
-    (clearTrailingInset) => {
+  it.each([
+    [0, 0],
+    [62, 54],
+  ])(
+    'extends the controls row as far as the rail reaches into a %ipt clear inset',
+    (clearTrailingInset, reach) => {
       render(
         <TradingViewNativeFullscreenTrailingInsetContext.Provider
           value={clearTrailingInset}
@@ -98,7 +101,10 @@ describe('TradingViewNative chart controls', () => {
         </TradingViewNativeFullscreenTrailingInsetContext.Provider>,
       );
       expect(mockTradingViewChartControls).toHaveBeenCalledWith(
-        expect.objectContaining({ clearTrailingInset, isFullscreen: true }),
+        expect.objectContaining({
+          clearTrailingInset: reach,
+          isFullscreen: true,
+        }),
       );
     },
   );

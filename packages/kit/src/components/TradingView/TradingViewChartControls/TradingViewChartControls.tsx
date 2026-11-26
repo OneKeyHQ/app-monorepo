@@ -182,8 +182,8 @@ export interface ITradingViewChartControlsProps {
   calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
-  // Mobile fullscreen row only: a clear strip beyond the trailing edge that
-  // the row extends into, moving the exit control toward the screen edge.
+  // Mobile fullscreen row only: how far the row extends beyond its trailing
+  // edge, so the exit control moves with the indicator rail.
   clearTrailingInset?: number;
   rightControl?: ReactNode;
   rightControlLabel?: string;
@@ -231,9 +231,6 @@ function ToolbarSeparator({
 const DESKTOP_CONTROLS_HEIGHT = 38;
 const DESKTOP_FULLSCREEN_CONTROLS_HEIGHT = 64;
 const COMPACT_MOBILE_CONTROLS_MIN_HEIGHT = 42;
-// The exit control stops short of the clear trailing inset, away from the
-// display's rounded corner.
-const FULLSCREEN_EXIT_CORNER_CLEARANCE = 12;
 export const TRADING_VIEW_CHART_CONTROLS_HEIGHT = 48;
 
 export const TradingViewChartControls = memo(
@@ -730,12 +727,7 @@ export const TradingViewChartControls = memo(
         bg={backgroundColor}
         px="$2"
         mr={
-          isFullscreen && clearTrailingInset
-            ? -Math.max(
-                clearTrailingInset - FULLSCREEN_EXIT_CORNER_CLEARANCE,
-                0,
-              )
-            : undefined
+          isFullscreen && clearTrailingInset ? -clearTrailingInset : undefined
         }
         py={compactMobileLayout ? undefined : '$2'}
         pt={shouldUseTightCompactPadding ? '$1.5' : undefined}
