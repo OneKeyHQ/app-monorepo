@@ -1,90 +1,184 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { useIntl } from 'react-intl';
+import { AppState } from 'react-native';
+
+import { Toast, resetToRoute } from '@onekeyhq/components';
+import {
+  appIsLocked,
+  useAppIsLockedAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-const WALLET_KEY_UNAVAILABLE_TITLE = 'Wallet key unavailable';
-const WALLET_KEY_UNAVAILABLE_DESCRIPTION =
-  'This device no longer has the local security key required to unlock this wallet. This can happen after moving to a new device, reinstalling the app, or clearing local app data. Re-import this wallet using a recovery method you choose, such as Cloud Backup restore, Transfer, or another supported import method.';
-const ERROR_DETAILS_TITLE = 'Error details';
-const VIEW_ERROR_DETAILS_TEXT = 'View error details';
-const OK_TEXT = 'OK';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import {
+  getActiveWalletLocalSecretEnvelopeCredentialId,
+  useWalletLocalSecretEnvelopePreflight,
+} from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
+
+const TOAST_DEDUPLICATE_MS = 10_000;
+
+function showWalletLocalSecretEnvelopeToast(
+  issue: ILocalSecretEnvelopeCredentialIssue,
+) {
+  appEventBus.emit(
+    EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+    issue,
+  );
+}
+
+function WalletLocalSecretEnvelopePreflight({ enabled }: { enabled: boolean }) {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  useWalletLocalSecretEnvelopePreflight(
+    enabled
+      ? getActiveWalletLocalSecretEnvelopeCredentialId(activeAccount)
+      : undefined,
+    showWalletLocalSecretEnvelopeToast,
+  );
+
+  return null;
+}
 
 export function LocalSecretEnvelopeErrorDialogContainer() {
-  const dialogRef = useRef<IDialogInstance | null>(null);
-  const detailsDialogRef = useRef<IDialogInstance | null>(null);
-  const isDialogActiveRef = useRef(false);
-  const isDetailsDialogActiveRef = useRef(false);
+  const intl = useIntl();
+  const [isLocked] = useAppIsLockedAtom();
+  const [foreground, setForeground] = useState(
+    () => !AppState.currentState || AppState.currentState === 'active',
+  );
+  const dialogOpen = useRef(false);
+  const lastToastAt = useRef(new Map<string, number>());
 
-  const showDetailsDialog = useCallback(async (technicalMessage: string) => {
-    await dialogRef.current?.close();
-    dialogRef.current = null;
-    isDialogActiveRef.current = false;
-    if (isDetailsDialogActiveRef.current) {
-      return;
-    }
-    isDetailsDialogActiveRef.current = true;
-    detailsDialogRef.current = Dialog.show({
-      title: ERROR_DETAILS_TITLE,
-      description: technicalMessage,
-      onConfirmText: OK_TEXT,
-      onClose: () => {
-        detailsDialogRef.current = null;
-        isDetailsDialogActiveRef.current = false;
-      },
-      showCancelButton: false,
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      setForeground(state === 'active');
     });
+    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
-    const showFn = (
-      payload: IAppEventBusPayload[EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog],
-    ) => {
-      if (isDialogActiveRef.current || isDetailsDialogActiveRef.current) {
-        return;
+    if (!foreground || isLocked) return;
+    let active = true;
+    let loadingDialog = false;
+
+    const canPresentRecovery = () =>
+      active &&
+      (!AppState.currentState || AppState.currentState === 'active') &&
+      !jotaiDefaultStore.get(appIsLocked.atom());
+
+    const showLoadError = () => {
+      if (canPresentRecovery()) {
+        Toast.error({
+          title: intl.formatMessage({ id: ETranslations.global_network_error }),
+          toastId: 'wallet-lse-recovery-load',
+        });
       }
-      isDialogActiveRef.current = true;
-      dialogRef.current = Dialog.show({
-        icon: 'ErrorOutline',
-        title: WALLET_KEY_UNAVAILABLE_TITLE,
-        description: WALLET_KEY_UNAVAILABLE_DESCRIPTION,
-        onConfirmText: OK_TEXT,
-        onCancelText: VIEW_ERROR_DETAILS_TEXT,
-        onCancel: (close) => {
-          void close().then(() => {
-            dialogRef.current = null;
-            isDialogActiveRef.current = false;
-            void showDetailsDialog(payload.technicalMessage);
-          });
-        },
-        onClose: () => {
-          dialogRef.current = null;
-          isDialogActiveRef.current = false;
-        },
-        showCancelButton: true,
-      });
     };
 
+    const showDialog = () => {
+      if (dialogOpen.current || loadingDialog) return;
+      loadingDialog = true;
+      void import('../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery')
+        .then(({ showLocalSecretEnvelopeRecoveryDialog }) => {
+          if (!canPresentRecovery() || dialogOpen.current) return;
+          dialogOpen.current = true;
+          showLocalSecretEnvelopeRecoveryDialog({
+            intl,
+            context: 'wallet',
+            onAction: () => {
+              resetToRoute(ERootRoutes.Onboarding, {
+                screen: EOnboardingV2Routes.OnboardingV2,
+                params: {
+                  screen: EOnboardingPagesV2.GetStarted,
+                },
+              });
+            },
+            options: {
+              confirmButtonProps: { testID: 'lse-recovery-import-wallet' },
+              onClose: () => {
+                dialogOpen.current = false;
+              },
+            },
+          });
+        })
+        .catch(() => {
+          if (active) dialogOpen.current = false;
+          showLoadError();
+        })
+        .finally(() => {
+          loadingDialog = false;
+        });
+    };
+
+    const showToast = (
+      issue: IAppEventBusPayload[EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast],
+    ) => {
+      void import('../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery')
+        .then(({ showLocalSecretEnvelopeDetailsToast }) => {
+          if (!canPresentRecovery()) return;
+          const now = Date.now();
+          for (const [key, timestamp] of lastToastAt.current) {
+            if (now - timestamp >= TOAST_DEDUPLICATE_MS) {
+              lastToastAt.current.delete(key);
+            }
+          }
+          const toastKey = issue.credentialKey;
+          if (lastToastAt.current.has(toastKey)) return;
+
+          showLocalSecretEnvelopeDetailsToast({
+            intl,
+            message: issue.walletName,
+            toastId: `wallet-lse:${toastKey}`,
+            onDetails: () =>
+              appEventBus.emitToSelf({
+                type: EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+                payload: issue,
+              }),
+          });
+          lastToastAt.current.set(toastKey, now);
+        })
+        .catch(showLoadError);
+    };
+    appEventBus.on(
+      EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+      showToast,
+    );
     appEventBus.on(
       EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
-      showFn,
+      showDialog,
     );
     return () => {
+      active = false;
+      appEventBus.off(
+        EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+        showToast,
+      );
       appEventBus.off(
         EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
-        showFn,
+        showDialog,
       );
-      dialogRef.current = null;
-      detailsDialogRef.current = null;
-      isDialogActiveRef.current = false;
-      isDetailsDialogActiveRef.current = false;
     };
-  }, [showDetailsDialog]);
+  }, [foreground, intl, isLocked]);
 
-  return null;
+  return (
+    <AccountSelectorProviderMirror
+      config={{ sceneName: EAccountSelectorSceneName.home }}
+      enabledNum={[0]}
+    >
+      <WalletLocalSecretEnvelopePreflight enabled={foreground && !isLocked} />
+    </AccountSelectorProviderMirror>
+  );
 }

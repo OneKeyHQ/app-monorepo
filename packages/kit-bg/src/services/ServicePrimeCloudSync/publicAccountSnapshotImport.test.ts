@@ -34,6 +34,7 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { LocalDbBase } from '../../dbs/local/LocalDbBase';
 import type {
   IDBAccount,
+  IDBCloudSyncItem,
   IDBCredentialBase,
   IDBWallet,
 } from '../../dbs/local/types';
@@ -115,13 +116,16 @@ function harness(wallets = [wallet()]) {
       credential: 'encrypted-local-test-credential',
     }),
   );
-  const getDeviceSafe = jest.fn(async () => ({
-    vendor: EHardwareVendor.onekey,
-  }));
+  const getDeviceSafe = jest.fn(
+    async (_id: string): Promise<{ vendor: EHardwareVendor } | undefined> => ({
+      vendor: EHardwareVendor.onekey,
+    }),
+  );
   const write = jest.fn(
     async ({
       accounts,
       isCurrent,
+      sourceItemsByAccountId,
     }: Parameters<LocalDbBase['importPublicCloudAccounts']>[0]) => {
       if (!isCurrent())
         return {
@@ -133,6 +137,7 @@ function harness(wallets = [wallet()]) {
           appliedAccountIds: [],
         };
       let added = 0;
+      let updated = 0;
       let unchanged = 0;
       let conflicts = 0;
       const appliedAccountIds: string[] = [];
@@ -143,12 +148,19 @@ function harness(wallets = [wallet()]) {
           added += 1;
           appliedAccountIds.push(account.id);
         } else if (publicAccountIdentityEqual(existing, account)) {
-          unchanged += 1;
+          const source = sourceItemsByAccountId?.get(account.id);
+          if (source?.serverUploaded && existing.name !== account.name) {
+            stored.set(account.id, account);
+            updated += 1;
+          } else {
+            unchanged += 1;
+          }
           appliedAccountIds.push(account.id);
         } else conflicts += 1;
       }
       return {
         added,
+        updated,
         unchanged,
         conflicts,
         pending: 0,
@@ -260,6 +272,120 @@ describe('importPublicAccountSnapshots', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
+
+  it.each(['create', 'rename', 'delete'] as const)(
+    'applies the same cloud %s to both hardware wallets with matching seeds',
+    async (action) => {
+      const first = wallet();
+      const second = {
+        ...first,
+        id: 'hw-second-device',
+        associatedDevice: 'second-device',
+      };
+      const h = harness([first, second]);
+      const value = snapshot();
+      const id = getPublicAccountSnapshotId(value);
+      const accounts = [first, second].map((target) =>
+        publicAccountSnapshotToAccount(value, target.id),
+      );
+      if (action !== 'create') {
+        for (const account of accounts) {
+          h.stored.set(account.id, { ...account, name: 'Old account name' });
+        }
+      }
+      const source: IDBCloudSyncItem = {
+        id,
+        dataType: EPrimeCloudSyncDataType.Account,
+        data: 'public-test-ciphertext',
+        dataTime: 2,
+        pwdHash: 'public-test-cloud',
+        rawKey: '',
+        rawData: '',
+        isDeleted: action === 'delete',
+        localSceneUpdated: false,
+        serverUploaded: true,
+      };
+      const result = await importPublicAccountSnapshots({
+        backgroundApi: h.api,
+        snapshots: [value],
+        sourceItemsBySnapshotId: new Map([[id, source]]),
+        action: source.isDeleted ? 'delete' : 'copy',
+        isCurrent: () => true,
+      });
+
+      expect(result).toMatchObject({
+        added: action === 'create' ? 2 : 0,
+        updated: action === 'rename' ? 2 : 0,
+        deleted: action === 'delete' ? 2 : 0,
+        pending: 0,
+        appliedSnapshotIds: [id],
+        issuesBySnapshotId: {},
+      });
+      expect(Array.from(h.stored.values())).toEqual(
+        source.isDeleted ? [] : accounts,
+      );
+    },
+  );
+
+  it.each(['local-device', 'second-device'])(
+    'waits to acknowledge a shared deletion until wallet on %s is ready',
+    async (unavailableDevice) => {
+      const first = wallet();
+      const second = {
+        ...first,
+        id: 'hw-second-device',
+        associatedDevice: 'second-device',
+      };
+      const h = harness([first, second]);
+      const value = snapshot();
+      const id = getPublicAccountSnapshotId(value);
+      for (const target of [first, second]) {
+        const account = publicAccountSnapshotToAccount(value, target.id);
+        h.stored.set(account.id, account);
+      }
+      h.getDeviceSafe.mockImplementation(async (deviceId) =>
+        deviceId === unavailableDevice
+          ? undefined
+          : { vendor: EHardwareVendor.onekey },
+      );
+      const source: IDBCloudSyncItem = {
+        id,
+        dataType: EPrimeCloudSyncDataType.Account,
+        data: 'public-test-ciphertext',
+        dataTime: 2,
+        pwdHash: 'public-test-cloud',
+        rawKey: '',
+        rawData: '',
+        isDeleted: true,
+        localSceneUpdated: false,
+        serverUploaded: true,
+      };
+      const params = {
+        backgroundApi: h.api,
+        snapshots: [value],
+        sourceItemsBySnapshotId: new Map([[id, source]]),
+        action: 'delete' as const,
+        isCurrent: () => true,
+      };
+      expect(await importPublicAccountSnapshots(params)).toMatchObject({
+        deleted: 1,
+        pending: 1,
+        appliedSnapshotIds: [],
+        issuesBySnapshotId: { [id]: 'pending' },
+      });
+      expect(h.stored.size).toBe(1);
+
+      h.getDeviceSafe.mockResolvedValue({ vendor: EHardwareVendor.onekey });
+      expect(await importPublicAccountSnapshots(params)).toMatchObject({
+        deleted: 1,
+        unchanged: 1,
+        pending: 0,
+        appliedSnapshotIds: [id],
+        issuesBySnapshotId: {},
+      });
+      expect(h.stored.size).toBe(0);
+    },
+  );
 
   it('passes the selected credential and prepared indexed metadata into transactional import', async () => {
     const h = harness();
@@ -471,20 +597,37 @@ describe('importPublicAccountSnapshots', () => {
     expect(h.getCredentialSafe).toHaveBeenCalledTimes(2);
   });
 
-  it('does not cross wallet kind or silently choose duplicate local wallets', async () => {
+  it('skips a collided snapshot without a local wallet and keeps ambiguous matches pending', async () => {
     const h = harness([wallet('hd'), { ...wallet('hd'), id: 'hd-duplicate' }]);
     const missing = snapshot();
+    const missingId = getPublicAccountSnapshotId(missing);
+    const source: IDBCloudSyncItem = {
+      id: 'fixture-account-wire-id',
+      dataType: EPrimeCloudSyncDataType.Account,
+      data: 'fixture-ciphertext',
+      dataTime: undefined,
+      rawData: '',
+      rawKey: '',
+      isDeleted: false,
+      localSceneUpdated: false,
+      serverUploaded: true,
+      pwdHash: 'fixture-active-space',
+    };
     expect(
       await importPublicAccountSnapshots({
         backgroundApi: h.api,
         snapshots: [missing, snapshot(0, 'hd')],
+        sourceItemsBySnapshotId: new Map([[missingId, source]]),
+        foreignAccountsByWireId: new Map([
+          [source.id, { ...source, pwdHash: 'fixture-foreign-space' }],
+        ]),
         isCurrent: () => true,
       }),
     ).toMatchObject({
       pending: 1,
       added: 0,
       appliedSnapshotIds: [],
-      skippedSnapshotIds: [getPublicAccountSnapshotId(missing)],
+      skippedSnapshotIds: [missingId],
     });
     expect(h.getCredentialSafe).not.toHaveBeenCalled();
     expect(h.write).not.toHaveBeenCalled();

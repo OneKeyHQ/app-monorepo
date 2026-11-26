@@ -74,6 +74,9 @@ const SUCCEEDED: IUnifoldDepositExecution = {
   sourceAmountUsd: '12.34567800000000000000',
   sourceCurrency: 'usdc',
   sourceTokenDecimals: 6,
+  destinationChainType: 'ethereum',
+  destinationChainId: '1337',
+  destinationTokenAddress: '0x00000000000000000000000000000000',
   destinationAmountBaseUnit: '12345678',
   destinationAmountUsd: '12.34567800000000000000',
   destinationCurrency: 'usdc',
@@ -121,6 +124,9 @@ const WAITING_MINIMAL: IUnifoldDepositExecution = {
   sourceAmountUsd: null,
   sourceCurrency: null,
   sourceTokenDecimals: null,
+  destinationChainType: null,
+  destinationChainId: null,
+  destinationTokenAddress: null,
   destinationCurrency: null,
   destinationTokenIconUrl: null,
   explorerUrl: null,
@@ -437,6 +443,7 @@ function PanelFrame({
         <UnifoldDepositQRCard
           address={qrAddress}
           chainIconUri={ARB_ICON}
+          sourceTokenIconUri={SELECTION.asset.icon_url}
           loading={Boolean(qrLoading)}
         />
         {activationWarning ? <ActivationWarningStub /> : null}
@@ -879,6 +886,7 @@ function TransferPiecesGallery() {
         <UnifoldDepositQRCard
           address={SYNTHETIC_DEPOSIT_ADDRESS}
           chainIconUri={ARB_ICON}
+          sourceTokenIconUri={SELECTION.asset.icon_url}
           loading={false}
         />
       </YStack>

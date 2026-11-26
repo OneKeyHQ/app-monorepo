@@ -12,6 +12,7 @@ import {
 
 import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -89,7 +90,16 @@ jest.mock('@onekeyhq/components', () => {
     Button,
     IconButton: Button,
     Page: Object.assign(View, { Header: () => null, Body: View, Footer: View }),
-    SizableText: View,
+    SizableText: ({
+      children,
+      testID,
+      role,
+      'aria-level': ariaLevel,
+    }: IMockProps & { role?: 'heading'; 'aria-level'?: number }) => (
+      <div data-testid={testID} role={role} aria-level={ariaLevel}>
+        {children}
+      </div>
+    ),
     Stack: View,
     XStack: View,
     YStack: View,
@@ -379,6 +389,35 @@ describe('TradingViewMobileIndicatorEditor', () => {
     fireEvent.click(screen.getByTestId('mobile-indicator-save'));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(onSave).toHaveBeenCalledWith(indicator);
+  });
+
+  it('shows the explanation under its own heading', () => {
+    const indicator = {
+      ...getIndicator('MA'),
+      description: 'Average closing price.',
+    };
+    render(
+      <TradingViewMobileIndicatorEditor
+        indicator={indicator}
+        defaultIndicator={indicator}
+        onSave={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('mobile-indicator-description').textContent).toBe(
+      `${ETranslations.market_chart_indicator_about__title}Average closing price.`,
+    );
+    // Screen readers reach the explanation by heading navigation.
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
+      ETranslations.market_chart_indicator_about__title,
+    );
+  });
+
+  it('leaves the explanation section out when there is nothing to explain', () => {
+    renderEditor('MA');
+
+    expect(screen.queryByTestId('mobile-indicator-description')).toBeNull();
   });
 
   it('discards edits when leaving without Save', () => {

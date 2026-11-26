@@ -1,50 +1,49 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
   IconButton,
   SizableText,
   XStack,
-  YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-function SectionHeader() {
+import { DeviceManagementTestIDs } from '../../testIDs';
+
+// Desktop page title, with adding a device beside it once there are cards.
+// Phones show both in the navigation bar instead, and the last card in the
+// grid adds one too.
+function SectionHeader({ onAdd }: { onAdd?: () => void }) {
   const intl = useIntl();
-  const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { gtMd } = useMedia();
-
-  const onAddDevice = useCallback(async () => {
-    void toOnBoardingPage();
-  }, [toOnBoardingPage]);
-
   if (!gtMd) {
     return null;
   }
-
+  const title = (
+    <SizableText size="$heading2xl" color="$text" role="heading" aria-level={1}>
+      {intl.formatMessage({
+        id: ETranslations.device_management_devices__title,
+      })}
+    </SizableText>
+  );
+  if (!onAdd) {
+    return title;
+  }
+  const addDeviceLabel = intl.formatMessage({
+    id: ETranslations.device_management_add_device__action,
+  });
   return (
     <XStack ai="center" jc="space-between" gap="$5">
-      <YStack flex={1} gap="$1">
-        <SizableText size="$heading2xl" color="$text">
-          {intl.formatMessage({
-            id: ETranslations.global_my_device,
-          })}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_my_device_dec,
-          })}
-        </SizableText>
-      </YStack>
+      {title}
       <IconButton
-        testID="device-management-on-add-device-icon-btn"
         icon="PlusLargeOutline"
         size="small"
-        variant="primary"
-        onPress={onAddDevice}
+        variant="secondary"
+        title={addDeviceLabel}
+        accessibilityLabel={addDeviceLabel}
+        hotKey
+        onPress={onAdd}
+        testID={DeviceManagementTestIDs.addDeviceHeaderBtn}
       />
     </XStack>
   );

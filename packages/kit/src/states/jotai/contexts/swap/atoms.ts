@@ -1,7 +1,17 @@
+import { useCallback } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import {
+  type ISwapLimitPriceInput,
+  type ISwapMaxAmountSnapshot,
+  getScaledSwapLimitAmounts,
+  getScaledSwapLimitPrice,
+  getSwapDisplayAmount,
+  getSwapDisplayDecimals,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
   type ISwapBalanceDisplayCache,
@@ -20,6 +30,7 @@ import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/mark
 import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -38,7 +49,7 @@ import {
   type ESwapDirectionType,
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
-  type ESwapQuoteKind,
+  ESwapQuoteKind,
   ESwapQuoteSource,
   type ESwapRateDifferenceUnit,
   type ESwapSlippageSegmentKey,
@@ -75,7 +86,11 @@ const {
   contextAtomMethod,
   useContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextSwap, contextAtomMethod };
+export {
+  ProviderJotaiContextSwap,
+  contextAtomMethod,
+  useContextData as useSwapContextData,
+};
 
 export {
   swapAllNetworkActionLockAtom,
@@ -247,6 +262,19 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
 
 export type ISwapTokenPair = { fromToken: ISwapToken; toToken: ISwapToken };
 
+export const {
+  atom: swapTabPrefillEditRevisionAtom,
+  use: useSwapTabPrefillEditRevisionAtom,
+} = contextAtom(0);
+
+export function useGetSwapTabPrefillEditRevision() {
+  const { store } = useContextData();
+  return useCallback(
+    () => store?.get(swapTabPrefillEditRevisionAtom()) ?? 0,
+    [store],
+  );
+}
+
 // The pair last picked from the "Recent trades" chips, so an order can report
 // whether it still trades that pair.
 export const { atom: swapRecentTokenPairSelectionAtom } = contextAtom<
@@ -375,6 +403,7 @@ export const {
 export type ISwapTokenAmountState = {
   value: string;
   isInput: boolean;
+  maxAmountSnapshot?: ISwapMaxAmountSnapshot;
 };
 
 export type ISwapInputAmountDraft = {
@@ -450,15 +479,65 @@ export const {
   toToken?: ISwapToken;
   fromTokenAmount?: string;
   toTokenAmount?: string;
+  rawFromTokenAmount?: string;
+  rawToTokenAmount?: string;
+  scaledLimitPriceKey?: string;
+  maxAmountSnapshot?: ISwapMaxAmountSnapshot;
   accountId?: string;
   kind?: ESwapQuoteKind;
   address?: string;
   receivingAddress?: string;
   quoteRequestId?: string;
   manualRefresh?: boolean;
+  hasMultiplierMismatch?: boolean;
+  multiplierMismatch?: { from: boolean; to: boolean };
   slippageItem?: { key: ESwapSlippageSegmentKey; value: number };
   incognito?: boolean;
 }>({ actionLock: false });
+
+export type ISwapQuoteActionArgs = [
+  slippageItem: { key: ESwapSlippageSegmentKey; value: number },
+  address?: string,
+  accountId?: string,
+  blockNumber?: number,
+  isAutomaticRefresh?: boolean,
+  kind?: ESwapQuoteKind,
+  reQuote?: boolean,
+  receivingAddress?: string,
+  incognito?: boolean,
+  quoteOverride?: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    toTokenAmount?: string;
+    maxAmountSnapshot?: ISwapMaxAmountSnapshot;
+    type: ESwapTabSwitchType;
+    source?: ESwapQuoteSource;
+    manualRefresh?: boolean;
+    rawAmounts?: {
+      fromTokenAmount: string;
+      toTokenAmount?: string;
+    };
+  },
+];
+
+export const { atom: swapDeferredQuoteAtom, use: useSwapDeferredQuoteAtom } =
+  contextAtom<
+    | {
+        args: ISwapQuoteActionArgs;
+        type: ESwapTabSwitchType;
+        fromToken: ISwapToken;
+        toToken: ISwapToken;
+        kind: ESwapQuoteKind;
+        amount: string;
+        address?: string;
+        accountId?: string;
+        receivingAddress?: string;
+        maxAmountSnapshot?: ISwapMaxAmountSnapshot;
+        usesQuoteSnapshot: boolean;
+      }
+    | undefined
+  >(undefined);
 
 export const {
   atom: swapQuoteIntervalCountAtom,
@@ -523,7 +602,10 @@ export const {
   const sortType = get(swapProviderSortAtom());
   return sortSwapQuotes(list, {
     sort: sortType,
-    fromTokenAmount: quoteActionLock.fromTokenAmount ?? fromTokenAmount.value,
+    fromTokenAmount:
+      quoteActionLock.rawFromTokenAmount ??
+      quoteActionLock.fromTokenAmount ??
+      fromTokenAmount.value,
   });
 });
 
@@ -537,9 +619,13 @@ export const {
   const swapTypeSwitch = get(swapTypeSwitchAtom());
   const quoteActionLock = get(swapQuoteActionLockAtom());
   const activeFromTokenAmount =
-    quoteActionLock.fromTokenAmount ?? fromTokenAmount.value;
+    quoteActionLock.rawFromTokenAmount ??
+    quoteActionLock.fromTokenAmount ??
+    fromTokenAmount.value;
   const activeToTokenAmount =
-    quoteActionLock.toTokenAmount ?? toTokenAmount.value;
+    quoteActionLock.rawToTokenAmount ??
+    quoteActionLock.toTokenAmount ??
+    toTokenAmount.value;
   const activeSwapType = quoteActionLock.type ?? swapTypeSwitch;
   const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
@@ -590,6 +676,52 @@ export const {
   to: false,
 });
 
+export const { use: useSwapStockFromAccountRefreshAtom } = contextAtom<
+  { scopeKey: string; revision: number } | undefined
+>(undefined);
+
+export const { atom: swapTokenMultiplierLookupFailureAtom } = contextAtom<
+  Partial<Record<ESwapDirectionType, ISwapToken>>
+>({});
+
+export const {
+  atom: swapSelectedTokenMultiplierStatusAtom,
+  use: useSwapSelectedTokenMultiplierStatusAtom,
+} = contextAtomComputed<'ready' | 'checking' | 'failed'>((get) => {
+  const swapType = get(swapTypeSwitchAtom());
+  if (
+    swapType !== ESwapTabSwitchType.SWAP &&
+    swapType !== ESwapTabSwitchType.BRIDGE
+  ) {
+    return 'ready';
+  }
+  const requested = get(swapSelectedTokenBalanceRefreshRequestedAtom());
+  const fetching = get(swapSelectTokenDetailFetchingAtom());
+  const failed = get(swapTokenMultiplierLookupFailureAtom());
+  const sides = [
+    ['from', get(swapSelectFromTokenAtom())],
+    ['to', get(swapSelectToTokenAtom())],
+  ] as const;
+  let hasFailure = false;
+  for (const [direction, token] of sides) {
+    if (
+      token &&
+      !token.isNative &&
+      tokenRebaseUtils.supportsBalanceMultiplierLookup(token)
+    ) {
+      if (requested[direction] || fetching[direction]) return 'checking';
+      if (
+        equalTokenNoCaseSensitive({ token1: token, token2: failed[direction] })
+      ) {
+        hasFailure = true;
+      } else if (tokenRebaseUtils.needsBalanceMultiplierLookup(token)) {
+        return 'checking';
+      }
+    }
+  }
+  return hasFailure ? 'failed' : 'ready';
+});
+
 // Bookkeeping for the stored From/To balance: which token + account it was
 // fetched for (see buildSwapBalanceOwner in swapBalanceOwnerUtils), and whether
 // the stored figure is only a fallback (the fetch failed, or the response
@@ -627,6 +759,10 @@ export const { atom: swapSelectTokenPriceRevisionAtom } = contextAtom<
   Record<ESwapDirectionType, number>
 >({ from: 0, to: 0 });
 
+export const { atom: swapSelectTokenMultiplierRevisionAtom } = contextAtom<
+  Record<ESwapDirectionType, number>
+>({ from: 0, to: 0 });
+
 export const {
   atom: swapSilenceQuoteLoading,
   use: useSwapSilenceQuoteLoading,
@@ -649,7 +785,7 @@ export const {
 export const {
   atom: swapLimitPriceUseRateAtom,
   use: useSwapLimitPriceUseRateAtom,
-} = contextAtom<ISwapLimitPriceInfo>({
+} = contextAtom<ISwapLimitPriceInput>({
   fromToken: undefined,
   toToken: undefined,
 });
@@ -694,12 +830,38 @@ export const {
     swapType === ESwapTabSwitchType.LIMIT
   ) {
     if (toTokenAmount.value && toTokenAmount.isInput) {
+      const pair = readSwapLimitSelectedPair(get);
+      const price = getScaledSwapLimitPrice(
+        limitPriceUseRate,
+        pair.fromToken,
+        pair.toToken,
+      );
+      if (price && pair.fromToken && pair.toToken) {
+        const amounts = getScaledSwapLimitAmounts({
+          fromToken: pair.fromToken,
+          toToken: pair.toToken,
+          kind: ESwapQuoteKind.BUY,
+          input: toTokenAmount.value,
+          price,
+        });
+        return amounts
+          ? (getSwapDisplayAmount(
+              amounts.fromTokenAmount,
+              pair.fromToken.balanceMultiplier,
+            ) ?? '')
+          : '';
+      }
       const { fromToken, reverseRate } = limitPriceUseRate;
       const toAmount = new BigNumber(toTokenAmount.value);
       const fromAmountBN = new BigNumber(toAmount).multipliedBy(reverseRate);
       const fromAmount = fromAmountBN
         .decimalPlaces(
-          Number(fromToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
+          Number(
+            getSwapDisplayDecimals(
+              fromToken?.decimals,
+              fromToken?.balanceMultiplier,
+            ) ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          ),
           BigNumber.ROUND_HALF_UP,
         )
         .toFixed();
@@ -722,12 +884,38 @@ export const {
     swapType === ESwapTabSwitchType.LIMIT
   ) {
     if (fromTokenAmount.value && fromTokenAmount.isInput) {
+      const pair = readSwapLimitSelectedPair(get);
+      const price = getScaledSwapLimitPrice(
+        limitPriceUseRate,
+        pair.fromToken,
+        pair.toToken,
+      );
+      if (price && pair.fromToken && pair.toToken) {
+        const amounts = getScaledSwapLimitAmounts({
+          fromToken: pair.fromToken,
+          toToken: pair.toToken,
+          kind: ESwapQuoteKind.SELL,
+          input: fromTokenAmount.value,
+          price,
+        });
+        return amounts
+          ? (getSwapDisplayAmount(
+              amounts.toTokenAmount,
+              pair.toToken.balanceMultiplier,
+            ) ?? '')
+          : '';
+      }
       const { toToken, rate } = limitPriceUseRate;
       const fromAmount = new BigNumber(fromTokenAmount.value);
       const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
       const toAmount = toAmountBN
         .decimalPlaces(
-          Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
+          Number(
+            getSwapDisplayDecimals(
+              toToken?.decimals,
+              toToken?.balanceMultiplier,
+            ) ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          ),
           BigNumber.ROUND_HALF_UP,
         )
         .toFixed();
@@ -871,8 +1059,20 @@ export const { atom: swapProDirectionAtom, use: useSwapProDirectionAtom } =
 export const { atom: swapProTradeTypeAtom, use: useSwapProTradeTypeAtom } =
   contextAtom<ESwapProTradeType>(ESwapProTradeType.MARKET);
 
-export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
-  contextAtom<string>('');
+export const {
+  atom: swapProInputAmountStateAtom,
+  use: useSwapProInputAmountStateAtom,
+} = contextAtom<ISwapTokenAmountState>({ value: '', isInput: false });
+
+export function useSwapProInputAmountAtom() {
+  const [input, setInput] = useSwapProInputAmountStateAtom();
+  const setAmount = useCallback(
+    (value: string, maxAmountSnapshot?: ISwapMaxAmountSnapshot) =>
+      setInput({ value, isInput: true, maxAmountSnapshot }),
+    [setInput],
+  );
+  return [input.value, setAmount, input.maxAmountSnapshot] as const;
+}
 
 export const {
   atom: swapProUseSelectBuyTokenAtom,
@@ -953,6 +1153,32 @@ export const {
 export const { atom: swapProTokenBalanceRequestIdAtom } =
   contextAtom<number>(0);
 
+export const { atom: swapProReceiveDetailRequestsAtom } = contextAtom<
+  Record<ESwapDirection, { revision: number; failedToken?: ISwapToken }>
+>({
+  [ESwapDirection.BUY]: { revision: 0 },
+  [ESwapDirection.SELL]: { revision: 0 },
+});
+
+export const {
+  atom: swapProReceiveMultiplierLookupFailedAtom,
+  use: useSwapProReceiveMultiplierLookupFailedAtom,
+} = contextAtomComputed((get) => {
+  const direction = get(swapProDirectionAtom());
+  const token = get(
+    direction === ESwapDirection.BUY
+      ? swapProSelectTokenAtom()
+      : swapProSellToTokenAtom(),
+  );
+  const { failedToken } = get(swapProReceiveDetailRequestsAtom())[direction];
+  return Boolean(
+    token &&
+    token.decimals === failedToken?.decimals &&
+    equalTokenNoCaseSensitive({ token1: token, token2: failedToken }) &&
+    tokenRebaseUtils.needsBalanceMultiplierLookup(token),
+  );
+});
+
 export const {
   atom: swapProTokenBalanceLoadingAtom,
   use: useSwapProTokenBalanceLoadingAtom,
@@ -988,25 +1214,26 @@ export const {
 export const { atom: swapProErrorAlertAtom, use: useSwapProErrorAlertAtom } =
   contextAtom<{ title: string; message?: string } | undefined>(undefined);
 
+function readSwapLimitSelectedPair(get: import('jotai').Getter) {
+  if (get(swapProTradeTypeAtom()) === ESwapProTradeType.LIMIT) {
+    const selected = get(swapProSelectTokenAtom());
+    return get(swapProDirectionAtom()) === ESwapDirection.BUY
+      ? { fromToken: get(swapProUseSelectBuyTokenAtom()), toToken: selected }
+      : { fromToken: selected, toToken: get(swapProSellToTokenAtom()) };
+  }
+  return {
+    fromToken: get(swapSelectFromTokenAtom()),
+    toToken: get(swapSelectToTokenAtom()),
+  };
+}
+
 export const {
   atom: swapLimitPriceMarketPriceAtom,
   use: useSwapLimitPriceMarketPriceAtom,
 } = contextAtomComputed<ISwapLimitPriceInfo>((get) => {
   const limitOrderMarketPrice = get(limitOrderMarketPriceAtom());
   const { fromTokenPriceInfo, toTokenPriceInfo } = limitOrderMarketPrice;
-  let fromToken = get(swapSelectFromTokenAtom());
-  let toToken = get(swapSelectToTokenAtom());
-  const swapProTradeType = get(swapProTradeTypeAtom());
-  const swapProDirection = get(swapProDirectionAtom());
-  if (swapProTradeType === ESwapProTradeType.LIMIT) {
-    if (swapProDirection === ESwapDirection.BUY) {
-      fromToken = get(swapProUseSelectBuyTokenAtom());
-      toToken = get(swapProSelectTokenAtom());
-    } else {
-      fromToken = get(swapProSelectTokenAtom());
-      toToken = get(swapProSellToTokenAtom());
-    }
-  }
+  const { fromToken, toToken } = readSwapLimitSelectedPair(get);
   if (
     fromTokenPriceInfo &&
     toTokenPriceInfo &&

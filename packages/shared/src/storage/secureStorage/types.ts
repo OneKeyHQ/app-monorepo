@@ -76,6 +76,7 @@ export interface ISecureStorage {
   supportSecureStorage(): Promise<boolean>;
   supportSecureStorageWithoutInteraction(): Promise<boolean>;
   hasSecureItem?(key: string): Promise<boolean>;
+  hasStoredSecureItem?(key: string): Promise<boolean | undefined>;
   getCredentialId?(): Promise<string | null>;
   resetForPasskeyReEnroll?(): Promise<void>;
   // Snapshot the PRF re-enroll state (credential id / salt / wrapped master

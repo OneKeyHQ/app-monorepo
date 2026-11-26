@@ -1,0 +1,257 @@
+name: pr-review-bloat-gate
+
+on:
+  pull_request:
+    branches:
+      - 'x'
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - labeled
+      - unlabeled
+  pull_request_review:
+    types:
+      - submitted
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-review-bloat-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    if: github.event.pull_request.base.ref == 'x'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      bypassed: ${{ steps.label_check.outputs.bypassed }}
+    steps:
+      - name: Check bloat-reviewed label bypass
+        id: label_check
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const labels = context.payload.pull_request?.labels ?? [];
+            const bypassed = labels.some((l) => l?.name === 'bloat-reviewed');
+            core.setOutput('bypassed', bypassed ? 'true' : 'false');
+
+      - name: Checkout PR head commit
+        if: steps.label_check.outputs.bypassed != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        if: steps.label_check.outputs.bypassed != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run review-fix bloat analysis (read-only)
+        if: steps.label_check.outputs.bypassed != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          git fetch origin "$PR_BASE" --no-tags
+          git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > /tmp/check-bloat.mjs
+          node /tmp/check-bloat.mjs \
+            --pr "$PR_NUMBER" \
+            --repo "$REPO" \
+            --base "origin/$PR_BASE" \
+            --head "$PR_HEAD" \
+            --json \
+            --warn-only > /tmp/bloat-report.json
+          cat /tmp/bloat-report.json
+
+      - name: Upload bloat report artifact
+        if: steps.label_check.outputs.bypassed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bloat-report
+          path: /tmp/bloat-report.json
+          retention-days: 1
+
+  report-and-gate:
+    needs: analyze
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Download bloat report artifact
+        if: needs.analyze.outputs.bypassed != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: bloat-report
+          path: /tmp
+
+      - name: Update PR comment and enforce gate
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          BYPASSED: ${{ needs.analyze.outputs.bypassed }}
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- onekey-pr-review-bloat-gate -->';
+            const prNumber = context.payload.pull_request.number;
+            const { owner, repo } = context.repo;
+
+            let existing = null;
+            try {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number: prNumber,
+                per_page: 100,
+              });
+              existing = comments.find(
+                (c) =>
+                  c.user?.login === 'github-actions[bot]' &&
+                  (c.body || '').includes(marker),
+              );
+            } catch (err) {
+              core.warning(`Unable to list PR comments: ${err.message}`);
+            }
+
+            const upsertComment = async (body) => {
+              try {
+                if (existing) {
+                  await github.rest.issues.updateComment({
+                    owner,
+                    repo,
+                    comment_id: existing.id,
+                    body,
+                  });
+                } else {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    body,
+                  });
+                }
+              } catch (err) {
+                core.warning(`Unable to post/update PR comment: ${err.message}`);
+              }
+            };
+
+            if (process.env.BYPASSED === 'true') {
+              if (existing) {
+                await upsertComment(
+                  `${marker}\n### ✅ Review-Fix Bloat Gate Bypassed\n\nApproved via \`bloat-reviewed\` label.`,
+                );
+              }
+              return;
+            }
+
+            const report = JSON.parse(fs.readFileSync('/tmp/bloat-report.json', 'utf8'));
+
+            if (report.outcome === 'INCOMPLETE') {
+              await upsertComment(
+                `${marker}\n### ℹ️ Review-Fix Bloat Gate: Incomplete\n\nUnable to compare the reviewed tree (\`${report.skipReason}\`, \`${report.baselineSource}\`). Please review diff growth manually.`,
+              );
+              return;
+            }
+
+            if (report.skipped) {
+              if (existing) {
+                await upsertComment(
+                  `${marker}\n### ✅ Review-Fix Bloat Gate Passed\n\nStatus: \`${report.outcome}\` (\`${report.skipReason}\`).`,
+                );
+              }
+              return;
+            }
+
+            const failed = report.verdict === 'REFACTOR_REQUIRED';
+            const hasScopeWarnings = (report.scopeCreepWarnings || []).length > 0;
+            const complexity = report.complexity;
+            const hasComplexityNotice = complexity && (complexity.score < 0 || complexity.hotspots.length > 0);
+            if (!failed && !hasScopeWarnings && !hasComplexityNotice) {
+              if (existing) {
+                await upsertComment(
+                  `${marker}\n### ✅ Review-Fix Bloat Gate Passed\n\nLatest changes are within review-fix thresholds (baseline: \`${report.preReviewSha.slice(0, 10)}\`).`,
+                );
+              }
+              return;
+            }
+
+            const amp = report.amplification;
+            const st = report.stateFlags;
+            const thresholds = report.thresholds;
+            const percent = (ratio) => `${(ratio * 100).toFixed(0)}%`;
+            const growthLimits = [`ratio ≥ ${percent(thresholds.maxAmplificationRatio)}`, 'zero baseline'];
+            if (Number.isFinite(thresholds.maxAbsoluteFixNetLines)) {
+              growthLimits.push(`net ≥ ${thresholds.maxAbsoluteFixNetLines}`);
+            }
+            const amplificationLimit =
+              `net ≥ ${thresholds.minFixNetLines} and (${growthLimits.join(' or ')}) and del/add < ${percent(thresholds.minDeletionRatio)}`;
+            const ratioText =
+              amp.amplificationRatio === null || amp.amplificationRatio === undefined
+                ? 'N/A (baseline net growth is zero)'
+                : `${(amp.amplificationRatio * 100).toFixed(0)}% of orig +${amp.origNet}`;
+            const branchText =
+              typeof st.netBranches === 'number'
+                ? `, ${st.netBranches >= 0 ? '+' : ''}${st.netBranches} branches`
+                : '';
+            const lines = [
+              marker,
+              failed
+                ? '### ⚠️ Review-Fix Bloat Gate: Refactor Recommended'
+                : '### ℹ️ Review-Fix Notice',
+              '',
+              `Baseline: \`${report.preReviewSha.slice(0, 10)}\` (${report.baselineSource})`,
+              '',
+              '| Metric | Current | Threshold | Status |',
+              '|---|---|---|---|',
+              `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${ratioText}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | ${amplificationLimit} | ${amp.triggered ? '❌' : '✅'} |`,
+              `| Implicit State Flags | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags${branchText} | < ${thresholds.maxNetStateFlags} | ${st.triggered ? '❌' : '✅'} |`,
+            ];
+
+            if (complexity) {
+              lines.push(
+                `| Complexity score | ${complexity.score} (budget ${complexity.baseBudget} + deletion credit ${complexity.lineCredit} − change cost ${complexity.changeCost}) | Advisory | — |`,
+              );
+            }
+
+            if (amp.hotspots?.length) {
+              lines.push('', '**Top Growth Hotspots:**');
+              for (const h of amp.hotspots) {
+                lines.push(`- \`${h.file}\`: +${h.added}/-${h.deleted} (net ${h.net >= 0 ? '+' : ''}${h.net})`);
+              }
+            }
+            if (complexity?.hotspots.length) {
+              lines.push('', '**Review Hotspots:**');
+              for (const h of complexity.hotspots) {
+                lines.push(`- \`${h.file}\`: +${h.net} net lines, ${percent(h.deletionRatio)} del/add, ${h.reviewThreads} review threads`);
+              }
+            }
+            if (hasScopeWarnings) {
+              lines.push('', '**Scope-Creep Warnings (verify product approval):**');
+              for (const w of report.scopeCreepWarnings) {
+                lines.push(`- \`${w.file}\` [${w.type}]: ${w.detail}`);
+              }
+            }
+            if (failed) {
+              lines.push(
+                '',
+                '> **Action:** Stop stacking review patches. Cluster root causes and consider refactoring the state machine or module boundary.',
+                '> If a human reviewer confirms this growth is intentional, add the **`bloat-reviewed`** label to pass this gate.',
+              );
+            }
+
+            await upsertComment(lines.join('\n'));
+            if (failed) {
+              core.setFailed(
+                'Review-fix bloat thresholds exceeded. Refactor boundaries or add the `bloat-reviewed` label.',
+              );
+            }

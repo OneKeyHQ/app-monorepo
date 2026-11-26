@@ -847,7 +847,10 @@ class ServiceHardware extends ServiceBase {
       walletId,
       label,
       walletName,
-    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName]) => {
+      isExplicitWalletMetadataEdit,
+    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName] & {
+      isExplicitWalletMetadataEdit?: boolean;
+    }) => {
       const isHw =
         accountUtils.isHwWallet({ walletId }) &&
         !accountUtils.isQrWallet({ walletId });
@@ -880,16 +883,13 @@ class ServiceHardware extends ServiceBase {
       }
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
+        isExplicitWalletMetadataEdit,
         name: label,
         shouldCheckDuplicate: false,
       });
-      try {
-        await this.backgroundApi.serviceKeylessCloudSync.syncHardwareCloudSyncDeviceLabel(
-          { walletId, label },
-        );
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
-      }
+      void this.backgroundApi.serviceKeylessCloudSync
+        .syncHardwareCloudSyncDeviceLabel({ walletId, label })
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
     },
     {
       maxAge: 600,
@@ -3845,6 +3845,7 @@ class ServiceHardware extends ServiceBase {
         label: result.label,
       });
       await this.handleHardwareLabelChanged({
+        isExplicitWalletMetadataEdit: true,
         walletId: p.walletId,
         dbDeviceId,
         label: result.label,
@@ -4670,6 +4671,11 @@ class ServiceHardware extends ServiceBase {
   }: {
     transportType: EHardwareTransportType;
   }) {
+    if (platformEnv.isExtensionBackgroundServiceWorker) {
+      // Replace the offscreen client when crossing the iframe boundary.
+      await this.switchHardwareTransportType({ transportType });
+      return;
+    }
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
@@ -4693,6 +4699,25 @@ class ServiceHardware extends ServiceBase {
     return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
       async () => {
         try {
+          if (platformEnv.isExtensionBackgroundServiceWorker) {
+            return await this.sdkInstanceMutex.runExclusive(async () => {
+              const targetType =
+                deviceUtils.normalizeHardwareTransportTypeForPlatform({
+                  transportType,
+                });
+              const instance = await this.getSDKInstanceWithLifecycleLock({
+                connectId: undefined,
+                hardwareTransportType: targetType,
+                persistTransportType: false,
+              });
+              if (this.activeHardwareTransportType !== targetType) {
+                throw new OneKeyLocalError('Hardware transport is locked');
+              }
+              await this.connectionManager.setCurrentTransportType(targetType);
+              return instance;
+            });
+          }
+
           // 1. Update transport type setting
           await this.backgroundApi.serviceSetting.setHardwareTransportType(
             transportType,

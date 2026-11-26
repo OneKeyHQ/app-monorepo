@@ -109,6 +109,7 @@ let mockBalanceAddressInfo:
       address?: string;
       networkId: string;
       isAddressInfoReady: boolean;
+      accountInfo?: { account: { id: string } };
     }
   | undefined;
 const mockActions = {
@@ -228,6 +229,57 @@ describe('useSwapSelectedTokenInfo requested refresh', () => {
     }
     expect(mockRefreshRequested).toEqual({ from: false, to: false });
     expect(mockLoadAllNetworks).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the selected XMR balance only for the matching local account', () => {
+    mockBalanceAddressInfo = {
+      address: 'current-monero-wallet',
+      networkId: 'xmr--0',
+      isAddressInfoReady: true,
+      accountInfo: { account: { id: 'current-xmr-account' } },
+    };
+    const xmr = {
+      ...token,
+      networkId: 'xmr--0',
+      contractAddress: '',
+      isNative: true,
+      decimals: 12,
+      symbol: 'XMR',
+    };
+    const { rerender, unmount } = renderHook(() =>
+      useSwapSelectedTokenInfo({ type: ESwapDirectionType.FROM, token: xmr }),
+    );
+    act(() => jest.advanceTimersByTime(300));
+    mockLoadSelectedToken.mockClear();
+    const account = { networkId: 'xmr--0', accountId: 'current-xmr-account' };
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
+        ...account,
+        accountId: 'other-xmr-account',
+      });
+      appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
+        ...account,
+        networkId: 'zec--0',
+      });
+    });
+    expect(mockRefreshRequested.from).toBe(false);
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, account);
+    });
+    expect(mockRefreshRequested.from).toBe(true);
+    rerender();
+    act(() => jest.advanceTimersByTime(300));
+    expect(mockLoadSelectedToken).toHaveBeenCalledTimes(1);
+    expect(mockLoadSelectedToken).toHaveBeenCalledWith(
+      ESwapDirectionType.FROM,
+      expect.objectContaining({ address: 'current-monero-wallet' }),
+      true,
+    );
+    unmount();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, account);
+    });
+    expect(mockRefreshRequested.from).toBe(false);
   });
 
   it('retains forced refresh through selector browsing, unresolved address and ordinary debounce replacement', () => {

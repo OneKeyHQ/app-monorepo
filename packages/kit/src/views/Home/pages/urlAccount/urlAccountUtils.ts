@@ -1,4 +1,5 @@
-import { StackActions } from '@react-navigation/native';
+import { CommonActions, StackActions } from '@react-navigation/native';
+import findLastIndex from 'lodash/findLastIndex';
 import { Platform } from 'react-native';
 
 import {
@@ -197,26 +198,32 @@ export function isCurrentlyInUrlAccountPage(): boolean {
   }
 }
 
-export function getHomeTabStackLength(): number {
-  try {
-    const state = rootNavigationRef.current?.getRootState();
-    if (!state?.routes) return 0;
-
-    const mainRoute = state.routes.find(
-      (route) => route.name === ERootRoutes.Main,
-    );
-    if (!mainRoute?.state?.routes) return 0;
-
-    const homeTabRoute = mainRoute.state.routes.find(
-      (route) => route.name === ETabRoutes.Home,
-    );
-    return homeTabRoute?.state?.routes?.length ?? 0;
-  } catch (_error) {
-    return 0;
-  }
-}
-
 export const urlAccountNavigation = {
+  goBack(navigation: IAppNavigation) {
+    navigation.dispatch(({ index, key, routes }) => {
+      // Skip consecutive address results while keeping the page that opened them.
+      const previousPageIndex = findLastIndex(
+        routes,
+        (route) => route.name !== ETabHomeRoutes.TabHomeUrlAccountPage,
+        index,
+      );
+      if (previousPageIndex >= 0) {
+        return {
+          ...StackActions.pop(index - previousPageIndex),
+          source: routes[index]?.key,
+          target: key,
+        };
+      }
+      if (routes.length === 1 && !platformEnv.isNative) {
+        return StackActions.replace(ETabHomeRoutes.TabHome);
+      }
+      // Address search can replace TabHome, leaving only URL Wallet pages.
+      return CommonActions.reset({
+        index: 0,
+        routes: [{ name: ETabHomeRoutes.TabHome }],
+      });
+    });
+  },
   pushHomePage(navigation: IAppNavigation) {
     navigation.dispatch(
       // StackActions.replace(ETabHomeRoutes.TabHome, routeParams),
@@ -237,12 +244,15 @@ export const urlAccountNavigation = {
       networkId: string | undefined;
       contextNetworkId?: string;
     },
+    shouldNavigate?: () => boolean,
   ) {
     const networkSegment = await buildUrlNetworkSegment({
       realNetworkId: params.networkId || '',
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
+
+    if (shouldNavigate && !shouldNavigate()) return false;
 
     const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
 
@@ -316,6 +326,7 @@ export const urlAccountNavigation = {
       stackDepth: tabStackAfter?.routes?.length,
       topRoute: tabStackAfterTopRouteName,
     });
+    return true;
   },
   async pushOrReplaceUrlAccountPage(
     navigation: IAppNavigation,

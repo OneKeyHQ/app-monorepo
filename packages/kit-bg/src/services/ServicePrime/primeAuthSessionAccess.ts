@@ -1,7 +1,11 @@
 import { Semaphore } from 'async-mutex';
 
 import { getOneKeyIdAuthConfig } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
-import { ONEKEY_ID_AUTH_CONFIG } from '@onekeyhq/shared/src/consts/authConsts';
+import {
+  KEYLESS_SUPABASE_PROJECT_URL,
+  KEYLESS_SUPABASE_PUBLIC_API_KEY,
+  ONEKEY_ID_AUTH_CONFIG,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import {
@@ -452,4 +456,70 @@ export async function clearAllSupabaseAuthSessions(): Promise<void> {
     // Cache clearing below keeps the runtime from reusing a stale token.
   }
   supabaseStorageInstance.clearCache();
+}
+
+const appResetAuthProjects = [
+  ONEKEY_ID_AUTH_CONFIG.prod,
+  ONEKEY_ID_AUTH_CONFIG.test,
+  {
+    projectUrl: KEYLESS_SUPABASE_PROJECT_URL,
+    publicKey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
+  },
+].map((project) => ({
+  ...project,
+  key: getSupabaseAuthSessionKey(project.projectUrl),
+}));
+
+export function beginSupabaseAuthAppReset() {
+  const snapshots = supabaseStorageInstance.beginAppReset(
+    appResetAuthProjects.map(({ key }) => key),
+  );
+  return {
+    async revoke(
+      signal: AbortSignal,
+      { simulateTimeout = false }: { simulateTimeout?: boolean } = {},
+    ) {
+      const {
+        revokeSupabaseSessionForAppReset,
+        stopSupabaseRefreshForAppReset,
+      } = await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
+      stopSupabaseRefreshForAppReset();
+      if (simulateTimeout) {
+        if (!signal.aborted) {
+          await new Promise<void>((resolve) => {
+            signal.addEventListener('abort', () => resolve(), { once: true });
+          });
+        }
+        return 'skipped';
+      }
+      if (!snapshots.length) return 'skipped';
+      const results = await Promise.allSettled(
+        snapshots.map(async ({ key, value }) => {
+          const raw = await value;
+          if (!raw || signal.aborted) return;
+          const session = JSON.parse(raw) as { access_token?: string } | null;
+          const project = appResetAuthProjects.find((item) => item.key === key);
+          if (project && session?.access_token) {
+            await revokeSupabaseSessionForAppReset({
+              ...project,
+              accessToken: session.access_token,
+              signal,
+            });
+          }
+        }),
+      );
+      if (results.some((result) => result.status === 'rejected')) {
+        throw new OneKeyLocalError('Supabase revocation failed');
+      }
+      return 'completed';
+    },
+    erase: () =>
+      supabaseStorageInstance.eraseForAppReset(
+        appResetAuthProjects.flatMap(({ key }) => [
+          key,
+          `${key}-user`,
+          `${key}-code-verifier`,
+        ]),
+      ),
+  };
 }

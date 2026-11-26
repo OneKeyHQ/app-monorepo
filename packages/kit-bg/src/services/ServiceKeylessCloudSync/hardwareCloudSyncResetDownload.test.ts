@@ -1,8 +1,80 @@
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { forEachHardwareCloudSyncResetPage } from './hardwareCloudSyncResetDownload';
+import { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
+
+import {
+  forEachHardwareCloudSyncResetPage,
+  preparePoolRekey,
+} from './hardwareCloudSyncResetDownload';
 
 import type { IServerSyncRecord } from './hardwareCloudSyncSession';
+
+// Test the production schema getter and writable record shape without Realm's
+// platform-specific driver.
+jest.mock('../../dbs/local/realm/base/RealmObjectBase', () => ({
+  RealmObjectBase: jest.fn(),
+}));
+
+test.each([
+  'absent',
+  'null data and rawData',
+  'new timestamp',
+  'new cipher',
+  'new rawData',
+] as const)(
+  'rekey compares the live Realm row against its read projection (%s)',
+  async (change) => {
+    const live: unknown = Reflect.construct(RealmSchemaCloudSyncItem, []);
+    if (!(live instanceof RealmSchemaCloudSyncItem))
+      throw new OneKeyLocalError('Missing Realm fixture');
+    const nullPayload =
+      change === 'null data and rawData' || change === 'new rawData';
+    Object.assign(live, {
+      id: 'realm-item',
+      rawKey: 'realm-source',
+      rawData: nullPayload ? null : '',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      data: nullPayload ? null : 'old-box',
+      dataTime: null,
+      isDeleted: false,
+      pwdHash: 'old-hash',
+      localSceneUpdated: true,
+      serverUploaded: false,
+      pendingPublicAccountDeletionAt: null,
+      pendingPublicAccountDeletionHash: null,
+    });
+    const original = live.record;
+    expect(original.dataTime).toBeUndefined();
+    if (nullPayload) {
+      expect(original.data).toBeUndefined();
+      expect(original.rawData).toBeUndefined();
+    }
+    const conflict = new OneKeyLocalError('Conflicting Realm version');
+    const { updater } = preparePoolRekey(
+      [original],
+      [{ ...original, data: 'new-box', pwdHash: 'next-hash' }],
+      original.pwdHash,
+      () => true,
+      () => conflict,
+    );
+    if (change === 'new timestamp') Object.assign(live, { dataTime: 1 });
+    if (change === 'new cipher') Object.assign(live, { data: 'other-box' });
+    if (change === 'new rawData') Object.assign(live, { rawData: 'later-raw' });
+    if (change === 'absent' || change === 'null data and rawData') {
+      expect(await updater(live)).toBe(live);
+      expect(live).toMatchObject({
+        data: 'new-box',
+        dataTime: null,
+        pwdHash: 'next-hash',
+      });
+      return;
+    }
+    const untouched = { ...live.record };
+    expect(() => updater(live)).toThrow(conflict);
+    expect(live.record).toEqual(untouched);
+  },
+);
 
 function records(count: number): IServerSyncRecord[] {
   return Array.from({ length: count }, (_, i) => ({

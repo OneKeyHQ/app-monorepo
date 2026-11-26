@@ -2,6 +2,7 @@ import { type ComponentProps, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IBadgeProps } from '@onekeyhq/components';
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
@@ -21,15 +22,41 @@ import { AccountManagerTestIDs } from '../../testIDs';
 
 import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabelSetDialog';
 
+export function WalletNotBackedUpBadge({
+  wallet,
+  ...layoutProps
+}: Partial<Pick<IBadgeProps, 'ml' | 'alignSelf'>> & {
+  wallet: Pick<IDBWallet, 'type' | 'backuped'>;
+}) {
+  const intl = useIntl();
+  if (wallet.type !== WALLET_TYPE_HD || wallet.backuped) return null;
+  return (
+    <Badge badgeSize="sm" badgeType="critical" {...layoutProps}>
+      <Badge.Text>
+        {intl.formatMessage({
+          id: ETranslations.wallet_backup_status_not_backed_up,
+        })}
+      </Badge.Text>
+    </Badge>
+  );
+}
+
 export function WalletRenameButton({
   wallet,
   editable,
+  showBackupBadge = true,
   textSize = '$bodyLgMedium',
   ...rest
 }: ComponentProps<typeof XStack> & {
   wallet: IDBWallet;
   editable: boolean | undefined;
-  textSize?: '$bodyLgMedium' | '$heading2xl' | '$headingXl' | '$headingLg';
+  showBackupBadge?: boolean;
+  textSize?:
+    | '$bodyLgMedium'
+    | '$heading3xl'
+    | '$heading2xl'
+    | '$headingXl'
+    | '$headingLg';
 }) {
   const { serviceAccount } = backgroundApiProxy;
   const intl = useIntl();
@@ -136,6 +163,7 @@ export function WalletRenameButton({
                       });
                     } else {
                       await serviceAccount.setWalletNameAndAvatar({
+                        isExplicitWalletMetadataEdit: true,
                         walletId: wallet?.id,
                         name,
                         shouldCheckDuplicate: true,
@@ -175,14 +203,8 @@ export function WalletRenameButton({
           />
         ) : null}
       </XStack>
-      {wallet.type === WALLET_TYPE_HD && !wallet.backuped ? (
-        <Badge ml="auto" badgeSize="sm" badgeType="critical">
-          <Badge.Text>
-            {intl.formatMessage({
-              id: ETranslations.wallet_backup_status_not_backed_up,
-            })}
-          </Badge.Text>
-        </Badge>
+      {showBackupBadge ? (
+        <WalletNotBackedUpBadge wallet={wallet} ml="auto" />
       ) : null}
     </>
   );

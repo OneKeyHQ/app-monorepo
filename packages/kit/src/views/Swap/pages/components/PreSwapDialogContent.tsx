@@ -46,6 +46,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapNetworkFeeLevel,
@@ -81,6 +82,10 @@ import {
 } from '../../components/SwapReviewSlippageEditor';
 import { useSwapReviewQuoteExpiry } from '../../hooks/useSwapReviewQuoteExpiry';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
+import {
+  getSwapDisplayAmount,
+  hasScaledSwapLimitPair,
+} from '../../utils/swapAmountUtils';
 import { getSwapReviewOrderId } from '../../utils/swapReviewAnalytics';
 import {
   ESwapReviewRebuildPhase,
@@ -357,13 +362,32 @@ const PreSwapDialogContent = ({
     if (!pairMatched) {
       return false;
     }
+    if (hasScaledSwapLimitPair(preSwapData?.fromToken, preSwapData?.toToken)) {
+      const reviewPayDisplayAmount = getSwapDisplayAmount(
+        preSwapData?.fromTokenAmount ?? '',
+        preSwapData?.fromToken?.balanceMultiplier,
+      );
+      const reviewReceiveDisplayAmount = getSwapDisplayAmount(
+        preSwapData?.toTokenAmount ?? '',
+        preSwapData?.toToken?.balanceMultiplier,
+      );
+      return Boolean(
+        reviewPayDisplayAmount &&
+        reviewReceiveDisplayAmount &&
+        new BigNumber(reviewReceiveDisplayAmount).lt(
+          new BigNumber(reviewPayDisplayAmount).times(marketRate),
+        ),
+      );
+    }
     return userRate.lt(marketRate);
   }, [
     quoteResult,
     limitPriceUseRate,
     limitPriceMarketPrice,
     preSwapData?.fromToken,
+    preSwapData?.fromTokenAmount,
     preSwapData?.toToken,
+    preSwapData?.toTokenAmount,
   ]);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const isHwWallet = useMemo(
@@ -417,6 +441,9 @@ const PreSwapDialogContent = ({
       toAmount,
     ],
   );
+  const isXmrSource = isXmrSwapNetwork(preSwapData.fromToken?.networkId);
+  const needsXmrPreparation =
+    isXmrSource && !preSwapData.swapBuildResultData?.xmrPrepared;
   const isPrimaryButtonDisabled = useMemo(
     () =>
       Boolean(
@@ -425,6 +452,7 @@ const PreSwapDialogContent = ({
         preSwapData?.stepBeforeActionsLoading ||
         preSwapData?.stepBeforeActionsError ||
         isRefreshingQuote ||
+        needsXmrPreparation ||
         isSwapReviewConfirmBlocked(reviewRebuildState?.phase),
       ),
     [
@@ -433,6 +461,7 @@ const PreSwapDialogContent = ({
       preSwapData?.stepBeforeActionsLoading,
       preSwapData?.swapBuildLoading,
       isRefreshingQuote,
+      needsXmrPreparation,
       reviewRebuildState?.phase,
     ],
   );
@@ -442,9 +471,12 @@ const PreSwapDialogContent = ({
     confirmQuote,
     captureQuoteValidity,
   } = useSwapReviewQuoteExpiry({
-    enabled: Boolean(refreshReviewQuote),
+    enabled: Boolean(refreshReviewQuote) || isXmrSource,
     quoteResult,
     expiryKey: preSwapData.reviewQuoteExpiryKey,
+    absoluteDeadline: isXmrSource
+      ? preSwapData.swapBuildResultData?.orderDeadline
+      : undefined,
     expiredTime:
       preSwapData.swapBuildResultData?.swapInfo?.swapBuildResData.result
         ?.expiredTime ?? quoteResult?.expiredTime,
@@ -949,8 +981,9 @@ const PreSwapDialogContent = ({
 
   useLayoutEffect(() => {
     if (
-      swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
-      swapStepsRef.current.preSwapData.supportPreBuild
+      isXmrSource ||
+      (swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
+        swapStepsRef.current.preSwapData.supportPreBuild)
     ) {
       analyticsPreparationCount.current += 1;
       void Promise.resolve(
@@ -969,6 +1002,7 @@ const PreSwapDialogContent = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    isXmrSource,
     swapStepNetFeeLevel.networkFeeLevel,
     swapStepNetFeeLevel.customPriorityFee?.customValue,
   ]);
@@ -1415,7 +1449,10 @@ const PreSwapDialogContent = ({
                     }
                     size={md ? 'large' : 'medium'}
                     loading={isRefreshingQuote}
-                    disabled={isPrimaryButtonDisabled}
+                    disabled={
+                      isPrimaryButtonDisabled ||
+                      (isXmrSource && quoteExpired && !refreshReviewQuote)
+                    }
                   >
                     {quoteExpired
                       ? intl.formatMessage({

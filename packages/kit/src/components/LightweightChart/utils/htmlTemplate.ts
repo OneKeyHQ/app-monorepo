@@ -75,9 +75,23 @@ function getChartInitScript(): string {
           return pctPriceFormatter(price, nextConfig);
         };
       }
-      // Mirrors formatChartPriceFullTicks: whole-dollar steps drop the decimals
-      // on every tick, any fractional step keeps two on every tick.
       function getTickPriceFormatter(nextConfig) {
+        if (nextConfig.priceScaleFormat === 'open-interest') {
+          return function(prices) {
+            var distinct = new Set(prices).size;
+            var labels = prices.map(usdPriceFormatter);
+            if (new Set(labels).size === distinct) return labels;
+            for (var digits = 2; digits <= 20; digits++) {
+              var formatter = new Intl.NumberFormat('en-US', {
+                style: 'currency', currency: 'USD', notation: 'compact',
+                minimumFractionDigits: 0, maximumFractionDigits: digits,
+              });
+              labels = prices.map(formatter.format);
+              if (new Set(labels).size === distinct) return labels;
+            }
+            return prices.map(function(price) { return '$' + price; });
+          };
+        }
         if (nextConfig.priceScaleFormat !== 'full') return undefined;
         return function(prices) {
           var formatChartPrice = window.__onekeyFormatChartPrice;

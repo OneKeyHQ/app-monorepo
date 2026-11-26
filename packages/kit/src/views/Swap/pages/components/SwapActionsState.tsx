@@ -1,9 +1,18 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  BUTTON_DISABLED_COLORS,
   Badge,
   Button,
   DashText,
@@ -31,6 +40,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
+  useSwapDeferredQuoteAtom,
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
@@ -41,11 +51,13 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  isSwapOrBridgeQuoteType,
   isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
@@ -66,10 +78,12 @@ import {
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapTabSwitchType,
+  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSettledSwapRecipientRequired } from '../../hooks/useSettledSwapRecipientRequired';
@@ -95,10 +109,25 @@ import {
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
+import {
+  SWAP_ACTION_CONTENT_EXIT_MS,
+  SWAP_ACTION_CONTENT_EXIT_PX,
+  SWAP_ACTION_CONTENT_FADE_EASING,
+  SWAP_ACTION_CONTENT_FADE_MS,
+  SWAP_ACTION_CONTENT_RISE_EASING,
+  SWAP_ACTION_CONTENT_RISE_MS,
+  SWAP_ACTION_CONTENT_RISE_PX,
+} from '../../utils/swapActionContentMotion';
 
+import { SwapActionContentMotion } from './SwapActionContentMotion';
 import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
+import { SwapXmrPrivacyNotice } from './SwapXmrPrivacyNotice';
+
+const xmrNativePercentageStages = SwapPercentageInputStageForNative.filter(
+  (stage) => stage < 100,
+);
 
 interface ISwapActionsStateProps {
   disabled?: boolean;
@@ -175,6 +204,237 @@ function IncognitoPopoverContent({
   );
 }
 
+// The action button draws its own content, so Button would fade it when
+// disabled; it takes Button's disabled fill instead. Passed as plain props and
+// only while disabled: on web, Tamagui's `disabledStyle` keys off the
+// aria-disabled attribute being present, which Button renders even when the
+// button is enabled.
+const ACTION_BUTTON_DISABLED_STYLE = {
+  opacity: 1,
+  bg: BUTTON_DISABLED_COLORS.bg,
+} as const;
+
+// On web, new content in the action button (a label, or the quote dots) rises
+// into place, and when the fill stays the same the old content leaves upward
+// a little quicker. The fill switches in the same frame: the button flips
+// between a light fill with dark content and a black fill with white text, so
+// a fill tween would first show the new content on the wrong fill, and across
+// such a flip the old content would sit on the wrong fill and is skipped. The
+// fade and the rise run apart, so the text reads while it still glides up.
+// Native runs the same motion in SwapActionContentMotion.native.
+const CONTENT_FADE_EASING = `cubic-bezier(${SWAP_ACTION_CONTENT_FADE_EASING.join(', ')})`;
+const CONTENT_RISE_EASING = `cubic-bezier(${SWAP_ACTION_CONTENT_RISE_EASING.join(', ')})`;
+const CONTENT_EXIT_LAYER_STYLE =
+  'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none';
+
+function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
+  const buttonRef = useRef<HTMLElement | null>(null);
+  const previous = useRef({ contentKey, fillKey });
+  const shown = useRef<{ node: Element; text: string; width: number } | null>(
+    null,
+  );
+  const animations = useRef<Animation[]>([]);
+  const exitLayer = useRef<HTMLElement | null>(null);
+  const pendingContent = useRef<MutationObserver | null>(null);
+  const contentResize = useRef<ResizeObserver | null>(null);
+
+  // Content swapped in while the last exit overlay is still on the button
+  // lands after it, so skip the overlay rather than take the first child.
+  const findContent = useCallback(
+    (button: HTMLElement | null) =>
+      (button &&
+        Array.from(button.children).find(
+          (child) => child !== exitLayer.current,
+        )) ??
+      null,
+    [],
+  );
+  // The laid-out width is kept so the leaving copy wraps its text as the
+  // content did, and follows the content when the button resizes.
+  const remember = useCallback((content: Element | null) => {
+    shown.current = content
+      ? {
+          node: content,
+          text: content.textContent ?? '',
+          width: content instanceof HTMLElement ? content.offsetWidth : 0,
+        }
+      : null;
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    contentResize.current ??= new ResizeObserver(() => {
+      const current = shown.current;
+      if (current?.node instanceof HTMLElement) {
+        shown.current = { ...current, width: current.node.offsetWidth };
+      }
+    });
+    contentResize.current.disconnect();
+    if (content) {
+      contentResize.current.observe(content);
+    }
+  }, []);
+  const enter = useCallback(
+    (
+      content: Element,
+      reduced: boolean,
+      from: { opacity: number; y: number },
+    ) => {
+      animations.current.forEach((animation) => animation.cancel());
+      animations.current = [
+        content.animate(
+          { opacity: [from.opacity, 1] },
+          {
+            duration: SWAP_ACTION_CONTENT_FADE_MS * (1 - from.opacity),
+            easing: CONTENT_FADE_EASING,
+          },
+        ),
+      ];
+      if (!reduced) {
+        animations.current.push(
+          content.animate(
+            { transform: [`translateY(${from.y}px)`, 'translateY(0)'] },
+            {
+              duration:
+                SWAP_ACTION_CONTENT_RISE_MS *
+                (from.y / SWAP_ACTION_CONTENT_RISE_PX),
+              easing: CONTENT_RISE_EASING,
+            },
+          ),
+        );
+      }
+    },
+    [],
+  );
+
+  // A button that attaches after the last change (the other layout's button
+  // after a resize) records what it shows, so its next change can leave.
+  const ref = useCallback(
+    (node: HTMLElement | null) => {
+      buttonRef.current = node;
+      if (node && !platformEnv.isNative) {
+        remember(findContent(node));
+      }
+    },
+    [findContent, remember],
+  );
+
+  useLayoutEffect(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    pendingContent.current?.disconnect();
+    pendingContent.current = null;
+    const button = buttonRef.current;
+    const content = findContent(button);
+    const last = previous.current;
+    const before = shown.current;
+    previous.current = { contentKey, fillKey };
+    remember(content);
+    if (last.fillKey !== fillKey) {
+      // A copy still leaving would now sit on the wrong fill.
+      exitLayer.current?.remove();
+      exitLayer.current = null;
+    }
+    if (last.contentKey === contentKey || !button) {
+      return;
+    }
+    const reduced = globalThis.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+
+    // Where an interrupted entrance has got to. The leaving copy starts there,
+    // and the next entrance carries on from it, so quick successive changes
+    // neither flash the old content nor drop the new one back to invisible.
+    const [fade, rise] = animations.current;
+    const inFlight = animations.current.some(
+      (animation) => animation.playState === 'running',
+    );
+    const progress = (animation?: Animation) =>
+      animation?.effect?.getComputedTiming().progress ?? 1;
+    const reached = {
+      opacity: inFlight ? progress(fade) : 1,
+      y:
+        inFlight && !reduced
+          ? SWAP_ACTION_CONTENT_RISE_PX * (1 - progress(rise))
+          : 0,
+    };
+
+    // The old content is already out of the tree (or holds the new text), so
+    // a copy of it leaves from an overlay on the button.
+    exitLayer.current?.remove();
+    exitLayer.current = null;
+    if (before && last.fillKey === fillKey) {
+      const copy = before.node.cloneNode(true) as Element;
+      if (before.node === content) {
+        copy.textContent = before.text;
+      }
+      // The overlay spans the button's padding too; at its old width the
+      // copy keeps its line breaks.
+      if (copy instanceof HTMLElement && before.width > 0) {
+        copy.style.width = `${before.width}px`;
+        copy.style.flexShrink = '0';
+      }
+      const layer = document.createElement('div');
+      layer.style.cssText = CONTENT_EXIT_LAYER_STYLE;
+      // The leaving label must not join the button's accessible name.
+      layer.setAttribute('aria-hidden', 'true');
+      layer.append(copy);
+      button.append(layer);
+      exitLayer.current = layer;
+      const removeLayer = () => layer.remove();
+      copy
+        .animate(
+          reduced
+            ? { opacity: [reached.opacity, 0] }
+            : {
+                opacity: [reached.opacity, 0],
+                transform: [
+                  `translateY(${reached.y}px)`,
+                  `translateY(${reached.y - SWAP_ACTION_CONTENT_EXIT_PX}px)`,
+                ],
+              },
+          {
+            duration: SWAP_ACTION_CONTENT_EXIT_MS,
+            easing: CONTENT_FADE_EASING,
+          },
+        )
+        .finished.then(removeLayer, removeLayer);
+    }
+
+    if (content) {
+      enter(
+        content,
+        reduced,
+        inFlight ? reached : { opacity: 0, y: SWAP_ACTION_CONTENT_RISE_PX },
+      );
+      return;
+    }
+    // The new content mounts later (the quote dots suspend first), so it
+    // enters once it is in the tree.
+    const observer = new MutationObserver(() => {
+      const mounted = findContent(button);
+      if (!mounted) {
+        return;
+      }
+      observer.disconnect();
+      pendingContent.current = null;
+      remember(mounted);
+      enter(mounted, reduced, { opacity: 0, y: SWAP_ACTION_CONTENT_RISE_PX });
+    });
+    observer.observe(button, { childList: true });
+    pendingContent.current = observer;
+  }, [contentKey, enter, fillKey, findContent, remember]);
+
+  useEffect(
+    () => () => {
+      pendingContent.current?.disconnect();
+      contentResize.current?.disconnect();
+    },
+    [],
+  );
+  return ref;
+}
+
 const SwapActionsState = ({
   disabled,
   forceNoConnectWallet,
@@ -202,8 +462,19 @@ const SwapActionsState = ({
   const [, setSwapQuoteList] = useSwapQuoteListAtom();
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
+  const [deferredQuote] = useSwapDeferredQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const isXmrSource = isXmrSwapNetwork(fromToken?.networkId);
+  const isXmrDestination = isXmrSwapNetwork(toToken?.networkId);
+  const xmrAddressInfo = isXmrSource ? swapFromAddressInfo : swapToAddressInfo;
+  const xmrNetworkId = isXmrSource ? fromToken?.networkId : toToken?.networkId;
+  const xmrAccountId = xmrAddressInfo.accountInfo?.account?.id;
+  const shouldShowXmrPrivacyNotice =
+    isSwapOrBridgeQuoteType(swapTypeSwitch) &&
+    (isXmrSource || isXmrDestination) &&
+    xmrAddressInfo.isAddressInfoReady;
   // Publishing a recipient must not change its own validation account or readiness.
   const recipientValidationAddressInfo = useSwapAddressInfo(
     ESwapDirectionType.TO,
@@ -238,7 +509,7 @@ const SwapActionsState = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { quoteLoading, quoteEventFetching } = useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
-    swapEnableRecipientAddress,
+    swapEnableRecipientAddress && !isXmrDestination,
   );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -367,6 +638,7 @@ const SwapActionsState = ({
 
   const shouldShowRecipientForCurrentState = useMemo(
     () =>
+      !isXmrDestination &&
       shouldShowSwapRecipientEntry({
         swapType: swapTypeSwitch,
         incognitoMode: swapIncognitoMode,
@@ -379,6 +651,7 @@ const SwapActionsState = ({
         hasToToken: Boolean(toToken),
       }),
     [
+      isXmrDestination,
       swapIncognitoMode,
       swapEnableRecipientAddress,
       recipientRequiredSettled,
@@ -421,12 +694,18 @@ const SwapActionsState = ({
 
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
+      !isXmrDestination &&
       shouldShowSwapIncognitoRecipientInput({
         incognitoMode: swapIncognitoMode,
         providerSupportsRecipient: providerSupportReceiveAddressSettled,
         swapType: swapTypeSwitch,
       }),
-    [swapIncognitoMode, providerSupportReceiveAddressSettled, swapTypeSwitch],
+    [
+      isXmrDestination,
+      swapIncognitoMode,
+      providerSupportReceiveAddressSettled,
+      swapTypeSwitch,
+    ],
   );
 
   const incognitoRecipientNetworkId =
@@ -543,17 +822,25 @@ const SwapActionsState = ({
     onClose: refreshFromTokenBalance,
   });
 
+  const shouldRetryTokenDetails = multiplierStatus === 'failed';
+  const isWaitingForMultiplier =
+    multiplierStatus === 'checking' ||
+    (multiplierStatus === 'ready' && Boolean(deferredQuote));
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
-    !swapActionState.isRefreshQuote &&
-    !swapActionState.shouldDepositToTrade &&
-    (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
+    (isWaitingForMultiplier ||
+      (multiplierStatus === 'ready' &&
+        !swapActionState.isRefreshQuote &&
+        !swapActionState.shouldDepositToTrade &&
+        (swapActionState.isQuoteActionLoading ||
+          Boolean(forceQuoteActionLoading))));
   const isActionDisabled = noConnectWallet
     ? shouldRedirectOnboardingToTravelMode()
     : Boolean(disabled) ||
-      swapActionState.disabled ||
-      swapActionState.isLoading ||
+      (!shouldRetryTokenDetails &&
+        (swapActionState.disabled || swapActionState.isLoading)) ||
       shouldShowQuoteActionLoading ||
+      (isXmrDestination && swapActionState.shouldEnterRecipient) ||
       shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
@@ -570,6 +857,13 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (shouldRetryTokenDetails) {
+      requestSelectedTokenBalanceRefresh();
+      return;
+    }
+    if (isWaitingForMultiplier) {
       return;
     }
     if (swapActionState.shouldDepositToTrade) {
@@ -605,6 +899,7 @@ const SwapActionsState = ({
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
+    isWaitingForMultiplier,
     onDepositToTrade,
     navigation,
     onOpenRecipientAddress,
@@ -615,6 +910,7 @@ const SwapActionsState = ({
     requestSelectedTokenBalanceRefresh,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
+    shouldRetryTokenDetails,
     swapActionState.shouldDepositToTrade,
     noConnectWallet,
     swapActionState.shouldEnterRecipient,
@@ -1145,14 +1441,38 @@ const SwapActionsState = ({
     [],
   );
 
+  let actionLabel = swapActionState.label;
+  if (noConnectWallet) {
+    actionLabel = intl.formatMessage({
+      id: ETranslations.global_connect_wallet,
+    });
+  } else if (shouldRetryTokenDetails) {
+    actionLabel = intl.formatMessage({
+      id: ETranslations.swap_page_button_refresh_quotes,
+    });
+  }
+  // The button shows either the quote dots or a label; each change rises in.
+  const actionContentKey = shouldShowQuoteActionLoading ? null : actionLabel;
+  const actionButtonRef = useActionContentMotion(
+    actionContentKey,
+    !!isActionDisabled,
+  );
+  const desktopActionButtonRef = useActionContentMotion(
+    actionContentKey,
+    !!isActionDisabled,
+  );
+
   const actionButtonChildren = useMemo(
     () =>
       shouldShowQuoteActionLoading ? (
         <LottieView
+          // The dots sit on the disabled fill, so each theme takes the file
+          // drawn for the other theme's primary button: black dots in light,
+          // white in dark.
           source={
             themeVariant === 'light'
-              ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
-              : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              : require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
           }
           autoPlay
           loop
@@ -1168,21 +1488,15 @@ const SwapActionsState = ({
           minWidth={0}
           maxWidth="100%"
           size="$bodyLgMedium"
-          color="$textInverse"
+          color={
+            isActionDisabled ? BUTTON_DISABLED_COLORS.color : '$textInverse'
+          }
           textAlign="center"
         >
-          {noConnectWallet
-            ? intl.formatMessage({ id: ETranslations.global_connect_wallet })
-            : swapActionState.label}
+          {actionLabel}
         </SizableText>
       ),
-    [
-      intl,
-      noConnectWallet,
-      swapActionState.label,
-      shouldShowQuoteActionLoading,
-      themeVariant,
-    ],
+    [actionLabel, isActionDisabled, shouldShowQuoteActionLoading, themeVariant],
   );
 
   const actionRowComponent = useMemo(
@@ -1204,15 +1518,22 @@ const SwapActionsState = ({
           {/* In desktop modal: show savings above button; otherwise show below */}
           {isDesktopModalPage ? costSavingsAboveButtonComponent : null}
           <Button
+            ref={actionButtonRef}
             testID={SwapTestIDs.swapButton}
             onPress={onActionHandlerBefore}
             size={isDesktopModalPage ? 'medium' : 'large'}
             variant="primary"
             disabled={isActionDisabled}
+            {...(isActionDisabled && ACTION_BUTTON_DISABLED_STYLE)}
             borderRadius="$full"
             childrenAsText={false}
           >
-            {actionButtonChildren}
+            <SwapActionContentMotion
+              contentKey={actionContentKey}
+              fillKey={!!isActionDisabled}
+            >
+              {actionButtonChildren}
+            </SwapActionContentMotion>
           </Button>
           {/* In regular pages and non-desktop modal: show savings below button */}
           {!isDesktopModalPage ? costSavingsBelowButtonComponent : null}
@@ -1222,6 +1543,8 @@ const SwapActionsState = ({
     [
       onActionHandlerBefore,
       actionButtonChildren,
+      actionContentKey,
+      actionButtonRef,
       isActionDisabled,
       isDesktopModalPage,
       recipientComponent,
@@ -1324,31 +1647,44 @@ const SwapActionsState = ({
               minWidth={desktopActionWidth}
             >
               <Button
+                ref={desktopActionButtonRef}
                 testID={SwapTestIDs.actionPrimaryButton}
                 onPress={onActionHandlerBefore}
                 size="medium"
                 variant="primary"
                 disabled={isActionDisabled}
+                {...(isActionDisabled && ACTION_BUTTON_DISABLED_STYLE)}
                 borderRadius="$full"
                 childrenAsText={false}
               >
-                {actionButtonChildren}
+                <SwapActionContentMotion
+                  contentKey={actionContentKey}
+                  fillKey={!!isActionDisabled}
+                >
+                  {actionButtonChildren}
+                </SwapActionContentMotion>
               </Button>
             </Stack>
           </XStack>
         </Stack>
         {!platformEnv.isNativeIOS ? (
           <PercentageStageOnKeyboard
+            disabled={multiplierStatus !== 'ready'}
             onSelectPercentageStage={onSelectPercentageStage}
+            stageList={isXmrSource ? xmrNativePercentageStages : undefined}
           />
         ) : null}
       </Page.Footer>
     ),
     [
       actionButtonChildren,
+      actionContentKey,
       costSavingsComponent,
+      desktopActionButtonRef,
       desktopActionWidth,
       isActionDisabled,
+      isXmrSource,
+      multiplierStatus,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,
@@ -1363,17 +1699,28 @@ const SwapActionsState = ({
         {!platformEnv.isNativeIOS ? (
           <Page.Footer>
             <PercentageStageOnKeyboard
+              disabled={multiplierStatus !== 'ready'}
               onSelectPercentageStage={onSelectPercentageStage}
+              stageList={isXmrSource ? xmrNativePercentageStages : undefined}
             />
           </Page.Footer>
         ) : null}
       </>
     ),
-    [actionComponent, onSelectPercentageStage],
+    [actionComponent, isXmrSource, multiplierStatus, onSelectPercentageStage],
   );
 
   return (
     <>
+      {shouldShowXmrPrivacyNotice && xmrNetworkId && xmrAccountId ? (
+        <SwapXmrPrivacyNotice
+          accountId={xmrAccountId}
+          networkId={xmrNetworkId}
+          walletId={xmrAddressInfo.accountInfo?.wallet?.id}
+          fromAmount={isXmrSource ? fromTokenAmount.value : undefined}
+          onBalanceVerified={requestSelectedTokenBalanceRefresh}
+        />
+      ) : null}
       {isDesktopModalPage ? (
         <>
           {desktopModalRecipientSection}

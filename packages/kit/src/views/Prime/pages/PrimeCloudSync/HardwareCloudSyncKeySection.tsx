@@ -8,10 +8,16 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { yieldDeviceStageToDialog } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyErrorI18nInfo,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -32,6 +38,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { HardwareCloudSyncDevicePicker } from './HardwareCloudSyncDevicePicker';
+import { getManualCloudSyncFeedback } from './manualCloudSyncFeedback';
 
 import type { IntlShape } from 'react-intl';
 
@@ -230,7 +237,7 @@ function showCloudSyncHardwareRecovery(failure: IOneKeyError): boolean {
 }
 
 async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
-  const failure = error as IOneKeyError | undefined;
+  const failure = error as IOneKeyError<IOneKeyErrorI18nInfo> | undefined;
   const standardPinRequired = isHardwareCloudSyncStandardPinRequired(error);
   const directSdkDialog = isHardwareCloudSyncDirectSdkDialogError(error);
   if (
@@ -260,6 +267,14 @@ async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
       { id: failure.key, defaultMessage: failure.message },
       failure.info,
     );
+    const reason = failure.info?.hardwareCloudSyncDataErrorReason;
+    if (
+      failure.key === ETranslations.cloud_sync_data_unreadable__msg &&
+      typeof reason === 'string' &&
+      reason
+    ) {
+      description += `\n${reason}`;
+    }
   } else {
     description =
       failure?.message ||
@@ -283,25 +298,38 @@ export function useHardwareCloudSyncKey() {
   const intl = useIntl();
   const [config] = usePrimeCloudSyncPersistAtom();
   const [settings] = useSettingsPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const [pending, setPending] = useState(false);
   const supported = isHardwareCloudSyncPlatformSupported();
   const source = supported ? config.hardwareCloudSyncKeySource : undefined;
-  // Sync can stay on without its key, e.g. after an older App version ran or
-  // another device reset it. Opening the page asks the server first.
-  const { result: keyMissing = false, run: recheckKeyMissing } =
+  // A key bound to another node is not missing. Do not try to refresh it
+  // there or invite a new signature that would use the wrong node.
+  const { result: availability = 'available', run: recheckKeyMissing } =
     usePromiseResult(
       async () => {
         if (!source?.credentialId || !config.isCloudSyncEnabledKeyless) {
-          return false;
+          return 'available' as const;
         }
-        await backgroundApiProxy.serviceKeylessCloudSync.checkHardwareCloudSyncSessionThrottled(
-          { force: true },
-        );
-        return backgroundApiProxy.serviceKeylessCloudSync.isSelectedHardwareCloudKeyMissing();
+        const service = backgroundApiProxy.serviceKeylessCloudSync;
+        const before = await service.getSelectedHardwareCloudKeyAvailability();
+        if (before === 'endpoint-mismatch' || before === 'selection-changed')
+          return before;
+        await service.checkHardwareCloudSyncSessionThrottled({ force: true });
+        return service.getSelectedHardwareCloudKeyAvailability();
       },
-      [source?.credentialId, config.isCloudSyncEnabledKeyless],
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- The background RPC reads these endpoint settings independently.
+      [
+        source?.credentialId,
+        config.isCloudSyncEnabledKeyless,
+        devSettings.enabled,
+        devSettings.settings?.enableTestEndpoint,
+        devSettings.settings?.customApiEndpoints,
+      ],
       { revalidateOnFocus: true },
     );
+  const keyMissing = availability === 'missing';
+  const endpointMismatch =
+    !!config.isCloudSyncEnabledKeyless && availability === 'endpoint-mismatch';
   useEffect(() => {
     const onDropped = () => {
       void recheckKeyMissing();
@@ -317,8 +345,23 @@ export function useHardwareCloudSyncKey() {
     },
     [],
   );
+  const shouldPauseForEndpoint = useCallback(async () => {
+    try {
+      const state =
+        await backgroundApiProxy.serviceKeylessCloudSync.getSelectedHardwareCloudKeyAvailability();
+      if (state !== 'endpoint-mismatch' && state !== 'selection-changed')
+        return false;
+      void recheckKeyMissing();
+    } catch {
+      // Keep a displayed switch-back warning and never expose storage errors.
+      if (!endpointMismatch) await showCloudSyncFailure(intl, undefined);
+    }
+    return true;
+  }, [endpointMismatch, intl, recheckKeyMissing]);
+
   const signWithDevice = useCallback(
     async (connectId: string, switchDevice: boolean) => {
+      if (await shouldPauseForEndpoint()) return;
       setPending(true);
       let finished = false;
       // Stays up while the device asks for the signature; Cancel stops that
@@ -355,8 +398,9 @@ export function useHardwareCloudSyncKey() {
         setPending(false);
         await waiting.close();
       }
+      if (keyMissing) void recheckKeyMissing().catch(() => undefined);
     },
-    [intl],
+    [intl, keyMissing, recheckKeyMissing, shouldPauseForEndpoint],
   );
   const enableWithDevice = useCallback(
     async (connectId: string) => {
@@ -386,6 +430,10 @@ export function useHardwareCloudSyncKey() {
       targetCredentialId?: string,
       overwriteTargetSnapshot?: string,
     ): Promise<void> {
+      if (await shouldPauseForEndpoint()) {
+        void backgroundApiProxy.serviceHardware.clearForceTransportType();
+        return;
+      }
       setPending(true);
       let finished = false;
       const waiting = Dialog.show({
@@ -496,7 +544,7 @@ export function useHardwareCloudSyncKey() {
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
       }
     },
-    [intl],
+    [intl, shouldPauseForEndpoint],
   );
   const pickDevice = useCallback(
     async (onPick: (connectId: string) => Promise<void>) => {
@@ -563,11 +611,11 @@ export function useHardwareCloudSyncKey() {
     },
     [intl, settings.hardwareTransportType],
   );
-  const openPicker = useCallback(
-    () => pickDevice(enableWithDevice),
-    [enableWithDevice, pickDevice],
-  );
+  const openPicker = useCallback(async () => {
+    if (!(await shouldPauseForEndpoint())) await pickDevice(enableWithDevice);
+  }, [enableWithDevice, pickDevice, shouldPauseForEndpoint]);
   const resetKey = useCallback(async () => {
+    if (await shouldPauseForEndpoint()) return;
     const confirmed = await confirmDialog({
       title: intl.formatMessage({ id: ETranslations.change_sync_key__title }),
       description: intl.formatMessage({
@@ -577,25 +625,31 @@ export function useHardwareCloudSyncKey() {
         id: ETranslations.change_sync_key__action,
       }),
     });
-    if (!confirmed) return;
+    if (!confirmed || (await shouldPauseForEndpoint())) return;
     await pickDevice(resetWithDevice);
-  }, [intl, pickDevice, resetWithDevice]);
+  }, [intl, pickDevice, resetWithDevice, shouldPauseForEndpoint]);
   const syncNow = useCallback(async () => {
+    if (await shouldPauseForEndpoint()) return;
     await backgroundApiProxy.serviceApp.showDialogLoading({
       title: intl.formatMessage({ id: ETranslations.global_syncing }),
     });
     try {
-      let success = false;
+      let result: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult
+        >
+      >;
       try {
-        success = await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless(
-          {
-            callerName: 'Manual hardware Cloud sync',
-            noDebounceUpload: true,
-            forceSync: true,
-            bypassRetryBackoff: true,
-            askPasswordOnlyIfHdXfpMissing: true,
-          },
-        );
+        result =
+          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult(
+            {
+              callerName: 'Manual hardware Cloud sync',
+              noDebounceUpload: true,
+              forceSync: true,
+              bypassRetryBackoff: true,
+              askPasswordOnlyIfHdXfpMissing: true,
+            },
+          );
       } catch (error) {
         deferCloudSyncFailureToPage(error);
         throw error;
@@ -603,22 +657,21 @@ export function useHardwareCloudSyncKey() {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
-      void backgroundApiProxy.serviceApp.showToast({
-        method: success ? 'success' : 'warning',
-        title: intl.formatMessage({
-          id: success
-            ? ETranslations.global_sync_successfully
-            : ETranslations.global_pending,
-        }),
-      });
+      const feedback = getManualCloudSyncFeedback(result);
+      if (feedback)
+        void backgroundApiProxy.serviceApp.showToast({
+          method: feedback.method,
+          title: intl.formatMessage({ id: feedback.title }),
+        });
     } catch (error) {
       await showCloudSyncFailure(intl, error);
     }
-  }, [intl]);
+  }, [intl, shouldPauseForEndpoint]);
   return {
     supported,
     source,
     keyMissing,
+    endpointMismatch,
     pending,
     openPicker,
     resetKey,

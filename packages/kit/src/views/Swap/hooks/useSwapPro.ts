@@ -1,12 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import { NavigationContext } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
@@ -61,9 +75,13 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { ACTIVE_ACCOUNT_RELOAD_SELECTION_FIELDS } from '../../../states/jotai/contexts/accountSelector/selectedAccountCompare';
 import {
   buildSwapProPositionsOwnerKey,
+  swapProSelectTokenAtom,
+  swapTypeSwitchAtom,
   useSwapActions,
+  useSwapContextData,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
@@ -239,8 +257,22 @@ export function useSwapProToToken() {
   return toToken;
 }
 
-export function useSwapProAccount() {
+function getSwapProNetworkSyncSelectionKey(
+  selectedAccount: IAccountSelectorSelectedAccount,
+) {
+  return JSON.stringify(
+    ACTIVE_ACCOUNT_RELOAD_SELECTION_FIELDS.map(
+      (field) => selectedAccount[field],
+    ),
+  );
+}
+
+export function useSwapProAccount({
+  syncAccountNetwork = false,
+}: { syncAccountNetwork?: boolean } = {}) {
   const isFocused = useIsFocused();
+  const navigation = useContext(NavigationContext);
+  const { store: swapStore } = useSwapContextData();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [isAccountSelectorStorageInitDone] =
@@ -248,7 +280,8 @@ export function useSwapProAccount() {
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const inputToken = useSwapProInputToken();
   const [selectMarketToken] = useSwapProSelectTokenAtom();
-  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
+  const { getSelectedAccount, updateSelectedAccountNetwork } =
+    useAccountSelectorActions().current;
   const targetNetworkId =
     inputToken?.networkId ?? selectMarketToken?.networkId ?? '';
   const accountNetworkSyncTargetId = selectMarketToken?.networkId ?? '';
@@ -377,7 +410,9 @@ export function useSwapProAccount() {
     account: netAccountStateRes.result.account,
   });
   const isSwapProActive = Boolean(
-    platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+    syncAccountNetwork &&
+    platformEnv.isNative &&
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT,
   );
   const hasIndexedAccount = Boolean(indexedAccountId);
   const isSingletonAccountReady = Boolean(
@@ -405,18 +440,60 @@ export function useSwapProAccount() {
     isSingletonAccountReady,
     isSingletonAccountCompatible,
   });
+  const accountNetworkSyncSelectionKey = shouldSyncAccountNetwork
+    ? getSwapProNetworkSyncSelectionKey(selectedAccount)
+    : undefined;
 
-  useEffect(() => {
-    if (shouldSyncAccountNetwork) {
-      void updateSelectedAccountNetwork({
-        num: 0,
-        networkId: accountNetworkSyncTargetId,
-        reason: 'swapProNetworkSync',
-      });
+  useLayoutEffect(() => {
+    if (
+      accountNetworkSyncSelectionKey === undefined ||
+      !swapStore ||
+      !navigation
+    ) {
+      return;
     }
+    const typeAtom = swapTypeSwitchAtom();
+    const targetAtom = swapProSelectTokenAtom();
+    const isProTargetCurrent = () =>
+      swapStore.get(typeAtom) === ESwapTabSwitchType.LIMIT &&
+      swapStore.get(targetAtom)?.networkId === accountNetworkSyncTargetId;
+    const ownsNetworkSync = () =>
+      navigation.isFocused() &&
+      isProTargetCurrent() &&
+      getSwapProNetworkSyncSelectionKey(getSelectedAccount({ num: 0 })) ===
+        accountNetworkSyncSelectionKey;
+    if (!ownsNetworkSync()) return;
+
+    let active = true;
+    const invalidate = () => {
+      active = false;
+    };
+    const invalidateIfOwnerChanged = () => {
+      if (!isProTargetCurrent()) invalidate();
+    };
+    // Apply ownership changes even while React is still rendering the next tab.
+    const removeListeners = [
+      navigation.addListener('blur', invalidate),
+      swapStore.sub(typeAtom, invalidateIfOwnerChanged),
+      swapStore.sub(targetAtom, invalidateIfOwnerChanged),
+    ];
+    const dispose = () => {
+      invalidate();
+      removeListeners.splice(0).forEach((unsubscribe) => unsubscribe());
+    };
+    void updateSelectedAccountNetwork({
+      num: 0,
+      networkId: accountNetworkSyncTargetId,
+      reason: 'swapProNetworkSync',
+      shouldCommit: () => active && ownsNetworkSync(),
+    }).finally(dispose);
+    return dispose;
   }, [
+    accountNetworkSyncSelectionKey,
     accountNetworkSyncTargetId,
-    shouldSyncAccountNetwork,
+    getSelectedAccount,
+    navigation,
+    swapStore,
     updateSelectedAccountNetwork,
   ]);
 
@@ -514,14 +591,13 @@ export function useSwapProTokenInfoSync() {
     finishSwapProTokenBalanceRequest,
     invalidateSwapProTokenBalanceRequest,
     isSwapProTokenBalanceRequestLatest,
+    syncSwapProReceiveTokenDetail,
   } = useSwapActions().current;
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
-  const [swapProSellToToken, setSwapProSellToToken] =
-    useSwapProSellToTokenAtom();
   const netAccountRes = useSwapProAccount();
   const inputToken = useSwapProInputToken();
   const tokenInfoSyncIdentityRef = useRef({
@@ -596,6 +672,9 @@ export function useSwapProTokenInfoSync() {
           accountAddress: requestedAccountAddress,
           accountId: requestedAccountId,
           currency: 'usd',
+          ...(requestedInputToken.balanceMultiplier
+            ? { balanceMultiplier: requestedInputToken.balanceMultiplier }
+            : {}),
         });
       const balanceTokenDetail = balanceTokenInfo?.[0];
       const currentInputToken =
@@ -617,6 +696,9 @@ export function useSwapProTokenInfoSync() {
                   ...prev,
                   isNative: balanceTokenDetail.isNative ?? false,
                   balanceParsed: balanceTokenDetail.balanceParsed ?? '',
+                  balanceMultiplier:
+                    balanceTokenDetail.balanceMultiplier ??
+                    prev.balanceMultiplier,
                   price: balanceTokenDetail.price ?? '',
                   fiatValue: balanceTokenDetail.fiatValue ?? '',
                   accountAddress: requestedAccountAddress,
@@ -630,6 +712,9 @@ export function useSwapProTokenInfoSync() {
                   ...prev,
                   isNative: balanceTokenDetail.isNative ?? false,
                   balanceParsed: balanceTokenDetail.balanceParsed ?? '',
+                  balanceMultiplier:
+                    balanceTokenDetail.balanceMultiplier ??
+                    prev.balanceMultiplier,
                   price: balanceTokenDetail.price ?? '',
                   fiatValue: balanceTokenDetail.fiatValue ?? '',
                   accountAddress: requestedAccountAddress,
@@ -706,6 +791,12 @@ export function useSwapProTokenInfoSync() {
               accountAddress: requestedAccountAddress,
               accountId: requestedAccountId,
               currency,
+              ...(requestedSwapProSelectToken?.balanceMultiplier
+                ? {
+                    balanceMultiplier:
+                      requestedSwapProSelectToken.balanceMultiplier,
+                  }
+                : {}),
             }),
             backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
               networkId: requestedSwapProUseSelectBuyToken?.networkId ?? '',
@@ -714,6 +805,12 @@ export function useSwapProTokenInfoSync() {
               accountAddress: requestedAccountAddress,
               accountId: requestedAccountId,
               currency,
+              ...(requestedSwapProUseSelectBuyToken?.balanceMultiplier
+                ? {
+                    balanceMultiplier:
+                      requestedSwapProUseSelectBuyToken.balanceMultiplier,
+                  }
+                : {}),
             }),
           ]);
         const currentSwapProSelectTokenDetail = isRequestCurrent({
@@ -741,6 +838,9 @@ export function useSwapProTokenInfoSync() {
                   isNative: currentSwapProSelectTokenDetail.isNative ?? false,
                   balanceParsed:
                     currentSwapProSelectTokenDetail.balanceParsed ?? '',
+                  balanceMultiplier:
+                    currentSwapProSelectTokenDetail.balanceMultiplier ??
+                    prev.balanceMultiplier,
                   price: currentSwapProSelectTokenDetail.price ?? '',
                   fiatValue: currentSwapProSelectTokenDetail.fiatValue ?? '',
                   accountAddress: requestedAccountAddress,
@@ -761,6 +861,9 @@ export function useSwapProTokenInfoSync() {
                     currentSwapProUseSelectBuyTokenDetail.isNative ?? false,
                   balanceParsed:
                     currentSwapProUseSelectBuyTokenDetail.balanceParsed ?? '',
+                  balanceMultiplier:
+                    currentSwapProUseSelectBuyTokenDetail.balanceMultiplier ??
+                    prev.balanceMultiplier,
                   price: currentSwapProUseSelectBuyTokenDetail.price ?? '',
                   fiatValue:
                     currentSwapProUseSelectBuyTokenDetail.fiatValue ?? '',
@@ -798,56 +901,10 @@ export function useSwapProTokenInfoSync() {
     ],
   );
 
-  const syncToTokenPrice = useCallback(async () => {
-    const balanceTokenInfo =
-      await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: swapProSellToToken?.networkId ?? '',
-        contractAddress: swapProSellToToken?.contractAddress ?? '',
-        currency: 'usd',
-      });
-    if (balanceTokenInfo?.length) {
-      setSwapProSellToToken((prev) =>
-        prev &&
-        equalTokenNoCaseSensitive({ token1: prev, token2: balanceTokenInfo[0] })
-          ? {
-              ...prev,
-              isNative: balanceTokenInfo[0].isNative ?? false,
-              price: balanceTokenInfo[0].price ?? '',
-            }
-          : prev,
-      );
-    }
-  }, [
-    setSwapProSellToToken,
-    swapProSellToToken?.contractAddress,
-    swapProSellToToken?.networkId,
-  ]);
-
-  const syncSelectTokenNative = useCallback(async () => {
-    const balanceTokenInfo =
-      await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: swapProSelectToken?.networkId ?? '',
-        contractAddress: swapProSelectToken?.contractAddress ?? '',
-        currency: 'usd',
-      });
-    if (balanceTokenInfo?.length) {
-      setSwapProSelectToken((prev) =>
-        prev &&
-        equalTokenNoCaseSensitive({ token1: prev, token2: balanceTokenInfo[0] })
-          ? { ...prev, isNative: balanceTokenInfo[0].isNative ?? false }
-          : prev,
-      );
-    }
-  }, [
-    swapProSelectToken?.contractAddress,
-    swapProSelectToken?.networkId,
-    setSwapProSelectToken,
-  ]);
   return {
     syncOrderTokenBalance,
     syncInputTokenBalance,
-    syncToTokenPrice,
-    syncSelectTokenNative,
+    syncSwapProReceiveTokenDetail,
     balanceLoading,
     netAccountRes,
     indexedAccountId: netAccountRes.indexedAccountId,
@@ -1503,8 +1560,7 @@ export function useSwapProTokenInit(historyIntent?: {
 
   const {
     syncInputTokenBalance,
-    syncToTokenPrice,
-    syncSelectTokenNative,
+    syncSwapProReceiveTokenDetail,
     balanceLoading,
     netAccountRes,
   } = useSwapProTokenInfoSync();
@@ -1527,23 +1583,39 @@ export function useSwapProTokenInit(historyIntent?: {
     netAccountRes.result?.addressDetail.address,
   ]);
 
+  const shouldSyncSellToToken = Boolean(
+    swapProSellToToken &&
+    (!swapProSellToToken.isNative || !swapProSellToToken.price),
+  );
+  const shouldSyncSelectedToken = Boolean(
+    swapProSelectToken &&
+    (swapProSelectToken.isNative === undefined ||
+      (swapProDirection === ESwapDirection.BUY &&
+        !swapProSelectToken.isNative)),
+  );
   useEffect(() => {
-    if (!shouldSyncSwapProTokenInfo) {
-      return;
+    if (shouldSyncSwapProTokenInfo && shouldSyncSellToToken) {
+      void syncSwapProReceiveTokenDetail(ESwapDirection.SELL);
     }
-    if (swapProSellToToken && !swapProSellToToken.price) {
-      void syncToTokenPrice();
-    }
-  }, [shouldSyncSwapProTokenInfo, swapProSellToToken, syncToTokenPrice]);
+  }, [
+    shouldSyncSellToToken,
+    shouldSyncSwapProTokenInfo,
+    swapProSellToToken?.contractAddress,
+    swapProSellToToken?.networkId,
+    syncSwapProReceiveTokenDetail,
+  ]);
 
   useEffect(() => {
-    if (!shouldSyncSwapProTokenInfo) {
-      return;
+    if (shouldSyncSwapProTokenInfo && shouldSyncSelectedToken) {
+      void syncSwapProReceiveTokenDetail(ESwapDirection.BUY);
     }
-    if (swapProSelectToken && isNil(swapProSelectToken?.isNative)) {
-      void syncSelectTokenNative();
-    }
-  }, [shouldSyncSwapProTokenInfo, swapProSelectToken, syncSelectTokenNative]);
+  }, [
+    shouldSyncSelectedToken,
+    shouldSyncSwapProTokenInfo,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    syncSwapProReceiveTokenDetail,
+  ]);
 
   const isMEV = useMemo(() => {
     return Array.isArray(swapMevNetConfig)
@@ -1555,12 +1627,16 @@ export function useSwapProTokenInit(historyIntent?: {
     if (balanceLoading) {
       return true;
     }
-    const inputAmountBN =
+    const displayInputAmount =
       swapProTradeType === ESwapProTradeType.MARKET
-        ? new BigNumber(swapProInputAmount || '0')
-        : new BigNumber(
-            swapFromInputAmount.value ? swapFromInputAmount.value : '0',
-          );
+        ? swapProInputAmount || '0'
+        : swapFromInputAmount.value || '0';
+    const inputAmountBN = new BigNumber(
+      inputToken
+        ? (getSwapRawInputAmount(displayInputAmount, inputToken, 'down') ??
+            'NaN')
+        : 'NaN',
+    );
     if (inputAmountBN.isNaN() || inputAmountBN.isZero()) {
       return true;
     }
@@ -1571,7 +1647,7 @@ export function useSwapProTokenInit(historyIntent?: {
     swapProTradeType,
     swapProInputAmount,
     swapFromInputAmount.value,
-    inputToken?.balanceParsed,
+    inputToken,
   ]);
 
   return {
@@ -2314,13 +2390,18 @@ export function useSwapBuildTxInfo() {
 }
 
 export function useSwapProActionsQuote() {
-  const { quoteSpeedAction, resumeQuoteAction, resetQuoteAction } =
-    useSwapActions().current;
+  const {
+    quoteSpeedAction,
+    resumeQuoteAction,
+    resetQuoteAction,
+    retrySwapProMarketQuote,
+  } = useSwapActions().current;
   const [appIsLocked] = useAppIsLockedAtom();
   const isFocused = useIsFocused();
+  const isMountedRef = useIsMounted();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
-  const [swapProInputAmount, setSwapProInputAmount] =
+  const [swapProInputAmount, setSwapProInputAmount, maxAmountSnapshot] =
     useSwapProInputAmountAtom();
   const debounceInputAmount = useDebounce(
     swapProInputAmount,
@@ -2356,6 +2437,31 @@ export function useSwapProActionsQuote() {
   }, [proTokenDetail, swapProSelectToken]);
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapProAccount = useSwapProAccount();
+  const manualRefreshScope = {
+    active: isFocused && !appIsLocked,
+    accountId: swapProAccount.result?.id,
+    address: swapProAccount.result?.addressDetail.address,
+  };
+  const manualRefreshScopeRef = useRef(manualRefreshScope);
+  manualRefreshScopeRef.current = manualRefreshScope;
+  const onRefreshQuote = useCallback(() => {
+    const { active, accountId, address } = manualRefreshScopeRef.current;
+    if (!active || !accountId || !address) return;
+    void retrySwapProMarketQuote({
+      slippageItem,
+      address,
+      accountId,
+      isActive: () => {
+        const current = manualRefreshScopeRef.current;
+        return (
+          isMountedRef.current &&
+          current.active &&
+          current.accountId === accountId &&
+          current.address === address
+        );
+      },
+    });
+  }, [isMountedRef, retrySwapProMarketQuote, slippageItem]);
   const slippageItemRef = useRef(slippageItem);
   if (slippageItemRef.current !== slippageItem) {
     slippageItemRef.current = slippageItem;
@@ -2371,9 +2477,16 @@ export function useSwapProActionsQuote() {
     [swapTabSwitchType, swapTradeType],
   );
 
+  const quoteFromToken = useSwapProInputToken();
+  const quoteToToken = useSwapProToToken();
+  const quoteFromMultiplier = quoteFromToken?.balanceMultiplier;
+  const quoteToMultiplier = quoteToToken?.balanceMultiplier;
   const previousQuoteInputRef = useRef({
     amount: debounceInputAmount,
+    maxAmountSnapshot,
     stockIsOpen: selectedStockIsOpen,
+    fromMultiplier: quoteFromMultiplier,
+    toMultiplier: quoteToMultiplier,
   });
   useEffect(() => {
     if (appIsLocked || !isFocused) {
@@ -2381,10 +2494,17 @@ export function useSwapProActionsQuote() {
     }
     const quoteInputChanged =
       previousQuoteInputRef.current.amount !== debounceInputAmount ||
+      previousQuoteInputRef.current.maxAmountSnapshot !== maxAmountSnapshot ||
       previousQuoteInputRef.current.stockIsOpen !== selectedStockIsOpen;
+    const multiplierChanged =
+      previousQuoteInputRef.current.fromMultiplier !== quoteFromMultiplier ||
+      previousQuoteInputRef.current.toMultiplier !== quoteToMultiplier;
     previousQuoteInputRef.current = {
       amount: debounceInputAmount,
+      maxAmountSnapshot,
       stockIsOpen: selectedStockIsOpen,
+      fromMultiplier: quoteFromMultiplier,
+      toMultiplier: quoteToMultiplier,
     };
     const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
     if (
@@ -2395,7 +2515,7 @@ export function useSwapProActionsQuote() {
     ) {
       // Only lifecycle recovery preserves the old refresh budget. Input edits
       // and either market-state transition must start a fresh quote round.
-      if (platformEnv.isNative && !quoteInputChanged) {
+      if (platformEnv.isNative && !quoteInputChanged && !multiplierChanged) {
         void resumeQuoteAction({
           slippageItem: slippageItemRef.current,
           address: swapProAccount.result.addressDetail.address,
@@ -2410,6 +2530,9 @@ export function useSwapProActionsQuote() {
           swapProAccount.result.addressDetail.address,
           swapProAccount.result.id,
           swapProAccount.result.addressDetail.address,
+          multiplierChanged && !quoteInputChanged
+            ? 'multiplier-change'
+            : undefined,
         );
       }
     }
@@ -2417,6 +2540,7 @@ export function useSwapProActionsQuote() {
     appIsLocked,
     isFocused,
     debounceInputAmount,
+    maxAmountSnapshot,
     quoteSpeedAction,
     resumeQuoteAction,
     swapProSelectToken?.contractAddress,
@@ -2432,6 +2556,8 @@ export function useSwapProActionsQuote() {
     slippageItem.key,
     swapProMarketQuoteCustomSlippage,
     selectedStockIsOpen,
+    quoteFromMultiplier,
+    quoteToMultiplier,
   ]);
 
   useEffect(() => {
@@ -2455,7 +2581,7 @@ export function useSwapProActionsQuote() {
   ]);
 
   return {
-    quoteSpeedAction,
+    onRefreshQuote,
   };
 }
 
@@ -2595,7 +2721,9 @@ export function useSwapLimitPriceCheck(
           : '';
       }
       setToInputAmount({
-        value: toAmount,
+        value: toAmount
+          ? (getSwapDisplayAmount(toAmount, toToken?.balanceMultiplier) ?? '')
+          : '',
         isInput: false,
       });
     }

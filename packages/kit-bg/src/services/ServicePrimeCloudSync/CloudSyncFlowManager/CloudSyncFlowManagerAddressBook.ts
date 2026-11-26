@@ -18,7 +18,7 @@ export class CloudSyncFlowManagerAddressBook extends CloudSyncFlowManagerBase<
 > {
   override dataType = EPrimeCloudSyncDataType.AddressBook as any;
 
-  override removeSyncItemIfServerDeleted = true;
+  override removeSyncItemIfServerDeleted = false;
 
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetAddressBook;

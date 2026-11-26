@@ -20,6 +20,7 @@ import type {
   IOneKeyErrorI18nInfo,
   IOneKeyHardwareErrorPayload,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
@@ -45,7 +46,11 @@ import type {
 import type { EHardwareVendor } from '../../types/device';
 import type { IDeviceStageWalletTypeValue } from '../../types/deviceStage';
 import type { IFeeSelectorItem } from '../../types/fee';
-import type { ESubscriptionType } from '../../types/hyperliquid/types';
+import type { IBook } from '../../types/hyperliquid/sdk';
+import type {
+  ESubscriptionType,
+  IL2BookOptions,
+} from '../../types/hyperliquid/types';
 import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
 import type {
   INotificationPushMessageInfo,
@@ -135,10 +140,6 @@ export type ILinuxUdevGuideReason =
 
 export type IEventBusPayloadShowLinuxUdevGuide = {
   reason?: ILinuxUdevGuideReason;
-};
-
-export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
-  technicalMessage: string;
 };
 
 export type IEventBusPayloadAccountDataUpdate =
@@ -290,7 +291,11 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.NativeStorageContractViolation]: INativeStorageContractViolation;
-  [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: ILocalSecretEnvelopeCredentialIssue;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast]: ILocalSecretEnvelopeCredentialIssue & {
+    walletName?: string;
+  };
+  [EAppEventBusNames.WalletLocalSecretEnvelopeKeysChanged]: undefined;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     promiseId?: number;
@@ -675,6 +680,7 @@ export interface IAppEventBusPayload {
     showWatchlistOnly: boolean;
   };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.AppResetIsolating]: undefined;
   [EAppEventBusNames.SupabaseStorageCacheCleared]: {
     sourceId: string;
   };
@@ -697,6 +703,17 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
+  [EAppEventBusNames.HyperliquidPublicTradesStatus]: {
+    status: 'connected' | 'disconnected' | 'failed';
+    coin: string;
+  };
+  [EAppEventBusNames.HyperliquidPublicDepthBook]: {
+    coin: string;
+    options: IL2BookOptions;
+  } & (
+    | { status: 'ready'; book: IBook; receivedAt: number }
+    | { status: 'disconnected' | 'error' }
+  );
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
     symbol: string;
@@ -778,6 +795,9 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
+    requestId?: string;
+    bytesSent?: number;
+    totalBytes?: number;
     progressPercent?: number;
     retry?: number;
     message?: string;
@@ -821,6 +841,7 @@ export interface IAppEventBusPayload {
     from: EEnterWay;
   };
   [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
+  [EAppEventBusNames.MarketWidgetConfigurationSynced]: undefined;
   [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
   [EAppEventBusNames.RefreshNativeTokenInfo]: undefined;
   [EAppEventBusNames.ShowInAppPushNotification]: {

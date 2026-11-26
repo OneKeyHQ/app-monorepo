@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import {
   getRootRoutersLength,
   useRouteIsFocused,
@@ -51,7 +52,6 @@ import {
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
-  useSwapLimitPriceUseRateAtom,
   useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
   useSwapProDirectionAtom,
@@ -63,6 +63,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
@@ -70,6 +71,17 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
+import {
+  type ISwapLimitRawAmounts,
+  buildSwapMaxAmountSnapshot,
+  getSwapDisplayDecimals,
+  getSwapDisplayRate,
+  getSwapLimitRateFromRawAmounts,
+  getSwapRawInputAmount,
+  hasScaledSwapLimitPair,
+  isSwapReviewMultiplierCurrent,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import { calcSwapPercentageStageAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapProAmountSliderUtils';
 import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
@@ -83,6 +95,7 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAccountManagerStacksRoutes,
@@ -93,10 +106,12 @@ import {
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { retireSwapTabPrefill } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -126,7 +141,6 @@ import {
   ESwapSlippageSegmentKey,
   ESwapSource,
   ESwapTabSwitchType,
-  LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapBuildShouldFallBackNetworkIds,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
@@ -141,7 +155,10 @@ import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resol
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import { registerMarketSwapApprovalFlow } from '../../hooks/swapNavigationUtils';
 import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
-import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  SwapTabPrefillPendingContext,
+  useSwapAddressInfo,
+} from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
@@ -201,6 +218,8 @@ import {
   SwapInitialSelectionTimeoutContext,
   canHandleTradeAgainInSource,
   getSwapHistorySourceIntentKey,
+  isTradeAgainAllowedInMarketModal,
+  refreshMarketStockTradeAgainEligibility,
   useSwapHistoryChannelIntent,
   useSwapHistoryTradeAgainHandler,
 } from './SwapHistoryTradeAgainContext';
@@ -208,6 +227,7 @@ import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import { SwapRevealSnapshotProvider } from './SwapSmoothReveal';
 import {
+  SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH,
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
@@ -216,13 +236,16 @@ import SwapTipsContainer from './SwapTipsContainer';
 import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
 import type { ISwapHistoryScrollHandle } from './SwapHistoryTradeAgainContext';
-import type { ScrollViewInstance } from 'react-native';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
   storeName?: EJotaiContextStoreNames;
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
+  clearInputAmounts?: boolean;
+  marketStockTrade?: boolean;
+  marketNonStockTrade?: boolean;
   singleSwapBridgeHeader?: boolean;
   /** Render the shared stock ticket without Swap's page-level market/K-line shell. */
   embeddedStockTrade?: boolean;
@@ -238,11 +261,22 @@ interface ISwapMainLoadProps {
 }
 
 type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
+  pendingSwapDraft?: React.RefObject<ISwapInputAmountDraft | undefined>;
   storeName: EJotaiContextStoreNames;
 };
 
 const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 const SWAP_HEADER_ROW_HEIGHT = 56;
+// The $5 page padding beside the form, in points.
+const SWAP_FOLDABLE_PAGE_PADDING = 20;
+// Widest a tab without a second pane grows on a foldable iPhone screen that
+// has room for two panes, page padding included; the same cap the limit form
+// has on phones.
+const SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH = 520;
+// Narrowest page that has room for two panes: the Stocks row and the page
+// padding beside it. Swap and Bridge split at the same width.
+const SWAP_FOLDABLE_TWO_PANE_MIN_PAGE_WIDTH =
+  SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH + SWAP_FOLDABLE_PAGE_PADDING * 2;
 
 function supportsSwapReviewPreBuild({
   quote,
@@ -270,9 +304,12 @@ function supportsSwapReviewPreBuild({
 }
 
 const SwapMainLoad = ({
+  pendingSwapDraft,
   storeName,
   swapInitParams,
   pageType,
+  marketStockTrade,
+  marketNonStockTrade,
   singleSwapBridgeHeader,
   embeddedStockTrade,
   stockSpeedConfig,
@@ -293,13 +330,24 @@ const SwapMainLoad = ({
   const reviewSlippageEditedRef = useRef(false);
   const intl = useIntl();
   const { gtLg } = useMedia();
-  const { fetchLoading } = useSwapInit(swapInitParams);
+  const { fetchLoading } = useSwapInit(swapInitParams, pendingSwapDraft);
   const onTradeAgainFromSource = useSwapHistoryTradeAgainHandler();
   const historyChannelIntent = useSwapHistoryChannelIntent();
   const analyticsSwapSource = swapInitParams?.swapSource;
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
     analyticsSwapSource === ESwapSource.MARKET;
+  // On a phone a focused input raises the keyboard, which covers half the
+  // page the user just opened, so only pointer platforms focus the pay input
+  // on entry. Embedded in a Market page, the swap panel is not what the user
+  // came for, so it must not take the focus. A page opened to resume an
+  // approved trade gets its amount shortly after it opens, and the focus must
+  // not land on that trade.
+  const autoFocusFromInput =
+    !platformEnv.isNative &&
+    !platformEnv.isWebMobile &&
+    !isMarketEmbeddedSwap &&
+    analyticsSwapSource !== ESwapSource.APPROVING_SUCCESS;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
   useEffect(() => {
     if (isMarketEmbeddedSwap) {
@@ -360,6 +408,7 @@ const SwapMainLoad = ({
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
   useSwapLimitOrdersVisibilityRefresh({
     enabled: isFocused && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
   });
@@ -375,12 +424,15 @@ const SwapMainLoad = ({
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
-  const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const {
+    canPreviewSwapProMarketQuote,
+    readScaledSwapLimitReviewAmounts,
     cleanQuoteInterval,
     quoteAction,
     selectFromToken,
     selectRecentTokenPair,
+    setSwapUserInputAmount,
   } = useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
@@ -406,8 +458,6 @@ const SwapMainLoad = ({
     swapToAmount,
     toSelectTokenAtom,
   ]);
-  const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
   const [swapStepData] = useSwapStepsAtom();
   const { selectSwapProToken } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
@@ -418,7 +468,7 @@ const SwapMainLoad = ({
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
-  const swapProAccount = useSwapProAccount();
+  const swapProAccount = useSwapProAccount({ syncAccountNetwork: true });
   const tokenDetailActions = useTokenDetailActions();
   const hasInFlightReviewWork = hasInFlightSwapReviewWork({
     steps: swapStepData.steps,
@@ -750,6 +800,17 @@ const SwapMainLoad = ({
     quoteResultRef.current = swapStepData.quoteResult;
   }
 
+  const selectedReviewTokensRef = useRef({
+    from: fromSelectToken,
+    to: toSelectToken,
+    multiplierStatus,
+  });
+  selectedReviewTokensRef.current = {
+    from: fromSelectToken,
+    to: toSelectToken,
+    multiplierStatus,
+  };
+
   const preSwapDataRef = useRef<ISwapPreSwapData | undefined>(undefined);
   if (preSwapDataRef.current !== swapStepData.preSwapData) {
     preSwapDataRef.current = swapStepData.preSwapData;
@@ -758,8 +819,16 @@ const SwapMainLoad = ({
     accountId: swapFromAddressInfo.accountInfo?.account?.id,
     fromAddress: swapFromAddressInfo.address,
     toAddress: toAddressInfo.address,
-    fromToken: [fromSelectToken?.networkId, fromSelectToken?.contractAddress],
-    toToken: [toSelectToken?.networkId, toSelectToken?.contractAddress],
+    fromToken: [
+      fromSelectToken?.networkId,
+      fromSelectToken?.contractAddress,
+      fromSelectToken?.balanceMultiplier,
+    ],
+    toToken: [
+      toSelectToken?.networkId,
+      toSelectToken?.contractAddress,
+      toSelectToken?.balanceMultiplier,
+    ],
     fromAmount: fromTokenAmount.value,
     toAmount: swapToAmount.value,
   };
@@ -948,27 +1017,50 @@ const SwapMainLoad = ({
   ]);
 
   const onBalanceMaxPress = useCallback(() => {
+    // XMR fees are known once the exact provider transfer has been built.
+    if (
+      multiplierStatus !== 'ready' ||
+      isXmrSwapNetwork(fromSelectToken?.networkId)
+    )
+      return;
     const maxAmount = checkNativeTokenGasToast();
     if (!maxAmount || maxAmount.isNaN() || !maxAmount.isFinite()) {
       return;
     }
-    const maxAmountValue = maxAmount.toFixed();
-    if (!validateAmountInput(maxAmountValue, fromSelectToken?.decimals)) {
-      return;
-    }
+    if (!fromSelectToken) return;
+    const maxRawAmount = maxAmount
+      .decimalPlaces(fromSelectToken.decimals, BigNumber.ROUND_DOWN)
+      .toFixed();
+    const maxAmountSnapshot = buildSwapMaxAmountSnapshot({
+      rawAmount: maxRawAmount,
+      token: fromSelectToken,
+      accountId: focusSwapPro
+        ? swapProAccount.result?.id
+        : swapFromAddressInfo.accountInfo?.account?.id,
+      accountAddress: focusSwapPro
+        ? swapProAccount.result?.addressDetail.address
+        : swapFromAddressInfo.address,
+    });
+    if (!maxAmountSnapshot) return;
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-      setSwapProInputAmount(maxAmountValue);
+      setSwapProInputAmount(maxAmountSnapshot.displayAmount, maxAmountSnapshot);
     } else {
-      setFromInputAmount({
-        value: maxAmountValue,
+      setSwapUserInputAmount(ESwapDirectionType.FROM, {
+        value: maxAmountSnapshot.displayAmount,
         isInput: true,
+        maxAmountSnapshot,
       });
     }
   }, [
     checkNativeTokenGasToast,
+    multiplierStatus,
     focusSwapPro,
-    fromSelectToken?.decimals,
-    setFromInputAmount,
+    fromSelectToken,
+    swapFromAddressInfo.address,
+    swapFromAddressInfo.accountInfo?.account?.id,
+    swapProAccount.result?.addressDetail.address,
+    swapProAccount.result?.id,
+    setSwapUserInputAmount,
     setSwapProInputAmount,
     swapProTradeType,
   ]);
@@ -979,26 +1071,36 @@ const SwapMainLoad = ({
         onBalanceMaxPress();
         return;
       }
-      if (!safeFromTokenBalanceAmount) {
+      // The token multiplier must be ready before a share of the balance can
+      // be shown in display units.
+      if (!safeFromTokenBalanceAmount || multiplierStatus !== 'ready') {
         return;
       }
-      const amountBN = safeFromTokenBalanceAmount.multipliedBy(stage / 100);
-      const amountAfterDecimal = amountBN.decimalPlaces(
-        Number(fromSelectToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
+      // A share of the balance is only as precise as the balance the user
+      // reads, the same grid the Pro slider drags on. Filling every token
+      // decimal gives an amount too long to read; 100% above is the one stage
+      // that must be exact.
+      const displayAmount = calcSwapPercentageStageAmount({
+        percent: stage,
+        availableBalance: safeFromTokenBalanceAmount,
+        decimals: fromSelectToken?.decimals,
+        balanceMultiplier: fromSelectToken?.balanceMultiplier,
+      });
       if (
-        !amountAfterDecimal.isNaN() &&
+        displayAmount !== undefined &&
         validateAmountInput(
-          amountAfterDecimal.toFixed(),
-          fromSelectToken?.decimals,
+          displayAmount,
+          getSwapDisplayDecimals(
+            fromSelectToken?.decimals,
+            fromSelectToken?.balanceMultiplier,
+          ),
         )
       ) {
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-          setSwapProInputAmount(amountAfterDecimal.toFixed());
+          setSwapProInputAmount(displayAmount);
         } else {
-          setFromInputAmount({
-            value: amountAfterDecimal.toFixed(),
+          setSwapUserInputAmount(ESwapDirectionType.FROM, {
+            value: displayAmount,
             isInput: true,
           });
         }
@@ -1006,12 +1108,13 @@ const SwapMainLoad = ({
     },
     [
       safeFromTokenBalanceAmount,
-      fromSelectToken?.decimals,
+      fromSelectToken,
+      multiplierStatus,
       focusSwapPro,
       swapProTradeType,
       onBalanceMaxPress,
       setSwapProInputAmount,
-      setFromInputAmount,
+      setSwapUserInputAmount,
     ],
   );
 
@@ -1083,7 +1186,11 @@ const SwapMainLoad = ({
   );
 
   const parseQuoteResultToSteps = useCallback(
-    (stockReviewToken?: ISwapToken, reviewTokens?: ISwapReviewTokens) => {
+    (
+      stockReviewToken?: ISwapToken,
+      reviewTokens?: ISwapReviewTokens,
+      scaledLimitAmounts?: ISwapLimitRawAmounts,
+    ) => {
       if (!currentQuoteRes) {
         return;
       }
@@ -1098,6 +1205,22 @@ const SwapMainLoad = ({
         swapToAmount: swapToAmount.value,
         quoteToAmount: currentQuoteRes.toAmount,
       });
+      const limitFromAmount =
+        fromSelectToken && reviewTokenAmounts.fromTokenAmount
+          ? getSwapRawInputAmount(
+              reviewTokenAmounts.fromTokenAmount,
+              fromSelectToken,
+              'down',
+            )
+          : undefined;
+      const limitToAmount =
+        toSelectToken && reviewTokenAmounts.toTokenAmount
+          ? getSwapRawInputAmount(
+              reviewTokenAmounts.toTokenAmount,
+              toSelectToken,
+              'up',
+            )
+          : undefined;
 
       const reviewRateDifference = isSwapProMarket
         ? buildSwapRateDifference({
@@ -1107,7 +1230,11 @@ const SwapMainLoad = ({
             toTokenCurrency: toSelectToken?.currency,
             defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
             currencyMap,
-            instantRate: currentQuoteRes.instantRate,
+            instantRate: getSwapDisplayRate(
+              currentQuoteRes.instantRate ?? '',
+              fromSelectToken?.balanceMultiplier,
+              toSelectToken?.balanceMultiplier,
+            ),
           })
         : rateDifference;
       const shouldFallback =
@@ -1125,8 +1252,21 @@ const SwapMainLoad = ({
         toToken: toSelectToken,
         stockReviewToken,
         reviewTokens,
-        fromTokenAmount: reviewTokenAmounts.fromTokenAmount,
-        toTokenAmount: reviewTokenAmounts.toTokenAmount,
+        fromTokenAmount:
+          scaledLimitAmounts?.fromTokenAmount ??
+          (currentQuoteRes.protocol === EProtocolOfExchange.LIMIT
+            ? limitFromAmount
+            : undefined) ??
+          currentQuoteRes.fromAmount ??
+          limitFromAmount,
+        toTokenAmount:
+          scaledLimitAmounts?.toTokenAmount ??
+          (currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+          !isSwapProMarket
+            ? limitToAmount
+            : undefined) ??
+          currentQuoteRes.toAmount ??
+          limitToAmount,
         quoteResult: currentQuoteRes,
         swapType: getSwapExecutionTypeFromQuoteResult(currentQuoteRes),
         shouldFallback,
@@ -1170,6 +1310,22 @@ const SwapMainLoad = ({
   );
   const onActionHandler = useCallback(
     (isQuoteValid?: ISwapReviewQuoteValidity) => {
+      const data = preSwapDataRef.current;
+      const selected = selectedReviewTokensRef.current;
+      if (
+        data &&
+        (selected.multiplierStatus !== 'ready' ||
+          !isSwapReviewMultiplierCurrent(data.fromToken, selected.from) ||
+          !isSwapReviewMultiplierCurrent(data.toToken, selected.to))
+      ) {
+        dialogClose('reviewChanged');
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          }),
+        });
+        return;
+      }
       if (
         (!isQuoteValid || isQuoteValid()) &&
         swapStepsRef.current.length > 0 &&
@@ -1185,7 +1341,12 @@ const SwapMainLoad = ({
         });
       }
     },
-    [markCurrentGasAccountReviewSubmitted, preSwapStepsStart],
+    [
+      dialogClose,
+      intl,
+      markCurrentGasAccountReviewSubmitted,
+      preSwapStepsStart,
+    ],
   );
 
   const onActionHandlerBefore = useCallback(
@@ -1206,33 +1367,19 @@ const SwapMainLoad = ({
           reviewQuote.protocol === EProtocolOfExchange.LIMIT &&
           netCost.gt(0)
         ) {
-          let toRealAmount = new BigNumber(0);
-          const fromAmountBN = new BigNumber(fromTokenAmount.value);
-          const toAmountBN = new BigNumber(swapToAmount.value);
-          if (!toAmountBN.isNaN() && !toAmountBN.isZero()) {
-            toRealAmount = new BigNumber(swapToAmount.value);
-          } else if (
-            !fromAmountBN.isNaN() &&
-            !fromAmountBN.isZero() &&
-            swapLimitUseRate.rate
-          ) {
-            const cToAmountBN = new BigNumber(fromAmountBN).multipliedBy(
-              new BigNumber(swapLimitUseRate.rate),
-            );
-            toRealAmount = cToAmountBN.decimalPlaces(
-              Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
-              BigNumber.ROUND_HALF_UP,
-            );
-          }
-          const calculateNetworkCostExceedPercent =
-            netCost.dividedBy(toRealAmount);
-          if (calculateNetworkCostExceedPercent.lte(new BigNumber(0.1))) {
+          const rawToAmount = new BigNumber(
+            preSwapDataRef.current?.toTokenAmount ?? '',
+          );
+          const calculateNetworkCostExceedPercent = rawToAmount.gt(0)
+            ? netCost.dividedBy(rawToAmount)
+            : undefined;
+          if (calculateNetworkCostExceedPercent?.lte(0.1)) {
             onActionHandler(isQuoteValid);
             return;
           }
-          percentage = calculateNetworkCostExceedPercent
-            .multipliedBy(100)
-            .toFixed(2);
+          percentage =
+            calculateNetworkCostExceedPercent?.multipliedBy(100).toFixed(2) ??
+            percentage;
         }
         const reviewGeneration = reviewGenerationRef.current;
         let confirmed = false;
@@ -1277,14 +1424,7 @@ const SwapMainLoad = ({
         onActionHandler(isQuoteValid);
       }
     },
-    [
-      intl,
-      onActionHandler,
-      swapLimitUseRate.rate,
-      fromTokenAmount.value,
-      swapToAmount.value,
-      toToken?.decimals,
-    ],
+    [intl, onActionHandler],
   );
 
   const handleConfirm = useCallback(
@@ -1349,9 +1489,40 @@ const SwapMainLoad = ({
       if (isSwapProMarketPresetLoading) {
         return;
       }
-      if (!currentQuoteRes) {
+      if (
+        multiplierStatus !== 'ready' ||
+        !currentQuoteRes ||
+        (focusSwapPro &&
+          swapProTradeType === ESwapProTradeType.MARKET &&
+          !canPreviewSwapProMarketQuote(
+            currentQuoteRes,
+            swapProAccount?.result?.addressDetail.address,
+            swapProAccount?.result?.id,
+          )) ||
+        !isSwapReviewMultiplierCurrent(
+          currentQuoteRes.fromTokenInfo,
+          fromSelectToken,
+        ) ||
+        !isSwapReviewMultiplierCurrent(
+          currentQuoteRes.toTokenInfo,
+          toSelectToken,
+        )
+      ) {
         return;
       }
+      const initialReviewIdentity = reviewInputIdentityRef.current;
+      const isScaledLimit =
+        currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+        hasScaledSwapLimitPair(fromSelectToken, toSelectToken);
+      const scaledLimitAmounts = isScaledLimit
+        ? readScaledSwapLimitReviewAmounts(
+            currentQuoteRes,
+            initialReviewIdentity.fromAddress,
+            initialReviewIdentity.accountId,
+            initialReviewIdentity.toAddress,
+          )
+        : undefined;
+      if (isScaledLimit && !scaledLimitAmounts) return;
       if (!focusSwapPro) {
         cleanQuoteInterval();
         setSwapShouldRefreshQuote(true);
@@ -1361,7 +1532,6 @@ const SwapMainLoad = ({
       reviewSlippageEditedRef.current = false;
       beginSwapReview();
       const reviewGeneration = reviewGenerationRef.current;
-      const initialReviewIdentity = reviewInputIdentityRef.current;
       const refreshReviewQuote = async () => {
         const oldQuote = quoteResultRef.current;
         const oldData = preSwapDataRef.current;
@@ -1389,6 +1559,14 @@ const SwapMainLoad = ({
             token1: quoteActionLock.toToken,
             token2: reviewToToken,
           }) ||
+          !isSwapReviewMultiplierCurrent(
+            quoteActionLock.fromToken,
+            fromToken,
+          ) ||
+          !isSwapReviewMultiplierCurrent(
+            quoteActionLock.toToken,
+            reviewToToken,
+          ) ||
           quoteActionLock.accountId !== initialReviewIdentity.accountId ||
           quoteActionLock.address !== initialReviewIdentity.fromAddress ||
           quoteActionLock.receivingAddress !== initialReviewIdentity.toAddress
@@ -1418,14 +1596,20 @@ const SwapMainLoad = ({
               source: quoteActionLock.source,
               fromToken,
               toToken: reviewToToken,
-              fromTokenAmount: quoteActionLock.fromTokenAmount,
-              toTokenAmount: quoteActionLock.toTokenAmount,
+              fromTokenAmount: quoteActionLock.rawFromTokenAmount,
+              toTokenAmount: quoteActionLock.rawToTokenAmount,
               userAddress: quoteActionLock.address,
               receivingAddress: quoteActionLock.receivingAddress,
               accountId: quoteActionLock.accountId,
               incognito: quoteActionLock.incognito,
               kind: quoteActionLock.kind,
               protocol: quoteActionLock.type ?? ESwapTabSwitchType.SWAP,
+              ...(scaledLimitAmounts
+                ? {
+                    userMarketPriceRate:
+                      getSwapLimitRateFromRawAmounts(scaledLimitAmounts),
+                  }
+                : {}),
               slippagePercentage: currentSlippage,
               autoSlippage: !customSlippage,
             },
@@ -1464,8 +1648,10 @@ const SwapMainLoad = ({
                 (!shouldFallback || quote.expiredTime === undefined),
               fromToken,
               toToken: reviewToToken,
-              fromTokenAmount: quote.fromAmount,
-              toTokenAmount: quote.toAmount,
+              fromTokenAmount:
+                scaledLimitAmounts?.fromTokenAmount ?? quote.fromAmount,
+              toTokenAmount:
+                scaledLimitAmounts?.toTokenAmount ?? quote.toAmount,
               quoteResult: quote,
               swapType: getSwapExecutionTypeFromQuoteResult(quote),
               shouldFallback,
@@ -1536,7 +1722,11 @@ const SwapMainLoad = ({
         onPreSwapClose(reviewGeneration);
       };
       beginGasAccountReviewSession();
-      parseQuoteResultToSteps(stockReviewToken, reviewTokens);
+      parseQuoteResultToSteps(
+        stockReviewToken,
+        reviewTokens,
+        scaledLimitAmounts,
+      );
       setSwapBuildTxFetching(true);
       reviewDialogTimerRef.current = setTimeout(() => {
         if (reviewGeneration !== reviewGenerationRef.current) {
@@ -1604,8 +1794,15 @@ const SwapMainLoad = ({
     [
       focusSwapPro,
       swapProAccount?.result?.addressDetail.address,
+      swapProAccount?.result?.id,
+      swapProTradeType,
+      canPreviewSwapProMarketQuote,
+      readScaledSwapLimitReviewAmounts,
       isSwapProMarketPresetLoading,
       currentQuoteRes,
+      multiplierStatus,
+      fromSelectToken,
+      toSelectToken,
       beginGasAccountReviewSession,
       parseQuoteResultToSteps,
       setSwapBuildTxFetching,
@@ -1817,12 +2014,49 @@ const SwapMainLoad = ({
     (platformEnv.isDesktop || platformEnv.isWeb) &&
     !embeddedStockTrade;
 
-  // The third-party service notice belongs to the Swap page itself, not to
-  // Swap opened in a modal or embedded in Market.
+  // The third-party service notice sits under every trade panel that stays on
+  // screen: the Swap page and the panels embedded in Market detail pages, which
+  // report a modal page type. Swap opened in a modal does not show it.
   const showThirdPartyNotice =
+    pageType !== EPageType.modal ||
+    Boolean(embeddedStockTrade) ||
+    isMarketEmbeddedSwap;
+
+  // The media driver keeps iPhones on phone breakpoints, so no $gtMd layout
+  // ever applies on an unfolded iPhone and the form would stretch the amount
+  // and the token selector to opposite edges. The unfolded screen gets two
+  // panes instead. Embedded panels are sized by their host.
+  const isFoldableSwapPage =
+    isFoldableIPhone() &&
     pageType !== EPageType.modal &&
     !embeddedStockTrade &&
     !isMarketEmbeddedSwap;
+  // Swap and Bridge place the provider panel beside the form themselves.
+  const foldableProviderPanelTab =
+    isFoldableSwapPage &&
+    (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+      swapTypeSwitch === ESwapTabSwitchType.BRIDGE);
+  // Stocks places the price chart beside the trade ticket itself.
+  const foldableChartPanelTab =
+    isFoldableSwapPage && swapTypeSwitch === ESwapTabSwitchType.STOCK;
+  // Whether the page is wider than the single-pane cap yet too narrow for two
+  // panes, as the unfolded screen is when turned upright. Such a page is laid
+  // out like a phone: the content fills it. The folded screen is narrower
+  // than the cap, so it reads false there and unfolding never passes through
+  // an uncapped frame. Read from the laid out page rather than from the
+  // window size: while a foldable folds or unfolds the two disagree for a few
+  // frames.
+  const [foldablePhoneWidth, setFoldablePhoneWidth] = useState(false);
+  const handleFoldableContentLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { width } = event.nativeEvent.layout;
+      setFoldablePhoneWidth(
+        width < SWAP_FOLDABLE_TWO_PANE_MIN_PAGE_WIDTH &&
+          width > SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH,
+      );
+    },
+    [],
+  );
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
@@ -1853,6 +2087,7 @@ const SwapMainLoad = ({
           stockTradeHeader={stockTradeHeader}
           stockTradeIdentityLoading={stockTradeIdentityLoading}
           stockTradeToken={stockTradeToken}
+          showThirdPartyNotice={showThirdPartyNotice}
           embedded
         />
       );
@@ -1911,6 +2146,7 @@ const SwapMainLoad = ({
       return (
         <SwapStockMobileContainer
           pageType={pageType}
+          marketStockTrade={marketStockTrade}
           storeName={storeName}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
@@ -1928,6 +2164,7 @@ const SwapMainLoad = ({
           alerts={alerts}
           stockSpeedConfig={stockSpeedConfig}
           showThirdPartyNotice={showThirdPartyNotice}
+          chartPanelCapable={foldableChartPanelTab}
         />
       );
     }
@@ -1955,6 +2192,7 @@ const SwapMainLoad = ({
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
           hideRecentTokenPairs={isMarketEmbeddedSwap}
+          autoFocusFromInput={autoFocusFromInput}
           showThirdPartyNotice={showThirdPartyNotice}
           headerContent={
             gtLg &&
@@ -2003,11 +2241,14 @@ const SwapMainLoad = ({
         supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
         supportNetworksReady={!fetchLoading}
         showThirdPartyNotice={showThirdPartyNotice}
+        providerPanelCapable={foldableProviderPanelTab}
+        autoFocusFromInput={autoFocusFromInput}
       />
     );
   }, [
     showThirdPartyNotice,
     swapTypeSwitch,
+    marketStockTrade,
     embeddedStockTrade,
     stockSpeedConfig,
     stockTradeConfig,
@@ -2040,7 +2281,10 @@ const SwapMainLoad = ({
     swapInitParams?.tradeAgainFromHistory,
     gtLg,
     isMarketEmbeddedSwap,
+    autoFocusFromInput,
     shouldRenderDesktopSwapHeader,
+    foldableProviderPanelTab,
+    foldableChartPanelTab,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -2085,7 +2329,7 @@ const SwapMainLoad = ({
   const { top: safeAreaTop } = useSafeAreaInsets();
   let contentTopPadding: string | number = '$5';
   if (pageType === EPageType.modal) {
-    contentTopPadding = '$2.5';
+    contentTopPadding = marketStockTrade ? '$0' : '$2.5';
   } else if (platformEnv.isNativeIOS) {
     // Foldable iPhones report a top inset of 0, so only MDHeader's spacer sits
     // above this row; center it on the camera line like the Wallet header.
@@ -2102,6 +2346,7 @@ const SwapMainLoad = ({
   // mounted while the tab-specific container changes.
   const renderSwapHeader = () => {
     if (
+      marketStockTrade ||
       embeddedStockTrade ||
       (!shouldRenderDesktopSwapHeader &&
         gtLg &&
@@ -2124,6 +2369,7 @@ const SwapMainLoad = ({
         }
         showSwapPro={platformEnv.isNative}
         hideRightActions={showDesktopProviderPanel}
+        hideStockAndProTabs={marketNonStockTrade}
         enterFrom={swapInitParams?.swapSource}
         singleSwapBridgeTab={singleSwapBridgeHeader}
         marketPresetSettings={
@@ -2225,9 +2471,41 @@ const SwapMainLoad = ({
                 </YStack>
               </YStack>
             </SwapRevealSnapshotProvider>
-          ) : (
-            swapContent
-          )}
+          ) : null}
+          {!shouldRenderDesktopSwapHeader && isFoldableSwapPage ? (
+            // Foldable phones keep one wrapper in every posture, so folding
+            // never remounts the content. The outer one always spans the
+            // page and reports its width. Tabs that have no second pane are
+            // capped and centered on a screen wide enough for two panes
+            // instead of stretching across it; the cap is wider than the
+            // folded screen, so nothing changes there, and a plain max width
+            // needs no window size, so folding never applies it a frame late.
+            <YStack
+              flex={1}
+              minHeight={0}
+              width="100%"
+              onLayout={handleFoldableContentLayout}
+            >
+              <YStack
+                flex={1}
+                minHeight={0}
+                width="100%"
+                alignSelf="center"
+                maxWidth={
+                  foldableProviderPanelTab ||
+                  foldableChartPanelTab ||
+                  foldablePhoneWidth
+                    ? undefined
+                    : SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH
+                }
+              >
+                {swapContent}
+              </YStack>
+            </YStack>
+          ) : null}
+          {!shouldRenderDesktopSwapHeader && !isFoldableSwapPage
+            ? swapContent
+            : null}
         </YStack>
       </Page.Container>
     </StockReceiveSnapshotProvider>
@@ -2237,7 +2515,10 @@ const SwapMainLoad = ({
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const {
+    clearInputAmounts,
     initialInputAmountDraft,
+    marketNonStockTrade,
+    marketStockTrade,
     pageType,
     singleSwapBridgeHeader,
     stockTradeIdentityLoading,
@@ -2245,26 +2526,39 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     storeName: providedStoreName,
     swapInitParams,
   } = props;
+  const locale = useLocaleVariant().toLowerCase();
   const [historyEntry, setHistoryEntry] = useState<{
     params: ISwapInitParams;
     sourceIntentKey: string;
+    sourceIntentKeyAfterPrefill?: string;
   }>();
   const sourceIntentKey = getSwapHistorySourceIntentKey(swapInitParams);
-  const sourceIntentKeyRef = useRef(sourceIntentKey);
-  sourceIntentKeyRef.current = sourceIntentKey;
+  const historySourceRef = useRef({ sourceIntentKey, swapInitParams });
+  historySourceRef.current = { sourceIntentKey, swapInitParams };
+  const tradeAgainSource = {
+    marketNonStockTrade,
+    marketStockTrade,
+    swapInitParams,
+    locale,
+  };
+  const tradeAgainSourceRef = useRef(tradeAgainSource);
+  tradeAgainSourceRef.current = tradeAgainSource;
   const controlledStockTokenRef = useRef(stockTradeToken);
   controlledStockTokenRef.current = stockTradeToken;
   const stockTradeIdentityLoadingRef = useRef(stockTradeIdentityLoading);
   stockTradeIdentityLoadingRef.current = stockTradeIdentityLoading;
-  const historyMatchesSource =
-    historyEntry?.sourceIntentKey === sourceIntentKey;
+  const activeHistoryEntry =
+    historyEntry?.sourceIntentKey === sourceIntentKey ||
+    historyEntry?.sourceIntentKeyAfterPrefill === sourceIntentKey
+      ? historyEntry
+      : undefined;
   useEffect(() => {
-    if (historyEntry && !historyMatchesSource) {
+    if (historyEntry && !activeHistoryEntry) {
       setHistoryEntry((current) =>
         current === historyEntry ? undefined : current,
       );
     }
-  }, [historyEntry, historyMatchesSource]);
+  }, [activeHistoryEntry, historyEntry]);
   const tradeAgainScrollViewRef = useRef<ISwapHistoryScrollHandle>(null);
   const historyScrollCleanupRef = useRef<(() => void) | undefined>(undefined);
   const sourceNavigation = useNavigation();
@@ -2284,11 +2578,17 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       historyScrollCleanupRef.current = undefined;
     };
   }, []);
+  const isTradeAgainAllowed = useCallback(
+    (params: ISwapInitParams) =>
+      isTradeAgainAllowedInMarketModal(params, tradeAgainSourceRef.current),
+    [],
+  );
   const onTradeAgainFromHistory = useCallback(
     (params: ISwapInitParams) => {
       if (
         !historySourceMountedRef.current ||
         stockTradeIdentityLoadingRef.current ||
+        !isTradeAgainAllowed(params) ||
         !canHandleTradeAgainInSource(params, controlledStockTokenRef.current)
       ) {
         return false;
@@ -2316,14 +2616,37 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           if (frame !== undefined) cancelAnimationFrame(frame);
         };
       }
+      const source = historySourceRef.current;
+      const prefill = source.swapInitParams?.swapTabPrefill;
       historyRequestIdRef.current += 1;
       setHistoryEntry({
         params: { ...params, tradeAgainRequestId: historyRequestIdRef.current },
-        sourceIntentKey: sourceIntentKeyRef.current,
+        sourceIntentKey: source.sourceIntentKey,
+        // Older route params can carry a prefill without a navigation ID.
+        sourceIntentKeyAfterPrefill:
+          prefill && !source.swapInitParams?.swapTabNavigationId
+            ? getSwapHistorySourceIntentKey({
+                ...source.swapInitParams,
+                swapTabPrefill: undefined,
+              })
+            : undefined,
       });
+      if (prefill) retireSwapTabPrefill(prefill);
       return true;
     },
-    [sourceNavigation],
+    [isTradeAgainAllowed, sourceNavigation],
+  );
+  const tradeAgainHandler = useMemo(
+    () => ({
+      isAllowed: isTradeAgainAllowed,
+      refreshEligibility: (params: ISwapInitParams) =>
+        refreshMarketStockTradeAgainEligibility(
+          params,
+          tradeAgainSourceRef.current,
+        ),
+      handle: onTradeAgainFromHistory,
+    }),
+    [isTradeAgainAllowed, onTradeAgainFromHistory],
   );
   let entryStoreName = EJotaiContextStoreNames.swap;
   if (pageType === EPageType.modal) {
@@ -2366,48 +2689,68 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                   }))
             : undefined,
           preserveInputAmounts: preserveMarketModalAmounts,
+          clearInputAmounts,
           swapType:
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }
       : undefined;
   const effectiveSwapInitParams = useMemo(
     () =>
-      historyEntry && historyMatchesSource
+      activeHistoryEntry
         ? {
             swapSource: swapInitParams?.swapSource,
             closeModalAfterSwapBroadcast:
               swapInitParams?.closeModalAfterSwapBroadcast,
             onSwapBroadcast: swapInitParams?.onSwapBroadcast,
-            ...historyEntry.params,
+            ...activeHistoryEntry.params,
           }
         : swapInitParams,
-    [historyEntry, historyMatchesSource, swapInitParams],
+    [activeHistoryEntry, swapInitParams],
   );
+  const isSwapTabPrefillPending = Boolean(
+    effectiveSwapInitParams?.swapTabPrefill,
+  );
+  const historyChannelSourceKey =
+    activeHistoryEntry?.sourceIntentKey ?? sourceIntentKey;
   const channelIntent = useMemo(
     () =>
       effectiveSwapInitParams?.tradeAgainFromHistory
         ? {
-            key: `${sourceIntentKey}|${effectiveSwapInitParams.tradeAgainRequestId ?? ''}|${getSwapHistorySourceIntentKey(effectiveSwapInitParams)}`,
+            key: `${historyChannelSourceKey}|${effectiveSwapInitParams.tradeAgainRequestId ?? ''}|${getSwapHistorySourceIntentKey(effectiveSwapInitParams)}`,
             params: effectiveSwapInitParams,
             claim: claimHistoryIntent,
           }
         : undefined,
-    [claimHistoryIntent, effectiveSwapInitParams, sourceIntentKey],
+    [claimHistoryIntent, effectiveSwapInitParams, historyChannelSourceKey],
   );
 
+  const defaultToSwapOnInit =
+    platformEnv.isNative && pageType === EPageType.modal && marketNonStockTrade;
+  const fallbackNetworkId =
+    defaultToSwapOnInit &&
+    !initialSelectedTokensOnInit &&
+    effectiveSwapInitParams === swapInitParams &&
+    swapInitParams?.importNetworkId;
+  const pendingSwapDraft = useMemo(
+    () =>
+      fallbackNetworkId
+        ? { current: undefined as ISwapInputAmountDraft | undefined }
+        : undefined,
+    [fallbackNetworkId],
+  );
   return (
     <SwapProviderMirror
       storeName={storeName}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
+      defaultToSwapOnInit={defaultToSwapOnInit}
+      pendingSwapDraft={pendingSwapDraft}
       homeSelectedAccountOnInit={homeSelectedAccountOnInit}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <LazyPageContainer>
-          <SwapHistoryTradeAgainContext.Provider
-            value={onTradeAgainFromHistory}
-          >
+          <SwapHistoryTradeAgainContext.Provider value={tradeAgainHandler}>
             <SwapInitialSelectionTimeoutContext.Provider
               value={
                 !effectiveSwapInitParams?.tradeAgainFromHistory &&
@@ -2420,12 +2763,17 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                 <SwapHistoryScrollRefContext.Provider
                   value={tradeAgainScrollViewRef}
                 >
-                  <SwapMainLoad
-                    {...props}
-                    storeName={storeName}
-                    pageType={pageType}
-                    swapInitParams={effectiveSwapInitParams}
-                  />
+                  <SwapTabPrefillPendingContext.Provider
+                    value={isSwapTabPrefillPending}
+                  >
+                    <SwapMainLoad
+                      {...props}
+                      storeName={storeName}
+                      pageType={pageType}
+                      pendingSwapDraft={pendingSwapDraft}
+                      swapInitParams={effectiveSwapInitParams}
+                    />
+                  </SwapTabPrefillPendingContext.Provider>
                 </SwapHistoryScrollRefContext.Provider>
               </SwapHistoryChannelIntentContext.Provider>
             </SwapInitialSelectionTimeoutContext.Provider>

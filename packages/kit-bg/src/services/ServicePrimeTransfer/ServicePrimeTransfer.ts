@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { getLocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -121,7 +122,7 @@ import {
 } from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 import { shouldAbortAccountCreation } from '../ServiceBatchCreateAccount/accountCreationErrors';
-import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup';
+import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup/consts';
 
 import {
   PrimeTransferChunkReceiver,
@@ -1481,9 +1482,11 @@ class ServicePrimeTransfer extends ServiceBase {
   private async buildScopedTransferCredentials({
     privateBackupData,
     preparation,
+    isForCloudBackup,
   }: {
     privateBackupData: IPrimeTransferPrivateData;
     preparation?: PrimeTransferPreparation;
+    isForCloudBackup?: boolean;
   }): Promise<{
     credentials: Record<string, string>;
     unavailableCredentialIds: string[];
@@ -1541,10 +1544,14 @@ class ServicePrimeTransfer extends ServiceBase {
           }
           return [credentialId, portableCredential] as const;
         } catch (error) {
-          // Skip credentials whose local secret envelope layer is transiently
-          // unavailable instead of aborting the whole transfer via Promise.all.
-          // The caller surfaces these for user confirmation before sending.
-          // Genuine corruption / other errors still propagate.
+          const issue = getLocalSecretEnvelopeCredentialIssue(error);
+          if (
+            (issue?.reason === 'authentication-failed' &&
+              !platformEnv.isDesktop) ||
+            (issue && isForCloudBackup)
+          ) {
+            throw error;
+          }
           if (error instanceof LocalSecretEnvelopeUnavailable) {
             unavailableCredentialIds.push(credentialId);
             return undefined;
@@ -1983,6 +1990,7 @@ class ServicePrimeTransfer extends ServiceBase {
       (await this.buildScopedTransferCredentials({
         privateBackupData,
         preparation,
+        isForCloudBackup,
       }));
     privateBackupData.credentials = builtCredentials;
     await preparation?.update('credentials');
@@ -1999,8 +2007,8 @@ class ServicePrimeTransfer extends ServiceBase {
     // Cloud backup must never silently produce a partial backup: a partial
     // backup can overwrite a previous complete one and lose the only
     // recoverable copy of the skipped wallet. Fail fast with a clear,
-    // retryable message. Interactive transfer instead keeps
-    // unavailableCredentials and lets the user confirm.
+    // retryable message. Interactive transfer omits unreadable credentials
+    // and retains their labels for the caller.
     //
     // Surface it as a normal toast: set autoToast explicitly because
     // LocalSecretEnvelopeUnavailable defaults autoToast=false, and the

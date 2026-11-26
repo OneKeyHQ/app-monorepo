@@ -94,6 +94,7 @@ import { KeylessPassiveMigrationNetworkError } from './keylessPassiveMigrationEr
 import { buildKeylessLocalEncryptionKeyWithPassword } from './utils/keylessLocalEncryptionKey';
 import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
 import keylessStorageUtils from './utils/keylessStorageUtils';
+import keylessSyncCredentialStorage from './utils/keylessSyncCredentialStorage';
 
 import type { JuiceboxClient } from './utils/JuiceboxClient';
 import type {
@@ -4279,6 +4280,28 @@ class ServiceKeylessWallet extends ServiceBase {
 
       await this.removeLegacyKeylessOAuthTokens({ ownerId });
     });
+  }
+
+  async eraseKeylessStorageForAppReset(): Promise<void> {
+    const { wallets } = await localDb.getAllWallets();
+    const refilledWallets = await Promise.all(
+      wallets
+        .filter((wallet) => wallet.isKeyless)
+        .map((wallet) => localDb.refillWalletInfo({ wallet })),
+    );
+    const ownerIds = new Set(
+      refilledWallets.flatMap((wallet) => {
+        const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+        return ownerId ? [ownerId] : [];
+      }),
+    );
+    await keylessStorageUtils.eraseItemsForAppReset([
+      ...keylessSyncCredentialStorage.resetStorageKeys,
+      ...[...ownerIds].flatMap((ownerId) => [
+        accountUtils.buildKeylessRefreshTokenKey({ ownerId }),
+        accountUtils.buildKeylessMnemonicPasswordKey({ ownerId }),
+      ]),
+    ]);
   }
 
   @backgroundMethod()

@@ -4,6 +4,7 @@ export const DeviceManagementTestIDs = {
   deviceStatusConnected: 'device-mgmt-device-status-connected',
   deviceStatusDisconnected: 'device-mgmt-device-status-disconnected',
   addNewDeviceBtn: 'device-mgmt-add-new-device-btn',
+  addDeviceHeaderBtn: 'device-mgmt-add-device-header-btn',
 
   // --- Device Details ---
   detailsContent: 'device-mgmt-details-content',
@@ -13,6 +14,7 @@ export const DeviceManagementTestIDs = {
   authRequestItem: 'device-mgmt-auth-request-item',
   checkForUpdatesItem: 'device-mgmt-check-for-updates-item',
   troubleshootingItem: 'device-mgmt-troubleshooting-item',
+  firmwareUpdateLink: 'device-mgmt-firmware-update-link',
 
   // --- General Section ---
   languageSelect: 'device-mgmt-language-select',
@@ -48,4 +50,9 @@ export const DeviceManagementTestIDs = {
   contactSupportBtn: 'device-mgmt-contact-support-btn',
   helpCenterBtn: 'device-mgmt-help-center-btn',
   copySerialBtn: 'device-mgmt-copy-serial-btn',
+
+  // --- Device Details help sidebar ---
+  helpFaqItem: 'device-mgmt-help-faq-item',
+  helpFaqViewMoreBtn: 'device-mgmt-help-faq-view-more-btn',
+  helpContactSupportBtn: 'device-mgmt-help-contact-support-btn',
 } as const;

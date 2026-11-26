@@ -12,6 +12,13 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
+type ISwapProNetworkUpdate = {
+  num: number;
+  networkId: string;
+  reason?: string;
+  shouldCommit?: () => boolean;
+};
+
 type ISwapProTestState = {
   initializeSwapProSelectToken: jest.Mock;
   resetQuoteAction: jest.Mock;
@@ -35,10 +42,40 @@ type ISwapProTestState = {
   defaultTokens: ISwapToken[];
 };
 
+const mockGetSelectedAccount = jest.fn();
+const mockUpdateSelectedAccountNetwork = jest.fn<
+  Promise<void>,
+  [ISwapProNetworkUpdate]
+>();
+const mockNavigationBlurListeners = new Set<() => void>();
+const mockNavigation = {
+  isFocused: jest.fn<boolean, []>(),
+  addListener: (_event: 'blur', listener: () => void) => {
+    mockNavigationBlurListeners.add(listener);
+    return () => {
+      mockNavigationBlurListeners.delete(listener);
+    };
+  },
+};
+
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: false },
 }));
+
+jest.mock('@react-navigation/core', () => {
+  const { createContext } = jest.requireActual<typeof import('react')>('react');
+  return {
+    ...jest.requireActual<typeof import('@react-navigation/core')>(
+      '@react-navigation/core',
+    ),
+    NavigationContext: createContext({
+      isFocused: () => mockNavigation.isFocused(),
+      addListener: (...args: Parameters<typeof mockNavigation.addListener>) =>
+        mockNavigation.addListener(...args),
+    }),
+  };
+});
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => {
   const getGlobalDeriveTypeOfNetwork = jest.fn();
@@ -62,6 +99,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => {
       },
       serviceAccount: { getNetworkAccount },
       serviceNetwork: { getGlobalDeriveTypeOfNetwork },
+      serviceSwap: { fetchSwapTokenDetails: jest.fn().mockResolvedValue([]) },
     },
   };
 });
@@ -142,11 +180,26 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => {
 
 jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => ({
   useAccountSelectorActions: () => ({
-    current: { updateSelectedAccountNetwork: jest.fn() },
+    current: {
+      getSelectedAccount: mockGetSelectedAccount,
+      updateSelectedAccountNetwork: mockUpdateSelectedAccountNetwork,
+    },
   }),
 }));
 
 jest.mock('../../../states/jotai/contexts/swap', () => {
+  const { atom, createStore } =
+    jest.requireActual<typeof import('jotai/vanilla')>('jotai/vanilla');
+  const store = createStore();
+  const typeAtom = atom('limit' as ESwapTabSwitchType);
+  const selectedTokenAtom = atom({
+    accountAddress: undefined,
+    balanceParsed: '1',
+    contractAddress: 'btc',
+    isNative: true,
+    networkId: 'btc--0',
+    symbol: 'BTC',
+  } as ISwapToken);
   const state: ISwapProTestState = {
     initializeSwapProSelectToken: jest.fn(),
     resetQuoteAction: jest.fn(),
@@ -160,16 +213,19 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     inputAmount: '',
     direction: 'sell' as ESwapDirection,
     tradeType: 'market' as ESwapProTradeType,
-    tab: 'limit' as ESwapTabSwitchType,
+    get tab() {
+      return store.get(typeAtom);
+    },
+    set tab(type) {
+      store.set(typeAtom, type);
+    },
     defaultTokens: [],
-    selectedToken: {
-      accountAddress: undefined,
-      balanceParsed: '1',
-      contractAddress: 'btc',
-      isNative: true,
-      networkId: 'btc--0',
-      symbol: 'BTC',
-    } as ISwapToken,
+    get selectedToken() {
+      return store.get(selectedTokenAtom);
+    },
+    set selectedToken(token) {
+      store.set(selectedTokenAtom, token);
+    },
   };
   (
     globalThis as unknown as {
@@ -184,6 +240,9 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     state.sellToken = token;
   });
   return {
+    swapProSelectTokenAtom: () => selectedTokenAtom,
+    swapTypeSwitchAtom: () => typeAtom,
+    useSwapContextData: () => ({ store }),
     useSwapActions: () => ({
       current: {
         beginSwapProTokenBalanceRequest: jest.fn(() => 1),
@@ -194,6 +253,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
         resetQuoteAction: state.resetQuoteAction,
         resumeQuoteAction: state.resumeQuoteAction,
         quoteSpeedAction: state.quoteSpeedAction,
+        syncSwapProReceiveTokenDetail: jest.fn().mockResolvedValue(undefined),
       },
     }),
     useSwapFromTokenAmountAtom: () => [{ value: '', isInput: true }, setter],
@@ -336,10 +396,16 @@ const swapProJumpTokenState = (
     __swapProJumpTokenState: { token: ISwapToken | undefined };
   }
 ).__swapProJumpTokenState;
+const initialSelectedToken = swapProAtomState.selectedToken;
+const initialSelectedAccount = { ...selectedAccountState.selectedAccount };
 
 beforeEach(() => {
-  selectedAccountState.selectedAccount.deriveType = 'BIP44';
-  selectedAccountState.selectedAccount.networkId = 'btc--0';
+  mockGetSelectedAccount.mockImplementation(
+    () => selectedAccountState.selectedAccount,
+  );
+  mockNavigation.isFocused.mockImplementation(() => swapProAtomState.focused);
+  mockUpdateSelectedAccountNetwork.mockReset().mockResolvedValue(undefined);
+  selectedAccountState.selectedAccount = { ...initialSelectedAccount };
   accountServices.getGlobalDeriveTypeOfNetwork.mockReset();
   accountServices.getNetworkAccount.mockReset();
   promiseResultCalls.length = 0;
@@ -353,6 +419,7 @@ beforeEach(() => {
   swapProAtomState.direction = ESwapDirection.SELL;
   swapProAtomState.tradeType = ESwapProTradeType.MARKET;
   swapProAtomState.tab = ESwapTabSwitchType.LIMIT;
+  swapProAtomState.selectedToken = initialSelectedToken;
   swapProAtomState.defaultTokens = [];
   swapProAtomState.setInputAmount.mockClear();
   swapProAtomState.resetQuoteAction.mockClear();
@@ -361,6 +428,122 @@ beforeEach(() => {
   swapProAtomState.locked = false;
   swapProAtomState.focused = true;
   swapProAtomState.tokenDetail = undefined;
+});
+
+describe('useSwapProAccount network sync ownership', () => {
+  let pending: Array<ISwapProNetworkUpdate & { complete: () => void }>;
+
+  beforeEach(() => {
+    platformEnv.isNative = true;
+    selectedAccountState.selectedAccount.networkId = 'evm--1';
+    pending = [];
+    mockUpdateSelectedAccountNetwork.mockImplementation(
+      (update) =>
+        new Promise<void>((complete) => pending.push({ ...update, complete })),
+    );
+  });
+
+  afterEach(() => {
+    pending.forEach(({ complete }) => complete());
+  });
+
+  it('skips network updates for consumers that only read the Pro account', () => {
+    renderHook(() => useSwapProAccount());
+    expect(pending).toHaveLength(0);
+  });
+
+  it('reschedules an eligible Pro network sync for a new selection', async () => {
+    const { rerender, result } = renderHook(() =>
+      useSwapProAccount({ syncAccountNetwork: true }),
+    );
+    expect(result.current.indexedAccountId).toBe('indexed-1');
+    expect(pending).toHaveLength(1);
+    const [oldUpdate] = pending;
+    expect(oldUpdate.networkId).toBe('btc--0');
+    expect(oldUpdate.shouldCommit?.()).toBe(true);
+
+    selectedAccountState.selectedAccount = {
+      ...selectedAccountState.selectedAccount,
+      focusedWallet: 'hd-2',
+    };
+    rerender({});
+    expect(pending).toHaveLength(1);
+    expect(oldUpdate.shouldCommit?.()).toBe(true);
+
+    selectedAccountState.selectedAccount = {
+      ...selectedAccountState.selectedAccount,
+      indexedAccountId: 'indexed-2',
+    };
+    expect(oldUpdate.shouldCommit?.()).toBe(false);
+    rerender({});
+    expect(result.current.indexedAccountId).toBe('indexed-2');
+    expect(pending).toHaveLength(2);
+    const newUpdate = pending[1];
+    expect(newUpdate.networkId).toBe('btc--0');
+    await act(async () => oldUpdate.complete());
+    expect(newUpdate.shouldCommit?.()).toBe(true);
+  });
+
+  it('revokes the queued Pro switch before rendering the new Swap mode', () => {
+    const { rerender } = renderHook(() =>
+      useSwapProAccount({ syncAccountNetwork: true }),
+    );
+    expect(pending).toHaveLength(1);
+    const [oldUpdate] = pending;
+    expect(oldUpdate.shouldCommit?.()).toBe(true);
+
+    swapProAtomState.tab = ESwapTabSwitchType.SWAP;
+    expect(oldUpdate.shouldCommit?.()).toBe(false);
+    rerender({});
+
+    swapProAtomState.tab = ESwapTabSwitchType.LIMIT;
+    rerender({});
+    expect(oldUpdate.shouldCommit?.()).toBe(false);
+    expect(pending.at(-1)?.shouldCommit?.()).toBe(true);
+  });
+
+  it('lets the newest target own the switch and preserves a newer account selection', () => {
+    const { rerender, unmount } = renderHook(() =>
+      useSwapProAccount({ syncAccountNetwork: true }),
+    );
+    const [oldUpdate] = pending;
+    expect(oldUpdate.shouldCommit?.()).toBe(true);
+
+    swapProAtomState.selectedToken = {
+      ...swapProAtomState.selectedToken,
+      symbol: 'Updated',
+    };
+    expect(oldUpdate.shouldCommit?.()).toBe(true);
+
+    swapProAtomState.selectedToken = {
+      ...swapProAtomState.selectedToken,
+      networkId: 'tron--0',
+    };
+    expect(oldUpdate.shouldCommit?.()).toBe(false);
+    rerender({});
+    const newUpdate = pending.at(-1);
+    expect(oldUpdate.shouldCommit?.()).toBe(false);
+    expect(newUpdate?.networkId).toBe('tron--0');
+    expect(newUpdate?.shouldCommit?.()).toBe(true);
+
+    selectedAccountState.selectedAccount.networkId = 'evm--137';
+    expect(newUpdate?.shouldCommit?.()).toBe(false);
+    selectedAccountState.selectedAccount.networkId = 'evm--1';
+    unmount();
+    expect(newUpdate?.shouldCommit?.()).toBe(false);
+  });
+
+  it('keeps a queued switch revoked after route blur and refocus', () => {
+    renderHook(() => useSwapProAccount({ syncAccountNetwork: true }));
+    const [update] = pending;
+    expect(update.shouldCommit?.()).toBe(true);
+
+    swapProAtomState.focused = false;
+    mockNavigationBlurListeners.forEach((listener) => listener());
+    swapProAtomState.focused = true;
+
+    expect(update.shouldCommit?.()).toBe(false);
+  });
 });
 
 describe('useSwapProAccount cache identity', () => {

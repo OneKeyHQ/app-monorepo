@@ -6,10 +6,35 @@ import {
 } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
 
-import tokenRebaseUtils from './tokenRebaseUtils';
+import { generateUUID } from './miscUtils';
 import { equalTokenNoCaseSensitive } from './tokenUtils';
 
-import type { ISwapNetwork, ISwapToken } from '../../types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapTabPrefill,
+  ISwapToken,
+} from '../../types/swap/types';
+
+const retiredSwapTabPrefills = new WeakSet<ISwapTabPrefill>();
+
+export function buildSwapTabNavigationParams(
+  tab: string | undefined,
+  swapPrefill?: ISwapTabPrefill,
+) {
+  return {
+    tab,
+    swapPrefill,
+    swapTabNavigationId: swapPrefill?.requestId ?? generateUUID(),
+  };
+}
+
+export function markSwapTabPrefillRetired(prefill: ISwapTabPrefill) {
+  retiredSwapTabPrefills.add(prefill);
+}
+
+export function isSwapTabPrefillRetired(prefill: ISwapTabPrefill) {
+  return retiredSwapTabPrefills.has(prefill);
+}
 
 type ISwapEntryTokenIdentity = {
   networkId?: string;
@@ -152,9 +177,8 @@ function getConfiguredNativeCrossChainCounterpart({
   }
 
   if (
-    (configuredTo.balanceMultiplier !== undefined &&
-      typeof configuredTo.balanceMultiplier !== 'string') ||
-    tokenRebaseUtils.isScalingBalanceMultiplier(configuredTo.balanceMultiplier)
+    configuredTo.balanceMultiplier !== undefined &&
+    typeof configuredTo.balanceMultiplier !== 'string'
   ) {
     return undefined;
   }

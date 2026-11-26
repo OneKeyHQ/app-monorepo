@@ -11,6 +11,7 @@ import {
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import { getLocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPasswordMode } from '@onekeyhq/shared/types/password';
@@ -76,13 +77,16 @@ const PasswordUpdateContainer = ({
         });
       } catch (e) {
         console.error(e);
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.auth_new_passcode_same_as_old,
-          }),
-        });
+        if (!getLocalSecretEnvelopeCredentialIssue(e)) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.auth_new_passcode_same_as_old,
+            }),
+          });
+        }
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     },
     [
       oldEncodedPassword,

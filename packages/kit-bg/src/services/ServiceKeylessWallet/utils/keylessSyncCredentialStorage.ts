@@ -4,9 +4,14 @@ import {
   KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
   KEYLESS_SYNC_CREDENTIAL_STORAGE_KEY,
 } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type {
+  IHardwareCloudSyncKeySource,
+  IKeylessCloudSyncCredential,
+} from '@onekeyhq/shared/types/keylessCloudSync';
 
+import { getCloudSyncStorageEnvironmentForRuntime } from '../../../states/jotai/jotaiStorageConsts';
 import {
   EAppCryptoSharedEncryptScene,
   encryptStringAsyncWithFormat,
@@ -16,13 +21,25 @@ import { logHardwareCloudSyncDiagnostic } from '../../ServiceKeylessCloudSync/ha
 import keylessStorageUtils from './keylessStorageUtils';
 
 const STORAGE_KEY = 'keyless_sync_credentials';
+// Expo SecureStore keys allow only letters, digits, period, hyphen and underscore.
+const TEST_STORAGE_KEY = 'keyless_sync_credentials_test';
+
+function getStorageKey() {
+  const env = getCloudSyncStorageEnvironmentForRuntime();
+  if (!env)
+    throw new OneKeyLocalError(
+      'Cloud Sync storage environment is not initialized',
+    );
+  return env === 'test' ? TEST_STORAGE_KEY : STORAGE_KEY;
+}
 
 type ICredentialMap = Record<string, IKeylessCloudSyncCredential>;
 
 async function readMap(): Promise<ICredentialMap> {
+  const key = getStorageKey();
   let base64: Awaited<ReturnType<typeof keylessStorageUtils.storageGetItem>>;
   try {
-    base64 = await keylessStorageUtils.storageGetItem(STORAGE_KEY);
+    base64 = await keylessStorageUtils.storageGetItem(key);
   } catch (error) {
     logHardwareCloudSyncDiagnostic('credential_storage_read_failed');
     throw error;
@@ -60,9 +77,9 @@ async function readMap(): Promise<ICredentialMap> {
   }
 }
 
-async function writeMap(map: ICredentialMap): Promise<void> {
+async function writeMap(key: string, map: ICredentialMap): Promise<void> {
   if (Object.keys(map).length === 0) {
-    await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+    await keylessStorageUtils.storageRemoveItem(key);
     return;
   }
   const json = JSON.stringify(map);
@@ -82,43 +99,153 @@ async function writeMap(map: ICredentialMap): Promise<void> {
   const base64 = bufferUtils.bytesToBase64(
     bufferUtils.hexToBytes(encryptedHex),
   );
-  await keylessStorageUtils.storageSetItem(STORAGE_KEY, base64);
+  await keylessStorageUtils.storageSetItem(key, base64);
+}
+
+let writeRevision = 0;
+let pendingWrites = 0;
+
+function captureWriteGuard(): () => boolean {
+  const revision = writeRevision;
+  const stable = pendingWrites === 0;
+  return () => stable && revision === writeRevision;
+}
+
+async function mutate(operation: () => Promise<void>): Promise<void> {
+  writeRevision += 1;
+  pendingWrites += 1;
+  try {
+    await operation();
+  } finally {
+    pendingWrites -= 1;
+  }
 }
 
 async function saveCredential(
   credential: IKeylessCloudSyncCredential,
 ): Promise<void> {
   // Overwrite entire map — only keep the current credential
-  await writeMap({ [credential.keylessWalletId]: credential });
+  const key = getStorageKey();
+  await mutate(() =>
+    writeMap(key, { [credential.keylessWalletId]: credential }),
+  );
+}
+
+function getUsableCredential(
+  credential: IKeylessCloudSyncCredential | undefined,
+): IKeylessCloudSyncCredential | null {
+  if (
+    !credential ||
+    (credential.hardwareSession && !credential.hardwareSession.boundBaseURL) ||
+    (credential.source?.type === 'hardware' &&
+      credential.pendingDataKey &&
+      !credential.hardwareSession)
+  ) {
+    return null;
+  }
+  const environment = getCloudSyncStorageEnvironmentForRuntime();
+  const pending = credential.pendingHardwareKeyMigration;
+  const obsoleteMigration =
+    pending &&
+    (!credential.hardwareSession?.boundBaseURL ||
+      !pending.target.hardwareSession?.boundBaseURL);
+  const session = credential.hardwareSession;
+  return {
+    ...credential,
+    ...(obsoleteMigration ? { pendingHardwareKeyMigration: undefined } : {}),
+    ...(session && !session.environment && environment
+      ? { hardwareSession: { ...session, environment } }
+      : {}),
+  };
 }
 
 async function getCredential(
   keylessWalletId: string,
 ): Promise<IKeylessCloudSyncCredential | null> {
   const map = await readMap();
-  const credential = map[keylessWalletId];
-  if (!credential) {
-    return null;
+  return getUsableCredential(map[keylessWalletId]);
+}
+
+async function hasStoredCredential(keylessWalletId: string): Promise<boolean> {
+  return !!(await readMap())[keylessWalletId];
+}
+
+// An inactive session's key is only available for local recovery of its reset.
+async function getInterruptedHardwareResetKey(
+  source: IHardwareCloudSyncKeySource,
+  current: IKeylessCloudSyncCredential,
+) {
+  const environment = getCloudSyncStorageEnvironmentForRuntime();
+  const session = current.hardwareSession;
+  if (
+    !environment ||
+    current.keylessWalletId !== source.credentialId ||
+    !session?.boundBaseURL ||
+    session.environment !== environment
+  ) {
+    return undefined;
   }
-  return credential;
+  const stored = (await readMap())[source.credentialId];
+  const pending = stored?.pendingDataKey;
+  const storedEnvironment = stored?.hardwareSession?.environment;
+  if (
+    stored?.source?.type !== 'hardware' ||
+    stored.keylessWalletId !== source.credentialId ||
+    stored.source.credentialId !== source.credentialId ||
+    stored.source.derivationVersion !== source.derivationVersion ||
+    (storedEnvironment && storedEnvironment !== environment) ||
+    stored.pendingHardwareKeyMigration ||
+    !stored.encryptionKey ||
+    !stored.pwdHash ||
+    stored.pwdHash === current.pwdHash ||
+    pending?.dekId !== session.dekId ||
+    pending?.pwdHash !== current.pwdHash ||
+    pending?.dek !== current.encryptionKey
+  ) {
+    return undefined;
+  }
+  return { dek: stored.encryptionKey, pwdHash: stored.pwdHash };
 }
 
 async function removeAllCredentials(): Promise<void> {
-  await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+  const key = getStorageKey();
+  await mutate(() => keylessStorageUtils.storageRemoveItem(key));
 }
 
 async function getPendingHardwareKeyMigration(): Promise<
   IKeylessCloudSyncCredential | undefined
 > {
   const map = await readMap();
-  return Object.values(map).find(
-    (credential) => credential.pendingHardwareKeyMigration,
+  const environment = getCloudSyncStorageEnvironmentForRuntime();
+  return (
+    Object.values(map).find((credential) => {
+      const pending = credential?.pendingHardwareKeyMigration;
+      if (!pending) return false;
+      const sourceEnv = credential.hardwareSession?.environment;
+      const targetEnv = pending.target.hardwareSession?.environment;
+      if (
+        (sourceEnv && environment && sourceEnv !== environment) ||
+        (targetEnv && environment && targetEnv !== environment)
+      ) {
+        return false;
+      }
+      return (
+        !!credential.encryptionKey &&
+        !!credential.pwdHash &&
+        !!pending.target.encryptionKey &&
+        !!pending.target.pwdHash
+      );
+    }) ?? undefined
   );
 }
 
 export default {
+  captureWriteGuard,
+  resetStorageKeys: [STORAGE_KEY, TEST_STORAGE_KEY],
   saveCredential,
   getCredential,
+  hasStoredCredential,
+  getInterruptedHardwareResetKey,
   removeAllCredentials,
   getPendingHardwareKeyMigration,
 };

@@ -12,6 +12,7 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import {
+  Button,
   Dialog,
   Form,
   IconButton,
@@ -55,6 +56,7 @@ interface IPasswordVerifyProps {
   onPasswordChange: (e: any) => void;
   onBiologyAuth: () => void | Promise<void>;
   onInputPasswordAuth: (data: IPasswordVerifyForm) => void;
+  onShowSecureStorageDetails?: () => void;
   status: {
     value: EPasswordVerifyStatus;
     message?: string;
@@ -100,6 +102,7 @@ function PasswordVerify({
   onBiologyAuth,
   onPasswordChange,
   onInputPasswordAuth,
+  onShowSecureStorageDetails,
 }: IPasswordVerifyProps) {
   const intl = useIntl();
   const form = useForm<IPasswordVerifyForm>({
@@ -567,6 +570,17 @@ function PasswordVerify({
           </>
         )}
       </Form>
+      {onShowSecureStorageDetails ? (
+        <Button
+          alignSelf="center"
+          onPress={onShowSecureStorageDetails}
+          size="small"
+          testID="password-lse-error-details"
+          variant="tertiary"
+        >
+          {intl.formatMessage({ id: ETranslations.global_details })}
+        </Button>
+      ) : null}
       {isEnable && biometricCheckResult === 'unavailable' ? (
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage(

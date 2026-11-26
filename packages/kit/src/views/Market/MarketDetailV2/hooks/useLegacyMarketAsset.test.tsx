@@ -167,6 +167,27 @@ it.each(coins)(
   },
 );
 
+it('keeps the chain quote when an iOS widget opens a previously resolved native token', async () => {
+  const { result, rerender } = renderHook(
+    ({ preserveTokenQuote }) =>
+      useLegacyMarketAsset({
+        ...legacyEth,
+        networkId: 'btc--0',
+        preserveTokenQuote,
+      }),
+    { initialProps: { preserveTokenQuote: false } },
+  );
+  await waitFor(() =>
+    expect(result.current.assetParams?.marketTokenId).toBe('bitcoin'),
+  );
+
+  rerender({ preserveTokenQuote: true });
+  expect(result.current).toEqual({
+    assetParams: undefined,
+    isResolving: false,
+  });
+});
+
 it('matches a contract favorite to its own chain instead of the default asset variant', async () => {
   const usdt = {
     networkId: 'evm--1',

@@ -16,6 +16,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isSameServiceBaseURL } from '@onekeyhq/shared/src/request/helpers/serviceRequestUrl';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -79,6 +80,10 @@ import {
 } from '../vaults/localWallet/viewingKeyStore';
 import { getVaultSettings } from '../vaults/settings';
 
+import {
+  clearAppResetPrivacyCleanup,
+  readAppResetPrivacyCleanup,
+} from './appResetState';
 import {
   getPrivacyChainWalletType,
   getPrivacyEnableFailureReason,
@@ -1387,7 +1392,14 @@ class ServicePrivacyChain extends ServiceBase {
     walletIds?: string[];
     rescanFrom?: IRescanLocalWalletFrom;
   }): Promise<{ failedNetworkIds: string[] }> {
-    const plan = planLocalWalletLifecycle(event);
+    const clearsAppStorage =
+      event === 'appReset' && resetUtils.getIsResetting();
+    const actions = planLocalWalletLifecycle(event);
+    // The startup retry also uses appReset, but only a full Reset App clears
+    // these records with appStorage.clear().
+    const plan = clearsAppStorage
+      ? actions.filter((action) => action.step !== 'hostRecords')
+      : actions;
     // Travel Mode masks the records but not the runtime's own storage; the event would destroy real
     // scan data while everything naming it reads as absent.
     if (
@@ -1464,6 +1476,7 @@ class ServicePrivacyChain extends ServiceBase {
                 target,
                 walletIds,
                 rescanFrom,
+                clearsAppStorage,
               }),
             );
           } catch (e) {
@@ -1531,12 +1544,14 @@ class ServicePrivacyChain extends ServiceBase {
     target,
     walletIds,
     rescanFrom,
+    clearsAppStorage,
   }: {
     event: ILocalWalletLifecycleEvent;
     action: Extract<ILocalWalletLifecycleAction, { dataClass: unknown }>;
     target: ILocalWalletLifecycleTarget;
     walletIds: string[];
     rescanFrom?: IRescanLocalWalletFrom;
+    clearsAppStorage: boolean;
   }): Promise<void> {
     const { backgroundApi } = this;
     const stateDb = backgroundApi.simpleDb.privacyChainState;
@@ -1587,7 +1602,9 @@ class ServicePrivacyChain extends ServiceBase {
       case 'runtimeRows:dropNetwork':
         if (!capability || !networkId) return;
         await this.dropNetworkLocalData(capability);
-        await stateDb.clearRuntimeOrphans({ networkId });
+        if (!clearsAppStorage) {
+          await stateDb.clearRuntimeOrphans({ networkId });
+        }
         return;
       case 'accountState:delete':
         if (scope === 'network' && networkId) {
@@ -1873,8 +1890,17 @@ class ServicePrivacyChain extends ServiceBase {
     // network may hold data.
     let pendingDrop: string[] | undefined;
     try {
-      pendingDrop =
-        await this.backgroundApi.simpleDb.privacyChainState.getPendingLocalDataDrop();
+      const [pendingNetworks, resetCleanup] = await Promise.all([
+        this.backgroundApi.simpleDb.privacyChainState.getPendingLocalDataDrop(),
+        readAppResetPrivacyCleanup(),
+      ]);
+      // A resumed reset may have already cleared the host records.
+      if (resetCleanup?.networkIds !== null) {
+        pendingDrop = uniq([
+          ...pendingNetworks,
+          ...(resetCleanup?.networkIds ?? []),
+        ]);
+      }
     } catch (e) {
       console.error('[privacy-chain] could not read pending wipes', {
         error: e instanceof Error ? e.message : String(e),
@@ -1976,8 +2002,18 @@ class ServicePrivacyChain extends ServiceBase {
   async retryPendingLocalDataDrop(): Promise<void> {
     let pending: string[];
     try {
-      pending =
-        await this.backgroundApi.simpleDb.privacyChainState.getPendingLocalDataDrop();
+      const state = this.backgroundApi.simpleDb.privacyChainState;
+      pending = await state.getPendingLocalDataDrop();
+      const resetCleanup = await readAppResetPrivacyCleanup();
+      if (resetCleanup) {
+        const resetNetworks =
+          resetCleanup.networkIds ??
+          (await this.getKnownLocalWalletNetworkIds());
+        pending = uniq([...pending, ...resetNetworks]);
+        if (resetUtils.getIsResetting()) return;
+        await state.setPendingLocalDataDrop({ networkIds: pending });
+        await clearAppResetPrivacyCleanup(resetCleanup.id);
+      }
     } catch (e) {
       console.error('[privacy-chain] could not read pending wipes', {
         error: e instanceof Error ? e.message : String(e),
@@ -4336,15 +4372,20 @@ class ServicePrivacyChain extends ServiceBase {
         : undefined,
       capability.getSyncEndpoint?.().catch(() => undefined),
     ]);
-    const defaultUrl =
-      await this.backgroundApi.serviceCustomRpc.resolveDefaultRpcUrl({
-        networkId,
-      });
+    const rpc = this.backgroundApi.serviceCustomRpc;
+    const [defaultUrl, custom] = await Promise.all([
+      rpc.resolveDefaultRpcUrl({ networkId }),
+      rpc.getCustomRpcForNetwork(networkId),
+    ]);
     return {
       storageBytes: storage?.bytes,
       endpointUrl: endpoint?.url,
       endpointDefaultUrl: defaultUrl,
-      endpointIsCustom: !!endpoint && endpoint.url !== defaultUrl,
+      endpointIsCustom:
+        !!endpoint &&
+        !!custom?.enabled &&
+        !!custom.rpc &&
+        isSameServiceBaseURL(endpoint.url, custom.rpc),
       // Only meaningful while it describes the node now in use: after a switch
       // the last sample still belongs to the previous one.
       endpointHealth:
@@ -4548,6 +4589,23 @@ class ServicePrivacyChain extends ServiceBase {
   }): Promise<ILocalWalletAccountBalance | null> {
     const capability = await this.requireAccountCapability(networkId);
     return capability.getAccountBalance({ accountId });
+  }
+
+  @backgroundMethod()
+  async getLocalWalletHasPendingSend({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<boolean> {
+    const capability = await this.requireAccountCapability(networkId);
+    if (!capability.hasPendingSend) {
+      throw new OneKeyLocalError(
+        localWalletText(ETranslations.global_not_available),
+      );
+    }
+    return capability.hasPendingSend({ accountId });
   }
 
   // Persist the stopped intent before handing cleanup to the background.

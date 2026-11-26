@@ -73,6 +73,8 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
 
+type IBrowserHistoryInput = Omit<IBrowserHistory, 'id' | 'createdAt'>;
+
 function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
   if (!tabs || tabs.length === 0) {
     defaultLogger.discovery.browser.setTabsDataFunctionName(fnName);
@@ -823,32 +825,23 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const navigation = payload?.navigation;
       const { tabs } = get(webTabsAtom());
       const activeTabId = get(activeTabIdAtom());
-      const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
       const tabsToClose = tabs.filter((tab) => !tab.isPinned);
-      const nextPinnedTab = pinnedTabs[0];
-      const shouldResetActiveTab = pinnedTabs.every(
-        (tab) => tab.id !== activeTabId,
+      // Queue the entire history write before publishing tab changes that can trigger a clear.
+      const historyWrite = this.addBrowserHistory.call(
+        set,
+        tabsToClose.map((tab) => ({
+          url: tab.url,
+          title: tab.title || tab.url,
+          logo: tab.favicon,
+        })),
       );
-
-      // Create a queue for closing tabs
-      const closeQueue = tabsToClose.map((tab) => async () => {
-        if (tab.url && tab.url !== homeTab.url) {
-          await this.addBrowserHistory.call(set, {
-            url: tab.url,
-            title: tab.title || tab.url,
-            logo: tab.favicon,
-          });
-        }
-      });
-
-      // Process queue sequentially
-      for (const closeOperation of closeQueue) {
-        await closeOperation();
-      }
+      const shouldResetActiveTab = !tabs.some(
+        (tab) => tab.isPinned && tab.id === activeTabId,
+      );
 
       // should update active tab, if active tab is not in pinnedTabs
       if (shouldResetActiveTab) {
-        const nextActiveTabId = nextPinnedTab?.id ?? null;
+        const nextActiveTabId = tabs.find((tab) => tab.isPinned)?.id ?? null;
         this.setCurrentWebTab.call(set, nextActiveTabId);
 
         if (!nextActiveTabId && platformEnv.isDesktop) {
@@ -856,6 +849,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
       }
 
+      const pinnedTabs = get(webTabsAtom()).tabs.filter((tab) => tab.isPinned);
       for (const id of Object.getOwnPropertyNames(webviewRefs)) {
         if (!pinnedTabs.find((tab) => tab.id === id)) {
           delete webviewRefs[id];
@@ -877,6 +871,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       defaultLogger.discovery.browser.clearTabs({
         clearTabsAmount: tabsToClose.length,
       });
+
+      await historyWrite;
     },
   );
 
@@ -1069,9 +1065,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   buildHistoryData = contextAtomMethod(
-    (
+    async (
       get,
-      set,
+      _,
 
       payload: {
         data: IBrowserHistory[];
@@ -1081,54 +1077,58 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { data, options } = payload;
       const isReady = get(browserDataReadyAtom());
       if (!isReady && !options?.isInitFromStorage) {
-        return;
+        return false;
       }
       if (!Array.isArray(data)) {
         throw new OneKeyLocalError(
           'buildHistoryData: payload must be an array',
         );
       }
-      void backgroundApiProxy.simpleDb.browserHistory.setRawData({
-        data,
-      });
+      const saved = await backgroundApiProxy.simpleDb.browserHistory.setRawData(
+        {
+          data,
+        },
+      );
+      return saved !== undefined;
     },
   );
 
   addBrowserHistory = contextAtomMethod(
-    async (_, set, payload: Omit<IBrowserHistory, 'id' | 'createdAt'>) => {
-      if (!payload.url || payload.url === homeTab.url) {
+    async (get, _, payload: IBrowserHistoryInput | IBrowserHistoryInput[]) => {
+      if (!get(browserDataReadyAtom())) {
         return;
       }
-      const history = await this.getHistoryData.call(set);
 
-      const updatedHistory = history.filter((item) => item.url !== payload.url);
+      const entries = (Array.isArray(payload) ? payload : [payload])
+        .filter(({ url }) => url && url !== homeTab.url)
+        .map(({ url, title, logo }) => ({
+          id: generateUUID(),
+          url,
+          title,
+          createdAt: Date.now(),
+          // Skip data: URIs to avoid inflating storage.
+          logo: logo?.startsWith('data:') ? undefined : logo,
+        }));
+      if (!entries.length) {
+        return;
+      }
 
-      const newHistoryEntry: IBrowserHistory = {
-        id: generateUUID(),
-        url: payload.url,
-        title: payload.title,
-        createdAt: Date.now(),
-        // Skip data: URIs to avoid inflating storage
-        logo: payload.logo?.startsWith('data:') ? undefined : payload.logo,
-      };
-
-      this.buildHistoryData.call(set, {
-        data: [newHistoryEntry, ...updatedHistory],
-      });
+      try {
+        await backgroundApiProxy.simpleDb.browserHistory.addEntries(entries);
+      } catch {
+        defaultLogger.app.error.log('Failed to save browser history');
+      }
     },
   );
 
-  removeBrowserHistory = contextAtomMethod(async (_, set, payload: string) => {
-    const history = await this.getHistoryData.call(set);
-
-    const updatedHistory = history.filter((item) => item.id !== payload);
-
-    this.buildHistoryData.call(set, { data: updatedHistory });
+  removeBrowserHistory = contextAtomMethod(async (get, _, id: string) => {
+    if (!get(browserDataReadyAtom())) return false;
+    return backgroundApiProxy.simpleDb.browserHistory.removeEntry(id);
   });
 
-  removeAllBrowserHistory = contextAtomMethod(async (_, set) => {
-    this.buildHistoryData.call(set, { data: [] });
-  });
+  removeAllBrowserHistory = contextAtomMethod((_, set) =>
+    this.buildHistoryData.call(set, { data: [] }),
+  );
 
   /**
    * Browser Logic

@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 
@@ -6,11 +6,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 
 import { ClassicDevice } from '../ClassicDevice';
+import { CLASSIC_DEVICE_ASPECT } from '../ClassicDevice/shell';
+import { DeviceChromeLoadContext } from '../deviceSceneHost';
 import { MiniDevice } from '../MiniDevice';
+import { MINI_DEVICE_ASPECT } from '../MiniDevice/shell';
 import { NeoDevice } from '../NeoDevice';
 import { Pro2Device } from '../Pro2Device';
+import { PRO2_DEVICE_ASPECT } from '../Pro2Device/shell';
 import { ProDevice } from '../ProDevice';
+import { PRO_DEVICE_ASPECT } from '../ProDevice/shell';
 import { TouchDevice } from '../TouchDevice';
+import { TOUCH_DEVICE_ASPECT } from '../TouchDevice/shell';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IMiniDeviceScene } from '../MiniDevice';
@@ -83,6 +89,12 @@ export interface IHardwareDeviceProps {
   deviceType?: IHardwareDeviceType | null;
   /** Built-in scene. Omitted: a static device with a dark screen. */
   animation?: IHardwareDeviceScene;
+  /**
+   * Lit steadily on the screen when no `animation` is given, laid out on
+   * the model's own screen canvas. Keep it referentially stable: the
+   * shells memoize on it.
+   */
+  screenContent?: ReactNode;
   /** Rendered width in points; height follows each model's aspect ratio. */
   width?: number;
   /**
@@ -120,10 +132,16 @@ export interface IHardwareDeviceProps {
    * Pro 2 in black, the Neo in white.
    */
   color?: IHardwareDeviceColor;
+  /**
+   * Called once the shell's chrome bitmap has landed (or failed to). The
+   * screen and keys are drawn in code and show before the bitmap decodes,
+   * so a presenter that wants the drawing to appear whole waits for this.
+   */
+  onChromeLoad?: () => void;
 }
 
 /** What the router hands every replica: its own props minus the model. */
-type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType'>;
+type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType' | 'onChromeLoad'>;
 
 const SHADOW_OPACITY = 0.35;
 const SHADOW_BLUR = 10;
@@ -160,15 +178,40 @@ const REPLICAS: Partial<
   neo: NeoDevice,
 };
 
+// Height over width of each replica's frame, keyed like REPLICAS; models
+// that share a replica share its frame.
+const ASPECTS: Partial<Record<IHardwareDeviceType, number>> = {
+  classic: CLASSIC_DEVICE_ASPECT,
+  classic1s: CLASSIC_DEVICE_ASPECT,
+  classicpure: CLASSIC_DEVICE_ASPECT,
+  mini: MINI_DEVICE_ASPECT,
+  pro: PRO_DEVICE_ASPECT,
+  touch: TOUCH_DEVICE_ASPECT,
+  pro2: PRO2_DEVICE_ASPECT,
+  neo: PRO2_DEVICE_ASPECT,
+};
+
+/**
+ * Height over width of the model's drawing, so a caller can size it by
+ * height. Undefined when the model has no drawing.
+ */
+export function getHardwareDeviceAspect(
+  deviceType: IHardwareDeviceType | null | undefined,
+): number | undefined {
+  return deviceType ? ASPECTS[deviceType] : undefined;
+}
+
 export function HardwareDevice({
   deviceType,
   animation,
+  screenContent,
   width,
   instantEntry,
   paused,
   warmScenes,
   shadow,
   color,
+  onChromeLoad,
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
@@ -182,11 +225,19 @@ export function HardwareDevice({
     <Replica
       width={width}
       animation={animation}
+      screenContent={screenContent}
       instantEntry={instantEntry}
       paused={paused}
       warmScenes={warmScenes}
       color={replicaColor}
     />
   );
-  return shadow ? <View style={styles.shadow}>{replica}</View> : replica;
+  const drawn = shadow ? <View style={styles.shadow}>{replica}</View> : replica;
+  return onChromeLoad ? (
+    <DeviceChromeLoadContext.Provider value={onChromeLoad}>
+      {drawn}
+    </DeviceChromeLoadContext.Provider>
+  ) : (
+    drawn
+  );
 }

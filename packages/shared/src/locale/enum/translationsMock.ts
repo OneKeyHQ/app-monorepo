@@ -35,5 +35,14 @@ export enum ETranslationsMock {
   prime_gift_verified = 'Verified',
   prime_gift_session_changed = 'Your account changed. Confirm the receiving account to continue.',
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
+  cloud_sync_hardware_endpoint_mismatch__desc = 'To resume syncing, switch back to the previous API node in Settings > Developer. Your existing sync key and data are kept.',
+  lse_unavailable__title = 'Unable to access encrypted local data',
+  lse_unavailable__reason = 'This can happen after switching to a new device, transferring data, or reinstalling the app.',
+  lse_retry__desc = 'Please try the operation again.',
+  lse_retry_restore__desc = 'Please try restoring this backup again.',
+  lse_retry_restore__action = 'Retry Restore',
+  wallet_lse_import_again__desc = 'Please reimport your wallet.',
+  wallet_lse_unavailable_status__title = 'Wallet unavailable',
+  wallet_lse_import_again__action = 'Import Wallet Again',
   // ----------------------------------------------
 }

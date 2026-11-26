@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { ISelectItem } from '@onekeyhq/components';
+import type { ISelectItem, useInPageDialog } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -30,8 +30,9 @@ import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorPr
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
   PERP_DIALOG_BUTTON_SIZE,
-  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
+import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
@@ -358,26 +359,37 @@ AdjustPositionMarginForm.displayName = 'AdjustPositionMarginForm';
 
 export function showAdjustPositionMarginDialog({
   coin,
+  dialog,
   intl,
-}: IAdjustPositionMarginParams & { intl: IntlShape }) {
-  const dialogInstance = Dialog.show({
+}: IAdjustPositionMarginParams & {
+  dialog?: ReturnType<typeof useInPageDialog>;
+  intl: IntlShape;
+}) {
+  // Keep desktop, web, and Android globally scoped; only iOS needs page-sheet
+  // presentation to match other Perps sheets and avoid UIKit .pageSheet gaps.
+  const DialogInstance = platformEnv.isNativeIOS && dialog ? dialog : Dialog;
+
+  const dialogInstance = DialogInstance.show({
     title: intl.formatMessage({
       id: ETranslations.perp_trading_adjust_margin,
     }),
+    sheetDragArea: platformEnv.isNativeAndroid ? 'header' : undefined,
 
     renderContent: (
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
-          <AdjustPositionMarginForm
-            coin={coin}
-            onClose={() => {
-              void dialogInstance.close();
-            }}
-          />
+          <PerpKeyboardAwareDialogContent>
+            <AdjustPositionMarginForm
+              coin={coin}
+              onClose={() => {
+                void dialogInstance.close();
+              }}
+            />
+          </PerpKeyboardAwareDialogContent>
         </PerpsProviderMirror>
       </PerpsAccountSelectorProviderMirror>
     ),
-    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+    contentContainerProps: PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

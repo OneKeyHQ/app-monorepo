@@ -7,6 +7,7 @@ import {
 } from '../../chartConstants';
 
 import {
+  getTradingViewNativeSubIndicatorPaneHeights,
   getTradingViewNativeSubIndicatorPaneLayoutAtY,
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackHeight,
@@ -90,9 +91,56 @@ describe('TradingViewNative sub-indicator pane layout', () => {
       startIndex: 0,
       endIndex: POINTS.length,
     });
-    expect(compactLayouts[0].height / compactLayouts[1].height).toBeCloseTo(
-      100 / 60,
-    );
+    // 84px for panes that prefer 160px: MACD stops at the minimum height and
+    // RSI gives up the rest.
+    expect(compactLayouts.map((pane) => pane.height)).toEqual([48, 36]);
+  });
+
+  describe('getTradingViewNativeSubIndicatorPaneHeights', () => {
+    it('keeps every share while each pane stays above the minimum', () => {
+      expect(
+        getTradingViewNativeSubIndicatorPaneHeights([120, 80], 200),
+      ).toEqual([120, 80]);
+      expect(
+        getTradingViewNativeSubIndicatorPaneHeights([120, 80], 150),
+      ).toEqual([90, 60]);
+      expect(
+        getTradingViewNativeSubIndicatorPaneHeights([120, 80], 300),
+      ).toEqual([180, 120]);
+    });
+
+    it('stops a pane at the minimum height and takes the rest from taller ones', () => {
+      // One pane that filled the stack, then two added beside it.
+      expect(
+        getTradingViewNativeSubIndicatorPaneHeights([180, 56, 56], 180),
+      ).toEqual([108, 36, 36]);
+      // Stopping the last pane leaves too little for the middle one's share.
+      expect(
+        getTradingViewNativeSubIndicatorPaneHeights([100, 60, 5], 110),
+      ).toEqual([38, 36, 36]);
+    });
+
+    it('splits a stack too short for every minimum equally', () => {
+      expect(
+        getTradingViewNativeSubIndicatorPaneHeights([180, 56, 56], 90),
+      ).toEqual([30, 30, 30]);
+      expect(getTradingViewNativeSubIndicatorPaneHeights([180, 56], 0)).toEqual(
+        [0, 0],
+      );
+      expect(getTradingViewNativeSubIndicatorPaneHeights([], 90)).toEqual([]);
+    });
+
+    it('always fills the stack', () => {
+      for (const stackHeight of [37, 71.9, 72, 107.5, 109.5, 180.25, 640]) {
+        const heights = getTradingViewNativeSubIndicatorPaneHeights(
+          [109.5, 56, 56],
+          stackHeight,
+        );
+        expect(heights.reduce((sum, height) => sum + height, 0)).toBeCloseTo(
+          stackHeight,
+        );
+      }
+    });
   });
   it('uses one preferred-height pane and preserves input order', () => {
     const panes = createTradingViewNativeSubIndicatorRenderSnapshots({

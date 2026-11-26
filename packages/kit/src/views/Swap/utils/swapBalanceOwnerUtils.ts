@@ -1,14 +1,21 @@
 import type { ISwapSelectedTokenBalanceMeta } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { getTokenIdentityKey } from '../hooks/swapStockChannelUtils';
 
 export interface ISwapBalanceOwner {
   tokenKey: string;
-  // Lower-cased; only ever compared with itself.
+  // Only ever compared with itself.
   accountAddress: string;
   // Network-agnostic account identity the figure was fetched for.
   accountIdentity?: string;
+}
+
+function getBalanceOwnerAddress(accountAddress: string, networkId?: string) {
+  return isXmrSwapNetwork(networkId)
+    ? accountAddress
+    : accountAddress.toLowerCase();
 }
 
 // Identity of the account a stored balance belongs to. Deliberately
@@ -49,7 +56,7 @@ export function buildSwapBalanceOwner({
   if (!tokenKey || !accountAddress) return undefined;
   return {
     tokenKey,
-    accountAddress: accountAddress.toLowerCase(),
+    accountAddress: getBalanceOwnerAddress(accountAddress, token?.networkId),
     accountIdentity,
   };
 }
@@ -107,7 +114,8 @@ export function resolveVerifiedSwapBalance({
   if (
     isAddressInfoReady &&
     (!accountAddress ||
-      balanceMeta.accountAddress !== accountAddress.toLowerCase())
+      balanceMeta.accountAddress !==
+        getBalanceOwnerAddress(accountAddress, token?.networkId))
   ) {
     return undefined;
   }

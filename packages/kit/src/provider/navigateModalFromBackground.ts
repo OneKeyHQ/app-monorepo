@@ -19,7 +19,8 @@ export function navigateModalFromBackground(
   if (
     platformEnv.isNative &&
     (payload.screen === ERootRoutes.Modal ||
-      payload.screen === ERootRoutes.iOSFullScreen) &&
+      payload.screen === ERootRoutes.iOSFullScreen ||
+      payload.screen === ERootRoutes.WalletConnectApproval) &&
     params?.screen === EModalRoutes.DAppConnectionModal &&
     params.params?.screen ===
       EDAppConnectionModal.WalletConnectSessionProposalModal

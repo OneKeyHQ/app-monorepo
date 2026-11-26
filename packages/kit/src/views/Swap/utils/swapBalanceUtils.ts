@@ -2,8 +2,11 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
@@ -21,6 +24,7 @@ type ISwapLatestBalanceCheckParams = {
   amount: string;
   accountId?: string;
   accountAddress?: string;
+  accountNetworkId?: string;
   /** Preserve request errors for flows that require a fresh balance. */
   throwOnError?: boolean;
 };
@@ -445,20 +449,37 @@ export async function checkSwapLatestBalanceSufficient({
   amount,
   accountId,
   accountAddress,
+  accountNetworkId,
   throwOnError = false,
 }: ISwapLatestBalanceCheckParams): Promise<ISwapLatestBalanceCheckResult> {
   const amountBN = new BigNumber(amount || 0);
+  const isXmr = isXmrSwapNetwork(token?.networkId);
+  const isXmrAccount = isXmrSwapNetwork(accountNetworkId);
+  const isScaled = tokenRebaseUtils.isScalingBalanceMultiplier(
+    token?.balanceMultiplier,
+  );
+  const balanceUnavailable = () =>
+    new OneKeyLocalError(
+      isXmr || isXmrAccount
+        ? 'XMR spendable balance is unavailable'
+        : 'Scaled token balance is unavailable',
+    );
   if (
     !token?.networkId ||
     !accountAddress ||
+    (isXmr && !accountId) ||
+    (isXmrAccount && !isXmr) ||
     amountBN.isNaN() ||
     !amountBN.isFinite() ||
     amountBN.lt(0)
   ) {
+    if (isXmr || isXmrAccount || isScaled) {
+      throw balanceUnavailable();
+    }
     return { isSufficient: true };
   }
 
-  let balance: string | undefined;
+  let detail: ISwapToken | undefined;
   try {
     const contractAddress = await getSwapTokenBalanceContractAddress(token);
     const tokenBalanceInfo =
@@ -467,26 +488,42 @@ export async function checkSwapLatestBalanceSufficient({
         contractAddress,
         accountAddress,
         accountId,
+        ...(isXmrAccount ? { accountNetworkId } : {}),
         currency: 'usd',
-        ...(throwOnError ? { throwOnError } : {}),
+        ...(isScaled ? { balanceMultiplier: token.balanceMultiplier } : {}),
+        ...(throwOnError || isXmr || isScaled ? { throwOnError: true } : {}),
       });
-    const balanceBN = new BigNumber(
-      tokenBalanceInfo?.[0]?.balanceParsed ?? NaN,
-    );
-    if (!balanceBN.isNaN() && balanceBN.isFinite() && !balanceBN.isNegative()) {
-      balance = balanceBN.toFixed();
-    }
+    detail =
+      isXmr || isScaled
+        ? tokenBalanceInfo?.find((item) =>
+            equalTokenNoCaseSensitive({
+              token1: item,
+              token2: { ...token, contractAddress },
+            }),
+          )
+        : tokenBalanceInfo?.[0];
   } catch (error) {
-    if (throwOnError) throw error;
+    if (throwOnError || isXmr || isScaled) throw error;
     console.error('checkSwapLatestBalanceSufficient error', error);
   }
 
-  if (balance === undefined) {
+  if (
+    detail &&
+    !tokenRebaseUtils.equalBalanceMultipliers(
+      token.balanceMultiplier,
+      detail.balanceMultiplier,
+    )
+  ) {
+    throw new OneKeyLocalError('Swap token multiplier changed');
+  }
+  const balance = new BigNumber(detail?.balanceParsed ?? NaN);
+  if (!balance.isFinite() || balance.isNegative()) {
+    if (isXmr || isScaled) throw balanceUnavailable();
     return { isSufficient: true };
   }
 
   return checkSwapBalanceSufficientFromAmount({
-    balance,
+    balance: balance.toFixed(),
     amount,
     tokenSymbol: token.symbol,
   });

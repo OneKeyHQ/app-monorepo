@@ -62,6 +62,7 @@ import {
   EParseTxComponentType,
   EParseTxComponentRole,
   EParseTxType,
+  ETransferDirection,
   type IDisplayComponent,
   type IDisplayComponentAddress,
   type IDisplayComponentApprove,
@@ -222,6 +223,40 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('keeps Starknet privacy metadata out of both confirmation and direct remote parsing', async () => {
+    const service = buildService(buildParsedTx({ components: [] }));
+    const remoteParser = jest.spyOn(service, 'parseTransaction');
+    const network = 'starknet--mainnet';
+    const privateTx: IUnsignedTxPro = {
+      encodedTx: {
+        privacy: { kind: 'transfer', amount: '42', recipient: '0x2' },
+      } as IEncodedTx,
+    };
+    await service.buildDecodedTxs({
+      accountId,
+      networkId: network,
+      accountAddress,
+      unsignedTxs: [privateTx],
+    });
+    expect(remoteParser).not.toHaveBeenCalled();
+    await service.buildDecodedTxs({
+      accountId,
+      networkId: network,
+      accountAddress,
+      unsignedTxs: [{ encodedTx: {} }],
+    });
+    expect(remoteParser).toHaveBeenCalledTimes(1);
+    remoteParser.mockRestore();
+    await expect(
+      service.parseTransaction({
+        accountId,
+        networkId: network,
+        accountAddress,
+        encodedTx: privateTx.encodedTx,
+      }),
+    ).rejects.toThrow('Privacy transactions must be reviewed locally');
   });
 
   it.each(['xmr--0', 'zec--0'])(
@@ -985,12 +1020,15 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     },
   );
 
-  it.each(['ton--mainnet', 'evm--1'])(
-    'keeps scaled amounts local when partial server effects exist on %s',
+  it.each(['ton--mainnet', 'evm--1', 'sol--101'])(
+    'preserves server simulation with the right amount units on %s',
     async (currentNetworkId) => {
-      const tokenAddress = currentNetworkId.startsWith('ton')
-        ? `0:${'55'.repeat(32)}`
-        : `0x${'55'.repeat(20)}`;
+      let tokenAddress = evmLowerAddress;
+      if (currentNetworkId.startsWith('ton')) {
+        tokenAddress = `0:${'55'.repeat(32)}`;
+      } else if (currentNetworkId.startsWith('sol')) {
+        tokenAddress = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+      }
       const rawToken = {
         type: EParseTxComponentType.Token,
         label: 'Raw token amount',
@@ -1008,7 +1046,7 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
           price: 0,
         },
         amount: '1500000',
-        amountParsed: '1.5',
+        amountParsed: currentNetworkId.startsWith('evm') ? '3' : '1.5',
         networkId: currentNetworkId,
         showNetwork: false,
       } as const;
@@ -1027,6 +1065,15 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
         amount: '1',
         showNetwork: false,
       } as const;
+      const identityUnknown = {
+        type: EParseTxComponentType.InternalAssets,
+        label: 'Unidentified amount',
+        name: 'Another asset',
+        symbol: 'OTHER',
+        icon: '',
+        amount: '1500000',
+        amountParsed: '1.5',
+      } as const;
       const service = buildService(
         buildParsedTx({
           components: [
@@ -1035,7 +1082,7 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
             {
               type: EParseTxComponentType.Simulation,
               label: 'Simulation',
-              assets: [rawToken, nft],
+              assets: [rawToken, nft, identityUnknown],
             },
           ],
           alerts: ['Server risk alert'],
@@ -1056,7 +1103,9 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
               to: contractAddress,
               amount: '3',
               balanceMultiplier: '2',
-              tokenIdOnNetwork: tokenAddress,
+              tokenIdOnNetwork: currentNetworkId.startsWith('evm')
+                ? evmChecksumAddress
+                : tokenAddress,
               isNative: false,
               name: 'Scaled',
               symbol: 'SCALED',
@@ -1082,17 +1131,110 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       );
       expect(decoded.txDisplay?.components).not.toContainEqual(rawToken);
       expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
-      if (currentNetworkId.startsWith('ton')) {
-        expect(decoded.txDisplay?.components).toContainEqual({
-          type: EParseTxComponentType.Simulation,
-          label: 'Simulation',
-          assets: [nft],
-        });
-      } else {
-        expect(decoded.txDisplay?.components).not.toContainEqual(
-          expect.objectContaining({ type: EParseTxComponentType.Simulation }),
-        );
-      }
+      expect(decoded.txDisplay?.components).toContainEqual({
+        type: EParseTxComponentType.Simulation,
+        label: 'Simulation',
+        assets: currentNetworkId.startsWith('ton')
+          ? [nft]
+          : [
+              { ...rawToken, amountParsed: '3' },
+              nft,
+              { ...identityUnknown, amountParsed: '' },
+            ],
+      });
+      expect(decoded.encodedTx).toEqual(local.encodedTx);
+    },
+  );
+
+  it.each([
+    { balanceMultiplier: '1', approvalAmount: '2', simulationAmount: '' },
+    { balanceMultiplier: '2', approvalAmount: '4', simulationAmount: '3' },
+  ])(
+    'retains simulation for a read-only approval with Review multiplier $balanceMultiplier',
+    async ({ balanceMultiplier, approvalAmount, simulationAmount }) => {
+      const tokenInfo = {
+        address: evmLowerAddress,
+        decimals: 6,
+        name: 'Scaled',
+        symbol: 'SCALED',
+        isNative: false,
+      };
+      const asset = {
+        type: EParseTxComponentType.Token,
+        label: 'Simulated outflow',
+        networkId,
+        token: {
+          info: tokenInfo,
+          balance: '0',
+          balanceParsed: '0',
+          fiatValue: '0',
+          price: 0,
+        },
+        amount: '1500000',
+        amountParsed: '3',
+        showNetwork: false,
+        transferDirection: ETransferDirection.Out,
+      } as const;
+      const simulation: IDisplayComponentSimulation = {
+        type: EParseTxComponentType.Simulation,
+        label: 'Simulation',
+        assets: [asset],
+      };
+      const parsedTx = buildParsedTx({ components: [simulation] });
+      parsedTx.type = EParseTxType.Approve;
+      const service = buildService(parsedTx);
+      const encodedTx = {
+        from: accountAddress,
+        to: evmLowerAddress,
+        value: '0',
+      };
+      const localTx: IDecodedTx = {
+        ...buildLocalDecodedTx(),
+        encodedTx,
+        actions: [
+          {
+            type: EDecodedTxActionType.TOKEN_APPROVE,
+            tokenApprove: {
+              from: accountAddress,
+              to: evmLowerAddress,
+              spender: evmLowerSpender,
+              amount: approvalAmount,
+              icon: '',
+              name: tokenInfo.name,
+              symbol: tokenInfo.symbol,
+              decimals: tokenInfo.decimals,
+              tokenIdOnNetwork: evmLowerAddress,
+              isInfiniteAmount: false,
+              approveType: EApproveType.Approve,
+              balanceMultiplier,
+              disableAllowanceEditing: true,
+            },
+          },
+        ],
+      };
+      mockGetVault.mockResolvedValue({
+        buildDecodedTx: jest.fn().mockResolvedValue(localTx),
+      });
+
+      const decodedTx = await service.buildDecodedTx({
+        networkId,
+        accountId,
+        accountAddress,
+        unsignedTx: { encodedTx },
+      });
+
+      expect(decodedTx.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Approve,
+          amountParsed: approvalAmount,
+          isEditable: false,
+        }),
+      );
+      expect(decodedTx.txDisplay?.components).toContainEqual({
+        ...simulation,
+        assets: [{ ...asset, amountParsed: simulationAmount }],
+      });
+      expect(decodedTx.encodedTx).toBe(encodedTx);
     },
   );
 
@@ -1135,6 +1277,79 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       expect.objectContaining({ address: '0xserver-contract' }),
     );
     expect(decodedTx.txDisplay?.alerts).toEqual(alerts);
+  });
+
+  describe('BTC PSBT', () => {
+    const serverRiskTag = { value: 'Scam', displayType: 'critical' as const };
+    const buildPsbtDecodedTx = (): IDecodedTx => ({
+      ...buildLocalDecodedTx(),
+      isPsbt: true,
+    });
+    const buildServerParsedTx = () =>
+      buildParsedTx({
+        components: [
+          {
+            type: EParseTxComponentType.Default,
+            label: 'Server field',
+            value: 'Server value',
+          },
+          {
+            type: EParseTxComponentType.Address,
+            label: 'Server recipient',
+            address: contractAddress,
+            tags: [serverRiskTag],
+          },
+        ],
+        alerts: ['Server risk alert'],
+      });
+    const decodeWith = async (
+      parsedTx: IParseTransactionResp,
+      unsignedTx: IUnsignedTxPro,
+    ) => {
+      const service = buildService(parsedTx);
+      mockGetVault.mockResolvedValue({
+        buildDecodedTx: jest.fn().mockResolvedValue(buildPsbtDecodedTx()),
+      });
+      return service.buildDecodedTx({
+        networkId,
+        accountId,
+        accountAddress,
+        unsignedTx,
+      });
+    };
+
+    it('shows a dapp PSBT from the local decode and keeps the server risk findings', async () => {
+      const decodedTx = await decodeWith(buildServerParsedTx(), {
+        encodedTx: {} as IEncodedTx,
+      });
+
+      // The server cannot know which outputs the requested sighash commits
+      // to, so its components must not replace the local ones.
+      expect(decodedTx.isLocalParsed).toBe(true);
+      expect(decodedTx.txDisplay?.components).not.toContainEqual(
+        expect.objectContaining({ label: 'Server field' }),
+      );
+      expect(decodedTx.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Address,
+          address: contractAddress,
+          tags: [serverRiskTag],
+        }),
+      );
+      expect(decodedTx.txDisplay?.alerts).toEqual(['Server risk alert']);
+      expect(decodedTx.hasServerSecurityAnalysis).toBe(true);
+    });
+
+    it('keeps the server display for a PSBT built by an internal staking flow', async () => {
+      const parsedTx = {
+        ...buildServerParsedTx(),
+        type: EParseTxType.Approve,
+      };
+      const decodedTx = await decodeWith(parsedTx, buildUnsignedTx());
+
+      expect(decodedTx.isLocalParsed).toBeUndefined();
+      expect(decodedTx.txDisplay).toBe(parsedTx.display);
+    });
   });
 
   it('keeps the full server display for Borrow transactions', async () => {

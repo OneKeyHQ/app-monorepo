@@ -271,6 +271,7 @@ export type ILocalWalletCapability = {
   getAccountBalance: (params: {
     accountId: string;
   }) => Promise<ILocalWalletAccountBalance | null>;
+  hasPendingSend?: (params: { accountId: string }) => Promise<boolean>;
 
   // Undefined when the account has only one pool (no picker shown).
   listSendPools?: (params: {

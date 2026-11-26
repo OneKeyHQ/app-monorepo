@@ -128,6 +128,14 @@ import { MobileOrderTypeSelector } from '../selectors/MobileOrderTypeSelector';
 import { TimeInForceSelector } from '../selectors/TimeInForceSelector';
 import { TradeSideToggle } from '../selectors/TradeSideToggle';
 
+import {
+  clampTwapDurationMinutes,
+  splitTwapDurationMinutes,
+  useTwapDurationInputs,
+} from './useTwapDurationInputs';
+
+import type { ITwapDurationInputField } from './useTwapDurationInputs';
+
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
   isMobile?: boolean;
@@ -140,7 +148,6 @@ interface IPerpTradingFormProps {
 
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
-type ITwapDurationInputField = 'hours' | 'minutes';
 type IOrderTypeInfoValue = IPrimaryOrderType | ITriggerDropdownValue;
 type IOrderTypeInfoItem = {
   description: string;
@@ -200,24 +207,6 @@ const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '24h', minutes: 1440 },
   { label: '7d', minutes: 10_080 },
 ] as const;
-
-function clampTwapDurationMinutes(minutes: number) {
-  if (Number.isNaN(minutes) || minutes <= 0) {
-    return 0;
-  }
-  if (!Number.isFinite(minutes)) {
-    return TWAP_MAX_DURATION_MINUTES;
-  }
-  return Math.min(minutes, TWAP_MAX_DURATION_MINUTES);
-}
-
-function splitTwapDurationMinutes(minutes: number) {
-  const clampedMinutes = clampTwapDurationMinutes(minutes);
-  return {
-    hours: Math.floor(clampedMinutes / 60),
-    minutes: clampedMinutes % 60,
-  };
-}
 
 function hasTradingFormOrderSizeInput(
   formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
@@ -1087,45 +1076,25 @@ function PerpTradingForm({
     perpsSelectedDisplayName,
   ]);
 
-  const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
-  const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
+  // The order is another token's when the page shows another token, also
+  // as a failed switch puts the page back with the order it had there.
+  const {
+    hoursInput: twapDurationHoursInput,
+    minutesInput: twapDurationMinutesInput,
+    setHoursInput: setTwapDurationHoursInput,
+    setMinutesInput: setTwapDurationMinutesInput,
+    focusedFieldRef: focusedTwapDurationInputRef,
+  } = useTwapDurationInputs({
+    durationMinutes: formData.twapDurationMinutes,
+    isTwapMode,
+    orderKey: `${activeTradeInstrument.mode}:${activeTradeInstrument.coin}`,
+  });
   // Restored drafts with a trigger/stop price must keep their inputs visible.
   const [isTwapAdvancedVisible, setIsTwapAdvancedVisible] = useState(() =>
     Boolean(formData.twapTriggerPrice || formData.twapStopPrice),
   );
   const [focusedTwapDurationInput, setFocusedTwapDurationInput] =
     useState<ITwapDurationInputField | null>(null);
-  const focusedTwapDurationInputRef = useRef<ITwapDurationInputField | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (!isTwapMode) {
-      return;
-    }
-    if (focusedTwapDurationInputRef.current) {
-      return;
-    }
-    const rawDuration = formData.twapDurationMinutes ?? '';
-    if (!rawDuration) {
-      setTwapDurationHoursInput('');
-      setTwapDurationMinutesInput('');
-      return;
-    }
-    const totalMinutes = Number(rawDuration);
-    if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
-      return;
-    }
-    const durationParts = splitTwapDurationMinutes(totalMinutes);
-    const nextHours = String(durationParts.hours);
-    const nextMinutes = String(durationParts.minutes);
-    setTwapDurationHoursInput((prev) =>
-      prev === nextHours ? prev : nextHours,
-    );
-    setTwapDurationMinutesInput((prev) =>
-      prev === nextMinutes ? prev : nextMinutes,
-    );
-  }, [formData.twapDurationMinutes, isTwapMode]);
 
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
     useMemo(() => {
@@ -1588,7 +1557,7 @@ function PerpTradingForm({
       });
       return true;
     },
-    [updateForm],
+    [setTwapDurationHoursInput, setTwapDurationMinutesInput, updateForm],
   );
   const handleTwapHoursChange = useCallback(
     (value: string) => {
@@ -1610,7 +1579,7 @@ function PerpTradingForm({
       setTwapDurationMinutesInput(String(remainderMinutes));
       updateForm({ twapDurationMinutes: String(minutes) });
     },
-    [updateForm],
+    [setTwapDurationHoursInput, setTwapDurationMinutesInput, updateForm],
   );
   const mobileOrderTypeOptions = useMemo(() => {
     const base = [
@@ -3213,7 +3182,8 @@ function PerpTradingForm({
         leverage={isSpot ? 1 : (formData.leverage ?? 1)}
       />
 
-      <YStack>
+      {/* Native endpoints reserve 12pt for an 8pt thumb radius and its active halo. */}
+      <YStack mx={isMobile && platformEnv.isNative ? -4 : undefined}>
         <PerpsSlider
           min={0}
           max={100}

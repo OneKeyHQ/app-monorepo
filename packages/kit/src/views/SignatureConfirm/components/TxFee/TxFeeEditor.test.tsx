@@ -1,11 +1,26 @@
 /** @jest-environment jsdom */
-import { act, cleanup, render } from '@testing-library/react';
+import type { ReactNode } from 'react';
+
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IFeeSelectorItem } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 
 import { TxFeeEditor } from './TxFeeEditor';
+
+import type {
+  FieldValues,
+  RegisterOptions,
+  UseFormReturn,
+} from 'react-hook-form';
 
 type ISegmentControlProps = {
   value: string | number;
@@ -22,17 +37,84 @@ jest.mock('react-intl', () => ({
 // The jest config maps every @onekeyhq/components path, useForm included, to
 // one module, so this mock serves both imports.
 jest.mock('@onekeyhq/components', () => {
-  const Passthrough = ({ children }: { children?: unknown }) =>
+  const { Controller, FormProvider, useForm } =
+    jest.requireActual<typeof import('react-hook-form')>('react-hook-form');
+  const { Children, cloneElement, isValidElement } =
+    jest.requireActual<typeof import('react')>('react');
+  const Passthrough = ({ children }: { children?: ReactNode }) =>
     children ?? null;
   const Empty = () => null;
-  const Form = Object.assign(Passthrough, { Field: Passthrough });
+  const Form = Object.assign(
+    ({ form, children }: { form: UseFormReturn; children: ReactNode }) => (
+      <FormProvider {...form}>{children}</FormProvider>
+    ),
+    {
+      Field: ({
+        name,
+        rules,
+        children,
+      }: {
+        name: string;
+        rules: RegisterOptions<FieldValues>;
+        children: ReactNode;
+      }) => (
+        <Controller
+          name={name}
+          rules={rules}
+          render={({ field }) => {
+            const input = Children.only(children);
+            return isValidElement<typeof field>(input) ? (
+              cloneElement(input, field)
+            ) : (
+              <span />
+            );
+          }}
+        />
+      ),
+    },
+  );
   return {
     Alert: Empty,
-    Button: Empty,
+    Button: ({
+      children,
+      testID,
+      disabled,
+      onPress,
+    }: {
+      children: ReactNode;
+      testID: string;
+      disabled: boolean;
+      onPress: () => Promise<void>;
+    }) => (
+      <button
+        type="button"
+        data-testid={testID}
+        disabled={disabled}
+        onClick={() => void onPress()}
+      >
+        {children}
+      </button>
+    ),
     Checkbox: Empty,
     Form,
-    Input: Empty,
-    NumberSizeableText: Empty,
+    Input: ({
+      testID,
+      value,
+      onChange,
+    }: {
+      testID: string;
+      value: string;
+      onChange: (value: string) => void;
+    }) => (
+      <input
+        data-testid={testID}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    ),
+    NumberSizeableText: ({ children }: { children: ReactNode }) => (
+      <span>{children}</span>
+    ),
     ScrollView: Passthrough,
     SegmentControl: (props: ISegmentControlProps) => mockSegmentControl(props),
     SizableText: Passthrough,
@@ -40,11 +122,10 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Passthrough,
     YStack: Passthrough,
     useDialogInstance: () => ({ close: jest.fn() }),
-    useForm:
-      jest.requireActual<typeof import('react-hook-form')>('react-hook-form')
-        .useForm,
+    useForm,
   };
 });
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {},
@@ -143,5 +224,89 @@ describe('TxFeeEditor fee type selector with only the base-fee fallback', () => 
 
     pressOption(0);
     expect(getSelectedFeeTypes()).toEqual([EFeeType.Standard]);
+  });
+});
+
+describe('TxFeeEditor Starknet custom maximum fee', () => {
+  afterEach(() => {
+    cleanup();
+    mockSegmentControl.mockClear();
+  });
+
+  it('edits a single maximum and saves the derived resource caps', async () => {
+    const feeInfo = {
+      common: {
+        ...common,
+        feeDecimals: 18,
+        feeSymbol: 'STRK',
+        nativeSymbol: 'STRK',
+      },
+      feeStarknet: {
+        l1Gas: { maxAmount: '0', maxPricePerUnit: '1000' },
+        l2Gas: {
+          maxAmount: '200',
+          maxPricePerUnit: '1000000000000000',
+          estimatedPricePerUnit: '800000000000000',
+        },
+        l1DataGas: {
+          maxAmount: '10',
+          maxPricePerUnit: '1000000000000000',
+          estimatedPricePerUnit: '800000000000000',
+        },
+        overallFee: '160000000000000000',
+      },
+    };
+    const onApplyFeeInfo = jest.fn();
+    await act(async () => {
+      render(
+        <TxFeeEditor
+          networkId="starknet--mainnet"
+          feeSelectorItems={fallbackFeeSelectorItems.map((item) => ({
+            ...item,
+            feeInfo,
+          }))}
+          sendSelectedFee={{ feeType: EFeeType.Standard, presetIndex: 0 }}
+          originalCustomFee={feeInfo}
+          selectedFee={undefined}
+          unsignedTxs={[{} as IUnsignedTxPro]}
+          onApplyFeeInfo={onApplyFeeInfo}
+        />,
+      );
+    });
+    expect(screen.getByText('0.16')).toBeTruthy();
+    expect(screen.getByText('0.21')).toBeTruthy();
+    pressOption(1);
+
+    const save = screen.getByTestId<HTMLButtonElement>('signature-confirm-btn');
+    const budget = screen.getByTestId<HTMLInputElement>(
+      'sig-confirm-starknet-max-fee',
+    );
+    expect(screen.getAllByRole('textbox')).toEqual([budget]);
+    expect(budget.value).toBe('0.21');
+    fireEvent.change(budget, { target: { value: '0.165' } });
+    await waitFor(() => expect(save.disabled).toBe(true));
+    fireEvent.change(budget, { target: { value: '0.189' } });
+    await waitFor(() => expect(save.disabled).toBe(false));
+    expect(screen.getByText('0.16')).toBeTruthy();
+    fireEvent.click(save);
+
+    expect(onApplyFeeInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feeType: EFeeType.Custom,
+        customFeeInfo: expect.objectContaining({
+          feeStarknet: {
+            ...feeInfo.feeStarknet,
+            l2Gas: {
+              ...feeInfo.feeStarknet.l2Gas,
+              maxPricePerUnit: '900000000000000',
+            },
+            l1DataGas: {
+              ...feeInfo.feeStarknet.l1DataGas,
+              maxPricePerUnit: '900000000000000',
+            },
+          },
+        }),
+      }),
+    );
   });
 });

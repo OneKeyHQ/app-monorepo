@@ -36,6 +36,7 @@ import {
 import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   buildTxActionDirection,
   getStakingActionLabel,
@@ -97,6 +98,7 @@ import type {
   IStakeTx,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -144,6 +146,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   IPreActionsBeforeSendingParams,
+  ISendConfirmationPreparation,
   ISignTransactionParams,
   ITransferInfo,
   ITransferPayload,
@@ -330,6 +333,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
     result.isValid = Boolean(isValid);
 
+    if (privateKeyResult?.isValid) {
+      const { accountDeriveInfo, accountDeriveMode } =
+        await this.getVaultSettings();
+      if (accountDeriveMode === 'walletContract') {
+        result.deriveInfoItems = Object.values(accountDeriveInfo);
+      }
+    }
+
     return { result, inputDecoded: input };
   }
 
@@ -506,6 +517,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   abstract updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
+
+  async prepareSendConfirmation(
+    unsignedTxs: IUnsignedTxPro[],
+    _confirmPrerequisites: boolean,
+  ): Promise<ISendConfirmationPreparation> {
+    return {
+      unsignedTxs,
+    };
+  }
+
+  async getSendPrerequisiteProgress(_txid: string): Promise<{
+    status?: EOnChainHistoryTxStatus;
+  }> {
+    return {};
+  }
 
   // Override in chain vaults that need to refresh transaction data (e.g. blockhash)
   // before signing each transaction in a batch send sequence.
@@ -1274,8 +1300,27 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const providerInfo = swapInfo.swapBuildResData.result?.info;
     const otherFeeInfos = swapInfo.swapBuildResData.result?.fee?.otherFeeInfos;
     const otherFeeInfoTransfers: IDecodedTxTransferInfo[] = [];
+    const withDisplayAmount = (
+      transfer: IDecodedTxTransferInfo,
+      balanceMultiplier: string | undefined,
+    ): IDecodedTxTransferInfo => {
+      if (
+        swapInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+        !tokenRebaseUtils.isScalingBalanceMultiplier(balanceMultiplier)
+      ) {
+        return transfer;
+      }
+      return {
+        ...transfer,
+        amount: tokenRebaseUtils.applyBalanceMultiplier({
+          amount: transfer.amount,
+          balanceMultiplier,
+        }),
+        balanceMultiplier,
+      };
+    };
 
-    let transfers: IDecodedTxTransferInfo[] = [
+    const transfers: IDecodedTxTransferInfo[] = [
       {
         from: swapInfo.accountAddress,
         to: '',
@@ -1306,29 +1351,37 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     if (otherFeeInfos) {
       otherFeeInfos.forEach((feeInfo) => {
-        if (feeInfo.token.contractAddress === transfers[0].tokenIdOnNetwork) {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: feeInfo.token,
+            token2: swapSendToken,
+          })
+        ) {
           transfers[0].amount = new BigNumber(transfers[0].amount)
             .plus(feeInfo.amount)
             .toFixed();
         } else {
-          otherFeeInfoTransfers.push({
-            from: swapInfo.accountAddress,
-            to: '',
-            tokenIdOnNetwork: feeInfo.token.contractAddress,
-            icon: feeInfo.token.logoURI ?? '',
-            name: feeInfo.token.name ?? '',
-            symbol: feeInfo.token.symbol,
-            amount: feeInfo.amount,
-            isNFT: false,
-            isNative: feeInfo.token.isNative,
-            networkId: swapInfo.sender.accountInfo.networkId,
-            price: feeInfo.token.price,
-          });
+          otherFeeInfoTransfers.push(
+            withDisplayAmount(
+              {
+                from: swapInfo.accountAddress,
+                to: '',
+                tokenIdOnNetwork: feeInfo.token.contractAddress,
+                icon: feeInfo.token.logoURI ?? '',
+                name: feeInfo.token.name ?? '',
+                symbol: feeInfo.token.symbol,
+                amount: feeInfo.amount,
+                isNFT: false,
+                isNative: feeInfo.token.isNative,
+                networkId: swapInfo.sender.accountInfo.networkId,
+                price: feeInfo.token.price,
+              },
+              feeInfo.token.balanceMultiplier,
+            ),
+          );
         }
       });
     }
-
-    transfers = [...otherFeeInfoTransfers, ...transfers];
 
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
@@ -1343,7 +1396,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       isInternalSwap: true,
       swapReceivedAddress: swapInfo.receivingAddress,
       swapReceivedNetworkId: swapInfo.receiver.token.networkId,
-      transfers,
+      transfers: [
+        ...otherFeeInfoTransfers,
+        withDisplayAmount(transfers[0], swapSendToken.balanceMultiplier),
+        withDisplayAmount(transfers[1], swapReceiveToken.balanceMultiplier),
+      ],
     });
     return action;
   }

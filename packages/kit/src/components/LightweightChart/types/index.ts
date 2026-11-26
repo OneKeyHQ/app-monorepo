@@ -11,7 +11,7 @@ import type {
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
 // `curved`: monotone cubic through every point, so the line never overshoots a
 // real high or low. Honored by the dotted-area series and its overlay line on
-// web and the native canvas; the Catalyst WebView draws it straight.
+// web and the native canvas.
 export type ILightweightChartLineType = 'simple' | 'steps' | 'curved';
 export type ILightweightChartPriceScalePosition = 'left' | 'right';
 export type ILightweightChartSeriesType =
@@ -49,6 +49,7 @@ export interface ILightweightChartHistogramOptions {
   base?: number;
   barWidthRatio?: number;
   maxBarWidth?: number;
+  borderRadius?: number;
 }
 
 export interface ILightweightChartTheme {
@@ -85,6 +86,7 @@ export interface ILightweightChartConfig {
   secondaryPointData?: LineData[];
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
+  secondaryLineBlankSlots?: boolean;
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -101,11 +103,12 @@ export interface ILightweightChartConfig {
   priceTickFormatter?: (prices: number[]) => string[];
   priceFormatBase?: number;
   priceScaleMinimumWidth?: number;
+  priceScaleLabelAlign?: 'left' | 'right';
   priceFormatterType?: ILightweightChartPriceFormatterType;
   compactPriceMaxCharacters?: number;
   // `stock`: prices at or above $1 keep two decimals (`$341.70`).
   // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
-  priceScaleFormat?: 'stock' | 'full';
+  priceScaleFormat?: 'stock' | 'full' | 'open-interest';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -143,6 +146,12 @@ export interface ILightweightChartProps {
   // this time. Unlike passing a shorter series, the curve keeps the shape it
   // has over the full series.
   secondaryLineEndTime?: number;
+  // The overlay's value-less points past the last price are time slots still
+  // to come (a session filling in). They are labelled on the time axis and
+  // the crosshair stays off them: web hides the guide there, native holds it
+  // at the last price. Charts that leave it unset treat those points as plain
+  // gaps, as before.
+  secondaryLineBlankSlots?: boolean;
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -151,9 +160,11 @@ export interface ILightweightChartProps {
   priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
-  // Web/desktop only. Reserve the axis before labels are measured so the plot
+  // Reserve the axis before labels are measured so the plot
   // width does not shift during the first chart paint.
   priceScaleMinimumWidth?: number;
+  // Opt in to right-aligned tick labels at the outer edge of the price axis.
+  priceScaleLabelAlign?: 'left' | 'right';
   // Crosshair vertical line overrides. Left unset the chart keeps its default
   // faint large-dashed line, so charts that do not opt in are unaffected.
   crosshairVertLineColor?: string;
@@ -174,12 +185,11 @@ export interface ILightweightChartProps {
   // lightweight-charts price base (1 / smallest tick step). Defaults to 100,
   // which leaves sub-cent quotes with a single $0 tick.
   priceFormatBase?: number;
-  // Native WebView only. Custom formatter functions cannot cross the WebView
-  // boundary, so callers can opt into a serializable percent precision.
+  // Maximum character count for compact price labels.
   compactPriceMaxCharacters?: number;
   // `stock`: prices at or above $1 keep two decimals (`$341.70`).
   // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
-  priceScaleFormat?: 'stock' | 'full';
+  priceScaleFormat?: ILightweightChartConfig['priceScaleFormat'];
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -222,13 +232,4 @@ export interface ILightweightChartProps {
     x?: number;
     y?: number;
   }) => void;
-}
-
-export interface IChartMessage {
-  type: 'ready' | 'hover';
-  time?: string;
-  price?: string;
-  secondaryPrice?: string;
-  x?: number;
-  y?: number;
 }

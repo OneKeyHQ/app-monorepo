@@ -56,10 +56,15 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: { updateSyncItem: jest.fn() },
 }));
 jest.mock('../../states/jotai/atoms', () => ({
+  devSettingsPersistAtom: { sub: jest.fn(() => () => undefined) },
   primeCloudSyncPersistAtom: {
     get: jest.fn(async () => ({
       isCloudSyncEnabledKeyless: true,
-      hardwareCloudSyncKeySource: { credentialId: mockSelected },
+      currentCloudSyncKeylessWalletId: mockSelected,
+      hardwareCloudSyncKeySource: {
+        credentialId: mockSelected,
+        derivationVersion: 1,
+      },
     })),
     set: jest.fn(
       async (
@@ -115,7 +120,7 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-async function setup() {
+async function setup(sourceMinGeneration = 0) {
   const spaces = new Map<string, ISpace>(
     ['source', 'target'].map((id) => [
       id,
@@ -181,6 +186,7 @@ async function setup() {
   const credentials: IKeylessCloudSyncCredential[] = [];
   for (const id of ['source', 'target']) {
     const session: IHardwareCloudSyncSession = {
+      boundBaseURL: client.defaults.baseURL,
       deviceKeyJwk: createHardwareCloudSyncDeviceKey(),
       accessToken: id,
       accessTokenExpiresAt: Date.now() + 600_000,
@@ -193,6 +199,7 @@ async function setup() {
       session,
       deriveKek: async (salt) =>
         createHash('sha256').update(`${id}:${salt}`).digest('hex'),
+      minGeneration: id === 'source' ? sourceMinGeneration : 0,
     });
     credentials.push({
       keylessWalletId: `hardware-cloud-v1-${id}`,
