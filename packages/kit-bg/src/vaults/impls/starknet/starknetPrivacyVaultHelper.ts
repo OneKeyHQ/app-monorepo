@@ -9,7 +9,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { starknetPrivacyOperationTitles } from '@onekeyhq/shared/src/locale/starknetPrivacy';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IOnChainHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import { EStrk20ErrorCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import {
   EDecodedTxActionType,
@@ -17,7 +20,10 @@ import {
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
-import { STRK20_SCREENING_WINDOW_MS } from './sdkStarknet';
+import {
+  STRK20_PRIVACY_CONFIG,
+  STRK20_SCREENING_WINDOW_MS,
+} from './sdkStarknet';
 import { normalizeStarknetAddress, normalizeTokenAddress } from './utils';
 
 import type { ClientStarknet } from './sdkStarknet';
@@ -299,4 +305,105 @@ export function redactStarknetPrivacyHistoryTx(
         : {}),
     },
   };
+}
+
+const STARKNET_ON_CHAIN_PRIVACY_KINDS: Record<
+  string,
+  IEncodedTxStarknetPrivacy['kind']
+> = {
+  strk20_register: 'register',
+  strk20_deposit: 'deposit',
+  strk20_withdraw: 'withdraw',
+  strk20_transfer: 'transfer',
+};
+
+function matchStarknetOnChainTag(
+  onChainHistoryTx: IOnChainHistoryTx,
+): string | undefined {
+  for (const candidate of [onChainHistoryTx.type, onChainHistoryTx.label]) {
+    if (candidate) {
+      const normalized = String(candidate).toLowerCase();
+      if (
+        normalized === 'deploy_account' ||
+        normalized in STARKNET_ON_CHAIN_PRIVACY_KINDS
+      ) {
+        return normalized;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Maps backend Starknet history tags (`deploy_account`, `strk20_*`) to
+ * structured `IDecodedTxExtraStarknet` so list/detail titles and public-tab
+ * visibility work consistently without requiring local history records.
+ */
+export function resolveStarknetOnChainHistoryExtraInfo(params: {
+  networkId: string;
+  onChainHistoryTx: IOnChainHistoryTx;
+}): IDecodedTxExtraStarknet | null {
+  const { networkId, onChainHistoryTx } = params;
+  const tag = matchStarknetOnChainTag(onChainHistoryTx);
+  if (!tag) {
+    return null;
+  }
+  if (tag === 'deploy_account') {
+    return { accountDeployment: true };
+  }
+  const kind = STARKNET_ON_CHAIN_PRIVACY_KINDS[tag];
+  if (!kind) {
+    return null;
+  }
+  const poolAddress =
+    STRK20_PRIVACY_CONFIG[networkId]?.poolAddress ||
+    onChainHistoryTx.to ||
+    onChainHistoryTx.from ||
+    '';
+  return {
+    privacy: {
+      kind,
+      poolAddress: poolAddress ? normalizeStarknetAddress(poolAddress) : '',
+    },
+  };
+}
+
+/**
+ * Replaces raw backend snake_case Starknet tags on decoded actions with
+ * localized titles so fallback UI surfaces never render raw identifiers.
+ */
+export function localizeStarknetOnChainHistoryAction(params: {
+  action: IDecodedTxAction;
+  extraInfo: IDecodedTxExtraStarknet | null;
+}): IDecodedTxAction {
+  const { action, extraInfo } = params;
+  let titleKey: ETranslations | undefined;
+  if (extraInfo?.accountDeployment) {
+    titleKey = ETranslations.starknet_account_activation__title;
+  } else if (extraInfo?.privacy?.kind) {
+    titleKey = starknetPrivacyOperationTitles[extraInfo.privacy.kind];
+  }
+  if (!titleKey) {
+    return action;
+  }
+  const localizedTitle = appLocale.intl.formatMessage({ id: titleKey });
+  if (action.functionCall) {
+    return {
+      ...action,
+      functionCall: {
+        ...action.functionCall,
+        functionName: localizedTitle,
+      },
+    };
+  }
+  if (action.assetTransfer) {
+    return {
+      ...action,
+      assetTransfer: {
+        ...action.assetTransfer,
+        label: localizedTitle,
+      },
+    };
+  }
+  return action;
 }

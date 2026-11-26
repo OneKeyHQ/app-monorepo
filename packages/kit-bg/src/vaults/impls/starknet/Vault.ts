@@ -63,6 +63,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IOnChainHistoryTx,
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
@@ -123,8 +124,10 @@ import {
 import {
   assertStarknetPrivacyBuildIsFresh,
   buildStarknetPrivacyDecodedAction,
+  localizeStarknetOnChainHistoryAction,
   noteStarknetPrivacyBroadcastSubmitted,
   redactStarknetPrivacyHistoryTx,
+  resolveStarknetOnChainHistoryExtraInfo,
 } from './starknetPrivacyVaultHelper';
 import {
   buildErc20TransferCall,
@@ -2001,10 +2004,40 @@ export default class Vault extends VaultBase {
     return assertStarknetPrivacyBuildIsFresh({ client, encodedTx });
   }
 
+  override async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraStarknet | null> {
+    return Promise.resolve(
+      resolveStarknetOnChainHistoryExtraInfo({
+        networkId: this.networkId,
+        onChainHistoryTx,
+      }),
+    );
+  }
+
+  override async buildHistoryTxAction(
+    params: Parameters<VaultBase['buildHistoryTxAction']>[0],
+  ): Promise<IDecodedTxAction> {
+    const action = await super.buildHistoryTxAction(params);
+    const extraInfo = resolveStarknetOnChainHistoryExtraInfo({
+      networkId: this.networkId,
+      onChainHistoryTx: params.tx,
+    });
+    return localizeStarknetOnChainHistoryAction({ action, extraInfo });
+  }
+
   override async buildHistoryTx(
     params: Parameters<VaultBase['buildHistoryTx']>[0],
   ): Promise<IAccountHistoryTx> {
     const historyTx = await super.buildHistoryTx(params);
+    // Only locally created pending privacy records carry decrypted amounts or
+    // recipients; remote on-chain rows are already public (e.g. deposit/withdraw
+    // token movements) and must not have their public transfers stripped.
+    if (!params.isLocalCreated) {
+      return historyTx;
+    }
     const extraInfo = historyTx.decodedTx.extraInfo as
       | IDecodedTxExtraStarknet
       | undefined;
@@ -2015,16 +2048,14 @@ export default class Vault extends VaultBase {
     if (!privacy || privacy.kind === 'register') {
       return historyTx;
     }
-    if (params.isLocalCreated) {
-      this.backgroundApi.serviceStarknetPrivacy?.rememberPendingPrivateHistoryTx?.(
-        {
-          networkId: this.networkId,
-          accountId: this.accountId,
-          poolAddress: privacy.poolAddress,
-          tx: historyTx,
-        },
-      );
-    }
+    this.backgroundApi.serviceStarknetPrivacy?.rememberPendingPrivateHistoryTx?.(
+      {
+        networkId: this.networkId,
+        accountId: this.accountId,
+        poolAddress: privacy.poolAddress,
+        tx: historyTx,
+      },
+    );
     return redactStarknetPrivacyHistoryTx(historyTx);
   }
 

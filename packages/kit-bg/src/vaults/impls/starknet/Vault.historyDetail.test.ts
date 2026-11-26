@@ -1,10 +1,17 @@
 import sdkStarknet from '@onekeyhq/core/src/chains/starknet/sdkStarknet';
 import {
   EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
   type IAccountHistoryTx,
+  type IOnChainHistoryTx,
+  type IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
+import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
-import { STRK_TOKEN_ADDRESS } from './sdkStarknet/consts';
+import {
+  STRK20_PRIVACY_CONFIG,
+  STRK_TOKEN_ADDRESS,
+} from './sdkStarknet/consts';
 import StarknetVault from './Vault';
 
 import type { IStarknetReceipt } from './sdkStarknet';
@@ -591,5 +598,287 @@ describe('StarknetVault.buildHistoryTx privacy redaction', () => {
     expect(serialized).not.toContain('5000000000000000000');
     expect(redacted.decodedTx.totalFeeInNative).toBe('0.02');
     expect(redacted.decodedTx.protocolFeeInNative).toBe('1');
+  });
+});
+
+describe('StarknetVault.buildOnChainHistoryTx backend tags', () => {
+  const MAINNET_ID = 'starknet--mainnet';
+  const POOL = STRK20_PRIVACY_CONFIG[MAINNET_ID].poolAddress;
+  const OWNER =
+    '0x04ac759e20c1b55199019256c60d7a7710497aad8023d7a9cfe38260faa9d5bf';
+  const USDC_ADDRESS =
+    '0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb';
+  const USDC_KEY = `${MAINNET_ID}_${USDC_ADDRESS}`;
+  const STRK_KEY = `${MAINNET_ID}_${STRK_TOKEN_ADDRESS}`;
+
+  const TOKENS: Record<string, IOnChainHistoryTxToken> = {
+    [USDC_KEY]: {
+      info: {
+        address: USDC_ADDRESS,
+        name: 'USD Coin',
+        symbol: 'USDC',
+        decimals: 6,
+        logoURI: '',
+        isNative: false,
+      },
+      price: '1',
+    },
+    [STRK_KEY]: {
+      info: {
+        address: STRK_TOKEN_ADDRESS,
+        name: 'Starknet Token',
+        symbol: 'STRK',
+        decimals: 18,
+        logoURI: '',
+        isNative: true,
+      },
+      price: '0.03',
+    },
+  };
+
+  function buildMainnetVault() {
+    const vault = Object.create(StarknetVault.prototype) as StarknetVault;
+    const rememberPendingPrivateHistoryTx = jest.fn();
+    Object.assign(vault, {
+      networkId: MAINNET_ID,
+      accountId: ACCOUNT_ID,
+      backgroundApi: {
+        serviceNetwork: {
+          getVaultSettings: jest.fn(async () => ({ isUtxo: false })),
+        },
+        serviceAccount: {
+          getDBAccountSafe: jest.fn(async () => undefined),
+          getAccountAddressForApi: jest.fn(async () => OWNER),
+          getAccountXpub: jest.fn(async () => undefined),
+        },
+        serviceStarknetPrivacy: {
+          rememberPendingPrivateHistoryTx,
+        },
+      },
+      getNetwork: jest.fn(async () => ({
+        id: MAINNET_ID,
+        decimals: 18,
+        symbol: 'STRK',
+        feeMeta: { decimals: 18, symbol: 'STRK' },
+      })),
+    });
+    return { vault, rememberPendingPrivateHistoryTx };
+  }
+
+  function makeOnChainTx(
+    overrides: Partial<IOnChainHistoryTx>,
+  ): IOnChainHistoryTx {
+    return {
+      key: `${MAINNET_ID}_${OWNER}_${TXID}`,
+      networkId: MAINNET_ID,
+      tx: TXID,
+      riskLevel: 0,
+      type: EOnChainHistoryTxType.Send,
+      label: '发送',
+      status: EOnChainHistoryTxStatus.Success,
+      from: OWNER,
+      to: '',
+      block: 18_511_946,
+      timestamp: 1_795_599_870,
+      gasFee: '2.564753125427253632',
+      gasFeeFiatValue: '0.0799',
+      sends: [],
+      receives: [],
+      functionCode: '',
+      params: [],
+      value: '0',
+      ...overrides,
+    };
+  }
+
+  it('maps strk20_transfer to privacy transfer extraInfo, copies protocolFeeInNative, and localizes functionName', async () => {
+    const { vault, rememberPendingPrivateHistoryTx } = buildMainnetVault();
+    const result = await vault.buildOnChainHistoryTx({
+      accountId: ACCOUNT_ID,
+      networkId: MAINNET_ID,
+      accountAddress: OWNER,
+      onChainHistoryTx: makeOnChainTx({
+        type: 'strk20_transfer' as unknown as EOnChainHistoryTxType,
+        label: 'strk20_transfer',
+        to: undefined as unknown as string,
+        protocolFeeInNative: '4.5',
+      }),
+      tokens: TOKENS,
+      nfts: {},
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.decodedTx.extraInfo).toEqual({
+      privacy: { kind: 'transfer', poolAddress: POOL },
+    });
+    expect(result?.decodedTx.protocolFeeInNative).toBe('4.5');
+    expect(result?.decodedTx.actions[0].type).toBe(
+      EDecodedTxActionType.FUNCTION_CALL,
+    );
+    expect(result?.decodedTx.actions[0].functionCall?.functionName).not.toBe(
+      'strk20_transfer',
+    );
+    expect(rememberPendingPrivateHistoryTx).not.toHaveBeenCalled();
+  });
+
+  it('maps strk20_deposit without stripping public sends and preserves protocolFeeInNative', async () => {
+    const { vault, rememberPendingPrivateHistoryTx } = buildMainnetVault();
+    const result = await vault.buildOnChainHistoryTx({
+      accountId: ACCOUNT_ID,
+      networkId: MAINNET_ID,
+      accountAddress: OWNER,
+      onChainHistoryTx: makeOnChainTx({
+        type: 'strk20_deposit' as unknown as EOnChainHistoryTxType,
+        label: 'strk20_deposit',
+        to: POOL,
+        protocolFeeInNative: '4.5',
+        sends: [
+          {
+            type: 0,
+            from: OWNER,
+            to: POOL,
+            token: USDC_ADDRESS,
+            amount: '0.002',
+            key: USDC_KEY,
+            label: '',
+          },
+        ],
+      }),
+      tokens: TOKENS,
+      nfts: {},
+    });
+
+    expect(result?.decodedTx.extraInfo).toEqual({
+      privacy: { kind: 'deposit', poolAddress: POOL },
+    });
+    expect(result?.decodedTx.protocolFeeInNative).toBe('4.5');
+    expect(result?.decodedTx.actions[0].type).toBe(
+      EDecodedTxActionType.ASSET_TRANSFER,
+    );
+    expect(result?.decodedTx.actions[0].assetTransfer?.sends).toHaveLength(1);
+    expect(result?.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '0.002',
+    );
+    expect(result?.decodedTx.actions[0].assetTransfer?.label).not.toBe(
+      'strk20_deposit',
+    );
+    expect(rememberPendingPrivateHistoryTx).not.toHaveBeenCalled();
+  });
+
+  it('maps strk20_withdraw without stripping public receives', async () => {
+    const { vault } = buildMainnetVault();
+    const result = await vault.buildOnChainHistoryTx({
+      accountId: ACCOUNT_ID,
+      networkId: MAINNET_ID,
+      accountAddress: OWNER,
+      onChainHistoryTx: makeOnChainTx({
+        type: 'strk20_withdraw' as unknown as EOnChainHistoryTxType,
+        label: 'strk20_withdraw',
+        to: POOL,
+        protocolFeeInNative: '4.5',
+        receives: [
+          {
+            type: 0,
+            from: POOL,
+            to: OWNER,
+            token: STRK_TOKEN_ADDRESS,
+            amount: '1',
+            key: STRK_KEY,
+            label: '',
+          },
+        ],
+      }),
+      tokens: TOKENS,
+      nfts: {},
+    });
+
+    expect(result?.decodedTx.extraInfo).toEqual({
+      privacy: { kind: 'withdraw', poolAddress: POOL },
+    });
+    expect(result?.decodedTx.actions[0].type).toBe(
+      EDecodedTxActionType.ASSET_TRANSFER,
+    );
+    expect(result?.decodedTx.actions[0].assetTransfer?.receives[0].amount).toBe(
+      '1',
+    );
+    expect(result?.decodedTx.actions[0].assetTransfer?.label).not.toBe(
+      'strk20_withdraw',
+    );
+  });
+
+  it('maps strk20_register and deploy_account to structured extraInfo', async () => {
+    const { vault } = buildMainnetVault();
+    const registerTx = await vault.buildOnChainHistoryTx({
+      accountId: ACCOUNT_ID,
+      networkId: MAINNET_ID,
+      accountAddress: OWNER,
+      onChainHistoryTx: makeOnChainTx({
+        type: 'strk20_register' as unknown as EOnChainHistoryTxType,
+        label: 'strk20_register',
+        to: POOL,
+        protocolFeeInNative: '4.5',
+      }),
+      tokens: TOKENS,
+      nfts: {},
+    });
+    expect(registerTx?.decodedTx.extraInfo).toEqual({
+      privacy: { kind: 'register', poolAddress: POOL },
+    });
+    expect(registerTx?.decodedTx.protocolFeeInNative).toBe('4.5');
+    expect(
+      registerTx?.decodedTx.actions[0].functionCall?.functionName,
+    ).not.toBe('strk20_register');
+
+    const deployTx = await vault.buildOnChainHistoryTx({
+      accountId: ACCOUNT_ID,
+      networkId: MAINNET_ID,
+      accountAddress: OWNER,
+      onChainHistoryTx: makeOnChainTx({
+        type: 'deploy_account' as unknown as EOnChainHistoryTxType,
+        label: 'deploy_account',
+        to: OWNER,
+      }),
+      tokens: TOKENS,
+      nfts: {},
+    });
+    expect(deployTx?.decodedTx.extraInfo).toEqual({
+      accountDeployment: true,
+    });
+    expect(deployTx?.decodedTx.protocolFeeInNative).toBeUndefined();
+    expect(deployTx?.decodedTx.actions[0].functionCall?.functionName).not.toBe(
+      'deploy_account',
+    );
+  });
+
+  it('leaves plain Send transactions untouched', async () => {
+    const { vault } = buildMainnetVault();
+    const sendTx = await vault.buildOnChainHistoryTx({
+      accountId: ACCOUNT_ID,
+      networkId: MAINNET_ID,
+      accountAddress: OWNER,
+      onChainHistoryTx: makeOnChainTx({
+        type: EOnChainHistoryTxType.Send,
+        label: '发送',
+        to: '0x0591960a2eae4798de21771480cede3ce3c17cbeeda9b3b988cfadd2e8db16a4',
+        sends: [
+          {
+            type: 0,
+            from: OWNER,
+            to: '0x0591960a2eae4798de21771480cede3ce3c17cbeeda9b3b988cfadd2e8db16a4',
+            token: USDC_ADDRESS,
+            amount: '0.001',
+            key: USDC_KEY,
+            label: '',
+          },
+        ],
+      }),
+      tokens: TOKENS,
+      nfts: {},
+    });
+    expect(sendTx?.decodedTx.extraInfo).toBeNull();
+    expect(sendTx?.decodedTx.protocolFeeInNative).toBeUndefined();
+    expect(sendTx?.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '0.001',
+    );
   });
 });

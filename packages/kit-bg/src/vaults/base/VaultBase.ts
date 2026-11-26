@@ -1006,6 +1006,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
 
+        ...(onChainHistoryTx.protocolFeeInNative !== undefined
+          ? { protocolFeeInNative: onChainHistoryTx.protocolFeeInNative }
+          : {}),
+
         nativeAmount: vaultSettings.isUtxo ? historyValue : undefined,
 
         extraInfo: await this.buildOnChainHistoryTxExtraInfo({
