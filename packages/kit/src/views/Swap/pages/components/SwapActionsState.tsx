@@ -222,7 +222,9 @@ const CONTENT_EXIT_LAYER_STYLE =
 function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
   const buttonRef = useRef<HTMLElement | null>(null);
   const previous = useRef({ contentKey, fillKey });
-  const shown = useRef<{ node: Element; text: string } | null>(null);
+  const shown = useRef<{ node: Element; text: string; width: number } | null>(
+    null,
+  );
   const animations = useRef<Animation[]>([]);
   const exitLayer = useRef<HTMLElement | null>(null);
   const pendingContent = useRef<MutationObserver | null>(null);
@@ -238,9 +240,15 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       null,
     [],
   );
+  // The laid-out width is kept so the leaving copy wraps its text as the
+  // content did.
   const remember = useCallback((content: Element | null) => {
     shown.current = content
-      ? { node: content, text: content.textContent ?? '' }
+      ? {
+          node: content,
+          text: content.textContent ?? '',
+          width: content instanceof HTMLElement ? content.offsetWidth : 0,
+        }
       : null;
   }, []);
   const enter = useCallback(
@@ -300,6 +308,11 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
     const before = shown.current;
     previous.current = { contentKey, fillKey };
     remember(content);
+    if (last.fillKey !== fillKey) {
+      // A copy still leaving would now sit on the wrong fill.
+      exitLayer.current?.remove();
+      exitLayer.current = null;
+    }
     if (last.contentKey === contentKey || !button) {
       return;
     }
@@ -332,6 +345,12 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       const copy = before.node.cloneNode(true) as Element;
       if (before.node === content) {
         copy.textContent = before.text;
+      }
+      // The overlay spans the button's padding too; at its old width the
+      // copy keeps its line breaks.
+      if (copy instanceof HTMLElement && before.width > 0) {
+        copy.style.width = `${before.width}px`;
+        copy.style.flexShrink = '0';
       }
       const layer = document.createElement('div');
       layer.style.cssText = CONTENT_EXIT_LAYER_STYLE;
