@@ -68,6 +68,9 @@ export interface IDashTextProps extends ISizableTextProps {
 
 type ITextLine = { x: number; y: number; width: number; height: number };
 
+const DEFAULT_DASH_LENGTH = 3;
+const DEFAULT_DASH_GAP = 2;
+
 // The parts of the paragraph lines that follow the leading text (LTR text).
 // The leading text laid out alone breaks like the paragraph, so its last line
 // is the paragraph line where the dashed text starts, and its width says where
@@ -142,8 +145,8 @@ function TextLayoutProbe({
 
 function DashTextCore({
   children,
-  dashLength = 3,
-  dashGap = 2,
+  dashLength = DEFAULT_DASH_LENGTH,
+  dashGap = DEFAULT_DASH_GAP,
   dashThickness = 0.5,
   dashSpacing = 1,
   dashColor = '$borderStrong',
@@ -316,15 +319,14 @@ function DashTextCore({
     );
   }
 
-  // Android misplaces native underline endpoints on wrapped text.
-  const tracksAndroidWrapping = platformEnv.isNativeAndroid && multiline;
   const hasDashes = length > 0 && dashThickness > 0;
   const useMeasuredDashes =
     hasDashes &&
     (leadingText !== undefined ||
       maxDashCount !== undefined ||
       textProps.textDecorationLine !== undefined ||
-      (tracksAndroidWrapping && textLines.length > 1));
+      dashLength !== DEFAULT_DASH_LENGTH ||
+      dashGap !== DEFAULT_DASH_GAP);
 
   // Android treats transparent decoration as a request to use the text color.
   const nativeDashColor = platformEnv.isNativeAndroid
@@ -379,8 +381,7 @@ function DashTextCore({
           {...decorationProps}
           onLayout={hasLeadingText ? handleParagraphLayout : onLayout}
           onTextLayout={
-            hasLeadingText ||
-            (hasDashes && (useMeasuredDashes || tracksAndroidWrapping))
+            hasLeadingText || useMeasuredDashes
               ? handleTextLayout
               : onTextLayout
           }

@@ -1,10 +1,13 @@
 package so.onekey.app.wallet.text;
 
 import android.graphics.Canvas;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
+import android.os.Build;
 import android.text.Layout;
+import android.util.SparseArray;
 
 import java.util.Arrays;
 
@@ -14,6 +17,9 @@ public final class TextDecorationBounds {
     private static final Rect CLIP_BOUNDS = new Rect();
     private static final float[] WHOLE_LINE = new float[2];
     private static final float[] EMPTY = new float[0];
+    private static final Paint DASH_PAINT = new Paint();
+    private static final Path DASH_PATH = new Path();
+    private static final SparseArray<DashPathEffect> DASH_EFFECTS = new SparseArray<>();
 
     private TextDecorationBounds() {}
 
@@ -83,6 +89,40 @@ public final class TextDecorationBounds {
             }
         }
         return merged;
+    }
+
+    public static boolean drawDashedUnderline(Canvas canvas, Paint paint, Layout layout,
+            int line, float from, float to, float y) {
+        if (y <= layout.getLineBaseline(line)) {
+            return false;
+        }
+
+        float density = layout.getPaint().density;
+        int densityKey = Float.floatToIntBits(density);
+        DashPathEffect effect = DASH_EFFECTS.get(densityKey);
+        if (effect == null) {
+            effect = new DashPathEffect(new float[] {3f * density, 2f * density}, 0f);
+            DASH_EFFECTS.put(densityKey, effect);
+        }
+        float thickness = 0.5f * density;
+        // Exclude extra interline spacing when Android exposes the unspaced bottom.
+        int bottom = layout.getLineBottom(line);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            bottom = Math.min(bottom, layout.getLineBottom(line, false));
+        }
+        // Skia's subpixel hairline can cover pixels below the edge when
+        // centered less than half a physical pixel from it.
+        float center = bottom - Math.max(thickness / 2f, 0.5f);
+
+        DASH_PAINT.set(paint);
+        DASH_PAINT.setStrokeWidth(thickness);
+        DASH_PAINT.setStrokeCap(Paint.Cap.BUTT);
+        DASH_PAINT.setPathEffect(effect);
+        DASH_PATH.rewind();
+        DASH_PATH.moveTo(from, center);
+        DASH_PATH.lineTo(to, center);
+        canvas.drawPath(DASH_PATH, DASH_PAINT);
+        return true;
     }
 
     public static void drawClippedWave(Canvas canvas, Path path, Paint paint, float from, float to) {

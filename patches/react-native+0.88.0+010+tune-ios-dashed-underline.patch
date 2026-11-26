@@ -1,0 +1,29 @@
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
+index 5f9847a..e03150c 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
++++ b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
+@@ -236,6 +236,24 @@ - (void)drawAttributedString:(AttributedString)attributedString
+ 
+                                                    // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
+                                                    for (NSString *line in lines) {
++                                                     // OneKey patch: Match DashText's rule at the bottom of the text box.
++                                                     if ([style isEqualToString:@"dashed"] &&
++                                                         [line isEqualToString:@"underline"]) {
++                                                       constexpr CGFloat dashThickness = 0.5f;
++                                                       constexpr std::array<CGFloat, 2> dashIntervals = {3.0f, 2.0f};
++                                                       CGFloat bottom = MIN(
++                                                           CGRectGetMaxY(lineRect) + frame.origin.y, CGRectGetMaxY(frame));
++                                                       CGFloat dashY = bottom - dashThickness / 2.0f;
++                                                       CGContextSaveGState(ctx);
++                                                       CGContextSetLineWidth(ctx, dashThickness);
++                                                       CGContextSetLineDash(ctx, 0, dashIntervals.data(), dashIntervals.size());
++                                                       CGContextBeginPath(ctx);
++                                                       CGContextMoveToPoint(ctx, x1, dashY);
++                                                       CGContextAddLineToPoint(ctx, x2, dashY);
++                                                       CGContextStrokePath(ctx);
++                                                       CGContextRestoreGState(ctx);
++                                                       continue;
++                                                     }
+                                                      CGFloat y = 0.0f;
+                                                      if ([line isEqualToString:@"underline"]) {
+                                                        if ([style isEqualToString:@"wavy"]) {

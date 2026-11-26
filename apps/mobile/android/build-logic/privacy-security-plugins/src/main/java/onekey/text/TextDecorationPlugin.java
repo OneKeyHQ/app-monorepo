@@ -26,6 +26,7 @@ import org.objectweb.asm.commons.Method;
  * <p>Full lines use their visual edges. Partial lines use Android's selection geometry
  * to coalesce touching runs and restart the decoration only after a visual gap.
  * Wavy strokes are clipped to each interval because the last curve may extend past it.
+ * Dashed underlines use DashText's stroke and position within those same intervals.
  *
  * <ul>
  *   <li>{@code שלום עולם} with a dashed underline wraps between words. Both lines
@@ -36,8 +37,7 @@ import org.objectweb.asm.commons.Method;
  *       letter. The two visual intervals leave the unstyled gap undecorated.
  * </ul>
  *
- * <p>{@code TextDecorationBoundsTest} covers the mixed-direction cases. Remove this
- * transform once the bundled AAR handles these spans correctly.
+ * <p>{@code TextDecorationBoundsTest} covers the mixed-direction cases and dash styling.
  */
 public class TextDecorationPlugin implements Plugin<Project> {
     private static final Type RENDERER =
@@ -53,6 +53,8 @@ public class TextDecorationPlugin implements Plugin<Project> {
                     + "Lcom/facebook/react/views/text/TextDecorationStyle;Landroid/graphics/Path;)V");
     private static final Method LINE_INTERVALS =
             new Method("forLine", "(Landroid/text/Layout;III)[F");
+    private static final Method DRAW_DASHED_UNDERLINE = new Method("drawDashedUnderline",
+            "(Landroid/graphics/Canvas;Landroid/graphics/Paint;Landroid/text/Layout;IFFF)Z");
     private static final Method DRAW_PATH =
             new Method("drawPath", "(Landroid/graphics/Path;Landroid/graphics/Paint;)V");
     private static final Method DRAW_CLIPPED_WAVE = new Method("drawClippedWave",
@@ -175,20 +177,38 @@ public class TextDecorationPlugin implements Plugin<Project> {
             Label done = newLabel();
             ifICmp(GE, done);
 
-            loadLocal(arguments[0]); // Canvas
-            loadLocal(arguments[1]); // Paint
             loadLocal(intervals);
             loadLocal(offset);
             arrayLoad(Type.FLOAT_TYPE);
+            storeLocal(arguments[2]); // Left edge
             loadLocal(intervals);
             loadLocal(offset);
             push(1);
             math(ADD, Type.INT_TYPE);
             arrayLoad(Type.FLOAT_TYPE);
-            for (int i = 4; i < arguments.length; i++) {
-                loadLocal(arguments[i]);
+            storeLocal(arguments[3]); // Right edge
+
+            Label original = newLabel();
+            Label nextInterval = newLabel();
+            loadLocal(arguments[7]); // Decoration style
+            getStatic(DECORATION_STYLE, "DASHED", DECORATION_STYLE);
+            ifCmp(DECORATION_STYLE, NE, original);
+            loadLocal(arguments[0]); // Canvas
+            loadLocal(arguments[1]); // Paint
+            loadArg(3); // Layout
+            loadLocal(line);
+            loadLocal(arguments[2]); // Left edge
+            loadLocal(arguments[3]); // Right edge
+            loadLocal(arguments[4]); // Original y
+            invokeStatic(BOUNDS, DRAW_DASHED_UNDERLINE);
+            ifZCmp(NE, nextInterval);
+
+            mark(original);
+            for (int argument : arguments) {
+                loadLocal(argument);
             }
             invokeStatic(RENDERER, DRAW_LINE);
+            mark(nextInterval);
             iinc(offset, 2);
             goTo(loop);
             mark(done);

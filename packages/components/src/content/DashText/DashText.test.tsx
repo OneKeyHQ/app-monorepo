@@ -183,9 +183,9 @@ it.each([false, true])(
     const view = render(
       <DashText
         multiline={multiline}
+        dashLength={3}
+        dashGap={2}
         dashColor="$textSubdued"
-        dashThickness={2}
-        dashSpacing={3}
         onTextLayout={onTextLayout}
       >
         Wrapped label
@@ -200,18 +200,18 @@ it.each([false, true])(
     });
     // No measured dash views: the wrapper only reserves the old rule height.
     expect(view.container.querySelectorAll('[data-layout]')).toHaveLength(1);
-    expect(wrapperLayout(view.container).paddingBottom).toBe(multiline ? 5 : 2);
+    expect(wrapperLayout(view.container).paddingBottom).toBe(
+      multiline ? 1.5 : 0.5,
+    );
+    expect(lastTextProps().paddingBottom).toBe(multiline ? undefined : '$0.2');
   },
 );
 
 it('drops native decoration and reserved height for overlay and zero length', () => {
   platformEnv.isNative = true;
-  const view = render(
-    <DashText dashOverlay dashThickness={2}>
-      Label
-    </DashText>,
-  );
+  const view = render(<DashText dashOverlay>Label</DashText>);
   expect(lastTextProps().textDecorationStyle).toBe('dashed');
+  expect(lastTextProps().paddingBottom).toBe(0);
   expect(wrapperLayout(view.container).paddingBottom).toBe(0);
   view.rerender(
     <DashText multiline length={0}>
@@ -255,7 +255,7 @@ it('keeps an explicit native strike-through and draws the dash separately', () =
   expect(underlines(view.container)).toHaveLength(1);
 });
 
-it('uses both physical line widths for wrapped Android RTL labels', () => {
+it('keeps wrapped Android RTL labels on the native decoration path', () => {
   platformEnv.isNative = true;
   platformEnv.isNativeAndroid = true;
   I18nManager.isRTL = true;
@@ -267,30 +267,41 @@ it('uses both physical line widths for wrapped Android RTL labels', () => {
   );
 
   expect(lastTextProps().textDecorationLine).toBe('underline');
-  expect(underlines(view.container)).toHaveLength(0);
-  layoutText([{ x: 27, y: 0, width: 40, height: 15 }]);
-  expect(lastTextProps().textDecorationLine).toBe('underline');
-  expect(underlines(view.container)).toHaveLength(0);
+  expect(lastTextProps().onTextLayout).toBe(onTextLayout);
 
   layoutText([
     { x: 27, y: 0, width: 40, height: 15 },
     { x: 32, y: 15, width: 35, height: 15 },
   ]);
 
-  expect(lastTextProps().textDecorationLine).toBeUndefined();
-  expect(
-    underlines(view.container).map(
-      (line) => JSON.parse(line.dataset.layout ?? '{}') as unknown,
-    ),
-  ).toEqual([
-    expect.objectContaining({ end: 27, width: 40 }),
-    expect.objectContaining({ end: 32, width: 35 }),
-  ]);
-  layoutText([{ x: 0, y: 0, width: 60, height: 15 }]);
   expect(lastTextProps().textDecorationLine).toBe('underline');
   expect(underlines(view.container)).toHaveLength(0);
-  expect(onTextLayout).toHaveBeenCalledTimes(3);
+  expect(jest.mocked(SizableText)).toHaveBeenCalledTimes(1);
+  expect(onTextLayout).toHaveBeenCalledTimes(1);
 });
+
+it.each([{ dashLength: 4 }, { dashGap: 3 }])(
+  'measures native dashes when only one pattern dimension changes (%j)',
+  (pattern) => {
+    platformEnv.isNative = true;
+    const view = render(
+      <DashText multiline {...pattern}>
+        Label
+      </DashText>,
+    );
+    expect(lastTextProps().textDecorationLine).toBeUndefined();
+    layoutText([{ x: 0, y: 0, width: 12, height: 15 }]);
+
+    const [line] = underlines(view.container);
+    expect(line.children).toHaveLength(2);
+    expect(JSON.parse(line.dataset.layout ?? '{}')).toMatchObject({
+      gap: pattern.dashGap ?? 2,
+    });
+    expect(
+      JSON.parse(line.firstElementChild?.getAttribute('data-layout') ?? '{}'),
+    ).toMatchObject({ width: pattern.dashLength ?? 3 });
+  },
+);
 
 it.each([false, true])(
   'fills a native label with fractional-period dashes (multiline=%s)',
@@ -302,7 +313,6 @@ it.each([false, true])(
         dashOverlay
         dashLength={0.5}
         dashGap={0.25}
-        length={200}
       >
         Label
       </DashText>,
@@ -328,13 +338,7 @@ it.each([false, true])(
     expect(underlines(view.container)[0].children).toHaveLength(160);
 
     view.rerender(
-      <DashText
-        multiline={multiline}
-        dashOverlay
-        dashLength={0}
-        dashGap={0}
-        length={200}
-      >
+      <DashText multiline={multiline} dashOverlay dashLength={0} dashGap={0}>
         Label
       </DashText>,
     );
