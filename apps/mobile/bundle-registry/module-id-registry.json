@@ -27098,6 +27098,7 @@
     "packages/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirm.tsx": 15766,
     "packages/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirmFromDapp.tsx": 2551,
     "packages/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm.tsx": 23392,
+    "packages/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirmState.tsx": 5923,
     "packages/kit/src/views/SignatureConfirm/router/index.tsx": 15559,
     "packages/kit/src/views/SignatureConfirm/testIDs.ts": 1372,
     "packages/kit/src/views/SignatureConfirm/utils/gasAccountAnalytics.ts": 490,
