@@ -13,6 +13,8 @@ struct LiveActivityBundle: WidgetBundle {
 private let swapGreen = Color(red: 62 / 255, green: 220 / 255, blue: 47 / 255)
 private let swapRed = Color(red: 210 / 255, green: 30 / 255, blue: 36 / 255)
 private let swapOrange = Color(red: 247 / 255, green: 147 / 255, blue: 26 / 255)
+// Composite the design's 20% white over black before WidgetKit renders the track.
+private let swapProgressTrack = Color(.sRGB, red: 0.2, green: 0.2, blue: 0.2, opacity: 1)
 private let swapSecondaryText = Color.white.opacity(0.6)
 
 private struct SwapLocalizedContent<Content: View>: View {
@@ -132,28 +134,36 @@ private struct SwapActivityETA: View {
   @ViewBuilder
   private var pendingETA: some View {
     if order.isRealOrderOrPushTest {
-      // The system advances timer digits without re-rendering the activity.
-      if order.estimatedEndAt.timeIntervalSinceNow < 10 {
+      let remaining = order.estimatedEndAt.timeIntervalSinceNow
+      if remaining < 10 {
         Text(strings?.almostDone ?? "Almost done")
-      } else {
-        Text("≈\(order.estimatedEndAt, style: .time)")
+      } else if let minutes = Int(exactly: ceil(remaining / 60)) {
+        minuteETA(minutes)
       }
     } else if context.state.almostDone == true {
       Text(strings?.almostDone ?? "~Almost done")
     } else if let minutes = context.state.etaMinutes {
-      if let template = strings?.etaTemplate {
-        Text(template.replacingOccurrences(of: "{number}", with: String(minutes)))
-      } else if compact {
-        VStack(spacing: -4) {
-          Text("\(minutes)")
-            .font(.system(size: 13, weight: .heavy))
-          Text("min")
-            .font(.system(size: 9, weight: .regular))
-        }
-        .frame(height: 25)
-      } else {
-        Text("~\(minutes) min")
+      minuteETA(minutes)
+    }
+  }
+
+  @ViewBuilder
+  private func minuteETA(_ minutes: Int) -> some View {
+    let locale = strings?.locale.map { Locale(identifier: $0) } ?? .current
+    let number = minutes.formatted(.number.locale(locale))
+    if let template = strings?.etaTemplate {
+      let localizedTemplate = template.replacingOccurrences(of: "~", with: compact ? "" : "≈", options: .anchored)
+      Text(localizedTemplate.replacingOccurrences(of: "{number}", with: number))
+    } else if compact {
+      VStack(spacing: -4) {
+        Text(number)
+          .font(.system(size: 13, weight: .heavy))
+        Text("min")
+          .font(.system(size: 9, weight: .regular))
       }
+      .frame(height: 25)
+    } else {
+      Text("≈\(number) min")
     }
   }
 }
@@ -197,7 +207,7 @@ private struct SwapActivityProgress: View {
       Group {
         if let progress = fixedProgress {
           ZStack(alignment: .leading) {
-            Capsule().fill(.white.opacity(0.2))
+            Capsule().fill(swapProgressTrack)
             Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
               .frame(width: geometry.size.width * progress)
           }
@@ -212,6 +222,39 @@ private struct SwapActivityProgress: View {
   }
 }
 
+private struct SwapActivityArrows: View {
+  struct Update: Hashable {
+    let status: SwapLiveActivityStatus
+    let progress: Double?
+  }
+
+  let reversed: Bool
+  let update: Update?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
+  private let width: CGFloat = 34.9771
+  private let height: CGFloat = 14
+
+  var body: some View {
+    let allowsMotion = !reduceMotion && !isLuminanceReduced
+    let animationUpdate = allowsMotion ? update : nil
+    ZStack {
+      Image("SwapArrows").renderingMode(.original).resizable().scaledToFit()
+        .frame(width: width, height: height)
+        .id(animationUpdate)
+        .transition(allowsMotion ? .push(from: .leading) : .identity)
+    }
+    .frame(width: width, height: height)
+    .clipped()
+    .animation(animationUpdate == nil ? nil : .easeInOut(duration: 0.625), value: animationUpdate)
+    .environment(\.layoutDirection, .leftToRight)
+    .rotationEffect(.degrees(reversed ? 180 : 0))
+    .opacity(reversed ? 0.5 : 1)
+    .accessibilityHidden(true)
+  }
+}
+
 private struct SwapActivityDetails: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
   let sharedLabels: SwapLiveActivityStrings?
@@ -221,6 +264,12 @@ private struct SwapActivityDetails: View {
 
   private var showsStaleTime: Bool {
     context.isStale && !context.state.isTerminal && !context.state.status.isError
+  }
+
+  private var arrowUpdate: SwapActivityArrows.Update? {
+    let state = context.state
+    guard !context.isStale, !state.isTerminal, state.status != .failed else { return nil }
+    return .init(status: state.status, progress: state.remoteProgress)
   }
 
   private func ticker(_ value: String) -> String {
@@ -248,12 +297,7 @@ private struct SwapActivityDetails: View {
     VStack(alignment: .leading, spacing: expanded ? 8 : (context.state.status == .done ? 9 : 12)) {
       HStack(spacing: 9) {
         Text(ticker(context.attributes.order.fromToken.symbol))
-        Image("SwapArrows").renderingMode(.original).resizable().scaledToFit()
-        .frame(width: 34.9771, height: 14)
-        .rotationEffect(.degrees(context.state.status.isRefund ? 180 : 0))
-        .opacity(context.state.status.isRefund ? 0.5 : 1)
-        .id(context.state.status)
-        .transition(.push(from: .trailing))
+        SwapActivityArrows(reversed: context.state.status.isRefund, update: arrowUpdate)
         Text(ticker(context.attributes.order.toToken.symbol))
           .opacity(context.state.status.isError ? 0.5 : 1)
         if !showsStaleTime {
