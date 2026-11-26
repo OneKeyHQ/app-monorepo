@@ -760,6 +760,48 @@ describe('SwapReward refresh feedback', () => {
     });
   });
 
+  it('retries a dropped page when the sort that dropped it fails', async () => {
+    const initialInvites = createInvitesResponse('initial-invitee', 'cursor-1');
+    const droppedPage = createDeferred<ISwapInvitesResponse>();
+    const sortRefresh = createDeferred<ISwapInvitesResponse>();
+    mockGetSwapCumulativeRewards.mockResolvedValue(cumulativeRewards);
+    mockGetSwapInvites.mockResolvedValue(initialInvites);
+
+    render(<SwapReward />);
+    await completeInitialLoad();
+
+    mockGetSwapInvites.mockReturnValueOnce(droppedPage.promise);
+    act(() => {
+      scrollToBottom();
+    });
+    await waitFor(() => {
+      expect(mockGetSwapInvites).toHaveBeenCalledTimes(3);
+    });
+
+    mockGetSwapInvites.mockReturnValueOnce(sortRefresh.promise);
+    act(() => {
+      getLatestDetailsProps().onSort('fee');
+    });
+    await waitFor(() => {
+      expect(mockGetSwapInvites).toHaveBeenCalledTimes(4);
+    });
+
+    mockGetSwapInvites.mockResolvedValueOnce(
+      createInvitesResponse('retried-invitee'),
+    );
+    await act(async () => {
+      sortRefresh.reject(new Error('Sort failed'));
+      await Promise.allSettled([sortRefresh.promise]);
+    });
+
+    await waitFor(() => {
+      expect(mockGetSwapInvites).toHaveBeenCalledTimes(5);
+    });
+    expect(mockGetSwapInvites).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cursor: 'cursor-1', sortBy: 'volume' }),
+    );
+  });
+
   it('does not let an older full refresh overwrite a newer list filter', async () => {
     mockGetSwapCumulativeRewards.mockResolvedValue(cumulativeRewards);
     mockGetSwapInvites.mockResolvedValue(invites);

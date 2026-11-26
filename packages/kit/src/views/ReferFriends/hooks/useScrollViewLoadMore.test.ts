@@ -135,6 +135,22 @@ describe('useScrollViewLoadMore', () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
+  it('continues after a page without a height change once the user scrolls', () => {
+    const { hook, rerender, measure, onLoadMore } = setup();
+    measure(900, 700);
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+
+    // An empty page advances the cursor without resizing the content.
+    rerender({ isLoading: true });
+    rerender({ isLoading: false, cursor: 'page-2' });
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      hook.result.current.onScroll(scrollEvent(0, 900, 700));
+    });
+    expect(onLoadMore).toHaveBeenCalledTimes(2);
+  });
+
   it('requests a cursor once when size events arrive before loading renders', () => {
     const { hook, measure, onLoadMore } = setup();
     measure(800, 1000);

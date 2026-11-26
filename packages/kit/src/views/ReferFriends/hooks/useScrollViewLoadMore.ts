@@ -19,7 +19,7 @@ const DEFAULT_THRESHOLD = 100;
  * - After a request, checks wait for the content to be measured with loading
  *   finished, so stale metrics cannot chain extra pages.
  * - Both guards reset when the user scrolls away from the end after loading,
- *   or the page replaces the list (`listVersion`).
+ *   or `listVersion` changes.
  *
  * Metrics belong to one ScrollView instance; use LoadMoreScrollView when the
  * ScrollView can remount while the page stays mounted.
@@ -35,7 +35,8 @@ export function useScrollViewLoadMore({
   cursor: string | undefined;
   // Any request that should hold pagination back, including load more.
   isLoading: boolean;
-  // Changes whenever the page replaces the list with a new first page.
+  // Changes whenever the page starts or commits a new first page, which also
+  // re-arms a cursor whose in-flight page was dropped.
   listVersion: number;
   onLoadMore: () => unknown;
   threshold?: number;
@@ -94,14 +95,18 @@ export function useScrollViewLoadMore({
         visible: layoutMeasurement.height,
         content: contentSize.height,
       };
-      // Only a scroll away from the end after loading re-arms the guards; size
-      // changes such as a loading row appearing must not.
-      if (
-        !stateRef.current.isLoading &&
-        contentSize.height - layoutMeasurement.height - contentOffset.y >
+      if (!stateRef.current.isLoading) {
+        // A scroll event carries fresh metrics, even when the last page did
+        // not change the content height.
+        isAwaitingMeasureRef.current = false;
+        // Only a scroll away from the end re-arms the cursor; size changes
+        // such as a loading row appearing must not.
+        if (
+          contentSize.height - layoutMeasurement.height - contentOffset.y >
           stateRef.current.threshold
-      ) {
-        resetGuards();
+        ) {
+          resetGuards();
+        }
       }
       maybeLoadMore();
     },

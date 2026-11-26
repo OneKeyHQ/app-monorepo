@@ -96,7 +96,7 @@ function SwapRewardPageWrapper() {
   const [sortBy, setSortBy] = useState<ISwapInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<ISwapInvitesSortOrder>('desc');
   const [cursor, setCursor] = useState<string>();
-  // Bumped when a first page replaces the list.
+  // Bumped when a first page starts or lands, see useScrollViewLoadMore.
   const [listVersion, setListVersion] = useState(0);
 
   const refreshRequestIdRef = useRef(0);
@@ -335,6 +335,8 @@ function SwapRewardPageWrapper() {
     const listGeneration = listGenerationRef.current;
     loadingMoreRequestRef.current = undefined;
     setIsLoadingMore(false);
+    // Re-arm the cursor of a dropped page in case this request fails.
+    setListVersion((version) => version + 1);
     setIsLoading(true);
     setIsTabLoading(true);
 
@@ -484,6 +486,8 @@ function SwapRewardPageWrapper() {
       updateCursor(undefined);
     }
     setIsLoadingMore(false);
+    // Re-arm the cursor of a dropped page in case this request fails.
+    setListVersion((version) => version + 1);
     setHasListError(false);
     setIsTabLoading(true);
 

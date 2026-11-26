@@ -67,10 +67,13 @@ function PerpsRewardPageWrapper() {
   // Pagination state
   const [cursor, setCursor] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // Bumped when a first page replaces the list.
+  // Bumped when a first page starts or lands, see useScrollViewLoadMore.
   const [listVersion, setListVersion] = useState(0);
-  // Drops load-more responses for a list that a newer tab request replaced.
+  // Only the latest first-page request may commit rows or page them.
   const listGenerationRef = useRef(0);
+  const tabRequestIdRef = useRef(0);
+  // Query of the displayed rows; a failed request can leave older rows shown.
+  const [displayedQueryKey, setDisplayedQueryKey] = useState<string>();
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
@@ -178,10 +181,26 @@ function PerpsRewardPageWrapper() {
     filterState.inviteCode,
   ]);
 
+  const listQueryKey = [
+    activeTab,
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
+    filterState.inviteCode,
+    activeTab === 'total' ? hideZeroVolume : undefined,
+    sortBy,
+    sortOrder,
+  ].join('|');
+  // Only page the rows that match the active tab, filters and sort.
+  const pageCursor = displayedQueryKey === listQueryKey ? cursor : undefined;
+
   // Fetch current tab data (resets pagination)
   const fetchCurrentTab = useCallback(async () => {
-    // Invalidate in-flight load-more requests for the list being replaced.
     listGenerationRef.current += 1;
+    const listGeneration = listGenerationRef.current;
+    const requestQueryKey = listQueryKey;
+    setIsLoadingMore(false);
+    setListVersion((version) => version + 1);
     const result = await backgroundApiProxy.serviceReferralCode.getPerpsInvites(
       {
         tab: activeTab,
@@ -194,10 +213,14 @@ function PerpsRewardPageWrapper() {
         sortOrder,
       },
     );
+    if (listGeneration !== listGenerationRef.current) {
+      return;
+    }
     setCurrentInvites(result);
 
     // Update cursor for pagination - trust API's cursor
     setCursor(result.cursor ?? undefined);
+    setDisplayedQueryKey(requestQueryKey);
     setListVersion((version) => version + 1);
 
     // Update the count for current tab
@@ -215,11 +238,12 @@ function PerpsRewardPageWrapper() {
     hideZeroVolume,
     sortBy,
     sortOrder,
+    listQueryKey,
   ]);
 
   // Load more data for pagination
   const onLoadMore = useCallback(async () => {
-    if (!cursor || isLoadingMore) {
+    if (!pageCursor || isLoadingMore) {
       return;
     }
     const listGeneration = listGenerationRef.current;
@@ -235,7 +259,7 @@ function PerpsRewardPageWrapper() {
           hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
           sortBy,
           sortOrder,
-          cursor,
+          cursor: pageCursor,
         });
       if (listGeneration !== listGenerationRef.current) {
         return;
@@ -252,10 +276,13 @@ function PerpsRewardPageWrapper() {
     } catch (error) {
       console.error('Failed to load more:', error);
     } finally {
-      setIsLoadingMore(false);
+      // A new first-page request releases the gate of the list it replaced.
+      if (listGeneration === listGenerationRef.current) {
+        setIsLoadingMore(false);
+      }
     }
   }, [
-    cursor,
+    pageCursor,
     isLoadingMore,
     activeTab,
     effectiveTimeRange,
@@ -267,38 +294,44 @@ function PerpsRewardPageWrapper() {
     sortOrder,
   ]);
 
-  const onRefresh = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      await Promise.all([
-        backgroundApiProxy.serviceReferralCode
-          .getPerpsCumulativeRewards({
-            timeRange: effectiveTimeRange,
-            startTime: filterState.startTime,
-            endTime: filterState.endTime,
-            inviteCode: filterState.inviteCode,
-          })
-          .then(setCumulativeRewards),
-        fetchCounts(),
-        fetchCurrentTab(),
-      ]);
-    } catch (error) {
-      console.error('Failed to fetch perps data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-    fetchCounts,
-    fetchCurrentTab,
-  ]);
+  const loadDashboard = useCallback(
+    async (includeList: boolean) => {
+      setIsLoading(true);
+      try {
+        await Promise.all([
+          backgroundApiProxy.serviceReferralCode
+            .getPerpsCumulativeRewards({
+              timeRange: effectiveTimeRange,
+              startTime: filterState.startTime,
+              endTime: filterState.endTime,
+              inviteCode: filterState.inviteCode,
+            })
+            .then(setCumulativeRewards),
+          fetchCounts(),
+          includeList ? fetchCurrentTab() : undefined,
+        ]);
+      } catch (error) {
+        console.error('Failed to fetch perps data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+      filterState.inviteCode,
+      fetchCounts,
+      fetchCurrentTab,
+    ],
+  );
 
-  // Initial load
+  const onRefresh = useCallback(() => loadDashboard(true), [loadDashboard]);
+
+  // Initial load. The list loads in the tab effect below, which also runs
+  // when the filters change.
   useEffect(() => {
-    void onRefresh();
+    void loadDashboard(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     effectiveTimeRange,
@@ -309,10 +342,16 @@ function PerpsRewardPageWrapper() {
 
   // Fetch data when tab changes
   useEffect(() => {
+    tabRequestIdRef.current += 1;
+    const tabRequestId = tabRequestIdRef.current;
     setIsTabLoading(true);
     fetchCurrentTab()
       .catch((error) => console.error('Failed to fetch tab data:', error))
-      .finally(() => setIsTabLoading(false));
+      .finally(() => {
+        if (tabRequestId === tabRequestIdRef.current) {
+          setIsTabLoading(false);
+        }
+      });
   }, [fetchCurrentTab]);
 
   // Client-side sorting as a fallback in case the API doesn't sort correctly
@@ -420,7 +459,7 @@ function PerpsRewardPageWrapper() {
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
               }
               contentContainerStyle={{ pb: '$5' }}
-              cursor={cursor}
+              cursor={pageCursor}
               isLoading={isLoading || isTabLoading || isLoadingMore}
               listVersion={listVersion}
               onLoadMore={onLoadMore}

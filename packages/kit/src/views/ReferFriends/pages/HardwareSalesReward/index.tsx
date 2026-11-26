@@ -94,10 +94,12 @@ function HardwareSalesRewardPageWrapper() {
   );
   const [cursor, setCursor] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // Bumped when a first page replaces the list.
+  // Bumped when a first page starts or lands, see useScrollViewLoadMore.
   const [listVersion, setListVersion] = useState(0);
   // Drops responses from a list that a newer refresh has replaced.
   const listGenerationRef = useRef(0);
+  // Query of the displayed rows; a failed refresh can leave older rows shown.
+  const [displayedQueryKey, setDisplayedQueryKey] = useState<string>();
 
   // Filter state
   const {
@@ -182,10 +184,22 @@ function HardwareSalesRewardPageWrapper() {
     ],
   );
 
+  const listQueryKey = [
+    filterState.inviteCode,
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
+  ].join('|');
+  // Only page the rows that match the active filters.
+  const pageCursor = displayedQueryKey === listQueryKey ? cursor : undefined;
+
   const onRefresh = useCallback(async () => {
     listGenerationRef.current += 1;
     const listGeneration = listGenerationRef.current;
+    const requestQueryKey = listQueryKey;
     setIsLoading(true);
+    setIsLoadingMore(false);
+    setListVersion((version) => version + 1);
     try {
       const [cumulativeRewardsResult, recordsResult] = await Promise.allSettled(
         [
@@ -217,6 +231,7 @@ function HardwareSalesRewardPageWrapper() {
         setHardwareRecords(items);
         const hasMore = items.length >= 10;
         setCursor(hasMore ? items[items.length - 1]?._id : undefined);
+        setDisplayedQueryKey(requestQueryKey);
         setListVersion((version) => version + 1);
       }
     } catch (error) {
@@ -231,10 +246,11 @@ function HardwareSalesRewardPageWrapper() {
     effectiveTimeRange,
     filterState.startTime,
     filterState.endTime,
+    listQueryKey,
   ]);
 
   const onLoadMore = useCallback(async () => {
-    if (!cursor || isLoadingMore) {
+    if (!pageCursor || isLoadingMore) {
       return;
     }
     const listGeneration = listGenerationRef.current;
@@ -242,7 +258,7 @@ function HardwareSalesRewardPageWrapper() {
     try {
       const result =
         await backgroundApiProxy.serviceReferralCode.getHardwareRecords(
-          cursor,
+          pageCursor,
           effectiveTimeRange,
           filterState.inviteCode,
           filterState.startTime,
@@ -259,10 +275,13 @@ function HardwareSalesRewardPageWrapper() {
     } catch (error) {
       console.error('Failed to load more:', error);
     } finally {
-      setIsLoadingMore(false);
+      // A refresh releases the gate of the list it replaced.
+      if (listGeneration === listGenerationRef.current) {
+        setIsLoadingMore(false);
+      }
     }
   }, [
-    cursor,
+    pageCursor,
     isLoadingMore,
     effectiveTimeRange,
     filterState.inviteCode,
@@ -301,7 +320,7 @@ function HardwareSalesRewardPageWrapper() {
             <LoadMoreScrollView
               flex={1}
               contentContainerStyle={{ pb: '$5' }}
-              cursor={cursor}
+              cursor={pageCursor}
               isLoading={isLoading || isLoadingMore}
               listVersion={listVersion}
               onLoadMore={onLoadMore}
