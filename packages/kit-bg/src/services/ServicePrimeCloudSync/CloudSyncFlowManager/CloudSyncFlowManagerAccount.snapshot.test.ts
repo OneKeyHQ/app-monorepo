@@ -97,6 +97,14 @@ function harness() {
       getWalletSafe,
       getDeviceSafe,
       getAllWallets: jest.fn(async () => ({ wallets: [wallet] })),
+      getAllIndexedAccounts: jest.fn(async () => ({
+        indexedAccounts: [0, 1].map((index) => ({
+          id: publicAccountSnapshotToAccount(
+            publicAccountTestSnapshot(index),
+            wallet.id,
+          ).indexedAccountId,
+        })),
+      })),
       getSyncItemSafe: jest.fn(async ({ id }: { id: string }) => pool.get(id)),
       getAccountSafe: jest.fn(async () => undefined),
       updateSyncItem,
@@ -782,6 +790,40 @@ describe('public account snapshot Cloud scene integration', () => {
     await expect(h.manager.buildInitSyncDBItems(params)).resolves.toEqual([]);
     expect(getDataTime).toHaveBeenCalledTimes(1);
   });
+
+  test.each([undefined, PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME])(
+    'initialization skips a legacy deleted account before cleanup (time: %s)',
+    async (initDataTime) => {
+      const h = harness();
+      const [second, deleted, tenth] = [1, 4, 9].map((index) =>
+        publicAccountSnapshotToAccount(
+          publicAccountTestSnapshot(index),
+          h.wallet.id,
+        ),
+      );
+      h.bg.localDb.getAllIndexedAccounts.mockResolvedValue({
+        indexedAccounts: [second, tenth].map(({ indexedAccountId }) => ({
+          id: indexedAccountId,
+        })),
+      });
+
+      const items = await h.manager.buildInitSyncDBItems({
+        dbRecords: [second, deleted, tenth],
+        initDataTime,
+        syncCredential: credential,
+      });
+
+      const keys = [1, 9].map((index) =>
+        h.manager.rawKeyToHashKey(
+          `${EPrimeCloudSyncDataType.Account} >> ${getPublicAccountSnapshotId(
+            publicAccountTestSnapshot(index),
+          )}`,
+        ),
+      );
+      expect(items.map(({ id }) => id)).toEqual(keys);
+      expect(h.bg.localDb.getAllIndexedAccounts).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('stops the recovery scan on cancellation before processing the next account', async () => {
     const h = harness();

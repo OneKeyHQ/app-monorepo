@@ -473,7 +473,17 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     const existing = new Map(items.map((item) => [item.id, item]));
     const built: IDBCloudSyncItem[] = [];
     const accounts = dbRecords as IDBAccount[];
+    const { indexedAccounts } =
+      await this.backgroundApi.localDb.getAllIndexedAccounts();
+    const indexedAccountIds = new Set(indexedAccounts.map(({ id }) => id));
     const buildEach = async (account: IDBAccount) => {
+      // Legacy account removal leaves the network records until cleanup.
+      if (
+        account.indexedAccountId &&
+        !indexedAccountIds.has(account.indexedAccountId)
+      ) {
+        return;
+      }
       const wallet = byWallet.get(
         accountUtils.getWalletIdFromAccountId({ accountId: account.id }) ?? '',
       );
