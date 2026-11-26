@@ -24308,6 +24308,7 @@
     "packages/kit/src/views/AssetDetails/pages/HistoryDetails/components/CosmosTxMeta.tsx": 15854,
     "packages/kit/src/views/AssetDetails/pages/HistoryDetails/components/DnxTxMeta.tsx": 5444,
     "packages/kit/src/views/AssetDetails/pages/HistoryDetails/components/LigntningTxMeta.tsx": 3447,
+    "packages/kit/src/views/AssetDetails/pages/HistoryDetails/components/StarknetTxMeta.tsx": 23930,
     "packages/kit/src/views/AssetDetails/pages/HistoryDetails/components/StellarTxMeta.tsx": 16695,
     "packages/kit/src/views/AssetDetails/pages/HistoryDetails/components/TonTxMeta.tsx": 15793,
     "packages/kit/src/views/AssetDetails/pages/HistoryDetails/components/TronTxMeta.tsx": 19345,

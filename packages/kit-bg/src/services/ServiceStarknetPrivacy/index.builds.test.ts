@@ -218,6 +218,15 @@ function build(options?: {
       },
     },
     serviceToken: {
+      fetchTokenInfoOnly: jest.fn(async () => ({
+        info: {
+          address: STRK,
+          name: 'Starknet',
+          symbol: 'STRK',
+          decimals: 18,
+          isNative: true,
+        },
+      })),
       fetchTokensDetails: jest.fn(async () => [
         {
           info: {
@@ -1401,8 +1410,11 @@ describe('private history display', () => {
       expect(JSON.stringify(result.cursor)).not.toContain('channelKey');
       expect(result.txs).toHaveLength(2);
       expect(
-        backgroundApi.serviceToken.fetchTokensDetails,
+        backgroundApi.serviceToken.fetchTokenInfoOnly,
       ).toHaveBeenCalledTimes(1);
+      expect(
+        backgroundApi.serviceToken.fetchTokensDetails,
+      ).not.toHaveBeenCalled();
       expect(vault.buildTxTransferAssetAction).toHaveBeenCalledWith(
         expect.objectContaining({
           transfers: [
@@ -1447,6 +1459,9 @@ describe('private history display', () => {
     });
     expect(result.txs).toEqual([]);
     expect(result.discoveryTxIds).toEqual([]);
+    expect(
+      backgroundApi.serviceToken.fetchTokenInfoOnly,
+    ).not.toHaveBeenCalled();
     expect(
       backgroundApi.serviceToken.fetchTokensDetails,
     ).not.toHaveBeenCalled();
@@ -2115,7 +2130,7 @@ describe('in-memory pending private history & public-only localHistory redaction
   });
 
   it('resolves a single decrypted private transfer by txid for HistoryDetails and caches the full Discovery page in memory', async () => {
-    const { service } = build();
+    const { service, backgroundApi } = build();
     await service.buildRegisterTx(key);
     const txHash1 =
       '0x07a05aee3df9732da878e1c3e69edcbc43d364584cf5fc93a87de44f60c43425';
@@ -2186,5 +2201,14 @@ describe('in-memory pending private history & public-only localHistory redaction
     expect(
       await service.resolvePrivateHistoryTx({ ...key, txid: 'not-a-felt' }),
     ).toBeUndefined();
+    expect(
+      backgroundApi.serviceToken.fetchTokensDetails,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceToken.fetchTokenInfoOnly,
+    ).toHaveBeenCalledWith({
+      networkId: key.networkId,
+      tokenAddress: STRK,
+    });
   });
 });

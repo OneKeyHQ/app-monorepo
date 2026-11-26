@@ -125,8 +125,9 @@ export class PrivacyHistoryStore {
         hash = '';
       }
       if (hash) {
+        const entryKey = `${scopeKey}:${hash}`;
         if (
-          !this.discoveredRawTxs.has(hash) &&
+          !this.discoveredRawTxs.has(entryKey) &&
           this.discoveredRawTxs.size >= MAX_RESOLVED_PRIVATE_TXS
         ) {
           const oldestKey = this.discoveredRawTxs.keys().next().value;
@@ -134,7 +135,7 @@ export class PrivacyHistoryStore {
             this.discoveredRawTxs.delete(oldestKey);
           }
         }
-        this.discoveredRawTxs.set(hash, { scopeKey, transaction });
+        this.discoveredRawTxs.set(entryKey, { scopeKey, transaction });
       }
     }
   }
@@ -247,12 +248,11 @@ export class PrivacyHistoryStore {
     let tokenMetadata: Promise<IToken | undefined> | undefined;
     const getTokenInfo = () => {
       tokenMetadata ??= this.deps.backgroundApi.serviceToken
-        .fetchTokensDetails({
+        .fetchTokenInfoOnly({
           networkId: p.networkId,
-          accountId: p.accountId,
-          contractList: [p.tokenAddress],
+          tokenAddress: p.tokenAddress,
         })
-        .then((items) => items?.[0]?.info);
+        .then((item) => item?.info);
       return tokenMetadata;
     };
     const { buildStrk20HistoryTx } =
@@ -415,9 +415,8 @@ export class PrivacyHistoryStore {
       buildOhttpOption,
     } = await import('../../vaults/impls/starknet/strk20Adapter');
 
-    const cachedRaw = this.discoveredRawTxs.get(hash);
-    let matched =
-      cachedRaw?.scopeKey === scopeKey ? cachedRaw.transaction : undefined;
+    const discoveryKey = `${scopeKey}:${hash}`;
+    let matched = this.discoveredRawTxs.get(discoveryKey)?.transaction;
     if (!matched) {
       const page = await fetchStrk20HistoryPage({
         discoveryUrl: ctx.config.discoveryUrl,
@@ -428,7 +427,7 @@ export class PrivacyHistoryStore {
       });
       ctx.assertSession();
       this.rememberDiscoveredRawTxs(scopeKey, page.transactions);
-      matched = this.discoveredRawTxs.get(hash)?.transaction;
+      matched = this.discoveredRawTxs.get(discoveryKey)?.transaction;
     }
     if (!matched) return undefined;
 
@@ -447,12 +446,11 @@ export class PrivacyHistoryStore {
     let tokenMetadata: Promise<IToken | undefined> | undefined;
     const getTokenInfo = () => {
       tokenMetadata ??= this.deps.backgroundApi.serviceToken
-        .fetchTokensDetails({
+        .fetchTokenInfoOnly({
           networkId: p.networkId,
-          accountId: p.accountId,
-          contractList: [tokenAddress],
+          tokenAddress,
         })
-        .then((items) => items?.[0]?.info);
+        .then((item) => item?.info);
       return tokenMetadata;
     };
     const { buildStrk20HistoryTx } =
