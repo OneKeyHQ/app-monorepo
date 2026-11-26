@@ -159,6 +159,11 @@ export function useSwapDepositEntryPress({
             depositAccountInfo?.account?.id ??
             pressed.activeAccount?.dbAccount?.id ??
             pressed.activeAccount?.account?.id,
+          presentDialog: (show) => {
+            if (!mountedRef.current) return;
+            if (requestId !== latestRequestIdRef.current) return;
+            show();
+          },
         })
       ) {
         return;

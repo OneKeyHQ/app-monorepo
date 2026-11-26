@@ -340,5 +340,51 @@ describe('walletLocalSecretEnvelopeGuard', () => {
         );
       }
     });
+
+    it('does not repopulate readable cache when invalidated while preflight is in flight', async () => {
+      let resolvePreflight!: (
+        value: ILocalSecretEnvelopeCredentialIssue | null | undefined,
+      ) => void;
+      mockPreflight.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePreflight = resolve;
+          }),
+      );
+
+      const pending = blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: 'hd-6',
+      });
+      // Invalidate cache while preflight is still pending.
+      appEventBus.emit(
+        EAppEventBusNames.WalletLocalSecretEnvelopeKeysChanged,
+        undefined,
+      );
+      resolvePreflight(null);
+      expect(await pending).toBe(false);
+
+      // Next call must re-run preflight instead of trusting the stale null result.
+      mockPreflight.mockResolvedValueOnce(null);
+      expect(
+        await blockIfWalletLocalSecretEnvelopeUnavailable({ walletId: 'hd-6' }),
+      ).toBe(false);
+      expect(mockPreflight).toHaveBeenCalledTimes(2);
+    });
+
+    it('bounds on-demand preflight wait by timeout and treats stalls as inconclusive', async () => {
+      jest.useFakeTimers();
+      try {
+        mockPreflight.mockImplementationOnce(
+          () => new Promise(() => undefined),
+        );
+        const pending = blockIfWalletLocalSecretEnvelopeUnavailable({
+          walletId: 'hd-7',
+        });
+        jest.advanceTimersByTime(1500);
+        await expect(pending).resolves.toBe(false);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });

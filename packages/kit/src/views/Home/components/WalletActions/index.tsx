@@ -169,6 +169,13 @@ function WalletActionSend({
               resolve(value);
             }
           };
+          const claimChoice = (value: boolean) => {
+            if (resolved) {
+              return false;
+            }
+            safeResolve(value);
+            return true;
+          };
           const dialogRef = Dialog.show({
             icon: 'GasOutline',
             title: intl.formatMessage(
@@ -198,7 +205,9 @@ function WalletActionSend({
                         walletId: wallet?.id,
                         accountId: account?.id,
                         presentDialog: async (show) => {
-                          safeResolve(false);
+                          if (!claimChoice(false)) {
+                            return;
+                          }
                           await dialogRef.close();
                           show();
                         },
@@ -206,8 +215,10 @@ function WalletActionSend({
                     ) {
                       return;
                     }
+                    if (!claimChoice(false)) {
+                      return;
+                    }
                     logZeroGas('receive');
-                    safeResolve(false);
                     void dialogRef.close();
                     navigation.pushModal(EModalRoutes.ReceiveModal, {
                       screen: EModalReceiveRoutes.ReceiveSelector,
@@ -232,7 +243,9 @@ function WalletActionSend({
                           walletId: wallet?.id,
                           accountId: account?.id,
                           presentDialog: async (show) => {
-                            safeResolve(false);
+                            if (!claimChoice(false)) {
+                              return;
+                            }
                             await dialogRef.close();
                             show();
                           },
@@ -240,8 +253,10 @@ function WalletActionSend({
                       ) {
                         return;
                       }
+                      if (!claimChoice(false)) {
+                        return;
+                      }
                       logZeroGas('buy');
-                      safeResolve(false);
                       void dialogRef.close();
                       try {
                         if (

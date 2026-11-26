@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
 
 const ON_DEMAND_PREFLIGHT_TIMEOUT_MS = 1500;
 
@@ -30,9 +31,11 @@ function getBackgroundApiProxy():
 }
 
 const confirmedReadableCredentialIds = new Set<string>();
+let cacheGeneration = 0;
 let cacheListenersRegistered = false;
 
 export function clearWalletLocalSecretEnvelopeConfirmedReadableCache() {
+  cacheGeneration += 1;
   confirmedReadableCredentialIds.clear();
 }
 
@@ -157,13 +160,17 @@ export async function getWalletLocalSecretEnvelopeUnavailableIssue({
     return existingIssue;
   }
 
+  ensureCacheInvalidationListeners();
+  const requestCacheGeneration = cacheGeneration;
   const expiresAt = Date.now() + ON_DEMAND_PREFLIGHT_TIMEOUT_MS;
   let result: ILocalSecretEnvelopeCredentialIssue | null | undefined;
   try {
-    result =
-      await backgroundApiProxy.serviceAccount.preflightWalletLocalSecretEnvelope(
-        { credentialId, expiresAt },
-      );
+    result = await resolveBeforeTimeout(
+      backgroundApiProxy.serviceAccount
+        .preflightWalletLocalSecretEnvelope({ credentialId, expiresAt })
+        .catch(() => undefined),
+      ON_DEMAND_PREFLIGHT_TIMEOUT_MS,
+    );
   } catch {
     // An interrupted or unavailable background runtime is inconclusive;
     // preserve a previously confirmed issue but never block healthy wallets.
@@ -174,7 +181,9 @@ export async function getWalletLocalSecretEnvelopeUnavailableIssue({
     return result;
   }
   if (result === null && Date.now() < expiresAt) {
-    markWalletLocalSecretEnvelopeConfirmedReadable(credentialId);
+    if (cacheGeneration === requestCacheGeneration) {
+      markWalletLocalSecretEnvelopeConfirmedReadable(credentialId);
+    }
     return undefined;
   }
   return existingIssue;
