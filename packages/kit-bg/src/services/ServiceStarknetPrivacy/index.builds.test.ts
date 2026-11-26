@@ -2204,9 +2204,7 @@ describe('in-memory pending private history & public-only localHistory redaction
     expect(
       backgroundApi.serviceToken.fetchTokensDetails,
     ).not.toHaveBeenCalled();
-    expect(
-      backgroundApi.serviceToken.fetchTokenInfoOnly,
-    ).toHaveBeenCalledWith({
+    expect(backgroundApi.serviceToken.fetchTokenInfoOnly).toHaveBeenCalledWith({
       networkId: key.networkId,
       tokenAddress: STRK,
     });
