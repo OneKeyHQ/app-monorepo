@@ -25,6 +25,10 @@ import {
 
 import { getActiveWalletLocalSecretEnvelopeCredentialId } from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
 import { WalletLocalSecretEnvelopeStatus } from '../../../components/AccountSelector/WalletLocalSecretEnvelopeStatus';
+import {
+  blockIfWalletLocalSecretEnvelopeUnavailable,
+  clearWalletLocalSecretEnvelopeConfirmedReadableCache,
+} from '../../../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 
@@ -104,6 +108,9 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit-bg/src/states/jotai/atoms/walletLocalSecretEnvelopeStatus',
   () => ({
+    walletLocalSecretEnvelopeStatusAtom: {
+      atom: () => atom({ sessionId: 'test-session', issues: mockWalletIssues }),
+    },
     useWalletLocalSecretEnvelopeStatusAtom: () => [
       { sessionId: 'test-session', issues: mockWalletIssues },
     ],
@@ -139,6 +146,7 @@ const issue: ILocalSecretEnvelopeCredentialIssue = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockPreflight.mockReset();
+  clearWalletLocalSecretEnvelopeConfirmedReadableCache();
   mockActiveWalletId = undefined;
   mockWalletIssues = {};
   AppState.currentState = 'active';
@@ -388,4 +396,29 @@ it('ignores a preflight result after the selected wallet changes', async () => {
     pending.resolve(issue);
   });
   expect(mockToast).not.toHaveBeenCalled();
+});
+
+it('opens the recovery dialog when receive or copy address is guarded for an affected wallet', async () => {
+  const credentialId = 'hd-5';
+  const credentialKey = getLocalSecretEnvelopeCredentialKey(
+    'test-session',
+    credentialId,
+  );
+  mockWalletIssues[credentialKey] = { ...issue, credentialKey };
+
+  render(<LocalSecretEnvelopeErrorDialogContainer />);
+  let blocked = false;
+  await act(async () => {
+    blocked = await blockIfWalletLocalSecretEnvelopeUnavailable({
+      walletId: credentialId,
+      accountId: `${credentialId}--m/44'/60'/0'/0/0`,
+    });
+  });
+
+  expect(blocked).toBe(true);
+  expect(mockDialog).toHaveBeenCalledTimes(1);
+  expect(mockDialog.mock.calls[0][0]).toMatchObject({
+    title: 'Unable to access encrypted local data',
+    onConfirmText: 'Import Wallet Again',
+  });
 });

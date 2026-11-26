@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 import type { IBadgeProps } from '@onekeyhq/components';
 import { Badge, Button, Icon } from '@onekeyhq/components';
 import { useWalletLocalSecretEnvelopeStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/walletLocalSecretEnvelopeStatus';
-import { getLocalSecretEnvelopeCredentialKey } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+
+import {
+  getWalletLocalSecretEnvelopeIssueFromStatus,
+  showWalletLocalSecretEnvelopeRecoveryDialog,
+} from '../LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 
 import type { IntlShape } from 'react-intl';
 
@@ -37,20 +37,17 @@ export function WalletLocalSecretEnvelopeStatus({
   testID?: string;
 }) {
   const intl = useIntl();
-  const [{ issues, sessionId }] = useWalletLocalSecretEnvelopeStatusAtom();
-  const issue =
-    credentialId && sessionId
-      ? issues[getLocalSecretEnvelopeCredentialKey(sessionId, credentialId)]
-      : undefined;
+  const [status] = useWalletLocalSecretEnvelopeStatusAtom();
+  const issue = getWalletLocalSecretEnvelopeIssueFromStatus(
+    status,
+    credentialId,
+  );
   if (!issue) {
     return fallback;
   }
   const label = formatWalletLocalSecretEnvelopeStatus(intl);
   const openDetails = () => {
-    appEventBus.emit(
-      EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
-      issue,
-    );
+    showWalletLocalSecretEnvelopeRecoveryDialog(issue);
   };
   if (compact) {
     return (

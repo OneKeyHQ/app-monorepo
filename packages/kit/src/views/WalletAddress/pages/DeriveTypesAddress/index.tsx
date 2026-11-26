@@ -24,6 +24,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -125,6 +126,14 @@ const DeriveTypesAddressItem = ({
   const onPress = useCallback(async () => {
     if (!network) {
       throw new OneKeyLocalError('network is empty');
+    }
+    if (
+      actionType === EDeriveAddressActionType.Copy &&
+      (await blockIfWalletLocalSecretEnvelopeUnavailable({
+        accountId: item.account?.id ?? indexedAccountId,
+      }))
+    ) {
+      return;
     }
     if (item.account) {
       if (actionType === EDeriveAddressActionType.Copy) {

@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import {
   OptionCard,
   PaymentMethodBadges,
@@ -187,9 +188,22 @@ function WalletActionSend({
                     id: ETranslations.receive_from_another_wallet_desc,
                   })}
                   opacity={isBotWalletReceiveBlocked ? 0.5 : 1}
-                  onPress={() => {
+                  onPress={async () => {
                     if (isBotWalletReceiveBlocked) {
                       showBotWalletDisabledToast('receive');
+                      return;
+                    }
+                    if (
+                      await blockIfWalletLocalSecretEnvelopeUnavailable({
+                        walletId: wallet?.id,
+                        accountId: account?.id,
+                        presentDialog: async (show) => {
+                          safeResolve(false);
+                          await dialogRef.close();
+                          show();
+                        },
+                      })
+                    ) {
                       return;
                     }
                     logZeroGas('receive');
