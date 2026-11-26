@@ -15,7 +15,8 @@ const DEFAULT_THRESHOLD = 100;
  * FlatList's onEndReached, so a first page shorter than the viewport keeps
  * loading until the content overflows or the cursor runs out.
  *
- * - Each cursor is requested once, so a failed page does not retry by itself.
+ * - Each cursor is requested once, so a failed page does not retry by itself
+ *   and cursors that cycle through empty pages stop.
  * - After a request, checks wait for the content to be measured with loading
  *   finished, so stale metrics cannot chain extra pages.
  * - Both guards reset when the user scrolls away from the end after loading,
@@ -46,7 +47,7 @@ export function useScrollViewLoadMore({
   threshold?: number;
 }) {
   const metricsRef = useRef({ offset: 0, visible: 0, content: 0 });
-  const requestedCursorRef = useRef<string | undefined>(undefined);
+  const requestedCursorsRef = useRef(new Set<string>());
   const isAwaitingMeasureRef = useRef(false);
   const itemCountAtRequestRef = useRef(0);
 
@@ -62,7 +63,7 @@ export function useScrollViewLoadMore({
   stateRef.current = { cursor, isLoading, itemCount, onLoadMore, threshold };
 
   const resetGuards = useCallback(() => {
-    requestedCursorRef.current = undefined;
+    requestedCursorsRef.current.clear();
     isAwaitingMeasureRef.current = false;
   }, []);
 
@@ -76,11 +77,11 @@ export function useScrollViewLoadMore({
       !state.cursor ||
       state.isLoading ||
       isAwaitingMeasureRef.current ||
-      state.cursor === requestedCursorRef.current
+      requestedCursorsRef.current.has(state.cursor)
     ) {
       return;
     }
-    requestedCursorRef.current = state.cursor;
+    requestedCursorsRef.current.add(state.cursor);
     isAwaitingMeasureRef.current = true;
     itemCountAtRequestRef.current = state.itemCount;
     void state.onLoadMore();

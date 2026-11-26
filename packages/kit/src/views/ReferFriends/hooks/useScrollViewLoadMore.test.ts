@@ -147,6 +147,18 @@ describe('useScrollViewLoadMore', () => {
     expect(onLoadMore).toHaveBeenCalledTimes(2);
   });
 
+  it('stops when empty pages cycle back to an earlier cursor', () => {
+    const { rerender, measure, onLoadMore } = setup();
+    measure(900, 700);
+    rerender({ isLoading: true });
+    rerender({ isLoading: false, cursor: 'page-2' });
+    expect(onLoadMore).toHaveBeenCalledTimes(2);
+
+    rerender({ isLoading: true });
+    rerender({ isLoading: false, cursor: 'page-1' });
+    expect(onLoadMore).toHaveBeenCalledTimes(2);
+  });
+
   it('continues once the user scrolls after rows were added', () => {
     const { hook, rerender, measure, onLoadMore } = setup();
     measure(900, 700);
