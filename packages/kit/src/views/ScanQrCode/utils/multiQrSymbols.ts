@@ -1,3 +1,5 @@
+import { getMultipartUrKey } from '@onekeyhq/shared/src/utils/boundedUr';
+
 export type IMultiQrCoordinateSpace = 'view' | 'frame';
 
 export type IMultiQrSymbolBounds = {
@@ -49,7 +51,8 @@ export type IDimensions2D = {
 };
 
 const UR_PREFIX = /^ur:/i;
-const MULTIPART_UR_PATTERN = /^ur:([a-z0-9-]+)\/(\d+)-(\d+)\/([a-z]+)$/i;
+// Give the live view a few new frames while the focus request is dispatched.
+const REFOCUS_GRACE_MS = 350;
 
 export function isUrFrameText(text: string): boolean {
   return UR_PREFIX.test(text.trim());
@@ -201,24 +204,6 @@ export function resolveRepelledAnchorPositions(
   return pts;
 }
 
-function extractMultipartUrKey(text: string): string | null {
-  const match = MULTIPART_UR_PATTERN.exec(text.trim());
-  if (!match) return null;
-  const [, type, seqNumStr, seqLenStr] = match;
-  const seqNum = Number(seqNumStr);
-  const seqLen = Number(seqLenStr);
-  if (
-    !type ||
-    !Number.isInteger(seqNum) ||
-    !Number.isInteger(seqLen) ||
-    seqNum < 1 ||
-    seqLen < 1
-  ) {
-    return null;
-  }
-  return `${type.toLowerCase()}/${seqLen}`;
-}
-
 export type IMultiSymbolCommitResult =
   | 'progress'
   | 'complete'
@@ -256,6 +241,9 @@ export type IMultiSymbolCoordinator = {
   receiveFastPathText(text: string): void;
   selectSymbol(symbol: IMultiQrSymbol): void;
   cancelSelection(): void;
+  refocus(): void;
+  /** Returns true when changing cameras abandons an automatically acquired UR. */
+  resetCapture(): boolean;
   reset(): void;
   dispose(): void;
 };
@@ -268,24 +256,42 @@ export function createMultiSymbolCoordinator(
 
   let phase: IMultiSymbolPhase = 'normal';
   let pendingSymbol: IMultiQrSymbol | undefined;
-  let selectedUrKey: string | null = null;
+  let activeUr: { key: string; selected: boolean } | undefined;
   let acceptFastPathText = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pendingCommit: symbol | undefined;
   let previewVerification: symbol | undefined;
   let offered: readonly IMultiQrSymbol[] = [];
-  let dismissed: { keys: Set<string>; lastSeen: number } | undefined;
+  let dismissed: { keys: Set<string>; refocusAfter?: number } | undefined;
+  const recentUrKeys = new Map<string, string>();
 
-  function selectionKey(symbol: IMultiQrSymbol): string {
-    return extractMultipartUrKey(symbol.text) ?? symbol.text;
+  function urKey(text: string): string {
+    const cached = recentUrKeys.get(text);
+    if (cached !== undefined) return cached;
+    const messageKey = getMultipartUrKey(text);
+    const key = messageKey
+      ? `fountain:${messageKey}`
+      : text.trim().toLowerCase();
+    if (recentUrKeys.size >= 32) recentUrKeys.clear();
+    recentUrKeys.set(text, key);
+    return key;
   }
 
-  function matchesDismissed(symbols: readonly IMultiQrSymbol[]): boolean {
-    return Boolean(
-      dismissed &&
-      Date.now() - dismissed.lastSeen <= 800 &&
-      symbols.every((symbol) => dismissed?.keys.has(selectionKey(symbol))),
-    );
+  function selectionKey(symbol: IMultiQrSymbol): string {
+    return isUrFrameText(symbol.text)
+      ? urKey(symbol.text)
+      : `static:${symbol.text}`;
+  }
+
+  function requiredSelectionCount(symbols: readonly IMultiQrSymbol[]): number {
+    if (!dismissed) return 2;
+    const { keys, refocusAfter } = dismissed;
+    if (refocusAfter !== undefined && performance.now() < refocusAfter)
+      return Infinity;
+    if (symbols.some((symbol) => !keys.has(selectionKey(symbol)))) return 2;
+    // Even a single old candidate needs confirmation after refocus. A frame
+    // cannot tell us whether the other code left the scene or was missed.
+    return refocusAfter === undefined ? Infinity : 1;
   }
 
   function closeSelection() {
@@ -296,17 +302,18 @@ export function createMultiSymbolCoordinator(
   function resumeScanning() {
     phase = 'normal';
     acceptFastPathText = false;
-    selectedUrKey = null;
+    activeUr = undefined;
     closeSelection();
     options.onMultiSymbolChange(true);
   }
 
-  function dismissOffered() {
+  function dismissOffered(refocusAfter?: number) {
     if (offered.length > 0) {
-      dismissed = {
-        keys: new Set(offered.map(selectionKey)),
-        lastSeen: Date.now(),
-      };
+      const keys = new Set(offered.map(selectionKey));
+      if (refocusAfter !== undefined && dismissed) {
+        for (const key of dismissed.keys) keys.add(key);
+      }
+      dismissed = { keys, refocusAfter };
       offered = [];
     }
   }
@@ -321,26 +328,25 @@ export function createMultiSymbolCoordinator(
   function enterSelecting(symbols: IMultiQrSymbol[]) {
     clearTimer();
     pendingSymbol = undefined;
-    selectedUrKey = null;
+    activeUr = undefined;
     phase = 'selecting';
     offered = symbols;
     options.onFrozenChange(true);
     options.onSelectingChange(symbols);
   }
 
-  function submitUrPart(
-    texts: readonly string[],
-    starting: boolean,
-    keepMultiSymbol: boolean,
-  ) {
+  function submitUrPart(texts: readonly string[], starting: boolean) {
     if (pendingCommit) return;
     const wasSelecting = phase === 'selecting';
-    if (starting && !wasSelecting) {
-      clearTimer();
-      pendingSymbol = undefined;
-      phase = 'ur-streaming';
-      acceptFastPathText = true;
-      options.onMultiSymbolChange(false);
+    if (starting) {
+      activeUr = { key: urKey(texts[0]), selected: wasSelecting };
+      if (!wasSelecting) {
+        clearTimer();
+        pendingSymbol = undefined;
+        phase = 'ur-streaming';
+        acceptFastPathText = true;
+        options.onMultiSymbolChange(false);
+      }
     }
 
     const request = Symbol('UR commit');
@@ -360,16 +366,21 @@ export function createMultiSymbolCoordinator(
       pendingCommit = undefined;
 
       if (outcome === 'complete') {
+        if (starting) dismissed = undefined;
         dismissOffered();
         resumeScanning();
       } else if (outcome === 'progress' && starting) {
-        selectedUrKey = extractMultipartUrKey(texts[0]);
-        acceptFastPathText = !keepMultiSymbol;
+        dismissed = undefined;
+        acceptFastPathText = !wasSelecting;
         phase = 'ur-streaming';
         closeSelection();
-        options.onMultiSymbolChange(keepMultiSymbol);
-      } else if (starting && !wasSelecting && outcome !== 'progress') {
-        resumeScanning();
+        options.onMultiSymbolChange(wasSelecting);
+      } else if (starting) {
+        activeUr = undefined;
+        if (phase !== 'selecting') {
+          offered = [];
+          resumeScanning();
+        }
       }
     });
   }
@@ -378,7 +389,8 @@ export function createMultiSymbolCoordinator(
     if (phase === 'selecting') options.onFrozenChange(false);
     clearTimer();
     pendingSymbol = undefined;
-    selectedUrKey = null;
+    activeUr = undefined;
+    dismissed = undefined;
     phase = 'resolved';
     options.onSelectingChange([]);
     const request = Symbol('static commit');
@@ -405,11 +417,23 @@ export function createMultiSymbolCoordinator(
     );
   }
 
-  function matchesSelectedUr(text: string): boolean {
+  function matchesActiveUr(text: string): boolean {
     return (
+      activeUr !== undefined &&
       isUrFrameText(text) &&
-      (selectedUrKey === null || extractMultipartUrKey(text) === selectedUrKey)
+      urKey(text) === activeUr.key
     );
+  }
+
+  function reset() {
+    clearTimer();
+    pendingSymbol = undefined;
+    pendingCommit = undefined;
+    previewVerification = undefined;
+    dismissed = undefined;
+    offered = [];
+    recentUrKeys.clear();
+    resumeScanning();
   }
 
   return {
@@ -420,17 +444,15 @@ export function createMultiSymbolCoordinator(
       if (
         phase === 'ur-streaming' &&
         acceptFastPathText &&
-        matchesSelectedUr(text)
+        matchesActiveUr(text)
       ) {
-        submitUrPart([text], false, false);
+        submitUrPart([text], false);
       }
     },
     needsSelection(symbols) {
-      return (
-        (phase === 'normal' || phase === 'aggregating') &&
-        dedupeSymbolsByText(symbols.filter(isVisible)).length >= 2 &&
-        !matchesDismissed(symbols.filter(isVisible))
-      );
+      if (phase !== 'normal' && phase !== 'aggregating') return false;
+      const visible = dedupeSymbolsByText(symbols.filter(isVisible));
+      return visible.length >= requiredSelectionCount(visible);
     },
     beginPreviewVerification() {
       clearTimer();
@@ -442,7 +464,7 @@ export function createMultiSymbolCoordinator(
         if (previewVerification !== verification) return;
         previewVerification = undefined;
         const visible = dedupeSymbolsByText((symbols ?? []).filter(isVisible));
-        if (visible.length >= 2 && !matchesDismissed(visible)) {
+        if (visible.length >= requiredSelectionCount(visible)) {
           enterSelecting(visible);
           return true;
         }
@@ -464,9 +486,9 @@ export function createMultiSymbolCoordinator(
         if (pendingCommit) return;
         const candidates = visible
           .map((item) => item.text)
-          .filter(matchesSelectedUr);
+          .filter(matchesActiveUr);
         if (candidates.length) {
-          submitUrPart(candidates, false, !acceptFastPathText);
+          submitUrPart(candidates, false);
         } else {
           acceptFastPathText = false;
           options.onMultiSymbolChange(true);
@@ -474,13 +496,10 @@ export function createMultiSymbolCoordinator(
         return;
       }
 
-      if (matchesDismissed(visible) && dismissed) {
-        dismissed.lastSeen = Date.now();
-        return;
-      }
-      dismissed = undefined;
+      const requiredCount = requiredSelectionCount(visible);
+      if (!Number.isFinite(requiredCount)) return;
 
-      if (visible.length >= 2) {
+      if (visible.length >= requiredCount) {
         enterSelecting(visible);
         return true;
       }
@@ -489,7 +508,7 @@ export function createMultiSymbolCoordinator(
       if (!single) return;
 
       if (isUrFrameText(single.text)) {
-        submitUrPart([single.text], true, false);
+        submitUrPart([single.text], true);
         return;
       }
 
@@ -525,7 +544,7 @@ export function createMultiSymbolCoordinator(
       if (phase !== 'selecting') return;
       if (pendingCommit) return;
       if (isUrFrameText(symbol.text)) {
-        submitUrPart([symbol.text], true, true);
+        submitUrPart([symbol.text], true);
       } else {
         commitStatic(symbol.text);
       }
@@ -535,15 +554,37 @@ export function createMultiSymbolCoordinator(
       dismissOffered();
       resumeScanning();
     },
-    reset() {
+    refocus() {
+      if (pendingCommit || phase === 'resolved' || phase === 'ur-streaming')
+        return;
+      if (phase === 'selecting') {
+        dismissOffered(performance.now() + REFOCUS_GRACE_MS);
+        resumeScanning();
+        return;
+      }
+      if (dismissed && dismissed.refocusAfter === undefined) {
+        dismissed.refocusAfter = performance.now() + REFOCUS_GRACE_MS;
+      }
+      // A scene being aggregated or verified belongs to the previous aim.
       clearTimer();
       pendingSymbol = undefined;
-      pendingCommit = undefined;
       previewVerification = undefined;
-      dismissed = undefined;
-      offered = [];
-      resumeScanning();
+      phase = 'normal';
     },
+    resetCapture() {
+      if (!activeUr?.selected) {
+        const abandonedAutomaticUr = activeUr !== undefined;
+        reset();
+        return abandonedAutomaticUr;
+      }
+      // Keep assembling the stream the user picked after the camera changes.
+      phase = 'ur-streaming';
+      acceptFastPathText = false;
+      closeSelection();
+      options.onMultiSymbolChange(true);
+      return false;
+    },
+    reset,
     dispose() {
       clearTimer();
       pendingSymbol = undefined;

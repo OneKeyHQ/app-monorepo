@@ -4,11 +4,13 @@ import type { ReactNode } from 'react';
 
 import { ScanQrCode } from '.';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { UR, URDecoder, UREncoder } from '@ngraveio/bc-ur';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import type { IScanCameraProps } from './ScanCamera/types';
+import type { IMultiQrSymbol } from '../utils/multiQrSymbols';
 
 const mockGetString = jest.fn<string | undefined, [string]>();
 let mockIsDesktop = false;
@@ -19,6 +21,7 @@ const defaultDiscovery = {
 };
 let mockDiscovery = defaultDiscovery;
 const mockPersist = jest.fn<void, [string, string]>();
+let mockReceiveFrame: IScanCameraProps['onFrameSymbols'];
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -30,7 +33,10 @@ jest.mock('@onekeyhq/components', () => ({
       Retry
     </button>
   ),
-  SizableText: () => null,
+  SizableText: ({ children }: { children: ReactNode }) => (
+    <span>{children}</span>
+  ),
+  Stack: ({ children }: { children: ReactNode }) => children,
   YStack: ({ children }: { children: ReactNode }) => children,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
@@ -78,8 +84,24 @@ jest.mock('./CameraSwitchButton', () => ({
   ),
 }));
 jest.mock('./MultiQrSelectionOverlay', () => ({
-  MultiQrSelectionOverlay: ({ symbols }: { symbols: unknown[] }) => (
-    <div data-testid="selector" data-symbol-count={symbols.length} />
+  MultiQrSelectionOverlay: ({
+    symbols,
+    onSelect,
+  }: {
+    symbols: IMultiQrSymbol[];
+    onSelect: (symbol: IMultiQrSymbol) => void;
+  }) => (
+    <div data-testid="selector" data-symbol-count={symbols.length}>
+      {symbols.map((symbol) => (
+        <button
+          type="button"
+          key={symbol.text}
+          onClick={() => onSelect(symbol)}
+        >
+          {symbol.text}
+        </button>
+      ))}
+    </div>
   ),
 }));
 jest.mock('./ScanCamera', () => ({
@@ -103,46 +125,49 @@ jest.mock('./ScanCamera', () => ({
   } & Pick<
     IScanCameraProps,
     'handleScanResult' | 'onFrameSymbols' | 'multiSymbol'
-  >) => (
-    <div
-      data-testid="camera"
-      data-camera-id={cameraId}
-      data-camera-active={cameraActive}
-      data-camera-multi-symbol={multiSymbol}
-    >
-      {children}
-      <button type="button" onClick={() => onCameraReady(cameraId ?? 'a')}>
-        Ready
-      </button>
-      <button type="button" onClick={() => onCameraReady(undefined)}>
-        ReadyWithoutId
-      </button>
-      <button type="button" onClick={() => onCameraReady('a')}>
-        ReadyWithFallback
-      </button>
-      <button type="button" onClick={onWebCameraFallback}>
-        Fallback
-      </button>
-      <button type="button" onClick={() => onCameraError('camera-busy')}>
-        Fail
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          onFrameSymbols?.({
-            coordinateSpace: 'view',
-            symbols: [
-              { text: 'https://example.com', centerX: 0.3, centerY: 0.5 },
-              { text: 'ur:bytes/1-2/first', centerX: 0.7, centerY: 0.5 },
-            ],
-          });
-          handleScanResult?.('https://example.com');
-        }}
+  >) => {
+    mockReceiveFrame = onFrameSymbols;
+    return (
+      <div
+        data-testid="camera"
+        data-camera-id={cameraId}
+        data-camera-active={cameraActive}
+        data-camera-multi-symbol={multiSymbol}
       >
-        MixedFrame
-      </button>
-    </div>
-  ),
+        {children}
+        <button type="button" onClick={() => onCameraReady(cameraId ?? 'a')}>
+          Ready
+        </button>
+        <button type="button" onClick={() => onCameraReady(undefined)}>
+          ReadyWithoutId
+        </button>
+        <button type="button" onClick={() => onCameraReady('a')}>
+          ReadyWithFallback
+        </button>
+        <button type="button" onClick={onWebCameraFallback}>
+          Fallback
+        </button>
+        <button type="button" onClick={() => onCameraError('camera-busy')}>
+          Fail
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onFrameSymbols?.({
+              coordinateSpace: 'view',
+              symbols: [
+                { text: 'https://example.com', centerX: 0.3, centerY: 0.5 },
+                { text: 'ur:bytes/1-2/first', centerX: 0.7, centerY: 0.5 },
+              ],
+            });
+            handleScanResult?.('https://example.com');
+          }}
+        >
+          MixedFrame
+        </button>
+      </div>
+    );
+  },
 }));
 
 beforeEach(() => {
@@ -309,6 +334,134 @@ test('mixed detection waits for a selection even when the camera also reports ra
   expect(
     screen.getByTestId('camera').getAttribute('data-camera-multi-symbol'),
   ).toBe('true');
+});
+
+test.each([
+  { acquisition: 'explicit', selected: true },
+  { acquisition: 'automatic', selected: false },
+])(
+  'switching cameras handles $acquisition animated QR acquisition',
+  async ({ selected }) => {
+    jest.useFakeTimers();
+    try {
+      const onScan = jest.fn(async (_text: string) => ({ progress: 0.25 }));
+      const encoder = new UREncoder(UR.fromBuffer(Buffer.alloc(200, 7)), 40);
+      const first = encoder.nextPart();
+      const next = encoder.nextPart();
+      const address = {
+        text: 'https://example.com',
+        centerX: 0.3,
+        centerY: 0.5,
+      };
+      const ur = { text: first, centerX: 0.7, centerY: 0.5 };
+      render(<ScanQrCode handleBarCodeScanned={onScan} />);
+
+      const frame = (symbols: IMultiQrSymbol[]) =>
+        mockReceiveFrame?.({ coordinateSpace: 'view', symbols });
+      await act(async () => {
+        frame(selected ? [address, ur] : [ur]);
+      });
+      if (selected) {
+        await act(async () => {
+          fireEvent.click(screen.getByText(first));
+        });
+      }
+      expect(screen.getByText(/25%$/)).toBeTruthy();
+      await act(async () => {
+        fireEvent.click(screen.getByText('Switch'));
+      });
+      expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe(
+        'b',
+      );
+      expect(Boolean(screen.queryByText(/25%$/))).toBe(selected);
+      await act(async () => {
+        frame([address]);
+        jest.advanceTimersByTime(300);
+      });
+      expect(onScan.mock.calls).toEqual(
+        selected ? [[first]] : [[first], [address.text]],
+      );
+      await act(async () => {
+        frame([{ ...ur, text: next }]);
+      });
+      expect(onScan.mock.calls).toEqual([
+        [first],
+        [selected ? next : address.text],
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);
+
+test('camera switch drains an automatic UR frame and resets the decoder before feeding a new message', async () => {
+  const previous = new UREncoder(UR.fromBuffer(Buffer.alloc(200, 7)), 40);
+  const next = new UREncoder(UR.fromBuffer(Buffer.alloc(200, 8)), 40);
+  const firstPart = previous.nextPart();
+  const inFlightPart = previous.nextPart();
+  const nextMessagePart = next.nextPart();
+  const oldFrameFinished = Promise.withResolvers<void>();
+  const decoderResetFinished = Promise.withResolvers<void>();
+  let decoder = new URDecoder();
+  const onScan = jest.fn(async (text: string) => {
+    if (text === inFlightPart) await oldFrameFinished.promise;
+    return decoder.receivePart(text)
+      ? { progress: decoder.estimatedPercentComplete() }
+      : {};
+  });
+  const resetAnimationData = jest.fn(async () => {
+    await decoderResetFinished.promise;
+    decoder = new URDecoder();
+  });
+  render(
+    <ScanQrCode
+      handleBarCodeScanned={onScan}
+      onResetAnimationData={async (drain) => {
+        await drain;
+        await resetAnimationData();
+      }}
+    />,
+  );
+  const frame = (text: string) =>
+    mockReceiveFrame?.({
+      coordinateSpace: 'view',
+      symbols: [{ text, centerX: 0.5, centerY: 0.5 }],
+    });
+  await act(async () => {
+    frame(firstPart);
+  });
+  expect(screen.getByText(/\d+%$/)).toBeTruthy();
+  act(() => {
+    frame(inFlightPart);
+  });
+  fireEvent.click(screen.getByText('Switch'));
+  expect(screen.queryByText(/\d+%$/)).toBeNull();
+  expect(resetAnimationData).not.toHaveBeenCalled();
+  act(() => {
+    frame(nextMessagePart);
+  });
+  expect(onScan.mock.calls).toEqual([[firstPart], [inFlightPart]]);
+  await act(async () => {
+    oldFrameFinished.resolve();
+  });
+  expect(resetAnimationData).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(/\d+%$/)).toBeNull();
+  act(() => {
+    frame(nextMessagePart);
+  });
+  expect(onScan).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    decoderResetFinished.resolve();
+  });
+  await act(async () => {
+    frame(nextMessagePart);
+  });
+  expect(onScan.mock.calls).toEqual([
+    [firstPart],
+    [inFlightPart],
+    [nextMessagePart],
+  ]);
+  expect(screen.getByText(/\d+%$/)).toBeTruthy();
 });
 
 test('a live selection detected under the album stays hidden until the album closes', () => {
