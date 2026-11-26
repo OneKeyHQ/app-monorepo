@@ -28123,6 +28123,7 @@
     "packages/shared/src/modules/InterfaceOrientation/types.ts": 23398,
     "packages/shared/src/modules/LaunchOptionsManager/LaunchOptionsManager.native.ts": 3047,
     "packages/shared/src/modules/LaunchOptionsManager/index.ts": 9839,
+    "packages/shared/src/modules/LaunchOptionsManager/type.ts": 17512,
     "packages/shared/src/modules/LiveActivity/index.ios.ts": 18172,
     "packages/shared/src/modules/LiveActivity/index.ts": 12801,
     "packages/shared/src/modules/MainMenu/index.ios.ts": 22914,
