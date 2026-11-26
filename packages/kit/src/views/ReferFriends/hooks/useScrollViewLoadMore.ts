@@ -27,6 +27,7 @@ const DEFAULT_THRESHOLD = 100;
 export function useScrollViewLoadMore({
   cursor,
   isLoading,
+  itemCount,
   listVersion,
   onLoadMore,
   threshold = DEFAULT_THRESHOLD,
@@ -35,6 +36,9 @@ export function useScrollViewLoadMore({
   cursor: string | undefined;
   // Any request that should hold pagination back, including load more.
   isLoading: boolean;
+  // Rows currently rendered. A page that adds none leaves the layout as it
+  // was, so its metrics need no new measurement.
+  itemCount: number;
   // Changes whenever the page starts or commits a new first page, which also
   // re-arms a cursor whose in-flight page was dropped.
   listVersion: number;
@@ -44,11 +48,18 @@ export function useScrollViewLoadMore({
   const metricsRef = useRef({ offset: 0, visible: 0, content: 0 });
   const requestedCursorRef = useRef<string | undefined>(undefined);
   const isAwaitingMeasureRef = useRef(false);
+  const itemCountAtRequestRef = useRef(0);
 
   // Layout events can arrive before the next render, so read the latest
   // pagination state from a ref.
-  const stateRef = useRef({ cursor, isLoading, onLoadMore, threshold });
-  stateRef.current = { cursor, isLoading, onLoadMore, threshold };
+  const stateRef = useRef({
+    cursor,
+    isLoading,
+    itemCount,
+    onLoadMore,
+    threshold,
+  });
+  stateRef.current = { cursor, isLoading, itemCount, onLoadMore, threshold };
 
   const resetGuards = useCallback(() => {
     requestedCursorRef.current = undefined;
@@ -71,6 +82,7 @@ export function useScrollViewLoadMore({
     }
     requestedCursorRef.current = state.cursor;
     isAwaitingMeasureRef.current = true;
+    itemCountAtRequestRef.current = state.itemCount;
     void state.onLoadMore();
   }, []);
 
@@ -79,12 +91,16 @@ export function useScrollViewLoadMore({
   }, [listVersion, resetGuards]);
 
   // A load can end without a layout change, e.g. a refresh returning rows of
-  // the same height, so check again once nothing is loading.
+  // the same height or an empty page, so check again once nothing is loading.
   useEffect(() => {
-    if (!isLoading) {
-      maybeLoadMore();
+    if (isLoading) {
+      return;
     }
-  }, [isLoading, listVersion, maybeLoadMore]);
+    if (itemCount === itemCountAtRequestRef.current) {
+      isAwaitingMeasureRef.current = false;
+    }
+    maybeLoadMore();
+  }, [isLoading, itemCount, listVersion, maybeLoadMore]);
 
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {

@@ -802,6 +802,49 @@ describe('SwapReward refresh feedback', () => {
     );
   });
 
+  it('does not retry a failed page when a later sort fails', async () => {
+    const initialInvites = createInvitesResponse('initial-invitee', 'cursor-1');
+    const failedPage = createDeferred<ISwapInvitesResponse>();
+    const sortRefresh = createDeferred<ISwapInvitesResponse>();
+    mockGetSwapCumulativeRewards.mockResolvedValue(cumulativeRewards);
+    mockGetSwapInvites.mockResolvedValue(initialInvites);
+
+    render(<SwapReward />);
+    await completeInitialLoad();
+
+    mockGetSwapInvites.mockReturnValueOnce(failedPage.promise);
+    act(() => {
+      scrollToBottom();
+    });
+    await waitFor(() => {
+      expect(mockGetSwapInvites).toHaveBeenCalledTimes(3);
+    });
+    await act(async () => {
+      failedPage.reject(new Error('Page failed'));
+      await Promise.allSettled([failedPage.promise]);
+    });
+    await waitFor(() => {
+      expect(getLatestDetailsProps().isLoadingMore).toBe(false);
+    });
+
+    mockGetSwapInvites.mockReturnValueOnce(sortRefresh.promise);
+    act(() => {
+      getLatestDetailsProps().onSort('fee');
+    });
+    await waitFor(() => {
+      expect(mockGetSwapInvites).toHaveBeenCalledTimes(4);
+    });
+    await act(async () => {
+      sortRefresh.reject(new Error('Sort failed'));
+      await Promise.allSettled([sortRefresh.promise]);
+    });
+    await waitFor(() => {
+      expect(getLatestDetailsProps().isTabLoading).toBe(false);
+    });
+
+    expect(mockGetSwapInvites).toHaveBeenCalledTimes(4);
+  });
+
   it('does not let an older full refresh overwrite a newer list filter', async () => {
     mockGetSwapCumulativeRewards.mockResolvedValue(cumulativeRewards);
     mockGetSwapInvites.mockResolvedValue(invites);

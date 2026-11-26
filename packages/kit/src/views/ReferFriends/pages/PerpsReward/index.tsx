@@ -72,6 +72,10 @@ function PerpsRewardPageWrapper() {
   // Only the latest first-page request may commit rows or page them.
   const listGenerationRef = useRef(0);
   const tabRequestIdRef = useRef(0);
+  const isAppendingRef = useRef(false);
+  // Holds pagination until the latest first-page request settles, for both
+  // tab changes and manual refresh.
+  const [isFirstPageLoading, setIsFirstPageLoading] = useState(false);
   // Query of the displayed rows; a failed request can leave older rows shown.
   const [displayedQueryKey, setDisplayedQueryKey] = useState<string>();
 
@@ -199,35 +203,45 @@ function PerpsRewardPageWrapper() {
     listGenerationRef.current += 1;
     const listGeneration = listGenerationRef.current;
     const requestQueryKey = listQueryKey;
+    setIsFirstPageLoading(true);
     setIsLoadingMore(false);
-    setListVersion((version) => version + 1);
-    const result = await backgroundApiProxy.serviceReferralCode.getPerpsInvites(
-      {
-        tab: activeTab,
-        timeRange: effectiveTimeRange,
-        startTime: filterState.startTime,
-        endTime: filterState.endTime,
-        inviteCode: filterState.inviteCode,
-        hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
-        sortBy,
-        sortOrder,
-      },
-    );
-    if (listGeneration !== listGenerationRef.current) {
-      return;
+    if (isAppendingRef.current) {
+      // Re-arm the dropped page's cursor in case this request fails.
+      isAppendingRef.current = false;
+      setListVersion((version) => version + 1);
     }
-    setCurrentInvites(result);
+    try {
+      const result =
+        await backgroundApiProxy.serviceReferralCode.getPerpsInvites({
+          tab: activeTab,
+          timeRange: effectiveTimeRange,
+          startTime: filterState.startTime,
+          endTime: filterState.endTime,
+          inviteCode: filterState.inviteCode,
+          hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
+          sortBy,
+          sortOrder,
+        });
+      if (listGeneration !== listGenerationRef.current) {
+        return;
+      }
+      setCurrentInvites(result);
 
-    // Update cursor for pagination - trust API's cursor
-    setCursor(result.cursor ?? undefined);
-    setDisplayedQueryKey(requestQueryKey);
-    setListVersion((version) => version + 1);
+      // Update cursor for pagination - trust API's cursor
+      setCursor(result.cursor ?? undefined);
+      setDisplayedQueryKey(requestQueryKey);
+      setListVersion((version) => version + 1);
 
-    // Update the count for current tab
-    if (activeTab === 'undistributed') {
-      setUndistributedCount(result.total);
-    } else {
-      setTotalCount(result.total);
+      // Update the count for current tab
+      if (activeTab === 'undistributed') {
+        setUndistributedCount(result.total);
+      } else {
+        setTotalCount(result.total);
+      }
+    } finally {
+      if (listGeneration === listGenerationRef.current) {
+        setIsFirstPageLoading(false);
+      }
     }
   }, [
     activeTab,
@@ -247,6 +261,7 @@ function PerpsRewardPageWrapper() {
       return;
     }
     const listGeneration = listGenerationRef.current;
+    isAppendingRef.current = true;
     setIsLoadingMore(true);
     try {
       const result =
@@ -278,6 +293,7 @@ function PerpsRewardPageWrapper() {
     } finally {
       // A new first-page request releases the gate of the list it replaced.
       if (listGeneration === listGenerationRef.current) {
+        isAppendingRef.current = false;
         setIsLoadingMore(false);
       }
     }
@@ -460,7 +476,10 @@ function PerpsRewardPageWrapper() {
               }
               contentContainerStyle={{ pb: '$5' }}
               cursor={pageCursor}
-              isLoading={isLoading || isTabLoading || isLoadingMore}
+              isLoading={
+                isLoading || isTabLoading || isFirstPageLoading || isLoadingMore
+              }
+              itemCount={sortedRecords.length}
               listVersion={listVersion}
               onLoadMore={onLoadMore}
             >

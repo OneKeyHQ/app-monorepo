@@ -98,6 +98,7 @@ function HardwareSalesRewardPageWrapper() {
   const [listVersion, setListVersion] = useState(0);
   // Drops responses from a list that a newer refresh has replaced.
   const listGenerationRef = useRef(0);
+  const isAppendingRef = useRef(false);
   // Query of the displayed rows; a failed refresh can leave older rows shown.
   const [displayedQueryKey, setDisplayedQueryKey] = useState<string>();
 
@@ -199,7 +200,11 @@ function HardwareSalesRewardPageWrapper() {
     const requestQueryKey = listQueryKey;
     setIsLoading(true);
     setIsLoadingMore(false);
-    setListVersion((version) => version + 1);
+    if (isAppendingRef.current) {
+      // Re-arm the dropped page's cursor in case this refresh fails.
+      isAppendingRef.current = false;
+      setListVersion((version) => version + 1);
+    }
     try {
       const [cumulativeRewardsResult, recordsResult] = await Promise.allSettled(
         [
@@ -254,6 +259,7 @@ function HardwareSalesRewardPageWrapper() {
       return;
     }
     const listGeneration = listGenerationRef.current;
+    isAppendingRef.current = true;
     setIsLoadingMore(true);
     try {
       const result =
@@ -277,6 +283,7 @@ function HardwareSalesRewardPageWrapper() {
     } finally {
       // A refresh releases the gate of the list it replaced.
       if (listGeneration === listGenerationRef.current) {
+        isAppendingRef.current = false;
         setIsLoadingMore(false);
       }
     }
@@ -322,6 +329,7 @@ function HardwareSalesRewardPageWrapper() {
               contentContainerStyle={{ pb: '$5' }}
               cursor={pageCursor}
               isLoading={isLoading || isLoadingMore}
+              itemCount={hardwareRecords.length}
               listVersion={listVersion}
               onLoadMore={onLoadMore}
             >

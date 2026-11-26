@@ -30,6 +30,7 @@ function setup(initial: Partial<IProps> = {}) {
   let props: IProps = {
     cursor: 'page-1',
     isLoading: false,
+    itemCount: 10,
     listVersion: 0,
     onLoadMore,
     ...initial,
@@ -62,7 +63,7 @@ describe('useScrollViewLoadMore', () => {
     act(() => {
       hook.result.current.onContentSizeChange(0, 740);
     });
-    rerender({ isLoading: false, cursor: 'page-2' });
+    rerender({ isLoading: false, cursor: 'page-2', itemCount: 20 });
     expect(onLoadMore).toHaveBeenCalledTimes(1);
 
     act(() => {
@@ -72,7 +73,7 @@ describe('useScrollViewLoadMore', () => {
 
     // Once the content overflows, the next page waits for a scroll.
     rerender({ isLoading: true });
-    rerender({ isLoading: false, cursor: 'page-3' });
+    rerender({ isLoading: false, cursor: 'page-3', itemCount: 30 });
     act(() => {
       hook.result.current.onContentSizeChange(0, 2000);
     });
@@ -126,7 +127,7 @@ describe('useScrollViewLoadMore', () => {
     });
 
     // The page lands; nothing is sent until its rows are measured.
-    rerender({ isLoading: false, cursor: 'page-2' });
+    rerender({ isLoading: false, cursor: 'page-2', itemCount: 20 });
     expect(onLoadMore).toHaveBeenCalledTimes(1);
 
     act(() => {
@@ -135,18 +136,27 @@ describe('useScrollViewLoadMore', () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
-  it('continues after a page without a height change once the user scrolls', () => {
-    const { hook, rerender, measure, onLoadMore } = setup();
+  it('continues after an empty page without a scroll', () => {
+    const { rerender, measure, onLoadMore } = setup();
     measure(900, 700);
     expect(onLoadMore).toHaveBeenCalledTimes(1);
 
-    // An empty page advances the cursor without resizing the content.
+    // The page adds no rows but advances the cursor; no layout event follows.
     rerender({ isLoading: true });
     rerender({ isLoading: false, cursor: 'page-2' });
+    expect(onLoadMore).toHaveBeenCalledTimes(2);
+  });
+
+  it('continues once the user scrolls after rows were added', () => {
+    const { hook, rerender, measure, onLoadMore } = setup();
+    measure(900, 700);
+    rerender({ isLoading: true });
+    rerender({ isLoading: false, cursor: 'page-2', itemCount: 20 });
     expect(onLoadMore).toHaveBeenCalledTimes(1);
 
+    // No size event arrived, but a scroll carries fresh metrics.
     act(() => {
-      hook.result.current.onScroll(scrollEvent(0, 900, 700));
+      hook.result.current.onScroll(scrollEvent(0, 900, 800));
     });
     expect(onLoadMore).toHaveBeenCalledTimes(2);
   });

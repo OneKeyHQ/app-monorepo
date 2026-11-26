@@ -105,6 +105,9 @@ function SwapRewardPageWrapper() {
   const loadingMoreRequestRef = useRef<ILoadingMoreRequest | undefined>(
     undefined,
   );
+  // Set when a list request drops a pending append, so its cursor can be
+  // requested again if that list request fails.
+  const hasDroppedAppendRef = useRef(false);
   const hasOverviewDataRef = useRef(false);
   const displayedInviteQueryRef = useRef<ISwapInvitesParams | undefined>(
     undefined,
@@ -267,6 +270,22 @@ function SwapRewardPageWrapper() {
     setCursor(nextCursor);
   }, []);
 
+  const dropPendingAppend = useCallback(() => {
+    if (loadingMoreRequestRef.current) {
+      loadingMoreRequestRef.current = undefined;
+      hasDroppedAppendRef.current = true;
+    }
+  }, []);
+
+  // Call when a list request starts.
+  const rearmDroppedAppend = useCallback(() => {
+    dropPendingAppend();
+    if (hasDroppedAppendRef.current) {
+      hasDroppedAppendRef.current = false;
+      setListVersion((version) => version + 1);
+    }
+  }, [dropPendingAppend]);
+
   const isLatestListRequest = useCallback(
     (generation: number, querySignature: string) =>
       listGenerationRef.current === generation &&
@@ -289,6 +308,7 @@ function SwapRewardPageWrapper() {
       setHasListError(false);
       setCurrentInvites(result);
       updateCursor(result.cursor ?? undefined);
+      hasDroppedAppendRef.current = false;
       setListVersion((version) => version + 1);
     },
     [updateCursor],
@@ -297,25 +317,30 @@ function SwapRewardPageWrapper() {
   useEffect(() => {
     refreshRequestIdRef.current += 1;
     listGenerationRef.current += 1;
-    loadingMoreRequestRef.current = undefined;
+    dropPendingAppend();
     updateCursor(undefined);
     hasOverviewDataRef.current = false;
     displayedInviteQueryRef.current = undefined;
     displayedListDatasetSignatureRef.current = undefined;
     setCurrentInvites(undefined);
     setHasListError(false);
-  }, [overviewQuerySignature, updateCursor]);
+  }, [dropPendingAppend, overviewQuerySignature, updateCursor]);
 
   useEffect(() => {
     const hasReusableListData =
       displayedListDatasetSignatureRef.current === listDatasetSignature;
     listGenerationRef.current += 1;
-    loadingMoreRequestRef.current = undefined;
+    dropPendingAppend();
     if (!hasReusableListData) {
       updateCursor(undefined);
     }
     setHasListError(false);
-  }, [listControlSignature, listDatasetSignature, updateCursor]);
+  }, [
+    dropPendingAppend,
+    listControlSignature,
+    listDatasetSignature,
+    updateCursor,
+  ]);
 
   const refreshDashboard = useCallback(async () => {
     const querySnapshot = dashboardQuerySnapshotRef.current;
@@ -333,10 +358,8 @@ function SwapRewardPageWrapper() {
     listGenerationRef.current += 1;
     const requestId = refreshRequestIdRef.current;
     const listGeneration = listGenerationRef.current;
-    loadingMoreRequestRef.current = undefined;
+    rearmDroppedAppend();
     setIsLoadingMore(false);
-    // Re-arm the cursor of a dropped page in case this request fails.
-    setListVersion((version) => version + 1);
     setIsLoading(true);
     setIsTabLoading(true);
 
@@ -465,7 +488,7 @@ function SwapRewardPageWrapper() {
     if (isLatestList) {
       setIsTabLoading(false);
     }
-  }, [commitListResult, intl, isLatestListRequest]);
+  }, [commitListResult, intl, isLatestListRequest, rearmDroppedAppend]);
 
   const refreshCurrentList = useCallback(async () => {
     const querySnapshot = dashboardQuerySnapshotRef.current;
@@ -481,13 +504,11 @@ function SwapRewardPageWrapper() {
     const listGeneration = listGenerationRef.current;
     const hadReusableListData =
       displayedListDatasetSignatureRef.current === requestListDatasetSignature;
-    loadingMoreRequestRef.current = undefined;
+    rearmDroppedAppend();
     if (!hadReusableListData) {
       updateCursor(undefined);
     }
     setIsLoadingMore(false);
-    // Re-arm the cursor of a dropped page in case this request fails.
-    setListVersion((version) => version + 1);
     setHasListError(false);
     setIsTabLoading(true);
 
@@ -546,7 +567,13 @@ function SwapRewardPageWrapper() {
         setIsTabLoading(false);
       }
     }
-  }, [commitListResult, intl, isLatestListRequest, updateCursor]);
+  }, [
+    commitListResult,
+    intl,
+    isLatestListRequest,
+    rearmDroppedAppend,
+    updateCursor,
+  ]);
 
   useEffect(() => {
     if (!isRouteFocused) {
@@ -723,6 +750,7 @@ function SwapRewardPageWrapper() {
               contentContainerStyle={{ pb: '$5' }}
               cursor={cursor}
               isLoading={isLoading || isTabLoading || isLoadingMore}
+              itemCount={currentInvites?.items.length ?? 0}
               listVersion={listVersion}
               onLoadMore={onLoadMore}
             >

@@ -14,6 +14,7 @@ type ILoadMoreScrollViewProps = Omit<
 export function LoadMoreScrollView({
   cursor,
   isLoading,
+  itemCount,
   listVersion,
   onLoadMore,
   threshold,
@@ -22,6 +23,7 @@ export function LoadMoreScrollView({
   const loadMoreProps = useScrollViewLoadMore({
     cursor,
     isLoading,
+    itemCount,
     listVersion,
     onLoadMore,
     threshold,
