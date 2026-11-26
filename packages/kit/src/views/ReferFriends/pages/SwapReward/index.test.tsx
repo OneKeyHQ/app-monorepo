@@ -115,6 +115,9 @@ jest.mock(
 jest.mock('../../components', () => ({
   ExportButton: () => null,
   FilterButton: () => null,
+  LoadMoreScrollView: jest.requireActual<
+    typeof import('../../components/LoadMoreScrollView')
+  >('../../components/LoadMoreScrollView').LoadMoreScrollView,
   ReferFriendsDetailHeader: (props: unknown) => {
     mockReferFriendsDetailHeader(props);
     return null;
@@ -250,8 +253,17 @@ function getLatestScrollViewProps(): IScrollViewTestProps {
   return (latestCall as [IScrollViewTestProps])[0];
 }
 
+// Simulates a fresh scroll gesture from the top to the end of the list.
 function scrollToBottom() {
-  getLatestScrollViewProps().onScroll?.({
+  const { onScroll } = getLatestScrollViewProps();
+  onScroll?.({
+    nativeEvent: {
+      contentOffset: { y: 0 },
+      contentSize: { height: 1000 },
+      layoutMeasurement: { height: 200 },
+    },
+  });
+  onScroll?.({
     nativeEvent: {
       contentOffset: { y: 900 },
       contentSize: { height: 1000 },
@@ -648,17 +660,12 @@ describe('SwapReward refresh feedback', () => {
     });
     expect(mockGetSwapInvites).toHaveBeenCalledTimes(3);
 
+    // The list is still scrolled to the end, so the next page loads as soon
+    // as the failed sort stops blocking pagination.
+    mockGetSwapInvites.mockResolvedValueOnce(nextPage);
     await act(async () => {
       sortRefresh.reject(new Error('Sort failed'));
       await Promise.allSettled([sortRefresh.promise]);
-    });
-    await waitFor(() => {
-      expect(getLatestDetailsProps().isTabLoading).toBe(false);
-    });
-
-    mockGetSwapInvites.mockResolvedValueOnce(nextPage);
-    act(() => {
-      scrollToBottom();
     });
 
     await waitFor(() => {
@@ -706,29 +713,27 @@ describe('SwapReward refresh feedback', () => {
       expect(getLatestDetailsProps().isLoadingMore).toBe(true);
     });
 
-    mockGetSwapInvites.mockResolvedValueOnce(sortedInvites);
+    // The list is still scrolled to the end, so the sorted list continues
+    // with its own next page as soon as it is shown.
+    mockGetSwapInvites
+      .mockResolvedValueOnce(sortedInvites)
+      .mockReturnValueOnce(currentPage.promise);
     act(() => {
       getLatestDetailsProps().onSort('fee');
     });
     await waitFor(() => {
-      expect(mockGetSwapInvites).toHaveBeenCalledTimes(4);
+      expect(mockGetSwapInvites).toHaveBeenCalledTimes(5);
       expect(getLatestDetailsProps()).toEqual(
         expect.objectContaining({
           records: sortedInvites.items,
-          isLoadingMore: false,
+          isLoadingMore: true,
           isTabLoading: false,
         }),
       );
     });
-
-    mockGetSwapInvites.mockReturnValueOnce(currentPage.promise);
-    act(() => {
-      scrollToBottom();
-    });
-    await waitFor(() => {
-      expect(mockGetSwapInvites).toHaveBeenCalledTimes(5);
-      expect(getLatestDetailsProps().isLoadingMore).toBe(true);
-    });
+    expect(mockGetSwapInvites).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cursor: 'shared-cursor', sortBy: 'fee' }),
+    );
 
     await act(async () => {
       stalePage.resolve(createInvitesResponse('stale-page-invitee'));

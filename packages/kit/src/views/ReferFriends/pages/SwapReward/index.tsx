@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Page,
   RefreshControl,
-  ScrollView,
   Spinner,
   Toast,
   XStack,
@@ -33,6 +32,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ExportButton,
   FilterButton,
+  LoadMoreScrollView,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
   RewardDateRangeField,
@@ -52,7 +52,6 @@ import {
 } from './utils';
 
 import type { ISwapRecordQuery, ISwapRecordsTab } from './types';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 interface ISwapOverviewState {
   overviewQuerySignature: string;
@@ -97,6 +96,8 @@ function SwapRewardPageWrapper() {
   const [sortBy, setSortBy] = useState<ISwapInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<ISwapInvitesSortOrder>('desc');
   const [cursor, setCursor] = useState<string>();
+  // Bumped when a first page replaces the list.
+  const [listVersion, setListVersion] = useState(0);
 
   const refreshRequestIdRef = useRef(0);
   const listGenerationRef = useRef(0);
@@ -288,6 +289,7 @@ function SwapRewardPageWrapper() {
       setHasListError(false);
       setCurrentInvites(result);
       updateCursor(result.cursor ?? undefined);
+      setListVersion((version) => version + 1);
     },
     [updateCursor],
   );
@@ -625,20 +627,6 @@ function SwapRewardPageWrapper() {
     }
   }, [updateCursor]);
 
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent;
-      const isCloseToBottom =
-        contentOffset.y + layoutMeasurement.height >= contentSize.height - 100;
-
-      if (isCloseToBottom && cursor && !isLoadingMore && !isTabLoading) {
-        void onLoadMore();
-      }
-    },
-    [cursor, isLoadingMore, isTabLoading, onLoadMore],
-  );
-
   const handleSort = useCallback(
     (field: ISwapInvitesSortBy) => {
       if (sortBy === field) {
@@ -720,7 +708,7 @@ function SwapRewardPageWrapper() {
               <Spinner size="large" />
             </YStack>
           ) : (
-            <ScrollView
+            <LoadMoreScrollView
               flex={1}
               refreshControl={
                 <RefreshControl
@@ -729,8 +717,10 @@ function SwapRewardPageWrapper() {
                 />
               }
               contentContainerStyle={{ pb: '$5' }}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
+              cursor={cursor}
+              isLoading={isLoading || isTabLoading || isLoadingMore}
+              listVersion={listVersion}
+              onLoadMore={onLoadMore}
             >
               <SwapRewardHeader
                 data={cumulativeRewards}
@@ -754,7 +744,7 @@ function SwapRewardPageWrapper() {
                 hasError={hasListError}
                 onRetry={refreshCurrentList}
               />
-            </ScrollView>
+            </LoadMoreScrollView>
           )}
         </ReferFriendsPageContainer>
       </Page.Body>

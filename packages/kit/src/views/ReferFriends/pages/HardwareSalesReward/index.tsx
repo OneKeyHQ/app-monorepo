@@ -1,16 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Page,
-  ScrollView,
-  Spinner,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Page, Spinner, XStack, YStack, useMedia } from '@onekeyhq/components';
 import type { IDateRange } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -30,6 +23,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ExportButton,
   FilterButton,
+  LoadMoreScrollView,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
   RewardDateRangeField,
@@ -100,6 +94,10 @@ function HardwareSalesRewardPageWrapper() {
   );
   const [cursor, setCursor] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Bumped when a first page replaces the list.
+  const [listVersion, setListVersion] = useState(0);
+  // Drops responses from a list that a newer refresh has replaced.
+  const listGenerationRef = useRef(0);
 
   // Filter state
   const {
@@ -185,6 +183,8 @@ function HardwareSalesRewardPageWrapper() {
   );
 
   const onRefresh = useCallback(async () => {
+    listGenerationRef.current += 1;
+    const listGeneration = listGenerationRef.current;
     setIsLoading(true);
     try {
       const [cumulativeRewardsResult, recordsResult] = await Promise.allSettled(
@@ -204,6 +204,9 @@ function HardwareSalesRewardPageWrapper() {
           ),
         ],
       );
+      if (listGeneration !== listGenerationRef.current) {
+        return;
+      }
 
       if (cumulativeRewardsResult.status === 'fulfilled') {
         setCumulativeRewards(cumulativeRewardsResult.value);
@@ -214,11 +217,14 @@ function HardwareSalesRewardPageWrapper() {
         setHardwareRecords(items);
         const hasMore = items.length >= 10;
         setCursor(hasMore ? items[items.length - 1]?._id : undefined);
+        setListVersion((version) => version + 1);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
-      setIsLoading(false);
+      if (listGeneration === listGenerationRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [
     filterState.inviteCode,
@@ -231,6 +237,7 @@ function HardwareSalesRewardPageWrapper() {
     if (!cursor || isLoadingMore) {
       return;
     }
+    const listGeneration = listGenerationRef.current;
     setIsLoadingMore(true);
     try {
       const result =
@@ -241,6 +248,9 @@ function HardwareSalesRewardPageWrapper() {
           filterState.startTime,
           filterState.endTime,
         );
+      if (listGeneration !== listGenerationRef.current) {
+        return;
+      }
       const items = result.items || [];
       setHardwareRecords((prev) => [...prev, ...items]);
       // Use last item's _id as cursor, undefined if no more data (items < limit)
@@ -259,28 +269,6 @@ function HardwareSalesRewardPageWrapper() {
     filterState.startTime,
     filterState.endTime,
   ]);
-
-  const handleScroll = useCallback(
-    (event: {
-      nativeEvent: {
-        contentOffset: { y: number };
-        contentSize: { height: number };
-        layoutMeasurement: { height: number };
-      };
-    }) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent;
-      const paddingToBottom = 100;
-      const isCloseToBottom =
-        contentOffset.y + layoutMeasurement.height >=
-        contentSize.height - paddingToBottom;
-
-      if (isCloseToBottom && cursor && !isLoadingMore) {
-        void onLoadMore();
-      }
-    },
-    [cursor, isLoadingMore, onLoadMore],
-  );
 
   useEffect(() => {
     void onRefresh();
@@ -310,11 +298,13 @@ function HardwareSalesRewardPageWrapper() {
               <Spinner size="large" />
             </YStack>
           ) : (
-            <ScrollView
+            <LoadMoreScrollView
               flex={1}
               contentContainerStyle={{ pb: '$5' }}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
+              cursor={cursor}
+              isLoading={isLoading || isLoadingMore}
+              listVersion={listVersion}
+              onLoadMore={onLoadMore}
             >
               {/* Hardware Sales Reward Header */}
               <HardwareSalesRewardHeader
@@ -330,7 +320,7 @@ function HardwareSalesRewardPageWrapper() {
                 isMobile={md}
                 isLoadingMore={isLoadingMore}
               />
-            </ScrollView>
+            </LoadMoreScrollView>
           )}
         </ReferFriendsPageContainer>
       </Page.Body>

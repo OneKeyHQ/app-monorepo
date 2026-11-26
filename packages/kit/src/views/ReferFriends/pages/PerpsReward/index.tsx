@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Page,
   RefreshControl,
-  ScrollView,
   Spinner,
   XStack,
   YStack,
@@ -28,6 +27,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ExportButton,
   FilterButton,
+  LoadMoreScrollView,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
   RewardDateRangeField,
@@ -67,6 +67,10 @@ function PerpsRewardPageWrapper() {
   // Pagination state
   const [cursor, setCursor] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Bumped when a first page replaces the list.
+  const [listVersion, setListVersion] = useState(0);
+  // Drops load-more responses for a list that a newer tab request replaced.
+  const listGenerationRef = useRef(0);
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
@@ -176,6 +180,8 @@ function PerpsRewardPageWrapper() {
 
   // Fetch current tab data (resets pagination)
   const fetchCurrentTab = useCallback(async () => {
+    // Invalidate in-flight load-more requests for the list being replaced.
+    listGenerationRef.current += 1;
     const result = await backgroundApiProxy.serviceReferralCode.getPerpsInvites(
       {
         tab: activeTab,
@@ -192,6 +198,7 @@ function PerpsRewardPageWrapper() {
 
     // Update cursor for pagination - trust API's cursor
     setCursor(result.cursor ?? undefined);
+    setListVersion((version) => version + 1);
 
     // Update the count for current tab
     if (activeTab === 'undistributed') {
@@ -215,6 +222,7 @@ function PerpsRewardPageWrapper() {
     if (!cursor || isLoadingMore) {
       return;
     }
+    const listGeneration = listGenerationRef.current;
     setIsLoadingMore(true);
     try {
       const result =
@@ -229,6 +237,9 @@ function PerpsRewardPageWrapper() {
           sortOrder,
           cursor,
         });
+      if (listGeneration !== listGenerationRef.current) {
+        return;
+      }
 
       // Append new items to existing list
       setCurrentInvites((prev) => ({
@@ -255,29 +266,6 @@ function PerpsRewardPageWrapper() {
     sortBy,
     sortOrder,
   ]);
-
-  // Handle scroll for infinite loading
-  const handleScroll = useCallback(
-    (event: {
-      nativeEvent: {
-        contentOffset: { y: number };
-        contentSize: { height: number };
-        layoutMeasurement: { height: number };
-      };
-    }) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent;
-      const paddingToBottom = 100;
-      const isCloseToBottom =
-        contentOffset.y + layoutMeasurement.height >=
-        contentSize.height - paddingToBottom;
-
-      if (isCloseToBottom && cursor && !isLoadingMore) {
-        void onLoadMore();
-      }
-    },
-    [cursor, isLoadingMore, onLoadMore],
-  );
 
   const onRefresh = useCallback(async () => {
     setIsLoading(true);
@@ -426,14 +414,16 @@ function PerpsRewardPageWrapper() {
               <Spinner size="large" />
             </YStack>
           ) : (
-            <ScrollView
+            <LoadMoreScrollView
               flex={1}
               refreshControl={
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
               }
               contentContainerStyle={{ pb: '$5' }}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
+              cursor={cursor}
+              isLoading={isLoading || isTabLoading || isLoadingMore}
+              listVersion={listVersion}
+              onLoadMore={onLoadMore}
             >
               {/* Perps Reward Header - Stats Cards */}
               <PerpsRewardHeader
@@ -457,7 +447,7 @@ function PerpsRewardPageWrapper() {
                 isLoadingMore={isLoadingMore}
                 isTabLoading={isTabLoading}
               />
-            </ScrollView>
+            </LoadMoreScrollView>
           )}
         </ReferFriendsPageContainer>
       </Page.Body>
