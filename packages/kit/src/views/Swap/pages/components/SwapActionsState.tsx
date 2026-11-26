@@ -236,6 +236,7 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
   const animations = useRef<Animation[]>([]);
   const exitLayer = useRef<HTMLElement | null>(null);
   const pendingContent = useRef<MutationObserver | null>(null);
+  const contentResize = useRef<ResizeObserver | null>(null);
 
   // Content swapped in while the last exit overlay is still on the button
   // lands after it, so skip the overlay rather than take the first child.
@@ -249,7 +250,7 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
     [],
   );
   // The laid-out width is kept so the leaving copy wraps its text as the
-  // content did.
+  // content did, and follows the content when the button resizes.
   const remember = useCallback((content: Element | null) => {
     shown.current = content
       ? {
@@ -258,6 +259,19 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
           width: content instanceof HTMLElement ? content.offsetWidth : 0,
         }
       : null;
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    contentResize.current ??= new ResizeObserver(() => {
+      const current = shown.current;
+      if (current?.node instanceof HTMLElement) {
+        shown.current = { ...current, width: current.node.offsetWidth };
+      }
+    });
+    contentResize.current.disconnect();
+    if (content) {
+      contentResize.current.observe(content);
+    }
   }, []);
   const enter = useCallback(
     (
@@ -414,6 +428,7 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
   useEffect(
     () => () => {
       pendingContent.current?.disconnect();
+      contentResize.current?.disconnect();
     },
     [],
   );
