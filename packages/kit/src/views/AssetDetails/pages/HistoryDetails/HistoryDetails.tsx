@@ -63,6 +63,7 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   collectPrivacyChainOwnAddresses,
   getPrivacyChainEndpointFlow,
@@ -477,15 +478,6 @@ function HistoryDetails() {
       settings.currencyInfo.symbol,
     ],
   );
-
-  const nativeToken = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceToken.getNativeToken({
-        accountId,
-        networkId,
-      }),
-    [accountId, networkId],
-  ).result;
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -1640,6 +1632,10 @@ function HistoryDetails() {
     txDetails,
     historyTx,
   });
+  const feeTokenSymbol =
+    historyTx?.decodedTx.feeInfo?.common?.nativeSymbol ||
+    (network?.id === networkId && network.symbol) ||
+    networkUtils.getLocalNetworkInfo(networkId)?.symbol;
 
   const renderFeeInfo = useCallback(() => {
     // A private receive funded by someone else's transparent inputs has a fee this wallet cannot see;
@@ -1651,6 +1647,7 @@ function HistoryDetails() {
         </SizableText>
       );
     }
+    if (!feeTokenSymbol) return '--';
     const gasFeeDisplayValues = getHistoryFeeDisplayValues({
       gasFee: txInfo?.feeInNative,
       gasFeeFiatValue: txInfo?.feeFiatValue,
@@ -1671,7 +1668,7 @@ function HistoryDetails() {
           size="$bodyMd"
           color={gasFeeTextColor}
           formatterOptions={{
-            tokenSymbol: nativeToken?.symbol,
+            tokenSymbol: feeTokenSymbol,
           }}
         >
           {gasFeeDisplayValues.gasFee}
@@ -1704,7 +1701,7 @@ function HistoryDetails() {
     intl,
     isLoading,
     isLocalWalletHistory,
-    nativeToken?.symbol,
+    feeTokenSymbol,
     settings.currencyInfo.symbol,
     txInfo?.gasFee,
     txInfo?.feeInNative,
