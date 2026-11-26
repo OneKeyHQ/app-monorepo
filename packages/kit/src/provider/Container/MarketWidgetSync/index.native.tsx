@@ -28,6 +28,11 @@ const configurationSync = createMarketWidgetConfigurationSync({
       configuration,
     );
     logMarketWidgetEvent('configuration.sync_succeeded');
+    appEventBus.emitToSelf({
+      type: EAppEventBusNames.MarketWidgetConfigurationSynced,
+      payload: undefined,
+      isRemote: false,
+    });
   },
   onError: () => logMarketWidgetEvent('configuration.sync_failed'),
 });

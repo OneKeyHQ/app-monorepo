@@ -8,6 +8,7 @@ import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import { MarketWidgetSync } from './index.native';
 
 const mockSetConfiguration = jest.fn(async (_value: unknown) => undefined);
+const mockEmitToSelf = jest.fn();
 const mockSetChartMode = jest.fn(
   async (_mode: IMarketWidgetChartMode) => undefined,
 );
@@ -38,13 +39,19 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketDetailChartDisplayModePersistAtom: () => [{ mode: mockChartMode }],
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: { MarketWatchListV2Changed: 'watchlist' },
+  EAppEventBusNames: {
+    MarketWatchListV2Changed: 'watchlist',
+    MarketWidgetConfigurationSynced: 'widget-configuration-synced',
+  },
   appEventBus: {
     on: (_name: string, callback: () => void) => {
       mockWatchlistChanged = callback;
     },
     off: () => {
       mockWatchlistChanged = undefined;
+    },
+    emitToSelf: (event: unknown) => {
+      mockEmitToSelf(event);
     },
   },
 }));
@@ -172,6 +179,24 @@ describe('native market widget sync host', () => {
     });
     expect(mockReadWatchlist).not.toHaveBeenCalled();
     expect(mockSetConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('notifies the editor only after the native configuration is written', async () => {
+    let finishWrite = () => {};
+    mockSetConfiguration.mockReturnValueOnce(
+      new Promise<undefined>((resolve) => {
+        finishWrite = () => resolve(undefined);
+      }),
+    );
+    render(<MarketWidgetSync />);
+    await waitFor(() => expect(mockSetConfiguration).toHaveBeenCalledTimes(1));
+    expect(mockEmitToSelf).not.toHaveBeenCalled();
+    await act(async () => finishWrite());
+    expect(mockEmitToSelf).toHaveBeenCalledWith({
+      type: 'widget-configuration-synced',
+      payload: undefined,
+      isRemote: false,
+    });
   });
 
   it('clears exported identities in the masked runtime without reading the real watchlist', async () => {
