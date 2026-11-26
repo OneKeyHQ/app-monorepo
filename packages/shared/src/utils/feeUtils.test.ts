@@ -2,8 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import {
   calculateFeeForSend,
+  calculateStarknetTotalFee,
   calculateTotalFeeNative,
   calculateTxExtraFee,
+  getStarknetFeeForBudget,
 } from './feeUtils';
 
 import type { IFeeInfoUnit } from '../../types/fee';
@@ -26,6 +28,65 @@ const ethereumCommon: IFeeInfoUnit['common'] = {
   nativeDecimals: 18,
   nativeSymbol: 'ETH',
 };
+
+describe('getStarknetFeeForBudget', () => {
+  const feeInfo = {
+    common: {
+      feeDecimals: 18,
+      feeSymbol: 'STRK',
+      nativeDecimals: 18,
+      nativeSymbol: 'STRK',
+    },
+    feeStarknet: {
+      l1Gas: {
+        maxAmount: '0',
+        maxPricePerUnit: '9',
+        estimatedPricePerUnit: '6',
+      },
+      l2Gas: {
+        maxAmount: '5',
+        maxPricePerUnit: '8',
+        estimatedPricePerUnit: '5',
+      },
+      l1DataGas: {
+        maxAmount: '9',
+        maxPricePerUnit: '4',
+        estimatedPricePerUnit: '3',
+      },
+      overallFee: '25',
+      deployAccountFee: '10',
+    },
+  };
+
+  it.each([
+    ['0.000000000000000061', undefined, undefined],
+    ['0.000000000000000062', '5', '3'],
+    ['0.000000000000000086', '8', '4'],
+    ['0.000000000000000131', '12', '6'],
+  ])(
+    'respects gas prices and the total cap %s',
+    (maxFee, l2Price, l1DataPrice) => {
+      const feeStarknet = getStarknetFeeForBudget({ feeInfo, maxFee });
+      if (l2Price === undefined) {
+        expect(feeStarknet).toBeUndefined();
+      } else {
+        expect(feeStarknet).toEqual({
+          ...feeInfo.feeStarknet,
+          l2Gas: { ...feeInfo.feeStarknet.l2Gas, maxPricePerUnit: l2Price },
+          l1DataGas: {
+            ...feeInfo.feeStarknet.l1DataGas,
+            maxPricePerUnit: l1DataPrice,
+          },
+        });
+        expect(
+          calculateStarknetTotalFee({
+            feeInfo: { ...feeInfo, feeStarknet },
+          }).lte(maxFee),
+        ).toBe(true);
+      }
+    },
+  );
+});
 
 describe('calculateTxExtraFee', () => {
   const decodedTx = {

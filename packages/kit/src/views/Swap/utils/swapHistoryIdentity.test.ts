@@ -140,6 +140,33 @@ describe('getSwapHistoryProviderOrderId', () => {
   it('returns undefined when no order id exists at all', () => {
     expect(getSwapHistoryProviderOrderId(createHistory({}))).toBeUndefined();
   });
+
+  it.each([
+    ['SwapChangelly', { changellyOrderId: 'changelly-id' }, 'changelly-id'],
+    ['SwapRocketX', { rocketXOrderId: 'rocketx-id' }, 'rocketx-id'],
+    ['SwapRocketX', { changellyOrderId: 'unrelated-id' }, undefined],
+  ])(
+    'reads the bound channel order for an XMR %s history row',
+    (provider, ctx, expected) => {
+      const item = createHistory({ ctx, orderId: 'onekey-id' });
+      const build = createBuildRes();
+      expect(
+        getSwapHistoryProviderOrderId({
+          ...item,
+          baseInfo: {
+            fromToken: build.result.fromTokenInfo,
+            toToken: { ...build.result.toTokenInfo, networkId: 'xmr--0' },
+            fromAmount: '1',
+            toAmount: '2',
+          },
+          swapInfo: {
+            instantRate: '',
+            provider: { provider, providerName: provider },
+          },
+        }),
+      ).toBe(expected);
+    },
+  );
 });
 
 describe('shortenSwapOrderId', () => {

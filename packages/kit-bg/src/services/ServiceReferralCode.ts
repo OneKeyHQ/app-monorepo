@@ -153,6 +153,10 @@ class ServiceReferralCode extends ServiceBase {
     const progress = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(instanceId)
       ? await this.fetchPerpsRecallProgressMemo(instanceId, endpoint, locale)
       : null;
+    const { endpoint: currentEndpoint } = await this.getClientEndpointInfo(
+      EServiceEndpointEnum.Rebate,
+    );
+    if (endpoint !== currentEndpoint) return null;
     await perpsRecallProgressAtom.set((previous) =>
       requestId === this.perpsRecallRequestId &&
       previous.instanceId === instanceId &&
@@ -232,7 +236,21 @@ class ServiceReferralCode extends ServiceBase {
   async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
     try {
       const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
-      return await this._getInviteRewardScopesMemo(locale.toLowerCase());
+      const { endpoint } = await this.getClientEndpointInfo(
+        EServiceEndpointEnum.Rebate,
+      );
+      const scopes = await this._getInviteRewardScopesMemo(
+        locale.toLowerCase(),
+        endpoint,
+      );
+      const { endpoint: currentEndpoint } = await this.getClientEndpointInfo(
+        EServiceEndpointEnum.Rebate,
+      );
+      if (endpoint !== currentEndpoint)
+        throw new OneKeyLocalError(
+          'Rebate endpoint changed during reward scopes request',
+        );
+      return scopes;
     } catch (error) {
       // Optional hint copy: callers hide it on failure, so never toast.
       errorToastUtils.toastIfErrorDisable(error);
@@ -242,8 +260,15 @@ class ServiceReferralCode extends ServiceBase {
 
   // Both tabs share localized copy, while failed requests are not cached.
   private _getInviteRewardScopesMemo = memoizee(
-    async (locale: string): Promise<IInviteRewardScope[]> => {
+    async (locale: string, endpoint: string): Promise<IInviteRewardScope[]> => {
       const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const clientEndpoint =
+        client.defaults?.headers?.['X-OneKey-Dev-Proxy'] ??
+        client.defaults?.baseURL;
+      if (clientEndpoint && clientEndpoint !== endpoint)
+        throw new OneKeyLocalError(
+          'Rebate endpoint changed during reward scopes request',
+        );
       const response = await client.get<{
         data: IInviteRewardScopesResponse;
       }>('/rebate/v1/invite/reward-scopes');

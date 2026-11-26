@@ -33,6 +33,7 @@ jest.mock('../config/endpointsMap', () => ({
     prod: { wallet: 'https://wallet.onekeycn.com' },
     test: { wallet: 'https://wallet.onekeytest.com' },
   },
+  getEndpointsMap: async () => ({ wallet: 'https://wallet.onekeycn.com' }),
   getEndpointByServiceName: async () => 'https://wallet.onekeycn.com',
 }));
 jest.mock('../storage/appStorage', () => ({

@@ -19,6 +19,7 @@ import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import { marketTokenPreviewRouteConfig } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
@@ -31,6 +32,7 @@ import { rootRouter, useRootRouter } from '../router';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
+import { getUrlAccountHistoryBackRouteKey } from './urlAccountHistory';
 import {
   clearWebRouteNotFoundState,
   getWebDappAllowListRule,
@@ -64,6 +66,19 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
             ETabMarketRoutes.MarketNativeDetail,
           ].some((name) => name === route.name)
             ? marketTokenPreviewRouteConfig
+            : undefined),
+          ...(route.name === ETabSwapRoutes.TabSwap
+            ? {
+                // React Navigation omits stringified undefined query params.
+                stringify: {
+                  swapPrefill: () => 'undefined',
+                  swapTabNavigationId: () => 'undefined',
+                },
+                parse: {
+                  swapPrefill: () => undefined,
+                  swapTabNavigationId: () => undefined,
+                },
+              }
             : undefined),
         };
         const config = Array.isArray(route.children)
@@ -176,6 +191,9 @@ const useBuildLinking = (): LinkingOptions<any> => {
       prefixes: [],
 
       getStateFromPath: onGetStateFromPath,
+      getHistoryBackRouteKey: platformEnv.isExtensionUiExpandTab
+        ? getUrlAccountHistoryBackRouteKey
+        : undefined,
       /**
        * Only change url at whitelist routes, or return home page
        */

@@ -2,9 +2,11 @@ import {
   LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
+  DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF,
   LOCAL_SECRET_ENVELOPE_VERSION,
   getLocalSecretEnvelopeInnerPrefix,
 } from './consts';
@@ -452,6 +454,35 @@ export async function unwrapLocalSecretEnvelopeV1({
       });
     } catch (error) {
       if (error instanceof LocalSecretEnvelopeUnavailable) {
+        if (
+          platformEnv.isNativeAndroid &&
+          layer.kind === 'secure-storage' &&
+          parsed.dataType === 'credential' &&
+          !error.data?.localSecretEnvelopeFailureReason
+        ) {
+          // Android SecureStore can report null during KeyStore warmup. Check
+          // whether the independently stored mandatory inner key is missing.
+          const base = parsed.wrappingLayers[0];
+          if (
+            layerIndex > 0 &&
+            base.kind === 'mmkv-profile-key' &&
+            base.keyRef === DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF &&
+            base.alg === 'AES-256-GCM' &&
+            !base.capabilities.requireAuth
+          ) {
+            try {
+              await resolveLayerAdapter(base)?.checkExistingKey?.(base);
+            } catch (baseError) {
+              if (
+                baseError instanceof LocalSecretEnvelopeUnavailable &&
+                baseError.data?.localSecretEnvelopeFailureReason ===
+                  'key-missing'
+              ) {
+                throw baseError;
+              }
+            }
+          }
+        }
         throw error;
       }
       throw new OneKeyLocalError(

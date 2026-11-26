@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import {
   createSwapReviewQuoteExpiredError,
+  createSwapReviewSigningFailure,
   isLocallyCreatedSwapReviewQuoteExpiredError,
   sanitizeSwapReviewQuoteExpiredError,
 } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
@@ -80,6 +81,7 @@ import {
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { hasUnconfirmedPrimeInfiniPaymentWarnings } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -108,7 +110,10 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
-import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  isLocalWalletNetwork,
+  isStarknetPrivateTransaction,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 import {
   EEarlierBroadcastAttempt,
   ESignedTxBroadcastStatus,
@@ -1125,15 +1130,18 @@ class ServiceSend extends ServiceBase {
       if (isLightningNetwork) {
         return false;
       }
+      const { networkId, feeAmount, feeTokenSymbol, encodedTx } = params;
+      const privateTx = isStarknetPrivateTransaction(networkId, encodedTx);
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.post<{
         data: { success: boolean };
-      }>('/wallet/v1/account/pre-send-transaction', params, {
-        // Preventive (OK-64746): the pre-check has no Gas Account member
-        // logic today, but carry the OneKey ID token so a future member path
-        // on this endpoint does not silently run anonymous.
-        headers: await this.getOneKeyIdAuthHeaders(),
-      });
+      }>(
+        '/wallet/v1/account/pre-send-transaction',
+        privateTx ? { networkId, feeTokenSymbol, feeAmount } : params,
+        privateTx
+          ? undefined
+          : { headers: await this.getOneKeyIdAuthHeaders() },
+      );
 
       return !resp.data.data.success;
     } catch {
@@ -1869,6 +1877,16 @@ class ServiceSend extends ServiceBase {
         signOnly, // external account should send tx here
         stageFeeInfo,
         ...(diagnostic ? { diagnosticSendState: diagnosticState } : {}),
+      }).catch((error: unknown) => {
+        if (
+          isXmrSwapNetwork(networkId) &&
+          unsignedTx.swapInfo &&
+          !isExternalAccount &&
+          !hasEarlierAmbiguousAttempt
+        ) {
+          throw createSwapReviewSigningFailure(error);
+        }
+        throw error;
       }));
 
     diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
@@ -2095,6 +2113,7 @@ class ServiceSend extends ServiceBase {
             gasAccountUiState,
             isPrivateSend,
             useDefaultRpc,
+            reviewQuoteValidUntil,
           });
           logSolanaTxDiagnostic(diagnosticState.context, {
             stage: 'broadcast',
@@ -2104,6 +2123,11 @@ class ServiceSend extends ServiceBase {
           });
           return result;
         } catch (error) {
+          if (isLocallyCreatedSwapReviewQuoteExpiredError(error)) {
+            throw createSwapReviewQuoteExpiredError(
+              !hadAmbiguousBroadcastAttempt,
+            );
+          }
           if (preserveBroadcastTxIdOnError) {
             const serverError = error as
               | {
@@ -3265,6 +3289,31 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSendPrerequisiteProgress({
+    accountId,
+    networkId,
+    txid,
+  }: ISendTxBaseParams & { txid: string }) {
+    const vault = await vaultFactory.getVault({ accountId, networkId });
+    return vault.getSendPrerequisiteProgress(txid);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async prepareSendConfirmation({
+    accountId,
+    networkId,
+    unsignedTxs,
+    confirmPrerequisites = false,
+  }: ISendTxBaseParams & {
+    unsignedTxs: IUnsignedTxPro[];
+    confirmPrerequisites?: boolean;
+  }) {
+    const vault = await vaultFactory.getVault({ accountId, networkId });
+    return vault.prepareSendConfirmation(unsignedTxs, confirmPrerequisites);
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async prepareSendConfirmUnsignedTx(
     params: ISendTxBaseParams &
@@ -3632,9 +3681,8 @@ class ServiceSend extends ServiceBase {
   }) {
     const { networkId, accountId, encodedTx } = params;
     if (
-      await isLocalWalletNetwork({
-        networkId,
-      })
+      isStarknetPrivateTransaction(networkId, encodedTx) ||
+      (await isLocalWalletNetwork({ networkId }))
     ) {
       throw new OneKeyLocalError(
         'Privacy transactions must be reviewed locally',

@@ -11,9 +11,11 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapInputAmountDraftsAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
+  swapStockExecutionTokensAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
@@ -25,11 +27,7 @@ import { getLatestHomeSelectedAccount } from '../utils/swapHomeSelectedAccountUt
 import { SwapProviderMirror } from './SwapProviderMirror';
 import { SwapModalRootProvider } from './SwapRootProvider';
 
-jest.mock('../../../states/jotai/contexts/swap', () =>
-  jest.requireActual<
-    typeof import('../../../states/jotai/contexts/swap/atoms')
-  >('../../../states/jotai/contexts/swap/atoms'),
-);
+jest.mock('../../../background/instance/backgroundApiProxy', () => ({}));
 
 jest.mock('../../../states/jotai/utils/JotaiContextStoreMirrorTracker', () => ({
   JotaiContextStoreMirrorTracker: () => null,
@@ -129,6 +127,77 @@ describe('Market modal initial token selection', () => {
   afterEach(() => {
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
+  });
+
+  const modalStore = EJotaiContextStoreNames.swapModal;
+  const payToken = swapDefaultSetTokens['evm--1'].fromToken!;
+  const stockToken = {
+    networkId: 'evm--1',
+    decimals: 18,
+    contractAddress: '0xstock',
+    symbol: 'AAPLx',
+    isStock: true,
+  };
+  const emptyAmount = { value: '', isInput: false };
+  const stockEntry = {
+    fromToken: stockToken,
+    toToken: payToken,
+    swapType: ESwapTabSwitchType.STOCK,
+    preserveInputAmounts: true,
+  };
+  it('opens a network-only Market modal in Swap without replacing the saved pair or amount', () => {
+    const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
+    const { fromToken, toToken } = swapDefaultSetTokens['evm--1'];
+    const amount = { value: '0.5', isInput: true };
+    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+    store.set(swapSelectFromTokenAtom(), fromToken);
+    store.set(swapSelectToTokenAtom(), toToken);
+    store.set(swapFromTokenAmountAtom(), amount);
+
+    render(<SwapProviderMirror storeName={modalStore} defaultToSwapOnInit />);
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(fromToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(toToken);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual(amount);
+  });
+
+  it('parks the Swap draft separately from the stock sale on a known Market network', () => {
+    const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
+    const sellAmount = { value: '12', isInput: true };
+    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+    store.set(swapSelectFromTokenAtom(), stockToken);
+    store.set(swapSelectToTokenAtom(), swapDefaultSetTokens['evm--1'].toToken);
+    store.set(swapFromTokenAmountAtom(), sellAmount);
+
+    const draft = {
+      ...swapDefaultSetTokens['evm--1'],
+      fromTokenAmount: { value: '3', isInput: true },
+      toTokenAmount: emptyAmount,
+    };
+    store.set(swapInputAmountDraftsAtom(), {
+      [ESwapTabSwitchType.SWAP]: draft,
+    });
+    const pendingSwapDraft = { current: undefined };
+    render(
+      <SwapProviderMirror
+        storeName={modalStore}
+        defaultToSwapOnInit
+        pendingSwapDraft={pendingSwapDraft}
+      />,
+    );
+    expect(pendingSwapDraft.current).toEqual(draft);
+    expect(
+      store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.SWAP],
+    ).toBeUndefined();
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    expect(
+      store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.STOCK]
+        ?.fromTokenAmount,
+    ).toEqual(sellAmount);
   });
 
   it.each([ESwapTabSwitchType.STOCK, ESwapTabSwitchType.LIMIT])(
@@ -302,6 +371,46 @@ describe('Market modal initial token selection', () => {
       reopened.unmount();
     },
   );
+
+  it('opens Sell over a prior Buy pair and clears only the stock draft on a Max reopen', () => {
+    const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
+    const openSell = (clearInputAmounts = false) =>
+      render(
+        <SwapProviderMirror
+          storeName={modalStore}
+          initialSelectedTokensOnInit={{ ...stockEntry, clearInputAmounts }}
+        />,
+      );
+    const buyPair = { fromToken: payToken, toToken: stockToken };
+    store.set(swapTypeSwitchAtom(), stockEntry.swapType);
+    store.set(swapSelectFromTokenAtom(), buyPair.fromToken);
+    store.set(swapSelectToTokenAtom(), buyPair.toToken);
+    store.set(swapStockExecutionTokensAtom(), { ...buyPair, syncId: 1 });
+
+    const sell = openSell();
+    expect(store.get(swapStockExecutionTokensAtom())).toBeUndefined();
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(stockToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(payToken);
+    const draft = {
+      fromToken: stockToken,
+      toToken: payToken,
+      fromTokenAmount: { value: '12', isInput: true },
+      toTokenAmount: { value: '24', isInput: false },
+    };
+    store.set(swapFromTokenAmountAtom(), draft.fromTokenAmount);
+    store.set(swapToTokenAmountAtom(), draft.toTokenAmount);
+    store.set(swapInputAmountDraftsAtom(), {
+      [ESwapTabSwitchType.STOCK]: draft,
+      [ESwapTabSwitchType.SWAP]: draft,
+    });
+    sell.unmount();
+    openSell(true);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual(emptyAmount);
+    expect(store.get(swapToTokenAmountAtom())).toEqual(emptyAmount);
+    const drafts = store.get(swapInputAmountDraftsAtom());
+    expect(drafts[ESwapTabSwitchType.STOCK]).toBeUndefined();
+    expect(drafts[ESwapTabSwitchType.SWAP]).toBe(draft);
+  });
 
   it.each(['from', 'to'] as const)(
     'keeps the %s trade pair after the no-wallet cold-start read completes',

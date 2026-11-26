@@ -42,17 +42,18 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { parseMarketWidgetLinkUrl } from '@onekeyhq/shared/src/utils/marketWidgetUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { buildSwapTabNavigationParams } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnUtmParams } from '@onekeyhq/shared/types/staking';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
-import { connectWalletConnectToDapp } from '../../../components/WalletConnect/connectWalletConnectToDapp';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
+import { markMarketHomeDeeplinkEntry } from '../../../views/Market/utils/marketHomeEntryNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
@@ -370,33 +371,22 @@ async function processOneKeyAppUniversalLink(
     }, 1500);
     return true;
   }
-  if (target.type === 'stocks') {
+  if (target.type === 'stocks' || target.type === 'swapHome') {
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Swap,
       params: {
         screen: ETabSwapRoutes.TabSwap,
-        params: {
-          tab: ESwapTabSwitchType.STOCK,
-        },
-      },
-    });
-    return true;
-  }
-  if (target.type === 'swapHome') {
-    // Explicit tab param resets any live Stock/Limit sub tab so the link
-    // always lands on the plain Swap home, cold or warm.
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Swap,
-      params: {
-        screen: ETabSwapRoutes.TabSwap,
-        params: {
-          tab: ESwapTabSwitchType.SWAP,
-        },
+        params: buildSwapTabNavigationParams(
+          target.type === 'stocks'
+            ? ESwapTabSwitchType.STOCK
+            : ESwapTabSwitchType.SWAP,
+        ),
       },
     });
     return true;
   }
   if (target.type === 'market') {
+    markMarketHomeDeeplinkEntry();
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
@@ -717,7 +707,17 @@ async function processDeepLinkWalletConnect({
       wcUri &&
       wcUri.toLowerCase().startsWith(`${WALLET_CONNECT_DEEP_LINK_NAME}:`)
     ) {
-      await connectWalletConnectToDapp(wcUri);
+      // Loaded on demand, like the pay entry above. If the helper fails to
+      // load, pairing still starts, only without its progress dialog.
+      const helper =
+        await import('../../../components/WalletConnect/connectWalletConnectToDapp').catch(
+          () => undefined,
+        );
+      if (helper) {
+        await helper.connectWalletConnectToDapp(wcUri);
+      } else {
+        await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
+      }
       return {
         type: 'walletConnect',
         url,

@@ -29,6 +29,8 @@ private final class SwapLiveActivityManager {
   private var acceptedRevisions: [String: Int64] = [:]
   private var acceptedStates: [String: SwapLiveActivityAttributes.ContentState] = [:]
   private var presentationGenerations: [String: Int] = [:]
+  private var iconChecks: [String: (needsURLs: Bool, until: Date)] = [:]
+  private var iconPrefetches = Set<String>()
 
   private init() {
     for activity in activities {
@@ -54,8 +56,8 @@ private final class SwapLiveActivityManager {
   ) -> ActivityContent<SwapLiveActivityAttributes.ContentState> {
     ActivityContent(
       state: state,
-      staleDate: state.status.isTerminal ? nil : state.updatedAtMs.map {
-        Date(timeIntervalSince1970: $0 / 1000 + 120)
+      staleDate: state.isTerminal ? nil : state.updatedAtMs.map {
+        Date(timeIntervalSince1970: $0 / 1000).addingTimeInterval(20 * 60)
       },
       relevanceScore: order.startedAtMs / 10_000_000_000_000
     )
@@ -63,7 +65,7 @@ private final class SwapLiveActivityManager {
 
   private func currentState(_ activity: Activity<SwapLiveActivityAttributes>) -> SwapLiveActivityAttributes.ContentState {
     let native = activity.content.state
-    if activity.attributes.order.usesRemoteUpdates { return native }
+    if activity.attributes.usesRemoteUpdates { return native }
     if let accepted = acceptedStates[activity.id], (accepted.revision ?? 0) >= (native.revision ?? 0) {
       return accepted
     }
@@ -80,10 +82,19 @@ private final class SwapLiveActivityManager {
     await activity.update(content(state, order: activity.attributes.order), alertConfiguration: alert)
   }
 
+  private func canStart(_ order: SwapLiveActivityOrder) -> Bool {
+    let attempted = defaults.dictionary(forKey: attemptedKey) as? [String: Double] ?? [:]
+    return UIApplication.shared.applicationState == .active &&
+      !OneKeyIsTravelModeMaskingData() && ActivityAuthorizationInfo().areActivitiesEnabled &&
+      order.expiresAt > Date() &&
+      (attempted[order.orderKey] ?? 0) <= Date().timeIntervalSince1970 * 1000 &&
+      !activities.contains(where: { $0.attributes.order.orderKey == order.orderKey })
+  }
+
   func start(_ request: SwapLiveActivityRequest) throws {
     let order = request.order
-    let fromNativeBitcoin = order.fromToken.networkId == "btc--0" && order.fromToken.isNative == true
-    let toNativeBitcoin = order.toToken.networkId == "btc--0" && order.toToken.isNative == true
+    let fromNativeBitcoin = order.fromToken.isNativeBitcoin
+    let toNativeBitcoin = order.toToken.isNativeBitcoin
     let hasNativeBitcoin = order.isRealOrderOrPushTest
       ? (fromNativeBitcoin || toNativeBitcoin) &&
         !order.networkId.isEmpty && order.networkId == order.fromToken.networkId
@@ -91,52 +102,114 @@ private final class SwapLiveActivityManager {
     guard order.schemaVersion == 1, hasNativeBitcoin,
           !order.orderKey.isEmpty, order.orderKey.count <= 256,
           order.estimatedEndAtMs > order.startedAtMs,
-          order.expiresAt > Date(), !request.content.status.isTerminal else { return }
-    guard !activities.contains(where: { $0.attributes.order.orderKey == order.orderKey }) else { return }
-    var attempted = defaults.dictionary(forKey: attemptedKey) as? [String: Double] ?? [:]
-    attempted = attempted.filter { $0.value > Date().timeIntervalSince1970 * 1000 }
-    guard attempted[order.orderKey] == nil else { return }
-    guard UIApplication.shared.applicationState == .active,
-          ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-    let attributes = SwapLiveActivityAttributes(
+          !request.content.status.isTerminal, request.content.failureDetail != .refundFailed, canStart(order) else { return }
+    // Older JS bundles never subscribe a BTC-receiving card.
+    let usesRemoteUpdates = order.isPushTest == true ||
+      (!order.isMock && (fromNativeBitcoin || request.supportsBtcReceivingPush == true))
+    var attributes = SwapLiveActivityAttributes(
       order: order,
-      fromIconName: "",
-      toIconName: "",
-      strings: order.usesRemoteUpdates ? request.content.strings : nil
+      fromIconName: SwapLiveActivityIconFiles.available(SwapLiveActivityIconCache.filename(for: request.iconUrls?.from)),
+      toIconName: SwapLiveActivityIconFiles.available(SwapLiveActivityIconCache.filename(for: request.iconUrls?.to)),
+      remoteUpdatesEnabled: usesRemoteUpdates,
+      strings: usesRemoteUpdates ? request.content.strings : nil
     )
     let state = SwapLiveActivityAttributes.ContentState.make(
-      order: order, status: request.content.status,
+      order: order, status: request.content.status, failureDetail: request.content.failureDetail,
       revision: request.content.revision, updatedAtMs: request.content.updatedAtMs,
-      strings: order.usesRemoteUpdates ? nil : request.content.strings
+      strings: usesRemoteUpdates ? nil : request.content.strings
     )
+    let initialContent = content(state, order: order)
+    attributes.requestedAt = Date()
     let activity = try Activity.request(
-      attributes: attributes, content: content(state, order: order),
-      pushType: order.usesRemoteUpdates ? .token : nil
+      attributes: attributes, content: initialContent,
+      pushType: usesRemoteUpdates ? .token : nil
     )
+    var attempted = defaults.dictionary(forKey: attemptedKey) as? [String: Double] ?? [:]
+    attempted = attempted.filter { $0.value > Date().timeIntervalSince1970 * 1000 }
     attempted[order.orderKey] = order.expiresAtMs
     defaults.set(attempted, forKey: attemptedKey)
-    if !order.usesRemoteUpdates { acceptedStates[activity.id] = state }
+    if !usesRemoteUpdates { acceptedStates[activity.id] = state }
     observe(activity)
-    schedulePresentation(activity, status: state.status)
+    schedulePresentation(activity, state: state)
+    if let urls = request.iconUrls, attributes.fromIconName.isEmpty || attributes.toIconName.isEmpty {
+      Task { await prefetchIcons(.init(urls: urls, activityId: activity.id)) }
+    }
+  }
+
+  func prefetchIcons(_ request: SwapLiveActivityIconPrefetchRequest) async {
+    guard !OneKeyIsTravelModeMaskingData(), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    if let id = request.activityId, !iconPrefetches.insert(id).inserted { return }
+    defer { if let id = request.activityId { iconPrefetches.remove(id) } }
+    async let from = SwapLiveActivityIconCache.shared.cache(request.urls.from)
+    async let to = SwapLiveActivityIconCache.shared.cache(request.urls.to)
+    let (fromIcon, toIcon) = await (from, to)
+    let names = SwapLiveActivityIconFiles.Names(from: fromIcon.name, to: toIcon.name)
+    guard let activityId = request.activityId,
+          let activity = activities.first(where: { $0.id == activityId }),
+          !OneKeyIsTravelModeMaskingData(),
+          !names.from.isEmpty || !names.to.isEmpty else { return }
+    let changed = SwapLiveActivityIconFiles.assign(
+      names, to: activityId, attributes: activity.attributes,
+      keeping: Set(Activity<SwapLiveActivityAttributes>.activities.map(\.id))
+    )
+    iconChecks.removeValue(forKey: activityId)
+    guard changed || fromIcon.downloaded || toIcon.downloaded else { return }
+    await mutate(activity) {
+      guard !OneKeyIsTravelModeMaskingData() else { return }
+      let current = activity.content
+      var state = self.currentState(activity)
+      state.imageRevision = (state.imageRevision ?? 0) + 1
+      let refreshed = ActivityContent(state: state, staleDate: current.staleDate, relevanceScore: current.relevanceScore)
+      if !activity.attributes.usesRemoteUpdates {
+        self.acceptedStates[activityId] = state
+        await activity.update(refreshed)
+      } else if #available(iOS 17.2, *), state.remoteProgress == nil, let requestedAt = activity.attributes.requestedAt {
+        // APNs timestamps are whole seconds. Never outrank a push newer than the initial card.
+        // Once APNs owns the state, its next update will render the cached files.
+        let creationSecondEnd = Date(timeIntervalSince1970: (floor(requestedAt.timeIntervalSince1970) + 1).nextDown)
+        await activity.update(refreshed, timestamp: min(Date(), creationSecondEnd))
+      }
+    }
   }
 
   func update(_ request: SwapLiveActivityRequest) async {
     guard let activity = activities.first(where: {
       $0.attributes.order.orderKey == request.order.orderKey
-    }), !activity.attributes.order.usesRemoteUpdates else { return }
+    }) else { return }
     await mutate(activity) {
       let previous = self.currentState(activity)
-      guard request.content.revision > max(previous.revision ?? 0, self.acceptedRevisions[activity.id] ?? 0),
-            previous.status.canAdvance(to: request.content.status) else { return }
-      self.acceptedRevisions[activity.id] = request.content.revision
-      let statusChanged = previous.status != request.content.status
       let order = activity.attributes.order
+      let incoming = request.content
+      let statusChanged = previous.status != incoming.status || previous.failureDetail != incoming.failureDetail
       var next = SwapLiveActivityAttributes.ContentState.make(
-        order: order, status: request.content.status,
-        revision: request.content.revision, updatedAtMs: request.content.updatedAtMs,
+        order: order, status: incoming.status, failureDetail: incoming.failureDetail,
+        revision: incoming.revision, updatedAtMs: incoming.updatedAtMs,
         displayPhase: statusChanged ? "eta" : (previous.displayPhase ?? "eta"),
-        strings: request.content.strings ?? previous.strings
+        strings: incoming.strings ?? previous.strings
       )
+      if activity.attributes.usesRemoteUpdates {
+        guard let fallback = request.terminalFallback, fallback.activityId == activity.id,
+              order.depositTxId == request.order.depositTxId, order.networkId == request.order.networkId,
+              order.expiresAt > Date(), !OneKeyIsTravelModeMaskingData(),
+              !previous.isTerminal, previous.remoteProgress == nil,
+              fallback.reason != .jpushFailed || self.pushRegistration(activity) == "failed"
+        else { return }
+        if next.isTerminal {
+          self.stopPushBinding(activity.id)
+          await activity.end(
+            self.content(next, order: order), dismissalPolicy: .after(Date().addingTimeInterval(180))
+          )
+        } else if (next.status == .failed || next.status == .refunding), statusChanged,
+                  previous.status.canAdvance(to: next.status),
+                  incoming.revision >= (previous.revision ?? 0) {
+          next.progressStoppedAtMs = previous.progressStoppedAtMs ?? next.progressStoppedAtMs
+          await self.publish(next, to: activity)
+        }
+        return
+      }
+      guard incoming.revision > max(previous.revision ?? 0, self.acceptedRevisions[activity.id] ?? 0),
+            !previous.isRefundFailed, previous.status.canAdvance(to: next.status) else { return }
+      self.acceptedRevisions[activity.id] = incoming.revision
       next.imageRevision = previous.imageRevision
       if next.status.isError {
         next.progressStoppedAtMs = previous.progressStoppedAtMs ?? next.progressStoppedAtMs
@@ -151,17 +224,26 @@ private final class SwapLiveActivityManager {
         ? AlertConfiguration(title: "OneKey Swap", body: self.alertText(next), sound: .default)
         : nil
       await self.publish(next, to: activity, alert: alert)
-      if statusChanged { self.schedulePresentation(activity, status: next.status) }
+      if statusChanged { self.schedulePresentation(activity, state: next) }
     }
   }
 
   func updateStrings(_ request: SwapLiveActivityStringsRequest) async {
     guard let activity = activities.first(where: {
       $0.attributes.order.orderKey == request.orderKey
-    }), !activity.attributes.order.usesRemoteUpdates else { return }
+    }) else { return }
+    if activity.attributes.usesRemoteUpdates {
+      // Widget presentation data must survive the next APNs state replacement.
+      SwapLiveActivitySharedLabels.set(
+        request.strings, for: activity.id,
+        keeping: Set(Activity<SwapLiveActivityAttributes>.activities.map(\.id))
+      )
+      return
+    }
     await mutate(activity) {
       var state = self.currentState(activity)
-      guard state.revision == request.revision, state.strings != request.strings else { return }
+      guard let revision = request.revision, state.revision == revision,
+            state.strings != request.strings else { return }
       state.strings = request.strings
       await self.publish(state, to: activity)
     }
@@ -187,7 +269,7 @@ private final class SwapLiveActivityManager {
       presentationTasks.removeValue(forKey: activity.id)?.cancel()
       stopPushBinding(activity.id)
       await mutate(activity) {
-        let finalContent = activity.attributes.order.usesRemoteUpdates
+        let finalContent = activity.attributes.usesRemoteUpdates
           ? nil : self.content(self.currentState(activity), order: activity.attributes.order)
         await activity.end(finalContent, dismissalPolicy: .immediate)
       }
@@ -204,6 +286,8 @@ private final class SwapLiveActivityManager {
       throw CleanupError.retainedCardCouldNotBeDismissed
     }
     defaults.removeObject(forKey: attemptedKey)
+    SwapLiveActivitySharedLabels.defaults?.removeObject(forKey: SwapLiveActivitySharedLabels.key)
+    SwapLiveActivityIconFiles.clearAssignments()
   }
 
   private func observe(_ activity: Activity<SwapLiveActivityAttributes>) {
@@ -219,11 +303,12 @@ private final class SwapLiveActivityManager {
           self.acceptedRevisions.removeValue(forKey: activity.id)
           self.acceptedStates.removeValue(forKey: activity.id)
           self.presentationGenerations.removeValue(forKey: activity.id)
+          self.iconChecks.removeValue(forKey: activity.id)
           return
         }
       }
     }
-    guard activity.attributes.order.usesRemoteUpdates, activity.id.utf8.count <= 64 else { return }
+    guard activity.attributes.usesRemoteUpdates, activity.id.utf8.count <= 64 else { return }
     pushTokenObservers[activity.id] = Task { [weak self] in
       let updates = activity.pushTokenUpdates
       if let token = activity.pushToken { self?.acceptPushToken(token, for: activity.id) }
@@ -309,28 +394,28 @@ private final class SwapLiveActivityManager {
   }
 
   private func pushRegistration(_ activity: Activity<SwapLiveActivityAttributes>) -> String {
-    guard activity.attributes.order.usesRemoteUpdates else { return "notRequested" }
+    guard activity.attributes.usesRemoteUpdates else { return "notRequested" }
     guard activity.id.utf8.count <= 64 else { return "failed" }
     guard let binding = pushBindings[activity.id] else { return "pending" }
     if binding.registered { return "registered" }
     return binding.failedAttempts > pushRetryDelays.count ? "failed" : "pending"
   }
 
-  private func schedulePresentation(_ activity: Activity<SwapLiveActivityAttributes>, status: SwapLiveActivityStatus? = nil) {
-    guard !activity.attributes.order.usesRemoteUpdates else { return }
+  private func schedulePresentation(_ activity: Activity<SwapLiveActivityAttributes>, state: SwapLiveActivityAttributes.ContentState? = nil) {
+    guard !activity.attributes.usesRemoteUpdates else { return }
     presentationTasks.removeValue(forKey: activity.id)?.cancel()
-    let initialStatus = status ?? currentState(activity).status
+    let initialState = state ?? currentState(activity)
     let generation = (presentationGenerations[activity.id] ?? 0) + 1
     presentationGenerations[activity.id] = generation
     presentationTasks[activity.id] = Task { [weak self] in
       guard let self else { return }
-      if initialStatus.isTerminal {
+      if initialState.isTerminal {
         let schedule = self.currentState(activity).terminalSchedule(now: Date())
         try? await Task.sleep(nanoseconds: UInt64(schedule.endDelay * 1_000_000_000))
         guard !Task.isCancelled else { return }
         await self.mutate(activity) {
           guard self.presentationGenerations[activity.id] == generation,
-                self.currentState(activity).status.isTerminal else { return }
+                self.currentState(activity).isTerminal else { return }
           let dismissalPolicy: ActivityUIDismissalPolicy = schedule.dismissalDate <= Date()
             ? .immediate : .after(schedule.dismissalDate)
           await activity.end(
@@ -342,7 +427,7 @@ private final class SwapLiveActivityManager {
       }
       // A failed order may later be reported as refunding. Keep it visible until
       // the provider contract identifies a final state or the activity expires.
-      guard initialStatus != .failed else { return }
+      guard initialState.status != .failed else { return }
       // This is a local presentation update, never a substitute for server tracking.
       try? await Task.sleep(nanoseconds: 3_000_000_000)
       guard !Task.isCancelled,
@@ -350,14 +435,14 @@ private final class SwapLiveActivityManager {
       await self.mutate(activity) {
         var state = self.currentState(activity)
         guard self.presentationGenerations[activity.id] == generation,
-              !state.status.isTerminal else { return }
+              !state.isTerminal else { return }
         state.displayPhase = "ring"
         await self.publish(state, to: activity)
       }
       while !Task.isCancelled {
         let order = activity.attributes.order
         let remaining = order.estimatedEndAt.timeIntervalSinceNow
-        guard remaining > 0, !self.currentState(activity).status.isTerminal,
+        guard remaining > 0, !self.currentState(activity).isTerminal,
               self.presentationGenerations[activity.id] == generation else { return }
         let nextMinute = remaining - max(0, ceil(remaining / 60) - 1) * 60
         let nextBoundary = remaining > 10 ? min(nextMinute, remaining - 10) : remaining
@@ -366,7 +451,7 @@ private final class SwapLiveActivityManager {
         await self.mutate(activity) {
           var state = self.currentState(activity)
           guard self.presentationGenerations[activity.id] == generation,
-                !state.status.isTerminal else { return }
+                !state.isTerminal else { return }
           state.etaMinutes = Int(ceil(max(0, order.estimatedEndAt.timeIntervalSinceNow) / 60))
           state.almostDone = order.estimatedEndAt.timeIntervalSinceNow < 10
           await self.publish(state, to: activity)
@@ -376,6 +461,8 @@ private final class SwapLiveActivityManager {
   }
 
   private func alertText(_ state: SwapLiveActivityAttributes.ContentState) -> LocalizedStringResource {
+    if state.isRefundFailed { return LocalizedStringResource(stringLiteral: state.strings?.refundFailed ?? "Refund failed") }
+    if state.isExpired { return LocalizedStringResource(stringLiteral: state.strings?.expired ?? "Expired") }
     let text: String
     switch state.status {
     case .done: text = state.strings?.done ?? "Swap completed"
@@ -385,6 +472,16 @@ private final class SwapLiveActivityManager {
     default: text = state.strings?.swapFailed ?? "Swap failed"
     }
     return LocalizedStringResource(stringLiteral: text)
+  }
+
+  private func needsIconUrls(_ activity: Activity<SwapLiveActivityAttributes>) -> Bool {
+    if let check = iconChecks[activity.id], check.until > Date() { return check.needsURLs }
+    let names = SwapLiveActivityIconFiles.names(for: activity.id, attributes: activity.attributes)
+    let missing = SwapLiveActivityIconFiles.available(names.from).isEmpty ||
+      SwapLiveActivityIconFiles.available(names.to).isEmpty
+    // JPush registration polls more frequently than thumbnail recovery.
+    iconChecks[activity.id] = (missing, Date().addingTimeInterval(60))
+    return missing
   }
 
   func snapshot() -> [String: Any] {
@@ -399,6 +496,7 @@ private final class SwapLiveActivityManager {
         "order": order,
         "content": state,
         "pushRegistration": pushRegistration(activity),
+        "needsIconUrls": needsIconUrls(activity),
       ]
     }
     return ["supported": true, "enabled": ActivityAuthorizationInfo().areActivitiesEnabled,
@@ -442,6 +540,23 @@ final class SwapLiveActivityModule: NSObject {
   func start(_ value: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock,
              rejecter reject: @escaping RCTPromiseRejectBlock) {
     run(resolve, reject) { try SwapLiveActivityManager.shared.start(self.decode(value)) }
+  }
+
+  @objc(prefetchIcons:resolver:rejecter:)
+  func prefetchIcons(_ value: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+    Task { @MainActor in
+      do {
+        let request = try JSONDecoder().decode(
+          SwapLiveActivityIconPrefetchRequest.self,
+          from: JSONSerialization.data(withJSONObject: value)
+        )
+        await SwapLiveActivityManager.shared.prefetchIcons(request)
+        resolve(nil)
+      } catch {
+        reject("live_activity_icons", error.localizedDescription, error)
+      }
+    }
   }
 
   @objc(update:resolver:rejecter:)

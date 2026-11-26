@@ -2,6 +2,7 @@ import { p256 } from '@noble/curves/p256';
 import { sha256 } from '@noble/hashes/sha256';
 import { randomBytes } from '@noble/hashes/utils';
 
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
   HARDWARE_CLOUD_SYNC_KEK_VERSION,
@@ -17,6 +18,10 @@ import {
   HardwareCloudSyncLocalError,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  isSameServiceBaseURL,
+  serviceRequestUrl,
+} from '@onekeyhq/shared/src/request/helpers/serviceRequestUrl';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -160,7 +165,11 @@ function buildPossessionProof({
 }
 
 function getHtu(baseURL: string | undefined, urlPath: string) {
-  const url = new URL(urlPath, baseURL);
+  if (!baseURL)
+    throw new OneKeyLocalError(
+      'Hardware Cloud sync API address is unavailable',
+    );
+  const url = serviceRequestUrl(baseURL, urlPath);
   return `${url.origin}${url.pathname}`;
 }
 
@@ -223,7 +232,7 @@ async function requestRaw<T>({
         prepareWalletRetry &&
         (!retryBody ||
           !baseURL ||
-          client.defaults.baseURL !== baseURL ||
+          !isSameServiceBaseURL(client.defaults.baseURL, baseURL) ||
           requestOptions?.signal?.aborted ||
           method !== 'POST' ||
           urlPath !== '/prime/v1/sync/upload')
@@ -323,10 +332,22 @@ export function verifiedSessionBaseURL(
   // evidence, not a reason to reject an otherwise successful request.
   if (
     typeof finalURL !== 'string' ||
-    finalURL !== new URL(urlPath, baseURL).href
+    finalURL !== serviceRequestUrl(baseURL, urlPath).href
   )
     return undefined;
   return baseURL;
+}
+
+export function canUseHardwareCloudSyncSessionAt(
+  session: IHardwareCloudSyncSession | undefined,
+  baseURL: string | undefined,
+): boolean {
+  if (!session?.boundBaseURL || !baseURL) return false;
+  const environment = session.environment;
+  const allowedBaseURL = environment
+    ? endpointsMap[environment]?.prime
+    : session.boundBaseURL;
+  return !!allowedBaseURL && isSameServiceBaseURL(baseURL, allowedBaseURL);
 }
 
 function getBoundSessionEndpoint(
@@ -342,12 +363,14 @@ function getBoundSessionEndpoint(
       ETranslations.cloud_sync_hardware_signed_out__msg,
       'Cloud sync is signed out. Reconnect your hardware wallet.',
     );
+  const baseURL = client.defaults.baseURL;
   if (
-    client.defaults.baseURL !== boundBaseURL ||
-    (requestedBaseURL && requestedBaseURL !== boundBaseURL)
+    !baseURL ||
+    !canUseHardwareCloudSyncSessionAt(session, baseURL) ||
+    (requestedBaseURL && !isSameServiceBaseURL(requestedBaseURL, baseURL))
   )
     throw new HardwareCloudSyncCancelledError();
-  return boundBaseURL;
+  return baseURL;
 }
 
 function toSession(
@@ -555,19 +578,26 @@ export async function refreshHardwareCloudSyncSessionIfNeeded({
     data: { refreshToken: session.refreshToken },
     jwk: session.deviceKeyJwk,
     boundBaseURL: selectedBaseURL,
+    assertCanSend: () => {
+      if (!canUseHardwareCloudSyncSessionAt(session, selectedBaseURL))
+        throw new HardwareCloudSyncCancelledError();
+    },
   });
   const verifiedBaseURL = verifiedSessionBaseURL(
     response,
     selectedBaseURL,
     urlPath,
   );
-  return toSession(
+  const refreshed = toSession(
     response.data.data,
     session.deviceKeyJwk,
     session.dekId,
     selectedBaseURL,
     !!verifiedBaseURL,
   );
+  return session.environment
+    ? { ...refreshed, environment: session.environment }
+    : refreshed;
 }
 
 export async function requestRawWithHardwareCloudSyncSession<T>({
@@ -597,6 +627,11 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
     baseURL: string | undefined,
   ) => Promise<(() => unknown) | undefined>;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
+  const selectedBaseURL = getBoundSessionEndpoint(
+    session,
+    client,
+    boundBaseURL,
+  );
   return requestRaw<T>({
     client,
     method,
@@ -605,9 +640,13 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
     requestOptions,
     prepareUpload,
     prepareWalletRetry,
-    assertCanSend,
+    assertCanSend: () => {
+      if (!canUseHardwareCloudSyncSessionAt(session, selectedBaseURL))
+        throw new HardwareCloudSyncCancelledError();
+      assertCanSend?.();
+    },
     oneShotCheck,
-    boundBaseURL: getBoundSessionEndpoint(session, client, boundBaseURL),
+    boundBaseURL: selectedBaseURL,
     jwk: session.deviceKeyJwk,
     accessToken: session.accessToken,
   });
@@ -894,27 +933,10 @@ export type IHardwareCloudSyncHistory = AxiosResponse<
 >;
 
 // Earlier key versions on the server, known by dekId alone.
-async function listPreviousPwdHashes({
-  client,
-  session,
-  pwdHash,
-  onHistory,
-}: {
-  client: AxiosInstance;
-  session: IHardwareCloudSyncSession;
-  pwdHash: string;
-  onHistory?: (response: IHardwareCloudSyncHistory) => void;
-}): Promise<string[]> {
-  const response = await requestRawWithHardwareCloudSyncSession<{
-    serverData: IServerSyncRecord[];
-    pwdHash?: string;
-  }>({
-    client,
-    session,
-    method: 'POST',
-    urlPath: '/prime/v1/sync/download',
-    data: { pwdHash },
-  });
+export function getHardwareCloudSyncPreviousPwdHashes(
+  response: IHardwareCloudSyncHistory,
+  pwdHash: string,
+): string[] {
   const { serverData } = response.data.data;
   logHardwareCloudSyncDiagnostic('history_download_received', {
     hasServerDataArray: Array.isArray(serverData),
@@ -966,6 +988,31 @@ async function listPreviousPwdHashes({
     uniquePreviousCount: new Set(hashes).size,
     historyCompleteKnown: false,
   });
+  return hashes;
+}
+
+async function listPreviousPwdHashes({
+  client,
+  session,
+  pwdHash,
+  onHistory,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+  pwdHash: string;
+  onHistory?: (response: IHardwareCloudSyncHistory) => void;
+}): Promise<string[]> {
+  const response = await requestRawWithHardwareCloudSyncSession<{
+    serverData: IServerSyncRecord[];
+    pwdHash?: string;
+  }>({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/download',
+    data: { pwdHash },
+  });
+  const hashes = getHardwareCloudSyncPreviousPwdHashes(response, pwdHash);
   onHistory?.(response);
   return hashes;
 }
@@ -1124,8 +1171,8 @@ export async function reencryptHardwareCloudSyncItems<
   validateOnly,
 }: {
   items: T[];
-  from: IHardwareCloudSyncDataKey;
-  to: IHardwareCloudSyncDataKey;
+  from: Pick<IHardwareCloudSyncDataKey, 'dek' | 'pwdHash'>;
+  to: Pick<IHardwareCloudSyncDataKey, 'dek' | 'pwdHash'>;
   validateOnly?: boolean;
 }): Promise<T[]> {
   const result: T[] = [];
@@ -1189,7 +1236,7 @@ export async function rotateHardwareCloudSyncDataKey({
   generation: number;
   verifiedFlushOrigin?: string;
 }> {
-  const boundBaseURL = session.boundBaseURL ?? client.defaults?.baseURL;
+  const boundBaseURL = getBoundSessionEndpoint(session, client);
   const assertCurrent = () => {
     if (!isCurrent() || flushSignal?.aborted) {
       throw new HardwareCloudSyncCancelledError();
@@ -1292,7 +1339,7 @@ export async function rotateHardwareCloudSyncDataKey({
     generation: envelope.generation,
     verifiedFlushOrigin: verifiedSessionBaseURL(
       response,
-      session.boundBaseURL,
+      boundBaseURL,
       urlPath,
     ),
   };
@@ -1342,4 +1389,41 @@ export const HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE = 90_705;
 
 export function isHardwareCloudSyncNonceInvalidError(error: unknown) {
   return hasErrorCode(error, HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE);
+}
+
+// Realm materializes unset optional fields as null on live objects, whereas
+// read projections (.record) and IndexedDB snapshots normalize them to
+// undefined. Treat null and undefined as equivalent when comparing fields.
+export function isEqualNullableValue(a: unknown, b: unknown): boolean {
+  return (a ?? undefined) === (b ?? undefined);
+}
+
+export function matchesRecordFields<
+  TRecord extends object,
+  TExpected extends object,
+  K extends keyof TRecord & keyof TExpected = keyof TRecord & keyof TExpected,
+>(record: TRecord, expected: TExpected, fields?: readonly K[]): boolean {
+  if (fields) {
+    return fields.every((field) =>
+      isEqualNullableValue(record[field], expected[field]),
+    );
+  }
+  const source =
+    'record' in record && record.record && typeof record.record === 'object'
+      ? (record.record as Record<string, unknown>)
+      : (record as Record<string, unknown>);
+  const target = expected as Record<string, unknown>;
+  const keys = new Set([
+    ...Object.keys(record),
+    ...Object.keys(source),
+    ...Object.keys(target),
+  ]);
+  for (const key of keys) {
+    const recordValue =
+      key in record ? (record as Record<string, unknown>)[key] : source[key];
+    if (!isEqualNullableValue(recordValue, target[key])) {
+      return false;
+    }
+  }
+  return true;
 }

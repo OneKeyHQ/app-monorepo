@@ -35,6 +35,40 @@ const key = accountUtils.buildAccountLocalAssetsKey({
 });
 
 describe('restoring hidden pending history', () => {
+  it('distinguishes unknown nonces from zero when recovering history', async () => {
+    const entity = new SimpleDbEntityLocalHistory();
+    const withoutNonce = {
+      ...historyTx,
+      decodedTx: { ...historyTx.decodedTx, nonce: undefined },
+    };
+    const first = {
+      ...historyTx,
+      id: 'first',
+      decodedTx: { ...historyTx.decodedTx, nonce: 0 },
+    };
+    let data: ILocalHistory = {
+      pendingTxs: { [key]: [first, { ...withoutNonce, id: 'other' }] },
+      confirmedTxs: {},
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      data = typeof updater === 'function' ? await updater(data) : updater;
+      return data;
+    });
+    await expect(
+      entity.restoreLocalHistoryPendingTx({
+        networkId,
+        accountAddress,
+        historyTx: withoutNonce,
+      }),
+    ).resolves.toBe(true);
+    jest
+      .spyOn(entity, 'getAccountLocalHistoryPendingTxs')
+      .mockResolvedValue(data.pendingTxs[key]);
+    await expect(
+      entity.getPendingNonceList({ networkId, accountAddress }),
+    ).resolves.toEqual([0]);
+  });
+
   it.each(['absent', 'pending', 'confirmed', 'replacement'] as const)(
     'inserts only a missing original, checking the current locked snapshot: %s',
     async (state) => {

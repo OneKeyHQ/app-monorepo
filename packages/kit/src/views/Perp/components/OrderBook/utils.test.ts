@@ -1,9 +1,33 @@
+import { aggregateLevels } from './useAggregatedBook';
 import {
   getOrderBookDistanceFromMid,
   getOrderBookHoverSummary,
   getOrderBookLiveMidPrice,
   getOrderBookMidPrice,
 } from './utils';
+
+describe('aggregateLevels', () => {
+  it('includes the rest of the final visible price group before stopping', () => {
+    expect(
+      aggregateLevels(
+        [
+          { price: '105', size: '1', cumSize: '1' },
+          { price: '104', size: '2', cumSize: '3' },
+          { price: '101', size: '3', cumSize: '6' },
+          { price: '99', size: '8', cumSize: '14' },
+        ],
+        1,
+        10,
+        'floor',
+        0,
+        0,
+      ),
+    ).toEqual({
+      aggregatedLevels: [{ price: '100', size: '6', cumSize: '6' }],
+      maxSize: '3',
+    });
+  });
+});
 
 describe('getOrderBookMidPrice', () => {
   it('keeps the live mid price independent from aggregated order book ticks', () => {

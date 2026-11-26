@@ -206,6 +206,7 @@ export type IDBCreateHDWalletParams = {
   overrideWalletId?: string;
   applyRestoreSyncPolicy?: boolean;
   creationSource?: 'create' | 'import';
+  recoverUnavailableSecureStorageKey?: boolean;
 };
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
@@ -250,7 +251,6 @@ export type IDBSetWalletNameAndAvatarParams = {
   cloudSyncSource?: IDBCloudSyncItem;
   // The canonical name retained in manual rename history before scene replay.
   expectedCloudSyncWalletName?: string;
-  deferCloudSyncWalletName?: boolean;
   firstEvmAddress?: string;
   walletId: IDBWalletId;
   name?: string;
@@ -533,6 +533,13 @@ export type IDBCloudSyncItem = IDBBaseObject & {
   // runtime readonly field ----------------------------------------------
   rawDataJson?: ICloudSyncRawDataJson;
 };
+
+export type ICloudSyncPoolExistingItem = Readonly<
+  Pick<
+    IDBCloudSyncItem,
+    'pwdHash' | 'dataType' | 'isDeleted' | 'localSceneUpdated'
+  >
+>;
 
 // DB SCHEMA map ----------------------------------------------
 export interface ILocalDBSchemaMap {

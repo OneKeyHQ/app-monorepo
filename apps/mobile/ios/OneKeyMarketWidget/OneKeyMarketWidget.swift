@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -90,10 +91,33 @@ struct MarketLockScreenChartWidget: Widget {
 }
 
 @available(iOS 17.0, *)
+struct MarketHomeWidgetProvider: AppIntentTimelineProvider {
+  let isWatchlist: Bool
+  func placeholder(in context: Context) -> MarketWidgetEntry { .placeholder(isWatchlist: isWatchlist) }
+  private func boundID(_ configuration: MarketWidgetInstanceIntent, preview: Bool) -> UUID? {
+    guard !preview, let id = configuration.instanceID else { return nil }
+    let binding = MarketWidgetInstanceBinding(id: id, kind: isWatchlist ? .list : .single)
+    do {
+      try MarketWidgetStore().bindInstance(binding)
+      return id
+    } catch {
+      MarketWidgetDiagnostics.event("instance.bind_failed", error: error)
+      return nil
+    }
+  }
+  func snapshot(for configuration: MarketWidgetInstanceIntent, in context: Context) async -> MarketWidgetEntry {
+    .snapshot(isWatchlist: isWatchlist, instanceID: boundID(configuration, preview: context.isPreview))
+  }
+  func timeline(for configuration: MarketWidgetInstanceIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
+    await MarketWidgetEntry.timeline(isWatchlist: isWatchlist, instanceID: boundID(configuration, preview: context.isPreview))
+  }
+}
+
+@available(iOS 17.0, *)
 struct MarketSingleWidget: Widget {
   let kind = "OneKeyMarketSingle"
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: MarketWidgetProvider(isWatchlist: false)) {
+    AppIntentConfiguration(kind: kind, intent: MarketWidgetInstanceIntent.self, provider: MarketHomeWidgetProvider(isWatchlist: false)) {
       MarketWidgetView(entry: $0)
     }
     .configurationDisplayName("market_widget_single__title")
@@ -119,7 +143,7 @@ struct LegacyMarketSingleWidget: Widget {
 struct MarketWatchlistWidget: Widget {
   let kind = "OneKeyMarketWatchlist"
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: MarketWidgetProvider(isWatchlist: true)) {
+    AppIntentConfiguration(kind: kind, intent: MarketWidgetInstanceIntent.self, provider: MarketHomeWidgetProvider(isWatchlist: true)) {
       MarketWidgetView(entry: $0)
     }
     .configurationDisplayName("market_widget_list__title")
@@ -213,6 +237,11 @@ struct MarketWidgetView: View {
         .lineLimit(1).minimumScaleFactor(0.65)
         .allowsTightening(true)
         .frame(maxWidth: .infinity, alignment: .leading)
+      if let number = entry.instanceNumber {
+        Text(verbatim: "#\(number)")
+          .font(.system(size: 11, weight: .medium)).monospacedDigit()
+          .foregroundStyle(secondary)
+      }
       if #available(iOS 17.0, *), let editorURL = entry.editorURL {
         Link(destination: editorURL) {
           ZStack {
@@ -224,7 +253,8 @@ struct MarketWidgetView: View {
         }
         .accessibilityLabel(localized("market_widget_edit__title"))
       }
-      Image("MarketWidgetOneKey").resizable().scaledToFit().frame(width: 18, height: 18)
+      Image(decorative: entry.configuration?.privacyMasked == true ? "MarketWidgetTravelMode" : "MarketWidgetOneKey")
+        .resizable().scaledToFit().frame(width: 18, height: 18)
     }
   }
 
