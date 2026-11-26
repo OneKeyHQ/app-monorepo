@@ -118,6 +118,8 @@ import type { IGasAccountUiState } from '@onekeyhq/shared/types/fee';
 // eslint-disable-next-line import-js/order, import/first
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 // eslint-disable-next-line import-js/order, import/first
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+// eslint-disable-next-line import-js/order, import/first
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -392,6 +394,77 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  test.each(['signing', 'earlier ambiguous attempt', 'broadcast'] as const)(
+    'reports definite non-submission for local XMR signing failures only (%s)',
+    async (stage) => {
+      const { service, vault } = makeService();
+      const xmr = {
+        networkId: 'xmr--0',
+        symbol: 'XMR',
+        decimals: 12,
+        contractAddress: '',
+        isNative: true,
+      };
+      const eth = {
+        ...xmr,
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        decimals: 18,
+      };
+      const error = new OneKeyLocalError('Local send failed');
+      const sign = jest.spyOn(service, 'signTransaction');
+      if (stage === 'broadcast') {
+        sign.mockResolvedValue(signedTx);
+        vault.checkShouldRetryBroadcastTx.mockResolvedValue(false);
+        vault.broadcastTransaction.mockRejectedValue(error);
+      } else {
+        sign.mockRejectedValue(error);
+      }
+      const send = service.signAndSendTransaction({
+        accountId,
+        networkId: xmr.networkId,
+        signOnly: false,
+        hasEarlierAmbiguousAttempt: stage === 'earlier ambiguous attempt',
+        unsignedTx: {
+          ...unsignedTx,
+          swapInfo: {
+            protocol: EProtocolOfExchange.SWAP,
+            sender: {
+              token: xmr,
+              amount: '1',
+              accountInfo: { accountId, networkId: xmr.networkId },
+            },
+            receiver: {
+              token: eth,
+              amount: '2',
+              accountInfo: { accountId, networkId: eth.networkId },
+            },
+            accountAddress: 'xmr-sender',
+            receivingAddress: 'eth-receiver',
+            swapBuildResData: {
+              result: {
+                fromTokenInfo: xmr,
+                toTokenInfo: eth,
+                info: { provider: 'SwapChangelly', providerName: 'Changelly' },
+              },
+            },
+          },
+        },
+      });
+      if (stage === 'signing') {
+        await expect(send).rejects.toMatchObject({
+          message: error.message,
+          data: { swapReviewSigningFailedBeforeBroadcast: true },
+        });
+      } else {
+        await expect(send).rejects.toBe(error);
+      }
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(
+        stage === 'broadcast' ? 1 : 0,
+      );
+    },
+  );
 
   test('does not broadcast a swap quote that expires while signing', async () => {
     const { service, vault } = makeService();

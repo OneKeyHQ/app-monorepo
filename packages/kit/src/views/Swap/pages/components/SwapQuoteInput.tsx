@@ -1,6 +1,8 @@
 import { memo, useCallback, useContext, useState } from 'react';
 
-import { IconButton, Stack, YStack } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+
+import { IconButton, Stack, YStack, useTheme } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -24,7 +26,10 @@ import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 
-import SwapInputContainer from './SwapInputContainer';
+import SwapInputContainer, {
+  SWAP_RAISED_DROP_SHADOW,
+  SWAP_RAISED_SHADOW,
+} from './SwapInputContainer';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -57,6 +62,16 @@ const SwapQuoteInput = ({
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
   const prefillPending = useContext(SwapTabPrefillPendingContext);
   useSwapFromAccountNetworkSync(prefillPending);
+  const theme = useTheme();
+  // Raised like the pay card it overlaps. Native draws the hairline as a ring
+  // so the button keeps its size.
+  const switchButtonRaisedProps = platformEnv.isNative
+    ? {
+        style: {
+          boxShadow: `0 0 0 ${StyleSheet.hairlineWidth}px ${theme.borderSubdued.val}, ${SWAP_RAISED_DROP_SHADOW}`,
+        },
+      }
+    : { boxShadow: SWAP_RAISED_SHADOW };
 
   const getTransform = useCallback(() => {
     if (!platformEnv.isNative) {
@@ -136,6 +151,7 @@ const SwapQuoteInput = ({
             disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
             onPress={alternationToken}
             borderWidth="$1"
+            {...switchButtonRaisedProps}
             cursor="pointer"
             hoverStyle={{}}
             pressStyle={{}}
