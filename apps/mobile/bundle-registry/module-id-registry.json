@@ -25903,6 +25903,7 @@
     "packages/kit/src/views/Onboardingv2/components/SetupCardBackground.tsx": 15324,
     "packages/kit/src/views/Onboardingv2/components/SetupStatusCard.tsx": 13790,
     "packages/kit/src/views/Onboardingv2/components/SetupStepItem.tsx": 21633,
+    "packages/kit/src/views/Onboardingv2/components/SkiaOrbShader.tsx": 20546,
     "packages/kit/src/views/Onboardingv2/components/foundDevicesFooterUtils.ts": 4778,
     "packages/kit/src/views/Onboardingv2/components/layoutConstants.ts": 4320,
     "packages/kit/src/views/Onboardingv2/components/loadOrbSkia.ts": 20321,
