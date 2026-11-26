@@ -28,6 +28,12 @@ jest.mock('@onekeyhq/components', () => {
     createElement('div', null, children);
   return { XStack: Box, YStack: Box, getFontSize: () => 20 };
 });
+// SwapHistoryTradeAgainContext imports the background API for its stock
+// trade-again checks; this suite only reads its initial-selection context.
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
+}));
 jest.mock('@onekeyhq/kit/src/components/AmountInput', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -80,6 +86,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
   useSwapSelectToTokenAtom: () => [undefined],
   useSwapSelectedFromTokenBalanceAtom: () => [''],
   useSwapSelectedTokenBalanceMetaAtom: () => [{}],
+  useSwapSelectedTokenMultiplierStatusAtom: () => ['ready'],
   useSwapSelectedTokensColdStartContextAtom: () => [undefined],
   useSwapTypeSwitchAtom: () => ['swap'],
 }));

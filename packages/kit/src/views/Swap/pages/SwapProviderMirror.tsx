@@ -1,4 +1,4 @@
-import { type PropsWithChildren, memo, useRef } from 'react';
+import { type PropsWithChildren, type RefObject, memo, useRef } from 'react';
 
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -12,14 +12,18 @@ import {
 import {
   type ISwapInputAmountDraft,
   ProviderJotaiContextSwap,
+  buildSwapInputAmountDraft,
+  getSwapTypeSwitchActionAtom,
   swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapInputAmountDraftsAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
+  swapStockExecutionTokensAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
@@ -46,6 +50,8 @@ export const SwapProviderMirror = memo(
   (
     props: PropsWithChildren & {
       storeName: EJotaiContextStoreNames;
+      defaultToSwapOnInit?: boolean;
+      pendingSwapDraft?: RefObject<ISwapInputAmountDraft | undefined>;
       homeSelectedAccountOnInit?: IAccountSelectorSelectedAccount | null;
       initialSelectedTokensOnInit?: {
         accountKey?: string;
@@ -54,11 +60,14 @@ export const SwapProviderMirror = memo(
         swapType?: ESwapTabSwitchType;
         inputAmountDraft?: ISwapInputAmountDraft;
         preserveInputAmounts?: boolean;
+        clearInputAmounts?: boolean;
       };
     },
   ) => {
     const {
       children,
+      defaultToSwapOnInit,
+      pendingSwapDraft,
       initialSelectedTokensOnInit,
       homeSelectedAccountOnInit,
       storeName,
@@ -168,6 +177,13 @@ export const SwapProviderMirror = memo(
           token1: cachedToToken,
           token2: initialToToken,
         });
+        if (
+          initialSwapType === ESwapTabSwitchType.STOCK &&
+          initialStockSelectedToken
+        ) {
+          // The stock channel prefers a settled execution pair over the seeded pair.
+          store.set(swapStockExecutionTokensAtom(), undefined);
+        }
         store.set(
           swapSelectFromTokenAtom(),
           initialSelectedTokensOnInit.fromToken,
@@ -197,34 +213,71 @@ export const SwapProviderMirror = memo(
             Boolean(initialStockSelectedToken) ||
             Boolean(initialToToken),
         );
+        const { clearInputAmounts, preserveInputAmounts } =
+          initialSelectedTokensOnInit;
+        const inputAmountDraft = clearInputAmounts
+          ? undefined
+          : initialSelectedTokensOnInit.inputAmountDraft;
         const shouldPreserveInputAmounts =
-          initialSelectedTokensOnInit.preserveInputAmounts &&
-          !initialSelectedTokensOnInit.inputAmountDraft &&
+          preserveInputAmounts &&
+          !clearInputAmounts &&
+          !inputAmountDraft &&
           (shouldKeepFromBalance ||
             (!cachedFromToken && !initialSelectedTokensOnInit.fromToken)) &&
           (shouldKeepToBalance || (!cachedToToken && !initialToToken)) &&
           store.get(swapTypeSwitchAtom()) === initialSwapType;
         if (!shouldPreserveInputAmounts) {
+          const emptyAmount = { value: '', isInput: false };
           store.set(
             swapFromTokenAmountAtom(),
-            initialSelectedTokensOnInit.inputAmountDraft?.fromTokenAmount ?? {
-              value: '',
-              isInput: false,
-            },
+            inputAmountDraft?.fromTokenAmount ?? emptyAmount,
           );
+          if (inputAmountDraft || clearInputAmounts || preserveInputAmounts) {
+            store.set(
+              swapToTokenAmountAtom(),
+              inputAmountDraft?.toTokenAmount ?? emptyAmount,
+            );
+          }
         }
-        if (initialSelectedTokensOnInit.inputAmountDraft) {
-          store.set(
-            swapToTokenAmountAtom(),
-            initialSelectedTokensOnInit.inputAmountDraft.toTokenAmount,
-          );
-        } else if (
-          initialSelectedTokensOnInit.preserveInputAmounts &&
-          !shouldPreserveInputAmounts
-        ) {
-          store.set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        if (clearInputAmounts) {
+          store.set(swapInputAmountDraftsAtom(), (drafts) => ({
+            ...drafts,
+            [initialSwapType]: undefined,
+          }));
         }
         store.set(swapTypeSwitchAtom(), initialSwapType);
+      } else if (defaultToSwapOnInit) {
+        if (store.get(swapTypeSwitchAtom()) === ESwapTabSwitchType.STOCK) {
+          if (pendingSwapDraft) {
+            const drafts = store.get(swapInputAmountDraftsAtom());
+            pendingSwapDraft.current = drafts[ESwapTabSwitchType.SWAP];
+            store.set(swapInputAmountDraftsAtom(), {
+              ...drafts,
+              [ESwapTabSwitchType.SWAP]: undefined,
+            });
+          }
+          void store.set(
+            getSwapTypeSwitchActionAtom(),
+            ESwapTabSwitchType.SWAP,
+            undefined,
+            {
+              initializeSwapDefaultsFromHome: true,
+            },
+          );
+        } else {
+          if (pendingSwapDraft) {
+            pendingSwapDraft.current = buildSwapInputAmountDraft({
+              fromToken: store.get(swapSelectFromTokenAtom()),
+              toToken: store.get(swapSelectToTokenAtom()),
+              fromTokenAmount: store.get(swapFromTokenAmountAtom()),
+              toTokenAmount: store.get(swapToTokenAmountAtom()),
+            });
+            store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+            store.set(swapToTokenAmountAtom(), { value: '', isInput: false });
+          }
+          store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        }
+        hasInitializedSelectedTokensRef.current = true;
       } else if (storeName === EJotaiContextStoreNames.swap) {
         hasInitializedSelectedTokensRef.current =
           hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);
