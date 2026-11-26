@@ -397,12 +397,15 @@ export async function createIntercomMessengerSession(
           setUnread([...unreadIds].filter((value) => value !== id));
         if (notification?.conversationId === id) setNotification(undefined);
       },
-      onUnread: (ids) => {
+      onUnread: (ids, source) => {
         if (generation !== revision || isLocked()) return;
         if (visitorBooting) {
-          visitorBootUnread = ids;
+          // Only the boot's own ping describes the visitor it validates.
+          if (source.boot) visitorBootUnread = ids;
           return;
         }
+        // A reply to a request sent for a visitor since replaced is stale.
+        if (expectedUserId === null && source.visitorId !== visitorId) return;
         unreadKnown = true;
         setUnread(ids);
       },

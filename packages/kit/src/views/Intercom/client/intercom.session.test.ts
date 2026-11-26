@@ -642,6 +642,53 @@ it('drops the old count when an expired visitor is replaced without one', async 
   expect(counts).toEqual([['visitor:next-visitor', 2]]);
 });
 
+it('ignores unread results sent for a visitor that has since been replaced', async () => {
+  jest.useFakeTimers();
+  const respond = (body: Record<string, unknown>) =>
+    new Response(JSON.stringify({ ...body, conversations: [] }), {
+      status: 200,
+    });
+  // Close enough to expiry that the next request boots a replacement.
+  mockFetch.mockImplementation(async () =>
+    respond({ ...boot, session_expiry: Math.floor(Date.now() / 1000) + 61 }),
+  );
+  const session = await subject.createIntercomMessengerSession(null);
+  const held: Array<(response: Response) => void> = [];
+  const hold = () =>
+    new Promise<Response>((resolve) => {
+      held.push(resolve);
+    });
+  mockFetch.mockImplementation(hold);
+  const duringBoot = session.refreshUnread();
+  const afterBoot = session.refreshUnread();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(held).toHaveLength(2);
+  await jest.advanceTimersByTimeAsync(2000);
+  const counts = recordKnownCounts();
+  mockFetch.mockImplementation(async (url) => {
+    if (url.endsWith('/ping')) return hold();
+    return respond({ unread_conversation_ids: [] });
+  });
+  const replacement = session.refreshUnread();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(held).toHaveLength(3);
+  // The old visitor's reply lands while the replacement is booting.
+  held[0](respond({ unread_conversation_ids: ['7', '8'] }));
+  await duringBoot;
+  const { unread_conversation_ids: _unread, ...next } = boot;
+  held[2](
+    respond({
+      ...next,
+      user: { id: 'test-user', anonymous_id: 'next-visitor' },
+    }),
+  );
+  await replacement;
+  // And another lands after the replacement is saved.
+  held[1](respond({ unread_conversation_ids: ['7', '8'] }));
+  await afterBoot;
+  expect(counts).toEqual([['visitor:next-visitor', 0]]);
+});
+
 it('binds a new anonymous client only after the previous identity storage removal completes', async () => {
   mockUserId = 'A';
   await subject.createIntercomMessengerSession('A');
