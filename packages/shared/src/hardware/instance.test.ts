@@ -144,6 +144,31 @@ describe('hardware SDK firmware config settings', () => {
     await resetHardwareSDKInstance();
   });
 
+  it.each([EHardwareTransportType.WEBUSB, EHardwareTransportType.Bridge])(
+    'passes extension transport %s to the offscreen SDK selector',
+    async (hardwareTransportType) => {
+      mockedPlatformEnv.isDesktop = false;
+      mockedPlatformEnv.isExtensionBackgroundServiceWorker = true;
+      const init = mockSdkLoaders();
+      await getHardwareSDKInstance({
+        isPreRelease: false,
+        hardwareTransportType,
+      });
+      expect(mockedImportHardwareSDKLowLevel).toHaveBeenCalledWith(
+        hardwareTransportType,
+      );
+      expect(init.mock.calls[0]?.[0]).toEqual(
+        expect.objectContaining({
+          connectSrc: 'https://example.com/test/',
+          env:
+            hardwareTransportType === EHardwareTransportType.WEBUSB
+              ? 'webusb'
+              : undefined,
+        }),
+      );
+    },
+  );
+
   it('initializes desktop with the App-managed manifest snapshot', async () => {
     const init = mockSdkLoaders();
     const loadFirmwareConfig = jest.fn(async () => firmwareConfig);

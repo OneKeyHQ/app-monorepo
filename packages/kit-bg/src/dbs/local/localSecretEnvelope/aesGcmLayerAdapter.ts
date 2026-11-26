@@ -1,12 +1,16 @@
 import {
   aesGcmDecrypt,
   aesGcmEncrypt,
+  getAesGcmBackendForCurrentPlatform,
 } from '@onekeyhq/shared/src/appCrypto/modules/aesGcm';
 import {
   LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
+import { localSecretEnvelopeLayerFailure } from './layerFailure';
 
 import type {
   ILocalSecretEnvelopeLayerAdapter,
@@ -118,7 +122,17 @@ async function getExistingAesGcmKey({
   let existingKeyHex: string | null;
   try {
     existingKeyHex = await keyStorage.getItem(keyRef);
-  } catch {
+  } catch (error) {
+    if (
+      kind === 'secure-storage' &&
+      (error as { name?: string } | undefined)?.name ===
+        SECURE_STORAGE_PERMANENT_READ_ERROR_NAME
+    ) {
+      throw localSecretEnvelopeLayerFailure({
+        kind,
+        reason: 'authentication-failed',
+      });
+    }
     // Key storage (keychain / secure storage) transiently unavailable: surface
     // a retryable signal instead of a generic/permanent failure.
     throw new LocalSecretEnvelopeUnavailable({
@@ -129,12 +143,7 @@ async function getExistingAesGcmKey({
     });
   }
   if (!existingKeyHex) {
-    throw new LocalSecretEnvelopeUnavailable({
-      message: buildLayerErrorMessage({
-        kind,
-        message: 'Local secret envelope wrapping key unavailable',
-      }),
-    });
+    throw localSecretEnvelopeLayerFailure({ kind, reason: 'key-missing' });
   }
   return readAesGcmKey(existingKeyHex);
 }
@@ -167,6 +176,9 @@ export function buildLocalSecretEnvelopeAesGcmLayerAdapter({
 }: IBuildLocalSecretEnvelopeAesGcmLayerAdapterParams): ILocalSecretEnvelopeLayerAdapter {
   const adapter: ILocalSecretEnvelopeLayerAdapter = {
     kind,
+    checkExistingKey: async (layer) => {
+      await getExistingAesGcmKey({ kind, keyRef: layer.keyRef, keyStorage });
+    },
     prepareLayer: async () => {
       await ensureStorageSupported({ keyStorage, kind });
       invariant(
@@ -219,12 +231,39 @@ export function buildLocalSecretEnvelopeAesGcmLayerAdapter({
         keyRef: layer.keyRef,
         keyStorage,
       });
-      const decrypted = await aesGcmDecrypt({
+      const params = {
         aad: bufferUtils.utf8ToBytes(aad),
         data: bufferUtils.base64ToBytes(ciphertext),
         key,
         nonce: bufferUtils.toBuffer(iv, 'hex'),
-      });
+      };
+      let decrypted: Buffer;
+      try {
+        decrypted = await aesGcmDecrypt(params);
+      } catch (error) {
+        let authenticationError: unknown = error;
+        // The native bridge uses one code for all decrypt failures. Verify the
+        // tag with the portable backend before classifying a native failure.
+        if (
+          getAesGcmBackendForCurrentPlatform() === 'react-native-aes-crypto'
+        ) {
+          try {
+            await aesGcmDecrypt({ ...params, backend: 'noble' });
+          } catch (verificationError) {
+            authenticationError = verificationError;
+          }
+        }
+        if (
+          authenticationError instanceof Error &&
+          authenticationError.message === 'aes/gcm: invalid ghash tag'
+        ) {
+          throw localSecretEnvelopeLayerFailure({
+            kind,
+            reason: 'authentication-failed',
+          });
+        }
+        throw error;
+      }
       return bufferUtils.bytesToUtf8(decrypted, { checkIsValidUtf8: true });
     },
   };

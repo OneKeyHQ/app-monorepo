@@ -291,7 +291,7 @@ Compatibility notes:
 
 - Output `null` when `C[t] <= 0`.
 - Do not replace it with the common `100 * (EMA3[t] / EMA3[t - 1] - 1)`.
-- The bundle only outputs the TRIX line, with no MATRIX or Signal line.
+- The bundle only outputs the TRIX line, with no MATRIX or Signal line. Native adds `MATRIX = SMA(TRIX, 9)` as a second line, shown by default.
 
 The official TradingView description summarizes TRIX as the one-period rate of change of a triple EMA; the logarithm and the `10,000` multiplier above come from the project's actual bundle and are what values must match.
 
@@ -316,7 +316,7 @@ BoxRatio[t] = (V[t] / 10,000) / Range[t]
 RawEOM[t] = Distance[t] / BoxRatio[t]
 ```
 
-Output `null` when `V[t] == 0`. The bundle has only one EOM line, with no MAEMV signal line.
+Output `null` when `V[t] == 0`. The bundle has only one EOM line, with no MAEMV signal line. Native adds `MAEMV = SMA(EOM, 9)` as a second line, shown by default.
 
 Reference: [TradingView Ease of Movement](https://www.tradingview.com/support/solutions/43000502256-ease-of-movement-eom/).
 
@@ -348,7 +348,7 @@ The default period is `9`, with the close as input:
 ROC[t] = 100 * (C[t] - C[t - 9]) / C[t - 9]
 ```
 
-Output `null` when `C[t - 9] == 0`. The bundle has only the main ROC line, with no MAROC average.
+Output `null` when `C[t - 9] == 0`. The bundle has only the main ROC line, with no MAROC average. Native adds `MAROC = SMA(ROC, 6)` as a second line, shown by default.
 
 Reference: [TradingView ROC](https://www.tradingview.com/support/solutions/43000502343-rate-of-change-roc/).
 
@@ -360,7 +360,7 @@ The default period is `10`, with the close as input:
 MTM[t] = C[t] - C[t - 10]
 ```
 
-MTM is an absolute price difference and ROC is a percentage change, so the two cannot share an output scale. When the earlier close is missing or equals `0`, output `null`, as the bundle does. The bundle has no MAMTM average.
+MTM is an absolute price difference and ROC is a percentage change, so the two cannot share an output scale. When the earlier close is missing or equals `0`, output `null`, as the bundle does. The bundle has no MAMTM average. Native adds `MAMTM = SMA(MTM, 6)` as a second line, shown by default.
 
 Reference: [TradingView Momentum](https://www.tradingview.com/support/solutions/43000589187-momentum/).
 
@@ -448,6 +448,8 @@ Reference: [TradingView CCI](https://www.tradingview.com/support/solutions/43000
 | `CCI` | CCI(20) | CCI(14) |
 
 The core inputs of `MACD(12, 26, 9)`, `StochRSI(14, 14, 3, 3)` and `MFI(14)` match.
+
+Native takes the moving average lines of `TRIX`, `EMV`, `ROC` and `MTM` from the mock, with the mock's lengths, as it does `MAOBV(30)`. Each one is the SMA of the indicator's main line, so it starts once that line has a full window of values. The main lines keep the old Charting Library inputs.
 
 If the product goal is to reproduce the old WebView, use the inputs in sections 3 and 4. If the goal changes to implementing the settings mock, open a separate requirement that pins down the inputs, output lines and migration plan; do not mix the two definitions during implementation.
 

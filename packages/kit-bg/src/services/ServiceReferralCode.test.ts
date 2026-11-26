@@ -543,6 +543,64 @@ describe('ServiceReferralCode Swap rebate API', () => {
     expect(get).toHaveBeenCalledWith('/rebate/v1/invite/reward-scopes');
   });
 
+  test('recognizes the configured endpoint through the development proxy', async () => {
+    const { service } = createService();
+    const { endpoint } = await service.getClientEndpointInfo(
+      EServiceEndpointEnum.Rebate,
+    );
+    const client = axios.create({
+      baseURL: '/',
+      headers: { 'X-OneKey-Dev-Proxy': endpoint },
+    });
+    const rewardScopes = [{ subject: 'Swap', description: 'Swap providers' }];
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+    jest
+      .spyOn(client, 'get')
+      .mockResolvedValue({ data: { data: { rewardScopes } } });
+    await expect(service.getInviteRewardScopes()).resolves.toBe(rewardScopes);
+  });
+
+  test('loads reward scopes at the new address and rejects an old response', async () => {
+    const { service } = createService();
+    let endpoint = 'https://rebate-old.example.invalid';
+    jest
+      .spyOn(service, 'getClientEndpointInfo')
+      .mockImplementation(async (name) => ({ name, endpoint }));
+    const oldClient = axios.create({ baseURL: endpoint });
+    const newEndpoint = 'https://rebate-new.example.invalid/gateway';
+    const newClient = axios.create({ baseURL: newEndpoint });
+    const started = Promise.withResolvers<void>();
+    const oldResponse = Promise.withResolvers<{
+      data: { data: { rewardScopes: unknown[] } };
+    }>();
+    const oldGet = jest.spyOn(oldClient, 'get').mockImplementation(async () => {
+      started.resolve();
+      return oldResponse.promise;
+    });
+    const rewardScopes = [{ subject: 'Swap', description: 'Current scope' }];
+    const newGet = jest
+      .spyOn(newClient, 'get')
+      .mockResolvedValue({ data: { data: { rewardScopes } } });
+    jest
+      .spyOn(service, 'getClient')
+      .mockImplementation(async () =>
+        endpoint === newEndpoint ? newClient : oldClient,
+      );
+    const old = service
+      .getInviteRewardScopes()
+      .catch((error: unknown) => error);
+    await started.promise;
+    endpoint = newEndpoint;
+    await expect(service.getInviteRewardScopes()).resolves.toBe(rewardScopes);
+    oldResponse.resolve({ data: { data: { rewardScopes: [] } } });
+    await expect(old).resolves.toMatchObject({
+      message: 'Rebate endpoint changed during reward scopes request',
+    });
+    await expect(service.getInviteRewardScopes()).resolves.toBe(rewardScopes);
+    expect(oldGet).toHaveBeenCalledTimes(1);
+    expect(newGet).toHaveBeenCalledTimes(1);
+  });
+
   test('caches reward scopes separately for each request locale', async () => {
     const { service, backgroundApi } = createService();
     const english = [{ subject: 'Swap', description: 'en-scope' }];

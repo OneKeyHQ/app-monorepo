@@ -27,6 +27,8 @@ function buildInviteItem(id: string): ISwapInviteItem {
     feeFiatValue: '0.01',
     reward: '0.005',
     rewardFiatValue: '0.005',
+    undistributedReward: '0.002',
+    undistributedRewardFiatValue: '0.002',
     hasUndistributed: true,
     token,
   };

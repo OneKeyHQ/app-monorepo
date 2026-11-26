@@ -49,6 +49,21 @@ it('reserves the measured axis and keeps the last point away from its labels', (
   const left = scene({ priceScalePosition: 'left' });
   expect(left.plot.x).toBe(left.axisWidth);
   expect(getNativeChartHover(left, 1, 30)).toEqual({});
+  const aligned = scene({
+    data: series([-0.002, 0.001, 0]),
+    priceFormatter: (value) => `${value.toFixed(4)}%`,
+    priceScaleMinimumWidth: 60,
+    priceScaleLabelAlign: 'right',
+  });
+  const labels = aligned.commands.filter(
+    (command) => command.kind === 'text' && command.font === 'priceAxis',
+  );
+  expect(labels.length).toBeGreaterThan(1);
+  labels.forEach((command) => {
+    if (command.kind !== 'text') return;
+    expect(command.x + command.text.length * 6).toBe(400);
+    expect(command.x).toBeGreaterThan(aligned.plot.width);
+  });
 });
 
 it('keeps stock formatting, custom precision and full-price tick formatting', () => {
@@ -172,20 +187,69 @@ it('fills baseline lobes toward zero and preserves both line colors', () => {
   expect(chart.customPaintStyles.negative.color).toBe('#f00');
 });
 
-it('draws narrow signed histogram bars and leaves exact zero empty', () => {
-  const chart = scene({
-    seriesType: 'histogram',
-    data: series([-1, 0, 2]),
-    histogramOptions: {
-      positiveColor: '#0f0',
-      negativeColor: '#f00',
-      maxBarWidth: 4,
-    },
-  });
-  const bars = chart.commands.filter((c) => c.kind === 'rect');
-  expect(bars).toHaveLength(2);
-  expect(bars.every((c) => c.width <= 4 && c.height > 0)).toBe(true);
-});
+it.each([0, 2])(
+  'draws signed histogram bars with radius %s and leaves exact zero empty',
+  (borderRadius) => {
+    const chart = scene({
+      seriesType: 'histogram',
+      data: series([-1, 0, 2]),
+      histogramOptions: {
+        positiveColor: '#0f0',
+        negativeColor: '#f00',
+        maxBarWidth: 4,
+        borderRadius,
+      },
+    });
+    const bars = chart.commands.filter(
+      (c) => c.kind === 'rect' || c.kind === 'roundRect',
+    );
+    expect(bars).toHaveLength(2);
+    expect(bars.every((c) => c.width <= 4 && c.height > 0)).toBe(true);
+    if (borderRadius > 0) {
+      expect(bars.every((c) => c.kind === 'roundRect' && c.radius <= 2)).toBe(
+        true,
+      );
+      const clips = chart.commands
+        .filter((c) => c.kind === 'clip')
+        .filter((c) => c.rect.width <= 4);
+      expect(clips).toHaveLength(2);
+      expect(bars[0].y).toBeLessThan(clips[0].rect.y);
+      expect(bars[1].y).toBe(clips[1].rect.y);
+    }
+
+    const sparse = scene(
+      {
+        seriesType: 'histogram',
+        data: series([-1, 2]),
+        histogramOptions: {
+          positiveColor: '#0f0',
+          negativeColor: '#f00',
+          maxBarWidth: 22,
+          barWidthRatio: 0.5,
+          borderRadius,
+        },
+      },
+      350,
+    );
+    const sparseBars = sparse.commands.filter(
+      (c) => c.kind === 'rect' || c.kind === 'roundRect',
+    );
+    expect(sparseBars).toHaveLength(2);
+    sparseBars.forEach((bar, index) => {
+      expect(bar.width).toBe(22);
+      expect(bar.x).toBeGreaterThanOrEqual(sparse.plot.x);
+      expect(bar.x + bar.width).toBeLessThanOrEqual(
+        sparse.plot.x + sparse.plot.width,
+      );
+      const center = bar.x + bar.width / 2;
+      expect(center).toBe(sparse.points[index].x);
+      expect(center).toBe(sparse.hoverPoints[index].x);
+      expect(getNativeChartHover(sparse, center, 50).price).toBe(
+        index === 0 ? -1 : 2,
+      );
+    });
+  },
+);
 
 it('renders step segments and their area with matching geometry', () => {
   const chart = scene({ lineType: 'steps' });
@@ -510,4 +574,70 @@ it('leaves the hover dot to the pulse when asked', () => {
     ).commands.filter((c) => c.kind === 'circle');
   expect(circles()).toHaveLength(2);
   expect(circles(true)).toHaveLength(0);
+});
+
+const overlayWithTrailingGaps = [
+  ...config.data,
+  { time: 400 as ILightweightChartTime },
+  { time: 500 as ILightweightChartTime },
+  { time: 600 as ILightweightChartTime },
+];
+
+it('keeps the scrub guide on the last price over blank future slots', () => {
+  const chart = scene({
+    hideCrosshairPriceLabel: true,
+    secondaryLineBlankSlots: true,
+    secondaryLineData: overlayWithTrailingGaps,
+  });
+  const last = chart.hoverPoints[chart.hoverPoints.length - 1];
+  expect(last.time).toBe(300);
+  const futureX = last.x + 60;
+  const overlay = buildNativeChartCrosshair(chart, futureX, 100, {
+    labels: { 300: { time: 'last point', price: '$105.00' } },
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    textColor: '#000',
+    timeColor: '#888',
+    largePrice: false,
+  });
+  expect(overlay.commands).toContainEqual(
+    expect.objectContaining({ kind: 'line', x1: last.x, x2: last.x }),
+  );
+  expect(getNativeChartHover(chart, futureX, 100)).toEqual(
+    expect.objectContaining({ time: 300, x: last.x - chart.plot.x }),
+  );
+});
+
+it('keeps the finger x on charts without blank future slots', () => {
+  const chart = scene({ data: series([4.2]) });
+  const only = chart.hoverPoints[0];
+  expect(chart.pricedEndX).toBeUndefined();
+  for (const x of [only.x - 50, only.x + 50]) {
+    expect(getNativeChartHover(chart, x, 100)).toEqual(
+      expect.objectContaining({ x: x - chart.plot.x }),
+    );
+  }
+});
+
+it('leaves trailing overlay gaps alone on charts without blank slots', () => {
+  // The Earn APY overlay can end in gaps past the base line in its Max range;
+  // they are not time slots to come, so nothing about them changes.
+  const axisTexts = (chart: ReturnType<typeof scene>) =>
+    chart.commands.flatMap((command) =>
+      command.kind === 'text' && command.font === 'axis' ? [command.text] : [],
+    );
+  const plain = scene({ secondaryLineData: overlayWithTrailingGaps });
+  const last = plain.hoverPoints[plain.hoverPoints.length - 1];
+  const futureX = last.x + 60;
+  expect(plain.pricedEndX).toBeUndefined();
+  expect(getNativeChartHover(plain, futureX, 100)).toEqual(
+    expect.objectContaining({ time: 300, x: futureX - plain.plot.x }),
+  );
+  expect(axisTexts(plain)).toEqual(axisTexts(scene()));
+
+  const withSlots = scene({
+    secondaryLineBlankSlots: true,
+    secondaryLineData: overlayWithTrailingGaps,
+  });
+  expect(axisTexts(withSlots).length).toBeGreaterThan(axisTexts(plain).length);
 });

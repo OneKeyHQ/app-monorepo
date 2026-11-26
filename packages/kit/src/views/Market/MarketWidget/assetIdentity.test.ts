@@ -4,6 +4,8 @@ import type {
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 
 import {
+  getMarketWidgetAddressCollisions,
+  getMarketWidgetAssetKey,
   getMarketWidgetAssetSubtitle,
   getMarketWidgetAssetTitle,
   getMarketWidgetDisplayAsset,
@@ -40,6 +42,21 @@ const state: IMarketWidgetEditorState = {
     },
   ],
 };
+
+it('uses the same identity for a contract token with false or missing isNative', () => {
+  const token = {
+    kind: 'token',
+    chainId: 'evm--1',
+    contractAddress: '0xabc',
+    requestTokenAddress: '0xabc',
+    symbol: 'T',
+    name: 'Token',
+  } as const;
+  const legacy = JSON.parse(JSON.stringify(token)) as IMarketWidgetAsset;
+  expect(getMarketWidgetAssetKey(legacy)).toBe(
+    getMarketWidgetAssetKey({ ...token, isNative: false }),
+  );
+});
 
 describe('widget draft display enrichment', () => {
   const enriched = { ...bitcoin, logoURL: 'https://example.com/btc.png' };
@@ -188,6 +205,63 @@ describe('widget configuration display language', () => {
 });
 
 describe('widget editor selection availability', () => {
+  it('distinguishes tokens with identical names by chain and contract', () => {
+    const token = {
+      kind: 'token',
+      chainId: 'evm--1',
+      contractAddress: '0x12345678901234567890abcd',
+      requestTokenAddress: '0x12345678901234567890abcd',
+      isNative: false,
+      symbol: 'T',
+      name: 'Token',
+    } as const;
+    expect(getMarketWidgetAssetSubtitle(token)).toBe(
+      'Ethereum · 0x1234...abcd · Token',
+    );
+    expect(
+      getMarketWidgetAssetSubtitle({
+        ...token,
+        contractAddress: '0x12345678901234567890dcba',
+      }),
+    ).toBe('Ethereum · 0x1234...dcba · Token');
+    expect(
+      getMarketWidgetAssetSubtitle({ ...token, chainId: 'sol--101' }),
+    ).toBe('Solana · 0x1234...abcd · Token');
+  });
+
+  it('expands only ambiguous contract addresses on the same chain', () => {
+    const token = {
+      kind: 'token',
+      chainId: 'evm--1',
+      symbol: 'ABC',
+      name: 'ABC',
+      contractAddress: '0x12345678901234567890abcd',
+      requestTokenAddress: '',
+      isNative: false,
+    } as const;
+    const peer = { ...token, contractAddress: '0x12349999999999999999abcd' };
+    const otherChain = { ...token, chainId: 'sol--101' };
+    const collisions = getMarketWidgetAddressCollisions([
+      token,
+      token,
+      peer,
+      otherChain,
+    ]);
+    expect(getMarketWidgetAssetSubtitle(token, collisions)).toContain(
+      token.contractAddress,
+    );
+    expect(getMarketWidgetAssetSubtitle(token, 'full')).toContain(
+      token.contractAddress,
+    );
+    expect(getMarketWidgetAssetSubtitle(peer, collisions)).toContain(
+      peer.contractAddress,
+    );
+    expect(getMarketWidgetAssetSubtitle(otherChain, collisions)).toBe(
+      'Solana · 0x1234...abcd',
+    );
+    expect(getMarketWidgetAddressCollisions([token, token]).size).toBe(0);
+  });
+
   it('uses native coin names while display metadata is refreshing', () => {
     const asset: IMarketWidgetAsset = {
       kind: 'token',

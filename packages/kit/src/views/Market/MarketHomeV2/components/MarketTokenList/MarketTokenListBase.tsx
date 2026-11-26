@@ -39,6 +39,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   type ECopyFrom,
   EEnterWay,
+  EMarketEntryCategory,
   type EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
@@ -341,6 +342,7 @@ function MarketTokenListBase({
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory,
     from: EEnterWay.MarketList,
+    entryCategory: isWatchlistMode ? EMarketEntryCategory.Watchlist : undefined,
   });
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();

@@ -1,4 +1,7 @@
-import { calcSwapStockPercentageAmount } from './useSwapStockTradeInputs';
+import {
+  calcSwapStockPercentageAmount,
+  calcSwapStockPercentageDisplayAmount,
+} from './useSwapStockTradeInputs';
 
 jest.mock('@onekeyhq/components', () => ({ Toast: { message: jest.fn() } }));
 jest.mock(
@@ -18,7 +21,12 @@ jest.mock('@onekeyhq/shared/src/config/presetNetworks', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({}));
 jest.mock('@onekeyhq/shared/src/locale', () => ({}));
-jest.mock('@onekeyhq/shared/src/utils/numberUtils', () => ({}));
+jest.mock('@onekeyhq/shared/src/utils/numberUtils', () => ({
+  // The stage rounding counts the leading zeros of the balance for real.
+  countLeadingZeroDecimals: jest.requireActual<{
+    countLeadingZeroDecimals: (value: unknown) => number;
+  }>('@onekeyhq/shared/src/utils/numberUtils').countLeadingZeroDecimals,
+}));
 jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
   equalTokenNoCaseSensitive: jest.fn(),
 }));
@@ -69,5 +77,59 @@ describe('calcSwapStockPercentageAmount', () => {
         stage: 100,
       }).toFixed(),
     ).toBe('0.8');
+  });
+});
+
+describe('calcSwapStockPercentageDisplayAmount', () => {
+  it('rounds a stage below 100% to the precision of the shown balance', () => {
+    expect(
+      calcSwapStockPercentageDisplayAmount({
+        balanceParsed: '0.0602951203',
+        isNative: false,
+        reserveGas: undefined,
+        stage: 25,
+        decimals: 18,
+        balanceMultiplier: undefined,
+      }),
+    ).toBe('0.01507');
+  });
+
+  it('takes the share after reserving native gas', () => {
+    expect(
+      calcSwapStockPercentageDisplayAmount({
+        balanceParsed: '1',
+        isNative: true,
+        reserveGas: '0.2',
+        stage: 50,
+        decimals: 18,
+        balanceMultiplier: undefined,
+      }),
+    ).toBe('0.4');
+  });
+
+  it('rounds rebasing stock tokens on the shown balance', () => {
+    expect(
+      calcSwapStockPercentageDisplayAmount({
+        balanceParsed: '123.456789',
+        isNative: false,
+        reserveGas: undefined,
+        stage: 25,
+        decimals: 18,
+        balanceMultiplier: '1.000123456789012',
+      }),
+    ).toBe('30.868');
+  });
+
+  it('fills 0 when the share is below the smallest unit of the token', () => {
+    expect(
+      calcSwapStockPercentageDisplayAmount({
+        balanceParsed: '3',
+        isNative: false,
+        reserveGas: undefined,
+        stage: 25,
+        decimals: 0,
+        balanceMultiplier: undefined,
+      }),
+    ).toBe('0');
   });
 });

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
+import { requireOptionalNativeModule } from 'expo';
 import {
   canUseBiometricAuthentication,
   deleteItemAsync,
@@ -7,6 +8,8 @@ import {
 } from 'expo-secure-store';
 
 import storage from './index.native';
+
+jest.mock('expo', () => ({ requireOptionalNativeModule: jest.fn() }));
 
 jest.mock('expo-secure-store', () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6,
@@ -70,5 +73,23 @@ describe('native authenticated secure storage adapter', () => {
     ).rejects.toThrow('cancelled');
     expect(getItemAsync).toHaveBeenCalledTimes(1);
     expect(setItemAsync).not.toHaveBeenCalled();
+  });
+
+  it('checks Android ciphertext presence without reading its value and supports older builds', async () => {
+    const hasStoredValueWithKeyAsync = jest.fn(async () => false);
+    jest
+      .mocked(requireOptionalNativeModule)
+      .mockReturnValueOnce({ hasStoredValueWithKeyAsync })
+      .mockReturnValueOnce({});
+    await expect(storage.hasStoredSecureItem?.('synthetic-ref')).resolves.toBe(
+      false,
+    );
+    expect(hasStoredValueWithKeyAsync).toHaveBeenCalledWith('synthetic-ref', {
+      keychainAccessible: 6,
+    });
+    await expect(
+      storage.hasStoredSecureItem?.('synthetic-ref'),
+    ).resolves.toBeUndefined();
+    expect(getItemAsync).not.toHaveBeenCalled();
   });
 });

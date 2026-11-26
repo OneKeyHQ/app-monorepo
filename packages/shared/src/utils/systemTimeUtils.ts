@@ -4,10 +4,17 @@ import { isNaN, isNil, isNumber, throttle } from 'lodash';
 import { EServiceEndpointEnum } from '../../types/endpoint';
 import { appApiClient } from '../appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '../config/appConfig';
-import { endpointsMap, getEndpointByServiceName } from '../config/endpointsMap';
+import {
+  getEndpointByServiceName,
+  getEndpointsMap,
+} from '../config/endpointsMap';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
+import {
+  isSameServiceBaseURL,
+  serviceRequestUrl,
+} from '../request/helpers/serviceRequestUrl';
 import requestHelper from '../request/requestHelper';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
@@ -560,6 +567,15 @@ class SystemTimeUtils {
       );
       httpStatus = response.status;
       requestId = response.$requestId;
+      const localTimestamp = Date.now();
+      const receiptMonotonic = getMonotonicTimeNow();
+      const currentEndpoint = await getEndpointByServiceName(
+        EServiceEndpointEnum.Wallet,
+      );
+      if (!isSameServiceBaseURL(currentEndpoint, endpoint)) {
+        return false;
+      }
+      const trustedWalletEndpoint = (await getEndpointsMap()).wallet;
       const headers = response.headers as
         | {
             date?: string;
@@ -584,8 +600,6 @@ class SystemTimeUtils {
         logResult('invalid-date');
         return false;
       }
-      const localTimestamp = Date.now();
-      const receiptMonotonic = getMonotonicTimeNow();
       this.updateServerTime({
         serverTime: serverTimestamp,
         localTime: localTimestamp,
@@ -607,18 +621,21 @@ class SystemTimeUtils {
         receiptMonotonic >= requestStartedMonotonic &&
         receiptMonotonic - requestStartedMonotonic <=
           refreshServerTimeTimeout &&
-        [endpointsMap.prod.wallet, endpointsMap.test.wallet].includes(
-          endpoint,
-        ) &&
+        trustedWalletEndpoint.startsWith('https://') &&
+        isSameServiceBaseURL(endpoint, trustedWalletEndpoint) &&
         typeof finalUrl === 'string' &&
         new Date(serverTimestamp).toUTCString() === headerDate
       ) {
         try {
           const url = new URL(finalUrl);
           const age = response.headers.age ?? response.headers.Age;
+          const requested = serviceRequestUrl(
+            trustedWalletEndpoint,
+            ONEKEY_HEALTH_CHECK_URL,
+          );
           if (
-            url.origin === endpoint &&
-            url.pathname === ONEKEY_HEALTH_CHECK_URL &&
+            url.origin === requested.origin &&
+            url.pathname === requested.pathname &&
             !url.username &&
             !url.password &&
             !url.hash &&
@@ -921,9 +938,7 @@ class SystemTimeUtils {
     );
     if (
       !endpoint.startsWith('https://') ||
-      ![endpointsMap.prod.wallet, endpointsMap.test.wallet].includes(
-        endpoint,
-      ) ||
+      !isSameServiceBaseURL(endpoint, (await getEndpointsMap()).wallet) ||
       !(await requestHelper.checkIsOneKeyDomain(endpoint))
     ) {
       return undefined;
@@ -934,7 +949,7 @@ class SystemTimeUtils {
     });
     // The client is cached by service name. Do not silently use a stale endpoint
     // or trust an arbitrary HTTP base URL when requesting attestation time.
-    let responseOrigin = endpoint;
+    let expectedResponse = serviceRequestUrl(endpoint, ONEKEY_HEALTH_CHECK_URL);
     if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
       const proxyBaseURL = platformEnv.isExtension
         ? 'http://localhost:3180'
@@ -944,7 +959,8 @@ class SystemTimeUtils {
         client.defaults.headers['x-onekey-dev-proxy'];
       if (
         client.defaults.baseURL !== proxyBaseURL ||
-        proxyTarget !== endpoint
+        typeof proxyTarget !== 'string' ||
+        !isSameServiceBaseURL(proxyTarget, endpoint)
       ) {
         return undefined;
       }
@@ -954,8 +970,11 @@ class SystemTimeUtils {
       if (!proxyOrigin || !/^https?:\/\//.test(proxyOrigin)) {
         return undefined;
       }
-      responseOrigin = proxyOrigin;
-    } else if (client.defaults.baseURL !== endpoint) {
+      expectedResponse = serviceRequestUrl(
+        proxyOrigin,
+        ONEKEY_HEALTH_CHECK_URL,
+      );
+    } else if (!isSameServiceBaseURL(client.defaults.baseURL, endpoint)) {
       return undefined;
     }
     const start = getMonotonicTimeNow();
@@ -977,6 +996,10 @@ class SystemTimeUtils {
     });
     const end = getMonotonicTimeNow();
     const wallElapsed = Date.now() - wallStart;
+    const currentEndpoint = await getEndpointByServiceName(
+      EServiceEndpointEnum.Wallet,
+    );
+    if (!isSameServiceBaseURL(currentEndpoint, endpoint)) return undefined;
     const elapsed = end === undefined ? NaN : end - start;
     // A paused monotonic clock during sleep or a wall-clock adjustment requires
     // a new request. This only rejects uncertainty; wall time never sets UTC.
@@ -998,8 +1021,11 @@ class SystemTimeUtils {
       try {
         const responseUrl = new URL(finalUrl);
         if (
-          responseUrl.origin !== responseOrigin ||
-          responseUrl.pathname !== ONEKEY_HEALTH_CHECK_URL ||
+          responseUrl.origin !== expectedResponse.origin ||
+          responseUrl.pathname !== expectedResponse.pathname ||
+          responseUrl.username ||
+          responseUrl.password ||
+          responseUrl.hash ||
           responseUrl.searchParams.getAll('nonce').length !== 1 ||
           responseUrl.searchParams.get('nonce') !== nonce ||
           responseUrl.searchParams.get('_') !== 'hardware_verification'

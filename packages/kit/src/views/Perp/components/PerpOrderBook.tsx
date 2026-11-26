@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { type LayoutChangeEvent, Platform, StyleSheet } from 'react-native';
 
@@ -33,7 +34,10 @@ import {
   usePerpsMidByCoin,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type {
+  IActiveTradeInstrument,
+  ITradingFormData,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsCommonConfigPersistAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
@@ -47,17 +51,24 @@ import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
+  resolveOrderBookSizeDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
+import {
+  usePerpDepthBook,
+  usePerpDepthSubscriptionActive,
+} from '../hooks/usePerpDepthBook';
 import {
   type IL2BookData,
   getFreshL2BookSnapshotFromSwr,
   normalizeL2BookData,
   useL2Book,
 } from '../hooks/usePerpMarketData';
+import { usePerpMarketForeground } from '../hooks/usePerpMarketForeground';
 import { usePerpsAccountDisplayState } from '../hooks/usePerpsAccountDisplayState';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { useShowPortfolio } from '../hooks/useShowPortfolio';
@@ -86,10 +97,13 @@ import {
   OrderBookMobile,
 } from './OrderBook';
 import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
+import { PerpDepthChart } from './OrderBook/PerpDepthChart';
+import { useAggregatedBook } from './OrderBook/useAggregatedBook';
 import { useTickOptions } from './OrderBook/useTickOptions';
 import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
+import type { IOrderBookDisplayMode } from './OrderBook/types';
 
 const FUNDING_DIALOG_CLOSE_DURATION_MS = 100;
 
@@ -473,6 +487,148 @@ function MobileHeader() {
 }
 const MobileHeaderMemo = memo(MobileHeader);
 const MOBILE_SPOT_MAX_LEVELS_PER_SIDE = 4;
+const EMPTY_BOOK_LEVELS: IBookLevel[] = [];
+const PerpDepthChartMemo = memo(PerpDepthChart);
+
+function PerpDepthChartView({
+  instrument,
+  entry,
+  depthBook,
+  showHeader,
+}: {
+  instrument: IActiveTradeInstrument;
+  entry?: IPerpOrderBookProps['entry'];
+  depthBook: ReturnType<typeof usePerpDepthBook>;
+  showHeader?: boolean;
+}) {
+  const {
+    book,
+    status,
+    targetKey,
+    referenceMidPrice,
+    referencePriceDecimals,
+    priceStep,
+  } = depthBook;
+  const { mode, universe } = instrument;
+  const isSpot = mode === 'spot';
+  const [rawBids, rawAsks] = book?.levels ?? [
+    EMPTY_BOOK_LEVELS,
+    EMPTY_BOOK_LEVELS,
+  ];
+  const priceDecimals = useMemo(
+    () =>
+      Math.min(
+        20,
+        Math.max(
+          referencePriceDecimals,
+          new BigNumber(priceStep ?? 0).dp() ?? 0,
+          ...rawBids.map(({ px }) => new BigNumber(px).dp() ?? 0),
+          ...rawAsks.map(({ px }) => new BigNumber(px).dp() ?? 0),
+        ),
+      ),
+    [priceStep, rawAsks, rawBids, referencePriceDecimals],
+  );
+  const sizeDecimals = useMemo(
+    () =>
+      resolveOrderBookSizeDecimals({
+        bids: rawBids,
+        asks: rawAsks,
+        szDecimals: isSpot ? universe?.baseSzDecimals : universe?.szDecimals,
+      }),
+    [isSpot, rawAsks, rawBids, universe],
+  );
+  const { bids, asks } = useAggregatedBook(
+    'web',
+    rawBids,
+    rawAsks,
+    Number.POSITIVE_INFINITY,
+    undefined,
+    priceDecimals,
+    sizeDecimals,
+  );
+
+  return (
+    <YStack
+      flex={
+        platformEnv.isNativeAndroid && entry === 'perpMobileMarket'
+          ? undefined
+          : 1
+      }
+      bg="$bgApp"
+    >
+      <PerpDepthChartMemo
+        showHeader={showHeader}
+        bids={bids}
+        asks={asks}
+        quoteSymbol={isSpot ? (universe?.quoteName ?? 'USDC') : 'USDC'}
+        tickLabel={
+          priceStep === undefined ? '' : new BigNumber(priceStep).toFixed()
+        }
+        targetKey={targetKey}
+        status={status}
+        priceDecimals={priceDecimals}
+        sizeDecimals={sizeDecimals}
+        referenceMidPrice={referenceMidPrice}
+      />
+    </YStack>
+  );
+}
+
+function PerpDepthChartContent({
+  instrument,
+  entry,
+  visible,
+  showHeader,
+}: {
+  showHeader?: boolean;
+  instrument: IActiveTradeInstrument;
+  entry?: IPerpOrderBookProps['entry'];
+  visible: boolean;
+}) {
+  const depthBook = usePerpDepthBook(instrument, true);
+  return visible ? (
+    <PerpDepthChartView
+      instrument={instrument}
+      entry={entry}
+      depthBook={depthBook}
+      showHeader={showHeader}
+    />
+  ) : null;
+}
+
+function PerpDepthChartForActiveInstrument({
+  entry,
+  visible,
+  showHeader,
+}: Pick<IPerpOrderBookProps, 'entry'> & {
+  visible: boolean;
+  showHeader?: boolean;
+}) {
+  const [instrument] = useActiveTradeInstrumentAtom();
+  const foreground = usePerpMarketForeground();
+  const marketKey = `${instrument.mode}:${instrument.coin}`;
+  const active = usePerpDepthSubscriptionActive(marketKey, visible, foreground);
+  return active ? (
+    <PerpDepthChartContent
+      entry={entry}
+      instrument={instrument}
+      visible={visible}
+      showHeader={showHeader}
+      key={marketKey}
+    />
+  ) : null;
+}
+
+function isSameVisualBookTarget(
+  previous: IL2BookData | null,
+  next: IL2BookData,
+) {
+  return (
+    previous?.coin === next.coin &&
+    previous.nSigFigs === next.nSigFigs &&
+    previous.mantissa === next.mantissa
+  );
+}
 
 function usePublishVisualL2BookSnapshot({
   book,
@@ -520,7 +676,9 @@ function usePublishVisualL2BookSnapshot({
 
     const currentVisualBook = visualBookRef.current;
     const shouldPublishImmediately =
-      !currentVisualBook || currentVisualBook.coin !== book.coin;
+      !currentVisualBook ||
+      !isSameVisualBookTarget(currentVisualBook, book) ||
+      (currentVisualBook.isCachedSnapshot && !book.isCachedSnapshot);
     const now = Date.now();
     const delayMs = shouldPublishImmediately
       ? 0
@@ -539,14 +697,13 @@ function usePublishVisualL2BookSnapshot({
     }
 
     if (!timerRef.current) {
-      const expectedCoin = book.coin;
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
         const pendingBook = pendingBookRef.current;
-        const visibleCoin = visualBookRef.current?.coin;
         if (
-          pendingBook?.coin === expectedCoin &&
-          visibleCoin === expectedCoin
+          pendingBook &&
+          isSameVisualBookTarget(pendingBook, book) &&
+          isSameVisualBookTarget(visualBookRef.current, book)
         ) {
           publishBook(pendingBook, Date.now());
         } else {
@@ -572,10 +729,8 @@ function PerpOrderBookDataBridge({
   onVisualBookChange: (book: IL2BookData | null) => void;
   subscriptionOptions: IL2BookOptions;
 }) {
-  const { l2Book, hasOrderBook, isOrderBookInteractive } = useL2Book({
-    nSigFigs: subscriptionOptions.nSigFigs,
-    mantissa: subscriptionOptions.mantissa,
-  });
+  const { l2Book, hasOrderBook, isOrderBookInteractive } =
+    useL2Book(subscriptionOptions);
   const isInteractive =
     hasOrderBook && Boolean(l2Book) && isOrderBookInteractive;
 
@@ -609,19 +764,47 @@ function PerpOrderBookDataBridge({
 }
 const PerpOrderBookDataBridgeMemo = memo(PerpOrderBookDataBridge);
 
-export function PerpOrderBook({
-  entry,
-  maxLevelsPerSide: propMaxLevelsPerSide,
-  initialOrderBookHeight,
-}: {
+type IPerpOrderBookProps = {
+  depthChart?: boolean;
+  depthChartVisible?: boolean;
+  depthChartShowHeader?: boolean;
   entry?: 'perpTab' | 'perpMobileMarket';
   maxLevelsPerSide?: number;
   initialOrderBookHeight?: number;
-}) {
+};
+
+export function PerpOrderBook({
+  depthChart,
+  depthChartVisible = true,
+  depthChartShowHeader,
+  ...props
+}: IPerpOrderBookProps) {
+  return depthChart ? (
+    <PerpDepthChartForActiveInstrument
+      entry={props.entry}
+      visible={depthChartVisible}
+      showHeader={depthChartShowHeader}
+    />
+  ) : (
+    <PerpOrderBookLadder {...props} />
+  );
+}
+
+function PerpOrderBookLadder({
+  entry,
+  maxLevelsPerSide: propMaxLevelsPerSide,
+  initialOrderBookHeight,
+}: Omit<
+  IPerpOrderBookProps,
+  'depthChart' | 'depthChartVisible' | 'depthChartShowHeader'
+>) {
   const { gtMd } = useMedia();
+  const isMobileLayout = platformEnv.isNative || !gtMd;
+  const [mobileDisplayMode, setMobileDisplayMode] =
+    useState<IOrderBookDisplayMode>('both');
   // Let the Android pager measure the horizontal book at its intrinsic height.
   const orderBookFlex = Platform.select({
-    android: !gtMd && entry === 'perpMobileMarket' ? undefined : 1,
+    android: isMobileLayout && entry === 'perpMobileMarket' ? undefined : 1,
     default: 1,
   });
   const actionsRef = useHyperliquidActions();
@@ -677,7 +860,7 @@ export function PerpOrderBook({
     [activeTradeInstrument.coin, orderBookTickOptions],
   );
 
-  const enableVisualSnapshot = !gtMd;
+  const enableVisualSnapshot = isMobileLayout;
   const [renderL2Book, setRenderL2Book] = useState<IL2BookData | null>(null);
   const [isOrderBookInteractive, setIsOrderBookInteractive] = useState(false);
   const initialCachedL2Book = useMemo(() => {
@@ -984,7 +1167,7 @@ export function PerpOrderBook({
 
   const handleTraceLayout = useCallback(
     (name: string, event: LayoutChangeEvent) => {
-      if (gtMd) {
+      if (!isMobileLayout) {
         return;
       }
       const rect = getPerpsMobileLayoutTraceRect(event);
@@ -1007,7 +1190,7 @@ export function PerpOrderBook({
       activeTradeInstrument.coin,
       activeTradeInstrument.mode,
       entry,
-      gtMd,
+      isMobileLayout,
       hasRenderOrderBook,
       mobileMaxLevelsPerSide,
       shouldShowEnableTradingButton,
@@ -1015,7 +1198,7 @@ export function PerpOrderBook({
   );
 
   useEffect(() => {
-    if (gtMd) {
+    if (!isMobileLayout) {
       return;
     }
     const signature = [
@@ -1058,7 +1241,7 @@ export function PerpOrderBook({
     candidateL2Book?.coin,
     entry,
     formData.hasTpsl,
-    gtMd,
+    isMobileLayout,
     hasInitializedTickOption,
     hasRenderOrderBook,
     visibleL2Book?.asks.length,
@@ -1070,7 +1253,7 @@ export function PerpOrderBook({
 
   const mobileOrderBook = useMemo(() => {
     if (!hasRenderOrderBook || !visibleL2Book) return null;
-    if (gtMd) return null;
+    if (!isMobileLayout) return null;
     if (entry !== 'perpMobileMarket') return null;
     return (
       <OrderBook
@@ -1105,7 +1288,7 @@ export function PerpOrderBook({
     );
   }, [
     entry,
-    gtMd,
+    isMobileLayout,
     handleTickOptionChange,
     visibleL2Book,
     handleLevelSelect,
@@ -1126,7 +1309,7 @@ export function PerpOrderBook({
     />
   );
 
-  if (!gtMd && entry !== 'perpMobileMarket') {
+  if (isMobileLayout && entry !== 'perpMobileMarket') {
     const isLoading = !hasRenderOrderBook || !visibleL2Book;
     return (
       <>
@@ -1142,6 +1325,8 @@ export function PerpOrderBook({
           }
           loadingBody={
             <OrderBookMobile
+              displayMode={mobileDisplayMode}
+              onDisplayModeChange={setMobileDisplayMode}
               symbol={activeTradeInstrument.coin}
               bids={[]}
               asks={[]}
@@ -1159,6 +1344,8 @@ export function PerpOrderBook({
           readyBody={
             visibleL2Book ? (
               <OrderBookMobile
+                displayMode={mobileDisplayMode}
+                onDisplayModeChange={setMobileDisplayMode}
                 symbol={visibleL2Book.coin}
                 bids={visibleL2Book.bids}
                 asks={visibleL2Book.asks}
@@ -1186,7 +1373,7 @@ export function PerpOrderBook({
     );
   }
 
-  if ((!hasRenderOrderBook || !visibleL2Book) && !gtMd) {
+  if ((!hasRenderOrderBook || !visibleL2Book) && isMobileLayout) {
     return (
       <>
         {dataBridge}
@@ -1238,7 +1425,7 @@ export function PerpOrderBook({
       bg="$bgApp"
       onLayout={(event) => handleTraceLayout('rootReady', event)}
     >
-      {gtMd ? (
+      {!isMobileLayout ? (
         <OrderBook
           symbol={desktopOrderBookData.coin}
           horizontal={false}

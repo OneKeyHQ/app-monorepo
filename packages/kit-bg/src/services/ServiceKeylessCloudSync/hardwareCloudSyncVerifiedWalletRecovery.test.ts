@@ -2,6 +2,10 @@ import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
+import {
+  HARDWARE_CLOUD_SYNC_KEK_VERSION,
+  HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -35,7 +39,10 @@ import {
   prepareVerifiedWalletCaches,
   recoverVerifiedWalletCaches,
 } from './hardwareCloudSyncRecovery';
-import { reencryptHardwareCloudSyncItems } from './hardwareCloudSyncSession';
+import {
+  computeHardwareCloudSyncPwdHash,
+  reencryptHardwareCloudSyncItems,
+} from './hardwareCloudSyncSession';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -475,6 +482,7 @@ test.each([
   }
   if (
     scenario !== 'valid' &&
+    scenario !== 'history-failure' &&
     scenario !== 'realm-null-hash' &&
     scenario !== 'realm-omitted-wire-hash' &&
     scenario !== 'btc-evm-null-wire' &&
@@ -508,13 +516,14 @@ test.each([
   });
   const reopened = new SimpleDbEntityChangeHistory();
   reopened.appStorage = changeHistory.appStorage;
-  await expect(
-    reopened.getChangeHistory({
-      entityId: wallet.id,
-      entityType: EChangeHistoryEntityType.Wallet,
-      contentType: EChangeHistoryContentType.Name,
-    }),
-  ).resolves.toMatchObject([{ value: wallet.name }]);
+  const retainedHistory = await reopened.getChangeHistory({
+    entityId: wallet.id,
+    entityType: EChangeHistoryEntityType.Wallet,
+    contentType: EChangeHistoryContentType.Name,
+  });
+  expect(retainedHistory).toMatchObject(
+    scenario === 'history-failure' ? [] : [{ value: wallet.name }],
+  );
 });
 
 test.each(['equal', 'newer'] as const)(
@@ -795,9 +804,14 @@ test.each([
 test.each([
   'current',
   'current-realm-optionals',
+  'shared-hardware-wallets',
+  'shared-hardware-wallets-diverged',
   'after-ten-failed-probes',
   'two-ready-pages',
   'expire-before-second-commit',
+  'resume-after-fast-deadline',
+  'resume-foreign-lineage',
+  'resume-wrong-origin',
   'nonempty-realm-network',
   'empty-realm-network',
   'foreign-lineage',
@@ -815,6 +829,7 @@ test.each([
   async (scenario) => {
     const {
       wallet,
+      device,
       walletManager,
       previous: walletPrevious,
       row: walletRow,
@@ -858,7 +873,13 @@ test.each([
         boundBaseURLVerified: true,
       },
     } satisfies IKeylessCloudSyncCredential;
-    const old = { ...base, pwdHash: oldHash, encryptionKey: '39'.repeat(32) };
+    const resumes = scenario.startsWith('resume-');
+    const oldDekId = 'ab'.repeat(16);
+    const old = {
+      ...base,
+      pwdHash: resumes ? computeHardwareCloudSyncPwdHash(oldDekId) : oldHash,
+      encryptionKey: '39'.repeat(32),
+    };
     const signedCredential = { ...credential, keylessCredential: current };
     const createPrevious = async (value: typeof snapshot) => {
       const payloadId = getPublicAccountSnapshotId(value);
@@ -888,10 +909,12 @@ test.each([
       (
         await reencryptHardwareCloudSyncItems({
           items: [item],
-          from: { dek: old.encryptionKey, dekId: 'old-dek', pwdHash: oldHash },
+          from: {
+            dek: old.encryptionKey,
+            pwdHash: old.pwdHash,
+          },
           to: {
             dek: current.encryptionKey,
-            dekId: current.hardwareSession.dekId,
             pwdHash,
           },
         })
@@ -969,6 +992,43 @@ test.each([
           : account.name,
       idHash: 'public fixture',
     };
+    const sharedHardware =
+      scenario === 'shared-hardware-wallets' ||
+      scenario === 'shared-hardware-wallets-diverged';
+    const siblingWallet =
+      sharedHardware && device
+        ? {
+            ...wallet,
+            id: `${wallet.id}-sibling`,
+            associatedDevice: `${device.id}-sibling`,
+            xfp: snapshot.wallet.xfp,
+          }
+        : undefined;
+    const siblingDevice =
+      sharedHardware && device && siblingWallet
+        ? {
+            ...device,
+            id: siblingWallet.associatedDevice,
+            deviceId: `${device.deviceId}-sibling`,
+          }
+        : undefined;
+    const siblingAccount = siblingWallet
+      ? {
+          ...publicAccountSnapshotToAccount(snapshot, siblingWallet.id),
+          ...(scenario === 'shared-hardware-wallets-diverged'
+            ? { name: 'Sibling local edit' }
+            : {}),
+        }
+      : undefined;
+    const siblingIndex =
+      siblingWallet && siblingAccount?.indexedAccountId
+        ? {
+            ...storedIndex,
+            id: siblingAccount.indexedAccountId,
+            walletId: siblingWallet.id,
+            name: siblingAccount.name,
+          }
+        : undefined;
     await mockDb.withTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
@@ -982,11 +1042,24 @@ test.each([
             return row;
           },
         });
+        if (siblingDevice && siblingWallet && siblingAccount) {
+          await mockDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            records: [siblingDevice],
+          });
+          await mockDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            records: [{ ...siblingWallet, accounts: [siblingAccount.id] }],
+          });
+        }
         await mockDb.txAddRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
           records: [
             storedIndex,
+            ...(siblingIndex ? [siblingIndex] : []),
             ...(laterAccount?.indexedAccountId
               ? [
                   {
@@ -1002,7 +1075,11 @@ test.each([
         await mockDb.txAddRecords({
           tx,
           name: ELocalDBStoreNames.Account,
-          records: [storedAccount, ...(laterAccount ? [laterAccount] : [])],
+          records: [
+            storedAccount,
+            ...(siblingAccount ? [siblingAccount] : []),
+            ...(laterAccount ? [laterAccount] : []),
+          ],
         });
         await mockDb.txAddRecords({
           tx,
@@ -1048,6 +1125,9 @@ test.each([
         run: () => Promise<T>,
       ) => {
         admitted += 1;
+        if (scenario === 'resume-after-fast-deadline') {
+          await new Promise<void>((resolve) => setTimeout(resolve, 1100));
+        }
         if (scenario !== 'expire-before-second-commit' || admitted !== 2)
           return run();
         secondAdmission.resolve();
@@ -1077,17 +1157,37 @@ test.each([
           ...failures.map(toWire),
           ...(laterRotated ? [toWire(laterRotated)] : []),
         ];
+    const historyDekId =
+      scenario === 'resume-foreign-lineage' ? 'cd'.repeat(16) : oldDekId;
+    const oldEnvelope = {
+      key: `dek:${historyDekId}`,
+      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+      data: JSON.stringify({
+        dekId: historyDekId,
+        kekVersion: HARDWARE_CLOUD_SYNC_KEK_VERSION,
+        kekSalt: 'ef'.repeat(16),
+        generation: 1,
+        wrappedDek: 'fixture',
+      }),
+      dataTimestamp: 1,
+      isDeleted: false,
+    };
+    const isWrongOrigin =
+      scenario === 'wrong-origin' || scenario === 'resume-wrong-origin';
     const recovery = recoverVerifiedWalletCaches({
       service,
       history: {
         data: {
           data: {
-            serverData: scenario === 'missing' ? [] : serverData,
+            serverData: [
+              ...(scenario === 'missing' ? [] : serverData),
+              ...(resumes ? [oldEnvelope] : []),
+            ],
             pwdHash,
           },
         },
         request: {
-          responseURL: `${scenario === 'wrong-origin' ? 'https://other.example.test' : origin}/prime/v1/sync/download`,
+          responseURL: `${isWrongOrigin ? 'https://other.example.test' : origin}/prime/v1/sync/download`,
         },
       } as Parameters<typeof recoverVerifiedWalletCaches>[0]['history'],
       items: [
@@ -1096,7 +1196,11 @@ test.each([
         ...(laterOld ? [laterOld] : []),
         ...(failedFirst ? [walletPrevious] : []),
       ],
-      previousPwdHashes: scenario === 'foreign-lineage' ? [] : [oldHash],
+      ...(resumes
+        ? { resume: { baseURL: origin, signal: new AbortController().signal } }
+        : {
+            previousPwdHashes: scenario === 'foreign-lineage' ? [] : [oldHash],
+          }),
       key: current,
       isCurrent: () => true,
     });
@@ -1131,8 +1235,10 @@ test.each([
     const verifiesDeletion =
       scenario === 'current' ||
       scenario === 'current-realm-optionals' ||
+      scenario === 'resume-after-fast-deadline' ||
       failedFirst;
-    const applies = verifiesDeletion || secondPage;
+    const applies =
+      verifiesDeletion || secondPage || scenario === 'shared-hardware-wallets';
     await expect(mockDb.getSyncItem({ id })).resolves.toEqual(
       applies ? rotated : persistedOld,
     );

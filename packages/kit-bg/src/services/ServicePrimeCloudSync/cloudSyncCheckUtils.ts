@@ -2,6 +2,8 @@ import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
 
@@ -17,6 +19,8 @@ const ALL_CHECK_LOCAL_DATA_TYPES = Object.values(EPrimeCloudSyncDataType);
 const SUPPORTED_DATA_TYPES: ReadonlySet<string> = new Set(
   ALL_CHECK_LOCAL_DATA_TYPES,
 );
+export const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS =
+  timerUtils.getTimeDurationMs({ minute: 10 });
 
 export function isSupportedCloudSyncDataType(
   dataType: unknown,
@@ -87,6 +91,67 @@ function hasGcmCiphertextShape(data: string | undefined): boolean {
 
 function isPositiveVersion(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function isCrossSpaceDeletionType(type: EPrimeCloudSyncDataType) {
+  return (
+    type === EPrimeCloudSyncDataType.AddressBook ||
+    type === EPrimeCloudSyncDataType.BrowserBookmark ||
+    type === EPrimeCloudSyncDataType.CustomNetwork ||
+    type === EPrimeCloudSyncDataType.CustomRpc ||
+    type === EPrimeCloudSyncDataType.MarketWatchList
+  );
+}
+
+export function isComparableCloudSyncDataTime(value: unknown): value is number {
+  return (
+    isPositiveVersion(value) &&
+    !systemTimeUtils.isCloudSyncDataTimeFuturePoisoned({
+      dataTime: value,
+      tolerance: CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS,
+    })
+  );
+}
+
+export function isCloudSyncDeletionNewer(
+  deletionTime: unknown,
+  otherTime: unknown,
+): deletionTime is number {
+  return (
+    isComparableCloudSyncDataTime(deletionTime) &&
+    isComparableCloudSyncDataTime(otherTime) &&
+    deletionTime > otherTime
+  );
+}
+
+export function isForeignCloudSyncDeletion(
+  item: Pick<IDBCloudSyncItem, 'dataType' | 'isDeleted' | 'pwdHash'>,
+  activePwdHash: string,
+) {
+  return (
+    isCrossSpaceDeletionType(item.dataType) &&
+    item.isDeleted &&
+    !!item.pwdHash &&
+    !!activePwdHash &&
+    item.pwdHash !== activePwdHash
+  );
+}
+
+export function isForeignLiveCloudSyncItem(
+  item: Pick<
+    IDBCloudSyncItem,
+    'dataType' | 'isDeleted' | 'pwdHash' | 'localSceneUpdated'
+  >,
+  activePwdHash: string,
+) {
+  return (
+    isCrossSpaceDeletionType(item.dataType) &&
+    !item.isDeleted &&
+    item.localSceneUpdated &&
+    !!item.pwdHash &&
+    !!activePwdHash &&
+    item.pwdHash !== activePwdHash
+  );
 }
 
 // Skipping an unreadable local edit is not proof that its bytes belong to

@@ -35,6 +35,13 @@ export interface IUnifoldDepositExecution {
   sourceAmountUsd: string | null;
   sourceCurrency: string | null;
   sourceTokenDecimals: number | null;
+  // Destination this execution actually settled to (OK-67767). HyperCore Spot
+  // and Perp USDC share chainId 1337, so the token address tells them apart.
+  // Null from servers that predate these fields; every execution such a
+  // server recorded settled to Perp USDC (or the dev destination).
+  destinationChainType: string | null;
+  destinationChainId: string | null;
+  destinationTokenAddress: string | null;
   destinationAmountBaseUnit: string | null;
   destinationAmountUsd: string | null;
   destinationCurrency: string | null;
@@ -131,3 +138,8 @@ export const UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE = 914_103;
 // not match the request. This is deterministic and must not enter the UI's
 // transient network retry loop.
 export const UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE = 914_104;
+
+// Client-side code, never sent by the server: Hyperliquid reported an account
+// mode this build does not know. The HyperCore destination depends on the
+// mode (OK-67767), so the session fails closed instead of guessing one.
+export const UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE = 914_105;

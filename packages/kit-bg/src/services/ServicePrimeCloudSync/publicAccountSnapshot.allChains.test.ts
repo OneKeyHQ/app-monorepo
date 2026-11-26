@@ -89,7 +89,7 @@ test('v2 wallet kinds reject coercible arrays and objects before wallet matching
 // origin/x adds privacy-chain vaults whose public snapshot formats have not
 // been validated. Keep them explicitly unsupported rather than treating their
 // private/view-key account shapes as transferable public account data.
-const UNSUPPORTED_REGISTERED_IMPLS = ['xmr', 'zec'] as const;
+const UNSUPPORTED_REGISTERED_IMPLS = ['starknet', 'xmr', 'zec'] as const;
 
 describe('public account snapshots for registered chains', () => {
   let fixtures: IPublicAccountAllChainFixture[];

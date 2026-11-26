@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import type {
   ITrayData,
@@ -235,6 +236,7 @@ export function getTrayMarketNavigationTarget({
         network: string;
         tokenAddress?: string;
         isNative?: boolean;
+        from: EEnterWay;
       };
     }
   | undefined {
@@ -248,6 +250,7 @@ export function getTrayMarketNavigationTarget({
       params: {
         network,
         isNative: true,
+        from: EEnterWay.DesktopTray,
       },
     };
   }
@@ -258,6 +261,8 @@ export function getTrayMarketNavigationTarget({
       tokenAddress,
       network,
       isNative: Boolean(isNative),
+      // Marks an in-app entry, so analytics keeps the contract as asset id.
+      from: EEnterWay.DesktopTray,
     },
   };
 }
