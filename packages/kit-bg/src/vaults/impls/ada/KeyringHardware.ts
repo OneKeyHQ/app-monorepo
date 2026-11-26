@@ -335,6 +335,13 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw convertDeviceError(res.payload);
     }
 
+    // Firmware reconstructs the body and may not support its original CBOR encoding.
+    if (res.payload.hash.toLowerCase() !== tx.hash.toLowerCase()) {
+      throw new OneKeyLocalError(
+        'Cardano hardware transaction hash does not match the original body',
+      );
+    }
+
     const signedTx = await CardanoApi.hwSignTransaction(
       tx.body,
       res.payload.witnesses,
