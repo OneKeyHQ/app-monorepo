@@ -3134,7 +3134,7 @@ PODS:
     - ReactNativeNativeLogger
     - Yoga
   - ReactNativeDependencies (0.88.0)
-  - ReactNativeDeviceUtils (6.8.0-38):
+  - ReactNativeDeviceUtils (6.8.0-44):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -4899,7 +4899,7 @@ SPEC CHECKSUMS:
   ReactNativeCaptureProtection: bcfccc14f4a5f67868c611a0c56a8ea5ba9b37ed
   ReactNativeCheckBiometricAuthChanged: 6ab9d329620436452613c00821979f18afc78dc3
   ReactNativeDependencies: d3b7423ba1e52525e42085c8470109abde583d2e
-  ReactNativeDeviceUtils: ad598366745cb1ed826040ba737ee5f829d800f3
+  ReactNativeDeviceUtils: 7d1519b695e172b448eaeef1b351d9e0d68fd5b8
   ReactNativeFs: 1ea825ad068d8547e7024d51a4c4f7195a5fe927
   ReactNativeGetRandomValues: 2c1783b7fa0a1387a8dd0028ca197218c520e92d
   ReactNativeImageCropPicker: 37d52c6e1feb46f1daf07573d9b541f20062f4c7
