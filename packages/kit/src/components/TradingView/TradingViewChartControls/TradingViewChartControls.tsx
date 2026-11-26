@@ -182,6 +182,9 @@ export interface ITradingViewChartControlsProps {
   calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
+  // Mobile fullscreen row only: how far the row extends beyond its trailing
+  // edge, so the exit control moves with the indicator rail.
+  clearTrailingInset?: number;
   rightControl?: ReactNode;
   rightControlLabel?: string;
   /** Desktop row only: shown before the intervals. */
@@ -262,6 +265,7 @@ export const TradingViewChartControls = memo(
     calendarAvailableTimeRange,
     isFullscreen,
     fullscreenHeader,
+    clearTrailingInset = 0,
     rightControl,
     rightControlLabel,
     leadingControl,
@@ -722,6 +726,9 @@ export const TradingViewChartControls = memo(
         testID="trading-view-chart-controls"
         bg={backgroundColor}
         px="$2"
+        mr={
+          isFullscreen && clearTrailingInset ? -clearTrailingInset : undefined
+        }
         py={compactMobileLayout ? undefined : '$2'}
         pt={shouldUseTightCompactPadding ? '$1.5' : undefined}
         pb={shouldUseTightCompactPadding ? '$0.5' : undefined}
