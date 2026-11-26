@@ -803,14 +803,15 @@ describe('OrderBook desktop display modes', () => {
         <OrderBook
           {...props}
           showTickSelector
+          priceDecimals={6}
           selectedTickOption={{
-            targetTick: 1,
-            apiTick: 1,
+            targetTick: 0.0001,
+            apiTick: 0.0001,
             exact: true,
             nSigFigs: 3,
             multiplier: 1,
-            label: '1',
-            value: '1',
+            label: '0.0001',
+            value: '0.0001',
           }}
         />,
       );
@@ -845,10 +846,16 @@ describe('OrderBook desktop display modes', () => {
           ),
         ).toBeTruthy();
         expect(
-          within(view.getByTestId('perp-select')).getByText(
+          within(view.getByTestId('perp-select')).queryByText(
             'perp.orderbook_spread',
           ),
+        ).toBeNull();
+        expect(
+          within(view.getByTestId('perp-select')).getByText('0.0001'),
         ).toBeTruthy();
+        expect(
+          within(view.getByTestId('perp-select')).queryByText('0.000100'),
+        ).toBeNull();
         expect(view.getByText('perp.orderbook_size (BTC)')).toBeTruthy();
         expect(view.getByText('perp.orderbook_total (BTC)')).toBeTruthy();
         expect(
