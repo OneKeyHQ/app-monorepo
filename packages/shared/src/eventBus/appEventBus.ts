@@ -486,6 +486,7 @@ export interface IAppEventBusPayload {
     walletId?: string;
     walletType?: string;
   };
+  [EAppEventBusNames.HomeDefaultTokensUpdated]: undefined;
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
     | {
