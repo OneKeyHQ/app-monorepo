@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Page,
   RefreshControl,
-  ScrollView,
   Spinner,
   XStack,
   YStack,
@@ -19,7 +18,6 @@ import {
   EExportSubject,
   EExportTimeRange,
   type IPerpsCumulativeRewardsResponse,
-  type IPerpsInvitesResponse,
   type IPerpsInvitesSortBy,
   type IPerpsInvitesSortOrder,
 } from '@onekeyhq/shared/src/referralCode/type';
@@ -28,10 +26,12 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ExportButton,
   FilterButton,
+  LoadMoreScrollView,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
   RewardDateRangeField,
 } from '../../components';
+import { useCursorPagination } from '../../hooks/useCursorPagination';
 import {
   REFERRAL_ALL_TIME_START,
   useDatePresets,
@@ -53,9 +53,6 @@ function PerpsRewardPageWrapper() {
   const [cumulativeRewards, setCumulativeRewards] = useState<
     IPerpsCumulativeRewardsResponse | undefined
   >();
-  const [currentInvites, setCurrentInvites] = useState<
-    IPerpsInvitesResponse | undefined
-  >();
   const [undistributedCount, setUndistributedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] =
@@ -63,10 +60,6 @@ function PerpsRewardPageWrapper() {
   const [hideZeroVolume, setHideZeroVolume] = useState(true);
   const [sortBy, setSortBy] = useState<IPerpsInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<IPerpsInvitesSortOrder>('desc');
-
-  // Pagination state
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
@@ -143,80 +136,34 @@ function PerpsRewardPageWrapper() {
       : filterState.timeRange;
 
   // Fetch counts for both tabs
-  const fetchCounts = useCallback(async () => {
-    const [undistributedResult, totalResult] = await Promise.allSettled([
-      backgroundApiProxy.serviceReferralCode.getPerpsInvites({
-        tab: 'undistributed',
-        timeRange: effectiveTimeRange,
-        startTime: filterState.startTime,
-        endTime: filterState.endTime,
-        inviteCode: filterState.inviteCode,
-      }),
-      backgroundApiProxy.serviceReferralCode.getPerpsInvites({
-        tab: 'total',
-        timeRange: effectiveTimeRange,
-        startTime: filterState.startTime,
-        endTime: filterState.endTime,
-        inviteCode: filterState.inviteCode,
-      }),
-    ]);
+  const fetchCounts = useCallback(
+    () =>
+      Promise.allSettled([
+        backgroundApiProxy.serviceReferralCode.getPerpsInvites({
+          tab: 'undistributed',
+          timeRange: effectiveTimeRange,
+          startTime: filterState.startTime,
+          endTime: filterState.endTime,
+          inviteCode: filterState.inviteCode,
+        }),
+        backgroundApiProxy.serviceReferralCode.getPerpsInvites({
+          tab: 'total',
+          timeRange: effectiveTimeRange,
+          startTime: filterState.startTime,
+          endTime: filterState.endTime,
+          inviteCode: filterState.inviteCode,
+        }),
+      ]),
+    [
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+      filterState.inviteCode,
+    ],
+  );
 
-    if (undistributedResult.status === 'fulfilled') {
-      setUndistributedCount(undistributedResult.value.total);
-    }
-    if (totalResult.status === 'fulfilled') {
-      setTotalCount(totalResult.value.total);
-    }
-  }, [
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-  ]);
-
-  // Fetch current tab data (resets pagination)
-  const fetchCurrentTab = useCallback(async () => {
-    const result = await backgroundApiProxy.serviceReferralCode.getPerpsInvites(
-      {
-        tab: activeTab,
-        timeRange: effectiveTimeRange,
-        startTime: filterState.startTime,
-        endTime: filterState.endTime,
-        inviteCode: filterState.inviteCode,
-        hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
-        sortBy,
-        sortOrder,
-      },
-    );
-    setCurrentInvites(result);
-
-    // Update cursor for pagination - trust API's cursor
-    setCursor(result.cursor ?? undefined);
-
-    // Update the count for current tab
-    if (activeTab === 'undistributed') {
-      setUndistributedCount(result.total);
-    } else {
-      setTotalCount(result.total);
-    }
-  }, [
-    activeTab,
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-    hideZeroVolume,
-    sortBy,
-    sortOrder,
-  ]);
-
-  // Load more data for pagination
-  const onLoadMore = useCallback(async () => {
-    if (!cursor || isLoadingMore) {
-      return;
-    }
-    setIsLoadingMore(true);
-    try {
+  const fetchInvitesPage = useCallback(
+    async (cursor: string | undefined) => {
       const result =
         await backgroundApiProxy.serviceReferralCode.getPerpsInvites({
           tab: activeTab,
@@ -229,88 +176,109 @@ function PerpsRewardPageWrapper() {
           sortOrder,
           cursor,
         });
-
-      // Append new items to existing list
-      setCurrentInvites((prev) => ({
-        ...result,
-        items: [...(prev?.items ?? []), ...(result.items ?? [])],
-      }));
-
-      // Update cursor - trust API's cursor
-      setCursor(result.cursor ?? undefined);
-    } catch (error) {
-      console.error('Failed to load more:', error);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [
-    cursor,
-    isLoadingMore,
-    activeTab,
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-    hideZeroVolume,
-    sortBy,
-    sortOrder,
-  ]);
-
-  // Handle scroll for infinite loading
-  const handleScroll = useCallback(
-    (event: {
-      nativeEvent: {
-        contentOffset: { y: number };
-        contentSize: { height: number };
-        layoutMeasurement: { height: number };
-      };
-    }) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent;
-      const paddingToBottom = 100;
-      const isCloseToBottom =
-        contentOffset.y + layoutMeasurement.height >=
-        contentSize.height - paddingToBottom;
-
-      if (isCloseToBottom && cursor && !isLoadingMore) {
-        void onLoadMore();
-      }
+      return { ...result, items: result.items ?? [] };
     },
-    [cursor, isLoadingMore, onLoadMore],
+    [
+      activeTab,
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+      filterState.inviteCode,
+      hideZeroVolume,
+      sortBy,
+      sortOrder,
+    ],
   );
 
-  const onRefresh = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      await Promise.all([
-        backgroundApiProxy.serviceReferralCode
-          .getPerpsCumulativeRewards({
-            timeRange: effectiveTimeRange,
-            startTime: filterState.startTime,
-            endTime: filterState.endTime,
-            inviteCode: filterState.inviteCode,
-          })
-          .then(setCumulativeRewards),
-        fetchCounts(),
-        fetchCurrentTab(),
-      ]);
-    } catch (error) {
-      console.error('Failed to fetch perps data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-    fetchCounts,
-    fetchCurrentTab,
-  ]);
+  const pagination = useCursorPagination({
+    queryKey: [
+      activeTab,
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+      filterState.inviteCode,
+      activeTab === 'total' ? hideZeroVolume : undefined,
+      sortBy,
+      sortOrder,
+    ].join('|'),
+    fetchPage: fetchInvitesPage,
+  });
+  const { loadFirstPage } = pagination;
 
-  // Initial load
+  // Fetch current tab data (resets pagination)
+  const fetchCurrentTab = useCallback(async () => {
+    const result = await loadFirstPage();
+    if (!result) {
+      return;
+    }
+    // Update the count for current tab
+    if (activeTab === 'undistributed') {
+      setUndistributedCount(result.total);
+    } else {
+      setTotalCount(result.total);
+    }
+  }, [activeTab, loadFirstPage]);
+
+  // Drops summary and count results from a superseded load.
+  const dashboardIdRef = useRef(0);
+
+  const loadDashboard = useCallback(
+    async (includeList: boolean) => {
+      dashboardIdRef.current += 1;
+      const dashboardId = dashboardIdRef.current;
+      const isLatest = () => dashboardId === dashboardIdRef.current;
+      setIsLoading(true);
+      try {
+        await Promise.all([
+          backgroundApiProxy.serviceReferralCode
+            .getPerpsCumulativeRewards({
+              timeRange: effectiveTimeRange,
+              startTime: filterState.startTime,
+              endTime: filterState.endTime,
+              inviteCode: filterState.inviteCode,
+            })
+            .then((result) => {
+              if (isLatest()) {
+                setCumulativeRewards(result);
+              }
+            }),
+          fetchCounts().then(([undistributedResult, totalResult]) => {
+            if (!isLatest()) {
+              return;
+            }
+            if (undistributedResult.status === 'fulfilled') {
+              setUndistributedCount(undistributedResult.value.total);
+            }
+            if (totalResult.status === 'fulfilled') {
+              setTotalCount(totalResult.value.total);
+            }
+          }),
+          includeList ? fetchCurrentTab() : undefined,
+        ]);
+      } catch (error) {
+        console.error('Failed to fetch perps data:', error);
+      } finally {
+        if (isLatest()) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+      filterState.inviteCode,
+      fetchCounts,
+      fetchCurrentTab,
+    ],
+  );
+
+  const onRefresh = useCallback(() => loadDashboard(true), [loadDashboard]);
+
+  // Initial load. The list loads in the tab effect below, which also runs
+  // when the filters change.
   useEffect(() => {
-    void onRefresh();
+    void loadDashboard(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     effectiveTimeRange,
@@ -329,7 +297,7 @@ function PerpsRewardPageWrapper() {
 
   // Client-side sorting as a fallback in case the API doesn't sort correctly
   const sortedRecords = useMemo(() => {
-    const items = currentInvites?.items ?? [];
+    const { items } = pagination;
     if (items.length === 0) return items;
 
     return items.toSorted((a, b) => {
@@ -363,7 +331,7 @@ function PerpsRewardPageWrapper() {
 
       return sortOrder === 'desc' ? valB - valA : valA - valB;
     });
-  }, [currentInvites?.items, sortBy, sortOrder]);
+  }, [pagination.items, sortBy, sortOrder]);
 
   // Max date for DatePicker (today)
   const maxDate = useMemo(() => new Date(), []);
@@ -426,14 +394,13 @@ function PerpsRewardPageWrapper() {
               <Spinner size="large" />
             </YStack>
           ) : (
-            <ScrollView
+            <LoadMoreScrollView
               flex={1}
               refreshControl={
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
               }
               contentContainerStyle={{ pb: '$5' }}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
+              {...pagination.scrollProps}
             >
               {/* Perps Reward Header - Stats Cards */}
               <PerpsRewardHeader
@@ -454,10 +421,10 @@ function PerpsRewardPageWrapper() {
                 sortBy={sortBy}
                 sortOrder={sortOrder}
                 onSort={handleSort}
-                isLoadingMore={isLoadingMore}
+                isLoadingMore={pagination.isLoadingMore}
                 isTabLoading={isTabLoading}
               />
-            </ScrollView>
+            </LoadMoreScrollView>
           )}
         </ReferFriendsPageContainer>
       </Page.Body>
