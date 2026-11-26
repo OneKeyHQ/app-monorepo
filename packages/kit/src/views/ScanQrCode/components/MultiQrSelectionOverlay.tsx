@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { overlayStore } from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
-import { Image, Pressable } from 'react-native';
+import { Image, Platform, Pressable } from 'react-native';
 
 import {
   Button,
@@ -180,7 +180,7 @@ export function MultiQrSelectionOverlay({
     const { nativeEvent, currentTarget } = event;
     let { locationX, locationY } = nativeEvent;
     let { width, height } = layout;
-    if (!platformEnv.isNative) {
+    if (Platform.select({ native: false, default: true })) {
       // React Native Web delivers a DOM click. Keyboard clicks have no position.
       if (
         !(nativeEvent instanceof MouseEvent) ||

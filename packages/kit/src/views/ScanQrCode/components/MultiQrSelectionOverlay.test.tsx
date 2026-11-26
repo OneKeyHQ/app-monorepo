@@ -28,6 +28,15 @@ jest.mock('react-intl', () => ({
 
 jest.mock('react-native', () => ({
   Image: 'img',
+  Platform: {
+    select: ({
+      native,
+      default: fallback,
+    }: {
+      native: boolean;
+      default: boolean;
+    }) => (platformEnv.isNative ? native : fallback),
+  },
   Pressable: 'button',
 }));
 
@@ -587,6 +596,42 @@ test('two refocus cycles reacquire old codes without submitting an old singleton
     await act(async () => coordinator.selectSymbol(b));
     expect(onCommitText).toHaveBeenCalledWith(b.text, 'static');
     coordinator.dispose();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('refocusing a different picker still requires confirmation of an earlier candidate', async () => {
+  jest.useFakeTimers();
+  try {
+    const onSelectingChange = jest.fn();
+    const onCommitText = jest.fn(async () => 'complete' as const);
+    const coordinator = createMultiSymbolCoordinator({
+      aggregationWindowMs: 140,
+      onFrozenChange: jest.fn(),
+      onMultiSymbolChange: jest.fn(),
+      onSelectingChange,
+      onCommitText,
+    });
+    const a = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+    const b = { text: 'ethereum:0x222', centerX: 0.8, centerY: 0.5 };
+    const c = { ...a, text: 'ethereum:0x333' };
+    const d = { ...b, text: 'ethereum:0x444' };
+
+    expect(coordinator.receiveFrame([a, b])).toBe(true);
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    coordinator.receiveFrame([c]);
+    expect(coordinator.receiveFrame([c, d])).toBe(true);
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    coordinator.receiveFrame([b]);
+    jest.advanceTimersByTime(140);
+
+    expect(onCommitText).not.toHaveBeenCalled();
+    expect(onSelectingChange).toHaveBeenLastCalledWith([b]);
+    await act(async () => coordinator.selectSymbol(b));
+    expect(onCommitText).toHaveBeenCalledWith(b.text, 'static');
   } finally {
     jest.useRealTimers();
   }

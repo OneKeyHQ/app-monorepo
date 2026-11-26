@@ -331,13 +331,6 @@ export function createMultiSymbolCoordinator(
     activeUr = undefined;
     phase = 'selecting';
     offered = symbols;
-    const previousKeys = dismissed?.keys;
-    if (
-      previousKeys &&
-      !symbols.some((symbol) => previousKeys.has(selectionKey(symbol)))
-    ) {
-      dismissed = undefined;
-    }
     options.onFrozenChange(true);
     options.onSelectingChange(symbols);
   }

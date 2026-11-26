@@ -385,6 +385,61 @@ test('an album scan can retry a failed reset without a live camera frame', async
   expect(mockResetAnimationData).toHaveBeenCalledTimes(2);
 });
 
+test.each([false, true])(
+  'an album QR can be retried from the same image after repeated reset failures (multi: %s)',
+  async (multiple) => {
+    const firstReset = Promise.withResolvers<void>();
+    const retryReset = Promise.withResolvers<void>();
+    mockResetAnimationData
+      .mockReturnValueOnce(firstReset.promise)
+      .mockReturnValueOnce(retryReset.promise);
+    jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+      canceled: false,
+      uri: 'image',
+    });
+    const photoCode = { text: 'ur:photo-part', centerX: 0.3, centerY: 0.5 };
+    jest.mocked(scanSymbolsFromURLAsync).mockResolvedValueOnce({
+      width: 100,
+      height: 100,
+      symbols: multiple
+        ? [photoCode, { text: 'other code', centerX: 0.7, centerY: 0.5 }]
+        : [photoCode],
+    });
+    render(<ScanQrCodeModal />);
+
+    const first = mockResetCapture(Promise.resolve());
+    await act(async () =>
+      fireEvent.click(screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn)),
+    );
+    if (multiple) {
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: photoCode.text })),
+      );
+    }
+    await act(async () => {
+      firstReset.reject(new Error('decoder offline'));
+      await expect(first).rejects.toThrow('decoder offline');
+    });
+    await act(async () =>
+      retryReset.reject(new Error('decoder still offline')),
+    );
+
+    expect(mockRouteCallback).not.toHaveBeenCalled();
+    expect(PhotoLibrary.releasePickedImage).not.toHaveBeenCalled();
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: photoCode.text })),
+    );
+    expect(mockResetAnimationData).toHaveBeenCalledTimes(3);
+    expect(mockRouteCallback).toHaveBeenCalledTimes(1);
+    expect(mockRouteCallback).toHaveBeenCalledWith(
+      expect.objectContaining({ value: photoCode.text }),
+    );
+    expect(PhotoLibrary.pickImage).toHaveBeenCalledTimes(1);
+    expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledTimes(1);
+    expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith('image');
+  },
+);
+
 test('allows the camera to retry the same code after photo parsing finishes', async () => {
   const parse = Promise.withResolvers<Awaited<ReturnType<IRouteCallback>>>();
   jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({

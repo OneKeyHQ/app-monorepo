@@ -296,7 +296,16 @@ export default function ScanQrCodeModal() {
   }, []);
 
   const callback = useCallback(
-    async (value: string, isCaptureCurrent?: () => boolean) => {
+    async (
+      value: string,
+      {
+        isCaptureCurrent,
+        beforeDispatch,
+      }: {
+        isCaptureCurrent?: () => boolean;
+        beforeDispatch?: () => boolean;
+      } = {},
+    ) => {
       const session = scan.current;
       const canDispatch = () =>
         session.phase === 'open' &&
@@ -325,6 +334,7 @@ export default function ScanQrCodeModal() {
         if (!canDispatch()) return {};
       }
 
+      if (beforeDispatch?.() === false) return {};
       return routeCallback({
         value,
         popNavigation: true,
@@ -363,6 +373,18 @@ export default function ScanQrCodeModal() {
       clearPickedImageSelection();
     },
     [clearPickedImageSelection],
+  );
+
+  const submitPickedImage = useCallback(
+    (text: string, uri: string) =>
+      callback(text, {
+        beforeDispatch: () => {
+          if (pickedImageUriRef.current !== uri) return false;
+          clearPickedImageSelection();
+          return true;
+        },
+      }),
+    [callback, clearPickedImageSelection],
   );
 
   const pickImage = useCallback(async () => {
@@ -420,40 +442,45 @@ export default function ScanQrCodeModal() {
         return;
       }
 
-      if (decoded.symbols.length === 1 && !decoded.partial) {
-        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
-        await callback(decoded.symbols[0].text);
-        return;
-      }
-
-      // Multiple QR codes (or partial fallback result): keep image displayed
-      // with green dot anchors until the user selects one or cancels.
       if (!scan.current.mounted || scan.current.phase !== 'open') {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
         return;
       }
       pickedImageUriRef.current = uri;
-      setPickedImageSelection({
+      const selection = {
         uri,
         width: decoded.width,
         height: decoded.height,
         symbols: decoded.symbols,
-      });
+      };
+      try {
+        if (selection.symbols.length === 1 && !decoded.partial) {
+          await submitPickedImage(selection.symbols[0].text, uri);
+        }
+      } finally {
+        if (pickedImageUriRef.current === uri) {
+          if (scan.current.mounted && scan.current.phase === 'open') {
+            setPickedImageSelection(selection);
+          } else {
+            clearPickedImageSelection();
+          }
+        }
+      }
     } finally {
       isPhotoScanInProgress.current = false;
     }
-  }, [callback, clearPickedImageSelection, intl]);
+  }, [clearPickedImageSelection, intl, submitPickedImage]);
 
   const handlePickedSymbolSelect = useCallback(
     (symbol: IMultiQrSymbol) => {
-      if (isPhotoScanInProgress.current || !pickedImageUriRef.current) return;
+      const uri = pickedImageUriRef.current;
+      if (isPhotoScanInProgress.current || !uri) return;
       isPhotoScanInProgress.current = true;
-      clearPickedImageSelection();
-      void callback(symbol.text).finally(() => {
+      void submitPickedImage(symbol.text, uri).finally(() => {
         isPhotoScanInProgress.current = false;
       });
     },
-    [callback, clearPickedImageSelection],
+    [submitPickedImage],
   );
 
   const onCameraScanned = useCallback(
@@ -463,10 +490,9 @@ export default function ScanQrCodeModal() {
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
       const captureVersion = scan.current.captureVersion;
-      return callback(
-        value,
-        () => captureVersion === scan.current.captureVersion,
-      );
+      return callback(value, {
+        isCaptureCurrent: () => captureVersion === scan.current.captureVersion,
+      });
     },
     [callback],
   );
