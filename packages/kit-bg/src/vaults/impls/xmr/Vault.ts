@@ -27,12 +27,14 @@ import {
   XMR_DECIMALS,
   XMR_DEFAULT_FEE_PRIORITY,
   XMR_HISTORY_PAGE_SIZE,
+  XMR_NOT_SYNCED_ERROR_CODE,
 } from '@onekeyhq/shared/src/config/xmr';
 import {
   NotImplemented,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { createSwapReviewQuoteExpiredError } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -317,7 +319,7 @@ export default class Vault extends VaultBase {
         new OneKeyLocalError(
           localWalletText(ETranslations.privacy_send_private_paused__msg),
         ),
-        { code: 'XMR_NOT_SYNCED', params: {}, autoToast: true },
+        { code: XMR_NOT_SYNCED_ERROR_CODE, params: {}, autoToast: true },
       );
     }
     // Progress compares against the display tip, which stops moving while the
@@ -337,7 +339,11 @@ export default class Vault extends VaultBase {
                 blocks: blocksLeft,
               }),
         ),
-        { code: 'XMR_NOT_SYNCED', params: { blocksLeft }, autoToast: true },
+        {
+          code: XMR_NOT_SYNCED_ERROR_CODE,
+          params: { blocksLeft },
+          autoToast: true,
+        },
       );
     }
   }
@@ -748,6 +754,7 @@ export default class Vault extends VaultBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     await ensureLocalWalletPrivacyAvailable(this);
+    if (params.unsignedTx.swapInfo) await this.xmrAssertSyncedForSend();
     const { xmrSentTxKeys, ...signedTx } = await super.signTransaction(params);
     const reviewed = parseXmrTransaction(signedTx.encodedTx);
     // Same guard as the broadcast: a record written after a deletion began would outlive it.
@@ -776,12 +783,32 @@ export default class Vault extends VaultBase {
     return this.broadcastTransaction(rest);
   }
 
+  async xmrHasPendingSend(accountId: string): Promise<boolean> {
+    const api = await getXmrLocalRuntime(this);
+    const identityId = await getXmrIdentityId({ api, vault: this, accountId });
+    const pageSize = 32;
+    let offset = 0;
+    for (;;) {
+      // The runtime lists unmined rows first, so there is no need to load mined history.
+      // eslint-disable-next-line no-await-in-loop
+      const { items, total } = JSON.parse(
+        await api.history(identityId, pageSize, offset),
+      ) as { items: IXmrHistoryItem[]; total: number };
+      for (const item of items) {
+        if (item.height !== null) return false;
+        if (item.direction === 'out' && item.failed !== true) return true;
+      }
+      offset += items.length;
+      if (items.length === 0 || offset >= total) return false;
+    }
+  }
+
   /** Irreversible. Outputs are marked spent and the tx recorded together; a network error is recorded as pending so a resend cannot pay twice. */
   override async broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
     await ensureLocalWalletPrivacyAvailable(this);
-    const { signedTx } = params;
+    const { signedTx, reviewQuoteValidUntil } = params;
     const encodedTx = signedTx.encodedTx as IEncodedTxXmr | undefined;
     const wasBuilt = Boolean(
       encodedTx?.signableHex || encodedTx?.devicePlanJson,
@@ -824,15 +851,38 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
     });
 
-    const raw = await getXmrLifecycleMutex(this.networkId).runExclusive(
-      async () => {
+    const { txid, broadcast } = await getXmrLifecycleMutex(
+      this.networkId,
+    ).runExclusive(
+      async (): Promise<{
+        txid: string;
+        broadcast?: 'accepted' | 'unknown';
+      }> => {
         if ((await this.xmrPreparedEpoch()) !== reviewed.privacyEpoch) {
           throw new OneKeyLocalError(
             localWalletText(ETranslations.privacy_error_review_expired__msg),
           );
         }
+        if (
+          signedTx.swapInfo &&
+          (await this.xmrHasPendingSend(this.accountId))
+        ) {
+          throw new OneKeyLocalError({
+            key: ETranslations.privacy_error_pending_send__msg,
+            message: localWalletText(
+              ETranslations.privacy_error_pending_send__msg,
+            ),
+          });
+        }
+        if (
+          reviewQuoteValidUntil !== undefined &&
+          (!Number.isFinite(reviewQuoteValidUntil) ||
+            Date.now() >= reviewQuoteValidUntil)
+        ) {
+          throw createSwapReviewQuoteExpiredError(true);
+        }
         try {
-          return await api.broadcastTransaction(
+          const raw = await api.broadcastTransaction(
             identityId,
             signedTx.rawTx,
             String(reviewed.chainTip),
@@ -843,29 +893,18 @@ export default class Vault extends VaultBase {
             signable,
             reviewJson,
           );
+          return JSON.parse(raw) as {
+            txid: string;
+            broadcast?: 'accepted' | 'unknown';
+          };
         } catch (error) {
-          console.error('[xmr] broadcast failed', {
-            txid: signedTx.txid,
-            error,
-          });
           if (readXmrRuntimeError(error)) throw toXmrUserFacingError(error);
           // A lost call may already have been recorded and sent by the Worker.
-          throw new OneKeyLocalError(
-            localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
-          );
+          return { txid: verifiedTxid, broadcast: 'unknown' };
         }
       },
     );
 
-    const {
-      txid,
-      broadcast,
-      error: broadcastError,
-    } = JSON.parse(raw) as {
-      txid: string;
-      broadcast?: 'accepted' | 'unknown';
-      error?: unknown;
-    };
     if (signedTx.txid && txid !== signedTx.txid) {
       // The txid is fixed at signing; a different one back means something else was broadcast.
       throw new OneKeyLocalError(
@@ -873,13 +912,33 @@ export default class Vault extends VaultBase {
       );
     }
 
+    const pendingSwap = signedTx.swapInfo?.xmrPendingHistoryItem;
+    if (pendingSwap) {
+      const now = Date.now();
+      try {
+        const { durable } =
+          await this.backgroundApi.serviceSwap.addSwapHistoryItem({
+            ...pendingSwap,
+            txInfo: {
+              ...pendingSwap.txInfo,
+              txId: txid,
+              gasFeeInNative: new BigNumber(reviewed.feeAtomic)
+                .shiftedBy(-XMR_DECIMALS)
+                .toFixed(),
+            },
+            date: { created: now, updated: now },
+          });
+        if (!durable) {
+          console.error('[xmr] pending swap history is not durable');
+        }
+      } catch {
+        console.error('[xmr] could not persist pending swap history');
+      }
+    }
+
     if (broadcast === 'unknown') {
-      // Fails like BTC. The runtime keeps the tx pending: a later scan
-      // confirms it, or the pending check frees its inputs.
-      console.error('[xmr] broadcast outcome unknown', {
-        txid,
-        error: broadcastError,
-      });
+      // The runtime keeps the tx pending until a later scan resolves it.
+      console.error('[xmr] broadcast outcome unknown');
       throw new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
       );
