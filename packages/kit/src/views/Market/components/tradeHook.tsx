@@ -190,6 +190,7 @@ export const useMarketTradeActions = (
         params: IModalSwapParamList[EModalSwapRoutes.SwapMainLand],
       ) => {
         params.swapSource = ESwapSource.MARKET;
+        params.marketNonStockTrade = true;
 
         if (mode === 'modal') {
           navigation.replace(EModalSwapRoutes.SwapMainLand, params);
@@ -202,9 +203,7 @@ export const useMarketTradeActions = (
       };
       if (!networkId) {
         remindUnsupportedToken('trade', false);
-        navigateToSwapPage({
-          importNetworkId: 'unknown',
-        });
+        navigateToSwapPage({});
         return;
       }
       const networkAccount = await createAccountIfNotExists();

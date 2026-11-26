@@ -19,6 +19,7 @@ import {
   useSplitSubView,
   willTabFocusTransition,
 } from '@onekeyhq/components';
+import { getLastBrowserRoute } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/lastBrowserRoute';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   initIntercom,
@@ -142,6 +143,25 @@ const LazyExtPrimeSubscriptionHandoffOnMount =
         return { default: ExtPrimeSubscriptionHandoffOnMount };
       })
     : null;
+
+// The Perps tab the sidebar shows for the current config, read when the
+// shortcut acts; undefined when Perps is disabled. Same rule as
+// usePerpTabConfig and the Perps app link.
+async function getPerpTabRoute() {
+  // Loaded on demand: a static import would move the Perps atoms into
+  // Bootstrap's startup path on every platform.
+  const { perpsCommonConfigPersistAtom } =
+    await import('@onekeyhq/kit-bg/src/states/jotai/atoms/perps');
+  const { perpConfigCommon, perpConfigLoaded } =
+    await perpsCommonConfigPersistAtom.get();
+  // Same rule as usePerpTabConfig: the sidebar shows the web Perps tab only
+  // when Perps is enabled and set to web. Otherwise keep the original target.
+  const isPerpDisabled =
+    (perpConfigLoaded ?? false) && perpConfigCommon?.disablePerp;
+  return !isPerpDisabled && perpConfigCommon?.usePerpWeb
+    ? ETabRoutes.WebviewPerpTrade
+    : ETabRoutes.Perp;
+}
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
@@ -343,8 +363,16 @@ const useDesktopEvents = platformEnv.isDesktop
           }
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
-              setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
-              navigation.switchTab(ETabRoutes.Perp);
+              // Resolved after the modals closed: the Perps tab the sidebar
+              // shows for the current config.
+              void getPerpTabRoute().then((perpTabRoute) => {
+                // Only an actual entry may record the source, or a later
+                // visit would consume it.
+                if (willTabFocusTransition(perpTabRoute)) {
+                  setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
+                }
+                navigation.switchTab(perpTabRoute);
+              });
             });
             break;
           case EShortcutEvents.TabReferAFriend:
@@ -359,7 +387,8 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabBrowser:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Discovery);
+              // Back to the browser page the sidebar icon would restore.
+              navigation.switchTab(getLastBrowserRoute());
             });
             break;
           case EShortcutEvents.TabDeveloper:

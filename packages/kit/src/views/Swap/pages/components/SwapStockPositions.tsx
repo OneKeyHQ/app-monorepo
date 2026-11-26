@@ -14,7 +14,10 @@ import { Checkbox, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
-import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import {
+  buildMarketStockTokenMetadata,
+  resolveMarketStockId,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -113,9 +116,11 @@ export function useSwapStockPositions() {
 export function SwapStockMobilePositions({
   networks,
   storeName,
+  lockToCurrentStock,
 }: {
   networks: (IMarketBasicConfigNetwork | ISwapNetwork)[];
   storeName: EJotaiContextStoreNames;
+  lockToCurrentStock?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState(ETabName.Positions);
   const showPositions = activeTab === ETabName.Positions;
@@ -146,7 +151,11 @@ export function SwapStockMobilePositions({
           />
         </XStack>
         {showPositions ? (
-          <SwapStockPositions mobile networks={networks} />
+          <SwapStockPositions
+            mobile
+            networks={networks}
+            lockToCurrentStock={lockToCurrentStock}
+          />
         ) : (
           <XStack minHeight={180} mx="$-6">
             <SwapMarketHistoryList
@@ -166,9 +175,11 @@ export function SwapStockMobilePositions({
 export function SwapStockPositions({
   mobile = false,
   networks,
+  lockToCurrentStock,
 }: {
   mobile?: boolean;
   networks: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  lockToCurrentStock?: boolean;
 }) {
   const intl = useIntl();
   const positions = useSwapStockPositions();
@@ -176,55 +187,65 @@ export function SwapStockPositions({
   const { currentStockToken } = useSwapStockTradeContext();
   const selection = useSwapStockSelection();
   const [onlyCurrent, setOnlyCurrent] = useSwapProEnableCurrentSymbolAtom();
-  const selectPositionToken = useCallback(
-    (token: ISwapToken) => {
-      const tokenStockTicker = token.stock?.underlyingAssetTicker
-        ?.trim()
-        .toUpperCase();
-      const belongsToCurrentStock = Boolean(
+  const matchesListing = useCallback(
+    (token: ISwapToken, includeTicker: boolean) =>
+      Boolean(
         stockId &&
         (resolveMarketStockId(token) === stockId ||
-          tokenStockTicker === stockId ||
-          tokenVariants.some((variant) =>
-            equalTokenNoCaseSensitive({ token1: variant, token2: token }),
-          )),
-      );
-      const tokenWithStockIdentity =
-        belongsToCurrentStock && token.stock
+          (includeTicker &&
+            token.stock?.underlyingAssetTicker?.trim().toUpperCase() ===
+              stockId)),
+      ) ||
+      tokenVariants.some((variant) =>
+        equalTokenNoCaseSensitive({ token1: variant, token2: token }),
+      ),
+    [stockId, tokenVariants],
+  );
+  const selectPositionToken = useCallback(
+    (token: ISwapToken) => {
+      const matchesTicket =
+        lockToCurrentStock &&
+        currentStockToken &&
+        equalTokenNoCaseSensitive({ token1: token, token2: currentStockToken });
+      const listingId = matchesTicket
+        ? (resolveMarketStockId(currentStockToken) ?? stockId)
+        : stockId;
+      const shouldFillStockId =
+        !resolveMarketStockId(token) &&
+        listingId &&
+        (matchesTicket || (token.stock && matchesListing(token, true)));
+      void selection?.selectToken(
+        shouldFillStockId
           ? {
               ...token,
-              stock: {
-                ...token.stock,
-                stockId: token.stock.stockId ?? stockId,
-              },
+              stock: buildMarketStockTokenMetadata(token.stock, listingId),
             }
-          : token;
-      void selection?.selectToken(tokenWithStockIdentity);
+          : token,
+      );
     },
-    [selection, stockId, tokenVariants],
+    [matchesListing, currentStockToken, lockToCurrentStock, selection, stockId],
   );
   const filterToken = useMemo(
     () =>
-      mobile && onlyCurrent && currentStockToken
+      lockToCurrentStock || (mobile && onlyCurrent && currentStockToken)
         ? positions?.positionTokenList.filter(
             (token) =>
-              (stockId && resolveMarketStockId(token) === stockId) ||
-              tokenVariants.some((variant) =>
-                equalTokenNoCaseSensitive({ token1: variant, token2: token }),
-              ) ||
               equalTokenNoCaseSensitive({
                 token1: token,
                 token2: currentStockToken,
-              }),
+              }) ||
+              ((!lockToCurrentStock || stockId) &&
+                matchesListing(token, Boolean(lockToCurrentStock))),
           )
         : undefined,
     [
       currentStockToken,
+      lockToCurrentStock,
+      matchesListing,
       mobile,
       onlyCurrent,
       positions?.positionTokenList,
       stockId,
-      tokenVariants,
     ],
   );
   if (!positions) return null;
@@ -245,7 +266,7 @@ export function SwapStockPositions({
           {intl.formatMessage({ id: ETranslations.title_all_positions })}
         </SizableText>
       ) : null}
-      {mobile ? (
+      {mobile && !lockToCurrentStock ? (
         <XStack
           pt="$2"
           pb="$1"

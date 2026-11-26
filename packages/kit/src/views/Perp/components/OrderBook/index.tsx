@@ -158,12 +158,13 @@ function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
 function useOrderBookEpoch(
   coin: string | undefined,
   tickKey: string | undefined,
-  isEmpty: boolean,
+  hasBids: boolean,
+  hasAsks: boolean,
   layoutKey = '',
 ): number {
   const epochRef = useRef(0);
   const keyRef = useRef<string | null>(null);
-  const key = `${coin ?? ''}|${tickKey ?? ''}|${isEmpty ? 1 : 0}|${layoutKey}`;
+  const key = `${coin ?? ''}|${tickKey ?? ''}|${Number(hasBids)}${Number(hasAsks)}|${layoutKey}`;
   if (keyRef.current !== key) {
     keyRef.current = key;
     epochRef.current += 1;
@@ -1236,7 +1237,8 @@ export function OrderBook({
   const depthEpoch = useOrderBookEpoch(
     _symbol,
     selectedTickOption?.value,
-    isEmpty,
+    !!aggregatedData.bids.length,
+    !!aggregatedData.asks.length,
     isDesktopVertical
       ? `${effectiveDisplayMode}:${resolvedMaxLevelsPerSide}`
       : undefined,
@@ -2679,11 +2681,11 @@ export function OrderBookMobile({
     }),
     [aggregatedBook, visibleLevelsPerSide],
   );
-  const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
   const depthEpoch = useOrderBookEpoch(
     _symbol ?? activeTradeInstrument.coin,
     selectedTickOption?.value,
-    isEmpty,
+    !!aggregatedData.bids.length,
+    !!aggregatedData.asks.length,
     `${displayMode}|${visibleLevelsPerSide}`,
   );
   const bidDepth = useMemo(() => {

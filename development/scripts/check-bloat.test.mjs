@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -903,6 +903,172 @@ test('keeps division after a CommonJS await identifier and recognizes a delimite
   const report = run(reviewed);
   assert.equal(report.stateFlags.netBranches, 2);
   assert.equal(report.stateFlags.netStateFlags, 1);
+});
+
+for (const { name, expression } of [
+  {
+    name: 'flagged await',
+    expression: 'async function read() { return await /[`~]/i; }',
+  },
+  {
+    name: 'commented yield',
+    expression: 'function* scan() { yield /[`~]/ /* annotation */; }',
+  },
+]) {
+  test(`counts added hooks after a ${name} regex operand`, (t) => {
+    const { write, commit, run } = createGitFixture(t);
+    const initial = `${expression}\n`;
+    write('Shared.cjs', initial);
+    const reviewed = commit();
+    const flags = Array.from(
+      { length: 4 },
+      (_, i) => `const ref${i} = useRef();\n`,
+    ).join('');
+    write('Shared.cjs', `${initial}${flags}`);
+
+    const report = run(reviewed);
+    assert.equal(report.stateFlags.netStateFlags, 4);
+    assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+  });
+}
+
+test('emits a verdict for an existing expression deep enough to exhaust a parser stack', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const initial = `const deep = ${'('.repeat(8000)}0${')'.repeat(8000)};\n`;
+  write('Shared.js', initial);
+  const reviewed = commit();
+  const flags = Array.from(
+    { length: 4 },
+    (_, i) => `const ref${i} = useRef();\n`,
+  ).join('');
+  write('Shared.js', `${initial}${flags}`);
+
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
+test('keeps Oxc results for tracked and untracked files when another file exhausts the parser stack', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const deep = `const deep = ${'('.repeat(8000)}0${')'.repeat(8000)};\n`;
+  const regex = 'async function read() { return await /[`~]/i; }\n';
+  write('Deep.js', deep);
+  write('Tracked.cjs', regex);
+  const reviewed = commit();
+  write('Deep.js', `${deep}const first = useRef();\n`);
+  write(
+    'Tracked.cjs',
+    `${regex}const second = useRef();\nconst third = useRef();\n`,
+  );
+  write('Untracked.cjs', `${regex}const fourth = useRef();\n`);
+
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
+test('ignores URL text in a TypeScript template literal type while counting runtime branches', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  write('Shared.ts', 'interface Options {\n}\n');
+  const reviewed = commit();
+  write(
+    'Shared.ts',
+    [
+      'interface Options {',
+      `  url: \`https://onekey.so?from=https:\${string}?next=https:\`;`,
+      '}',
+      'const value = ready ? current : fallback;',
+      '',
+    ].join('\n'),
+  );
+
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netBranches, 1);
+});
+
+test('keeps source offsets through multibyte characters and template interpolations', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const initial = 'const initial = "测试 🧪";\n';
+  write('Shared.tsx', initial);
+  const reviewed = commit();
+  write(
+    'Shared.tsx',
+    [
+      initial.trimEnd(),
+      `const label = \`if useRef() 🧪 \${flag ? useState() : value} else\`;`,
+      'const component = <Text>if useReducer() 测试 🧪 {useRef()}</Text>;',
+      '',
+    ].join('\n'),
+  );
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 2);
+  assert.equal(report.stateFlags.netBranches, 1);
+});
+
+for (const installed of [false, true]) {
+  test(`runs standalone without the ${installed ? 'native binding' : 'parser package'}`, (t) => {
+    const { cwd, write, commit } = createGitFixture(t);
+    const directory = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'check-bloat-standalone-')),
+    );
+    t.after(() => fs.rmSync(directory, { recursive: true }));
+    const checker = path.join(directory, 'check-bloat.mjs');
+    fs.copyFileSync(
+      path.join(repoRoot, 'development/scripts/check-bloat.mjs'),
+      checker,
+    );
+    if (installed) {
+      const manifest = fileURLToPath(
+        import.meta.resolve('oxc-parser/package.json'),
+      );
+      const destination = path.join(directory, 'node_modules/oxc-parser');
+      fs.mkdirSync(destination, { recursive: true });
+      fs.copyFileSync(manifest, path.join(destination, 'package.json'));
+      fs.cpSync(
+        path.join(path.dirname(manifest), 'src-js'),
+        path.join(destination, 'src-js'),
+        {
+          recursive: true,
+          filter: (source) => !source.endsWith('.node'),
+        },
+      );
+    }
+    write('Shared.js', 'const initial = true;\n');
+    const reviewed = commit();
+    const flags = Array.from(
+      { length: 4 },
+      (_, i) => `const ref${i} = useRef();\n`,
+    ).join('');
+    write('Shared.js', `const initial = true;\n${flags}`);
+
+    const { status, stdout, stderr } = spawnSync(
+      process.execPath,
+      [checker, '--since', reviewed, '--base', 'base', '--warn-only', '--json'],
+      {
+        cwd,
+        // cspell:ignore NAPI
+        env: { ...process.env, NODE_PATH: '', NAPI_RS_NATIVE_LIBRARY_PATH: '' },
+        encoding: 'utf8',
+      },
+    );
+    assert.equal(status, 0, stderr);
+    assert.equal(stderr.includes('Oxc native binding unavailable'), installed);
+    const report = JSON.parse(stdout);
+    assert.equal(report.stateFlags.netStateFlags, 4);
+    assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+  });
+}
+
+test('keeps executable tokens after quoted JSX text', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const initial = 'const copy = <Text>escape ` if needed</Text>;\n';
+  write('Shared.tsx', initial);
+  const reviewed = commit();
+  write('Shared.tsx', `${initial}const ref = useRef();\n`);
+
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 1);
+  assert.equal(report.stateFlags.netBranches, 0);
 });
 
 test('preserves literal operands and distinguishes member names followed by division', (t) => {

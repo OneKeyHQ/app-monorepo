@@ -48,7 +48,7 @@ import {
   identityLifecycleMutex,
   markIdentityRecoveryFailed,
 } from './ServiceIdentityExit/identityLifecycleMutex';
-import { isStandardLiveActivityTestEndpoint } from './ServiceLiveActivity/subscriptionTransport';
+import { isStandardLiveActivityTestEndpoint } from './ServiceLiveActivity/testEndpoint';
 
 import type { IPro2FirmwareForceTargetMode } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type {

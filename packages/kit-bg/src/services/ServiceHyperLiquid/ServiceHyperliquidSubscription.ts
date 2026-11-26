@@ -2229,6 +2229,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     transport.socket.addEventListener('close', () => {
       this._publicTradesSubscriptions.forEach((entry, coin) => {
         if (entry.connection.transport !== transport) return;
+        this._flushClosedPublicTradesBatch(coin);
         entry.connected = false;
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
           status: 'disconnected',
@@ -2379,11 +2380,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._publicTradesBatches.set(coin, batch);
   }
 
-  private _clearPublicTradesBatch(coin: string): void {
+  private _clearPublicTradesBatch(coin: string) {
     const batch = this._publicTradesBatches.get(coin);
     if (batch) {
       clearTimeout(batch.timer);
       this._publicTradesBatches.delete(coin);
+    }
+    return batch;
+  }
+
+  private _flushClosedPublicTradesBatch(coin: string) {
+    const batch = this._clearPublicTradesBatch(coin);
+    if (batch) {
+      this._emitHyperliquidDataUpdate(
+        ESubscriptionType.TRADES,
+        batch.trades,
+        true,
+      );
     }
   }
 
@@ -2437,6 +2450,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
                   this._publicTradesSubscriptions.get(normalizedCoin) === entry
                 ) {
                   this._retirePublicTradesConnection(connection);
+                  this._flushClosedPublicTradesBatch(normalizedCoin);
                   entry.connected = false;
                   entry.failure = error;
                   appEventBus.emit(
@@ -3577,11 +3591,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _emitHyperliquidDataUpdate(
     subscriptionType: ESubscriptionType,
     data: unknown,
+    displayOnly?: boolean,
   ): void {
     appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
       type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
       subType: subscriptionType,
       data,
+      ...(displayOnly && { displayOnly }),
     });
   }
 
