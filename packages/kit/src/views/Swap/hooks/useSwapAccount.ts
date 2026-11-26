@@ -47,6 +47,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
   useSwapSelectedTokensColdStartContextAtom,
+  useSwapStockFromAccountRefreshAtom,
   useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -503,6 +504,14 @@ export function useSwapAddressInfo(
     shouldResolveTargetNetworkAccount && tokenNetworkId
       ? validationScopeKey
       : undefined;
+  const [stockFromAccountRefresh] = useSwapStockFromAccountRefreshAtom();
+  const retryRevision =
+    (type === ESwapDirectionType.FROM || !useRecipientAccount) &&
+    networkScope === 'trade' &&
+    targetNetworkAccountResolveKey &&
+    stockFromAccountRefresh?.scopeKey === targetNetworkAccountResolveKey
+      ? stockFromAccountRefresh.revision
+      : undefined;
 
   const isAddressInfoReady = useMemo(() => {
     if (!activeAccount.ready) {
@@ -548,7 +557,10 @@ export function useSwapAddressInfo(
       try {
         const { account: targetAccount, deriveType: targetDeriveType } =
           await resolveSwapTargetNetworkAccountOnce({
-            key: targetNetworkAccountResolveKey,
+            // Join matching trade consumers even if the original lookup is still pending.
+            key: retryRevision
+              ? `${targetNetworkAccountResolveKey}|retry:${retryRevision}`
+              : targetNetworkAccountResolveKey,
             resolve: () =>
               resolveSwapNetworkAccount({
                 accountId: activeAccount.account?.id,
@@ -584,6 +596,7 @@ export function useSwapAddressInfo(
     activeAccount.account?.id,
     activeAccount.dbAccount,
     activeAccount.indexedAccount?.id,
+    retryRevision,
     shouldResolveTargetNetworkAccount,
     targetNetworkAccountResolveKey,
     tokenNetworkId,
@@ -601,6 +614,7 @@ export function useSwapAddressInfo(
       isAddressInfoReady: boolean;
       isRecipientValidationReady: boolean;
       validationScopeKey: string;
+      targetNetworkAccountResolveKey?: string;
     } = {
       networkId: undefined,
       deriveType: shouldResolveTargetNetworkAccount
@@ -611,6 +625,7 @@ export function useSwapAddressInfo(
       activeAccount: undefined,
       isAddressInfoReady,
       isRecipientValidationReady,
+      targetNetworkAccountResolveKey,
       validationScopeKey,
     };
     // Keep the confirmed custom recipient even when cross-chain TO account
@@ -797,6 +812,7 @@ export function useSwapAddressInfo(
     deriveTypeForTargetNetwork,
     isAddressInfoReady,
     isRecipientValidationReady,
+    targetNetworkAccountResolveKey,
     validationScopeKey,
     tokenNetworkId,
     currentSelectNetwork?.networkId,
