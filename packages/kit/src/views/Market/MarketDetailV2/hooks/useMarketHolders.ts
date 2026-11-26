@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { uniqBy } from 'lodash';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -78,7 +80,7 @@ export function useMarketHolders({
   const holders = useMemo(
     () =>
       buildMarketHolderPercentages({
-        holders: holdersData?.list ?? [],
+        holders: uniqBy(holdersData?.list ?? [], 'accountAddress'),
         tokenDetail:
           cachedTokenDetail?.tokenKey === tokenKey
             ? cachedTokenDetail.detail

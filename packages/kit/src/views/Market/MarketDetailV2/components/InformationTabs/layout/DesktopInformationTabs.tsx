@@ -26,6 +26,7 @@ import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositi
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
+import { HoldersLayoutProvider } from '../components/Holders/HoldersLayoutContext';
 import { Portfolio } from '../components/Portfolio';
 import { TransactionsHistory } from '../components/TransactionsHistory';
 import { MAX_BUFFERED_TRANSACTIONS } from '../components/TransactionsHistory/hooks/transactionBufferUtils';
@@ -302,16 +303,18 @@ export function DesktopInformationTabs({
   }
 
   return (
-    <Tabs.Container
-      key={tabsKey}
-      renderTabBar={renderTabBar}
-      // Opens on My position when that was the last tab picked on any detail
-      // page; read once when the tabs mount.
-      initialTabName={preferPosition ? positionTabName : undefined}
-      onTabChange={handleTabChange}
-      disableScroll={!platformEnv.isNative}
-    >
-      {tabs}
-    </Tabs.Container>
+    <HoldersLayoutProvider>
+      <Tabs.Container
+        key={tabsKey}
+        renderTabBar={renderTabBar}
+        // Opens on My position when that was the last tab picked on any detail
+        // page; read once when the tabs mount.
+        initialTabName={preferPosition ? positionTabName : undefined}
+        onTabChange={handleTabChange}
+        disableScroll={!platformEnv.isNative}
+      >
+        {tabs}
+      </Tabs.Container>
+    </HoldersLayoutProvider>
   );
 }

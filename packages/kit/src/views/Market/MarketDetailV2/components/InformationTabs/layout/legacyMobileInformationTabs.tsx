@@ -28,6 +28,7 @@ import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
+import { HoldersLayoutProvider } from '../components/Holders/HoldersLayoutContext';
 import { Portfolio } from '../components/Portfolio';
 import {
   TransactionsHistory,
@@ -285,15 +286,17 @@ export function MobileInformationTabs({
   }
 
   return (
-    <MarketDetailPager
-      key={tabsKey}
-      width={platformEnv.isNative ? resolvedContainerWidth : undefined}
-      scrollEnabled={scrollEnabled}
-      renderHeader={renderHeader}
-      renderTabBar={renderTabBar}
-      onTabChange={handleTabChange}
-    >
-      {tabs}
-    </MarketDetailPager>
+    <HoldersLayoutProvider>
+      <MarketDetailPager
+        key={tabsKey}
+        width={platformEnv.isNative ? resolvedContainerWidth : undefined}
+        scrollEnabled={scrollEnabled}
+        renderHeader={renderHeader}
+        renderTabBar={renderTabBar}
+        onTabChange={handleTabChange}
+      >
+        {tabs}
+      </MarketDetailPager>
+    </HoldersLayoutProvider>
   );
 }

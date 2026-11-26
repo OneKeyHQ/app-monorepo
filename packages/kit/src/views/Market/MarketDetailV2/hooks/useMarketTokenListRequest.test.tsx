@@ -199,6 +199,34 @@ describe('useMarketTokenListRequest', () => {
 });
 
 describe('useMarketHolders request ownership', () => {
+  it.each([true, false])(
+    'keeps the first holder for each address with token detail available: %s',
+    async (hasTokenDetail) => {
+      if (!hasTokenDetail) {
+        mockTokenDetail = undefined;
+      }
+      mockFetchHolders.mockResolvedValue({
+        list: [
+          holderA,
+          holderB,
+          { ...holderA, amount: '999', fiatValue: '1998' },
+          { ...holderB, amount: '888', fiatValue: '1776' },
+        ],
+      });
+      const { result } = renderHook(() =>
+        useMarketHolders({ ...initialScope, isTabFocused: true }),
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(0);
+      });
+      expect(result.current.holders).toEqual([
+        { ...holderA, ...(hasTokenDetail ? { percentage: '1.00' } : {}) },
+        { ...holderB, ...(hasTokenDetail ? { percentage: '2.00' } : {}) },
+      ]);
+      expect(result.current.isInitialPending).toBe(false);
+    },
+  );
+
   it.each([
     { networkId: 'evm--1', tokenAddress: '0xb' },
     { networkId: 'evm--56', tokenAddress: '0xa' },

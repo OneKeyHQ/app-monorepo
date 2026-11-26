@@ -1,11 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import {
   NativeList,
@@ -29,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useMarketDetailIsFocusedTab } from '../../layout/MarketDetailScroll';
 
 import { HoldersSkeleton } from './components/HoldersSkeleton';
+import { useHoldersWidth } from './HoldersLayoutContext';
 import { buildHolderRow, holderLayout, holderRowKey } from './holderTable';
 import { useHoldersScrollHost } from './useHoldersScrollHost';
 
@@ -59,7 +53,7 @@ function HoldersBase({
     networkId,
     isTabFocused,
   });
-  const [width, setWidth] = useState(0);
+  const { width, setWidth } = useHoldersWidth();
   const layout = useMemo(() => holderLayout(width), [width]);
   const actions = useMemo(
     () => [

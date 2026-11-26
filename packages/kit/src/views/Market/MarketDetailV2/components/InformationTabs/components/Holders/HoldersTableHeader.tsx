@@ -1,15 +1,14 @@
-import { useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useHoldersWidth } from './HoldersLayoutContext';
 import { holderLayout } from './holderTable';
 
 export function HoldersTableHeader() {
   const intl = useIntl();
-  const [width, setWidth] = useState(0);
+  const { width } = useHoldersWidth();
   const layout = holderLayout(width);
   const label = {
     size: layout.wide ? '$bodySmMedium' : '$bodySm',
@@ -18,8 +17,8 @@ export function HoldersTableHeader() {
   } as const;
   return (
     <XStack
+      width={width > 0 ? width : undefined}
       alignItems="center"
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
       pl={20}
       pr={layout.padding}
       gap={layout.gap}
