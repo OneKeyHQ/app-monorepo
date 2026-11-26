@@ -295,7 +295,11 @@ it('keeps the cached answer and caches nothing when its refresh fails', async ()
     useSupportResource(load, true, false, cache),
   );
   await act(async () => {});
-  expect(result.current).toMatchObject({ data: 'cached', failed: true });
+  expect(result.current).toMatchObject({
+    data: 'cached',
+    failed: true,
+    fresh: false,
+  });
   expect(saved).toEqual([]);
 });
 
@@ -333,4 +337,16 @@ it('starts a new loader from its own cache and keeps the old answer out of it', 
   expect(result.current.data).toBe('second account');
   expect(first.saved).toEqual([]);
   expect(second.saved).toEqual([]);
+});
+
+it('marks data fresh only once the loader itself has answered', async () => {
+  const answer = deferred<string>();
+  const load = () => answer.promise;
+  const { cache } = memoryCache('cached');
+  const { result } = renderHook(() =>
+    useSupportResource(load, true, false, cache),
+  );
+  expect(result.current).toMatchObject({ data: 'cached', fresh: false });
+  await act(async () => answer.resolve('fresh'));
+  expect(result.current).toMatchObject({ data: 'fresh', fresh: true });
 });

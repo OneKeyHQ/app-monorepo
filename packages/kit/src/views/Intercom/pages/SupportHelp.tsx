@@ -87,8 +87,24 @@ function SupportHelpContent({
     : home.loading && !home.data;
   const failed = !!sessionError || (isSearching ? search.failed : home.failed);
   let articles = NO_ARTICLES;
-  if (!failed && !waiting)
-    articles = (isSearching ? search.data : home.data?.articles) ?? NO_ARTICLES;
+  if (!waiting) {
+    // Suggestions on screen stay usable while their refresh is retried; a
+    // failed search shows only its retry.
+    if (!isSearching) articles = home.data?.articles ?? NO_ARTICLES;
+    else if (!failed) articles = search.data ?? NO_ARTICLES;
+  }
+  const retryPrompt = (
+    <Empty
+      title={intl.formatMessage({
+        id: ETranslations.global_connet_error_try_again,
+      })}
+      buttonProps={{
+        testID: 'support-help-retry',
+        children: intl.formatMessage({ id: ETranslations.global_retry }),
+        onPress: sessionError || (isSearching ? search.refresh : home.refresh),
+      }}
+    />
+  );
   let emptyState: ReactElement | undefined;
   if (showSkeleton) {
     emptyState = (
@@ -109,19 +125,7 @@ function SupportHelpContent({
       </YStack>
     );
   } else if (failed) {
-    emptyState = (
-      <Empty
-        title={intl.formatMessage({
-          id: ETranslations.global_connet_error_try_again,
-        })}
-        buttonProps={{
-          testID: 'support-help-retry',
-          children: intl.formatMessage({ id: ETranslations.global_retry }),
-          onPress:
-            sessionError || (isSearching ? search.refresh : home.refresh),
-        }}
-      />
-    );
+    emptyState = retryPrompt;
   } else if (!loading) {
     emptyState = (
       <Empty
@@ -165,6 +169,9 @@ function SupportHelpContent({
             loading && !showSkeleton ? <Spinner /> : undefined
           }
           ListEmptyComponent={emptyState}
+          ListFooterComponent={
+            failed && articles.length ? retryPrompt : undefined
+          }
           renderItem={({ item }) => (
             // Standard list-row spacing, so the highlight pads the text. The
             // row keeps its own button role, which ListItem does not declare.

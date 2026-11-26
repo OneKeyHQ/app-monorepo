@@ -58,9 +58,15 @@ type IIntercomResponses = {
   open: IIntercomOpen;
   home: IIntercomHome;
 };
-// The live session's last answers to the support screens' reads. Memory only:
-// they end with the session on identity changes and locks.
+// The live session's last answers to the support screens' reads, memory only.
+// They belong to one session generation: the client and, for an anonymous
+// user, the visitor it booted. A new generation drops them and remounts every
+// support screen, so nothing rendered for the previous identity survives.
 let responses: Partial<IIntercomResponses> = {};
+let sessionGeneration = 0;
+const sessionListeners = new Set<() => void>();
+// The anonymous visitor the live client booted; undefined for a JWT session.
+let liveVisitor: IIntercomVisitor | undefined;
 
 function setUnread(ids: string[]) {
   unreadIds = new Set(ids);
@@ -93,15 +99,40 @@ function setNotification(value: IIntercomNotification | undefined) {
   notificationListeners.forEach((listener) => listener());
 }
 
+function retireSessionAnswers() {
+  sessionGeneration += 1;
+  responses = {};
+  sessionListeners.forEach((listener) => listener());
+}
+// An anonymous session may serve answers only while its visitor stays valid.
+// Boot renews a visitor within a minute of expiry and replaces an expired one.
+function hasLiveVisitor(userId: string | null | undefined) {
+  return (
+    userId !== null ||
+    (!!liveVisitor && liveVisitor.expiresAt > Date.now() + 60_000)
+  );
+}
+
 function invalidate() {
   revision += 1;
+  const retired = !!client;
   client?.dispose();
   client = undefined;
-  responses = {};
+  liveVisitor = undefined;
+  // Only a live client has answers or screens to retire. Skipping repeats keeps
+  // a failing identity sync from remounting support screens on every retry.
+  if (retired) retireSessionAnswers();
   setUnread([]);
   setNotification(undefined);
   pushedConversationId = undefined;
 }
+export const getIntercomSessionGeneration = () => sessionGeneration;
+export const subscribeToIntercomSessionGeneration = (listener: () => void) => {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+};
 export const getIntercomUnreadCount = () => unreadIds.size;
 export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   listeners.add(listener);
@@ -366,6 +397,12 @@ export async function createIntercomMessengerSession(
         storageOperation(async () => {
           await assertCurrent();
           await (await visitorBinding)?.set(JSON.stringify(visitor));
+          if (generation !== revision) return;
+          // A boot that replaced an expired or foreign visitor starts another
+          // identity on the same client.
+          if (liveVisitor && liveVisitor.anonymousId !== visitor.anonymousId)
+            retireSessionAnswers();
+          liveVisitor = visitor;
         }),
       onRead: (id) => {
         if (generation !== revision || isLocked()) return;
@@ -395,14 +432,16 @@ export async function createIntercomMessengerSession(
 
 // The live session of this identity without revalidating it. A support screen
 // that opens again renders the session's cached answers at once and sends its
-// reads only after createIntercomMessengerSession confirms the session.
+// reads only after createIntercomMessengerSession confirms the session. An
+// expired anonymous visitor is never reused; its next boot creates another one.
 export function peekIntercomMessengerSession(expectedUserId: string | null) {
   if (
     !client ||
     owner !== expectedUserId ||
     identityTransition ||
     identitySyncRequired ||
-    isLocked()
+    isLocked() ||
+    !hasLiveVisitor(expectedUserId)
   )
     return undefined;
   return client.api;
@@ -413,8 +452,14 @@ export function getIntercomResponseCache<K extends keyof IIntercomResponses>(
   key: K,
 ) {
   if (!session) return undefined;
-  // A retired session neither shows nor stores answers, even ones that arrive late.
-  const live = () => session === client?.api && !isLocked();
+  const expectedGeneration = sessionGeneration;
+  // Only the generation that made this cache reads or stores answers, so a
+  // retired session or visitor never shows them, nor keeps a late one.
+  const live = () =>
+    expectedGeneration === sessionGeneration &&
+    session === client?.api &&
+    !isLocked() &&
+    hasLiveVisitor(owner);
   return {
     read: () => (live() ? responses[key] : undefined),
     save: (data: IIntercomResponses[K]) => {

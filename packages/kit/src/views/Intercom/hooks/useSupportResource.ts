@@ -23,6 +23,9 @@ type ISupportResourceState<T> = {
   // starts from a cached answer. Later retries keep it set so a screen shows
   // its first-load placeholder only once.
   settled: boolean;
+  // The current loader itself has answered with data on this screen. A cached
+  // answer does not count, so work that builds on the data can wait for this.
+  fresh: boolean;
 };
 
 function initialState<T>(
@@ -31,7 +34,14 @@ function initialState<T>(
   cache: ISupportResourceCache<T> | undefined,
 ): ISupportResourceState<T> {
   const data = cache?.read();
-  return { load, data, loading, failed: false, settled: data !== undefined };
+  return {
+    load,
+    data,
+    loading,
+    failed: false,
+    settled: data !== undefined,
+    fresh: false,
+  };
 }
 
 // A response belongs to one focused, unlocked screen. Disposing a task also
@@ -79,6 +89,7 @@ export function useSupportResource<T>(
               loading: false,
               failed: false,
               settled: true,
+              fresh: true,
             });
           }
         } catch (error) {
@@ -126,6 +137,7 @@ export function useSupportResource<T>(
     loading: current.loading,
     failed: current.failed,
     settled: current.settled,
+    fresh: current.fresh,
     refresh,
     refreshData,
   };

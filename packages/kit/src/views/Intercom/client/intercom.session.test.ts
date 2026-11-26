@@ -1,6 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IIntercomVisitor } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerClient';
-import type { IIntercomHome } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
+import type {
+  IIntercomHome,
+  IIntercomInbox,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 
 let mockUserId: string | null = null;
 let mockLocked = false;
@@ -728,5 +731,85 @@ describe('cached support answers', () => {
     expect(
       subject.getIntercomResponseCache(next, 'home')?.read(),
     ).toBeUndefined();
+  });
+
+  it('never reuses an expired anonymous visitor and retires its answers when boot replaces it', async () => {
+    const inbox: IIntercomInbox = { conversations: [], hasMore: false };
+    const start = Date.now();
+    const expiry = Math.floor(start / 1000) + 3600;
+    mockFetch.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ ...boot, session_expiry: expiry })),
+    );
+    const session = await subject.createIntercomMessengerSession(null);
+    subject.getIntercomResponseCache(session, 'inbox')?.save(inbox);
+    expect(subject.peekIntercomMessengerSession(null)).toBe(session);
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(expiry * 1000 + 1);
+    try {
+      expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+      expect(
+        subject.getIntercomResponseCache(session, 'inbox')?.read(),
+      ).toBeUndefined();
+      const generation = subject.getIntercomSessionGeneration();
+      const retired = jest.fn();
+      const unsubscribe = subject.subscribeToIntercomSessionGeneration(retired);
+      let releaseInbox!: (response: Response) => void;
+      mockFetch.mockImplementation(async (url) =>
+        url.endsWith('/conversations')
+          ? new Promise<Response>((done) => {
+              releaseInbox = done;
+            })
+          : new Response(
+              JSON.stringify({
+                ...boot,
+                user: { id: 'next-user', anonymous_id: 'next-visitor' },
+                anonymous_session: 'next-session',
+                session_expiry: expiry + 3600,
+              }),
+            ),
+      );
+      // Revalidation boots another visitor on the same client.
+      expect(await subject.createIntercomMessengerSession(null)).toBe(session);
+      expect(subject.getIntercomSessionGeneration()).toBe(generation + 1);
+      expect(retired).toHaveBeenCalledTimes(1);
+      const pending = session.listConversations();
+      await new Promise<void>((done) => setImmediate(done));
+      expect(subject.peekIntercomMessengerSession(null)).toBe(session);
+      expect(
+        subject.getIntercomResponseCache(session, 'inbox')?.read(),
+      ).toBeUndefined();
+      releaseInbox(new Response(JSON.stringify({ conversations: [] })));
+      await pending;
+      unsubscribe();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('retires support screens and answers when the shared visitor is revoked', async () => {
+    const session = await subject.createIntercomMessengerSession(null);
+    subject.getIntercomResponseCache(session, 'home')?.save(home);
+    const retired = jest.fn();
+    const unsubscribe = subject.subscribeToIntercomSessionGeneration(retired);
+    mockStorageEpoch += 1;
+    await expect(subject.createIntercomMessengerSession(null)).rejects.toThrow(
+      'Support visitor installation changed',
+    );
+    expect(retired).toHaveBeenCalledTimes(1);
+    expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+    expect(
+      subject.getIntercomResponseCache(session, 'home')?.read(),
+    ).toBeUndefined();
+    unsubscribe();
+  });
+
+  it('retires a session once, not on every later invalidation', async () => {
+    await subject.createIntercomMessengerSession(null);
+    const retired = jest.fn();
+    const unsubscribe = subject.subscribeToIntercomSessionGeneration(retired);
+    await setLock(true);
+    await setLock(true);
+    expect(retired).toHaveBeenCalledTimes(1);
+    unsubscribe();
   });
 });
