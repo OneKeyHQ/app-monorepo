@@ -36,6 +36,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedTokenBalanceMetaAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapSelectedTokensColdStartContextAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -205,6 +206,7 @@ const SwapInputContainer = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapSelectedTokenBalanceMeta] = useSwapSelectedTokenBalanceMetaAtom();
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const [initialSelectedTokensSynced] =
@@ -695,6 +697,7 @@ const SwapInputContainer = ({
             activeAccount={activeAccount}
             showPercentageInput={showPercentageInputDebounce}
             percentageInputOnNative={SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE}
+            percentageInputDisabled={multiplierStatus !== 'ready'}
             showActionBuy={showActionBuy}
             actionBuyHighlighted={!isFromBalanceLoadedZero}
             onDepositClose={refreshTokenBalance}
