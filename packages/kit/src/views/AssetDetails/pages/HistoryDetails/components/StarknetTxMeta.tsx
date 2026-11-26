@@ -12,6 +12,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useStarknetPrivacySession } from '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacySession';
 import { readStarknetPrivacyBlock } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
@@ -29,17 +30,29 @@ function StarknetAttributes({
   const privacy = readStarknetPrivacyBlock(decodedTx.extraInfo);
   const shouldResolve =
     privacy?.kind === 'transfer' && !decodedTx.actions[0]?.assetTransfer;
+  const session = useStarknetPrivacySession({
+    enabled: shouldResolve,
+    onLock: () => undefined,
+  });
 
-  const { result: decryptedTx } = usePromiseResult(async () => {
-    if (!shouldResolve) return undefined;
-    return backgroundApiProxy.serviceStarknetPrivacy
+  const { result: resolved } = usePromiseResult(async () => {
+    if (!shouldResolve) return { session, tx: undefined };
+    const tx = await backgroundApiProxy.serviceStarknetPrivacy
       .resolvePrivateHistoryTx({
         networkId: decodedTx.networkId,
         accountId: decodedTx.accountId,
         txid: decodedTx.txid,
       })
       .catch(() => undefined);
-  }, [shouldResolve, decodedTx.networkId, decodedTx.accountId, decodedTx.txid]);
+    return { session, tx };
+  }, [
+    shouldResolve,
+    session,
+    decodedTx.networkId,
+    decodedTx.accountId,
+    decodedTx.txid,
+  ]);
+  const decryptedTx = resolved?.session === session ? resolved.tx : undefined;
 
   if (!shouldResolve) {
     return null;

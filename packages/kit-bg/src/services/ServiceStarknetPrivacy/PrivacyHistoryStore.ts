@@ -378,24 +378,6 @@ export class PrivacyHistoryStore {
       return undefined;
     }
 
-    const pending = this.pendingPrivateTxs.get(hash);
-    if (
-      pending &&
-      pending.tx.decodedTx.accountId === p.accountId &&
-      pending.tx.decodedTx.networkId === p.networkId
-    ) {
-      return pending.tx;
-    }
-
-    const cached = this.resolvedPrivateTxs.get(hash);
-    if (
-      cached &&
-      cached.tx.decodedTx.accountId === p.accountId &&
-      cached.tx.decodedTx.networkId === p.networkId
-    ) {
-      return cached.tx;
-    }
-
     let ctx: IStarknetPrivacyContext | undefined;
     try {
       ctx = await this.deps.getRegisteredPrivacyContext(p, 'read', false);
@@ -409,6 +391,16 @@ export class PrivacyHistoryStore {
       accountId: p.accountId,
       poolAddress: ctx.poolAddress,
     });
+
+    const pending = this.pendingPrivateTxs.get(hash);
+    if (pending?.scopeKey === scopeKey) {
+      return pending.tx;
+    }
+
+    const cached = this.resolvedPrivateTxs.get(hash);
+    if (cached?.scopeKey === scopeKey) {
+      return cached.tx;
+    }
     const {
       fetchStrk20HistoryPage,
       getStrk20HistoryTransfers,
