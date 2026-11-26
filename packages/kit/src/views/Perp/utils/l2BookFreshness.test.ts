@@ -3,9 +3,11 @@ import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   getFreshL2BookSnapshotFromColdCache,
+  getPerpsDepthChartStatus,
   getPerpsL2BookColdCacheGlobalSnapshot,
   getPerpsL2BookInteractiveRefreshDelayMs,
   hasL2BookLevels,
+  hasL2BookSnapshot,
   isL2BookForTarget,
   isPerpsL2BookInteractive,
 } from './l2BookFreshness';
@@ -19,6 +21,71 @@ type IPerpsL2BookColdCacheGlobal = typeof globalThis & {
 afterEach(() => {
   delete (globalThis as IPerpsL2BookColdCacheGlobal)
     .__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__;
+});
+
+describe('depth chart snapshots', () => {
+  it('recognizes genuine empty and one-sided snapshots without relaxing the order book gate', () => {
+    const empty = buildBook({});
+    const bidOnly = buildBook({ bidLevels: [{ px: '1', sz: '1', n: 1 }] });
+    expect(hasL2BookSnapshot(empty)).toBe(true);
+    expect(hasL2BookSnapshot(bidOnly)).toBe(true);
+    expect(hasL2BookSnapshot(undefined)).toBe(false);
+    expect(hasL2BookLevels(empty)).toBe(false);
+    expect(hasL2BookLevels(bidOnly)).toBe(false);
+  });
+
+  it.each([
+    { px: undefined, sz: '1', n: 1 },
+    { px: 'NaN', sz: '1', n: 1 },
+    { px: '1', sz: '-1', n: 1 },
+    { px: '1', sz: 'Infinity', n: 1 },
+    null,
+  ])('rejects an invalid source level before aggregation: %j', (level) => {
+    const book = buildBook({ bidLevels: [level as HL.IBookLevel] });
+    expect(hasL2BookSnapshot(book)).toBe(false);
+  });
+
+  it('only reports empty for a fresh, connected empty snapshot', () => {
+    const book = buildBook({});
+    const input = { book, isConnectionReady: true, hasLoadFailed: false, now };
+    expect(getPerpsDepthChartStatus(input)).toBe('empty');
+    expect(
+      getPerpsDepthChartStatus({ ...input, isConnectionReady: false }),
+    ).toBe('stale');
+    expect(
+      getPerpsDepthChartStatus({
+        ...input,
+        now: now + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1,
+      }),
+    ).toBe('stale');
+    expect(
+      getPerpsDepthChartStatus({
+        ...input,
+        book: { ...book, isCachedSnapshot: true },
+      }),
+    ).toBe('stale');
+  });
+
+  it('recovers from missing data when a matching one-sided snapshot arrives', () => {
+    const input = {
+      book: null,
+      isConnectionReady: true,
+      hasLoadFailed: false,
+      now,
+    };
+    const bidOnly = buildBook({ bidLevels: [{ px: '1', sz: '1', n: 1 }] });
+    expect(getPerpsDepthChartStatus(input)).toBe('loading');
+    expect(getPerpsDepthChartStatus({ ...input, hasLoadFailed: true })).toBe(
+      'error',
+    );
+    expect(
+      getPerpsDepthChartStatus({
+        ...input,
+        hasLoadFailed: true,
+        book: bidOnly,
+      }),
+    ).toBe('ready');
+  });
 });
 
 function buildBook({

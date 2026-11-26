@@ -17,8 +17,7 @@ export class HardwareCloudSyncLocalError extends OneKeyLocalError {
   }
 }
 
-// Server data failed a Cloud sync check (malformed, tampered or rolled back).
-// Only checks with a safe, user-facing reason opt in to showing it.
+// Cloud sync checks supply fixed diagnostic messages, without raw data.
 export class HardwareCloudSyncDataError extends OneKeyLocalError {
   override readonly key?: ETranslations;
 
@@ -30,7 +29,13 @@ export class HardwareCloudSyncDataError extends OneKeyLocalError {
       : ETranslations.cloud_sync_data_unreadable__msg;
     super(
       normalizeErrorProps(
-        { key, message: showReason ? reason : undefined },
+        {
+          key,
+          message: showReason ? reason : undefined,
+          info: showReason
+            ? undefined
+            : { hardwareCloudSyncDataErrorReason: reason },
+        },
         { defaultMessage: "Couldn't read Cloud sync data. Try again later." },
       ),
     );

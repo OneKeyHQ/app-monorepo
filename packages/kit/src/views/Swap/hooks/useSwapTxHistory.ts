@@ -2,6 +2,8 @@ import { useCallback } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { getSwapProviderOrderIdFromContext } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
@@ -62,7 +64,7 @@ function buildSwapHistoryToken({
   };
 }
 
-export async function generateSwapHistoryItemForContext(
+export function buildSwapHistoryItemForContext(
   {
     txId,
     gasFeeInNative,
@@ -172,16 +174,84 @@ export async function generateSwapHistoryItemForContext(
       },
       ctx: swapTxInfo.swapBuildResData.ctx,
     };
-    const persistResult =
-      await backgroundApiProxy.serviceSwap.addSwapHistoryItem(swapHistoryItem);
-    if (swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
-      // Record SWAP task completion for rookie guide
-      void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
-        ERookieTaskType.SWAP,
-      );
-    }
-    return persistResult;
+    return swapHistoryItem;
   }
+}
+
+export async function generateSwapHistoryItemForContext(
+  params: Parameters<typeof buildSwapHistoryItemForContext>[0],
+  context: Parameters<typeof buildSwapHistoryItemForContext>[1],
+) {
+  const item = buildSwapHistoryItemForContext(params, context);
+  if (!item) return;
+  // The Monero Vault hands off the order before the broadcast reply.
+  const result =
+    params.txId && isXmrSwapNetwork(item.baseInfo.fromToken.networkId)
+      ? undefined
+      : await backgroundApiProxy.serviceSwap.addSwapHistoryItem(item);
+  if (params.swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
+    void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+      ERookieTaskType.SWAP,
+    );
+  }
+  return result;
+}
+
+function pickXmrHistoryToken(token: ISwapToken): ISwapToken {
+  const {
+    networkId,
+    contractAddress,
+    symbol,
+    decimals,
+    name,
+    logoURI,
+    isNative,
+    balanceMultiplier,
+    price,
+    currency,
+  } = token;
+  return {
+    networkId,
+    contractAddress,
+    symbol,
+    decimals,
+    name,
+    logoURI,
+    isNative,
+    balanceMultiplier,
+    price,
+    currency,
+  };
+}
+
+export function buildXmrPendingHistoryItem(
+  swapTxInfo: ISwapTxInfo,
+  context: Parameters<typeof buildSwapHistoryItemForContext>[1],
+) {
+  const item = buildSwapHistoryItemForContext(
+    { swapTxInfo: { ...swapTxInfo, isNetworkFeeSponsored: false } },
+    context,
+  );
+  if (!item) return;
+  const { provider, providerName, providerLogo } = item.swapInfo.provider;
+  const providerOrderId = getSwapProviderOrderIdFromContext(provider, item.ctx);
+  if (!providerOrderId || !item.swapInfo.orderId) return;
+  return {
+    ...item,
+    baseInfo: {
+      ...item.baseInfo,
+      fromToken: pickXmrHistoryToken(item.baseInfo.fromToken),
+      toToken: pickXmrHistoryToken(item.baseInfo.toToken),
+    },
+    swapInfo: {
+      ...item.swapInfo,
+      provider: { provider, providerName, providerLogo },
+    },
+    ctx:
+      provider === 'SwapChangelly'
+        ? { changellyOrderId: providerOrderId }
+        : { rocketXOrderId: providerOrderId },
+  };
 }
 
 export function useSwapTxHistoryActions() {
@@ -193,6 +263,14 @@ export function useSwapTxHistoryActions() {
   const generateSwapHistoryItem = useCallback(
     (params: Parameters<typeof generateSwapHistoryItemForContext>[0]) =>
       generateSwapHistoryItemForContext(params, {
+        swapNetworks,
+        currencyInfo: settingsAtom.currencyInfo,
+      }),
+    [settingsAtom.currencyInfo, swapNetworks],
+  );
+  const getXmrPendingHistoryItem = useCallback(
+    (swapTxInfo: ISwapTxInfo) =>
+      buildXmrPendingHistoryItem(swapTxInfo, {
         swapNetworks,
         currencyInfo: settingsAtom.currencyInfo,
       }),
@@ -210,5 +288,9 @@ export function useSwapTxHistoryActions() {
     },
     [setFromToken, setFromTokenAmount, setToken],
   );
-  return { generateSwapHistoryItem, swapAgainUseHistoryItem };
+  return {
+    generateSwapHistoryItem,
+    getXmrPendingHistoryItem,
+    swapAgainUseHistoryItem,
+  };
 }

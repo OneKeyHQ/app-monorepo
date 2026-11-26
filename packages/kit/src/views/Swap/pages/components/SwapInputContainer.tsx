@@ -48,6 +48,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -229,6 +230,7 @@ const SwapInputContainer = ({
     ? getTokenIdentityKey(tokenSelectorDisplayToken) || undefined
     : undefined;
   const balanceDisplayToken = token?.symbol ? token : tokenSelectorDisplayToken;
+  const isXmrBalance = isXmrSwapNetwork(balanceDisplayToken?.networkId);
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [balanceDisplayCache] = useSwapBalanceDisplayCacheAtom();
   const currentBalanceDisplayAccountKey =
@@ -328,6 +330,19 @@ const SwapInputContainer = ({
     ],
   );
   const displayBalance = useMemo(() => {
+    if (isXmrBalance) {
+      return resolveVerifiedSwapBalance({
+        balance,
+        token: balanceDisplayToken,
+        balanceMeta:
+          direction === ESwapDirectionType.FROM
+            ? swapSelectedTokenBalanceMeta.from
+            : swapSelectedTokenBalanceMeta.to,
+        accountAddress: address,
+        accountIdentity: buildSwapBalanceAccountIdentity(activeAccount),
+        isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
+      });
+    }
     const cachedBalance =
       resolveSwapBalanceDisplayCacheEntry({
         accountAddress: address,
@@ -350,12 +365,17 @@ const SwapInputContainer = ({
         ) ?? '')
       : rawBalance;
   }, [
+    activeAccount,
     address,
     balance,
     balanceDisplayAccountKey,
     balanceDisplayCache,
     balanceDisplayToken,
     coldStartBalanceDisplayEntry?.balance,
+    direction,
+    isXmrBalance,
+    swapAddressInfo.isAddressInfoReady,
+    swapSelectedTokenBalanceMeta,
     token,
   ]);
   const showBalanceSkeleton = useMemo(
@@ -364,9 +384,16 @@ const SwapInputContainer = ({
         balanceDisplayToken &&
         address &&
         !displayBalance &&
-        (balanceLoading || !balance),
+        (balanceLoading || (!isXmrBalance && !balance)),
       ),
-    [address, balance, balanceDisplayToken, balanceLoading, displayBalance],
+    [
+      address,
+      balance,
+      balanceDisplayToken,
+      balanceLoading,
+      displayBalance,
+      isXmrBalance,
+    ],
   );
 
   const fromInputHasError = useMemo(() => {
@@ -377,7 +404,11 @@ const SwapInputContainer = ({
         (accountUtils.isHdWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isHwWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id })));
-    const balanceBN = new BigNumber(fromTokenBalance ?? 0);
+    const balanceBN = new BigNumber(
+      direction === ESwapDirectionType.FROM && isXmrBalance
+        ? (displayBalance ?? NaN)
+        : (fromTokenBalance ?? 0),
+    );
     const amountValueBN = new BigNumber(
       fromToken
         ? (getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down') ??
@@ -398,9 +429,11 @@ const SwapInputContainer = ({
     direction,
     address,
     accountInfo?.wallet?.id,
+    displayBalance,
     fromTokenBalance,
     fromTokenAmount,
     fromToken,
+    isXmrBalance,
   ]);
   const valueMoreComponent = useMemo(() => {
     if (
@@ -577,9 +610,10 @@ const SwapInputContainer = ({
     direction === ESwapDirectionType.FROM
       ? getSwapBalanceActionProps({
           isLoadedZero: isFromBalanceLoadedZero,
+          isUnavailable: isXmrBalance && !!address && !displayBalance,
           refreshing: !!balanceLoading,
           onRefresh: refreshTokenBalance,
-          onMax: onBalanceMaxPress,
+          onMax: isXmrBalance ? undefined : onBalanceMaxPress,
         })
       : undefined;
 

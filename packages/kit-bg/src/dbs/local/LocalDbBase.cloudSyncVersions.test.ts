@@ -76,6 +76,48 @@ describe('Cloud sync business versions across encryption key changes', () => {
     expect(local.dataTime).toBe(200);
   });
 
+  test.each([
+    [200, 100, true],
+    [100, 200, false],
+    [100, 100, false],
+    [undefined, 100, false],
+    [100, undefined, false],
+    [NaN, 100, false],
+    [100, 0, false],
+  ] as const)(
+    'merges a cross-space deletion at %s and live record at %s',
+    (deletedTime, liveTime, deletionWins) => {
+      const tombstone = record({
+        dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+        dataTime: deletedTime,
+        isDeleted: true,
+        serverUploaded: true,
+      });
+      const live = record({
+        ...tombstone,
+        pwdHash: 'hw-dek-current',
+        dataTime: liveTime,
+        isDeleted: false,
+      });
+      const forward = { ...tombstone };
+      const reverse = { ...live };
+
+      LocalDbBase.prototype._updateCloudSyncPoolItemFn({
+        item: forward,
+        updateItem: live,
+      });
+      LocalDbBase.prototype._updateCloudSyncPoolItemFn({
+        item: reverse,
+        updateItem: tombstone,
+      });
+
+      for (const result of [forward, reverse]) {
+        expect(result.isDeleted).toBe(deletionWins);
+        expect(result.dataTime).toBe(deletionWins ? deletedTime : liveTime);
+      }
+    },
+  );
+
   test('explicit local initialization can change encryption without inventing a modification time', () => {
     const local = record({});
     LocalDbBase.prototype._updateCloudSyncPoolItemFn({
@@ -84,5 +126,24 @@ describe('Cloud sync business versions across encryption key changes', () => {
     });
     expect(local.pwdHash).toBe('hw-dek-current');
     expect(local.dataTime).toBe(200);
+  });
+
+  test('an undated cross-space live rebuild never inherits the old deletion time', () => {
+    const local = record({
+      dataType: EPrimeCloudSyncDataType.AddressBook,
+      isDeleted: true,
+      serverUploaded: true,
+    });
+    LocalDbBase.prototype._updateCloudSyncPoolItemFn({
+      item: local,
+      updateItem: record({
+        dataType: local.dataType,
+        pwdHash: 'hw-dek-current',
+        dataTime: undefined,
+      }),
+    });
+    expect(local.pwdHash).toBe('hw-dek-current');
+    expect(local.isDeleted).toBe(false);
+    expect(local.dataTime).toBeUndefined();
   });
 });

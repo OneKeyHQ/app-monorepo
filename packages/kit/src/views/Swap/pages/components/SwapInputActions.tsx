@@ -18,6 +18,7 @@ import {
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
@@ -72,15 +73,17 @@ const SwapInputActions = ({
 }) => {
   const intl = useIntl();
   const { gtSm } = useMedia();
+  const isXmrSource = isXmrSwapNetwork(fromToken?.networkId);
 
   const needSwapPercentageInputStage = useMemo(() => {
     // Native media queries keep phone breakpoints on every screen, so a host
     // that opts in on native is trusted to have room for all three.
-    if (platformEnv.isNative || gtSm) {
-      return SwapPercentageInputStage;
-    }
-    return SwapPercentageInputStage.slice(1);
-  }, [gtSm]);
+    const stages =
+      platformEnv.isNative || gtSm
+        ? SwapPercentageInputStage
+        : SwapPercentageInputStage.slice(1);
+    return isXmrSource ? stages.filter((stage) => stage < 100) : stages;
+  }, [gtSm, isXmrSource]);
 
   const handleBuyPress = useSwapDepositEntryPress({
     token: fromToken,

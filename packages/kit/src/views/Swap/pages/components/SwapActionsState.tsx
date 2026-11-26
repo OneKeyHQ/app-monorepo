@@ -57,6 +57,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  isSwapOrBridgeQuoteType,
   isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
@@ -77,10 +78,12 @@ import {
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapTabSwitchType,
+  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSettledSwapRecipientRequired } from '../../hooks/useSettledSwapRecipientRequired';
@@ -120,6 +123,11 @@ import { SwapActionContentMotion } from './SwapActionContentMotion';
 import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
+import { SwapXmrPrivacyNotice } from './SwapXmrPrivacyNotice';
+
+const xmrNativePercentageStages = SwapPercentageInputStageForNative.filter(
+  (stage) => stage < 100,
+);
 
 interface ISwapActionsStateProps {
   disabled?: boolean;
@@ -443,6 +451,15 @@ const SwapActionsState = ({
   const [deferredQuote] = useSwapDeferredQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const isXmrSource = isXmrSwapNetwork(fromToken?.networkId);
+  const isXmrDestination = isXmrSwapNetwork(toToken?.networkId);
+  const xmrAddressInfo = isXmrSource ? swapFromAddressInfo : swapToAddressInfo;
+  const xmrNetworkId = isXmrSource ? fromToken?.networkId : toToken?.networkId;
+  const xmrAccountId = xmrAddressInfo.accountInfo?.account?.id;
+  const shouldShowXmrPrivacyNotice =
+    isSwapOrBridgeQuoteType(swapTypeSwitch) &&
+    (isXmrSource || isXmrDestination) &&
+    xmrAddressInfo.isAddressInfoReady;
   // Publishing a recipient must not change its own validation account or readiness.
   const recipientValidationAddressInfo = useSwapAddressInfo(
     ESwapDirectionType.TO,
@@ -477,7 +494,7 @@ const SwapActionsState = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { quoteLoading, quoteEventFetching } = useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
-    swapEnableRecipientAddress,
+    swapEnableRecipientAddress && !isXmrDestination,
   );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -606,6 +623,7 @@ const SwapActionsState = ({
 
   const shouldShowRecipientForCurrentState = useMemo(
     () =>
+      !isXmrDestination &&
       shouldShowSwapRecipientEntry({
         swapType: swapTypeSwitch,
         incognitoMode: swapIncognitoMode,
@@ -618,6 +636,7 @@ const SwapActionsState = ({
         hasToToken: Boolean(toToken),
       }),
     [
+      isXmrDestination,
       swapIncognitoMode,
       swapEnableRecipientAddress,
       recipientRequiredSettled,
@@ -660,12 +679,18 @@ const SwapActionsState = ({
 
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
+      !isXmrDestination &&
       shouldShowSwapIncognitoRecipientInput({
         incognitoMode: swapIncognitoMode,
         providerSupportsRecipient: providerSupportReceiveAddressSettled,
         swapType: swapTypeSwitch,
       }),
-    [swapIncognitoMode, providerSupportReceiveAddressSettled, swapTypeSwitch],
+    [
+      isXmrDestination,
+      swapIncognitoMode,
+      providerSupportReceiveAddressSettled,
+      swapTypeSwitch,
+    ],
   );
 
   const incognitoRecipientNetworkId =
@@ -800,6 +825,7 @@ const SwapActionsState = ({
       (!shouldRetryTokenDetails &&
         (swapActionState.disabled || swapActionState.isLoading)) ||
       shouldShowQuoteActionLoading ||
+      (isXmrDestination && swapActionState.shouldEnterRecipient) ||
       shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
@@ -1629,6 +1655,7 @@ const SwapActionsState = ({
         {!platformEnv.isNativeIOS ? (
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
+            stageList={isXmrSource ? xmrNativePercentageStages : undefined}
           />
         ) : null}
       </Page.Footer>
@@ -1640,6 +1667,7 @@ const SwapActionsState = ({
       desktopActionButtonRef,
       desktopActionWidth,
       isActionDisabled,
+      isXmrSource,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,
@@ -1655,16 +1683,26 @@ const SwapActionsState = ({
           <Page.Footer>
             <PercentageStageOnKeyboard
               onSelectPercentageStage={onSelectPercentageStage}
+              stageList={isXmrSource ? xmrNativePercentageStages : undefined}
             />
           </Page.Footer>
         ) : null}
       </>
     ),
-    [actionComponent, onSelectPercentageStage],
+    [actionComponent, isXmrSource, onSelectPercentageStage],
   );
 
   return (
     <>
+      {shouldShowXmrPrivacyNotice && xmrNetworkId && xmrAccountId ? (
+        <SwapXmrPrivacyNotice
+          accountId={xmrAccountId}
+          networkId={xmrNetworkId}
+          walletId={xmrAddressInfo.accountInfo?.wallet?.id}
+          fromAmount={isXmrSource ? fromTokenAmount.value : undefined}
+          onBalanceVerified={requestSelectedTokenBalanceRefresh}
+        />
+      ) : null}
       {isDesktopModalPage ? (
         <>
           {desktopModalRecipientSection}

@@ -15,12 +15,14 @@ export function useSwapReviewQuoteExpiry({
   enabled,
   quoteResult,
   expiredTime,
+  absoluteDeadline,
   expiryKey,
   ready,
 }: {
   enabled: boolean;
   quoteResult?: IFetchQuoteResult;
   expiredTime?: number;
+  absoluteDeadline?: number;
   expiryKey?: string;
   ready: boolean;
 }) {
@@ -28,6 +30,7 @@ export function useSwapReviewQuoteExpiry({
     | {
         key: string | IFetchQuoteResult;
         deadline?: number;
+        absoluteDeadline?: number;
         confirmed?: boolean;
       }
     | undefined
@@ -40,29 +43,34 @@ export function useSwapReviewQuoteExpiry({
       return;
     }
     const key = expiryKey ?? quoteResult;
-    if (expiryRef.current?.key === key) {
+    if (
+      expiryRef.current?.key === key &&
+      expiryRef.current.absoluteDeadline === absoluteDeadline
+    ) {
       return;
     }
 
     const duration = expiredTime;
-    let deadline: number | undefined;
-    if (duration !== undefined) {
+    let deadline = absoluteDeadline;
+    if (deadline === undefined && duration !== undefined) {
       deadline =
         Number.isFinite(duration) && duration > 0
           ? Date.now() + duration * 1000
           : Date.now();
       if (!Number.isFinite(deadline)) deadline = Date.now();
     }
-    expiryRef.current = { key, deadline };
+    expiryRef.current = { key, deadline, absoluteDeadline };
     setExpired(deadline !== undefined && deadline <= Date.now());
     setRevision((value) => value + 1);
-  }, [enabled, expiredTime, expiryKey, quoteResult, ready]);
+  }, [absoluteDeadline, enabled, expiredTime, expiryKey, quoteResult, ready]);
 
   const checkExpired = useCallback(() => {
     const expiry = expiryRef.current;
     const deadline = expiry?.deadline;
     const isExpired =
-      !expiry?.confirmed && deadline !== undefined && Date.now() >= deadline;
+      (!expiry?.confirmed || expiry.absoluteDeadline !== undefined) &&
+      deadline !== undefined &&
+      Date.now() >= deadline;
     if (isExpired) {
       setExpired(true);
     }
@@ -89,12 +97,16 @@ export function useSwapReviewQuoteExpiry({
   useEffect(() => {
     const expiry = expiryRef.current;
     const deadline = expiry?.deadline;
-    if (!enabled || !expiry || expiry.confirmed || deadline === undefined) {
+    if (!enabled || !expiry || deadline === undefined) {
       return;
     }
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
-      if (expiryRef.current !== expiry || expiry.confirmed) return;
+      if (
+        expiryRef.current !== expiry ||
+        (expiry.confirmed && expiry.absoluteDeadline === undefined)
+      )
+        return;
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
         setExpired(true);
