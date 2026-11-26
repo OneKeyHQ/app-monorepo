@@ -95,6 +95,7 @@ type IPerpDepthChartProps = {
   targetKey: string;
   tickLabel: string;
   showHeader?: boolean;
+  interactionEnabled?: boolean;
   referenceMidPrice?: number;
 };
 
@@ -701,6 +702,7 @@ export function PerpDepthChart({
   targetKey,
   tickLabel,
   showHeader = true,
+  interactionEnabled = true,
   referenceMidPrice,
 }: IPerpDepthChartProps) {
   const intl = useIntl();
@@ -744,9 +746,10 @@ export function PerpDepthChart({
   );
   const midPrice = geometry?.midPrice;
   const stale = status === 'stale';
+  const interactive = interactionEnabled && status === 'ready';
   const plotRef = useRef<ComponentRef<typeof YStack>>(null);
   const wheelEnabled =
-    status === 'ready' &&
+    interactive &&
     Boolean(geometry) &&
     !platformEnv.isNative &&
     !platformEnv.isWebMobile;
@@ -938,7 +941,8 @@ export function PerpDepthChart({
               >
                 {statusLabel}
               </SizableText>
-            ) : (
+            ) : null}
+            {interactive ? (
               <DepthChartInteraction
                 key={targetKey}
                 geometry={geometry}
@@ -948,7 +952,7 @@ export function PerpDepthChart({
                 priceDecimals={priceDigits}
                 sizeDecimals={sizeDigits}
               />
-            )}
+            ) : null}
           </>
         ) : (
           <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">

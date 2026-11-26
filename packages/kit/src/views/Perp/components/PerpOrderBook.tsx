@@ -3,9 +3,11 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -22,6 +24,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -46,6 +49,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
@@ -489,17 +493,24 @@ const MobileHeaderMemo = memo(MobileHeader);
 const MOBILE_SPOT_MAX_LEVELS_PER_SIDE = 4;
 const EMPTY_BOOK_LEVELS: IBookLevel[] = [];
 const PerpDepthChartMemo = memo(PerpDepthChart);
+type IDepthBook = ReturnType<typeof usePerpDepthBook>;
+
+function getDepthBookTimestamp(book: IDepthBook['book']) {
+  return book?.localReceivedAt ?? book?.time ?? 0;
+}
 
 function PerpDepthChartView({
   instrument,
   entry,
   depthBook,
   showHeader,
+  interactionEnabled,
 }: {
   instrument: IActiveTradeInstrument;
   entry?: IPerpOrderBookProps['entry'];
-  depthBook: ReturnType<typeof usePerpDepthBook>;
+  depthBook: IDepthBook;
   showHeader?: boolean;
+  interactionEnabled?: boolean;
 }) {
   const {
     book,
@@ -558,6 +569,7 @@ function PerpDepthChartView({
     >
       <PerpDepthChartMemo
         showHeader={showHeader}
+        interactionEnabled={interactionEnabled}
         bids={bids}
         asks={asks}
         quoteSymbol={isSpot ? (universe?.quoteName ?? 'USDC') : 'USDC'}
@@ -596,6 +608,108 @@ function PerpDepthChartContent({
   ) : null;
 }
 
+const PerpDepthBookBridge = memo(function PerpDepthBookBridge({
+  instrument,
+  onDisplay,
+}: {
+  instrument: IActiveTradeInstrument;
+  onDisplay: (snapshot: IDepthBook) => void;
+}) {
+  const depthBook = usePerpDepthBook(instrument, true);
+  useLayoutEffect(() => onDisplay(depthBook), [depthBook, onDisplay]);
+  return null;
+});
+
+function PerpWorkspaceDepthChart({
+  active,
+  instrument,
+  visible,
+  showHeader,
+}: {
+  active: boolean;
+  instrument: IActiveTradeInstrument;
+  visible: boolean;
+  showHeader?: boolean;
+}) {
+  const [display, setDisplay] = useState<{
+    snapshot: IDepthBook;
+    awaitingFreshBook: boolean;
+  }>();
+  useLayoutEffect(() => {
+    if (!active) {
+      setDisplay((previous) =>
+        previous?.snapshot.book && !previous.awaitingFreshBook
+          ? { ...previous, awaitingFreshBook: true }
+          : previous,
+      );
+    }
+  }, [active]);
+  const handleDisplay = useCallback((snapshot: IDepthBook) => {
+    setDisplay((previous) => {
+      if (previous?.awaitingFreshBook) {
+        // Reattaching to the shared book can replay the frame from before blur.
+        const isFresh =
+          snapshot.status === 'ready' || snapshot.status === 'empty';
+        if (
+          !isFresh ||
+          getDepthBookTimestamp(snapshot.book) <=
+            getDepthBookTimestamp(previous.snapshot.book)
+        ) {
+          return previous;
+        }
+      }
+      return previous?.snapshot === snapshot && !previous.awaitingFreshBook
+        ? previous
+        : { snapshot, awaitingFreshBook: false };
+    });
+  }, []);
+
+  return (
+    <>
+      {visible && display ? (
+        <PerpDepthChartView
+          instrument={instrument}
+          depthBook={
+            active && display.awaitingFreshBook
+              ? { ...display.snapshot, status: 'stale' }
+              : display.snapshot
+          }
+          showHeader={showHeader}
+          interactionEnabled={active}
+        />
+      ) : null}
+      {active ? (
+        <PerpDepthBookBridge
+          instrument={instrument}
+          onDisplay={handleDisplay}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function isPerpWorkspaceCoveredByModal() {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) return false;
+  const mainIndex = state.routes.findIndex(
+    ({ name }) => name === ERootRoutes.Main,
+  );
+  if (mainIndex < 0 || mainIndex >= state.index) return false;
+  const tabState = state.routes[mainIndex]?.state;
+  const tab = tabState?.routes[tabState.index ?? 0];
+  const perpStack = tab?.state;
+  return (
+    tab?.name === ETabRoutes.Perp &&
+    perpStack?.routes[perpStack.index ?? 0]?.name === ETabRoutes.Perp &&
+    state.routes
+      .slice(mainIndex + 1, state.index + 1)
+      .every(
+        ({ name }) =>
+          name === ERootRoutes.Modal || name === ERootRoutes.iOSFullScreen,
+      )
+  );
+}
+
 function PerpDepthChartForActiveInstrument({
   entry,
   visible,
@@ -606,8 +720,42 @@ function PerpDepthChartForActiveInstrument({
 }) {
   const [instrument] = useActiveTradeInstrumentAtom();
   const foreground = usePerpMarketForeground();
+  const isWorkspace = entry === 'perpTab' && !platformEnv.isNative;
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const unsubscribe = isWorkspace
+        ? rootNavigationRef.current?.addListener('state', onChange)
+        : undefined;
+      return () => unsubscribe?.();
+    },
+    [isWorkspace],
+  );
+  const getCoveredByModal = useCallback(
+    () => isWorkspace && isPerpWorkspaceCoveredByModal(),
+    [isWorkspace],
+  );
+  const coveredByModal = useSyncExternalStore(
+    subscribe,
+    getCoveredByModal,
+    getCoveredByModal,
+  );
   const marketKey = `${instrument.mode}:${instrument.coin}`;
-  const active = usePerpDepthSubscriptionActive(marketKey, visible, foreground);
+  const active = usePerpDepthSubscriptionActive(
+    marketKey,
+    visible,
+    foreground && !coveredByModal,
+  );
+  if (isWorkspace) {
+    return active || (visible && coveredByModal) ? (
+      <PerpWorkspaceDepthChart
+        active={active}
+        instrument={instrument}
+        visible={visible}
+        showHeader={showHeader}
+        key={marketKey}
+      />
+    ) : null;
+  }
   return active ? (
     <PerpDepthChartContent
       entry={entry}
