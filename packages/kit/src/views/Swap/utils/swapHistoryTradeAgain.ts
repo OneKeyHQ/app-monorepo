@@ -59,6 +59,16 @@ function getTokenIdentity(token?: ISwapToken): ISwapToken | undefined {
       ? { isNative: token.isNative }
       : {}),
     ...(typeof token.isStock === 'boolean' ? { isStock: token.isStock } : {}),
+    ...(token.isStock && token.stock
+      ? {
+          stock: {
+            subtitle: '',
+            sourceLogoUri: '',
+            stockId: token.stock.stockId,
+            underlyingAssetTicker: token.stock.underlyingAssetTicker,
+          },
+        }
+      : {}),
     ...(typeof token.riskLevel === 'number' && Number.isFinite(token.riskLevel)
       ? { riskLevel: token.riskLevel }
       : {}),
