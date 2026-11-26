@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { useReducedMotion } from 'react-native-reanimated';
+import { AccessibilityInfo } from 'react-native';
 
 import { Image } from '@onekeyhq/components';
 import orbFallbackImage from '@onekeyhq/kit/assets/onboarding/orb-fallback.png';
@@ -16,8 +16,35 @@ export type { IOrbShaderProps };
 
 export function OrbShader(props: IOrbShaderProps) {
   const { paused, size = 240 } = props;
-  const reduceMotion = useReducedMotion();
+  const [reduceMotion, setReduceMotion] = useState(true);
   const [gifFailed, setGifFailed] = useState(false);
+
+  useEffect(() => {
+    let needsInitialRead = true;
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      (enabled) => {
+        needsInitialRead = false;
+        setReduceMotion(enabled);
+      },
+    );
+
+    void AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (needsInitialRead) {
+          setReduceMotion(enabled);
+        }
+      })
+      .catch(() => {
+        // Keep the still image if the native preference is unavailable.
+      });
+
+    return () => {
+      needsInitialRead = false;
+      subscription.remove();
+    };
+  }, []);
+
   const playGif = !paused && !reduceMotion && !gifFailed;
   const fallback = (
     <Image
@@ -33,7 +60,7 @@ export function OrbShader(props: IOrbShaderProps) {
       width={size}
       height={size}
       resizeMode="contain"
-      onError={() => setGifFailed(true)}
+      onError={playGif ? () => setGifFailed(true) : undefined}
     />
   );
 

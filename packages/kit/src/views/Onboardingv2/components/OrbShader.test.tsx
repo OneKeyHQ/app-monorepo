@@ -10,9 +10,14 @@ import type { FrameInfo } from 'react-native-reanimated';
 
 const fallbackTestId = 'onboarding-orb-fallback';
 let mockIsMacCatalyst = false;
-let mockReduceMotion = false;
 let mockFrame: (info: FrameInfo) => void;
 let mockUniforms: { readonly value: { uRot: number; uTime: number } };
+const mockGetReduceMotion = jest.fn<Promise<boolean>, []>();
+const mockRemoveReduceMotionListener = jest.fn();
+const mockAddReduceMotionListener = jest.fn<
+  { remove: () => void },
+  [event: 'reduceMotionChanged', listener: (enabled: boolean) => void]
+>(() => ({ remove: mockRemoveReduceMotionListener }));
 const mockCompileShader = jest.fn<unknown, []>();
 const mockLoadSkiaWeb = jest.fn<
   Promise<void>,
@@ -36,6 +41,12 @@ jest.mock('@shopify/react-native-skia/lib/commonjs/web/LoadSkiaWeb', () => ({
 jest.mock('canvaskit-wasm/bin/full/canvaskit.wasm', () => 'canvaskit.wasm');
 
 jest.mock('react-native', () => ({
+  AccessibilityInfo: {
+    addEventListener: (
+      ...args: Parameters<typeof mockAddReduceMotionListener>
+    ) => mockAddReduceMotionListener(...args),
+    isReduceMotionEnabled: () => mockGetReduceMotion(),
+  },
   StyleSheet: { create: (styles: unknown) => styles },
 }));
 
@@ -50,7 +61,6 @@ jest.mock('react-native-reanimated', () => {
     useFrameCallback: (callback: (info: FrameInfo) => void) => {
       mockFrame = callback;
     },
-    useReducedMotion: () => mockReduceMotion,
     useSharedValue: (value: unknown) => useState(() => ({ value }))[0],
   };
 });
@@ -69,7 +79,7 @@ jest.mock('@onekeyhq/components', () => ({
     width: number;
     height: number;
     autoplay?: boolean;
-    onError: () => void;
+    onError?: () => void;
   }) {
     return (
       <img
@@ -139,7 +149,9 @@ const originalMatchMedia = globalThis.matchMedia;
 
 beforeEach(() => {
   mockIsMacCatalyst = false;
-  mockReduceMotion = false;
+  mockGetReduceMotion.mockReset().mockResolvedValue(false);
+  mockAddReduceMotionListener.mockClear();
+  mockRemoveReduceMotionListener.mockClear();
   mockCompileShader.mockReset().mockReturnValue({});
   mockLoadSkiaWeb.mockReset().mockResolvedValue(undefined);
   motionPreference.matches = false;
@@ -237,20 +249,29 @@ it('honors Web reduced motion before loading CanvasKit and responds to changes',
   expect(screen.queryByTestId('skia-orb')).toBeNull();
 });
 
-it('loops the image on Catalyst without initializing Skia', () => {
+it('updates GIF playback on Catalyst when the live preference changes', async () => {
   mockIsMacCatalyst = true;
-  render(<SetupContent native />);
+  await act(async () => render(<SetupContent native />));
 
   const fallback = screen.getByTestId(fallbackTestId);
+  const [event, onMotionChange] = mockAddReduceMotionListener.mock.calls[0];
+  expect(event).toBe('reduceMotionChanged');
+  expect(fallback.getAttribute('data-autoplay')).toBe('true');
+  act(() => onMotionChange(true));
+  expect(fallback.getAttribute('data-autoplay')).toBe('false');
+  fireEvent.error(fallback);
+  act(() => onMotionChange(false));
   expect(fallback.getAttribute('data-autoplay')).toBe('true');
   fireEvent.error(fallback);
   expect(fallback.getAttribute('data-autoplay')).toBe('false');
   expect(mockCompileShader).not.toHaveBeenCalled();
 });
 
-it('uses the animated native fallback when the shader cannot compile', () => {
+it('uses the animated native fallback when the shader cannot compile', async () => {
   mockCompileShader.mockReturnValue(null);
-  render(<SetupContent native />, { onCaughtError: jest.fn() });
+  await act(async () =>
+    render(<SetupContent native />, { onCaughtError: jest.fn() }),
+  );
 
   expect(mockCompileShader).toHaveBeenCalled();
   expect(screen.getByTestId(fallbackTestId).getAttribute('data-autoplay')).toBe(
@@ -259,9 +280,9 @@ it('uses the animated native fallback when the shader cannot compile', () => {
   expect(screen.getByRole('button', { name: 'Enter wallet' })).toBeTruthy();
 });
 
-it('uses the same still image for native reduced motion even if Skia is available', () => {
-  mockReduceMotion = true;
-  render(<SetupContent native />);
+it('starts with the still image for native reduced motion and switches renderers on change', async () => {
+  mockGetReduceMotion.mockResolvedValue(true);
+  await act(async () => render(<SetupContent native />));
 
   const fallback = screen.getByTestId(fallbackTestId);
   expect(fallback.getAttribute('width')).toBe('180');
@@ -269,10 +290,39 @@ it('uses the same still image for native reduced motion even if Skia is availabl
   expect(fallback.getAttribute('data-autoplay')).toBe('false');
   expect(mockCompileShader).not.toHaveBeenCalled();
   expect(screen.queryByTestId('skia-orb')).toBeNull();
+
+  const [, onMotionChange] = mockAddReduceMotionListener.mock.calls[0];
+  act(() => onMotionChange(false));
+  expect(screen.getByTestId('skia-orb')).toBeTruthy();
+  act(() => onMotionChange(true));
+  expect(screen.getByTestId(fallbackTestId).getAttribute('data-autoplay')).toBe(
+    'false',
+  );
+  expect(screen.queryByTestId('skia-orb')).toBeNull();
 });
 
-it('holds the rotation on Ready while texture time continues and resumes from that angle', () => {
-  const { rerender } = render(<SetupContent native />);
+it('keeps the newer native preference when the initial read resolves late', async () => {
+  let resolveInitialPreference!: (value: boolean) => void;
+  mockGetReduceMotion.mockReturnValue(
+    new Promise((resolve) => {
+      resolveInitialPreference = resolve;
+    }),
+  );
+  const { unmount } = render(<SetupContent native />);
+  expect(screen.queryByTestId('skia-orb')).toBeNull();
+
+  const [, onMotionChange] = mockAddReduceMotionListener.mock.calls[0];
+  act(() => onMotionChange(true));
+  await act(async () => resolveInitialPreference(false));
+  expect(screen.queryByTestId('skia-orb')).toBeNull();
+  expect(mockCompileShader).not.toHaveBeenCalled();
+
+  unmount();
+  expect(mockRemoveReduceMotionListener).toHaveBeenCalledTimes(1);
+});
+
+it('holds the rotation on Ready while texture time continues and resumes from that angle', async () => {
+  const { rerender } = await act(async () => render(<SetupContent native />));
   mockFrame({
     timestamp: 1000,
     timeSinceFirstFrame: 1000,
