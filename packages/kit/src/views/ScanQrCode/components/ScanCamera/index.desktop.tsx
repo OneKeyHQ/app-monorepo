@@ -14,7 +14,11 @@ import { StyleSheet, View } from 'react-native';
 import { desktopQrPreviewPrefix } from '@onekeyhq/shared/types/desktopQrScanner';
 
 import { supportsDesktopQrCapture } from './cameraChoice';
-import { readDomFocusPoint, useDomFocusBox } from './FocusBox';
+import {
+  mapDomFocusPoint,
+  readDomFocusPoint,
+  useDomFocusBox,
+} from './FocusBox';
 import { ScanCamera as WebScanCamera } from './index.tsx';
 import { ensureWebQrScannerConfigured } from './webQrScanner';
 
@@ -51,6 +55,8 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       onFrameSymbols,
       multiSymbol,
       frozen,
+      focusRequest,
+      onPreviewTap,
       onCameraReady,
       onCameraError,
       onWebCameraFallback,
@@ -60,7 +66,14 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     ref,
   ) {
     const canvas = useRef<HTMLCanvasElement>(null);
-    const activeSessionId = useRef<string | undefined>(undefined);
+    const captureState = useRef<
+      | {
+          sessionId: string;
+          frozen: boolean;
+          revision: number;
+        }
+      | undefined
+    >(undefined);
     const stop = useRef<(() => void) | undefined>(undefined);
     const desiredMultiSymbol = useRef(Boolean(multiSymbol));
     desiredMultiSymbol.current = Boolean(multiSymbol);
@@ -83,8 +96,9 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     const onCanvasClick = useCallback(
       (event: MouseEvent<HTMLCanvasElement>) => {
         const scanner = globalThis.desktopApi?.qrScanner;
-        const sessionId = activeSessionId.current;
+        const sessionId = captureState.current?.sessionId;
         if (frozen || !scanner || !sessionId) return;
+        onPreviewTap?.();
         const { width, height } = event.currentTarget;
         const point = readDomFocusPoint(event, { width, height });
         requestFocus(
@@ -97,7 +111,7 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
             )) === true,
         );
       },
-      [frozen, requestFocus],
+      [frozen, onPreviewTap, requestFocus],
     );
 
     useImperativeHandle(ref, () => ({ dispose: () => stop.current?.() }), []);
@@ -108,7 +122,8 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       if (!scanner || !preview) return;
 
       const sessionId = crypto.randomUUID();
-      activeSessionId.current = sessionId;
+      const capture = { sessionId, frozen: false, revision: 0 };
+      captureState.current = capture;
       preview.id = desktopQrPreviewPrefix + sessionId;
       let active = true;
       let verifyingPreview = false;
@@ -116,8 +131,8 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         if (!active) return;
         active = false;
         resetFocusBox();
-        if (activeSessionId.current === sessionId) {
-          activeSessionId.current = undefined;
+        if (captureState.current?.sessionId === sessionId) {
+          captureState.current = undefined;
         }
         preview.removeAttribute('id');
         preview.width = 0;
@@ -131,13 +146,21 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       const verifyPreview: NonNullable<
         IMultiQrFrameEvent['verifyPreview']
       > = async (receive) => {
-        if (verifyingPreview || !scanner.setPreviewFrozen) return;
+        const revision = capture.revision;
+        if (
+          verifyingPreview ||
+          capture.frozen ||
+          !scanner.setPreviewFrozen ||
+          (scanner.hasFreshPreview &&
+            !scanner.hasFreshPreview(sessionId, revision))
+        )
+          return;
         verifyingPreview = true;
         // Native symbols and shared textures arrive on separate channels. Decode
         // the pinned canvas before attaching selectable payloads to its pixels.
         let selected = false;
         try {
-          scanner.setPreviewFrozen(sessionId, true);
+          scanner.setPreviewFrozen(sessionId, true, revision);
           ensureWebQrScannerConfigured();
           const image = await new Promise<Blob | null>((resolve) =>
             preview.toBlob(resolve),
@@ -145,7 +168,12 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           if (!image || !active) return;
           const { symbols, width, height, partial } =
             await decodeQrImageSymbols(image);
-          if (active && !partial && symbols.length >= 2) {
+          if (
+            active &&
+            capture.revision === revision &&
+            !partial &&
+            symbols.length > 0
+          ) {
             selected =
               receive({
                 symbols,
@@ -161,13 +189,27 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           );
         } finally {
           verifyingPreview = false;
-          if (active && !selected) scanner.setPreviewFrozen?.(sessionId, false);
+          if (
+            active &&
+            !selected &&
+            capture.revision === revision &&
+            !capture.frozen
+          ) {
+            scanner.setPreviewFrozen?.(sessionId, false, revision);
+          }
         }
       };
       const unsubscribe = scanner.onEvent((event) => {
         if (!active || event.sessionId !== sessionId) return;
         if (event.type === 'ready')
           handlers.current.onCameraReady?.(event.cameraId);
+        if (
+          (event.type === 'text' || event.type === 'symbols') &&
+          (capture.frozen ||
+            (event.analysisRevision !== undefined &&
+              event.analysisRevision !== capture.revision))
+        )
+          return;
         if (event.type === 'text')
           handlers.current.handleScanResult?.(event.text);
         if (event.type === 'symbols') {
@@ -209,20 +251,63 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
 
     useEffect(() => {
       const scanner = globalThis.desktopApi?.qrScanner;
-      const sessionId = activeSessionId.current;
+      const sessionId = captureState.current?.sessionId;
       if (!scanner || !sessionId) return;
       void scanner.setMultiSymbol?.(sessionId, Boolean(multiSymbol));
     }, [multiSymbol]);
 
+    const pauseUpdate = useRef<Promise<void> | undefined>(undefined);
     useEffect(() => {
       const scanner = globalThis.desktopApi?.qrScanner;
-      const sessionId = activeSessionId.current;
-      if (!scanner || !sessionId) return;
+      const capture = captureState.current;
+      if (!scanner || !capture) return;
       const nextFrozen = Boolean(frozen);
+      if (capture.frozen !== nextFrozen) {
+        capture.frozen = nextFrozen;
+        capture.revision += 1;
+      }
       if (nextFrozen) resetFocusBox();
-      scanner.setPreviewFrozen?.(sessionId, nextFrozen);
-      void scanner.setPaused?.(sessionId, nextFrozen);
-    }, [frozen, resetFocusBox]);
+      scanner.setPreviewFrozen?.(
+        capture.sessionId,
+        nextFrozen,
+        capture.revision,
+      );
+      pauseUpdate.current = scanner
+        .setPaused?.(capture.sessionId, nextFrozen, capture.revision)
+        .catch(() => {});
+    }, [cameraId, frozen, resetFocusBox]);
+
+    const appliedFocusRequest = useRef<number | undefined>(undefined);
+    useEffect(() => {
+      if (
+        frozen ||
+        !focusRequest ||
+        appliedFocusRequest.current === focusRequest.id
+      )
+        return;
+      appliedFocusRequest.current = focusRequest.id;
+      const scanner = globalThis.desktopApi?.qrScanner;
+      const sessionId = captureState.current?.sessionId;
+      const preview = canvas.current;
+      if (!scanner?.focus || !sessionId || !preview) return;
+      const point = mapDomFocusPoint(preview, preview, focusRequest);
+      let current = true;
+      requestFocus(point, async () => {
+        await pauseUpdate.current;
+        if (!current || captureState.current?.sessionId !== sessionId)
+          return false;
+        return (
+          (await scanner.focus?.(
+            sessionId,
+            point.normalizedX,
+            point.normalizedY,
+          )) === true
+        );
+      });
+      return () => {
+        current = false;
+      };
+    }, [focusRequest, frozen, requestFocus]);
 
     return (
       <View style={[styles.container, style]} onLayout={onLayout}>

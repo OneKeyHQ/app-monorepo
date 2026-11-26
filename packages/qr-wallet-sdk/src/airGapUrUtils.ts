@@ -2,8 +2,13 @@ import { decodeToDataItem } from '@keystonehq/bc-ur-registry';
 import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 import { isString } from 'lodash';
 
+import {
+  assertBoundedCbor,
+  checkUrPart,
+  urTooLargeError,
+} from '@onekeyhq/shared/src/utils/boundedUr';
+
 import { AirGapUR, AirGapURDecoder, AirGapUREncoder } from './AirGapUR';
-import { assertBoundedCbor, checkUrPart, urTooLargeError } from './boundedUr';
 
 import type { IAirGapUrJson } from './AirGapUR';
 

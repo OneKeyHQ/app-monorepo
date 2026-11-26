@@ -1,7 +1,6 @@
-// The bounds module alone, so parsing does not pull the whole QR wallet SDK in.
-import { UrScanRejectedError } from '@onekeyhq/qr-wallet-sdk/src/boundedUr';
 import { OneKeyErrorAirGapInvalidQrCode } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { UrScanRejectedError } from '@onekeyhq/shared/src/utils/boundedUr';
 import {
   EQRCodeHandlerType,
   PARSE_HANDLER_NAMES,
