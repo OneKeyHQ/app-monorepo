@@ -112,7 +112,8 @@ export function shouldRecheckWalletLocalSecretEnvelopeIssue(
   issue: ILocalSecretEnvelopeCredentialIssue | undefined,
 ): boolean {
   return (
-    platformEnv.isNativeAndroid && issue?.reason === 'authentication-failed'
+    platformEnv.isNativeAndroid === true &&
+    issue?.reason === 'authentication-failed'
   );
 }
 
