@@ -116,9 +116,12 @@ export function useDomFocusBox() {
             current ? { ...current, phase: 'fading' } : undefined,
           );
         }, FOCUS_SHRINK_MS + FOCUS_HOLD_MS),
-        setTimeout(() => {
-          setBox(undefined);
-        }, FOCUS_SHRINK_MS + FOCUS_HOLD_MS + FOCUS_SHRINK_MS),
+        setTimeout(
+          () => {
+            setBox(undefined);
+          },
+          FOCUS_SHRINK_MS + FOCUS_HOLD_MS + FOCUS_SHRINK_MS,
+        ),
       );
     },
     [clearTimers],

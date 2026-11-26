@@ -43,7 +43,10 @@ jest.mock('./webQrScanner', () => ({
 }));
 jest.mock('@onekeyfe/react-native-qr-scanner/web', () => {
   class QrScannerError extends Error {
-    constructor(readonly code: string, message: string) {
+    constructor(
+      readonly code: string,
+      message: string,
+    ) {
       super(message);
     }
   }

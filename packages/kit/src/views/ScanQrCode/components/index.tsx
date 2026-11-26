@@ -168,9 +168,8 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
 
         isHandlingFrame.current = true;
         try {
-          const { progress: progressValue, retry } = await handleBarCodeScanned(
-            data,
-          );
+          const { progress: progressValue, retry } =
+            await handleBarCodeScanned(data);
           if (retry) {
             frameGate.current.release(data);
             return 'retry';
@@ -264,8 +263,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         return;
       }
       return coordinator.receiveFrame(symbols);
-    },
-    []);
+    }, []);
 
     const handleSelectMultiSymbol = useCallback((symbol: IMultiQrSymbol) => {
       coordinatorRef.current?.selectSymbol(symbol);
