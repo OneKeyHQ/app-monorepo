@@ -4,7 +4,11 @@ import type { IIntercomVisitor } from '@onekeyhq/shared/src/modules3rdParty/inte
 import { intercomRecord } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerModels';
 import type {
   IIntercomConversation,
+  IIntercomHome,
+  IIntercomInbox,
+  IIntercomMessengerSession,
   IIntercomNotification,
+  IIntercomOpen,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { notifyIntercomOpenFailed } from '@onekeyhq/shared/src/modules3rdParty/intercom/openFailure';
 import {
@@ -49,6 +53,14 @@ const notificationListeners = new Set<() => void>();
 let notification: IIntercomNotification | undefined;
 let pushedConversationId: string | undefined;
 const openGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
+type IIntercomResponses = {
+  inbox: IIntercomInbox;
+  open: IIntercomOpen;
+  home: IIntercomHome;
+};
+// The live session's last answers to the support screens' reads. Memory only:
+// they end with the session on identity changes and locks.
+let responses: Partial<IIntercomResponses> = {};
 
 function setUnread(ids: string[]) {
   unreadIds = new Set(ids);
@@ -85,6 +97,7 @@ function invalidate() {
   revision += 1;
   client?.dispose();
   client = undefined;
+  responses = {};
   setUnread([]);
   setNotification(undefined);
   pushedConversationId = undefined;
@@ -378,6 +391,36 @@ export async function createIntercomMessengerSession(
       .catch(() => undefined);
   }
   return active.api;
+}
+
+// The live session of this identity without revalidating it. A support screen
+// that opens again renders the session's cached answers at once and sends its
+// reads only after createIntercomMessengerSession confirms the session.
+export function peekIntercomMessengerSession(expectedUserId: string | null) {
+  if (
+    !client ||
+    owner !== expectedUserId ||
+    identityTransition ||
+    identitySyncRequired ||
+    isLocked()
+  )
+    return undefined;
+  return client.api;
+}
+
+export function getIntercomResponseCache<K extends keyof IIntercomResponses>(
+  session: IIntercomMessengerSession | undefined,
+  key: K,
+) {
+  if (!session) return undefined;
+  // A retired session neither shows nor stores answers, even ones that arrive late.
+  const live = () => session === client?.api && !isLocked();
+  return {
+    read: () => (live() ? responses[key] : undefined),
+    save: (data: IIntercomResponses[K]) => {
+      if (live()) responses[key] = data;
+    },
+  };
 }
 
 async function pollUnread() {

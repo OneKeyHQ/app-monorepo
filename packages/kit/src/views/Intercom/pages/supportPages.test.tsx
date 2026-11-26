@@ -77,9 +77,20 @@ function SupportScreen() {
 }
 
 const mockCreateSession = jest.fn(async () => mockSession);
+// The live session that a reopened screen may reuse, and its cached answers.
+let mockLiveSession: IIntercomMessengerSession | undefined;
+const mockResponses = new Map<string, unknown>();
 
 jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   createIntercomMessengerSession: () => mockCreateSession(),
+  peekIntercomMessengerSession: () => mockLiveSession,
+  getIntercomResponseCache: (session: unknown, key: string) =>
+    session
+      ? {
+          read: () => mockResponses.get(key),
+          save: (data: unknown) => mockResponses.set(key, data),
+        }
+      : undefined,
   showIntercom: jest.fn(),
 }));
 jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/upload', () => ({
@@ -504,6 +515,8 @@ beforeEach(() => {
   mockFailRefresh = false;
   mockFocused = true;
   mockStackIndex = 1;
+  mockLiveSession = undefined;
+  mockResponses.clear();
   mockRoute.name = 'IntercomConversation';
   mockRoute.params = { userId: null };
   mockRequest.mockReset().mockImplementation(async (path) => {
@@ -1445,6 +1458,85 @@ it('keeps the loaded home in place while a failed section retries', async () => 
   await act(async () => retry.resolve());
   await waitFor(() => expect(screen.queryByText('Loading')).toBeNull());
   expect(screen.queryByTestId('support-retry')).toBeNull();
+});
+
+// Loads the support home once, so its answers stay with the live session.
+async function openSupportHomeOnce() {
+  mockRoute.name = 'IntercomHome';
+  const view = render(<SupportScreen />);
+  await screen.findByTestId('support-conversation-42');
+  view.unmount();
+  mockLiveSession = mockSession;
+  mockRequest.mockClear();
+}
+
+it('paints a reopened support home from the live session and refreshes it in place', async () => {
+  await openSupportHomeOnce();
+  const session = deferred<IIntercomMessengerSession>();
+  mockCreateSession.mockReturnValueOnce(session.promise);
+  render(<SupportScreen />);
+  expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+  expect(screen.getByTestId('support-article-123')).toBeTruthy();
+  expect(screen.getByTestId('support-message-history').textContent).toBe(
+    'Messages',
+  );
+  // Reads wait until the reused session is revalidated.
+  expect(mockRequest).not.toHaveBeenCalled();
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'conversations'
+      ? {
+          conversation_page: {
+            conversations: [{ ...conversation, id: '84' }],
+          },
+        }
+      : original?.(path, parameters),
+  );
+  await act(async () => session.resolve(mockSession));
+  await screen.findByTestId('support-conversation-84');
+  expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+  expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
+  expect(screen.queryByText('Loading')).toBeNull();
+});
+
+it('shows placeholders on reopen when no live session can be reused', async () => {
+  await openSupportHomeOnce();
+  mockLiveSession = undefined;
+  const session = deferred<IIntercomMessengerSession>();
+  mockCreateSession.mockReturnValueOnce(session.promise);
+  render(<SupportScreen />);
+  expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+  expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+  await act(async () => session.resolve(mockSession));
+  await screen.findByTestId('support-conversation-42');
+});
+
+it('keeps a reopened home with one retry and no reads when its session fails to revalidate', async () => {
+  await openSupportHomeOnce();
+  mockCreateSession.mockRejectedValueOnce(new OneKeyLocalError('offline'));
+  render(<SupportScreen />);
+  await screen.findByTestId('support-retry');
+  expect(screen.getAllByTestId('support-retry')).toHaveLength(1);
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+  expect(mockRequest).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByTestId('support-retry'));
+  await waitFor(() => expect(screen.queryByTestId('support-retry')).toBeNull());
+  await waitFor(() => expect(mockRequest).toHaveBeenCalledWith('home'));
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+});
+
+it('shows cached help suggestions at once and refreshes them without a spinner', async () => {
+  await openSupportHomeOnce();
+  mockRoute.name = 'IntercomHelp';
+  const home = holdRequest('home');
+  render(<SupportScreen />);
+  expect(screen.queryByTestId('support-help-skeleton')).toBeNull();
+  expect(screen.getByTestId('support-help-result-123')).toBeTruthy();
+  await waitFor(() => expect(mockRequest).toHaveBeenCalledWith('home'));
+  expect(screen.queryByText('Loading')).toBeNull();
+  expect(screen.getByTestId('support-help-result-123')).toBeTruthy();
+  await act(async () => home.resolve());
 });
 
 it('labels a known help article link in the app language and other links as served', async () => {

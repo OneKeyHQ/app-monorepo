@@ -8,7 +8,10 @@ import { Page } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { createIntercomMessengerSession } from '@onekeyhq/kit/src/views/Intercom/client';
+import {
+  createIntercomMessengerSession,
+  peekIntercomMessengerSession,
+} from '@onekeyhq/kit/src/views/Intercom/client';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import type { IIntercomMessengerSession } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
@@ -55,11 +58,16 @@ function SupportSessionContent({
     [route.userId, route.requestId],
   );
   const session = useSupportResource(createSession, focused && foreground);
+  // A screen that opens again renders the live session's cached answers at
+  // once. Only a revalidated session makes the screen active and sends reads.
+  const [liveSession] = useState(() =>
+    peekIntercomMessengerSession(route.userId),
+  );
   const retrySession = () => {
     void session.refresh();
   };
   const sharedProps = {
-    session: session.data,
+    session: session.data ?? liveSession,
     active: focused && foreground && !!session.data,
     sessionError: session.failed ? retrySession : undefined,
     route,

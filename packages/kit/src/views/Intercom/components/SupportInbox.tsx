@@ -23,6 +23,7 @@ import {
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
+import { getIntercomResponseCache } from '@onekeyhq/kit/src/views/Intercom/client';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -85,21 +86,35 @@ export function SupportInbox({
   const unread = useIntercomUnreadCount();
   // Unread replies can open the message list as the first support screen.
   const isFirstScreen = useNavigationState((state) => state.index === 0);
+  // Each section starts from the live session's last answer, so a support
+  // screen that opens again renders at once and refreshes in place.
   const load = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.listConversations();
   }, [session]);
-  const inbox = useSupportResource(load, active, true);
+  const inboxCache = useMemo(
+    () => getIntercomResponseCache(session, 'inbox'),
+    [session],
+  );
+  const inbox = useSupportResource(load, active, true, inboxCache);
   const loadOpen = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.getOpen();
   }, [session]);
-  const open = useSupportResource(loadOpen, active);
+  const openCache = useMemo(
+    () => getIntercomResponseCache(session, 'open'),
+    [session],
+  );
+  const open = useSupportResource(loadOpen, active, false, openCache);
   const loadHome = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.getHome();
   }, [session]);
-  const homeContent = useSupportResource(loadHome, active);
+  const homeCache = useMemo(
+    () => getIntercomResponseCache(session, 'home'),
+    [session],
+  );
+  const homeContent = useSupportResource(loadHome, active, false, homeCache);
   const refreshHome = homeContent.refresh;
   const refreshInbox = inbox.refresh;
   const refreshOpen = open.refresh;

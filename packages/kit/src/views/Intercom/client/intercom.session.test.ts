@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IIntercomVisitor } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerClient';
+import type { IIntercomHome } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 
 let mockUserId: string | null = null;
 let mockLocked = false;
@@ -671,4 +672,61 @@ it('allows an explicit support open before passive polling starts', async () => 
   await subject.createIntercomMessengerSession('A');
   expect(mockCredentials).toHaveBeenCalledTimes(1);
   expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+describe('cached support answers', () => {
+  const home: IIntercomHome = {
+    homeLabel: 'Home',
+    messagesLabel: 'Messages',
+    newConversationLabel: 'Contact us',
+    recentConversationLimit: 2,
+    articles: [],
+    links: [],
+  };
+
+  it('reuses only the live session of the same unlocked identity', async () => {
+    expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+    const session = await subject.createIntercomMessengerSession(null);
+    expect(subject.peekIntercomMessengerSession(null)).toBe(session);
+    expect(subject.peekIntercomMessengerSession('A')).toBeUndefined();
+    await setLock(true);
+    expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+  });
+
+  it('drops the answers of a session retired by a lock, including late ones', async () => {
+    const session = await subject.createIntercomMessengerSession(null);
+    subject.getIntercomResponseCache(session, 'home')?.save(home);
+    expect(subject.getIntercomResponseCache(session, 'home')?.read()).toBe(
+      home,
+    );
+    expect(
+      subject.getIntercomResponseCache(session, 'inbox')?.read(),
+    ).toBeUndefined();
+    await setLock(true);
+    expect(
+      subject.getIntercomResponseCache(session, 'home')?.read(),
+    ).toBeUndefined();
+    await setLock(false);
+    const next = await subject.createIntercomMessengerSession(null);
+    expect(next).not.toBe(session);
+    subject.getIntercomResponseCache(session, 'home')?.save(home);
+    expect(
+      subject.getIntercomResponseCache(next, 'home')?.read(),
+    ).toBeUndefined();
+  });
+
+  it('drops cached answers when the account changes', async () => {
+    const session = await subject.createIntercomMessengerSession(null);
+    const cache = subject.getIntercomResponseCache(session, 'home');
+    cache?.save(home);
+    mockUserId = 'A';
+    await subject.initIntercom();
+    expect(cache?.read()).toBeUndefined();
+    expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+    const next = await subject.createIntercomMessengerSession('A');
+    expect(subject.peekIntercomMessengerSession('A')).toBe(next);
+    expect(
+      subject.getIntercomResponseCache(next, 'home')?.read(),
+    ).toBeUndefined();
+  });
 });
