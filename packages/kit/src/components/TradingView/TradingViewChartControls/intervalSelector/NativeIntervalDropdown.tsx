@@ -1,12 +1,16 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Popover, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import type { ISelectItem } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useNativeIntervalSelector } from './hooks/useNativeIntervalSelector';
-import { IntervalsDialogContent } from './NativeIntervalsDialogContent';
+import {
+  formatIntervalOptionDisplayLabel,
+  isIntervalOptionDisabled,
+} from './NativeIntervalUtils';
 
 import type { ITradingViewIntervalConfigData } from '../types';
 
@@ -16,10 +20,14 @@ interface ITradingViewNativeIntervalDropdownProps {
   testID?: string;
 }
 
+// Wide enough for the longest interval label, e.g. "12時間", and its check.
+const FLOATING_PANEL_PROPS = { width: 120 };
+
 /**
- * The chart's interval as a single trigger, e.g. "1D", for a header with no
+ * The chart's interval as a small select, e.g. "1D", for a header with no
  * room for the controls row's intervals, such as a split-view panel's. It
- * opens the intervals popover the controls row's More opens.
+ * lists every interval in a short list; the preferred intervals and their
+ * editing stay in the controls row.
  */
 export const TradingViewNativeIntervalDropdown = memo(
   ({
@@ -28,54 +36,38 @@ export const TradingViewNativeIntervalDropdown = memo(
     testID = 'trading-view-native-interval-dropdown',
   }: ITradingViewNativeIntervalDropdownProps) => {
     const intl = useIntl();
-    // Remounts the content on each open, so an edit left unconfirmed is gone.
-    const [sessionKey, setSessionKey] = useState(0);
-    const {
-      activeInterval,
-      activeLabel,
-      closeIntervalsPopover,
-      defaultPreferredIntervalValues,
-      dialogOptions,
-      handlePreferredValuesChange,
-      isIntervalsPopoverOpen,
-      options,
-      preferredIntervalValues,
-      setIsIntervalsPopoverOpen,
-      shouldRender,
-    } = useNativeIntervalSelector({
-      intervalConfig,
-      visiblePreferredIntervalCount: null,
-    });
-    const handleOpenChange = useCallback(
-      (open: boolean) => {
-        if (open) setSessionKey((key) => key + 1);
-        setIsIntervalsPopoverOpen(open);
-      },
-      [setIsIntervalsPopoverOpen],
+    const { activeInterval, activeLabel, options, shouldRender } =
+      useNativeIntervalSelector({
+        intervalConfig,
+        visiblePreferredIntervalCount: null,
+      });
+    // As the intervals popover's full list: the chart's order and labels.
+    const items = useMemo<ISelectItem[]>(
+      () =>
+        options.map((option) => ({
+          label: formatIntervalOptionDisplayLabel(intl, option.label),
+          value: option.value,
+          disabled: isIntervalOptionDisabled(option),
+        })),
+      [intl, options],
     );
     if (!shouldRender) return null;
     return (
-      <Popover
+      <Select
+        testID={`${testID}-select`}
         title={intl.formatMessage({ id: ETranslations.market_intervals })}
-        showHeader={false}
-        usingSheet={false}
+        items={items}
+        value={activeInterval}
+        onChange={onIntervalChange}
         placement="bottom-start"
-        open={isIntervalsPopoverOpen}
-        onOpenChange={handleOpenChange}
-        floatingPanelProps={{
-          width: 360,
-          // As in the controls row: no focus ring on the Edit button the
-          // focus scope would move to on open.
-          onOpenAutoFocus: (event) => event.preventDefault(),
-        }}
-        renderTrigger={
+        floatingPanelProps={FLOATING_PANEL_PROPS}
+        renderTrigger={() => (
           <XStack
             testID={testID}
             role="button"
             h={28}
             px="$1.5"
             gap="$0.5"
-            flexShrink={0}
             alignItems="center"
             borderRadius="$2"
             cursor="pointer"
@@ -91,23 +83,7 @@ export const TradingViewNativeIntervalDropdown = memo(
               color="$iconSubdued"
             />
           </XStack>
-        }
-        renderContent={
-          <IntervalsDialogContent
-            key={sessionKey}
-            mode="popover"
-            options={options}
-            editableOptions={dialogOptions}
-            activeInterval={activeInterval}
-            preferredValues={preferredIntervalValues}
-            defaultPreferredValues={defaultPreferredIntervalValues}
-            maxPreferredIntervalCount={null}
-            footerButtonSize="medium"
-            onIntervalChange={onIntervalChange}
-            onPreferredValuesChange={handlePreferredValuesChange}
-            onClose={closeIntervalsPopover}
-          />
-        }
+        )}
       />
     );
   },
