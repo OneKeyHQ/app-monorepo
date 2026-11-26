@@ -159,7 +159,7 @@ export function SingleWalletAddressListItem({
 
   const subtitle = useMemo(() => {
     if (account) {
-      if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
+      if (networkUtils.isAnyLightningNetworkByNetworkId(network.id)) {
         return '';
       }
 
@@ -260,14 +260,18 @@ export function SingleWalletAddressListItem({
       return;
     }
 
-    if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
-      appNavigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.CreateInvoice,
-        params: {
-          networkId: network.id,
-          accountId: account.accountId,
-        },
-      });
+    if (networkUtils.isAnyLightningNetworkByNetworkId(network.id)) {
+      // `account` is still the value from before createAddress, so a row
+      // whose account was just created opens the invoice on the next press.
+      if (account) {
+        appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.CreateInvoice,
+          params: {
+            networkId: network.id,
+            accountId: account.accountId,
+          },
+        });
+      }
     } else if (account && account.apiAddress) {
       await copyAccountAddress({
         accountId: account.accountId,

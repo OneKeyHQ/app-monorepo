@@ -1,0 +1,6 @@
+# Snyk (https://snyk.io) policy file for the apps/mobile/ios/Podfile project
+version: v1.25.0
+ignore:
+  'snyk:lic:cocoapods:uniffi-bindgen-react-native:MPL-2.0':
+    - '*':
+        reason: 'Runtime of the Breez SDK Spark React Native bindings (Lightning Self-Custody). MPL-2.0 is file-level copyleft; the only change to it is public in patches/uniffi-bindgen-react-native+0.29.3-1.patch.'

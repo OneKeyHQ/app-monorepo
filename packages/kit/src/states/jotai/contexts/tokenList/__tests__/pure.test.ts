@@ -110,6 +110,23 @@ describe('fiatEqual', () => {
     // unrelated field does not count
     expect(fiatEqual(a, { ...a, balanceParsed: '999' })).toBe(true);
   });
+
+  it('counts a change of unclaimed Lightning Spark sats alone as different', () => {
+    const a = makeFiat({ balance: '100', balanceParsed: '100' });
+    expect(fiatEqual(a, { ...a, pendingReceiveSats: '123' })).toBe(false);
+    expect(
+      fiatEqual(
+        { ...a, pendingReceiveSats: '123' },
+        { ...a, pendingReceiveSats: '0' },
+      ),
+    ).toBe(false);
+    expect(
+      fiatEqual(
+        { ...a, pendingReceiveSats: '123' },
+        { ...a, pendingReceiveSats: '123' },
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('metaEqual', () => {

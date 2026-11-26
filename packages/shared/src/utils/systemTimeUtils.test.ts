@@ -523,6 +523,27 @@ describe('system time error notifications', () => {
     expect(systemTimeUtils.lastServerTime).toBe(BASE_TIME);
   });
 
+  it('skips a response quietly where the request helper is not set up', async () => {
+    // The extension offscreen document never sets up requestHelper, so its
+    // default checkIsOneKeyDomain throws for every response there.
+    mockTrustedDomain.mockRejectedValueOnce(
+      new Error('Not implemented, please call overrideMethods'),
+    );
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await systemTimeUtils.handleServerResponseDate({
+      source: 'fetch',
+      headerDate: new Date(BASE_TIME + MINUTE).toUTCString(),
+      url: 'https://spark.example/v1/status',
+    });
+
+    expect(mockTrustedDomain).toHaveBeenCalledTimes(1);
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(systemTimeUtils.lastServerTime).toBe(BASE_TIME);
+  });
+
   it('notifies once when the health response also passes through the interceptor', async () => {
     jest.setSystemTime(BASE_TIME + 20 * MINUTE);
     const date = new Date(BASE_TIME).toUTCString();

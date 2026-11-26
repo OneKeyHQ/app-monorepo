@@ -1676,7 +1676,8 @@ function HistoryDetails() {
         >
           {gasFeeDisplayValues.gasFee}
         </NumberSizeableTextWrapper>
-        {!isNil(gasFeeDisplayValues.gasFeeFiatValue) ? (
+        {/* Empty when the fiat value of the fee shown is unknown. */}
+        {gasFeeDisplayValues.gasFeeFiatValue ? (
           <SizableText size="$bodyMd" color={gasFeeTextColor} ml="$1">
             (
             <NumberSizeableTextWrapper

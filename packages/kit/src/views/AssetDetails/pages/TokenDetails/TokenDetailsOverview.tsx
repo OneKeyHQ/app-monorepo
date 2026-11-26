@@ -352,7 +352,7 @@ function TokenDetailsOverview(props: IProps) {
         enableNetworkAfterSelect: true,
         closeAfterSelect: false,
         onSelect: async (token: IAccountToken) => {
-          if (networkUtils.isLightningNetworkByNetworkId(token.networkId)) {
+          if (networkUtils.isAnyLightningNetworkByNetworkId(token.networkId)) {
             navigation.push(EModalReceiveRoutes.CreateInvoice, {
               networkId: token.networkId ?? '',
               accountId: token.accountId ?? '',

@@ -85,6 +85,7 @@ import {
 } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
+  getInvoiceAmountSats,
   isReusableLightningRecipient,
   normalizeLightningInput,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
@@ -322,7 +323,7 @@ function SendDataInputContainer() {
       isNFT ||
       !tokenInfo ||
       !account?.address ||
-      networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
+      networkUtils.isAnyLightningNetworkByNetworkId(currentAccount.networkId)
     ) {
       return;
     }
@@ -776,7 +777,10 @@ function SendDataInputContainer() {
 
       // Reuse the matching amount-input route for the active modal stack.
 
-      const isLightning = networkUtils.isLightningNetworkByNetworkId(
+      const isLightning = networkUtils.isAnyLightningNetworkByNetworkId(
+        currentAccount.networkId,
+      );
+      const isLightningSpark = networkUtils.isLightningSparkNetworkByNetworkId(
         currentAccount.networkId,
       );
 
@@ -814,6 +818,7 @@ function SendDataInputContainer() {
       // For Lightning invoices, decode the invoice to extract embedded amount
       let invoiceAmount: string | undefined;
       let isInvoiceAmountLocked = false;
+      let isZeroAmountInvoice = false;
       if (isLightning && toResolved) {
         try {
           const isZeroAmount =
@@ -822,6 +827,7 @@ function SendDataInputContainer() {
               networkId: currentAccount.networkId,
               accountId: currentAccount.accountId,
             });
+          isZeroAmountInvoice = isZeroAmount;
           if (!isZeroAmount) {
             const decoded =
               await backgroundApiProxy.serviceLightning.decodedInvoice({
@@ -829,11 +835,11 @@ function SendDataInputContainer() {
                 networkId: currentAccount.networkId,
                 accountId: currentAccount.accountId,
               });
-            const sats =
-              decoded.satoshis ??
-              (decoded.millisatoshis
-                ? Math.floor(Number(decoded.millisatoshis) / 1000)
-                : undefined);
+            const sats = getInvoiceAmountSats({
+              satoshis: decoded.satoshis,
+              millisatoshis: decoded.millisatoshis,
+              roundUp: isLightningSpark,
+            });
             if (sats && sats > 0) {
               invoiceAmount = String(sats);
               isInvoiceAmountLocked = true;
@@ -915,6 +921,17 @@ function SendDataInputContainer() {
             note: nextNoteValue || undefined,
           },
           isInternalTransfer: true,
+        });
+        return;
+      }
+
+      // Validation lets only invoices through; one whose decode failed here
+      // cannot be paid.
+      if (isLightningSpark && !isZeroAmountInvoice) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.send_invalid_lightning_payment_request,
+          }),
         });
         return;
       }
@@ -1335,7 +1352,7 @@ function SendDataInputContainer() {
   );
 
   const enableAllowListValidation = useMemo(
-    () => !networkUtils.isLightningNetworkByNetworkId(networkId),
+    () => !networkUtils.isAnyLightningNetworkByNetworkId(networkId),
     [networkId],
   );
 
@@ -1692,7 +1709,7 @@ function SendDataInputContainer() {
     >
       <Page.Header
         title={intl.formatMessage({
-          id: networkUtils.isLightningNetworkByNetworkId(
+          id: networkUtils.isAnyLightningNetworkByNetworkId(
             currentAccount.networkId,
           )
             ? ETranslations.send_title
@@ -1778,7 +1795,7 @@ function SendDataInputContainer() {
                   labelAddon={addressRiskCheckLabelAddon}
                   testID={SendTestIDs.recipientInput}
                   numberOfLines={
-                    networkUtils.isLightningNetworkByNetworkId(
+                    networkUtils.isAnyLightningNetworkByNetworkId(
                       currentAccount.networkId,
                     )
                       ? 5

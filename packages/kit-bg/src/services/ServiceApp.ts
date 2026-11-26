@@ -18,7 +18,9 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
+import { runBeforeAppRestartHandlers } from '@onekeyhq/shared/src/modules3rdParty/appRestart/beforeAppRestart';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
+import type { IAppRestartOptions } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import { resetIntercomVisitorStorage } from '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { flushAvailabilitySnapshotOnHidden } from '@onekeyhq/shared/src/request/availabilityAggregator';
@@ -186,6 +188,15 @@ class ServiceApp extends ServiceBase {
     });
   }
 
+  /**
+   * Relayed by the native main runtime before it restarts the app itself, so
+   * the before-restart handlers of this runtime run as well.
+   */
+  @backgroundMethod()
+  async prepareAppRestart(options: IAppRestartOptions) {
+    await runBeforeAppRestartHandlers(options);
+  }
+
   private async resetNativeLocalSecretEnvelopeKeys() {
     if (!platformEnv.isNative) return;
 
@@ -226,6 +237,13 @@ class ServiceApp extends ServiceBase {
     defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
     // The old host records may be the only evidence of an unfinished wipe.
     await this.markPrivacyResetFailures(log, privacyChainDropFailed);
+
+    // Lightning Self-Custody (Breez) keeps wallets in their own storage:
+    // files on mobile, which nothing below clears, and IndexedDB elsewhere,
+    // which a connected SDK would hold open.
+    await runCleanup('lightningSparkStorage', () =>
+      this.backgroundApi.serviceLightningSpark.removeAllStorage(),
+    );
 
     if (platformEnv.isNative) {
       try {

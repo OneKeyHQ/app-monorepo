@@ -23,6 +23,7 @@ import {
   findLnurl,
   isLightningAddress,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import {
   ELightningUnit,
@@ -86,8 +87,17 @@ function LnurlPayRequestModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
 
-  const amountMin = Math.floor(Number(lnurlDetails?.minSendable ?? 0) / 1000);
+  // The bounds are in thousandths of a sat. Self-custody Lightning pays whole
+  // sats only, so its minimum rounds up, and a range with no whole sat in it,
+  // such as a fixed 1,500 thousandths of a sat, cannot be paid.
+  const isLightningSpark =
+    networkUtils.isLightningSparkNetworkByNetworkId(networkId);
+  const minSats = Number(lnurlDetails?.minSendable ?? 0) / 1000;
+  const amountMin = isLightningSpark ? Math.ceil(minSats) : Math.floor(minSats);
   const amountMax = Math.floor(Number(lnurlDetails?.maxSendable ?? 0) / 1000);
+  const maxSendable = Number(lnurlDetails?.maxSendable ?? 0);
+  const hasNoWholeSatAmount =
+    isLightningSpark && maxSendable > 0 && amountMin * 1000 > maxSendable;
   const useFormReturn = useForm<ISendPaymentFormValues>({
     defaultValues: {
       amount: amountMin > 0 && amountMin === amountMax ? `${amountMin}` : '',
@@ -171,6 +181,11 @@ function LnurlPayRequestModal() {
               id: ETranslations.dapp_connect_msg_invalid_lightning_payment_request,
             }),
           });
+          // Self-custody Lightning pays the invoice from this device, so one
+          // that does not match the pay request goes no further.
+          if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+            return;
+          }
         }
         const transferInfo = transfersInfo[0];
         const lnurl = findLnurl(transferInfo.to ?? '');
@@ -287,7 +302,8 @@ function LnurlPayRequestModal() {
             }}
             confirmButtonProps={{
               loading: isLoading,
-              disabled: !continueOperate || isAmountEmpty,
+              disabled:
+                !continueOperate || isAmountEmpty || hasNoWholeSatAmount,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

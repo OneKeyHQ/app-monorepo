@@ -203,6 +203,31 @@ describe('RecentRecipients row press', () => {
     mockRecentData.recentRecipients[0].walletAccountName = previousName;
   });
 
+  it('offers no address-book menu on a self-custody Lightning row', () => {
+    mockNativeSnapshots.length = 0;
+    render(
+      <RecentRecipients
+        nativeList
+        accountId="acc-1"
+        networkId="lightningspark--0"
+      />,
+    );
+
+    const rows = mockNativeSnapshots.at(-1)?.rows as
+      | { trailing?: unknown; longPressActionKey?: string }[]
+      | undefined;
+    expect(rows?.[0]?.trailing).toBeUndefined();
+    expect(rows?.[0]?.longPressActionKey).toBeUndefined();
+    act(() =>
+      mockNativeRowAction?.({
+        actionKey: 'menu',
+        rowKey: '0-UQADDR',
+        windowPoint: { x: 300, y: 400 },
+      } as RowActionEvent),
+    );
+    expect(ActionList.show).not.toHaveBeenCalled();
+  });
+
   it.each([true, false])(
     'anchors the native-row menu with rect=%s and ignores a missing row',
     (hasAnchor) => {

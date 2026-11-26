@@ -992,6 +992,7 @@ describe('ServiceApp.resetApp', () => {
         servicePrivacyChain: {
           dropAllLocalWalletData: jest.fn(async () => []),
         },
+        serviceLightningSpark: { removeAllStorage: jest.fn() },
       },
     });
     jest
@@ -1041,6 +1042,7 @@ describe('ServiceApp.resetApp', () => {
           },
           serviceKeylessWallet: { eraseKeylessStorageForAppReset },
           serviceV4Migration: { checkIfV4DbExist },
+          serviceLightningSpark: { removeAllStorage: jest.fn() },
           serviceLogger: { stopPersistenceForReset },
           serviceNotification: { unregisterClient: jest.fn() },
         },
@@ -1097,6 +1099,7 @@ describe('ServiceApp.resetApp', () => {
           dropAllLocalWalletData: jest.fn().mockResolvedValue([]),
         },
         serviceKeylessWallet: { eraseKeylessStorageForAppReset },
+        serviceLightningSpark: { removeAllStorage: jest.fn() },
         serviceLogger: {
           stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
         },
@@ -1416,6 +1419,7 @@ describe('ServiceApp privacy database reset ordering', () => {
             stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
           },
           servicePrivacyChain: { dropAllLocalWalletData },
+          serviceLightningSpark: { removeAllStorage: jest.fn() },
         },
       });
 
@@ -1431,6 +1435,41 @@ describe('ServiceApp privacy database reset ordering', () => {
       });
     },
   );
+
+  it('deletes Lightning Self-Custody storage before host storage and reports a failure for retry', async () => {
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
+    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const removeAllStorage = jest
+      .fn()
+      .mockRejectedValue(new Error('Spark storage is busy'));
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceLogger: {
+          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+        },
+        servicePrivacyChain: {
+          dropAllLocalWalletData: jest.fn().mockResolvedValue([]),
+        },
+        serviceLightningSpark: { removeAllStorage },
+      },
+    });
+
+    // The other stages still run; the failure ends the reset for a retry.
+    await expect(
+      (service as unknown as { resetData: () => Promise<void> }).resetData(),
+    ).rejects.toThrow(
+      'App reset could not complete lightningSparkStorage. Retry Reset App.',
+    );
+
+    expect(removeAllStorage).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(removeAllStorage.mock.invocationCallOrder[0]).toBeLessThan(
+      clear.mock.invocationCallOrder[0],
+    );
+  });
 
   it('retains host storage if the failed wipe cannot be journaled', async () => {
     const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);

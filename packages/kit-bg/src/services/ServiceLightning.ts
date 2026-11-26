@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -54,6 +55,9 @@ class ServiceLightning extends ServiceBase {
 
   @backgroundMethod()
   async getInvoiceConfig({ networkId }: { networkId: string }) {
+    if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      return this.backgroundApi.serviceLightningSpark.getInvoiceConfig();
+    }
     const { isTestnet } = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
@@ -90,6 +94,14 @@ class ServiceLightning extends ServiceBase {
     amount: string;
     description?: string;
   }) {
+    if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      return this.backgroundApi.serviceLightningSpark.createInvoice({
+        accountId,
+        networkId,
+        amount,
+        description,
+      });
+    }
     const { serviceNetwork } = this.backgroundApi;
     const { isTestnet } = await serviceNetwork.getNetwork({ networkId });
     const client = await this.getLnClient(isTestnet);
@@ -177,12 +189,31 @@ class ServiceLightning extends ServiceBase {
     networkId: string;
     accountId: string;
   }) {
+    if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      return this.decodeInvoiceByServer(paymentRequest);
+    }
     const vault = (await vaultFactory.getVault({
       networkId,
       accountId,
     })) as LightningVault;
     return vault._decodedInvoiceCache(paymentRequest);
   }
+
+  /**
+   * Decodes a BOLT11 invoice on the OneKey lightning service, the same route
+   * custodial Lightning uses. It needs no account token, so self-custody
+   * Lightning decodes user input here instead of in the Breez SDK.
+   */
+  decodeInvoiceByServer = memoizee(
+    async (paymentRequest: string) => {
+      const client = await this.getLnClient(false);
+      return client.decodedInvoice(paymentRequest);
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
 
   @backgroundMethod()
   async isZeroAmountInvoice({
@@ -199,6 +230,13 @@ class ServiceLightning extends ServiceBase {
       networkId,
       accountId,
     });
+    if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      // Loaded on use: this service loads at background startup, the Spark
+      // vault code only with that chain.
+      const { isZeroAmountDecodedInvoice } =
+        await import('../vaults/impls/spark/sdkSpark/invoicePayment');
+      return isZeroAmountDecodedInvoice(invoice);
+    }
     const vault = (await vaultFactory.getVault({
       networkId,
       accountId,
@@ -248,8 +286,12 @@ class ServiceLightning extends ServiceBase {
     };
   }) {
     try {
+      // LNURL services answer with `Access-Control-Allow-Origin: *` (LUD-01),
+      // which browsers refuse to share with a request that carries
+      // credentials, and the payee has no use for our cookies. React Native
+      // sends cookies unless told not to.
       const axiosInstance = axios.create({
-        withCredentials: true,
+        withCredentials: false,
       });
       const response = await axiosInstance.get<ILNURLPaymentInfo | ILNURLError>(
         callback,

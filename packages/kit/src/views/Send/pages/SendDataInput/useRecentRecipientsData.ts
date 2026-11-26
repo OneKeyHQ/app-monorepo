@@ -134,7 +134,7 @@ async function enrichAddresses(
 ): Promise<IEnrichedRecentRecipient[]> {
   if (addresses.length === 0) return [];
 
-  const filteredAddresses = networkUtils.isLightningNetworkByNetworkId(
+  const filteredAddresses = networkUtils.isAnyLightningNetworkByNetworkId(
     networkId,
   )
     ? addresses.filter((addr) => isReusableLightningRecipient(addr))

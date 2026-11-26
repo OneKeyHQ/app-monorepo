@@ -1,4 +1,5 @@
 import { bech32 } from 'bech32';
+import BigNumber from 'bignumber.js';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -90,6 +91,28 @@ export const normalizeLightningInput = (input: string): string => {
   const payload = input.trim().replace(LIGHTNING_URI_SCHEME, '');
   return UPPER_CASE_BECH32.test(payload) ? payload.toLowerCase() : payload;
 };
+
+// The whole sats an invoice's amount shows as on the send page. Self-custody
+// Lightning pays the exact millisatoshis and rounds the shown amount up, so an
+// invoice below 1 sat still has one; custodial Lightning rounds down.
+export function getInvoiceAmountSats({
+  satoshis,
+  millisatoshis,
+  roundUp,
+}: {
+  satoshis?: number | null;
+  millisatoshis?: string | null;
+  roundUp: boolean;
+}): number | undefined {
+  const exact = new BigNumber(millisatoshis ?? NaN);
+  if (roundUp && exact.gt(0)) {
+    return exact.div(1000).integerValue(BigNumber.ROUND_CEIL).toNumber();
+  }
+  return (
+    satoshis ??
+    (millisatoshis ? Math.floor(Number(millisatoshis) / 1000) : undefined)
+  );
+}
 
 export function getLightningInvoiceNetwork(
   address: string,

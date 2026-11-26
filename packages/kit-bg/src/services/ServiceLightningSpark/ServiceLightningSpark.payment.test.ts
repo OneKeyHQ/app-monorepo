@@ -1,0 +1,446 @@
+// cspell:ignore Msat
+/*
+yarn jest packages/kit-bg/src/services/ServiceLightningSpark/ServiceLightningSpark.payment.test.ts
+
+Paying a BOLT11 invoice with the Breez SDK: the confirm page gets the SDK's
+fee quote, and the send prepares again, stops on a changed invoice or a fee
+above the approved one, and pays over Lightning.
+*/
+
+// --- mocks MUST be defined before the import of ServiceLightningSpark ---
+
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
+  backgroundClass: () => () => undefined,
+  backgroundMethod: () => (_t: unknown, _k: unknown, d: PropertyDescriptor) =>
+    d,
+  backgroundMethodForDev:
+    () => (_t: unknown, _k: unknown, d: PropertyDescriptor) =>
+      d,
+}));
+
+jest.mock('../ServiceBase', () => ({
+  __esModule: true,
+  default: class ServiceBase {
+    backgroundApi: any;
+
+    constructor({ backgroundApi }: { backgroundApi: any }) {
+      this.backgroundApi = backgroundApi;
+    }
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  EAppEventBusNames: {
+    LockApp: 'LockApp',
+    UnlockApp: 'UnlockApp',
+    AccountDataUpdate: 'AccountDataUpdate',
+    HistoryTxStatusChanged: 'HistoryTxStatusChanged',
+  },
+  appEventBus: { on: jest.fn(), emit: jest.fn() },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    lightning: {
+      spark: { autoConnectFailed: jest.fn(), paymentNotVerified: jest.fn() },
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false, isExtension: false },
+}));
+
+jest.mock('@onekeyhq/shared/src/errors', () => ({
+  OneKeyLocalError: Error,
+  InvalidLightningPaymentRequest: Error,
+}));
+
+jest.mock('@onekeyhq/shared/types/setting', () => ({
+  EReasonForNeedPassword: { Default: 'Default' },
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
+  __esModule: true,
+  default: {},
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
+  __esModule: true,
+  default: {},
+}));
+
+jest.mock('@onekeyhq/core/src/chains/spark/utils', () => ({
+  getSparkNetworkFromImpl: jest.fn(),
+}));
+
+jest.mock('../../vaults/factory', () => ({
+  vaultFactory: {},
+}));
+
+jest.mock('./sdk/breezSdk', () => ({
+  loadBreezSdk: jest.fn(),
+}));
+
+/* eslint-disable import/first, import/order */
+import { sha256 } from '@noble/hashes/sha256';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IEncodedTxLightningSpark } from '@onekeyhq/shared/types/lightning';
+
+import ServiceLightningSpark from './ServiceLightningSpark';
+/* eslint-enable import/first, import/order */
+
+const sparkLog = defaultLogger.lightning.spark as unknown as Record<
+  'paymentNotVerified',
+  jest.Mock
+>;
+
+const ACCOUNT_ID = "hd-1--m/83696968'/1330334798'/0'/12'/0'";
+const NETWORK_ID = 'lightningspark--0';
+const INVOICE = 'lnbc120n1p5qyj8kpp5mock0invoice0for0unit0tests0only';
+const PREIMAGE = '11'.repeat(32);
+const PAYMENT_HASH = bufferUtils.bytesToHex(
+  sha256(bufferUtils.hexToBytes(PREIMAGE)),
+);
+const PAYMENT_ID = '019a4f0e-7c52-7d61-9a1b-3c2d4e5f6a7b';
+
+const ENCODED_TX: IEncodedTxLightningSpark = {
+  invoice: INVOICE,
+  paymentHash: PAYMENT_HASH,
+  amountMillisatoshis: '12000',
+  amountSats: '12',
+  maxFeeSats: '2',
+};
+
+function preparedResponse({ lightningFeeSats = 2 } = {}) {
+  return {
+    paymentMethod: {
+      type: 'bolt11Invoice',
+      invoiceDetails: {
+        invoice: { bolt11: INVOICE, source: {} },
+        paymentHash: PAYMENT_HASH,
+        amountMsat: 12_000,
+      },
+      lightningFeeSats,
+    },
+    amount: BigInt(12),
+    feePolicy: 'feesExcluded',
+  };
+}
+
+function payment({
+  status = 'completed',
+  preimage = PREIMAGE,
+}: { status?: string; preimage?: string } = {}) {
+  return {
+    id: PAYMENT_ID,
+    paymentType: 'send',
+    status,
+    amount: BigInt(12),
+    fees: BigInt(2),
+    method: 'lightning',
+    details: {
+      type: 'lightning',
+      invoice: INVOICE,
+      htlcDetails: { paymentHash: PAYMENT_HASH, preimage },
+    },
+  };
+}
+
+type IStoredPayment = ReturnType<typeof payment>;
+
+// Like Breez, it stores a payment under the idempotency key it was sent with
+// and finds it by that id.
+function makeSdk({ quotedFeeSats = 2, sentStatus = 'completed' } = {}) {
+  const stored = new Map<string, IStoredPayment>();
+  return {
+    stored,
+    prepareSendPayment: jest.fn(async () =>
+      preparedResponse({ lightningFeeSats: quotedFeeSats }),
+    ),
+    sendPayment: jest.fn(
+      async ({ idempotencyKey }: { idempotencyKey?: string }) => {
+        const sent = {
+          ...payment({ status: sentStatus }),
+          id: idempotencyKey ?? PAYMENT_ID,
+        };
+        if (idempotencyKey) {
+          stored.set(idempotencyKey, sent);
+        }
+        return { payment: sent };
+      },
+    ),
+    getPayment: jest.fn(async ({ paymentId }: { paymentId: string }) => {
+      const found = stored.get(paymentId);
+      if (!found) {
+        throw new OneKeyLocalError('Payment not found');
+      }
+      return { payment: found };
+    }),
+  };
+}
+
+function makeService({
+  quotedFeeSats = 2,
+  sentStatus = 'completed',
+  sdk = makeSdk({ quotedFeeSats, sentStatus }),
+} = {}) {
+  const service = new ServiceLightningSpark({ backgroundApi: {} });
+  const ensureConnected = jest
+    .spyOn(
+      service as unknown as {
+        ensureConnected: (params: {
+          accountId: string;
+          networkId: string;
+        }) => Promise<unknown>;
+      },
+      'ensureConnected',
+    )
+    .mockResolvedValue(sdk);
+  return { service, sdk, ensureConnected };
+}
+
+const params = (encodedTx = ENCODED_TX) => ({
+  accountId: ACCOUNT_ID,
+  networkId: NETWORK_ID,
+  encodedTx,
+});
+
+describe('ServiceLightningSpark invoice payments', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('quotes the Lightning fee from an SDK preparation of the invoice alone', async () => {
+    const { service, sdk, ensureConnected } = makeService();
+
+    await expect(service.quoteInvoicePayment(params())).resolves.toEqual({
+      feeSats: '2',
+    });
+    expect(ensureConnected).toHaveBeenCalledWith({
+      accountId: ACCOUNT_ID,
+      networkId: NETWORK_ID,
+    });
+    expect(sdk.prepareSendPayment).toHaveBeenCalledWith({
+      paymentRequest: { type: 'input', input: INVOICE },
+    });
+  });
+
+  it('never hands the SDK a request it would resolve over the network', async () => {
+    const { service, sdk } = makeService();
+
+    await expect(
+      service.quoteInvoicePayment(
+        params({ ...ENCODED_TX, invoice: 'alice@example.com' }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      service.payInvoice(
+        params({ ...ENCODED_TX, invoice: `lightning:${INVOICE}` }),
+      ),
+    ).rejects.toThrow();
+    expect(sdk.prepareSendPayment).not.toHaveBeenCalled();
+    expect(sdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('pays the prepared invoice over Lightning and returns the payment id', async () => {
+    const { service, sdk } = makeService();
+
+    await expect(service.payInvoice(params())).resolves.toEqual({
+      paymentId: PAYMENT_ID,
+    });
+    expect(sdk.sendPayment).toHaveBeenCalledWith({
+      prepareResponse: preparedResponse(),
+      options: {
+        type: 'bolt11Invoice',
+        preferSpark: false,
+        completionTimeoutSecs: 30,
+      },
+    });
+    expect(sparkLog.paymentNotVerified).not.toHaveBeenCalled();
+  });
+
+  it('pays with the idempotency key of the send, so a repeat pays once', async () => {
+    const { service, sdk } = makeService();
+
+    await service.payInvoice(
+      params({
+        ...ENCODED_TX,
+        idempotencyKey: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      }),
+    );
+
+    expect(sdk.sendPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      }),
+    );
+  });
+
+  it('prepares an invoice without an amount with the amount the user entered', async () => {
+    const { service, sdk } = makeService();
+    const zeroAmount = {
+      ...preparedResponse(),
+      amount: BigInt(21),
+    };
+    zeroAmount.paymentMethod.invoiceDetails = {
+      ...zeroAmount.paymentMethod.invoiceDetails,
+      amountMsat: undefined as unknown as number,
+    };
+    sdk.prepareSendPayment.mockResolvedValueOnce(zeroAmount);
+
+    await expect(
+      service.quoteInvoicePayment(
+        params({
+          invoice: INVOICE,
+          paymentHash: PAYMENT_HASH,
+          amountSats: '21',
+          maxFeeSats: '2',
+        }),
+      ),
+    ).resolves.toEqual({ feeSats: '2' });
+    expect(sdk.prepareSendPayment).toHaveBeenCalledWith({
+      paymentRequest: { type: 'input', input: INVOICE },
+      amount: BigInt(21),
+    });
+  });
+
+  it('stops before sending when the new quote is above the approved fee', async () => {
+    const { service, sdk } = makeService({ quotedFeeSats: 3 });
+
+    await expect(service.payInvoice(params())).rejects.toThrow(
+      'The Lightning fee changed',
+    );
+    expect(sdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('returns a payment still in flight, so history picks up the result', async () => {
+    const { service } = makeService({ sentStatus: 'pending' });
+
+    await expect(service.payInvoice(params())).resolves.toEqual({
+      paymentId: PAYMENT_ID,
+    });
+  });
+
+  it('fails the send when the SDK reports a failed payment', async () => {
+    const { service } = makeService({ sentStatus: 'failed' });
+
+    await expect(service.payInvoice(params())).rejects.toThrow(
+      'Lightning payment failed',
+    );
+  });
+
+  const SEND_KEY = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+  const UUID_V4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const sentKeys = (sdk: ReturnType<typeof makeSdk>) =>
+    sdk.sendPayment.mock.calls.map(([request]) => request.idempotencyKey);
+
+  it('pays again under the next attempt key after a failed payment', async () => {
+    const { service, sdk } = makeService({ sentStatus: 'failed' });
+    const encodedTx = { ...ENCODED_TX, idempotencyKey: SEND_KEY };
+
+    await expect(service.payInvoice(params(encodedTx))).rejects.toThrow(
+      'Lightning payment failed',
+    );
+    await expect(service.payInvoice(params(encodedTx))).rejects.toThrow(
+      'Lightning payment failed',
+    );
+
+    const [first, second] = sentKeys(sdk);
+    expect(first).toBe(SEND_KEY);
+    expect(second).toMatch(UUID_V4);
+    expect(second).not.toBe(first);
+  });
+
+  it('returns an earlier attempt in flight without a new quote', async () => {
+    const { service, sdk } = makeService();
+    sdk.stored.set(SEND_KEY, {
+      ...payment({ status: 'pending' }),
+      id: SEND_KEY,
+    });
+    // A new quote above the approved fee must not stop it.
+    sdk.prepareSendPayment.mockResolvedValue(
+      preparedResponse({ lightningFeeSats: 9 }),
+    );
+
+    await expect(
+      service.payInvoice(params({ ...ENCODED_TX, idempotencyKey: SEND_KEY })),
+    ).resolves.toEqual({ paymentId: SEND_KEY });
+    expect(sdk.prepareSendPayment).not.toHaveBeenCalled();
+    expect(sdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('finds the attempt of a send in the wallet storage after a restart', async () => {
+    const sdk = makeSdk({ sentStatus: 'failed' });
+    const encodedTx = { ...ENCODED_TX, idempotencyKey: SEND_KEY };
+    const before = makeService({ sdk }).service;
+    await expect(before.payInvoice(params(encodedTx))).rejects.toThrow(
+      'Lightning payment failed',
+    );
+    // The second attempt is stored as in flight, but its result is lost.
+    sdk.sendPayment.mockImplementationOnce(async ({ idempotencyKey }) => {
+      sdk.stored.set(idempotencyKey ?? '', {
+        ...payment({ status: 'pending' }),
+        id: idempotencyKey ?? '',
+      });
+      throw new OneKeyLocalError('Lost the response');
+    });
+    await expect(before.payInvoice(params(encodedTx))).rejects.toThrow(
+      'Lost the response',
+    );
+    const [, secondKey] = sentKeys(sdk);
+
+    // A new service has no memory of the attempts.
+    const after = makeService({ sdk }).service;
+    await expect(after.payInvoice(params(encodedTx))).resolves.toEqual({
+      paymentId: secondKey,
+    });
+    expect(sdk.sendPayment).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a completed payment whose preimage does not match the invoice as unverified', async () => {
+    const { service, sdk } = makeService();
+    sdk.sendPayment.mockResolvedValueOnce({
+      payment: payment({ preimage: '22'.repeat(32) }),
+    });
+
+    await expect(service.payInvoice(params())).rejects.toThrow(
+      'The Lightning payment could not be verified',
+    );
+    expect(sparkLog.paymentNotVerified).toHaveBeenCalledWith({
+      paymentId: PAYMENT_ID,
+      reason: 'preimage does not match the payment hash',
+    });
+  });
+
+  it('keeps an unverified payment as the attempt of its send instead of paying again', async () => {
+    const { service, sdk } = makeService();
+    const encodedTx = { ...ENCODED_TX, idempotencyKey: SEND_KEY };
+    sdk.stored.set(SEND_KEY, {
+      ...payment({ preimage: '22'.repeat(32) }),
+      id: SEND_KEY,
+    });
+
+    await expect(service.payInvoice(params(encodedTx))).rejects.toThrow(
+      'The Lightning payment could not be verified',
+    );
+    expect(sdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('refuses an invoice amount that is not a whole number of sats', async () => {
+    const { service } = makeService();
+
+    await expect(
+      service.createInvoice({
+        accountId: ACCOUNT_ID,
+        networkId: NETWORK_ID,
+        amount: '0.5',
+      }),
+    ).rejects.toThrow('Enter a whole number of sats');
+  });
+});

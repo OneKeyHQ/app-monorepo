@@ -1,0 +1,56 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import SparkVault from './Vault';
+
+// The first BOLT 11 example invoice.
+const INVOICE =
+  'lnbc1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq9qrsgq357wnc5r2ueh7ck6q93dj32dlqnls087fxdwk8qakdyafkq3yap9us6v52vjjsrvywa6rt52cm9r9zqt8r2t7mlcwspyetp5h2tztugp9lfyql';
+
+function vaultDecodingWith(decode: jest.Mock) {
+  return Object.assign(Object.create(SparkVault.prototype), {
+    backgroundApi: { serviceLightning: { decodeInvoiceByServer: decode } },
+  }) as SparkVault;
+}
+
+describe('Spark Vault.validateAddress', () => {
+  it.each([
+    ['a bare invoice', INVOICE],
+    ['lightning:<invoice>', `lightning:${INVOICE}`],
+    ['an upper case QR code', `lightning:${INVOICE}`.toUpperCase()],
+  ])('validates %s as the bare invoice', async (_label, input) => {
+    const decode = jest.fn(async () => ({}));
+    await expect(
+      vaultDecodingWith(decode).validateAddress(input),
+    ).resolves.toEqual({
+      isValid: true,
+      normalizedAddress: INVOICE,
+      displayAddress: INVOICE,
+    });
+    expect(decode).toHaveBeenCalledWith(INVOICE);
+  });
+
+  it('validates a lightning address from a lightning: URI', async () => {
+    const decode = jest.fn();
+    await expect(
+      vaultDecodingWith(decode).validateAddress('lightning:alice@example.com'),
+    ).resolves.toEqual({
+      isValid: true,
+      normalizedAddress: 'alice@example.com',
+      displayAddress: 'alice@example.com',
+    });
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invoice the lightning service cannot decode', async () => {
+    const decode = jest.fn(async () => {
+      throw new OneKeyLocalError('not an invoice');
+    });
+    await expect(
+      vaultDecodingWith(decode).validateAddress(`lightning:${INVOICE}`),
+    ).resolves.toEqual({
+      isValid: false,
+      normalizedAddress: '',
+      displayAddress: '',
+    });
+  });
+});

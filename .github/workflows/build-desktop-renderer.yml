@@ -43,6 +43,8 @@ on:
         required: false
       COVALENT_KEY:
         required: true
+      BREEZ_API_KEY:
+        required: false
       SENTRY_TOKEN:
         required: true
       SENTRY_DSN_REACT_NATIVE:
@@ -144,6 +146,7 @@ jobs:
           source_ref_name: ${{ inputs.source_ref_name }}
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
+          breez_api_key: ${{ secrets.BREEZ_API_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
           sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
           sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}

@@ -31,10 +31,14 @@ const mockPrerequisite = jest.fn<
   ISendConfirmationPreparation['prerequisite'],
   []
 >();
-const mockFindLnurl = jest.fn<
-  Promise<{ tag: 'payRequest' | 'withdrawRequest' } | null>,
-  [unknown]
->();
+const mockFindLnurl = jest.fn<Promise<{ tag: string } | null>, [unknown]>();
+const mockToastMessage = jest.fn((_params: unknown): void => undefined);
+
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    message: (params: unknown): void => mockToastMessage(params),
+  },
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -525,4 +529,145 @@ describe('useSignatureConfirm', () => {
       expect(mockPushModal).not.toHaveBeenCalled();
     },
   );
+
+  describe('Lightning Self-Custody', () => {
+    const sparkNetworkId = 'lightningspark--0';
+    const transfersInfo = (to: string) => [{ from: '', to, amount: '0' }];
+    const renderSpark = () =>
+      renderHook(() =>
+        useSignatureConfirm({
+          accountId: 'account-id',
+          networkId: sparkNetworkId,
+        }),
+      );
+
+    it('opens the custodial LNURL pay page for a Lightning address', async () => {
+      const lnurlDetails = {
+        tag: 'payRequest',
+        callback: 'https://example.com/lnurlp/alice/callback',
+        minSendable: 1000,
+        maxSendable: 1_000_000,
+        metadata: '[["text/plain","alice"]]',
+        domain: 'example.com',
+        url: 'https://example.com/.well-known/lnurlp/alice',
+      };
+      mockFindLnurl.mockResolvedValueOnce(lnurlDetails);
+      const { result } = renderSpark();
+
+      await act(async () => {
+        await result.current.navigationToTxConfirm({
+          transfersInfo: transfersInfo('alice@example.com'),
+          sameModal: true,
+        });
+      });
+
+      expect(mockFindLnurl).toHaveBeenCalledWith({
+        toVal: 'alice@example.com',
+        networkId: sparkNetworkId,
+      });
+      expect(mockPush).toHaveBeenCalledWith(
+        EModalSignatureConfirmRoutes.LnurlPayRequest,
+        expect.objectContaining({
+          networkId: sparkNetworkId,
+          accountId: 'account-id',
+          lnurlDetails,
+          isSendFlow: true,
+        }),
+      );
+      expect(mockPrepareUnsigned).not.toHaveBeenCalled();
+    });
+
+    it('routes a failure of the LNURL pay page to the confirmation observer', async () => {
+      const error = new Error('lightning confirmation failed');
+      const onFail = jest.fn();
+      const onConfirmationFail = jest.fn();
+      mockFindLnurl.mockResolvedValueOnce({ tag: 'payRequest' });
+      mockPush.mockImplementationOnce(
+        (_route: unknown, args: { onFail?: (e: Error) => void }) =>
+          args.onFail?.(error),
+      );
+      const { result } = renderSpark();
+
+      await result.current.navigationToTxConfirm({
+        transfersInfo: transfersInfo('alice@example.com'),
+        onFail,
+        onConfirmationFail,
+      });
+
+      expect(onConfirmationFail).toHaveBeenCalledWith(error);
+      expect(onFail).not.toHaveBeenCalled();
+    });
+
+    it('opens the custodial LNURL withdraw page for a withdraw request', async () => {
+      const lnurlDetails = {
+        tag: 'withdrawRequest',
+        callback: 'https://example.com/lnurlw/callback',
+        k1: 'k1-example',
+        defaultDescription: 'Voucher',
+        minWithdrawable: 1000,
+        maxWithdrawable: 21_000,
+        url: 'https://example.com/lnurlw',
+      };
+      mockFindLnurl.mockResolvedValueOnce(lnurlDetails);
+      const { result } = renderSpark();
+
+      await act(async () => {
+        await result.current.navigationToTxConfirm({
+          transfersInfo: transfersInfo('lnurl1dp68gurn8ghj7example'),
+          sameModal: true,
+        });
+      });
+
+      expect(mockFindLnurl).toHaveBeenCalledWith({
+        toVal: 'lnurl1dp68gurn8ghj7example',
+        networkId: sparkNetworkId,
+      });
+      expect(mockPush).toHaveBeenCalledWith(
+        EModalSignatureConfirmRoutes.LnurlWithdraw,
+        {
+          networkId: sparkNetworkId,
+          accountId: 'account-id',
+          lnurlDetails,
+          isSendFlow: true,
+        },
+      );
+      expect(mockToastMessage).not.toHaveBeenCalled();
+      expect(mockPrepareUnsigned).not.toHaveBeenCalled();
+    });
+
+    it('shows coming soon for an LNURL login and opens nothing', async () => {
+      mockFindLnurl.mockResolvedValueOnce({ tag: 'login' });
+      const { result } = renderSpark();
+
+      await act(async () => {
+        await result.current.navigationToTxConfirm({
+          transfersInfo: transfersInfo('lnurl1dp68gurn8ghj7example'),
+          sameModal: true,
+        });
+      });
+
+      expect(mockToastMessage).toHaveBeenCalledWith({
+        title: 'wallet.feature_coming_soon',
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockPrepareUnsigned).not.toHaveBeenCalled();
+    });
+
+    it('sends an invoice to the confirm page without resolving LNURL', async () => {
+      const { result } = renderSpark();
+
+      await act(async () => {
+        await result.current.navigationToTxConfirm({
+          transfersInfo: transfersInfo('lnbc120n1p5example'),
+          sameModal: true,
+        });
+      });
+
+      expect(mockFindLnurl).not.toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith(
+        EModalSignatureConfirmRoutes.TxConfirm,
+        expect.objectContaining({ unsignedTxs: [unsignedTx] }),
+      );
+    });
+  });
 });

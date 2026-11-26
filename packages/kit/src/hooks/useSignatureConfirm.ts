@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { isEmpty, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import type {
   IEncodedTx,
   IUnsignedMessage,
@@ -21,6 +22,7 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
@@ -496,15 +498,76 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
     [accountId, navigation, networkId, normalizeTxConfirm],
   );
 
+  // Self-custody Lightning handles LNURL and Lightning addresses the way
+  // custodial Lightning does: the OneKey server resolves the LNURL and the
+  // custodial pages call its callback. The Breez SDK only pays the invoice a
+  // pay callback returns, or creates the invoice a withdraw callback is given
+  // to pay. Login is not supported yet.
+  const lightningSparkSignatureConfirm: INavigationToTxConfirm = useCallback(
+    async (params: IBuildUnsignedTxParams) => {
+      const { transfersInfo, onSuccess, onFail, onConfirmationFail, onCancel } =
+        params;
+      const toVal =
+        transfersInfo?.length === 1 ? transfersInfo[0].to : undefined;
+      if (toVal && isReusableLightningRecipient(toVal)) {
+        const lnurlDetails =
+          await backgroundApiProxy.serviceLightning.findAndValidateLnurl({
+            toVal,
+            networkId,
+          });
+        if (lnurlDetails?.tag === 'withdrawRequest') {
+          navigation.push(EModalSignatureConfirmRoutes.LnurlWithdraw, {
+            networkId,
+            accountId,
+            lnurlDetails,
+            onSuccess,
+            onFail: onConfirmationFail ?? onFail,
+            onCancel,
+            isSendFlow: true,
+          });
+          return;
+        }
+        if (lnurlDetails?.tag !== 'payRequest') {
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.wallet_feature_coming_soon,
+            }),
+          });
+          return;
+        }
+        navigation.push(EModalSignatureConfirmRoutes.LnurlPayRequest, {
+          networkId,
+          accountId,
+          transfersInfo,
+          lnurlDetails,
+          onSuccess,
+          onFail: onConfirmationFail ?? onFail,
+          onCancel,
+          isSendFlow: true,
+        });
+        return;
+      }
+      await normalizeTxConfirm(params);
+    },
+    [accountId, intl, navigation, networkId, normalizeTxConfirm],
+  );
+
   const navigationToTxConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
         await lightningSignatureConfirm(params);
+      } else if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+        await lightningSparkSignatureConfirm(params);
       } else {
         await normalizeTxConfirm(params);
       }
     },
-    [networkId, normalizeTxConfirm, lightningSignatureConfirm],
+    [
+      networkId,
+      normalizeTxConfirm,
+      lightningSignatureConfirm,
+      lightningSparkSignatureConfirm,
+    ],
   );
 
   const navigationToMessageConfirm: INavigationToMessageConfirm = useCallback(

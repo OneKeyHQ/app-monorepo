@@ -1,11 +1,17 @@
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
 
+import { reportOffscreenPortDisconnected } from '@onekeyhq/kit-bg/src/offscreens/offscreenDocument';
+
 import {
   guardOffscreenPort,
   isTrustedOffscreenPort,
 } from './offscreenPortGuard';
 
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+
+jest.mock('@onekeyhq/kit-bg/src/offscreens/offscreenDocument', () => ({
+  reportOffscreenPortDisconnected: jest.fn(),
+}));
 
 const EXT_ID = 'abcdefghijklmnopabcdefghijklmnop';
 const EXT_ORIGIN = `chrome-extension://${EXT_ID}`;
@@ -88,9 +94,10 @@ describe('offscreen port guard', () => {
 
   function guardedBridge() {
     const addPort = jest.fn();
-    const bridge = { addPort } as unknown as JsBridgeExtBackground;
+    const removePort = jest.fn();
+    const bridge = { addPort, removePort } as unknown as JsBridgeExtBackground;
     guardOffscreenPort(bridge);
-    return { bridge, addPort };
+    return { bridge, addPort, removePort };
   }
 
   it('closes an impostor offscreen port instead of registering it', () => {
@@ -125,5 +132,34 @@ describe('offscreen port guard', () => {
     bridge.addPort({ portId: 'p3', port: ui });
     expect(addPort).toHaveBeenCalledTimes(3);
     expect(offscreen.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('reports when the offscreen port goes away', () => {
+    jest.mocked(reportOffscreenPortDisconnected).mockClear();
+    const { bridge, removePort } = guardedBridge();
+    const offscreen = port(consts.EXT_PORT_OFFSCREEN_TO_BG, {
+      id: EXT_ID,
+      url: `${EXT_ORIGIN}/offscreen.html`,
+    });
+    const impostor = port(consts.EXT_PORT_OFFSCREEN_TO_BG, {
+      id: EXT_ID,
+      url: 'https://dapp.example/',
+      tab: { id: 1 } as chrome.tabs.Tab,
+    });
+    const ui = port(consts.EXT_PORT_UI_TO_BG, {
+      id: EXT_ID,
+      url: `${EXT_ORIGIN}/ui-popup.html`,
+    });
+
+    bridge.addPort({ portId: 'p1', port: offscreen });
+    bridge.addPort({ portId: 'p2', port: impostor });
+    bridge.addPort({ portId: 'p3', port: ui });
+
+    bridge.removePort({ portId: 'p2', port: impostor });
+    bridge.removePort({ portId: 'p3', port: ui });
+    expect(reportOffscreenPortDisconnected).not.toHaveBeenCalled();
+    bridge.removePort({ portId: 'p1', port: offscreen });
+    expect(removePort).toHaveBeenCalledTimes(3);
+    expect(reportOffscreenPortDisconnected).toHaveBeenCalledTimes(1);
   });
 });

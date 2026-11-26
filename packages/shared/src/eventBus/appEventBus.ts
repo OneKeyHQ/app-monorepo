@@ -680,6 +680,7 @@ export interface IAppEventBusPayload {
     showWatchlistOnly: boolean;
   };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.ExtensionUiPageClosed]: { pageId: string };
   [EAppEventBusNames.AppResetIsolating]: undefined;
   [EAppEventBusNames.SupabaseStorageCacheCleared]: {
     sourceId: string;

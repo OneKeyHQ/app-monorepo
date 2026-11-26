@@ -23,6 +23,7 @@ import CoreChainNeurai from '../chains/neurai';
 import CoreChainNexa from '../chains/nexa';
 import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
+import CoreChainLightningSpark from '../chains/spark';
 // import CoreChainStc from '../chains/stc';
 import CoreChainStarknet from '../chains/starknet';
 import CoreChainStellar from '../chains/stellar';
@@ -99,5 +100,6 @@ export class CoreChainApiHub {
   stellar = new CoreChainStellar();
 
   zec = new CoreChainZcash();
+  lightningspark = new CoreChainLightningSpark();
   starknet = new CoreChainStarknet();
 }

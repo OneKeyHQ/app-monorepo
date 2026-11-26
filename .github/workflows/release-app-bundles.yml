@@ -484,6 +484,7 @@ jobs:
       PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
@@ -522,6 +523,7 @@ jobs:
       PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -559,6 +561,7 @@ jobs:
       PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -593,6 +596,7 @@ jobs:
       PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
       ONEKEY_AUTOMATION_TOKEN: ${{ secrets.ONEKEY_AUTOMATION_TOKEN }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}

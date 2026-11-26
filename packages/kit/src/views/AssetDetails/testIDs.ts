@@ -5,6 +5,7 @@ export const AssetDetailsTestIDs = {
   swapBtn: 'asset-details-swap-btn',
   buyBtn: 'asset-details-buy-btn',
   copyAddressBtn: 'asset-details-copy-address-btn',
+  sparkClaimBtn: 'asset-details-spark-claim-btn',
 
   // --- Token Details Footer ---
   marketFooter: 'asset-details-market-footer',

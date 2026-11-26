@@ -9,6 +9,7 @@ import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import { useLightningSparkSession } from '@onekeyhq/kit/src/hooks/useLightningSparkSession';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,6 +18,7 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
@@ -54,6 +56,11 @@ function LnurlWithdrawModal() {
   const { accountId, networkId, lnurlDetails } = isSendFlow
     ? routeParams
     : dAppQuery;
+  // On self-custody Lightning the service pays an invoice of this device's
+  // Breez SDK, which claims the payment only while connected. Holding the
+  // session keeps it connected until 60 s after this page closes; a payment
+  // that arrives later stays claimable.
+  useLightningSparkSession({ accountId, networkId });
 
   const origin = useMemo(() => {
     if (lnurlDetails?.url) {
@@ -77,12 +84,21 @@ function LnurlWithdrawModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
 
-  const amountMin = Math.floor(
-    Number(lnurlDetails?.minWithdrawable ?? 0) / 1000,
-  );
+  // The bounds are in thousandths of a sat. Self-custody Lightning invoices
+  // whole sats only, so its minimum rounds up, and a range with no whole sat
+  // in it, such as a fixed 1,500 thousandths of a sat, cannot be withdrawn.
+  const isLightningSpark =
+    networkUtils.isLightningSparkNetworkByNetworkId(networkId);
+  const minSats = Number(lnurlDetails?.minWithdrawable ?? 0) / 1000;
+  const amountMin = isLightningSpark ? Math.ceil(minSats) : Math.floor(minSats);
   const amountMax = Math.floor(
     Number(lnurlDetails?.maxWithdrawable ?? 0) / 1000,
   );
+  const maxWithdrawable = Number(lnurlDetails?.maxWithdrawable ?? 0);
+  const hasNoWholeSatAmount =
+    isLightningSpark &&
+    maxWithdrawable > 0 &&
+    amountMin * 1000 > maxWithdrawable;
   const useFormReturn = useForm<IMakeInvoiceFormValues>({
     defaultValues: {
       amount: amountMin > 0 && amountMin === amountMax ? `${amountMin}` : '',
@@ -93,7 +109,10 @@ function LnurlWithdrawModal() {
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
   const onConfirm = useCallback(
-    async (close?: (extra?: { flag?: string }) => void) => {
+    async (
+      close?: (extra?: { flag?: string }) => void,
+      closePageStack?: (extra?: { flag?: string }) => void,
+    ) => {
       if (!lnurlDetails) return;
       if (isLoading) return;
       const isValid = await useFormReturn.trigger();
@@ -130,7 +149,11 @@ function LnurlWithdrawModal() {
         Toast.success({
           title: 'Withdrawer success',
         });
-        close?.({ flag: EDAppModalPageStatus.Confirmed });
+        // From the Send page, close the whole flow as the transaction confirm
+        // page does. Closing only this page returns to the recipient input,
+        // which still holds the redeemed LNURL and then fails validation.
+        const closePage = isSendFlow && closePageStack ? closePageStack : close;
+        closePage?.({ flag: EDAppModalPageStatus.Confirmed });
       } catch (e: any) {
         const message = (e as Error)?.message;
         if (!isSendFlow) {
@@ -219,7 +242,7 @@ function LnurlWithdrawModal() {
             }}
             confirmButtonProps={{
               loading: isLoading,
-              disabled: !continueOperate,
+              disabled: !continueOperate || hasNoWholeSatAmount,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

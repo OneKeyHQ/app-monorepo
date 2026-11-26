@@ -79,6 +79,7 @@ import StarknetPrivacyBlock from './StarknetPrivacyBlock';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
+import TokenDetailsSparkClaim from './TokenDetailsSparkClaim';
 import { TokenPrivacyPanel } from './TokenPrivacyPanel';
 import {
   TokenPrivacyPreviewEntry,
@@ -400,41 +401,44 @@ function TokenDetailsHeaderContent({
     }),
     [cachedTokenDetails, focusParam, isTabView],
   );
-  const { result: tokenDetailsResult, isLoading: isLoadingTokenDetails } =
-    usePromiseResult(
-      async () => {
-        const tokensDetails =
-          await backgroundApiProxy.serviceToken.fetchTokensDetails({
-            accountId,
-            networkId,
-            contractList: [tokenInfo.address],
-          });
-
-        const data = tokensDetails?.[0];
-
-        if (!data) {
-          tokenDetailsCache.delete(tokenDetailsCacheKey);
-          return undefined;
-        }
-
-        tokenDetailsCache.set(tokenDetailsCacheKey, data);
-        updateTokenDetails({
+  const {
+    result: tokenDetailsResult,
+    isLoading: isLoadingTokenDetails,
+    run: refreshTokenDetails,
+  } = usePromiseResult(
+    async () => {
+      const tokensDetails =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
           accountId,
           networkId,
-          isInit: true,
-          data,
+          contractList: [tokenInfo.address],
         });
-        return data;
-      },
-      [
+
+      const data = tokensDetails?.[0];
+
+      if (!data) {
+        tokenDetailsCache.delete(tokenDetailsCacheKey);
+        return undefined;
+      }
+
+      tokenDetailsCache.set(tokenDetailsCacheKey, data);
+      updateTokenDetails({
         accountId,
         networkId,
-        tokenInfo.address,
-        updateTokenDetails,
-        tokenDetailsCacheKey,
-      ],
-      tokenDetailsPromiseOptions,
-    );
+        isInit: true,
+        data,
+      });
+      return data;
+    },
+    [
+      accountId,
+      networkId,
+      tokenInfo.address,
+      updateTokenDetails,
+      tokenDetailsCacheKey,
+    ],
+    tokenDetailsPromiseOptions,
+  );
 
   const tokenDetails = tokenDetailsResult ?? cachedTokenDetails;
 
@@ -619,7 +623,7 @@ function TokenDetailsHeaderContent({
 
   const { hideAccountAddress } = useDisplayAccountAddress({ networkId });
   const shouldShowAddressBlock = useMemo(() => {
-    if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
+    if (networkUtils.isAnyLightningNetworkByNetworkId(networkId)) return false;
 
     if (wallet?.type === WALLET_TYPE_HD && !wallet?.backuped) return false;
 
@@ -825,6 +829,15 @@ function TokenDetailsHeaderContent({
               pool={localWalletPool}
               presentation="tokenDetails"
             />
+            {networkUtils.isLightningSparkNetworkByNetworkId(networkId) ? (
+              <TokenDetailsSparkClaim
+                accountId={accountId}
+                networkId={networkId}
+                symbol={tokenInfo.symbol}
+                pendingReceiveSats={tokenDetails?.pendingReceiveSats}
+                onRefresh={refreshTokenDetails}
+              />
+            ) : null}
             {isLegacyPoolTab ? null : (
               <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
