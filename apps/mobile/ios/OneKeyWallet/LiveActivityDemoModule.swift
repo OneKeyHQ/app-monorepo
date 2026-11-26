@@ -108,7 +108,9 @@ private final class SwapLiveActivityManager {
       iconNames = await (from, to)
     }
     guard canStart(order) else { return }
-    let usesRemoteUpdates = order.isRealOrderOrPushTest
+    // Older JS bundles never subscribe a BTC-receiving card.
+    let usesRemoteUpdates = order.isPushTest == true ||
+      (!order.isMock && (fromNativeBitcoin || request.supportsBtcReceivingPush == true))
     let attributes = SwapLiveActivityAttributes(
       order: order,
       fromIconName: iconNames.from,
@@ -137,9 +139,34 @@ private final class SwapLiveActivityManager {
   func update(_ request: SwapLiveActivityRequest) async {
     guard let activity = activities.first(where: {
       $0.attributes.order.orderKey == request.order.orderKey
-    }), !activity.attributes.usesRemoteUpdates else { return }
+    }) else { return }
     await mutate(activity) {
       let previous = self.currentState(activity)
+      if activity.attributes.usesRemoteUpdates {
+        guard let fallback = request.terminalFallback,
+              fallback.activityId == activity.id,
+              activity.attributes.order.depositTxId == request.order.depositTxId,
+              activity.attributes.order.networkId == request.order.networkId,
+              activity.attributes.order.expiresAt > Date(),
+              !OneKeyIsTravelModeMaskingData(),
+              !previous.isTerminal, previous.remoteProgress == nil,
+              request.content.status.isTerminal,
+              fallback.reason != .jpushFailed || self.pushRegistration(activity) == "failed"
+        else { return }
+        // End with the final content in one ActivityKit operation so there is no
+        // interval in which an old pending push can reopen the fallback display.
+        let finalState = SwapLiveActivityAttributes.ContentState.make(
+          order: activity.attributes.order, status: request.content.status,
+          revision: request.content.revision, updatedAtMs: request.content.updatedAtMs,
+          strings: request.content.strings
+        )
+        self.stopPushBinding(activity.id)
+        await activity.end(
+          self.content(finalState, order: activity.attributes.order),
+          dismissalPolicy: .after(Date().addingTimeInterval(180))
+        )
+        return
+      }
       guard request.content.revision > max(previous.revision ?? 0, self.acceptedRevisions[activity.id] ?? 0),
             previous.status.canAdvance(to: request.content.status) else { return }
       self.acceptedRevisions[activity.id] = request.content.revision
@@ -172,10 +199,19 @@ private final class SwapLiveActivityManager {
   func updateStrings(_ request: SwapLiveActivityStringsRequest) async {
     guard let activity = activities.first(where: {
       $0.attributes.order.orderKey == request.orderKey
-    }), !activity.attributes.usesRemoteUpdates else { return }
+    }) else { return }
+    if activity.attributes.usesRemoteUpdates {
+      // Widget presentation data must survive the next APNs state replacement.
+      SwapLiveActivitySharedLabels.set(
+        request.strings, for: activity.id,
+        keeping: Set(Activity<SwapLiveActivityAttributes>.activities.map(\.id))
+      )
+      return
+    }
     await mutate(activity) {
       var state = self.currentState(activity)
-      guard state.revision == request.revision, state.strings != request.strings else { return }
+      guard let revision = request.revision, state.revision == revision,
+            state.strings != request.strings else { return }
       state.strings = request.strings
       await self.publish(state, to: activity)
     }
@@ -218,6 +254,7 @@ private final class SwapLiveActivityManager {
       throw CleanupError.retainedCardCouldNotBeDismissed
     }
     defaults.removeObject(forKey: attemptedKey)
+    SwapLiveActivitySharedLabels.defaults?.removeObject(forKey: SwapLiveActivitySharedLabels.key)
   }
 
   private func observe(_ activity: Activity<SwapLiveActivityAttributes>) {

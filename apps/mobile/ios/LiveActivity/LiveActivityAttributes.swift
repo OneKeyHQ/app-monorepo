@@ -260,9 +260,36 @@ struct SwapLiveActivityRequest: Decodable {
     let revision: Int64
     let strings: SwapLiveActivityStrings?
   }
+  struct TerminalFallback: Decodable {
+    enum Reason: String, Decodable {
+      case jpushFailed, subscriptionRejected
+    }
+    let activityId: String
+    let reason: Reason
+  }
   let order: SwapLiveActivityOrder
   let content: Content
   let iconUrls: IconURLs?
+  let supportsBtcReceivingPush: Bool?
+  let terminalFallback: TerminalFallback?
+}
+
+enum SwapLiveActivitySharedLabels {
+  static let key = "swapLiveActivity.localizedLabels"
+  static let defaults = UserDefaults(suiteName: "group.so.onekey.wallet")
+
+  static func decode(_ data: Data) -> [String: SwapLiveActivityStrings] {
+    (try? JSONDecoder().decode([String: SwapLiveActivityStrings].self, from: data)) ?? [:]
+  }
+
+  static func set(_ strings: SwapLiveActivityStrings, for activityID: String, keeping activityIDs: Set<String>) {
+    guard let defaults else { return }
+    let previous = decode(defaults.data(forKey: key) ?? Data())
+    var updated = previous.filter { activityIDs.contains($0.key) }
+    updated[activityID] = strings
+    guard updated != previous, let data = try? JSONEncoder().encode(updated) else { return }
+    defaults.set(data, forKey: key)
+  }
 }
 
 enum SwapLiveActivityIconFiles {
@@ -274,6 +301,6 @@ enum SwapLiveActivityIconFiles {
 
 struct SwapLiveActivityStringsRequest: Decodable {
   let orderKey: String
-  let revision: Int64
+  let revision: Int64?
   let strings: SwapLiveActivityStrings
 }

@@ -32,6 +32,7 @@ import type {
   ILiveActivityStatus,
   ILiveActivitySubscriptionResult,
   ILiveActivitySystemStatus,
+  ILiveActivityTerminalFallback,
 } from '@onekeyhq/shared/types/liveActivity';
 import type {
   IFetchSwapTxHistoryStatusResponse,
@@ -125,6 +126,8 @@ class ServiceLiveActivity extends ServiceBase {
   >();
 
   private unsubscribing = new Map<string, Promise<void>>();
+
+  private checkedFailedActivities = new Set<string>();
 
   private remoteSyncTimer?: {
     handle: ReturnType<typeof setTimeout>;
@@ -229,6 +232,7 @@ class ServiceLiveActivity extends ServiceBase {
           await liveActivity.end(item.order.orderKey);
         } else if (item.pushRegistration !== 'notRequested') {
           await this.syncSubscription(item);
+          await this.recoverTerminalAfterPushFailure(item);
         }
       }),
     );
@@ -329,6 +333,9 @@ class ServiceLiveActivity extends ServiceBase {
 
   private async reconcile(status: ILiveActivitySystemStatus) {
     const activeIds = new Set(status.activities.map((item) => item.activityId));
+    for (const id of this.checkedFailedActivities) {
+      if (!activeIds.has(id)) this.checkedFailedActivities.delete(id);
+    }
     const activeSubscriptions = new Map(
       status.activities.map((item) => [item.activityId, item]),
     );
@@ -496,13 +503,12 @@ class ServiceLiveActivity extends ServiceBase {
       const presentation = (async () => {
         // An update may arrive before native creation has completed.
         await previous?.catch(() => undefined);
-        if (
-          this.activityHalted ||
-          generation !== this.testEndpointGeneration ||
-          isBlockedOrder(orderKey) ||
-          isReplacedDeposit(networkId, depositTxId)
-        )
-          return undefined;
+        const canPresent = () =>
+          !this.activityHalted &&
+          generation === this.testEndpointGeneration &&
+          !isBlockedOrder(orderKey) &&
+          !isReplacedDeposit(networkId, depositTxId);
+        if (!canPresent()) return undefined;
         const localizedSnapshot: ILiveActivityStartRequest = {
           ...snapshot,
           content: {
@@ -514,9 +520,33 @@ class ServiceLiveActivity extends ServiceBase {
             }),
           },
         };
-        return create
-          ? liveActivity.start(localizedSnapshot)
-          : liveActivity.update(localizedSnapshot);
+        if (create) return liveActivity.start(localizedSnapshot);
+        if (
+          !snapshot.order.isMock &&
+          isLiveActivityTerminal(snapshot.content.status)
+        ) {
+          const currentStatus = await liveActivity.getStatus();
+          const instance = currentStatus.activities.find(
+            ({ order }) =>
+              order.orderKey === orderKey &&
+              order.networkId === networkId &&
+              order.serviceOrderId === snapshot.order.serviceOrderId,
+          );
+          if (!instance) return undefined;
+          if (instance.pushRegistration !== 'notRequested') {
+            const terminalFallback = await this.getTerminalFallback(instance);
+            if (!terminalFallback || !canPresent()) return undefined;
+            // The provider may have normalized the deposit tx ID since the
+            // card was created. Target the identity stored on the native card.
+            return liveActivity.update({
+              ...localizedSnapshot,
+              order: instance.order,
+              terminalFallback,
+            });
+          }
+          if (!canPresent()) return undefined;
+        }
+        return liveActivity.update(localizedSnapshot);
       })();
       this.presenting.set(orderKey, presentation);
       let status: ILiveActivitySystemStatus | undefined;
@@ -559,7 +589,9 @@ class ServiceLiveActivity extends ServiceBase {
       this.activityHalted ||
       this.subscriptions.has(activityId) ||
       this.subscribing.has(activityId) ||
-      this.unsubscribing.has(activityId)
+      this.unsubscribing.has(activityId) ||
+      (pushRegistration !== 'notRequested' &&
+        isLiveActivityTerminal(content.status))
     ) {
       return;
     }
@@ -659,6 +691,65 @@ class ServiceLiveActivity extends ServiceBase {
     }
   }
 
+  private async getTerminalFallback(
+    instance: ILiveActivityInstance,
+  ): Promise<ILiveActivityTerminalFallback | undefined> {
+    const { activityId, order, content, pushRegistration } = instance;
+    const jpushFailed = pushRegistration === 'failed';
+    const subscriptionRejected =
+      this.remoteAttempts.get(activityId)?.retryAtMs === Infinity;
+    if (
+      (!jpushFailed && !subscriptionRejected) ||
+      order.isMock ||
+      order.expiresAtMs <= Date.now() ||
+      isLiveActivityTerminal(content.status) ||
+      this.subscriptions.has(activityId) ||
+      this.subscribing.has(activityId)
+    )
+      return undefined;
+    return this.remoteCleanupMutex.runExclusive(async () => {
+      const { instanceId } = await settingsPersistAtom.get();
+      const { queue } = await readLiveActivityCleanupQueue(instanceId);
+      const tracked = queue.get(activityId);
+      // A previous POST can have reached Notification even if its response was lost.
+      if (
+        tracked?.subscribed ||
+        (tracked && !subscriptionRejected) ||
+        this.subscriptions.has(activityId) ||
+        this.subscribing.has(activityId)
+      )
+        return undefined;
+      return {
+        activityId,
+        reason: subscriptionRejected ? 'subscriptionRejected' : 'jpushFailed',
+      };
+    });
+  }
+
+  private async recoverTerminalAfterPushFailure(
+    instance: ILiveActivityInstance,
+  ) {
+    const { activityId, order } = instance;
+    if (this.checkedFailedActivities.has(activityId)) return;
+    if (!(await this.getTerminalFallback(instance))) return;
+    // Swap stops polling after its terminal result. Recover it from history if
+    // the result arrived before push setup failed, including after a JS restart.
+    const histories =
+      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    if (this.activityHalted || isBlockedOrder(order.orderKey)) return;
+    this.checkedFailedActivities.add(activityId);
+    const history = histories.find(
+      (item) =>
+        getSwapLiveActivityOrderKey(item) === order.orderKey &&
+        item.baseInfo.fromToken.networkId === order.networkId &&
+        item.swapInfo.orderId === order.serviceOrderId,
+    );
+    const snapshot = history && buildSwapLiveActivitySnapshot(history);
+    if (snapshot && isLiveActivityTerminal(snapshot.content.status)) {
+      await this.present(snapshot, false);
+    }
+  }
+
   @backgroundMethod()
   async onSwapBroadcast(history: ISwapTxHistory) {
     if (!(await this.canTrackRealActivity())) return;
@@ -675,6 +766,7 @@ class ServiceLiveActivity extends ServiceBase {
       await this.present(
         {
           ...snapshot,
+          supportsBtcReceivingPush: true,
           iconUrls:
             fromToken.logoURI || toToken.logoURI
               ? { from: fromToken.logoURI, to: toToken.logoURI }
@@ -763,10 +855,10 @@ class ServiceLiveActivity extends ServiceBase {
       const updates = status.activities.map((activity) => {
         const orderKey = activity.order.orderKey;
         const { revision, updatedAtMs } = activity.content;
+        const needsRevision = activity.pushRegistration === 'notRequested';
         if (
           isBlockedOrder(orderKey) ||
-          revision === undefined ||
-          updatedAtMs === undefined
+          (needsRevision && revision === undefined)
         )
           return Promise.resolve();
         const previous = this.presenting.get(orderKey);

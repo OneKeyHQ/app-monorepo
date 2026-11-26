@@ -15,22 +15,31 @@ private let swapRed = Color(red: 210 / 255, green: 30 / 255, blue: 36 / 255)
 private let swapOrange = Color(red: 247 / 255, green: 147 / 255, blue: 26 / 255)
 private let swapSecondaryText = Color.white.opacity(0.6)
 
-private extension ActivityViewContext where Attributes == SwapLiveActivityAttributes {
-  var swapStrings: SwapLiveActivityStrings? { state.strings ?? attributes.strings }
+private struct SwapLocalizedContent<Content: View>: View {
+  @AppStorage(SwapLiveActivitySharedLabels.key, store: SwapLiveActivitySharedLabels.defaults)
+  private var labels = Data()
+  let activityID: String
+  @ViewBuilder let content: (SwapLiveActivityStrings?) -> Content
 
-  var remoteStatusLabel: String? {
-    if state.isRefundFailed { return swapStrings?.refundFailed ?? "Refund failed" }
-    if state.isPartiallyFilled { return swapStrings?.partiallyFilled ?? "Partially filled" }
-    if state.isExpired { return swapStrings?.expired ?? "Expired" }
+  var body: some View {
+    content(SwapLiveActivitySharedLabels.decode(labels)[activityID])
+  }
+}
+
+private extension ActivityViewContext where Attributes == SwapLiveActivityAttributes {
+  func remoteStatusLabel(strings: SwapLiveActivityStrings?) -> String? {
+    if state.isRefundFailed { return strings?.refundFailed ?? "Refund failed" }
+    if state.isPartiallyFilled { return strings?.partiallyFilled ?? "Partially filled" }
+    if state.isExpired { return strings?.expired ?? "Expired" }
     return nil
   }
 
-  var lastUpdatedText: String? {
+  func lastUpdatedText(strings: SwapLiveActivityStrings?, usesSharedLabels: Bool) -> String? {
     guard let timestamp = state.updatedAtMs else { return nil }
-    if let text = state.strings?.lastUpdated { return text }
-    let label = swapStrings?.lastUpdatedLabel ?? "Last updated"
+    if !usesSharedLabels, let text = state.strings?.lastUpdated, !text.isEmpty { return text }
+    let label = strings?.lastUpdatedLabel ?? "Last updated"
     let date = Date(timeIntervalSince1970: timestamp / 1000)
-    let locale = swapStrings?.locale.map { Locale(identifier: $0) } ?? .current
+    let locale = strings?.locale.map { Locale(identifier: $0) } ?? .current
     let formatted = date.formatted(
       .dateTime.year().month(.abbreviated).day().hour().minute().locale(locale)
     )
@@ -90,15 +99,15 @@ private struct SwapTokenPair: View {
 
 private struct SwapActivityETA: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
+  let strings: SwapLiveActivityStrings?
   var compact = false
 
   private var status: SwapLiveActivityStatus { context.state.status }
-  private var strings: SwapLiveActivityStrings? { context.swapStrings }
   private var order: SwapLiveActivityOrder { context.attributes.order }
 
   var body: some View {
     Group {
-      if let label = context.remoteStatusLabel {
+      if let label = context.remoteStatusLabel(strings: strings) {
         Text(label)
       } else {
         switch status {
@@ -216,7 +225,10 @@ private struct SwapActivityProgress: View {
 
 private struct SwapActivityDetails: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
+  let sharedLabels: SwapLiveActivityStrings?
   var expanded = false
+
+  private var strings: SwapLiveActivityStrings? { sharedLabels ?? context.state.strings ?? context.attributes.strings }
 
   private var showsStaleTime: Bool {
     context.isStale && !context.state.isTerminal && !context.state.status.isError
@@ -228,8 +240,8 @@ private struct SwapActivityDetails: View {
 
   private var stepText: String? {
     if context.state.status.isTerminal { return nil }
-    if let message = context.state.remoteMessage { return message }
-    let strings = context.swapStrings
+    if sharedLabels == nil, let message = context.state.remoteMessage { return message }
+    if let label = context.remoteStatusLabel(strings: strings) { return label }
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
@@ -256,7 +268,7 @@ private struct SwapActivityDetails: View {
           .opacity(context.state.status.isError ? 0.5 : 1)
         if !showsStaleTime {
           Spacer(minLength: 4)
-          SwapActivityETA(context: context)
+          SwapActivityETA(context: context, strings: strings)
         }
       }
       .font(.system(size: 24, weight: .semibold))
@@ -266,7 +278,9 @@ private struct SwapActivityDetails: View {
       .frame(height: 24)
       VStack(alignment: .leading, spacing: expanded ? 4 : 6) {
         SwapActivityProgress(context: context)
-        if let caption = (showsStaleTime ? context.lastUpdatedText : nil) ?? stepText {
+        if let caption = (showsStaleTime
+          ? context.lastUpdatedText(strings: strings, usesSharedLabels: sharedLabels != nil)
+          : nil) ?? stepText {
           Text(caption)
             .font(.system(size: 12, weight: .regular))
             .foregroundStyle(context.state.status.isError
@@ -283,11 +297,13 @@ private struct SwapActivityDetails: View {
 
 private struct SwapCompactStatus: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
+  let sharedLabels: SwapLiveActivityStrings?
+
+  private var strings: SwapLiveActivityStrings? { sharedLabels ?? context.state.strings ?? context.attributes.strings }
 
   private var statusLabel: String {
-    if let label = context.remoteStatusLabel { return label }
-    if let message = context.state.remoteMessage { return message }
-    let strings = context.swapStrings
+    if let label = context.remoteStatusLabel(strings: strings) { return label }
+    if sharedLabels == nil, let message = context.state.remoteMessage { return message }
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
@@ -310,7 +326,7 @@ private struct SwapCompactStatus: View {
         .accessibilityLabel(Text(statusLabel))
     } else if !context.isStale && (context.state.displayPhase == "eta"
       || (!context.state.status.isError && context.attributes.usesRemoteUpdates)) {
-      SwapActivityETA(context: context, compact: true)
+      SwapActivityETA(context: context, strings: strings, compact: true)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")
       .renderingMode(.original).resizable().scaledToFit()
@@ -329,7 +345,9 @@ struct SwapLiveActivityWidget: Widget {
           Spacer()
           Image("SwapOneKeyWordmark").resizable().scaledToFit().frame(width: 56, height: 16.2715)
         }
-        SwapActivityDetails(context: context)
+        SwapLocalizedContent(activityID: context.activityID) { labels in
+          SwapActivityDetails(context: context, sharedLabels: labels)
+        }
       }
       .padding(.horizontal, 30)
       .padding(.vertical, 16)
@@ -346,14 +364,18 @@ struct SwapLiveActivityWidget: Widget {
             .frame(width: 56, height: 16.2715)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          SwapActivityDetails(context: context, expanded: true)
-            .padding(.top, 2).padding(.bottom, 8)
+          SwapLocalizedContent(activityID: context.activityID) { labels in
+            SwapActivityDetails(context: context, sharedLabels: labels, expanded: true)
+              .padding(.top, 2).padding(.bottom, 8)
+          }
         }
       } compactLeading: {
         SwapTokenPair(attributes: context.attributes, status: context.state.status,
                       size: 22, overlapping: true)
       } compactTrailing: {
-        SwapCompactStatus(context: context)
+        SwapLocalizedContent(activityID: context.activityID) { labels in
+          SwapCompactStatus(context: context, sharedLabels: labels)
+        }
       } minimal: {
         ZStack {
           Image("SwapMinimalRing").renderingMode(.original).resizable().scaledToFit()

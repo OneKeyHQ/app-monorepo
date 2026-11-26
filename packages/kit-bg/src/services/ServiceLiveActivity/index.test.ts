@@ -1,6 +1,9 @@
 import ServiceLiveActivity from '.';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
@@ -209,6 +212,7 @@ describe('Live Activity subscription lifecycle', () => {
             from: fromToken.logoURI,
             to: toToken.logoURI,
           },
+          supportsBtcReceivingPush: true,
           order: expect.objectContaining({
             fromToken: expect.objectContaining({ iconUrl: '' }),
             toToken: expect.objectContaining({ iconUrl: '' }),
@@ -260,6 +264,114 @@ describe('Live Activity subscription lifecycle', () => {
     expect(liveActivity.getStatus).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(1);
     expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [80_007, true],
+    [80_010, true],
+    [80_012, false],
+  ] as const)(
+    'uses the polled terminal status only for a definitive Notification rejection (%s)',
+    async (code, fallsBack) => {
+      serverTransport.subscribe.mockRejectedValueOnce(
+        new OneKeyServerApiError({ code, message: 'Mock rejection' }),
+      );
+      const service = new ServiceLiveActivity({ backgroundApi: {} });
+      const history = createHistory('to-btc');
+      await service.onSwapBroadcast(history);
+      await service.onSwapStatus({
+        history,
+        status: { state: ESwapTxHistoryStatus.SUCCESS },
+      });
+      if (fallsBack) {
+        expect(liveActivity.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            content: expect.objectContaining({ status: 'done' }),
+            terminalFallback: {
+              activityId: 'synthetic-activity',
+              reason: 'subscriptionRejected',
+            },
+          }),
+        );
+      } else {
+        expect(liveActivity.update).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('recovers a terminal order from history after JPush fails and the JS service restarts', async () => {
+    const start = jest.mocked(liveActivity.start).getMockImplementation();
+    if (!start) throw new OneKeyLocalError('Missing mock');
+    jest.mocked(liveActivity.start).mockImplementation(async (request) => {
+      const nativeStatus = await start(request);
+      nativeStatus.activities[0].pushRegistration = 'pending';
+      return nativeStatus;
+    });
+    const history = createHistory('to-btc');
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    await service.onSwapBroadcast(history);
+    await service.onSwapStatus({
+      history,
+      status: { state: ESwapTxHistoryStatus.SUCCESS },
+    });
+    expect(liveActivity.update).not.toHaveBeenCalled();
+    status.activities[0].pushRegistration = 'failed';
+    const readHistory = jest.fn().mockResolvedValue([
+      {
+        ...history,
+        txInfo: { ...history.txInfo, txId: 'provider-deposit-id' },
+        status: ESwapTxHistoryStatus.SUCCESS,
+      },
+    ]);
+    const restarted = new ServiceLiveActivity({
+      backgroundApi: {
+        simpleDb: { swapHistory: { getSwapHistoryList: readHistory } },
+      },
+    });
+    await restarted.resumeRemoteSubscriptions();
+    await restarted.resumeRemoteSubscriptions();
+    expect(readHistory).toHaveBeenCalledTimes(1);
+    expect(liveActivity.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: expect.objectContaining({ depositTxId: 'deposit-a' }),
+        content: expect.objectContaining({ status: 'done' }),
+        terminalFallback: {
+          activityId: 'synthetic-activity',
+          reason: 'jpushFailed',
+        },
+      }),
+    );
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
+  });
+
+  it('leaves a previously acknowledged subscription alone after JS restarts', async () => {
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    const history = createHistory('to-btc');
+    await service.onSwapBroadcast(history);
+    status.activities[0].pushRegistration = 'failed';
+    const restarted = new ServiceLiveActivity({ backgroundApi: {} });
+    await restarted.onSwapStatus({
+      history,
+      status: { state: ESwapTxHistoryStatus.SUCCESS },
+    });
+    expect(liveActivity.update).not.toHaveBeenCalled();
+  });
+
+  it('does not take over a card when Notification might have accepted an earlier POST', async () => {
+    serverTransport.subscribe.mockRejectedValueOnce(
+      new OneKeyLocalError('Mock response lost'),
+    );
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    const history = createHistory('to-btc');
+    await service.onSwapBroadcast(history);
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+    status.activities[0].pushRegistration = 'failed';
+    const restarted = new ServiceLiveActivity({ backgroundApi: {} });
+    await restarted.onSwapStatus({
+      history,
+      status: { state: ESwapTxHistoryStatus.SUCCESS },
+    });
+    expect(liveActivity.update).not.toHaveBeenCalled();
   });
 
   it('does not create a real activity before remote tracking is available', async () => {
@@ -554,6 +666,28 @@ describe('Live Activity subscription lifecycle', () => {
       expect.objectContaining({
         revision: previous.revision,
         strings: expect.objectContaining({ done: '完成' }),
+      }),
+    );
+    expect(liveActivity.update).not.toHaveBeenCalled();
+  });
+
+  it('refreshes remote labels even when the push has no timestamp or revision', async () => {
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    await service.onSwapBroadcast(createHistory('to-btc'));
+    status.activities[0].content = { status: 'receiving' };
+    const updateStrings = jest
+      .spyOn(liveActivity, 'updateStrings')
+      .mockResolvedValue(status);
+    appLocale.setLocale('zh-CN', chineseMessages);
+    await service.refreshLanguage();
+    expect(updateStrings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        revision: undefined,
+        strings: expect.objectContaining({
+          done: '完成',
+          lastUpdated: '',
+          locale: 'zh-CN',
+        }),
       }),
     );
     expect(liveActivity.update).not.toHaveBeenCalled();

@@ -78,6 +78,16 @@ export type ILiveActivitySnapshot = {
 
 export type ILiveActivityStartRequest = ILiveActivitySnapshot & {
   iconUrls?: { from?: string; to?: string };
+  supportsBtcReceivingPush?: boolean;
+};
+
+export type ILiveActivityTerminalFallback = {
+  activityId: string;
+  reason: 'jpushFailed' | 'subscriptionRejected';
+};
+
+export type ILiveActivityUpdateRequest = ILiveActivitySnapshot & {
+  terminalFallback?: ILiveActivityTerminalFallback;
 };
 
 export type ILiveActivityInstance = Omit<ILiveActivitySnapshot, 'content'> & {
@@ -133,11 +143,11 @@ export type ILiveActivityModule = {
     snapshot: ILiveActivityStartRequest,
   ) => Promise<ILiveActivitySystemStatus>;
   update: (
-    snapshot: ILiveActivitySnapshot,
+    snapshot: ILiveActivityUpdateRequest,
   ) => Promise<ILiveActivitySystemStatus>;
   updateStrings: (request: {
     orderKey: string;
-    revision: number;
+    revision?: number;
     strings: ILiveActivityStrings;
   }) => Promise<ILiveActivitySystemStatus>;
   end: (orderKey: string) => Promise<ILiveActivitySystemStatus>;
