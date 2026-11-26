@@ -1570,6 +1570,11 @@ export function OrderBook({
     [onSelectLevel],
   );
 
+  let tickLabel = selectedTickOption?.label || '-';
+  if (!isDesktopVertical && selectedTickOption?.label) {
+    tickLabel = new BigNumber(selectedTickOption.label).toFixed(priceDecimals);
+  }
+
   const tickSelector = showTickSelector ? (
     <Select
       testID="perp-select"
@@ -1585,9 +1590,22 @@ export function OrderBook({
       renderTrigger={({ onPress }) => (
         <TouchableOpacity
           activeOpacity={isDesktopVertical ? 0.8 : undefined}
+          accessibilityRole={isDesktopVertical ? 'button' : undefined}
+          accessibilityLabel={
+            isDesktopVertical
+              ? [
+                  intl.formatMessage({
+                    id: ETranslations.perp_orderbook_spread,
+                  }),
+                  selectedTickOption?.label,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              : undefined
+          }
           style={{
             minWidth: 56,
-            maxWidth: 150,
+            maxWidth: isDesktopVertical ? 200 : 150,
             height: isDesktopVertical ? 24 : verticalSpreadControlHeight,
             borderRadius: 4,
             flexDirection: 'row',
@@ -1600,17 +1618,6 @@ export function OrderBook({
           }}
           onPress={onPress}
         >
-          {isDesktopVertical ? (
-            <PerpBookText
-              numberOfLines={1}
-              style={[
-                styles.desktopTickSelectorText,
-                { color: textColor.textSubdued, marginRight: 4 },
-              ]}
-            >
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_spread })}
-            </PerpBookText>
-          ) : null}
           <PerpBookText
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -1621,9 +1628,7 @@ export function OrderBook({
               { color: textColor.text },
             ]}
           >
-            {selectedTickOption?.label
-              ? new BigNumber(selectedTickOption.label).toFixed(priceDecimals)
-              : '-'}
+            {tickLabel}
           </PerpBookText>
           <Icon
             name="ChevronDownSmallOutline"

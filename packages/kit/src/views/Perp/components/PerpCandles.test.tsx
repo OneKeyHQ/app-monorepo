@@ -1026,7 +1026,7 @@ it.each(['web', 'desktop'] as const)(
     };
     try {
       expect(mockRecentTrades).not.toHaveBeenCalled();
-      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_trades__title);
       expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
         active: true,
         visible: true,
@@ -1046,7 +1046,7 @@ it.each(['web', 'desktop'] as const)(
         active: false,
         visible: false,
       });
-      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_trades__title);
       select(ETranslations.perps_order_book);
       mockRecentTradesForeground = false;
       view.rerender(<PerpDesktopOrderBookPanel initialOrderBookHeight={400} />);
@@ -1056,7 +1056,7 @@ it.each(['web', 'desktop'] as const)(
         active: false,
         visible: false,
       });
-      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_trades__title);
       select(ETranslations.perps_order_book);
       mockRecentTrades.mockClear();
       mockCoin = 'BTC';
@@ -1085,7 +1085,7 @@ it.each(['web', 'desktop'] as const)(
     try {
       expect(mockRecentTrades).not.toHaveBeenCalled();
       act(
-        view.UNSAFE_getByProps({ label: ETranslations.swap_page_recent_trade })
+        view.UNSAFE_getByProps({ label: ETranslations.perps_trades__title })
           .props.onPress as () => void,
       );
       expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
@@ -1144,7 +1144,7 @@ it('keeps the original extension order book without recent trades or depth tabs'
   try {
     expect(
       view.UNSAFE_queryAllByProps({
-        label: ETranslations.swap_page_recent_trade,
+        label: ETranslations.perps_trades__title,
       }),
     ).toHaveLength(0);
     expect(
