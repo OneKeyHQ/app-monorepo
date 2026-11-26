@@ -200,7 +200,7 @@ describe('useMarketTokenListRequest', () => {
 
 describe('useMarketHolders request ownership', () => {
   it.each([true, false])(
-    'keeps the first holder for each address with token detail available: %s',
+    'collapses matching holder balances with token detail available: %s',
     async (hasTokenDetail) => {
       if (!hasTokenDetail) {
         mockTokenDetail = undefined;
@@ -209,8 +209,8 @@ describe('useMarketHolders request ownership', () => {
         list: [
           holderA,
           holderB,
-          { ...holderA, amount: '999', fiatValue: '1998' },
-          { ...holderB, amount: '888', fiatValue: '1776' },
+          { ...holderA, amount: '10.00', fiatValue: '20.0' },
+          { ...holderB },
         ],
       });
       const { result } = renderHook(() =>
@@ -226,6 +226,80 @@ describe('useMarketHolders request ownership', () => {
       expect(result.current.isInitialPending).toBe(false);
     },
   );
+
+  it('preserves distinct case-sensitive Solana wallet addresses', async () => {
+    const address = '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM';
+    const holders = [
+      { ...holderA, accountAddress: address },
+      { ...holderB, accountAddress: address.replace('W', 'w') },
+    ];
+    mockFetchHolders.mockResolvedValue({ list: [...holders, holders[0]] });
+    const { result } = renderHook(() =>
+      useMarketHolders({
+        ...initialScope,
+        networkId: 'sol--101',
+        isTabFocused: true,
+      }),
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(0);
+    });
+    expect(result.current.holders).toEqual(holders);
+  });
+
+  it.each([
+    { amount: '999', fiatValue: holderA.fiatValue, reverse: false },
+    { amount: '999', fiatValue: holderA.fiatValue, reverse: true },
+    { amount: holderA.amount, fiatValue: '1998', reverse: false },
+    { amount: holderA.amount, fiatValue: '1998', reverse: true },
+  ])('rejects conflicting holder balances: %j', async (conflict) => {
+    const list = [
+      holderA,
+      holderB,
+      { ...holderA, amount: conflict.amount, fiatValue: conflict.fiatValue },
+    ];
+    mockFetchHolders.mockResolvedValue({
+      list: conflict.reverse ? list.toReversed() : list,
+    });
+    const { result } = renderHook(() => useMarketHolders(initialScope));
+    await act(async () => {
+      jest.advanceTimersByTime(0);
+    });
+    await act(async () => {
+      await expect(
+        result.current.fetchHolders({ alwaysSetState: true }),
+      ).rejects.toThrow('Conflicting token holder balances');
+    });
+    expect(result.current.holders).toEqual([]);
+    expect(result.current.isInitialPending).toBe(false);
+    expect(result.current.isRefreshing).toBe(false);
+  });
+
+  it('retains the last valid holders on conflict and accepts a later valid refresh', async () => {
+    mockFetchHolders.mockResolvedValueOnce({ list: [holderA] });
+    const { result } = renderHook(() => useMarketHolders(initialScope));
+    await act(async () => {
+      jest.advanceTimersByTime(0);
+      await result.current.fetchHolders({ alwaysSetState: true });
+    });
+    expect(result.current.holders).toEqual([holderA]);
+    mockFetchHolders.mockResolvedValueOnce({
+      list: [holderA, { ...holderA, amount: '999', fiatValue: '1998' }],
+    });
+    await act(async () => {
+      await expect(
+        result.current.fetchHolders({ alwaysSetState: true }),
+      ).rejects.toThrow('Conflicting token holder balances');
+    });
+    expect(result.current.holders).toEqual([holderA]);
+    expect(result.current.isRefreshing).toBe(false);
+    const updatedHolder = { ...holderA, amount: '11', fiatValue: '22' };
+    mockFetchHolders.mockResolvedValueOnce({ list: [updatedHolder] });
+    await act(async () => {
+      await result.current.fetchHolders({ alwaysSetState: true });
+    });
+    expect(result.current.holders).toEqual([updatedHolder]);
+  });
 
   it.each([
     { networkId: 'evm--1', tokenAddress: '0xb' },
