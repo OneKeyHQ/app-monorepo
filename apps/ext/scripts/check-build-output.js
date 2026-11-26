@@ -384,9 +384,10 @@ function main() {
     // 186073416 bytes (run 40808182907). x then grew to 189972382 bytes
     // (run 44510813887), and the release/v6.7.0 #3 sync measured 190305829
     // bytes (run 44522774202) before its Perps reward image was recompressed
-    // (-170607 bytes), about 190.14 MB. 194000000 keeps about 2% headroom.
+    // (-170607 bytes), about 190.14 MB, and x set 194000000. release/v6.7.0
+    // (#14695) then raised the budget to 200000000.
     // Trust the CI number when the margin is thin; macOS builds differ.
-    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 194000000),
+    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 200000000),
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),

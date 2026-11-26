@@ -122,8 +122,17 @@ const LimitOrderDetailModal = () => {
   const latestTradeAgainParamsRef = useRef(tradeAgainParams);
   latestTradeAgainParamsRef.current = tradeAgainParams;
   const onTradeAgainFromSource = route.params?.onTradeAgain;
+  const canTradeAgain = Boolean(
+    tradeAgainParams &&
+    onTradeAgainFromSource?.isAllowed(tradeAgainParams) !== false,
+  );
   const onTradeAgain = useCallback(() => {
-    if (!tradeAgainParams || !orderItemState || tradeAgainPendingRef.current)
+    if (
+      !tradeAgainParams ||
+      !orderItemState ||
+      !canTradeAgain ||
+      tradeAgainPendingRef.current
+    )
       return;
     tradeAgainPendingRef.current = true;
     void (async () => {
@@ -151,8 +160,14 @@ const LimitOrderDetailModal = () => {
         cancelTradeAgainResetRef.current = reset.cancel;
         const ready = await reset.promise;
         const latest = latestTradeAgainParamsRef.current;
-        if (!ready || !routeNavigation.isFocused() || !latest) return;
-        if (onTradeAgainFromSource?.(latest)) navigation.popStack();
+        if (
+          !ready ||
+          !routeNavigation.isFocused() ||
+          !latest ||
+          onTradeAgainFromSource?.isAllowed(latest) === false
+        )
+          return;
+        if (onTradeAgainFromSource?.handle(latest)) navigation.popStack();
         else navigation.replace(EModalSwapRoutes.SwapMainLand, latest);
         navigated = true;
       } catch {
@@ -168,6 +183,7 @@ const LimitOrderDetailModal = () => {
       }
     })();
   }, [
+    canTradeAgain,
     intl,
     navigation,
     onTradeAgainFromSource,
@@ -881,7 +897,7 @@ const LimitOrderDetailModal = () => {
       />
       <Page.Body>{renderLimitOrderDetails()}</Page.Body>
       <SwapHistoryFooter
-        canTradeAgain={Boolean(tradeAgainParams)}
+        canTradeAgain={canTradeAgain}
         hasSupport
         onTradeAgain={onTradeAgain}
         onSupport={() => {

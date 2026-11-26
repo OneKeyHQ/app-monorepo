@@ -157,6 +157,73 @@ describe('buildPortfolioClaimSymbolMap', () => {
 });
 
 describe('resolvePortfolioClaimProtocolIdentity', () => {
+  it.each([
+    {
+      providerName: 'EtherFi',
+      assetSymbol: 'USDC',
+      sourceIdentity: null,
+    },
+    {
+      providerName: 'Spark',
+      assetSymbol: 'USDT',
+      sourceIdentity: { symbol: 'USDC', vault: 'spark-usdc-vault' },
+    },
+    {
+      providerName: 'Native',
+      assetSymbol: 'USDT',
+      assetVault: '',
+      sourceIdentity: null,
+    },
+  ])(
+    'uses the server-supplied symbol for the reward without a vault: %p',
+    ({ providerName, assetSymbol, assetVault, sourceIdentity }) => {
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: true,
+          providerName,
+          assetSymbol,
+          assetVault,
+          claimSymbolStatus: 'unmatched',
+          sourceIdentity,
+        }),
+      ).toEqual({ symbol: assetSymbol });
+    },
+  );
+
+  it('does not borrow a vault when the reward symbol is blank', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
+        providerName: 'Spark',
+        assetSymbol: '   ',
+        sourceIdentity: { symbol: 'USDC', vault: 'spark-usdc-vault' },
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps an explicit claim symbol for a reward without a vault', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
+        providerName: 'Spark',
+        assetSymbol: 'USDT',
+        claimSymbol: 'USDC',
+        claimSymbolStatus: 'matched',
+      }),
+    ).toEqual({ symbol: 'USDC' });
+  });
+
+  it('fails closed when a reward without a vault has an ambiguous claim symbol', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
+        providerName: 'Spark',
+        assetSymbol: 'USDT',
+        claimSymbolStatus: 'ambiguous',
+      }),
+    ).toBeNull();
+  });
+
   it.each([undefined, 'OTHER'])(
     'keeps the displayed token identity for existing non-EtherFi actions (protocol symbol %p)',
     (protocolSymbol) => {

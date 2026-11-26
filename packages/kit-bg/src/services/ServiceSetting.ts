@@ -1113,6 +1113,14 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setSidebarShowLabels(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      sidebarShowLabels: value,
+    }));
+  }
+
+  @backgroundMethod()
   public async setEnableAutoDownloadAppUpdate(value: boolean) {
     const wasEnabled =
       (await settingsPersistAtom.get()).enableAutoDownloadAppUpdate !== false;
