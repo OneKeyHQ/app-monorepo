@@ -5,7 +5,6 @@ import {
   Icon,
   NumberSizeableText,
   SizableText,
-  Spinner,
   Stack,
   XStack,
   YStack,
@@ -31,41 +30,36 @@ function StarknetAttributes({
   const shouldResolve =
     privacy?.kind === 'transfer' && !decodedTx.actions[0]?.assetTransfer;
 
-  const { result: decryptedTx, isLoading } = usePromiseResult(
-    async () => {
-      if (!shouldResolve) return undefined;
-      return backgroundApiProxy.serviceStarknetPrivacy
-        .resolvePrivateHistoryTx({
-          networkId: decodedTx.networkId,
-          accountId: decodedTx.accountId,
-          txid: decodedTx.txid,
-        })
-        .catch(() => undefined);
-    },
-    [shouldResolve, decodedTx.networkId, decodedTx.accountId, decodedTx.txid],
-    { watchLoading: true },
-  );
+  const { result: decryptedTx } = usePromiseResult(async () => {
+    if (!shouldResolve) return undefined;
+    return backgroundApiProxy.serviceStarknetPrivacy
+      .resolvePrivateHistoryTx({
+        networkId: decodedTx.networkId,
+        accountId: decodedTx.accountId,
+        txid: decodedTx.txid,
+      })
+      .catch(() => undefined);
+  }, [shouldResolve, decodedTx.networkId, decodedTx.accountId, decodedTx.txid]);
 
   if (!shouldResolve) {
     return null;
   }
 
   const assetTransfer = decryptedTx?.decodedTx.actions[0]?.assetTransfer;
-  const isResolving = isLoading !== false;
-
-  if (!isResolving && !assetTransfer) {
-    return null;
-  }
-
   const sendTransfer = assetTransfer?.sends?.[0];
   const receiveTransfer = assetTransfer?.receives?.[0];
   const primaryTransfer = sendTransfer ?? receiveTransfer;
+
+  if (!primaryTransfer) {
+    return null;
+  }
+
   const isReceive = !sendTransfer && Boolean(receiveTransfer);
   const fromAddress =
-    primaryTransfer?.from ??
+    primaryTransfer.from ??
     assetTransfer?.from ??
     decryptedTx?.decodedTx.signer;
-  const toAddress = primaryTransfer?.to ?? assetTransfer?.to;
+  const toAddress = primaryTransfer.to ?? assetTransfer?.to;
 
   return (
     <Stack flex={1} flexBasis="100%" p="$2.5">
@@ -77,69 +71,64 @@ function StarknetAttributes({
         p="$3"
         gap="$2"
       >
-        <XStack alignItems="center" justifyContent="space-between" gap="$2">
-          <XStack alignItems="center" gap="$1.5">
-            <Icon name="LockOutline" size="$4" color="$iconSubdued" />
-            <SizableText size="$bodyMdMedium" color="$text">
-              {intl.formatMessage({
-                id: ETranslations.private_send_private_option,
-              })}
-            </SizableText>
-          </XStack>
-          {isResolving ? <Spinner size="small" /> : null}
+        <XStack alignItems="center" gap="$1.5">
+          <Icon name="LockOutline" size="$4" color="$iconSubdued" />
+          <SizableText size="$bodyMdMedium" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.private_send_private_option,
+            })}
+          </SizableText>
         </XStack>
 
-        {!isResolving && primaryTransfer ? (
-          <YStack gap="$1">
+        <YStack gap="$1">
+          <InfoItem
+            p="$0"
+            label={intl.formatMessage({ id: ETranslations.content__amount })}
+            renderContent={
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyMdMedium"
+                color={isReceive ? '$textSuccess' : '$text'}
+                formatterOptions={{
+                  tokenSymbol: primaryTransfer.symbol,
+                  showPlusMinusSigns: true,
+                }}
+              >
+                {`${isReceive ? '+' : '-'}${primaryTransfer.amount}`}
+              </NumberSizeableText>
+            }
+          />
+          {fromAddress ? (
             <InfoItem
               p="$0"
-              label={intl.formatMessage({ id: ETranslations.content__amount })}
-              renderContent={
-                <NumberSizeableText
-                  formatter="balance"
-                  size="$bodyMdMedium"
-                  color={isReceive ? '$textSuccess' : '$text'}
-                  formatterOptions={{
-                    tokenSymbol: primaryTransfer.symbol,
-                    showPlusMinusSigns: true,
-                  }}
-                >
-                  {`${isReceive ? '+' : '-'}${primaryTransfer.amount}`}
-                </NumberSizeableText>
+              label={intl.formatMessage({ id: ETranslations.global_from })}
+              renderContent={fromAddress}
+              showCopy
+              description={
+                <AddressInfo
+                  address={fromAddress}
+                  networkId={decodedTx.networkId}
+                  accountId={decodedTx.accountId}
+                />
               }
             />
-            {fromAddress ? (
-              <InfoItem
-                p="$0"
-                label={intl.formatMessage({ id: ETranslations.global_from })}
-                renderContent={fromAddress}
-                showCopy
-                description={
-                  <AddressInfo
-                    address={fromAddress}
-                    networkId={decodedTx.networkId}
-                    accountId={decodedTx.accountId}
-                  />
-                }
-              />
-            ) : null}
-            {toAddress ? (
-              <InfoItem
-                p="$0"
-                label={intl.formatMessage({ id: ETranslations.global_to })}
-                renderContent={toAddress}
-                showCopy
-                description={
-                  <AddressInfo
-                    address={toAddress}
-                    networkId={decodedTx.networkId}
-                    accountId={decodedTx.accountId}
-                  />
-                }
-              />
-            ) : null}
-          </YStack>
-        ) : null}
+          ) : null}
+          {toAddress ? (
+            <InfoItem
+              p="$0"
+              label={intl.formatMessage({ id: ETranslations.global_to })}
+              renderContent={toAddress}
+              showCopy
+              description={
+                <AddressInfo
+                  address={toAddress}
+                  networkId={decodedTx.networkId}
+                  accountId={decodedTx.accountId}
+                />
+              }
+            />
+          ) : null}
+        </YStack>
       </YStack>
     </Stack>
   );
