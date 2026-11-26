@@ -267,15 +267,23 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
   );
 }
 
-export function SwapStockTickerSelector() {
-  const intl = useIntl();
-  const { md } = useMedia();
-  const selection = useSwapStockSelection();
+function PreloadStockTickerList() {
   // Warm the selector list as soon as the Stocks page mounts: the sheet reads
   // its first page from the SWR cache and shows a centered spinner on a miss,
   // and the Market Home list may be older than the cache window. Opening the
   // sheet then renders rows immediately instead of flashing a loading state.
   useMarketStockSelectorList({ query: '' });
+  return null;
+}
+
+export function SwapStockTickerSelector({
+  readOnly = false,
+}: {
+  readOnly?: boolean;
+}) {
+  const intl = useIntl();
+  const { md } = useMedia();
+  const selection = useSwapStockSelection();
   const { stockDetail, stockPreview, stockId, isStockDetailError } =
     useStockDetail();
   const { currentStockToken } = useSwapStockTradeContext();
@@ -331,22 +339,25 @@ export function SwapStockTickerSelector() {
           tokenName: fallbackToken.name,
         })
       : undefined);
+  const stockNameSize = md ? '$bodyMd' : '$bodyMdMedium';
   const trigger = (
     // eslint-disable-next-line props-checker/validator -- StockSelectorPopover supplies the trigger handlers.
     <XStack
       testID={SwapTestIDs.stockMarketTokenHeader}
-      alignSelf={md ? undefined : 'flex-start'}
+      alignSelf={md || readOnly ? undefined : 'flex-start'}
       alignItems="center"
       gap="$3.5"
       minWidth={0}
       flexShrink={1}
-      px="$2"
-      py="$1"
-      mx="$-2"
-      my="$-1"
-      borderRadius="$full"
-      cursor="pointer"
-      hoverStyle={{ bg: '$bgHover' }}
+      {...(!readOnly && {
+        px: '$2',
+        py: '$1',
+        mx: '$-2',
+        my: '$-1',
+        borderRadius: '$full',
+        cursor: 'pointer',
+        hoverStyle: { bg: '$bgHover' },
+      })}
     >
       {stockLogoUri || fallbackToken ? (
         // The fallback keeps the default icon rather than issuer artwork.
@@ -357,7 +368,7 @@ export function SwapStockTickerSelector() {
       <YStack minWidth={0} flexShrink={1}>
         {stockSymbol ? (
           <SizableText
-            size={md ? '$headingLg' : '$headingXl'}
+            size={md && !readOnly ? '$headingLg' : '$headingXl'}
             numberOfLines={1}
           >
             {stockSymbol}
@@ -367,7 +378,7 @@ export function SwapStockTickerSelector() {
         )}
         {stockName ? (
           <SizableText
-            size={md ? '$bodyMd' : '$bodyMdMedium'}
+            size={readOnly ? '$bodySm' : stockNameSize}
             color="$textSubdued"
             numberOfLines={1}
           >
@@ -377,12 +388,16 @@ export function SwapStockTickerSelector() {
           <Skeleton width="$24" height="$4" />
         )}
       </YStack>
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      {readOnly ? null : (
+        <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      )}
     </XStack>
   );
+  if (readOnly) return trigger;
   return (
     // Keep the outer Popover trigger from stretching across the header row.
     <Stack alignSelf="flex-start" maxWidth="100%">
+      <PreloadStockTickerList />
       <StockSelectorPopover
         onOpenChange={(open) => {
           if (open) selection?.cancelSelection();

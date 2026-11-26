@@ -56,6 +56,7 @@ import { useAccountSelectorActions } from '../../../states/jotai/contexts/accoun
 import { hasSelectedAccountIdentity } from '../../../states/jotai/contexts/accountSelector/activeAccountInitGuard';
 import { ESelectionUpdateOutcome } from '../../../states/jotai/contexts/accountSelector/outcomes';
 import {
+  type ISwapInputAmountDraft,
   useGetSwapTabPrefillEditRevision,
   useSwapActions,
   useSwapColdStartScopeKey,
@@ -72,6 +73,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { isSwapInputAmountDraftForTokenPair } from '../../../states/jotai/contexts/swap/actions';
 import { getMarketSwapDefaultPair } from '../utils/marketSwapDefaultPair';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
@@ -83,6 +85,7 @@ import {
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
+  getSwapTokenSupportTypes,
   isSelectedAccountMatched,
   isSwapAccountSelectionSyncAccepted,
   isSwapColdStartAllNetworkContextNetworkId,
@@ -109,6 +112,7 @@ import {
 } from '../utils/swapHomeSelectedAccountUtils';
 import { isSwapNetworkCacheCompatible } from '../utils/swapNetworkCacheUtils';
 import {
+  getSwapExecutionType,
   getSwapNetworkSupportTabSwitchTypes,
   getSwapSupportCheckType,
   getVisibleSwapTabSwitchType,
@@ -219,7 +223,10 @@ function getSelectedTokensColdStartSwapType({
  * @param params - Optional parameters for initializing swap state, such as imported tokens or network IDs
  * @returns An object containing `fetchLoading`, indicating whether the swap network list is currently loading
  */
-export function useSwapInit(params?: ISwapInitParams) {
+export function useSwapInit(
+  params?: ISwapInitParams,
+  pendingSwapDraft?: React.RefObject<ISwapInputAmountDraft | undefined>,
+) {
   const isFocused = useIsFocused();
   const checkRiskTokenForPrefill = useSwapTokenRiskCheck();
   const {
@@ -786,10 +793,58 @@ export function useSwapInit(params?: ISwapInitParams) {
     setInitialSelectedTokensSynced(true);
   }, [setInitialSelectedTokensSynced]);
 
+  const rememberImportedPair = useCallback(() => {
+    deferredImportedTokensRef.current = {
+      key: swapInitParamsConsumptionKey,
+      swapType: swapTypeSwitchRef.current,
+      fromToken: fromTokenRef.current,
+      toToken: toTokenRef.current,
+    };
+  }, [swapInitParamsConsumptionKey]);
+
   const finishSwapInitParamsSync = useCallback(() => {
-    markSwapInitParamsConsumed();
+    if (
+      pendingSwapDraft?.current &&
+      (!latestSwapInitParamsRef.current.isFocused ||
+        latestSwapInitParamsRef.current.key !== swapInitParamsConsumptionKey)
+    ) {
+      return;
+    }
     markInitialSelectedTokensSynced();
-  }, [markInitialSelectedTokensSynced, markSwapInitParamsConsumed]);
+    if (pendingSwapDraft?.current) {
+      if (networkConfigStatusRef.current === 'pending') {
+        // Defaults can be shown at their deadline. The live network result still owns draft validation.
+        rememberImportedPair();
+        return;
+      }
+      const draft = pendingSwapDraft.current;
+      pendingSwapDraft.current = undefined;
+      if (
+        networkConfigStatusRef.current === 'success' &&
+        swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP &&
+        !fromTokenAmountRef.current.isInput &&
+        !toTokenAmountRef.current.isInput &&
+        isSwapInputAmountDraftForTokenPair({
+          draft,
+          fromToken: fromTokenRef.current,
+          toToken: toTokenRef.current,
+        })
+      ) {
+        setFromTokenAmount(draft.fromTokenAmount);
+        setToTokenAmount(draft.toTokenAmount);
+      }
+    }
+    markSwapInitParamsConsumed();
+  }, [
+    markInitialSelectedTokensSynced,
+    markSwapInitParamsConsumed,
+    rememberImportedPair,
+    networkConfigStatusRef,
+    pendingSwapDraft,
+    setFromTokenAmount,
+    setToTokenAmount,
+    swapInitParamsConsumptionKey,
+  ]);
 
   const syncSwapSelectedAccountFromHome = useCallback(
     async ({
@@ -1585,6 +1640,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       deferredImport.key === swapInitParamsConsumptionKey &&
       deferredImport.swapType !== swapTypeSwitchRef.current
     ) {
+      if (pendingSwapDraft) pendingSwapDraft.current = undefined;
       finishSwapInitParamsSync();
       return;
     }
@@ -1648,6 +1704,13 @@ export function useSwapInit(params?: ISwapInitParams) {
       (!params.swapTabSwitchType ||
         params.swapTabSwitchType === ESwapTabSwitchType.SWAP),
     );
+    if (
+      pendingSwapDraft?.current &&
+      hasUnconsumedSwapInitParams &&
+      (!deferredImport || deferredImport.key !== swapInitParamsConsumptionKey)
+    ) {
+      rememberImportedPair();
+    }
     const preserveDeferredImportedSelection = () => {
       const deferred = deferredImportedTokensRef.current;
       if (
@@ -1657,7 +1720,9 @@ export function useSwapInit(params?: ISwapInitParams) {
       ) {
         const matchesToken = (
           current: ISwapToken | undefined,
-          provisional: ISwapToken | undefined,
+          provisional:
+            | Pick<ISwapToken, 'networkId' | 'contractAddress'>
+            | undefined,
         ) =>
           current === provisional ||
           equalTokenNoCaseSensitive({ token1: current, token2: provisional });
@@ -1665,18 +1730,31 @@ export function useSwapInit(params?: ISwapInitParams) {
           fromTokenAmountRef.current,
           toTokenAmountRef.current,
         ].some((amount) => amount.isInput && amount.value !== '');
+        const matchesPair = (
+          pair: ReturnType<typeof buildSwapDefaultTokenSeed>,
+        ) =>
+          matchesToken(fromTokenRef.current, pair.fromToken) &&
+          matchesToken(toTokenRef.current, pair.toToken);
+        const seed =
+          selectedTokensColdStartContextRef.current?.defaultTokenSeed;
+        const isMarketDraft = Boolean(pendingSwapDraft?.current);
         if (
           deferred.swapType !== swapTypeSwitchRef.current ||
-          !matchesToken(fromTokenRef.current, deferred.fromToken) ||
-          !matchesToken(toTokenRef.current, deferred.toToken) ||
-          (hasUserInput && !isAssetCounterpartEntry)
+          (!matchesPair(deferred) &&
+            !(isMarketDraft && seed && matchesPair(seed))) ||
+          (hasUserInput && !isAssetCounterpartEntry && !isMarketDraft)
         ) {
-          // A manual selection or amount takes ownership of the provisional pair.
+          // A manual selection supersedes the opening import, including its pending draft.
+          if (pendingSwapDraft) pendingSwapDraft.current = undefined;
           finishSwapInitParamsSync();
           return true;
         }
         // Asset entries refresh their provisional pair below as cache arrives.
-        return !isAssetCounterpartEntry && !hasRefreshedSwapNetworksRef.current;
+        return (
+          !isMarketDraft &&
+          !isAssetCounterpartEntry &&
+          !hasRefreshedSwapNetworksRef.current
+        );
       }
       return false;
     };
@@ -1913,6 +1991,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     if (
       homeAccountSyncResult.cancelled ||
+      (pendingSwapDraft?.current &&
+        !latestSwapInitParamsRef.current.isFocused) ||
       latestSwapInitParamsRef.current.key !== swapInitParamsConsumptionKey ||
       (params?.marketSwapDirection &&
         (latestSwapInitParamsRef.current.fromToken !== params.importFromToken ||
@@ -1935,13 +2015,19 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     hasSelectedTokens = Boolean(fromTokenRef.current || toTokenRef.current);
     if (hasImportParams && params?.importNetworkId && !hasImportTokenParams) {
+      // A cached network can still lose Swap support on refresh.
+      if (pendingSwapDraft?.current && getDefaultConfigStatus() === 'pending')
+        return;
       const importNetwork = swapNetworksRef.current.find(
         (net) => net.networkId === params.importNetworkId,
       );
       const importSupportCheckType =
         supportCheckSwapTabSwitchType ?? ESwapTabSwitchType.SWAP;
+      const draftNetworkStatus =
+        pendingSwapDraft?.current && networkConfigStatusRef.current;
       const canUseLocalSwapDefaults =
         getDefaultConfigStatus() === 'failed' &&
+        draftNetworkStatus !== 'success' &&
         importSupportCheckType === ESwapTabSwitchType.SWAP &&
         !importNetwork;
       if (!swapNetworksRef.current.length && !canUseLocalSwapDefaults) {
@@ -1949,13 +2035,48 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
       const isImportNetworkSupported =
         importNetwork &&
-        getSwapNetworkSupportTabSwitchTypes({
-          supportSingleSwap: importNetwork.supportSingleSwap,
-          supportCrossChainSwap: importNetwork.supportCrossChainSwap,
-          supportLimit: importNetwork.supportLimit,
-          supportStock: importNetwork.supportStock,
-        }).includes(importSupportCheckType);
-      if (!isImportNetworkSupported && !canUseLocalSwapDefaults) {
+        getSwapNetworkSupportTabSwitchTypes(importNetwork).includes(
+          importSupportCheckType,
+        );
+      if (
+        !isImportNetworkSupported &&
+        !canUseLocalSwapDefaults &&
+        draftNetworkStatus !== 'pending'
+      ) {
+        if (pendingSwapDraft?.current) {
+          const tokens = [fromTokenRef.current, toTokenRef.current].filter(
+            (token) => !!token,
+          );
+          const executionType = getSwapExecutionType({
+            fromNetworkId: fromTokenRef.current?.networkId,
+            toNetworkId: toTokenRef.current?.networkId,
+          });
+          if (
+            draftNetworkStatus === 'success' &&
+            shouldPreserveSwapUserInputOnAccountSwitch({
+              hasSelectedTokens,
+              fromTokenAmount: fromTokenAmountRef.current,
+              toTokenAmount: toTokenAmountRef.current,
+            }) &&
+            tokens.every((token) => {
+              const supported = getSwapTokenSupportTypes({
+                token,
+                swapNetworks: swapNetworksRef.current,
+              });
+              return (
+                supported.includes(executionType) ||
+                (tokens.length === 1 &&
+                  supported.includes(ESwapTabSwitchType.BRIDGE))
+              );
+            })
+          ) {
+            // Keep the user's edit when the displayed pair still supports trading.
+            finishSwapInitParamsSync();
+            return;
+          }
+          setFromTokenAmount({ value: '', isInput: false });
+          setToTokenAmount({ value: '', isInput: false });
+        }
         clearSelectedTokensColdStartCache();
         finishSwapInitParamsSync();
         return;
@@ -2071,12 +2192,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           finishSwapInitParamsSync();
           return;
         }
-        deferredImportedTokensRef.current = {
-          key: swapInitParamsConsumptionKey,
-          swapType: swapTypeSwitchRef.current,
-          fromToken: fromTokenRef.current,
-          toToken: toTokenRef.current,
-        };
+        rememberImportedPair();
         markInitialSelectedTokensSynced();
       };
       if (!hasImportTokenNetwork) {
@@ -2491,6 +2607,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     clearSelectedTokensColdStartCache,
     markSwapInitParamsConsumed,
     finishSwapInitParamsSync,
+    rememberImportedPair,
+    pendingSwapDraft,
     markInitialSelectedTokensSynced,
     hasRefreshedSwapNetworksRef,
     getCurrentSelectedTokensColdStartContext,
@@ -2680,6 +2798,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     updateSelectedAccountNetwork,
   ]);
 
+  const marketDraftNetworkStatus = pendingSwapDraft && networkConfigStatus;
   useEffect(() => {
     void (async () => {
       if (!isFocused) {
@@ -2693,6 +2812,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapAddressInfo.accountInfo?.ready,
     rootSwapInitType,
     swapNetworks,
+    marketDraftNetworkStatus,
     defaultConfigStatus,
     networkConfigStatus,
     swapAddressInfo.networkId,

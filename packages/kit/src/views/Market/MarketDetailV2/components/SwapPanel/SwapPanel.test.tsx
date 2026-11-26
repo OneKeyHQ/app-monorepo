@@ -530,6 +530,7 @@ describe('Market mobile Buy / Sell modal entry', () => {
           importToToken: entry.toToken,
           swapTabSwitchType: ESwapTabSwitchType.SWAP,
           swapSource: ESwapSource.MARKET,
+          marketNonStockTrade: true,
           marketSwapDirection: direction,
         },
       });
@@ -546,9 +547,10 @@ describe('Market mobile Buy / Sell modal entry', () => {
     });
     render(<SwapPanel swapToken={token} detailKind="topCoin" />);
     act(mockFooter.mock.calls[0][0].onBuy);
-    expect(mockPushModal.mock.calls[0][1].params.swapTabSwitchType).toBe(
-      ESwapTabSwitchType.BRIDGE,
-    );
+    expect(mockPushModal.mock.calls[0][1].params).toMatchObject({
+      swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+      marketNonStockTrade: true,
+    });
   });
 
   it.each(['to', 'from'] as const)(
@@ -569,8 +571,12 @@ describe('Market mobile Buy / Sell modal entry', () => {
         storeName: EJotaiContextStoreNames.swapModal,
       });
       expect(prepareMarketSwapEntry).not.toHaveBeenCalled();
-      expect(mockPushModal.mock.calls[0][1].params.swapTabSwitchType).toBe(
-        ESwapTabSwitchType.STOCK,
+      expect(mockPushModal.mock.calls[0][1].params).toMatchObject({
+        swapTabSwitchType: ESwapTabSwitchType.STOCK,
+        marketStockTrade: true,
+      });
+      expect(mockPushModal.mock.calls[0][1].params).not.toHaveProperty(
+        'marketNonStockTrade',
       );
     },
   );

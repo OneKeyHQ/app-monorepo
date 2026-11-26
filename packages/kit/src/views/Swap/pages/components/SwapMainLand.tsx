@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import {
   getRootRoutersLength,
   useRouteIsFocused,
@@ -217,6 +218,8 @@ import {
   SwapInitialSelectionTimeoutContext,
   canHandleTradeAgainInSource,
   getSwapHistorySourceIntentKey,
+  isTradeAgainAllowedInMarketModal,
+  refreshMarketStockTradeAgainEligibility,
   useSwapHistoryChannelIntent,
   useSwapHistoryTradeAgainHandler,
 } from './SwapHistoryTradeAgainContext';
@@ -240,6 +243,9 @@ interface ISwapMainLoadProps {
   storeName?: EJotaiContextStoreNames;
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
+  clearInputAmounts?: boolean;
+  marketStockTrade?: boolean;
+  marketNonStockTrade?: boolean;
   singleSwapBridgeHeader?: boolean;
   /** Title on the left of the single Swap & Bridge header; none by default. */
   singleSwapBridgeTitle?: string;
@@ -259,6 +265,7 @@ interface ISwapMainLoadProps {
 }
 
 type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
+  pendingSwapDraft?: React.RefObject<ISwapInputAmountDraft | undefined>;
   storeName: EJotaiContextStoreNames;
 };
 
@@ -301,9 +308,12 @@ function supportsSwapReviewPreBuild({
 }
 
 const SwapMainLoad = ({
+  pendingSwapDraft,
   storeName,
   swapInitParams,
   pageType,
+  marketStockTrade,
+  marketNonStockTrade,
   singleSwapBridgeHeader,
   singleSwapBridgeTitle,
   embeddedStockTrade,
@@ -325,7 +335,7 @@ const SwapMainLoad = ({
   const reviewSlippageEditedRef = useRef(false);
   const intl = useIntl();
   const { gtLg } = useMedia();
-  const { fetchLoading } = useSwapInit(swapInitParams);
+  const { fetchLoading } = useSwapInit(swapInitParams, pendingSwapDraft);
   const onTradeAgainFromSource = useSwapHistoryTradeAgainHandler();
   const historyChannelIntent = useSwapHistoryChannelIntent();
   const analyticsSwapSource = swapInitParams?.swapSource;
@@ -1072,7 +1082,9 @@ const SwapMainLoad = ({
         onBalanceMaxPress();
         return;
       }
-      if (!safeFromTokenBalanceAmount) {
+      // The token multiplier must be ready before a share of the balance can
+      // be shown in display units.
+      if (!safeFromTokenBalanceAmount || multiplierStatus !== 'ready') {
         return;
       }
       // A share of the balance is only as precise as the balance the user
@@ -1107,8 +1119,8 @@ const SwapMainLoad = ({
     },
     [
       safeFromTokenBalanceAmount,
-      fromSelectToken?.decimals,
-      fromSelectToken?.balanceMultiplier,
+      fromSelectToken,
+      multiplierStatus,
       focusSwapPro,
       swapProTradeType,
       onBalanceMaxPress,
@@ -2145,6 +2157,7 @@ const SwapMainLoad = ({
       return (
         <SwapStockMobileContainer
           pageType={pageType}
+          marketStockTrade={marketStockTrade}
           storeName={storeName}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
@@ -2246,6 +2259,7 @@ const SwapMainLoad = ({
   }, [
     showThirdPartyNotice,
     swapTypeSwitch,
+    marketStockTrade,
     embeddedStockTrade,
     stockSpeedConfig,
     stockTradeConfig,
@@ -2326,7 +2340,7 @@ const SwapMainLoad = ({
   const { top: safeAreaTop } = useSafeAreaInsets();
   let contentTopPadding: string | number = '$5';
   if (pageType === EPageType.modal) {
-    contentTopPadding = '$2.5';
+    contentTopPadding = marketStockTrade ? '$0' : '$2.5';
   } else if (platformEnv.isNativeIOS) {
     // Foldable iPhones report a top inset of 0, so only MDHeader's spacer sits
     // above this row; center it on the camera line like the Wallet header.
@@ -2343,6 +2357,7 @@ const SwapMainLoad = ({
   // mounted while the tab-specific container changes.
   const renderSwapHeader = () => {
     if (
+      marketStockTrade ||
       embeddedStockTrade ||
       (!shouldRenderDesktopSwapHeader &&
         gtLg &&
@@ -2365,6 +2380,7 @@ const SwapMainLoad = ({
         }
         showSwapPro={platformEnv.isNative}
         hideRightActions={showDesktopProviderPanel}
+        hideStockAndProTabs={marketNonStockTrade}
         enterFrom={swapInitParams?.swapSource}
         singleSwapBridgeTab={singleSwapBridgeHeader}
         singleSwapBridgeTitle={singleSwapBridgeTitle}
@@ -2511,8 +2527,11 @@ const SwapMainLoad = ({
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const {
+    clearInputAmounts,
     draftOwnerKey,
     initialInputAmountDraft,
+    marketNonStockTrade,
+    marketStockTrade,
     pageType,
     singleSwapBridgeHeader,
     stockTradeIdentityLoading,
@@ -2520,6 +2539,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     storeName: providedStoreName,
     swapInitParams,
   } = props;
+  const locale = useLocaleVariant().toLowerCase();
   const [historyEntry, setHistoryEntry] = useState<{
     params: ISwapInitParams;
     sourceIntentKey: string;
@@ -2528,6 +2548,14 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const sourceIntentKey = getSwapHistorySourceIntentKey(swapInitParams);
   const historySourceRef = useRef({ sourceIntentKey, swapInitParams });
   historySourceRef.current = { sourceIntentKey, swapInitParams };
+  const tradeAgainSource = {
+    marketNonStockTrade,
+    marketStockTrade,
+    swapInitParams,
+    locale,
+  };
+  const tradeAgainSourceRef = useRef(tradeAgainSource);
+  tradeAgainSourceRef.current = tradeAgainSource;
   const controlledStockTokenRef = useRef(stockTradeToken);
   controlledStockTokenRef.current = stockTradeToken;
   const stockTradeIdentityLoadingRef = useRef(stockTradeIdentityLoading);
@@ -2563,11 +2591,17 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       historyScrollCleanupRef.current = undefined;
     };
   }, []);
+  const isTradeAgainAllowed = useCallback(
+    (params: ISwapInitParams) =>
+      isTradeAgainAllowedInMarketModal(params, tradeAgainSourceRef.current),
+    [],
+  );
   const onTradeAgainFromHistory = useCallback(
     (params: ISwapInitParams) => {
       if (
         !historySourceMountedRef.current ||
         stockTradeIdentityLoadingRef.current ||
+        !isTradeAgainAllowed(params) ||
         !canHandleTradeAgainInSource(params, controlledStockTokenRef.current)
       ) {
         return false;
@@ -2613,7 +2647,19 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       if (prefill) retireSwapTabPrefill(prefill);
       return true;
     },
-    [sourceNavigation],
+    [isTradeAgainAllowed, sourceNavigation],
+  );
+  const tradeAgainHandler = useMemo(
+    () => ({
+      isAllowed: isTradeAgainAllowed,
+      refreshEligibility: (params: ISwapInitParams) =>
+        refreshMarketStockTradeAgainEligibility(
+          params,
+          tradeAgainSourceRef.current,
+        ),
+      handle: onTradeAgainFromHistory,
+    }),
+    [isTradeAgainAllowed, onTradeAgainFromHistory],
   );
   let entryStoreName = EJotaiContextStoreNames.swap;
   if (pageType === EPageType.modal) {
@@ -2656,6 +2702,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                   }))
             : undefined,
           preserveInputAmounts: preserveMarketModalAmounts,
+          clearInputAmounts,
           swapType:
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }
@@ -2690,20 +2737,34 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     [claimHistoryIntent, effectiveSwapInitParams, historyChannelSourceKey],
   );
 
+  const defaultToSwapOnInit =
+    platformEnv.isNative && pageType === EPageType.modal && marketNonStockTrade;
+  const fallbackNetworkId =
+    defaultToSwapOnInit &&
+    !initialSelectedTokensOnInit &&
+    effectiveSwapInitParams === swapInitParams &&
+    swapInitParams?.importNetworkId;
+  const pendingSwapDraft = useMemo(
+    () =>
+      fallbackNetworkId
+        ? { current: undefined as ISwapInputAmountDraft | undefined }
+        : undefined,
+    [fallbackNetworkId],
+  );
   return (
     <SwapProviderMirror
       storeName={storeName}
       draftOwnerKey={draftOwnerKey}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
+      defaultToSwapOnInit={defaultToSwapOnInit}
+      pendingSwapDraft={pendingSwapDraft}
       homeSelectedAccountOnInit={homeSelectedAccountOnInit}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <LazyPageContainer>
-          <SwapHistoryTradeAgainContext.Provider
-            value={onTradeAgainFromHistory}
-          >
+          <SwapHistoryTradeAgainContext.Provider value={tradeAgainHandler}>
             <SwapInitialSelectionTimeoutContext.Provider
               value={
                 !effectiveSwapInitParams?.tradeAgainFromHistory &&
@@ -2723,6 +2784,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                       {...props}
                       storeName={storeName}
                       pageType={pageType}
+                      pendingSwapDraft={pendingSwapDraft}
                       swapInitParams={effectiveSwapInitParams}
                     />
                   </SwapTabPrefillPendingContext.Provider>
