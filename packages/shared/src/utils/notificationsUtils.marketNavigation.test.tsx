@@ -3,6 +3,7 @@ import type { ComponentType } from 'react';
 
 import {
   BaseNavigationContainer,
+  CommonActions,
   type NavigationState,
   type ParamListBase,
   StackRouter,
@@ -14,6 +15,7 @@ import {
 import { act, render } from '@testing-library/react';
 
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import { ETranslations } from '../locale';
 import platformEnv from '../platformEnv';
 import {
@@ -21,9 +23,17 @@ import {
   ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
+  type ITabSwapParamList,
 } from '../routes';
 
-import { navigateToNotificationDetailByLocalParams } from './notificationsUtils';
+import {
+  navigateToNotificationDetailByLocalParams,
+  retireSwapTabPrefill,
+  transferTabletSwapPrefill,
+} from './notificationsUtils';
+import { isSwapTabPrefillRetired } from './swapEntryUtils';
+import timerUtils from './timerUtils';
 
 jest.mock('@react-navigation/native', () => {
   const core = jest.requireActual<typeof import('@react-navigation/core')>(
@@ -98,6 +108,7 @@ const RootStack = createNavigatorFactory(TestStack)() as ITestNavigator;
 const MainTabs = createNavigatorFactory(TestTabs)() as ITestNavigator;
 const MarketStack = createNavigatorFactory(TestStack)() as ITestNavigator;
 const DiscoveryStack = createNavigatorFactory(TestStack)() as ITestNavigator;
+const SwapStack = createNavigatorFactory(TestStack)() as ITestNavigator;
 
 function EmptyScreen() {
   return null;
@@ -133,6 +144,14 @@ function DiscoveryStackScreen() {
   );
 }
 
+function SwapStackScreen() {
+  return (
+    <SwapStack.Navigator>
+      <SwapStack.Screen name={ETabSwapRoutes.TabSwap} component={EmptyScreen} />
+    </SwapStack.Navigator>
+  );
+}
+
 function MainTabsScreen() {
   return (
     <MainTabs.Navigator>
@@ -142,6 +161,7 @@ function MainTabsScreen() {
         name={ETabRoutes.Discovery}
         component={DiscoveryStackScreen}
       />
+      <MainTabs.Screen name={ETabRoutes.Swap} component={SwapStackScreen} />
     </MainTabs.Navigator>
   );
 }
@@ -160,7 +180,79 @@ function findNestedState(
   return undefined;
 }
 
-describe('navigateToNotificationDetailByLocalParams (legacy Market home through real navigators)', () => {
+const swapNotificationParams = {
+  tab: 'swap',
+  importNetworkId: 'evm--1',
+  importFromToken: {
+    networkId: 'evm--1',
+    contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    symbol: 'USDT',
+    decimals: 6,
+  },
+  importToToken: {
+    networkId: 'evm--1',
+    contractAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    symbol: 'USDC',
+    decimals: 6,
+  },
+};
+
+function renderSwapNotificationNavigator({
+  isTabletMainView = false,
+  getIsSplitViewActive,
+}: {
+  isTabletMainView?: boolean;
+  getIsSplitViewActive?: () => boolean;
+} = {}) {
+  const ref = createNavigationContainerRef<ParamListBase>();
+  render(
+    <BaseNavigationContainer ref={ref}>
+      <RootStack.Navigator>
+        <RootStack.Screen name={ERootRoutes.Main} component={MainTabsScreen} />
+        <RootStack.Screen name={ERootRoutes.Modal} component={EmptyScreen} />
+      </RootStack.Navigator>
+    </BaseNavigationContainer>,
+  );
+  if (isTabletMainView) {
+    appGlobals.$tabletMainViewNavigationRef = { current: ref };
+  } else {
+    appGlobals.$navigationRef = { current: ref };
+  }
+
+  const deliver = (params: Record<string, unknown>) =>
+    navigateToNotificationDetailByLocalParams({
+      payload: {
+        screen: ERootRoutes.Main,
+        params: {
+          screen: ETabRoutes.Swap,
+          params: { screen: ETabSwapRoutes.TabSwap, params },
+        },
+      },
+      localParams: {},
+      getEarnAccount: jest.fn(async () => null),
+      getIsSplitViewActive,
+    });
+
+  return {
+    deliver,
+    async navigate(params: Record<string, unknown>) {
+      await act(async () => {
+        await deliver(params);
+      });
+    },
+    getCurrentRoute: () => ref.getCurrentRoute(),
+    getSwapPrefill: () =>
+      (
+        ref.getCurrentRoute()?.params as
+          | ITabSwapParamList[ETabSwapRoutes.TabSwap]
+          | undefined
+      )?.swapPrefill,
+    getRootState: () => ref.getRootState(),
+    openModal: () => ref.navigate(ERootRoutes.Modal),
+  };
+}
+
+describe('notify through real nested navigators', () => {
   const originalNavigationRef = appGlobals.$navigationRef;
   const originalTabletMainViewNavigationRef =
     appGlobals.$tabletMainViewNavigationRef;
@@ -258,6 +350,328 @@ describe('navigateToNotificationDetailByLocalParams (legacy Market home through 
         ETabMarketRoutes.TabMarket,
       ]);
       expect(marketState?.index).toBe(0);
+    },
+  );
+
+  it('delivers a fresh identity-only Swap prefill on each delivery of the same page payload', async () => {
+    const navigation = renderSwapNotificationNavigator();
+    const externalRequestId = 'external';
+    const params = {
+      ...swapNotificationParams,
+      fromAmount: '100',
+      swapPrefill: { requestId: externalRequestId },
+    };
+
+    await navigation.navigate(params);
+
+    const firstRoute = navigation.getCurrentRoute();
+    const firstParams = firstRoute?.params as
+      | ITabSwapParamList[ETabSwapRoutes.TabSwap]
+      | undefined;
+    expect(firstRoute?.name).toBe(ETabSwapRoutes.TabSwap);
+    expect(firstParams).toStrictEqual({
+      tab: 'swap',
+      swapTabNavigationId: firstParams?.swapPrefill?.requestId,
+      swapPrefill: {
+        requestId: expect.any(String),
+        fromToken: {
+          networkId: 'evm--1',
+          contractAddress:
+            swapNotificationParams.importFromToken.contractAddress,
+          isNative: false,
+        },
+        toToken: {
+          networkId: 'evm--1',
+          contractAddress: swapNotificationParams.importToToken.contractAddress,
+          isNative: false,
+        },
+      },
+    });
+    expect(firstParams?.swapPrefill?.requestId).not.toBe(externalRequestId);
+
+    await navigation.navigate(params);
+
+    const secondRoute = navigation.getCurrentRoute();
+    const secondParams = secondRoute?.params as
+      | ITabSwapParamList[ETabSwapRoutes.TabSwap]
+      | undefined;
+    expect(secondRoute?.key).toBe(firstRoute?.key);
+    expect(secondParams).toStrictEqual({
+      tab: 'swap',
+      swapTabNavigationId: secondParams?.swapPrefill?.requestId,
+      swapPrefill: {
+        ...firstParams?.swapPrefill,
+        requestId: expect.any(String),
+      },
+    });
+    expect(secondParams?.swapPrefill?.requestId).not.toBe(
+      firstParams?.swapPrefill?.requestId,
+    );
+  });
+
+  it('gives each tab-only notification a new intent after clearing a prefill', async () => {
+    const navigation = renderSwapNotificationNavigator();
+    await navigation.navigate(swapNotificationParams);
+    const pairPrefill = navigation.getSwapPrefill();
+    if (!pairPrefill) {
+      throw new OneKeyLocalError('The first notification did not prefill');
+    }
+    const pairRoute = navigation.getCurrentRoute();
+    expect(pairRoute?.params).toMatchObject({
+      swapTabNavigationId: pairPrefill.requestId,
+    });
+
+    await act(async () => retireSwapTabPrefill(pairPrefill));
+    expect(navigation.getCurrentRoute()?.params).toMatchObject({
+      tab: 'swap',
+      swapPrefill: undefined,
+      swapTabNavigationId: pairPrefill.requestId,
+    });
+
+    await navigation.navigate({ tab: 'swap', swapTabNavigationId: 'external' });
+    const firstTabOnly = navigation.getCurrentRoute();
+    expect(firstTabOnly?.key).toBe(pairRoute?.key);
+    expect(firstTabOnly?.params).toStrictEqual({
+      tab: 'swap',
+      swapPrefill: undefined,
+      swapTabNavigationId: expect.any(String),
+    });
+    expect(firstTabOnly?.params).not.toMatchObject({
+      swapTabNavigationId: pairPrefill.requestId,
+    });
+    expect(firstTabOnly?.params).not.toMatchObject({
+      swapTabNavigationId: 'external',
+    });
+
+    await navigation.navigate({ tab: 'swap' });
+    expect(navigation.getCurrentRoute()?.params).not.toEqual(
+      firstTabOnly?.params,
+    );
+  });
+
+  it('routes the pair only to the visible tablet pane and clears the previous pane after rotation', async () => {
+    let isSplitViewActive = true;
+    const mainPane = renderSwapNotificationNavigator({
+      isTabletMainView: true,
+    });
+    const detailPane = renderSwapNotificationNavigator({
+      getIsSplitViewActive: () => isSplitViewActive,
+    });
+
+    await detailPane.navigate(swapNotificationParams);
+
+    const visibleRoute = mainPane.getCurrentRoute();
+    expect(visibleRoute?.name).toBe(ETabSwapRoutes.TabSwap);
+    expect(visibleRoute?.params).toMatchObject({
+      tab: 'swap',
+      swapPrefill: {
+        fromToken: {
+          contractAddress:
+            swapNotificationParams.importFromToken.contractAddress,
+        },
+      },
+    });
+    expect(detailPane.getCurrentRoute()?.params).toStrictEqual({
+      tab: 'swap',
+      swapPrefill: undefined,
+      swapTabNavigationId: mainPane.getSwapPrefill()?.requestId,
+    });
+
+    jest.mocked(timerUtils.wait).mockImplementationOnce(async (ms) => {
+      expect(ms).toBe(350);
+      isSplitViewActive = false;
+    });
+    await detailPane.navigate({
+      ...swapNotificationParams,
+      importFromToken: swapNotificationParams.importToToken,
+      importToToken: swapNotificationParams.importFromToken,
+    });
+
+    expect(detailPane.getCurrentRoute()?.params).toMatchObject({
+      tab: 'swap',
+      swapPrefill: {
+        fromToken: {
+          contractAddress: swapNotificationParams.importToToken.contractAddress,
+        },
+      },
+    });
+    expect(mainPane.getCurrentRoute()?.params).toStrictEqual({
+      tab: 'swap',
+      swapPrefill: undefined,
+      swapTabNavigationId: detailPane.getSwapPrefill()?.requestId,
+    });
+  });
+
+  it('moves the same pending request when the tablet rotates after dispatch', async () => {
+    const mainPane = renderSwapNotificationNavigator({
+      isTabletMainView: true,
+    });
+    const detailPane = renderSwapNotificationNavigator({
+      getIsSplitViewActive: () => true,
+    });
+    await detailPane.navigate(swapNotificationParams);
+    const pending = mainPane.getSwapPrefill();
+    expect(pending?.requestId).toEqual(expect.any(String));
+
+    await act(async () => transferTabletSwapPrefill(false));
+    expect(detailPane.getSwapPrefill()).toBe(pending);
+    expect(detailPane.getCurrentRoute()?.params).toMatchObject({
+      swapTabNavigationId: pending?.requestId,
+    });
+    expect(mainPane.getSwapPrefill()).toBeUndefined();
+
+    await act(async () => transferTabletSwapPrefill(true));
+    expect(mainPane.getSwapPrefill()).toBe(pending);
+    expect(detailPane.getSwapPrefill()).toBeUndefined();
+
+    await act(async () => {
+      appGlobals.$tabletMainViewNavigationRef.current?.dispatch(
+        CommonActions.setParams({ swapPrefill: undefined }),
+      );
+    });
+    await act(async () => transferTabletSwapPrefill(false));
+    expect(mainPane.getSwapPrefill()).toBeUndefined();
+    expect(detailPane.getSwapPrefill()).toBeUndefined();
+  });
+
+  it('preserves a newer tab-only Stock notification when the tablet rotates', async () => {
+    const mainPane = renderSwapNotificationNavigator({
+      isTabletMainView: true,
+    });
+    const detailPane = renderSwapNotificationNavigator({
+      getIsSplitViewActive: () => true,
+    });
+
+    await detailPane.navigate(swapNotificationParams);
+    const pending = mainPane.getSwapPrefill();
+    if (!pending) {
+      throw new OneKeyLocalError('The first notification did not prefill');
+    }
+
+    await detailPane.navigate({ tab: 'stock' });
+    expect(isSwapTabPrefillRetired(pending)).toBe(true);
+    await act(async () => transferTabletSwapPrefill(false));
+
+    for (const pane of [mainPane, detailPane]) {
+      expect(pane.getCurrentRoute()?.params).toStrictEqual({
+        tab: 'stock',
+        swapPrefill: undefined,
+        swapTabNavigationId: expect.any(String),
+      });
+    }
+    expect(mainPane.getCurrentRoute()?.params).toEqual(
+      detailPane.getCurrentRoute()?.params,
+    );
+  });
+
+  it('retires only the matching prefill even when it already moved to the other pane', async () => {
+    const mainPane = renderSwapNotificationNavigator({
+      isTabletMainView: true,
+    });
+    const detailPane = renderSwapNotificationNavigator({
+      getIsSplitViewActive: () => true,
+    });
+
+    await detailPane.navigate(swapNotificationParams);
+    const pending = mainPane.getSwapPrefill();
+    if (!pending) {
+      throw new OneKeyLocalError('The first notification did not prefill');
+    }
+    await act(async () => transferTabletSwapPrefill(false));
+    expect(detailPane.getSwapPrefill()).toBe(pending);
+
+    await act(async () => retireSwapTabPrefill(pending));
+    expect(isSwapTabPrefillRetired(pending)).toBe(true);
+    expect(detailPane.getCurrentRoute()?.params).toStrictEqual({
+      tab: 'swap',
+      swapPrefill: undefined,
+      swapTabNavigationId: pending.requestId,
+    });
+    await act(async () => transferTabletSwapPrefill(true));
+    expect(mainPane.getSwapPrefill()).toBeUndefined();
+
+    await detailPane.navigate(swapNotificationParams);
+    const refreshed = mainPane.getSwapPrefill();
+    if (!refreshed) {
+      throw new OneKeyLocalError('The second notification did not prefill');
+    }
+    await act(async () => retireSwapTabPrefill(pending));
+    expect(isSwapTabPrefillRetired(refreshed)).toBe(false);
+    expect(mainPane.getSwapPrefill()).toBe(refreshed);
+  });
+
+  it('keeps the newer Swap tap when the earlier tap is waiting for a modal to close', async () => {
+    const navigation = renderSwapNotificationNavigator();
+    await act(async () => navigation.openModal());
+    expect(navigation.getCurrentRoute()?.name).toBe(ERootRoutes.Modal);
+
+    let finishDismiss = () => {};
+    const dismiss = new Promise<void>((resolve) => {
+      finishDismiss = resolve;
+    });
+    jest.mocked(timerUtils.wait).mockImplementationOnce(async (ms) => {
+      expect(ms).toBe(100);
+      await dismiss;
+    });
+
+    let earlierNavigation: Promise<void> | undefined;
+    await act(async () => {
+      earlierNavigation = navigation.deliver(swapNotificationParams);
+    });
+    expect(navigation.getRootState().routes.map(({ name }) => name)).toEqual([
+      ERootRoutes.Main,
+    ]);
+
+    const newerParams = {
+      ...swapNotificationParams,
+      importFromToken: swapNotificationParams.importToToken,
+      importToToken: swapNotificationParams.importFromToken,
+    };
+    await navigation.navigate(newerParams);
+    const newerRoute = navigation.getCurrentRoute();
+    expect(newerRoute?.params).toMatchObject({
+      swapPrefill: {
+        fromToken: {
+          contractAddress: newerParams.importFromToken.contractAddress,
+        },
+      },
+    });
+
+    await act(async () => {
+      finishDismiss();
+      await earlierNavigation;
+    });
+
+    expect(navigation.getCurrentRoute()?.params).toStrictEqual(
+      newerRoute?.params,
+    );
+  });
+
+  it.each([
+    ['tab-only', { tab: 'stock' }],
+    [
+      'inconsistent network',
+      { ...swapNotificationParams, importNetworkId: 'evm--56' },
+    ],
+    [
+      'missing destination',
+      { ...swapNotificationParams, importToToken: undefined },
+    ],
+  ])(
+    'continues navigation with %s without reusing the previous pair',
+    async (_case, params) => {
+      const navigation = renderSwapNotificationNavigator();
+
+      await navigation.navigate(swapNotificationParams);
+      await navigation.navigate(params);
+
+      const route = navigation.getCurrentRoute();
+      expect(route?.name).toBe(ETabSwapRoutes.TabSwap);
+      expect(route?.params).toStrictEqual({
+        tab: params.tab,
+        swapPrefill: undefined,
+        swapTabNavigationId: expect.any(String),
+      });
     },
   );
 });

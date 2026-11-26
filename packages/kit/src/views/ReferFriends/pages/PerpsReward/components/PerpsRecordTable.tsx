@@ -167,7 +167,8 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
   const isZeroData =
     isZeroValue(item.volumeFiatValue) &&
     isZeroValue(item.feeFiatValue) &&
-    isZeroValue(item.rewardFiatValue);
+    isZeroValue(item.rewardFiatValue) &&
+    isZeroValue(item.undistributedRewardFiatValue);
 
   return (
     <>
@@ -214,6 +215,18 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
         ) : (
           <Currency formatter="value" size="$bodyMd" color="$text">
             {item.feeFiatValue}
+          </Currency>
+        )}
+      </XStack>
+
+      <XStack w={columnWidths.undistributed} ai="center" py="$1">
+        {isZeroData || !item.undistributedRewardFiatValue ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            --
+          </SizableText>
+        ) : (
+          <Currency formatter="value" size="$bodyMd" color="$text">
+            {item.undistributedRewardFiatValue}
           </Currency>
         )}
       </XStack>
@@ -329,8 +342,20 @@ function ScrollableHeaderContent({
         })}
       />
 
+      <XStack w={columnWidths.undistributed}>
+        <SizableText
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+        >
+          {intl.formatMessage({ id: ETranslations.referral_undistributed })}
+        </SizableText>
+      </XStack>
+
       <SortableHeader
-        label={intl.formatMessage({ id: ETranslations.referral_order_reward })}
+        label={intl.formatMessage({
+          id: ETranslations.referral_total_reward,
+        })}
         field="reward"
         sortBy={sortBy}
         sortOrder={sortOrder}

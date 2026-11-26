@@ -1,15 +1,21 @@
 /** @jest-environment jsdom */
 import type { ReactNode } from 'react';
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OverlayDialogPresentation } from './OverlayDialogPresentation';
 
-import type { IOverlayViewProps } from '@onekeyfe/react-native-native-overlay';
+import type {
+  IOverlaySnapshot,
+  IOverlayViewProps,
+} from '@onekeyfe/react-native-native-overlay';
+const mockOverlayListeners = new Set<() => void>();
+let mockOverlaySnapshot: IOverlaySnapshot = { entries: [], queued: [] };
+let mockPageHostFocused = true;
 let mockProps: IOverlayViewProps;
-let mockSurfaceProps: { width?: unknown };
+let mockSurfaceProps: { width?: unknown; pb?: unknown };
 let mockPlatformOS = 'android';
 const mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const mockContentFrame = { x: 0, y: 0, width: 1000, height: 800 };
@@ -30,6 +36,14 @@ jest.mock('react-native-gesture-handler', () => ({
   ),
 }));
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  overlayStore: {
+    getSnapshot: () => mockOverlaySnapshot,
+    isPageHostFocused: () => mockPageHostFocused,
+    subscribe: (listener: () => void) => {
+      mockOverlayListeners.add(listener);
+      return () => mockOverlayListeners.delete(listener);
+    },
+  },
   OverlayView: (props: IOverlayViewProps) => {
     mockProps = props;
     return props.children;
@@ -77,12 +91,155 @@ const dialogProps = {
   children: <div data-testid="dialog-body">Body</div>,
 };
 
+beforeEach(() => {
+  mockOverlaySnapshot = { entries: [], queued: [] };
+  mockPageHostFocused = true;
+});
+
+function setPageSuspended(suspended: boolean) {
+  mockOverlaySnapshot = {
+    entries: [
+      {
+        id: 'dialog',
+        scope: 'page',
+        ...pageScope,
+        level: 'modal',
+        strategy: 'stack',
+        priority: 0,
+        replaceKey: undefined,
+        dismissible: true,
+        blocking: true,
+        statusBarStyle: undefined,
+        phase: 'active',
+        suspended,
+        dismissReason: undefined,
+        seq: 1,
+      },
+    ],
+    queued: [],
+  };
+  act(() => mockOverlayListeners.forEach((listener) => listener()));
+}
+
+it.each([true, false])(
+  'waits for page visibility after presentation (native=%s)',
+  (native) => {
+    nativeEnv.isNative = native;
+    nativeEnv.isNativeAndroid = native;
+    setPageSuspended(true);
+    const onVisible = jest.fn();
+    render(
+      <OverlayDialogPresentation
+        {...dialogProps}
+        page={pageScope}
+        onVisible={onVisible}
+      />,
+    );
+    expect(onVisible).not.toHaveBeenCalled();
+    mockProps.onPresented?.();
+    expect(onVisible).not.toHaveBeenCalled();
+    setPageSuspended(false);
+    expect(onVisible).toHaveBeenCalledTimes(1);
+    setPageSuspended(true);
+    setPageSuspended(false);
+    mockProps.onPresented?.();
+    expect(onVisible).toHaveBeenCalledTimes(1);
+  },
+);
+
+it('waits for the web root host to be focused and ignores unrelated store changes', () => {
+  nativeEnv.isNative = false;
+  mockPageHostFocused = false;
+  setPageSuspended(false);
+  const onVisible = jest.fn();
+  render(
+    <OverlayDialogPresentation
+      {...dialogProps}
+      page={pageScope}
+      onVisible={onVisible}
+    />,
+  );
+  mockProps.onPresented?.();
+  setPageSuspended(false);
+  expect(onVisible).not.toHaveBeenCalled();
+  mockPageHostFocused = true;
+  setPageSuspended(false);
+  expect(onVisible).toHaveBeenCalledTimes(1);
+});
+
+it('does not count a suspended dialog that closes before becoming visible', () => {
+  setPageSuspended(true);
+  const onVisible = jest.fn();
+  const view = render(
+    <OverlayDialogPresentation
+      {...dialogProps}
+      page={pageScope}
+      onVisible={onVisible}
+    />,
+  );
+  mockProps.onPresented?.();
+  view.rerender(
+    <OverlayDialogPresentation
+      {...dialogProps}
+      open={false}
+      page={pageScope}
+      onVisible={onVisible}
+    />,
+  );
+  setPageSuspended(false);
+  expect(onVisible).not.toHaveBeenCalled();
+  expect(mockOverlayListeners.size).toBe(0);
+});
+
+it('counts global dialogs after presentation and resets for a new opening', () => {
+  const onVisible = jest.fn();
+  const view = render(
+    <OverlayDialogPresentation {...dialogProps} onVisible={onVisible} />,
+  );
+  expect(onVisible).not.toHaveBeenCalled();
+  mockProps.onPresented?.();
+  mockProps.onPresented?.();
+  expect(onVisible).toHaveBeenCalledTimes(1);
+  view.rerender(
+    <OverlayDialogPresentation
+      {...dialogProps}
+      open={false}
+      onVisible={onVisible}
+    />,
+  );
+  view.rerender(
+    <OverlayDialogPresentation {...dialogProps} onVisible={onVisible} />,
+  );
+  expect(onVisible).toHaveBeenCalledTimes(1);
+  mockProps.onPresented?.();
+  expect(onVisible).toHaveBeenCalledTimes(2);
+});
+
+it.each([true, false])(
+  'excludes closing during entrance and waits for the next presentation (native=%s)',
+  (native) => {
+    nativeEnv.isNative = native;
+    nativeEnv.isNativeAndroid = native;
+    const onVisible = jest.fn();
+    const props = { ...dialogProps, isSheet: true, onVisible };
+    const view = render(<OverlayDialogPresentation {...props} />);
+    view.rerender(<OverlayDialogPresentation {...props} open={false} />);
+    mockProps.onPresented?.();
+    expect(onVisible).not.toHaveBeenCalled();
+    view.rerender(<OverlayDialogPresentation {...props} />);
+    expect(onVisible).not.toHaveBeenCalled();
+    mockProps.onPresented?.();
+    expect(onVisible).toHaveBeenCalledTimes(1);
+  },
+);
+
 afterEach(() => {
   nativeEnv.isNative = true;
   nativeEnv.isNativeAndroid = true;
   mockPlatformOS = 'android';
   mockSafeAreaInsets.left = 0;
   mockSafeAreaInsets.right = 0;
+  mockSafeAreaInsets.bottom = 0;
   mockContentFrame.width = 1000;
 });
 it('delivers sheet animation completion only after the host finishes', () => {
@@ -201,4 +358,39 @@ it('paints the sheet safe-area tail with a literal dialog background', () => {
 it('resolves a theme token for the sheet surface', () => {
   render(<OverlayDialogPresentation {...dialogProps} isSheet bg="$bgApp" />);
   expect(mockProps.sheet?.backgroundColor).toBe('#123456');
+});
+
+it('pads iOS page-scoped sheets by the bottom safe-area inset', () => {
+  nativeEnv.isNativeAndroid = false;
+  mockPlatformOS = 'ios';
+  mockSafeAreaInsets.bottom = 34;
+
+  const { rerender } = render(
+    <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
+  );
+  expect(mockSurfaceProps.pb).toBe(34);
+
+  // Global iOS sheets rely on UISheetPresentationController for safe area.
+  rerender(<OverlayDialogPresentation {...dialogProps} isSheet />);
+  expect(mockSurfaceProps.pb).toBeUndefined();
+
+  // Centered cards do not add sheet bottom padding.
+  rerender(<OverlayDialogPresentation {...dialogProps} page={pageScope} />);
+  expect(mockSurfaceProps.pb).toBeUndefined();
+
+  // Android and web overlays handle bottom insets elsewhere.
+  nativeEnv.isNativeAndroid = true;
+  mockPlatformOS = 'android';
+  rerender(
+    <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
+  );
+  expect(mockSurfaceProps.pb).toBeUndefined();
+
+  nativeEnv.isNative = false;
+  nativeEnv.isNativeAndroid = false;
+  mockPlatformOS = 'web';
+  rerender(
+    <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
+  );
+  expect(mockSurfaceProps.pb).toBeUndefined();
 });

@@ -142,10 +142,8 @@ export type IPrimeTransferData = {
   isWatchingOnly: boolean;
   appVersion: string;
   // Credentials skipped while building this payload because the local secret
-  // envelope layer (keychain / secure storage / IndexedDB CryptoKey) was
-  // transiently unavailable. The wallet/account is omitted from privateData so
-  // the rest can still transfer; the sender UI surfaces these for confirmation
-  // before sending. Not set for cloud backup (that path fails fast instead).
+  // envelope was unreadable. The wallet/account is omitted from privateData
+  // so the rest can still transfer. Cloud backup requires all credentials.
   unavailableCredentials?: IPrimeTransferUnavailableCredential[];
 };
 

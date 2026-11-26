@@ -43,7 +43,7 @@
       "marketListReadyMs": 4000
     },
     "perps": {
-      "resourceCount": 222,
+      "resourceCount": 208,
       "scriptCount": 174,
       "jsDecodedBytes": 17930650,
       "longTaskTotalMs": 1500

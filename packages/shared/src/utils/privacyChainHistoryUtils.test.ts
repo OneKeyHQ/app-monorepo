@@ -701,3 +701,34 @@ describe('splitPrivacyChainHistoryTxsBySide', () => {
     ]);
   });
 });
+
+it('does not subtract a public fee from a private-pool payment', () => {
+  const privatePayment = {
+    id: 'public-fee-private-payment',
+    privacyChainHistoryPoolIds: [1],
+    privacyChainHistoryPoolDeltas: { '1': '-10' },
+    privacyChainHistoryFeePoolId: 0,
+    decodedTx: {
+      txid: 'public-fee-private-payment',
+      totalFeeInNative: '2',
+      actions: [
+        {
+          assetTransfer: {
+            from: 'sender',
+            to: 'recipient',
+            sends: [{ from: 'sender', to: 'recipient', amount: '10' }],
+            receives: [],
+          },
+        },
+      ],
+    },
+  } as unknown as IAccountHistoryTx;
+  const projected = projectPrivacyChainHistoryTxToPool({
+    tx: privatePayment,
+    selectedPoolId: 1,
+  });
+  expect(projected.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+    '10',
+  );
+  expect(projected.decodedTx.totalFeeInNative).toBe('2');
+});

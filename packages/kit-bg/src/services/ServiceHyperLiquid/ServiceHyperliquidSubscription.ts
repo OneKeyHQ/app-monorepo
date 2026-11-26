@@ -2099,8 +2099,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     );
     const batchedTrades = orderBy(
       [...(currentBatch?.trades ?? []), ...trades],
-      ['time'],
-      ['desc'],
+      ['time', 'tid'],
+      ['desc', 'desc'],
     ).slice(0, limit);
     // The Perps tape requests the full window and follows the exchange's frame
     // cadence. Include any pending Swap batch when it joins the same market.

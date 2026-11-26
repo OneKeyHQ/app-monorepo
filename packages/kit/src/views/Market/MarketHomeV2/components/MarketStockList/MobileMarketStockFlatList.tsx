@@ -11,7 +11,10 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EEnterWay,
+  EMarketEntryCategory,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -36,6 +39,7 @@ function MobileMarketStockFlatListImpl({
   const intl = useIntl();
   const toMarketStockDetailPage = useToMarketStockDetailPage({
     from: EEnterWay.MarketList,
+    entryCategory: EMarketEntryCategory.Stocks,
   });
   const {
     items,

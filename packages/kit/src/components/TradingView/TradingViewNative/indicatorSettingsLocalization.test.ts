@@ -3,6 +3,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { createTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
+import { TRADING_VIEW_NATIVE_ALL_INDICATORS } from './utils/chartIndicators';
 
 import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
 
@@ -60,6 +61,7 @@ describe('indicatorSettingsLocalization', () => {
     const renderedTexts = new Set(
       value.indicators.flatMap((indicator) => [
         indicator.description,
+        indicator.name,
         indicator.title,
         ...(indicator.parameters?.map((parameter) => parameter.label) ?? []),
         ...indicator.lines.map((line) => line.label),
@@ -82,13 +84,14 @@ describe('indicatorSettingsLocalization', () => {
     const trix = value.indicators.find((indicator) => indicator.id === 'TRIX');
 
     expect(volume).toMatchObject({
-      description: ETranslations.market_chart_indicator_vol__title,
       label: 'VOL',
+      name: ETranslations.market_chart_indicator_vol__title,
       title: `VOL (${ETranslations.market_chart_indicator_vol__title})`,
     });
+    // MACD's title has no English name to replace, so it stays the abbreviation.
     expect(macd).toMatchObject({
-      description: ETranslations.market_chart_indicator_macd__desc,
       label: 'MACD',
+      name: ETranslations.market_chart_indicator_macd__desc,
       title: 'MACD',
     });
     expect(macd?.lines.map((line) => line.label)).toEqual([
@@ -100,13 +103,13 @@ describe('indicatorSettingsLocalization', () => {
       obv?.lines.find((line) => line.id === 'plot:movingAverage'),
     ).toMatchObject({ enabled: true, label: 'MAOBV' });
     expect(rsi).toMatchObject({
-      description: ETranslations.market_chart_indicator_rsi__title,
       label: 'RSI',
+      name: ETranslations.market_chart_indicator_rsi__title,
       title: `RSI (${ETranslations.market_chart_indicator_rsi__title})`,
     });
     expect(trix).toMatchObject({
-      description: 'TRIX',
       label: 'TRIX',
+      name: 'TRIX',
       title: 'TRIX',
     });
   });
@@ -143,8 +146,8 @@ describe('indicatorSettingsLocalization', () => {
     );
 
     expect(kdj).toMatchObject({
-      description: 'Stochastic Oscillator',
       label: 'KDJ',
+      name: 'Stochastic Oscillator',
       title: 'KDJ (Stochastic Oscillator)',
     });
     expect(kdj?.parameters?.map((parameter) => parameter.label)).toEqual([
@@ -160,6 +163,32 @@ describe('indicatorSettingsLocalization', () => {
     expect(donchian).toMatchObject({ title: 'DC (Donchian Channels)' });
     expect(donchian?.lines.at(-1)?.label).toBe(
       ETranslations.market_chart_settings__background,
+    );
+  });
+
+  it('explains every indicator with its own text', () => {
+    const value = getLocalizedValue();
+    const descriptions = value.indicators.map(
+      (indicator) => indicator.description,
+    );
+
+    expect(descriptions).toHaveLength(
+      TRADING_VIEW_NATIVE_ALL_INDICATORS.length,
+    );
+    expect(descriptions.every(Boolean)).toBe(true);
+    expect(new Set(descriptions).size).toBe(descriptions.length);
+
+    const descriptionOf = (id: string) =>
+      value.indicators.find((indicator) => indicator.id === id)?.description;
+    expect(descriptionOf('MA')).toBe(
+      ETranslations.market_chart_indicator_ma_intro__desc,
+    );
+    expect(descriptionOf('StochRSI')).toBe(
+      ETranslations.market_chart_indicator_stoch_rsi_intro__desc,
+    );
+    // MACD's older `__desc` key is its full name, not this explanation.
+    expect(descriptionOf('MACD')).toBe(
+      ETranslations.market_chart_indicator_macd_intro__desc,
     );
   });
 

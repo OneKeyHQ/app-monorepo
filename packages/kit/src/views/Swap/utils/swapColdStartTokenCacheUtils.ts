@@ -948,6 +948,9 @@ function buildSwapInitTokenConsumptionKey(token?: ISwapToken) {
 }
 
 export function buildSwapInitParamsConsumptionKey(params?: ISwapInitParams) {
+  if (params?.swapTabPrefill) {
+    return `swapTabPrefill:${params.swapTabPrefill.requestId}`;
+  }
   if (
     !params?.fromAmount &&
     !params?.importFromToken &&

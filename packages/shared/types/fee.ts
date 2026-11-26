@@ -154,6 +154,25 @@ export type IFeeNeoN3 = {
   systemFee: string;
 };
 
+export type IFeeStarknetResourceBound = {
+  maxAmount: string;
+  maxPricePerUnit: string;
+  estimatedPricePerUnit?: string;
+};
+
+// Amounts are decimal strings in FRI (STRK base unit).
+export type IFeeStarknet = {
+  l1Gas: IFeeStarknetResourceBound;
+  l2Gas: IFeeStarknetResourceBound;
+  l1DataGas: IFeeStarknetResourceBound;
+  // Node's overall_fee estimate before the resource-bounds overhead; used as the display minimum.
+  overallFee?: string;
+  // Present only on the first outgoing tx of an account (DEPLOY_ACCOUNT leg).
+  deployAccountFee?: string;
+  // The node's overall_fee for that leg; the display value, deployAccountFee its bound.
+  deployAccountOverallFee?: string;
+};
+
 export type INetworkFeeInfo =
   | IGasLegacy
   | IGasEIP1559
@@ -165,7 +184,8 @@ export type INetworkFeeInfo =
   | IFeeDot
   | IFeeSui
   | IFeeFil
-  | IFeeNeoN3;
+  | IFeeNeoN3
+  | IFeeStarknet;
 
 export type IBatchEstimateFeeParams = {
   accountId: string;
@@ -255,6 +275,7 @@ export type IFeesInfoUnit = {
   feeDot?: IFeeDot[];
   feeBudget?: IFeeSui[];
   feeNeoN3?: IFeeNeoN3[];
+  feeStarknet?: IFeeStarknet[];
 };
 
 export type IFeeInfoUnit = {
@@ -276,6 +297,7 @@ export type IFeeInfoUnit = {
   feeDot?: IFeeDot;
   feeBudget?: IFeeSui;
   feeNeoN3?: IFeeNeoN3;
+  feeStarknet?: IFeeStarknet;
 };
 
 export type IEstimateFeeParamsSol = {
@@ -325,6 +347,7 @@ export type IEstimateGasResp = {
   }[];
   feeBudget?: IFeeSui[];
   feeNeoN3?: IFeeNeoN3[];
+  feeStarknet?: IFeeStarknet[];
 
   megafuelEligible?: {
     sponsorable: boolean;
@@ -361,6 +384,7 @@ export type IServerBatchEstimateFeeResponse = {
     result: {
       gas: IGasLegacy[];
       gasEIP1559: IGasEIP1559[];
+      feeStarknet?: IFeeStarknet[];
     }[];
   };
 };

@@ -57,6 +57,7 @@ jest.mock('../vaults/factory', () => ({
   },
 }));
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
 import type { IFetchServerTokenDetailParams } from '@onekeyhq/shared/types/serverToken';
 
@@ -96,7 +97,10 @@ describe('local wallet fee fiat metadata', () => {
   function createService() {
     const getNativeTokenAddress = jest.fn(async () => '');
     const service = new ServiceGas({
-      backgroundApi: { serviceToken: { getNativeTokenAddress } },
+      backgroundApi: {
+        serviceToken: { getNativeTokenAddress },
+        serviceAccount: { getAccountAddressForApi: async () => 't1-own' },
+      },
     });
     return { service, getNativeTokenAddress };
   }
@@ -205,5 +209,53 @@ describe('local wallet fee fiat metadata', () => {
     ).toBeUndefined();
     expect(mockGetNetwork).not.toHaveBeenCalled();
     expect(mockGetChainOnlyVault).not.toHaveBeenCalled();
+  });
+
+  it.each(['zec--0', 'xmr--0'])(
+    'keeps unconfigured batch fees off the backend for %s',
+    async (networkId) => {
+      const { service } = createService();
+      mockIsLocalWalletNetwork.mockResolvedValue(true);
+      await expect(
+        service.batchEstimateFee({
+          accountId: 'account',
+          networkId,
+          encodedTxs: [checkIsDefined(params.encodedTx)],
+        }),
+      ).rejects.toThrow('Privacy transaction fees must be estimated locally');
+      expect(mockEstimateFee).not.toHaveBeenCalled();
+    },
+  );
+
+  it('uses chain-configured batch estimation even when account addresses use the backend', async () => {
+    const { service } = createService();
+    mockIsLocalWalletNetwork.mockResolvedValue(false);
+    const common = {
+      feeDecimals: 18,
+      feeSymbol: 'STRK',
+      nativeDecimals: 18,
+      nativeSymbol: 'STRK',
+      nativeTokenPrice: { price: 0.03 },
+    };
+    mockEstimateFee
+      .mockResolvedValueOnce({
+        data: { data: { ...common, feeStarknet: [{ overallFee: '10' }] } },
+      })
+      .mockResolvedValueOnce({
+        data: { data: { ...common, feeStarknet: [{ overallFee: '20' }] } },
+      });
+    const result = await service.batchEstimateFee({
+      accountId: 'account',
+      networkId: 'starknet--mainnet',
+      encodedTxs: [
+        checkIsDefined(params.encodedTx),
+        checkIsDefined(params.encodedTx),
+      ],
+    });
+    expect(result.txFees.map((fee) => fee.feeStarknet?.[0].overallFee)).toEqual(
+      ['10', '20'],
+    );
+    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
+    expect(result.common.nativeTokenPrice).toBe(0.03);
   });
 });

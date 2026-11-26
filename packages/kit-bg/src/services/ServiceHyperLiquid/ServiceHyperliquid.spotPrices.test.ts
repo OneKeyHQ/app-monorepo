@@ -14,13 +14,16 @@ import {
 } from '../../states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
+import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import ServiceHyperliquid from './ServiceHyperliquid';
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 import { generateSubscriptionKey } from './utils/SubscriptionConfig';
 
 jest.mock('p-timeout', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('@nktkas/hyperliquid', () => ({}));
-jest.mock('./hyperLiquidApiClients', () => ({ hyperLiquidApiClients: {} }));
+jest.mock('./hyperLiquidApiClients', () => ({
+  hyperLiquidApiClients: { infoClient: { spotMetaAndAssetCtxs: jest.fn() } },
+}));
 jest.mock('../../states/jotai/atoms', () => {
   const actual = jest.requireActual<typeof import('../../states/jotai/atoms')>(
     '../../states/jotai/atoms',
@@ -42,6 +45,34 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   toastIfError: () => (_target: unknown, _key: string, descriptor: unknown) =>
     descriptor,
 }));
+
+it('shares in-flight spot metadata requests and allows a fresh request after settlement', async () => {
+  const request = jest.spyOn(
+    hyperLiquidApiClients.infoClient,
+    'spotMetaAndAssetCtxs',
+  );
+  const failure = new Error('Spot metadata unavailable');
+  request
+    .mockRejectedValueOnce(failure)
+    .mockResolvedValue([{ tokens: [], universe: [] }, []]);
+  const setSpotMeta = jest.fn();
+  const service = new ServiceHyperliquid({
+    backgroundApi: {
+      simpleDb: { perp: { setSpotMeta, getPerpData: async () => ({}) } },
+    },
+  });
+  jest.spyOn(service, 'refreshSpotExternalMarketCaps').mockResolvedValue({});
+
+  const refreshTwice = () =>
+    Promise.all([service.refreshSpotMeta(), service.refreshSpotMeta()]);
+  await expect(refreshTwice()).rejects.toThrow(failure);
+  expect(request).toHaveBeenCalledTimes(1);
+  await refreshTwice();
+  expect(request).toHaveBeenCalledTimes(2);
+  expect(setSpotMeta).toHaveBeenCalledTimes(1);
+  await service.refreshSpotMeta();
+  expect(request).toHaveBeenCalledTimes(3);
+});
 
 // HWAVE context from OK-63600: mark 0.001 vs mid 0.001239.
 const spotCtx = {

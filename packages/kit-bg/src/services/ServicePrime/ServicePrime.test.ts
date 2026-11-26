@@ -3043,6 +3043,8 @@ describe('ServicePrime Infini payment APIs', () => {
         expiresAt: serverUserInfo.primeExpiredAt,
         willRenew: true,
         subscriptions: serverUserInfo.subscriptions,
+        hasBillingIssue: false,
+        billingIssueManagementUrl: undefined,
       },
       infiniSubscription: subscription,
     });
@@ -9114,6 +9116,251 @@ describe('ServicePrime inviteProfilePublic', () => {
     }));
     await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
       inviteProfilePublic: undefined,
+    });
+  });
+
+  // Only /user/info reports the billing issue: the profile's subscription
+  // list (which wins the merge) must not drop it, and neither the
+  // profile-only fallback nor a login payload may hide the alert of a member
+  // who has not paid yet.
+  // A userInfoUpdated push (or a return from the payment page) must not
+  // supersede a /user/info request another flow is awaiting (its caller would
+  // get no serverUserInfo), must not be answered by a result fetched before
+  // the change, and must not leave the old result in the cache.
+  it('refreshes after a change without superseding a running request', async () => {
+    const { service } = createService();
+    type IFetchResult = Awaited<
+      ReturnType<typeof service.apiFetchPrimeUserInfo>
+    >;
+    const requests: {
+      resolve: (value: IFetchResult) => void;
+      reject: (error: Error) => void;
+    }[] = [];
+    const fetchSpy = jest
+      .spyOn(
+        service as unknown as {
+          _fetchPrimeUserInfo: () => Promise<IFetchResult>;
+        },
+        '_fetchPrimeUserInfo',
+      )
+      .mockImplementation(
+        () =>
+          new Promise<IFetchResult>((resolve, reject) => {
+            requests.push({ resolve, reject });
+          }),
+      );
+    const result = (name: string) =>
+      ({ serverUserInfo: { userId: name } }) as unknown as IFetchResult;
+    const flush = async () => {
+      for (let i = 0; i < 5; i += 1) {
+        // oxlint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    };
+
+    const running = service.apiFetchPrimeUserInfo();
+    const refresh = service.refreshPrimeUserInfoAfterChange();
+    void service.refreshPrimeUserInfoAfterChange();
+    await flush();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    requests[0].resolve(result('before-change'));
+    await expect(running).resolves.toEqual(result('before-change'));
+    await flush();
+    // One fresh request for both calls, not served from the cache.
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    // A call during that request gets one more after it.
+    void service.refreshPrimeUserInfoAfterChange();
+    requests[1].reject(new Error('network'));
+    await flush();
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    requests[2].resolve(result('latest'));
+    await refresh;
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+    // The cache holds the latest result, never the pre-change one.
+    await expect(service.apiFetchPrimeUserInfo()).resolves.toEqual(
+      result('latest'),
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  // memoizee settles an entry on a later tick: a request still settling
+  // after a forced refresh must not cache into, or drop, the new entry.
+  it.each(['resolves', 'rejects'] as const)(
+    'keeps a forced refresh cached when the older request %s later',
+    async (outcome) => {
+      const { service } = createService();
+      type IFetchResult = Awaited<
+        ReturnType<typeof service.apiFetchPrimeUserInfo>
+      >;
+      const requests: {
+        resolve: (value: IFetchResult) => void;
+        reject: (error: Error) => void;
+      }[] = [];
+      const fetchSpy = jest
+        .spyOn(
+          service as unknown as {
+            _fetchPrimeUserInfo: () => Promise<IFetchResult>;
+          },
+          '_fetchPrimeUserInfo',
+        )
+        .mockImplementation(
+          () =>
+            new Promise<IFetchResult>((resolve, reject) => {
+              requests.push({ resolve, reject });
+            }),
+        );
+      const result = (name: string) =>
+        ({ serverUserInfo: { userId: name } }) as unknown as IFetchResult;
+      const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+      const older = service.apiFetchPrimeUserInfo().catch(() => undefined);
+      const fresh = service.apiFetchPrimeUserInfo({ forceRefresh: true });
+      if (outcome === 'resolves') {
+        requests[0].resolve(result('older'));
+      } else {
+        requests[0].reject(new Error('network'));
+      }
+      await older;
+      await flush();
+      requests[1].resolve(result('fresh'));
+      await fresh;
+      await flush();
+
+      await expect(service.apiFetchPrimeUserInfo()).resolves.toEqual(
+        result('fresh'),
+      );
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('takes the billing issue only from /user/info', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    const atom = installPrimeAtom({ onekeyUserId: 'user-a' });
+    const completeProfile = {
+      userId: 'user-a',
+      emails: ['a@example.com'],
+      isPrime: true,
+      primeExpiredAt: 1_800_000_000_000,
+      level: 'PRIME',
+      salt: 'salt',
+      pwdHash: 'hash',
+      inviteCode: 'CODE',
+      // Only the profile carries the channel of the healthy Infini entry.
+      subscriptions: [
+        { id: 'sub-infini', channel: 'infini', managementUrl: null },
+        { id: 'sub-card', managementUrl: ' ' },
+      ],
+    };
+    const userInfo = {
+      ...completeProfile,
+      hasBillingIssue: true,
+      subscriptions: [
+        // Healthy and listed first: must not be picked for the payment update.
+        { id: 'sub-healthy', managementUrl: 'https://example.com/healthy' },
+        null,
+        { id: 'sub-bad', hasBillingIssue: true, managementUrl: 42 },
+        {
+          id: 'sub-card',
+          hasBillingIssue: true,
+          managementUrl: 'https://example.com/billing-issue',
+        },
+      ],
+    };
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => ({
+        status: 200,
+        data: {
+          code: 0,
+          data: url === '/prime/v1/user/info' ? userInfo : completeProfile,
+        },
+      })),
+    }));
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: await service.callApiFetchPrimeUserInfo(),
+    });
+    expect(atom.read().primeSubscription).toMatchObject({
+      hasBillingIssue: true,
+      billingIssueManagementUrl: 'https://example.com/billing-issue',
+      subscriptions: completeProfile.subscriptions,
+    });
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => {
+        if (url === '/prime/v1/user/info') {
+          return Promise.reject(new OneKeyLocalError('user info unavailable'));
+        }
+        return { status: 200, data: { code: 0, data: completeProfile } };
+      }),
+    }));
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: await service.callApiFetchPrimeUserInfo(),
+    });
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        ...completeProfile,
+        hasBillingIssue: false,
+      } as unknown as IPrimeServerUserInfo,
+    });
+    expect(atom.read().primeSubscription).toMatchObject({
+      hasBillingIssue: true,
+      billingIssueManagementUrl: 'https://example.com/billing-issue',
+    });
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => ({
+        status: 200,
+        data: {
+          code: 0,
+          data:
+            url === '/prime/v1/user/info'
+              ? { ...completeProfile, hasBillingIssue: false }
+              : completeProfile,
+        },
+      })),
+    }));
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: await service.callApiFetchPrimeUserInfo(),
+    });
+    expect(atom.read().primeSubscription).toMatchObject({
+      hasBillingIssue: false,
+      billingIssueManagementUrl: undefined,
+    });
+
+    // A failed subscription without a usable link never falls back to the
+    // healthy one.
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => ({
+        status: 200,
+        data: {
+          code: 0,
+          data:
+            url === '/prime/v1/user/info'
+              ? {
+                  ...userInfo,
+                  subscriptions: [
+                    userInfo.subscriptions[0],
+                    {
+                      id: 'sub-card',
+                      hasBillingIssue: true,
+                      managementUrl: null,
+                    },
+                  ],
+                }
+              : completeProfile,
+        },
+      })),
+    }));
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: await service.callApiFetchPrimeUserInfo(),
+    });
+    expect(atom.read().primeSubscription).toMatchObject({
+      hasBillingIssue: true,
+      billingIssueManagementUrl: undefined,
     });
   });
 

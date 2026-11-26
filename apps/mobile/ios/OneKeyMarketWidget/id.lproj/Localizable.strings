@@ -35,3 +35,5 @@
 "market_widget_market_closed__title" = "Tutup";
 "market_widget_stock_chart__desc" = "Bagan";
 "market_widget_asset__title" = "Aset";
+"market_widget_new_configuration__title" = "Konfigurasi baru";
+"global.default" = "Bawaan";

@@ -27,6 +27,7 @@ function buildPlatformEnvDefineMap(buildTimeEnv) {
     'platformEnv.isDev': buildTimeEnv.isDev,
     'platformEnv.isE2E': buildTimeEnv.isE2E,
     'platformEnv.isProduction': buildTimeEnv.isProduction,
+    'platformEnv.isLocalDevelopmentBuild': buildTimeEnv.isLocalDevelopmentBuild,
     'platformEnv.isWeb': buildTimeEnv.isWeb,
     'platformEnv.isWebEmbed': buildTimeEnv.isWebEmbed,
     'platformEnv.isDesktop': buildTimeEnv.isDesktop,

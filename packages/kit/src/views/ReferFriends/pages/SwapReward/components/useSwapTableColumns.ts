@@ -13,7 +13,8 @@ const MIN_COLUMN_WIDTHS = {
   firstTrade: 170,
   volume: 130,
   fee: 140,
-  rewards: 130,
+  undistributed: 110,
+  rewards: 140,
 } as const;
 
 const CHAR_WIDTH_MULTIPLIER = 9;
@@ -27,6 +28,7 @@ export interface ISwapInviteColumnWidths {
   firstTrade: string | number;
   volume: string | number;
   fee: string | number;
+  undistributed: string | number;
   rewards: string | number;
 }
 
@@ -88,8 +90,14 @@ export function useSwapTableColumns(isCompact: boolean) {
         minWidth: MIN_COLUMN_WIDTHS.fee,
         sortable: true,
       }),
+      undistributed: getColumnWidth({
+        label: intl.formatMessage({ id: ETranslations.referral_undistributed }),
+        minWidth: MIN_COLUMN_WIDTHS.undistributed,
+      }),
       rewards: getColumnWidth({
-        label: intl.formatMessage({ id: ETranslations.referral_order_reward }),
+        label: intl.formatMessage({
+          id: ETranslations.referral_total_reward,
+        }),
         minWidth: MIN_COLUMN_WIDTHS.rewards,
         sortable: true,
       }),

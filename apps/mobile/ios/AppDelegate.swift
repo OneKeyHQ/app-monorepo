@@ -420,6 +420,7 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
   // if the user force-kills from the app switcher while viewing the recovery screen.
   override func applicationDidEnterBackground(_ application: UIApplication) {
     super.applicationDidEnterBackground(application)
+    MarketWidgetQuoteReloader.shared.flushForBackground()
     let count = UserDefaults.standard.integer(forKey: BootRecoveryKeys.consecutiveBootFailCount)
     if count < 3 {
       UserDefaults.standard.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)

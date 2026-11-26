@@ -1,3 +1,4 @@
+import { requireOptionalNativeModule } from 'expo';
 import {
   WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   canUseBiometricAuthentication,
@@ -58,6 +59,15 @@ const storage: ISecureStorage = {
   async hasSecureItem(key: string): Promise<boolean> {
     const value = await getItemAsync(key, keychainOptions);
     return !!value;
+  },
+  async hasStoredSecureItem(key) {
+    const nativeModule = requireOptionalNativeModule<{
+      hasStoredValueWithKeyAsync?: (
+        name: string,
+        options: typeof keychainOptions,
+      ) => Promise<boolean>;
+    }>('ExpoSecureStore');
+    return nativeModule?.hasStoredValueWithKeyAsync?.(key, keychainOptions);
   },
   async getCredentialId(): Promise<string | null> {
     return null;
