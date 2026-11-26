@@ -711,8 +711,19 @@ it('replaces a legacy route amount when the decoded detail arrives', () => {
   expect(assets.queryByText('-2')).toBeNull();
 });
 
-it('waits for the native asset before showing a Manta Pacific fee in ETH', () => {
-  mockHistory = history('evm--169', '1');
+it.each(['evm--1', 'evm--169'])(
+  'shows a cached fee in ETH offline on %s',
+  (networkId) => {
+    mockHistory = history(networkId, '1');
+    mockHistory.decodedTx.totalFeeInNative = '0.007';
+    mockNativeSymbol = undefined;
+    const result = render(<HistoryDetails />);
+    expect(result.getByText('0.007').getAttribute('data-unit')).toBe('ETH');
+  },
+);
+
+it('waits for the native asset on an unknown network', () => {
+  mockHistory = history('evm--12345678', '1');
   mockHistory.decodedTx.totalFeeInNative = '0.007';
   mockNativeSymbol = undefined;
   const result = render(<HistoryDetails />);

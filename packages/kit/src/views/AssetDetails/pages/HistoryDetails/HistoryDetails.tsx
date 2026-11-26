@@ -18,6 +18,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -1650,7 +1651,12 @@ function HistoryDetails() {
   }, [accountId, networkId]);
   const feeTokenSymbol =
     historyTx?.decodedTx.feeInfo?.common?.nativeSymbol ||
-    (nativeFeeToken?.networkId === networkId && nativeFeeToken?.symbol);
+    (nativeFeeToken?.networkId === networkId && nativeFeeToken?.symbol) ||
+    ([getNetworkIdsMap().eth, getNetworkIdsMap().mantapacific].includes(
+      networkId,
+    )
+      ? 'ETH'
+      : undefined);
 
   const renderFeeInfo = useCallback(() => {
     // A private receive funded by someone else's transparent inputs has a fee this wallet cannot see;
