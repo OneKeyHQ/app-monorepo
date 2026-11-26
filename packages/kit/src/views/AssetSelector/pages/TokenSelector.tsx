@@ -2293,7 +2293,9 @@ function TokenSelector() {
             style={{ flex: 1 }}
             initialPage={0}
             scrollEnabled={false}
-            nativeSmoothHeaderScrollEnabled
+            // Keep the input outside the iOS scroll view so keyboard focus
+            // cannot scroll the pinned search bar away from the header.
+            nativeSmoothHeaderScrollEnabled={!platformEnv.isNativeIOS}
             pageRetentionDistance={1}
             headerHeight={segmentHeight}
             stickyHeaderHeight={searchBarHeight}
