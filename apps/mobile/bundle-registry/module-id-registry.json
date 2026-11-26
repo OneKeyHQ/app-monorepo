@@ -28455,6 +28455,7 @@
     "packages/shared/src/utils/approvalUtils.ts": 18345,
     "packages/shared/src/utils/assertUtils.ts": 16346,
     "packages/shared/src/utils/avatarUtils.ts": 5350,
+    "packages/shared/src/utils/boundedUr.ts": 4961,
     "packages/shared/src/utils/btcUtils.ts": 4542,
     "packages/shared/src/utils/bufferUtils.ts": 18996,
     "packages/shared/src/utils/buildMergedAllNetworkSnapshot.ts": 13706,

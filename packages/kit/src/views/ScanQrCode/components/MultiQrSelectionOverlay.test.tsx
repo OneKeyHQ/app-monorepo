@@ -592,6 +592,30 @@ test('two refocus cycles reacquire old codes without submitting an old singleton
   }
 });
 
+test('explicit cancel suppresses only the candidates on the current picker', () => {
+  jest.useFakeTimers();
+  try {
+    const coordinator = createMultiSymbolCoordinator({
+      onFrozenChange: jest.fn(),
+      onMultiSymbolChange: jest.fn(),
+      onSelectingChange: jest.fn(),
+      onCommitText: jest.fn(async () => 'complete' as const),
+    });
+    const a = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+    const b = { text: 'ethereum:0x222', centerX: 0.5, centerY: 0.5 };
+    const c = { text: 'ethereum:0x333', centerX: 0.8, centerY: 0.5 };
+    expect(coordinator.receiveFrame([a, b])).toBe(true);
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    expect(coordinator.receiveFrame([a, c])).toBe(true);
+    coordinator.cancelSelection();
+    expect(coordinator.receiveFrame([a, c])).toBeUndefined();
+    expect(coordinator.receiveFrame([b, c])).toBe(true);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test('cancel skips the old scene until a live tap, and retired preview verification cannot select', () => {
   jest.useFakeTimers();
   try {

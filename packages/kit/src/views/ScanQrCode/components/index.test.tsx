@@ -336,43 +336,61 @@ test('mixed detection waits for a selection even when the camera also reports ra
   ).toBe('true');
 });
 
-test('switching cameras keeps the selected animated QR stream and its progress', async () => {
-  jest.useFakeTimers();
-  try {
-    const onScan = jest.fn(async (_text: string) => ({ progress: 0.25 }));
-    const encoder = new UREncoder(UR.fromBuffer(Buffer.alloc(200, 7)), 40);
-    const first = encoder.nextPart();
-    const next = encoder.nextPart();
-    const address = { text: 'https://example.com', centerX: 0.3, centerY: 0.5 };
-    const ur = { text: first, centerX: 0.7, centerY: 0.5 };
-    render(<ScanQrCode handleBarCodeScanned={onScan} />);
+test.each([
+  { acquisition: 'explicit', selected: true },
+  { acquisition: 'automatic', selected: false },
+])(
+  'switching cameras handles $acquisition animated QR acquisition',
+  async ({ selected }) => {
+    jest.useFakeTimers();
+    try {
+      const onScan = jest.fn(async (_text: string) => ({ progress: 0.25 }));
+      const encoder = new UREncoder(UR.fromBuffer(Buffer.alloc(200, 7)), 40);
+      const first = encoder.nextPart();
+      const next = encoder.nextPart();
+      const address = {
+        text: 'https://example.com',
+        centerX: 0.3,
+        centerY: 0.5,
+      };
+      const ur = { text: first, centerX: 0.7, centerY: 0.5 };
+      render(<ScanQrCode handleBarCodeScanned={onScan} />);
 
-    const frame = (symbols: IMultiQrSymbol[]) =>
-      mockReceiveFrame?.({ coordinateSpace: 'view', symbols });
-    act(() => {
-      frame([address, ur]);
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByText(first));
-    });
-    fireEvent.click(screen.getByText('Switch'));
-    expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe(
-      'b',
-    );
-    expect(screen.getByText(/25%$/)).toBeTruthy();
-    await act(async () => {
-      frame([address]);
-      jest.advanceTimersByTime(300);
-    });
-    expect(onScan.mock.calls).toEqual([[first]]);
-    await act(async () => {
-      frame([{ ...ur, text: next }]);
-    });
-    expect(onScan.mock.calls).toEqual([[first], [next]]);
-  } finally {
-    jest.useRealTimers();
-  }
-});
+      const frame = (symbols: IMultiQrSymbol[]) =>
+        mockReceiveFrame?.({ coordinateSpace: 'view', symbols });
+      await act(async () => {
+        frame(selected ? [address, ur] : [ur]);
+      });
+      if (selected) {
+        await act(async () => {
+          fireEvent.click(screen.getByText(first));
+        });
+      }
+      expect(screen.getByText(/25%$/)).toBeTruthy();
+      fireEvent.click(screen.getByText('Switch'));
+      expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe(
+        'b',
+      );
+      expect(screen.getByText(/25%$/)).toBeTruthy();
+      await act(async () => {
+        frame([address]);
+        jest.advanceTimersByTime(300);
+      });
+      expect(onScan.mock.calls).toEqual(
+        selected ? [[first]] : [[first], [address.text]],
+      );
+      await act(async () => {
+        frame([{ ...ur, text: next }]);
+      });
+      expect(onScan.mock.calls).toEqual([
+        [first],
+        [selected ? next : address.text],
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);
 
 test('a live selection detected under the album stays hidden until the album closes', () => {
   const onScan = jest.fn(async () => ({}));

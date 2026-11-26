@@ -255,7 +255,7 @@ export function createMultiSymbolCoordinator(
 
   let phase: IMultiSymbolPhase = 'normal';
   let pendingSymbol: IMultiQrSymbol | undefined;
-  let selectedUrKey: string | undefined;
+  let activeUr: { key: string; selected: boolean } | undefined;
   let acceptFastPathText = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pendingCommit: symbol | undefined;
@@ -301,15 +301,17 @@ export function createMultiSymbolCoordinator(
   function resumeScanning() {
     phase = 'normal';
     acceptFastPathText = false;
-    selectedUrKey = undefined;
+    activeUr = undefined;
     closeSelection();
     options.onMultiSymbolChange(true);
   }
 
   function dismissOffered(refocusAfter?: number) {
     if (offered.length > 0) {
-      const keys = dismissed?.keys ?? new Set<string>();
-      for (const symbol of offered) keys.add(selectionKey(symbol));
+      const keys = new Set(offered.map(selectionKey));
+      if (refocusAfter !== undefined && dismissed) {
+        for (const key of dismissed.keys) keys.add(key);
+      }
       dismissed = { keys, refocusAfter };
       offered = [];
     }
@@ -325,7 +327,7 @@ export function createMultiSymbolCoordinator(
   function enterSelecting(symbols: IMultiQrSymbol[]) {
     clearTimer();
     pendingSymbol = undefined;
-    selectedUrKey = undefined;
+    activeUr = undefined;
     phase = 'selecting';
     offered = symbols;
     const previousKeys = dismissed?.keys;
@@ -339,19 +341,18 @@ export function createMultiSymbolCoordinator(
     options.onSelectingChange(symbols);
   }
 
-  function submitUrPart(
-    texts: readonly string[],
-    starting: boolean,
-    keepMultiSymbol: boolean,
-  ) {
+  function submitUrPart(texts: readonly string[], starting: boolean) {
     if (pendingCommit) return;
     const wasSelecting = phase === 'selecting';
-    if (starting && !wasSelecting) {
-      clearTimer();
-      pendingSymbol = undefined;
-      phase = 'ur-streaming';
-      acceptFastPathText = true;
-      options.onMultiSymbolChange(false);
+    if (starting) {
+      activeUr = { key: urKey(texts[0]), selected: wasSelecting };
+      if (!wasSelecting) {
+        clearTimer();
+        pendingSymbol = undefined;
+        phase = 'ur-streaming';
+        acceptFastPathText = true;
+        options.onMultiSymbolChange(false);
+      }
     }
 
     const request = Symbol('UR commit');
@@ -376,14 +377,16 @@ export function createMultiSymbolCoordinator(
         resumeScanning();
       } else if (outcome === 'progress' && starting) {
         dismissed = undefined;
-        selectedUrKey = urKey(texts[0]);
-        acceptFastPathText = !keepMultiSymbol;
+        acceptFastPathText = !wasSelecting;
         phase = 'ur-streaming';
         closeSelection();
-        options.onMultiSymbolChange(keepMultiSymbol);
-      } else if (starting && phase !== 'selecting') {
-        offered = [];
-        resumeScanning();
+        options.onMultiSymbolChange(wasSelecting);
+      } else if (starting) {
+        activeUr = undefined;
+        if (phase !== 'selecting') {
+          offered = [];
+          resumeScanning();
+        }
       }
     });
   }
@@ -392,7 +395,7 @@ export function createMultiSymbolCoordinator(
     if (phase === 'selecting') options.onFrozenChange(false);
     clearTimer();
     pendingSymbol = undefined;
-    selectedUrKey = undefined;
+    activeUr = undefined;
     dismissed = undefined;
     phase = 'resolved';
     options.onSelectingChange([]);
@@ -420,10 +423,11 @@ export function createMultiSymbolCoordinator(
     );
   }
 
-  function matchesSelectedUr(text: string): boolean {
+  function matchesActiveUr(text: string): boolean {
     return (
+      activeUr !== undefined &&
       isUrFrameText(text) &&
-      (selectedUrKey === undefined || urKey(text) === selectedUrKey)
+      urKey(text) === activeUr.key
     );
   }
 
@@ -446,9 +450,9 @@ export function createMultiSymbolCoordinator(
       if (
         phase === 'ur-streaming' &&
         acceptFastPathText &&
-        matchesSelectedUr(text)
+        matchesActiveUr(text)
       ) {
-        submitUrPart([text], false, false);
+        submitUrPart([text], false);
       }
     },
     needsSelection(symbols) {
@@ -488,9 +492,9 @@ export function createMultiSymbolCoordinator(
         if (pendingCommit) return;
         const candidates = visible
           .map((item) => item.text)
-          .filter(matchesSelectedUr);
+          .filter(matchesActiveUr);
         if (candidates.length) {
-          submitUrPart(candidates, false, !acceptFastPathText);
+          submitUrPart(candidates, false);
         } else {
           acceptFastPathText = false;
           options.onMultiSymbolChange(true);
@@ -510,7 +514,7 @@ export function createMultiSymbolCoordinator(
       if (!single) return;
 
       if (isUrFrameText(single.text)) {
-        submitUrPart([single.text], true, false);
+        submitUrPart([single.text], true);
         return;
       }
 
@@ -546,7 +550,7 @@ export function createMultiSymbolCoordinator(
       if (phase !== 'selecting') return;
       if (pendingCommit) return;
       if (isUrFrameText(symbol.text)) {
-        submitUrPart([symbol.text], true, true);
+        submitUrPart([symbol.text], true);
       } else {
         commitStatic(symbol.text);
       }
@@ -574,12 +578,11 @@ export function createMultiSymbolCoordinator(
       phase = 'normal';
     },
     resetCapture() {
-      const isStartingSelection = phase === 'selecting' && pendingCommit;
-      if (phase !== 'ur-streaming' && !isStartingSelection) {
+      if (!activeUr?.selected) {
         reset();
         return;
       }
-      // The host is still assembling the same UR after the camera changes.
+      // Keep assembling the stream the user picked after the camera changes.
       phase = 'ur-streaming';
       acceptFastPathText = false;
       closeSelection();
