@@ -3,8 +3,9 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ActionList } from '@onekeyhq/components';
+import { ActionList, runAfterActionListClose } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
@@ -20,6 +21,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalReceiveRoutes,
@@ -70,6 +72,21 @@ export function AccountCopyButton({
   const handleCopyAddress = useCallback(async () => {
     if (isCopyBlocked) {
       showBotWalletDisabledToast('copyAddress');
+      return;
+    }
+    if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: wallet?.id,
+        accountId:
+          account?.id ??
+          indexedAccount?.associateAccount?.id ??
+          indexedAccount?.id,
+        presentDialog: (show) =>
+          runAfterActionListClose(onClose, show, {
+            waitForAnimation: platformEnv.isNative,
+          }),
+      })
+    ) {
       return;
     }
     if (

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import type { IAlertType } from '@onekeyhq/components';
 import { Alert } from '@onekeyhq/components';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -204,23 +205,34 @@ function TxConfirmAlert(props: IProps) {
                     id: ETranslations.global_top_up,
                   }),
                   onPrimaryPress() {
-                    navigation.pushModal(EModalRoutes.ReceiveModal, {
-                      screen: EModalReceiveRoutes.ReceiveSelector,
-                      params: {
-                        networkId,
+                    void (async () => {
+                      const walletId = accountUtils.getWalletIdFromAccountId({
                         accountId,
-                        walletId: accountUtils.getWalletIdFromAccountId({
+                      });
+                      if (
+                        await blockIfWalletLocalSecretEnvelopeUnavailable({
+                          walletId,
                           accountId,
-                        }),
-                        token: payToken,
-                        onClose: () => {
-                          appEventBus.emit(
-                            EAppEventBusNames.RefreshNativeTokenInfo,
-                            undefined,
-                          );
+                        })
+                      ) {
+                        return;
+                      }
+                      navigation.pushModal(EModalRoutes.ReceiveModal, {
+                        screen: EModalReceiveRoutes.ReceiveSelector,
+                        params: {
+                          networkId,
+                          accountId,
+                          walletId,
+                          token: payToken,
+                          onClose: () => {
+                            appEventBus.emit(
+                              EAppEventBusNames.RefreshNativeTokenInfo,
+                              undefined,
+                            );
+                          },
                         },
-                      },
-                    });
+                      });
+                    })();
                   },
                 }
               : undefined
@@ -259,21 +271,34 @@ function TxConfirmAlert(props: IProps) {
             id: ETranslations.global_top_up,
           }),
           onPrimaryPress() {
-            navigation.pushModal(EModalRoutes.ReceiveModal, {
-              screen: EModalReceiveRoutes.ReceiveSelector,
-              params: {
-                networkId,
+            void (async () => {
+              const walletId = accountUtils.getWalletIdFromAccountId({
                 accountId,
-                walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
-                token: nativeTokenInfo.info,
-                onClose: () => {
-                  appEventBus.emit(
-                    EAppEventBusNames.RefreshNativeTokenInfo,
-                    undefined,
-                  );
+              });
+              if (
+                await blockIfWalletLocalSecretEnvelopeUnavailable({
+                  walletId,
+                  accountId,
+                })
+              ) {
+                return;
+              }
+              navigation.pushModal(EModalRoutes.ReceiveModal, {
+                screen: EModalReceiveRoutes.ReceiveSelector,
+                params: {
+                  networkId,
+                  accountId,
+                  walletId,
+                  token: nativeTokenInfo.info,
+                  onClose: () => {
+                    appEventBus.emit(
+                      EAppEventBusNames.RefreshNativeTokenInfo,
+                      undefined,
+                    );
+                  },
                 },
-              },
-            });
+              });
+            })();
           },
         }}
       />
