@@ -2604,7 +2604,6 @@ export function useSwapInit(
     markSwapInitParamsConsumed,
     finishSwapInitParamsSync,
     rememberImportedPair,
-    networkConfigStatusRef,
     pendingSwapDraft,
     markInitialSelectedTokensSynced,
     hasRefreshedSwapNetworksRef,
