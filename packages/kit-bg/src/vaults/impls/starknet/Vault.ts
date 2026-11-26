@@ -1,3 +1,4 @@
+/* cspell:ignore sigdata */
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, orderBy } from 'lodash';
@@ -1093,6 +1094,30 @@ export default class Vault extends VaultBase {
     });
   }
 
+  private async _resolveDecodedTokenMetadata(tokenAddress: string) {
+    const base = await this._getTokenMetadataCache(tokenAddress);
+    if (base.logoURI) {
+      return base;
+    }
+    try {
+      const token = await this.backgroundApi?.serviceToken?.getToken?.({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        tokenIdOnNetwork: tokenAddress,
+        tokenInfoOnly: true,
+      });
+      if (token?.logoURI) {
+        return {
+          ...base,
+          logoURI: token.logoURI,
+        };
+      }
+    } catch {
+      // Keep RPC/preset metadata if token service lookup fails.
+    }
+    return base;
+  }
+
   /**
    * register has no asset movement; the other three do, and the counterparty is
    * the pool on a deposit and on a withdraw's shielded leg.
@@ -1105,7 +1130,7 @@ export default class Vault extends VaultBase {
       encodedTx,
       privacy,
       getTokenMetadata: (tokenAddress) =>
-        this._getTokenMetadataCache(tokenAddress),
+        this._resolveDecodedTokenMetadata(tokenAddress),
       buildTransferAction: (params) => this.buildTxTransferAssetAction(params),
     });
   }
@@ -1116,7 +1141,7 @@ export default class Vault extends VaultBase {
     return Promise.all(
       encodedTx.calls.map(async (call) => {
         const tokenAddress = normalizeTokenAddress(call.contractAddress);
-        const token = await this._getTokenMetadataCache(tokenAddress);
+        const token = await this._resolveDecodedTokenMetadata(tokenAddress);
         const [to, low, high] = call.calldata;
         return {
           from: encodedTx.from,

@@ -71,20 +71,29 @@ function StarknetAttributes({
         p="$3"
         gap="$2"
       >
-        <XStack alignItems="center" gap="$1.5">
-          <Icon name="LockOutline" size="$4" color="$iconSubdued" />
-          <SizableText size="$bodyMdMedium" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.private_send_private_option,
-            })}
-          </SizableText>
-        </XStack>
-
         <InfoItemGroup p="$0">
           <InfoItem
             px="$0"
             py="$1.5"
-            label={intl.formatMessage({ id: ETranslations.content__amount })}
+            label={
+              <XStack
+                alignItems="center"
+                justifyContent="space-between"
+                width="100%"
+              >
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({ id: ETranslations.content__amount })}
+                </SizableText>
+                <XStack alignItems="center" gap="$1">
+                  <Icon name="LockOutline" size="$3.5" color="$iconSubdued" />
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.private_send_private_option,
+                    })}
+                  </SizableText>
+                </XStack>
+              </XStack>
+            }
             renderContent={
               <NumberSizeableText
                 formatter="balance"
