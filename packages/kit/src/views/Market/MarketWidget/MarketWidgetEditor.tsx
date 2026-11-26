@@ -33,6 +33,7 @@ import type {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  getMarketWidgetAddressCollisions,
   getMarketWidgetAssetKey,
   getMarketWidgetAssetSearchText,
   getMarketWidgetAssetSubtitle,
@@ -50,21 +51,16 @@ import type {
   IModalMarketParamList,
 } from '../router/types';
 
-export const MarketWidgetEditor = () => {
+const MarketWidgetEditorForm = ({
+  profileId: routeProfileId,
+  kind: routeKind,
+  editorSession,
+}: IModalMarketParamList[EModalMarketRoutes.MarketWidgetEditor]) => {
   const intl = useIntl();
   const copy = useMarketWidgetCopy();
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalMarketParamList>>();
   const hasPreviousPage = useNavigationState((state) => state.index > 0);
-  const route = useAppRoute<
-    IModalMarketParamList,
-    EModalMarketRoutes.MarketWidgetEditor
-  >();
-  const {
-    profileId: routeProfileId,
-    kind: routeKind,
-    editorSession,
-  } = route.params;
   const initializedRef = useRef(false);
   const finishedRef = useRef(false);
   const [kind, setKind] = useState<IMarketWidgetKind>(routeKind ?? 'single');
@@ -78,6 +74,8 @@ export const MarketWidgetEditor = () => {
   const editor = useMarketWidgetEditorState(
     editorSession,
     isPickingAsset && canSearchRemotely ? query.trim() : undefined,
+    routeProfileId,
+    routeKind,
   );
   const { searchAssets, cancelDraft } = editor;
   const [saveError, setSaveError] = useState<string>();
@@ -215,6 +213,10 @@ export const MarketWidgetEditor = () => {
     });
   }, [editor.state, editor.searchQuery, query, source]);
 
+  const addressCollisions = useMemo(
+    () => getMarketWidgetAddressCollisions([...visibleAssets, ...displaySlots]),
+    [visibleAssets, displaySlots],
+  );
   const closePicker = useCallback(() => {
     cancelDraft();
     setActiveSlot(undefined);
@@ -306,6 +308,8 @@ export const MarketWidgetEditor = () => {
   const showFooter = isReady && !isPickingAsset;
   let title = kind === 'single' ? copy.singleCoin : copy.marketList;
   if (isPickingAsset) title = copy.coin;
+  else if (settings?.instanceNumber)
+    title = `${title} #${settings.instanceNumber}`;
   return (
     <Page scrollEnabled={false}>
       <Page.Header
@@ -344,10 +348,20 @@ export const MarketWidgetEditor = () => {
                 <ListItem
                   testID={`market-widget-coin-${getMarketWidgetAssetKey(item)}`}
                   renderAvatar={
-                    <Token size="lg" tokenImageUri={item.logoURL} />
+                    <Token
+                      size="lg"
+                      tokenImageUri={item.logoURL}
+                      networkId={
+                        item.kind === 'token' ? item.chainId : undefined
+                      }
+                      showNetworkIcon={item.kind === 'token'}
+                    />
                   }
                   title={getMarketWidgetAssetTitle(item)}
-                  subtitle={getMarketWidgetAssetSubtitle(item)}
+                  subtitle={getMarketWidgetAssetSubtitle(
+                    item,
+                    addressCollisions,
+                  )}
                   checkMark={
                     !!slots[activeSlot] &&
                     getMarketWidgetAssetKey(slots[activeSlot]) ===
@@ -425,7 +439,14 @@ export const MarketWidgetEditor = () => {
                   borderColor="$borderSubdued"
                   borderRadius="$3"
                   renderAvatar={
-                    <Token size="lg" tokenImageUri={asset?.logoURL} />
+                    <Token
+                      size="lg"
+                      tokenImageUri={asset?.logoURL}
+                      networkId={
+                        asset?.kind === 'token' ? asset.chainId : undefined
+                      }
+                      showNetworkIcon={asset?.kind === 'token'}
+                    />
                   }
                   title={
                     asset
@@ -435,8 +456,11 @@ export const MarketWidgetEditor = () => {
                         })
                   }
                   subtitle={
-                    asset ? getMarketWidgetAssetSubtitle(asset) : undefined
+                    asset
+                      ? getMarketWidgetAssetSubtitle(asset, 'full')
+                      : undefined
                   }
+                  subtitleProps={{ numberOfLines: 0 }}
                   drillIn
                   disabled={isSaving}
                   onPress={() => setActiveSlot(index)}
@@ -467,5 +491,18 @@ export const MarketWidgetEditor = () => {
         {showFooter ? undefined : <YStack />}
       </Page.Footer>
     </Page>
+  );
+};
+
+export const MarketWidgetEditor = () => {
+  const { params } = useAppRoute<
+    IModalMarketParamList,
+    EModalMarketRoutes.MarketWidgetEditor
+  >();
+  return (
+    <MarketWidgetEditorForm
+      key={[params.profileId, params.kind, params.editorSession].join('/')}
+      {...params}
+    />
   );
 };

@@ -62,9 +62,13 @@ export type IMarketWidgetProfile = {
   source: IMarketWidgetSource;
   asset?: IMarketWidgetAsset;
   assets?: IMarketWidgetAsset[];
+  instanceNumber?: number;
 };
 
-export type IMarketWidgetProfileInput = Omit<IMarketWidgetProfile, 'id'> & {
+export type IMarketWidgetProfileInput = Omit<
+  IMarketWidgetProfile,
+  'id' | 'instanceNumber'
+> & {
   id?: string;
 };
 
@@ -77,6 +81,13 @@ export type IMarketWidgetEditorState = {
   searchResults?: IMarketWidgetAsset[];
   searchIncomplete?: boolean;
   privacyMasked: boolean;
+};
+
+export type IMarketWidgetInstalledInstance = {
+  id: string;
+  kind: IMarketWidgetKind;
+  instanceNumber: number;
+  symbols: string[];
 };
 
 export type IMarketWidgetModule = {
@@ -93,7 +104,11 @@ export type IMarketWidgetModule = {
     configuration: IMarketWidgetConfiguration,
   ) => Promise<void>;
   maskForTravelMode: () => Promise<void>;
-  beginEditing?: () => Promise<string | undefined>;
+  getInstalledInstances?: () => Promise<IMarketWidgetInstalledInstance[]>;
+  beginEditing?: (instance?: {
+    id: string;
+    kind: IMarketWidgetKind;
+  }) => Promise<string | undefined>;
   setEditorDraft?: (
     assets: IMarketWidgetAsset[],
     editorSession: string,

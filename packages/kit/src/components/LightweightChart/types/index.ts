@@ -49,6 +49,7 @@ export interface ILightweightChartHistogramOptions {
   base?: number;
   barWidthRatio?: number;
   maxBarWidth?: number;
+  borderRadius?: number;
 }
 
 export interface ILightweightChartTheme {
@@ -85,6 +86,7 @@ export interface ILightweightChartConfig {
   secondaryPointData?: LineData[];
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
+  secondaryLineBlankSlots?: boolean;
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -101,6 +103,7 @@ export interface ILightweightChartConfig {
   priceTickFormatter?: (prices: number[]) => string[];
   priceFormatBase?: number;
   priceScaleMinimumWidth?: number;
+  priceScaleLabelAlign?: 'left' | 'right';
   priceFormatterType?: ILightweightChartPriceFormatterType;
   compactPriceMaxCharacters?: number;
   // `stock`: prices at or above $1 keep two decimals (`$341.70`).
@@ -143,6 +146,12 @@ export interface ILightweightChartProps {
   // this time. Unlike passing a shorter series, the curve keeps the shape it
   // has over the full series.
   secondaryLineEndTime?: number;
+  // The overlay's value-less points past the last price are time slots still
+  // to come (a session filling in). They are labelled on the time axis and
+  // the crosshair stays off them: web hides the guide there, native holds it
+  // at the last price. Charts that leave it unset treat those points as plain
+  // gaps, as before.
+  secondaryLineBlankSlots?: boolean;
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -151,9 +160,11 @@ export interface ILightweightChartProps {
   priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
-  // Web/desktop only. Reserve the axis before labels are measured so the plot
+  // Reserve the axis before labels are measured so the plot
   // width does not shift during the first chart paint.
   priceScaleMinimumWidth?: number;
+  // Opt in to right-aligned tick labels at the outer edge of the price axis.
+  priceScaleLabelAlign?: 'left' | 'right';
   // Crosshair vertical line overrides. Left unset the chart keeps its default
   // faint large-dashed line, so charts that do not opt in are unaffected.
   crosshairVertLineColor?: string;

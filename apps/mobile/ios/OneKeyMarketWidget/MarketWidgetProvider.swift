@@ -63,6 +63,7 @@ struct MarketWidgetEntry: TimelineEntry {
   let selectionUnavailable: Bool
   var source: MarketWidgetSource = .watchlist
   var profileID: String? = nil
+  var instanceNumber: Int? = nil
   var profileUnavailable = false
   var manualSelection = false
   var isGalleryPreview = false
@@ -79,7 +80,11 @@ struct MarketWidgetEntry: TimelineEntry {
   }
 
   var editorURL: URL? {
-    MarketWidgetEditorLink.url(profileID: nil, kind: isWatchlist ? .list : .single)
+    let kind: MarketWidgetKind = isWatchlist ? .list : .single
+    if let profileID, let id = UUID(uuidString: profileID) {
+      return MarketWidgetEditorLink.url(instance: MarketWidgetInstanceBinding(id: id, kind: kind))
+    }
+    return URL(string: "onekey-wallet://market_widget_config?setup=1")
   }
 
   static func placeholder(isWatchlist: Bool) -> MarketWidgetEntry {
@@ -94,19 +99,20 @@ struct MarketWidgetEntry: TimelineEntry {
     MarketWidgetEntry(date: Date(), configuration: selection.configuration,
       rows: selection.assets.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0, allowLegacy: true), failed: false) },
       isWatchlist: isWatchlist, selectionUnavailable: selection.selectionUnavailable,
-      source: selection.source, profileID: selection.profileID, profileUnavailable: selection.profileUnavailable,
+      source: selection.source, profileID: selection.profileID, instanceNumber: selection.profile?.instanceNumber,
+      profileUnavailable: selection.profileUnavailable,
       manualSelection: selection.profile?.assets != nil)
   }
 
   static func snapshot(isWatchlist: Bool, selected _: [MarketWidgetAsset]? = nil,
-                       source _: MarketWidgetSource = .watchlist, profileID _: String? = nil,
+                       source _: MarketWidgetSource = .watchlist, profileID _: String? = nil, instanceID: UUID? = nil,
                        store: MarketWidgetStore = MarketWidgetStore()) -> MarketWidgetEntry {
-    entry(selection: store.selection(kind: isWatchlist ? .list : .single), isWatchlist: isWatchlist, store: store)
+    entry(selection: store.selection(kind: isWatchlist ? .list : .single, instanceID: instanceID), isWatchlist: isWatchlist, store: store)
       .usingChartMode(in: store)
   }
 
   static func timeline(isWatchlist: Bool, selected _: [MarketWidgetAsset]? = nil,
-                       source _: MarketWidgetSource = .watchlist, profileID _: String? = nil,
+                       source _: MarketWidgetSource = .watchlist, profileID _: String? = nil, instanceID: UUID? = nil,
                        store: MarketWidgetStore = MarketWidgetStore(),
                        service: MarketWidgetService = .shared) async -> Timeline<MarketWidgetEntry> {
     return await MarketWidgetDiagnostics.$refreshID.withValue(UUID().uuidString) {
@@ -114,12 +120,12 @@ struct MarketWidgetEntry: TimelineEntry {
       MarketWidgetDiagnostics.event("timeline.started", ["surface": "home", "kind": isWatchlist ? "list" : "single"])
       defer { MarketWidgetDiagnostics.event("timeline.completed", ["durationMs": Int(Date().timeIntervalSince(started) * 1000), "nextRequestedAfterSeconds": 900]) }
       let kind: MarketWidgetKind = isWatchlist ? .list : .single
-      let initial = store.selection(kind: kind)
+      let initial = store.selection(kind: kind, instanceID: instanceID)
       // Single-coin settings are fixed, including the initial BTC default.
       if isWatchlist, initial.profile?.assets == nil, initial.source == .hot, initial.configuration.map({ $0.privacyMasked != true }) == true {
         _ = try? await service.trending(locale: initial.configuration?.locale ?? "en-US")
       }
-      let selection = store.selection(kind: kind)
+      let selection = store.selection(kind: kind, instanceID: instanceID)
       let snapshot = entry(selection: selection, isWatchlist: isWatchlist, store: store)
       let rows = await withTaskGroup(of: (Int, MarketWidgetRow).self) { group in
         for (index, row) in snapshot.rows.enumerated() {
@@ -139,7 +145,7 @@ struct MarketWidgetEntry: TimelineEntry {
         return results.sorted { $0.0 < $1.0 }.map(\.1)
       }
       // Settings and privacy can change while a quote is pending in another process.
-      let current = store.selection(kind: kind)
+      let current = store.selection(kind: kind, instanceID: instanceID)
       var base = snapshot
       if current == selection {
         base.date = Date()

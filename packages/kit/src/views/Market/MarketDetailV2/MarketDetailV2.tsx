@@ -13,6 +13,7 @@ import {
   useFocusEffect,
   useIsFocused,
   useNavigationState,
+  useRoute,
 } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -32,13 +33,19 @@ import {
   useSafeAreaInsets,
   useSplitSubView,
 } from '@onekeyhq/components';
-import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  getRootRoutersLength,
+  useRouteIsFocused,
+} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
 import {
   useTokenDetailActions,
   useTokenDetailPreviewAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useMarketDetailChartDisplayModePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -65,10 +72,23 @@ import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbe
 import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
 import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
-import { useMarketEnterAnalytics } from '../hooks';
+import {
+  useMarketDetailLeaveAnalytics,
+  useMarketEnterAnalytics,
+} from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
+import {
+  MarketDetailAnalyticsProvider,
+  logMarketDetailChartModeSwitch,
+  resolveMarketDetailAnalyticsAsset,
+} from '../utils/marketDetailAnalytics';
+import {
+  finishMarketDetailTabBarTransition,
+  isMarketTabDetailRoute,
+  isSwapStockTripEnded,
+  markSwapTokenLookupResolved,
+} from '../utils/marketDetailNavigation';
 import { resolveSwapMarketAsset } from '../utils/resolveSwapMarketAsset';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
@@ -191,6 +211,13 @@ function MarketDetail({
   } = useStockDetail();
   const [currentTokenDetailPreview] = useTokenDetailPreviewAtom();
   const isRouteFocused = useIsFocused();
+  // Unlike raw focus, false behind the lock screen, which keeps this mounted.
+  const isVisitFocused = useRouteIsFocused();
+  // The navigation route's own params (a legacy link renders other params);
+  // entry analytics compares these.
+  const navigationRouteParams = useRoute().params;
+  const navigationRouteParamsRef = useRef(navigationRouteParams);
+  navigationRouteParamsRef.current = navigationRouteParams;
   const media = useMedia();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { top: safeAreaTop } = useSafeAreaInsets();
@@ -259,6 +286,8 @@ function MarketDetail({
           !controller.signal.aborted &&
           currentLookup.current === lookupScope
         ) {
+          // The rewrite completes this entry; analytics must not split it.
+          markSwapTokenLookupResolved(navigationRouteParamsRef.current);
           navigation.setParams({ ...identity, swapTokenSymbol: undefined });
         }
       },
@@ -289,6 +318,18 @@ function MarketDetail({
     () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
     [routeTokenDetailPreview],
   );
+  const routePreviewSymbol = [
+    tokenDetailPreview,
+    currentTokenDetailPreview,
+  ].find(
+    (preview) =>
+      preview &&
+      isMatchingMarketTokenIdentity(preview, {
+        tokenAddress: routeTokenAddress,
+        networkId: routeNetworkId,
+        isNative: routeIsNative,
+      }),
+  )?.symbol;
   // Resolve the page without rewriting the persisted favorite or its route identity.
   const { assetParams: legacyAssetParams } = useLegacyMarketAsset({
     active:
@@ -303,15 +344,7 @@ function MarketDetail({
     preserveTokenQuote:
       'preserveTokenQuote' in params && params.preserveTokenQuote === true,
     isStockRoute,
-    symbol: [tokenDetailPreview, currentTokenDetailPreview].find(
-      (preview) =>
-        preview &&
-        isMatchingMarketTokenIdentity(preview, {
-          tokenAddress: routeTokenAddress,
-          networkId: routeNetworkId,
-          isNative: routeIsNative,
-        }),
-    )?.symbol,
+    symbol: routePreviewSymbol,
   });
   const tokenAddress =
     selectedTokenVariant?.contractAddress ??
@@ -385,8 +418,18 @@ function MarketDetail({
     tokenAddress,
     networkId,
   });
-  // Track market entry analytics
-  useMarketEnterAnalytics();
+  const [{ mode: chartDisplayMode }] =
+    useMarketDetailChartDisplayModePersistAtom();
+  // Track market entry analytics, paired with one leave per entry.
+  useMarketEnterAnalytics({
+    detailVisit: {
+      isFocused: isVisitFocused,
+      assetParams: route.params,
+      chartMode: isTradingViewNative ? 'native' : 'tradingView',
+      chartDisplayMode,
+      fallbackSymbol: routePreviewSymbol,
+    },
+  });
 
   // Refresh metadata, initialize the quote, and recover it when chart updates stop.
   // Use actualNetworkId (converted from shortcode if needed) for API calls
@@ -618,6 +661,19 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const routeName = props.route.name;
+  const routeKey = props.route.key;
+  const routeFrom = props.route.params?.from;
+  const isReturningToSwap = useCallback(
+    () => routeFrom === EEnterWay.SwapStock && !isSwapStockTripEnded(routeKey),
+    [routeFrom, routeKey],
+  );
+  useMarketDetailLeaveAnalytics(navigation, {
+    isMarketTabDetail: isMarketTabDetailRoute(
+      routeName,
+      navigation.getState().routeNames,
+    ),
+    isReturningToSwap,
+  });
   useEffect(() => {
     if (!platformEnv.isNative) return;
     defaultLogger.market.navigation.homeTokenNavigation({
@@ -670,6 +726,7 @@ function MarketDetailV2(
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const { isTradingViewNative, toggleChartMode } = useMarketDetailChartMode();
+  const { detailKind } = resolveMarketDetailAnalyticsAsset(props.route.params);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
   // Mobile layouts can show the native chart while TradingView is preferred,
   // e.g. for a stock's share price, so they leave fullscreen themselves when
@@ -705,7 +762,17 @@ function MarketDetailV2(
       handleChartFullscreenChange(false);
     }
     toggleChartMode();
-  }, [handleChartFullscreenChange, isDesktopChartLayout, toggleChartMode]);
+    logMarketDetailChartModeSwitch({
+      fromMode: isTradingViewNative ? 'native' : 'tradingView',
+      detailKind,
+    });
+  }, [
+    detailKind,
+    handleChartFullscreenChange,
+    isDesktopChartLayout,
+    isTradingViewNative,
+    toggleChartMode,
+  ]);
   const handleFullscreenRemove = useCallback(
     ({ data }: { data: { action: NavigationAction } }) => {
       handleChartFullscreenChange(false);
@@ -799,13 +866,15 @@ function MarketDetailV2(
             initialTokenAddress={initialTokenAddress}
           >
             <MarketSimpleChartRangeChangeProvider>
-              <MarketDetail
-                {...props}
-                isChartFullscreen={effectiveIsChartFullscreen}
-                isTradingViewNative={isTradingViewNative}
-                onChartSwitch={handleChartSwitch}
-                onChartFullscreenChange={handleChartFullscreenChange}
-              />
+              <MarketDetailAnalyticsProvider detailKind={detailKind}>
+                <MarketDetail
+                  {...props}
+                  isChartFullscreen={effectiveIsChartFullscreen}
+                  isTradingViewNative={isTradingViewNative}
+                  onChartSwitch={handleChartSwitch}
+                  onChartFullscreenChange={handleChartFullscreenChange}
+                />
+              </MarketDetailAnalyticsProvider>
             </MarketSimpleChartRangeChangeProvider>
           </StockDetailProvider>
         </MarketWatchListProviderMirrorV2>

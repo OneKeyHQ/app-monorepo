@@ -996,4 +996,40 @@ describe('useToMarketStockDetailPage', () => {
     expect(mockCloseExtensionPopupAfterExpandTabOpen).toHaveBeenCalledTimes(1);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
+
+  it('carries the stock list entry category in the detail route', async () => {
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({
+        from: EEnterWay.MarketList,
+        entryCategory: 'stocks',
+      }),
+    );
+    await act(async () => {
+      await result.current('AAPL');
+    });
+    const navigationArgs = mockNavigate.mock.calls[0] as [
+      unknown,
+      { params: { params: IMarketStockDetailRouteParams } },
+    ];
+    expect(navigationArgs[1].params.params).toEqual({
+      stockId: 'AAPL',
+      from: EEnterWay.MarketList,
+      entryCategory: 'stocks',
+    });
+  });
+
+  it('forwards the entry category through extension expansion', async () => {
+    mockedPlatformEnv.isExtensionUiPopup = true;
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ entryCategory: 'stocks' }),
+    );
+    await act(async () => {
+      await result.current('AAPL');
+    });
+    expect(mockOpenExtensionMarketStockDetail).toHaveBeenCalledWith({
+      stockId: 'AAPL',
+      from: 'ExtensionPopup',
+      entryCategory: 'stocks',
+    });
+  });
 });

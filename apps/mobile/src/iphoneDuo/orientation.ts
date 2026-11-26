@@ -20,9 +20,7 @@ export function initIPhoneDuoOrientation() {
   }
   isInitialized = true;
 
-  // Share the app-wide classification, so a native false positive on a
-  // regular iPhone never drops the portrait lock. Keep this after 6.8.0: only
-  // the temporary model-id check inside isFoldableIPhone() is removed then.
+  // Share the app-wide classification across iPhone Duo orientation and UI.
   if (isFoldableIPhone()) {
     unlockOrientation();
     return;

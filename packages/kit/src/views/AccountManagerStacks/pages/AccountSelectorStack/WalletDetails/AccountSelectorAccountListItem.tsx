@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import { WalletLocalSecretEnvelopeStatus } from '@onekeyhq/kit/src/components/AccountSelector/WalletLocalSecretEnvelopeStatus';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -426,6 +427,9 @@ export function AccountSelectorAccountListItem({
 
   return (
     <Stack>
+      {isOthersUniversal ? (
+        <WalletLocalSecretEnvelopeStatus credentialId={item.id} />
+      ) : null}
       <ListItem
         testID={AccountManagerTestIDs.accountItem(index)}
         key={item.id}

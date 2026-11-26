@@ -5,11 +5,13 @@ import { Platform } from 'react-native';
 
 import {
   Button,
-  ButtonFrame,
   SizableText,
   Spinner,
+  Theme,
   XStack,
   YStack,
+  useTheme,
+  useThemeName,
 } from '@onekeyhq/components';
 import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import {
@@ -19,6 +21,7 @@ import {
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swrCacheNamespaceName } from '@onekeyhq/shared/src/storage/SnapshotCache';
 import {
@@ -30,20 +33,18 @@ import {
   swrCacheUtils,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
-import { fetchPerpOiHistory } from '../../utils/fetchPerpOiHistory';
 import {
-  PERP_DATA_CHART_HEIGHT,
-  getPerpFundingTooltipPosition,
-} from '../../utils/fundingChart';
+  OI_WINDOW_DAYS,
+  fetchPerpOiHistory,
+  getPerpOiSource,
+} from '../../utils/fetchPerpOiHistory';
+
+import { PerpChartTooltip } from './PerpChartTooltip';
 
 import type { IPerpOiHistoryRange } from '../../utils/fetchPerpOiHistory';
 
+const OI_CHART_HEIGHT = 214;
 const OI_CACHE_NAMESPACE = swrCacheNamespaces.perpsOiHistory;
-const OI_WINDOW_DAYS: Record<IPerpOiHistoryRange, number> = {
-  '24h': 1,
-  '7d': 7,
-  history: 90,
-};
 const USE_WEB_SNAPSHOT_STORE = Platform.select({
   native: false,
   default: true,
@@ -100,12 +101,18 @@ export function PerpOiChart({
   isMobile: boolean;
 }) {
   const intl = useIntl();
+  const theme = useTheme();
+  const themeName = useThemeName();
   const timeZone = useDeviceTimeZone();
   const { formatDate } = useFormatDate();
   const [range, setRange] = useState<IPerpOiHistoryRange>('24h');
   const [chartWidth, setChartWidth] = useState(0);
   const [hoveredPoint, setHoveredPoint] = useState<IOiHoverPoint>();
-  const requestKey = `${OI_CACHE_NAMESPACE}:rogue-iq-usd-v1:${coin}:${range}`;
+  const [devSettings] = useDevSettingsPersistAtom();
+  const { endpoint, cacheScope } = getPerpOiSource(devSettings);
+  const requestKey = `${OI_CACHE_NAMESPACE}:${cacheScope ?? endpoint}:${coin}:${range}`;
+  // Custom URLs can contain credentials and must stay out of persisted snapshots.
+  const snapshotKey = coin && cacheScope ? requestKey : undefined;
   const pollingInterval = range === 'history' ? 60 * 60_000 : 5 * 60_000;
   const { result, isLoading, run, setResult } = usePromiseResult<
     IPerpOiHistoryResult | undefined
@@ -113,14 +120,14 @@ export function PerpOiChart({
     async () => {
       if (!coin) return undefined;
 
-      const history = await fetchPerpOiHistory(coin, range).catch(
+      const history = await fetchPerpOiHistory(coin, range, endpoint).catch(
         () => undefined,
       );
       return history
         ? { requestKey, history }
         : { requestKey, refreshFailed: true };
     },
-    [coin, range, requestKey],
+    [coin, range, endpoint, requestKey],
     {
       overrideIsFocused: (isFocused) => isFocused && isActive && Boolean(coin),
       revalidateOnFocus: true,
@@ -128,25 +135,25 @@ export function PerpOiChart({
       pollingInterval: coin ? pollingInterval : undefined,
       runImmediatelyOnMount: true,
       runImmediatelyOnPollingIntervalChange: true,
-      swrKey: coin ? requestKey : undefined,
+      swrKey: snapshotKey,
       swrShouldPersist: (snapshot) =>
-        Boolean(snapshot?.history?.data.length && !snapshot.refreshFailed),
+        Boolean(snapshot?.history?.length && !snapshot.refreshFailed),
     },
   );
 
   useEffect(() => {
-    if (!USE_WEB_SNAPSHOT_STORE || !isActive || !coin) return;
+    if (!USE_WEB_SNAPSHOT_STORE || !isActive || !snapshotKey) return;
 
     let isCurrent = true;
     void restoreWebOiSnapshots().then(() => {
       if (!isCurrent) return;
-      const cached = swrCacheUtils.get<IPerpOiHistoryResult>(requestKey);
-      if (!cached?.history?.data.length) return;
+      const cached = swrCacheUtils.get<IPerpOiHistoryResult>(snapshotKey);
+      if (!cached?.history?.length) return;
 
       setResult((previous) => {
         if (
           previous &&
-          (previous.requestKey !== requestKey || previous.history?.data.length)
+          (previous.requestKey !== requestKey || previous.history?.length)
         ) {
           return previous;
         }
@@ -156,15 +163,28 @@ export function PerpOiChart({
     return () => {
       isCurrent = false;
     };
-  }, [coin, isActive, requestKey, setResult]);
+  }, [isActive, requestKey, setResult, snapshotKey]);
 
   const current = result?.requestKey === requestKey ? result : undefined;
+  const [lastCustom, setLastCustom] = useState<IPerpOiHistoryResult>();
+  useEffect(() => {
+    if (!cacheScope && current?.history?.length) {
+      setLastCustom(current);
+    } else {
+      setLastCustom((previous) =>
+        previous?.requestKey === requestKey ? previous : undefined,
+      );
+    }
+  }, [cacheScope, current, requestKey]);
   // Hydration and an empty or failed refresh can finish in either order.
   const cachedHistory =
-    current && !current.history?.data.length
-      ? swrCacheUtils.get<IPerpOiHistoryResult>(requestKey)?.history
+    snapshotKey && current && !current.history?.length
+      ? swrCacheUtils.get<IPerpOiHistoryResult>(snapshotKey)?.history
       : undefined;
-  const points = (cachedHistory ?? current?.history)?.data;
+  const points = current?.history?.length
+    ? current.history
+    : (cachedHistory ??
+      (lastCustom?.requestKey === requestKey ? lastCustom.history : undefined));
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - OI_WINDOW_DAYS[range] * 86_400;
   const first = points?.findIndex(([time]) => time >= windowStart) ?? -1;
@@ -177,8 +197,6 @@ export function PerpOiChart({
   const title = intl.formatMessage({
     id: ETranslations.perp_token_bar_open_Interest,
   });
-  const priceScaleMinimumWidth = isMobile ? 48 : 64;
-  const tooltipWidth = Math.min(isMobile ? 144 : 200, chartWidth - 16);
 
   const handleHover = useCallback<
     NonNullable<ILightweightChartProps['onHover']>
@@ -200,20 +218,6 @@ export function PerpOiChart({
     setHoveredPoint(undefined);
   }, [data, isActive]);
 
-  const tooltipPosition =
-    hoveredPoint && tooltipWidth > 0
-      ? getPerpFundingTooltipPosition({
-          x: hoveredPoint.x,
-          y: hoveredPoint.y,
-          chartWidth,
-          chartHeight: PERP_DATA_CHART_HEIGHT,
-          tooltipWidth,
-          tooltipHeight: isMobile ? 52 : 56,
-          leftPriceScaleWidth: priceScaleMinimumWidth,
-          offset: 10,
-        })
-      : undefined;
-
   const waiting = Boolean(coin && (!current || isLoading));
   const failed = current?.refreshFailed;
   const ranges: Array<{ key: IPerpOiHistoryRange; label: string }> = [
@@ -226,54 +230,55 @@ export function PerpOiChart({
     <YStack
       testID="perp-open-interest-chart"
       mt={isMobile ? '$8' : '$5'}
-      p={isMobile ? '$2' : '$3'}
-      borderWidth={isMobile ? 0 : '$px'}
-      borderColor="$borderSubdued"
-      borderRadius="$3"
-      gap="$2"
+      overflow="visible"
+      zIndex={hoveredPoint ? 1 : 0}
     >
-      <XStack alignItems="center" gap="$1">
-        <SizableText size="$headingMd">{title}</SizableText>
-        <InfoIcon
-          size="$4"
-          tooltip={{
-            title,
-            content: intl.formatMessage({
-              id: ETranslations.perp_open_interest_tooltip,
-            }),
-          }}
-        />
-      </XStack>
       <XStack
+        gap="$2"
+        mb="$4"
+        minHeight="$10"
         alignItems="center"
         justifyContent="space-between"
-        gap="$2"
-        mb="$2"
         flexWrap="wrap"
       >
-        <XStack gap="$1">
+        <XStack flex={1} minWidth={160} alignItems="center" gap="$1">
+          <SizableText size="$headingMd" flexShrink={1}>
+            {title}
+          </SizableText>
+          <InfoIcon
+            size="$4"
+            tooltip={{
+              title,
+              content: intl.formatMessage({
+                id: ETranslations.perp_open_interest_tooltip,
+              }),
+            }}
+          />
+        </XStack>
+        <XStack
+          height={38}
+          py="$1"
+          gap="$0.5"
+          alignItems="center"
+          flexShrink={0}
+        >
           {ranges.map(({ key, label }) => (
-            <ButtonFrame
+            <Button
               key={key}
               testID={`perp-oi-range-${key}`}
-              minWidth="$8"
-              px="$2"
-              py="$1"
+              size="small"
+              height={30}
+              m="$0"
+              px="$2.5"
               borderWidth={0}
-              borderRadius="$2"
-              bg={range === key ? '$bgActive' : 'transparent'}
-              hoverStyle={{ bg: range === key ? '$bgActive' : '$bgHover' }}
+              flexShrink={0}
+              borderRadius="$full"
+              variant={range === key ? 'secondary' : 'tertiary'}
               aria-pressed={range === key}
               onPress={() => setRange(key)}
-              cursor="pointer"
             >
-              <SizableText
-                size="$bodySmMedium"
-                color={range === key ? '$text' : '$textSubdued'}
-              >
-                {label}
-              </SizableText>
-            </ButtonFrame>
+              {label}
+            </Button>
           ))}
         </XStack>
       </XStack>
@@ -285,42 +290,40 @@ export function PerpOiChart({
         >
           <LightweightChart
             data={data}
-            height={PERP_DATA_CHART_HEIGHT}
+            height={OI_CHART_HEIGHT}
             lineWidth={2}
-            fontSize={isMobile ? 9 : 11}
+            seriesType="area"
+            lineColor={theme.teal9.val}
+            topColor="transparent"
+            bottomColor="transparent"
+            fontSize={11}
             priceFormatter={formatOpenInterestUsd}
             priceTickFormatter={formatOpenInterestTicks}
             priceScaleFormat="open-interest"
-            priceScalePosition="left"
-            priceScaleMinimumWidth={priceScaleMinimumWidth}
+            priceScalePosition="right"
+            priceScaleMinimumWidth={60}
+            priceScaleLabelAlign="right"
+            horzLineColor={theme.neutral3.val}
+            horzLineStyle={0}
             showHorzGridLines
             showPriceScale
-            showLastValue
-            showLastValuePriceLine
+            showLastValue={false}
+            showTimeScale
             timeZone={timeZone}
             locale={intl.locale}
             hideCrosshairPriceLabel
             preserveChartInstanceOnDataChange
             onHover={handleHover}
           />
-          {hoveredPoint && tooltipPosition ? (
-            <YStack
+          {hoveredPoint ? (
+            <PerpChartTooltip
               testID="perp-oi-tooltip"
-              position="absolute"
-              zIndex={100}
-              left={tooltipPosition.left}
-              top={tooltipPosition.top}
-              width={tooltipWidth}
-              px={isMobile ? '$2' : '$3'}
-              py={isMobile ? '$1' : '$2'}
-              gap="$1"
-              bg="$bg"
-              borderRadius="$2"
-              borderWidth={1}
-              borderColor="$borderSubdued"
-              pointerEvents="none"
+              chartWidth={chartWidth}
+              chartHeight={OI_CHART_HEIGHT}
+              x={hoveredPoint.x}
+              y={hoveredPoint.y}
             >
-              <SizableText size="$bodyXs" color="$textDisabled">
+              <SizableText size="$bodyXs" color="$textInverseSubdued">
                 {formatDate(new Date(hoveredPoint.time * 1000), {
                   hideYear: true,
                   hideSeconds: true,
@@ -332,28 +335,37 @@ export function PerpOiChart({
                 justifyContent="space-between"
                 gap="$2"
               >
+                <Theme name={themeName === 'dark' ? 'light' : 'dark'}>
+                  <YStack
+                    width="$2"
+                    height="$2"
+                    borderRadius="$full"
+                    bg="$teal9"
+                  />
+                </Theme>
                 <SizableText
                   flex={1}
-                  size="$bodyXs"
-                  color="$textSubdued"
+                  size="$bodySm"
+                  color="$textInverse"
                   numberOfLines={1}
                 >
                   {title}
                 </SizableText>
                 <SizableText
                   flexShrink={0}
-                  size={isMobile ? '$bodyXsMedium' : '$bodySmMedium'}
+                  size="$bodySmMedium"
+                  color="$textInverse"
                   fontVariant={['tabular-nums']}
                 >
                   {formatOpenInterestUsd(hoveredPoint.price)}
                 </SizableText>
               </XStack>
-            </YStack>
+            </PerpChartTooltip>
           ) : null}
         </YStack>
       ) : (
         <YStack
-          height={PERP_DATA_CHART_HEIGHT}
+          height={OI_CHART_HEIGHT}
           alignItems="center"
           justifyContent="center"
           gap="$2"
@@ -381,6 +393,18 @@ export function PerpOiChart({
           ) : null}
         </YStack>
       )}
+      <XStack
+        gap="$1"
+        mt="$1"
+        minHeight="$5"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <YStack width={7} height={7} borderRadius="$full" bg="$teal9" />
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {title}
+        </SizableText>
+      </XStack>
     </YStack>
   );
 }

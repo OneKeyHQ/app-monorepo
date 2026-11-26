@@ -1,12 +1,28 @@
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import systemTimeUtils, {
+  ECloudSyncDataTimeSource,
+} from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import {
   buildOnlyCheckLocalDataTypes,
   buildRemoteHardwareAccountTombstoneProof,
+  isCloudSyncDeletionNewer,
   isProvenSettledRemoteHardwareAccountTombstone,
 } from './cloudSyncCheckUtils';
 
 describe('cloudSyncCheckUtils', () => {
+  it('does not treat a known invalid future deletion as newer', () => {
+    const now = 1_750_000_000_000;
+    const clock = jest
+      .spyOn(systemTimeUtils, 'getCorrectedCloudSyncNow')
+      .mockReturnValueOnce({
+        time: now,
+        source: ECloudSyncDataTimeSource.Estimated,
+      });
+    expect(isCloudSyncDeletionNewer(now + 60 * 60 * 1000, now)).toBe(false);
+    clock.mockRestore();
+  });
+
   it('allows full checks to discover public accounts and BotWallet records', () => {
     expect(buildOnlyCheckLocalDataTypes({ isFullDBChecking: true })).toEqual([
       EPrimeCloudSyncDataType.Lock,
