@@ -133,9 +133,12 @@ jest.mock('../../../states/jotai/contexts/accountSelector/atoms', () => ({
   }),
 }));
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
-  serviceAccount: {
-    preflightWalletLocalSecretEnvelope: (params: unknown) =>
-      mockPreflight(params),
+  __esModule: true,
+  default: {
+    serviceAccount: {
+      preflightWalletLocalSecretEnvelope: (params: unknown) =>
+        mockPreflight(params),
+    },
   },
 }));
 
@@ -437,12 +440,16 @@ it('uses a newly recorded issue when the on-demand preflight times out', async (
   const result = getWalletLocalSecretEnvelopeUnavailableIssue({
     walletId: credentialId,
   });
+  expect(mockPreflight).toHaveBeenCalledWith(
+    expect.objectContaining({ credentialId }),
+  );
+  await jest.advanceTimersByTimeAsync(1499);
   mockWalletIssues[credentialKey] = currentIssue;
-  await jest.advanceTimersByTimeAsync(1500);
+  await jest.advanceTimersByTimeAsync(1);
   expect(await result).toEqual(currentIssue);
 });
 
-it('shows recovery for a checked issue before foreground status catches up', () => {
+it('shows recovery for a checked issue before foreground status catches up', async () => {
   const credentialId = 'hd-5';
   const credentialKey = getLocalSecretEnvelopeCredentialKey(
     'test-session',
@@ -459,6 +466,8 @@ it('shows recovery for a checked issue before foreground status catches up', () 
     </>,
   );
 
-  fireEvent.click(screen.getByRole('button', { name: 'Wallet unavailable' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Wallet unavailable' }));
+  });
   expect(mockDialog).toHaveBeenCalledTimes(1);
 });
