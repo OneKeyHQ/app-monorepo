@@ -17,6 +17,8 @@ const unavailable: ILiveActivityModule['getStatus'] = async () => ({
 const liveActivity: ILiveActivityModule = {
   getStatus: () => nativeModule?.getStatus() ?? unavailable(),
   start: (snapshot) => nativeModule?.start(snapshot) ?? unavailable(),
+  prefetchIcons: (request) =>
+    nativeModule?.prefetchIcons?.(request) ?? Promise.resolve(),
   update: (snapshot) => nativeModule?.update(snapshot) ?? unavailable(),
   updateStrings: (request) =>
     nativeModule?.updateStrings?.(request) ?? unavailable(),
