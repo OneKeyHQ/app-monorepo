@@ -9,7 +9,10 @@ import type {
   IStarknetSignature,
 } from '@onekeyhq/core/src/chains/starknet/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ICoreApiGetAddressItem,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -33,10 +36,13 @@ import type {
 } from './privacyKeyringTypes';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 // The firmware's built-in account classes use its native Stark signer.
 const STARK_PUBLIC_KEY_TYPE = 1;
@@ -104,6 +110,19 @@ function verifyHardwareSignature({
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.starknet.hd;
+
+  // Cast until @onekeyfe/hd-core publishes the `starknet` INetwork union update.
+  override hwSdkNetwork: IHwSdkNetwork = 'starknet' as IHwSdkNetwork;
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return Promise.resolve({
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    });
+  }
 
   override async batchGetAddresses(params: IPrepareHardwareAccountsParams) {
     const contract = getHardwareAccountContract(
@@ -177,8 +196,66 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
+    const contract = getHardwareAccountContract(
+      params.deriveInfo.addressEncoding,
+    );
     return this.basePrepareHdNormalAccounts(params, {
-      buildAddressesInfo: () => this.batchGetAddresses(params),
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        if (params.hwAllNetworkPrepareAccountsResponse) {
+          const items = await this.baseGetDeviceAccountAddresses({
+            params,
+            usedIndexes,
+            sdkGetAddressFn: async ({ template }) => {
+              const allNetworkAccounts =
+                await this.getAllNetworkPrepareAccounts({
+                  params,
+                  usedIndexes,
+                  hwSdkNetwork: this.hwSdkNetwork,
+                  buildPath: ({ index }) =>
+                    accountUtils.buildPathFromTemplate({ template, index }),
+                  buildResultAccount: ({ account }) => {
+                    const pub = account.payload?.pub || '';
+                    if (!pub) {
+                      throw new OneKeyInternalError({
+                        key: ETranslations.send_verification_failure,
+                      });
+                    }
+                    const deployParams = sdkStarknet.getAccountDeployParams(
+                      pub,
+                      contract,
+                    );
+                    return {
+                      path: account.path,
+                      address: deployParams.contractAddress,
+                      publicKey: pub,
+                      __hwExtraInfo__: undefined,
+                    };
+                  },
+                });
+              if (allNetworkAccounts) {
+                return allNetworkAccounts;
+              }
+              throw new OneKeyInternalError({
+                key: ETranslations.send_verification_failure,
+              });
+            },
+          });
+          return items.map(
+            ({
+              path,
+              address,
+              publicKey,
+              __hwExtraInfo__,
+            }): ICoreApiGetAddressItem => ({
+              path,
+              address,
+              publicKey,
+              __hwExtraInfo__,
+            }),
+          );
+        }
+        return this.batchGetAddresses(params);
+      },
     });
   }
 
