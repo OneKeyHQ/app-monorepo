@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { normalizeStyle } from '@tamagui/web';
 import { I18nManager, StyleSheet, processColor } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -14,14 +15,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Popover } from '../../actions/Popover';
 import { Tooltip } from '../../actions/Tooltip';
 import { useMedia } from '../../hooks/useStyle';
-import { SizableText } from '../../primitives/SizeableText';
+import { SizableText, StyledSizableText } from '../../primitives/SizeableText';
 import { XStack, YStack } from '../../primitives/Stack';
-import { useTheme } from '../../shared/tamagui';
+import { useStyle, useTheme } from '../../shared/tamagui';
 
 import type { IPopoverProps } from '../../actions/Popover';
 import type { ITooltipProps } from '../../actions/Tooltip';
 import type { ISizableTextProps } from '../../primitives';
-import type { LayoutChangeEvent, StyleProp, TextStyle } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  LayoutRectangle,
+  StyleProp,
+  TextStyle,
+} from 'react-native';
 
 export interface IDashTextProps extends ISizableTextProps {
   dashLength?: number;
@@ -143,6 +149,138 @@ function TextLayoutProbe({
   );
 }
 
+function MeasuredTextDashes({
+  textProps,
+  textLines,
+  textLayout,
+  wrapperWidth,
+  leadingText,
+  dashOffset,
+  dashThickness,
+  dashGap,
+  renderDashes,
+}: {
+  textProps: ISizableTextProps;
+  textLines: ITextLine[];
+  textLayout?: LayoutRectangle;
+  wrapperWidth: number;
+  leadingText?: ReactNode;
+  dashOffset: number;
+  dashThickness: number;
+  dashGap: number;
+  renderDashes: (width: number) => ReactNode;
+}) {
+  const resolvedStyle = useStyle(textProps, {
+    forComponent: StyledSizableText,
+    resolveValues: 'value',
+  });
+  const rawStyle = StyleSheet.flatten(textProps.style as StyleProp<TextStyle>);
+  const style = {
+    ...resolvedStyle,
+    ...(rawStyle && normalizeStyle(rawStyle, true)),
+  } as Pick<
+    TextStyle,
+    | 'paddingTop'
+    | 'paddingLeft'
+    | 'paddingRight'
+    | 'paddingStart'
+    | 'paddingEnd'
+  >;
+  const rtl = I18nManager.isRTL;
+  const swap = rtl && I18nManager.doLeftAndRightSwapInRTL;
+  const padding = (value: TextStyle['padding']) => {
+    if (typeof value === 'number') {
+      return Math.max(0, value);
+    }
+    return typeof value === 'string' && value.endsWith('%')
+      ? (Math.max(0, Number.parseFloat(value)) * wrapperWidth) / 100
+      : 0;
+  };
+  // Fabric measures lines inside the text's content box. Its padding uses
+  // the containing block's width, including for vertical percentages.
+  const leftInset = padding(
+    swap
+      ? (style.paddingRight ?? style.paddingEnd)
+      : ((rtl ? style.paddingEnd : style.paddingStart) ?? style.paddingLeft),
+  );
+  const rightInset = padding(
+    swap
+      ? (style.paddingLeft ?? style.paddingStart)
+      : ((rtl ? style.paddingStart : style.paddingEnd) ?? style.paddingRight),
+  );
+  const topInset = padding(style.paddingTop);
+  const textWidth = Math.max(
+    0,
+    (textLayout?.width ?? 0) - leftInset - rightInset,
+  );
+  const [leadingMeasurements, setLeadingMeasurements] = useState<{
+    plain?: { width: number; lines: ITextLine[] };
+    withSpace?: { width: number; lines: ITextLine[] };
+  }>({});
+  const measureLeading =
+    (key: keyof typeof leadingMeasurements): ITextLayoutHandler =>
+    ({ nativeEvent: { lines } }) => {
+      setLeadingMeasurements((previous) => ({
+        ...previous,
+        [key]: { width: textWidth, lines },
+      }));
+    };
+  const { plain, withSpace } = leadingMeasurements;
+  let dashedLines = textLines;
+  if (leadingText !== undefined) {
+    dashedLines =
+      plain?.width === textWidth && withSpace?.width === textWidth
+        ? getTrailingLines(textLines, plain.lines, withSpace.lines)
+        : [];
+  }
+  return (
+    <>
+      {leadingText !== undefined && textWidth > 0 ? (
+        // The joiner preserves the trailing space in the second measurement.
+        <Fragment key={`probes-${textWidth}`}>
+          <TextLayoutProbe
+            textProps={textProps}
+            width={textWidth}
+            onTextLayout={measureLeading('plain')}
+          >
+            {leadingText}
+          </TextLayoutProbe>
+          <TextLayoutProbe
+            textProps={textProps}
+            width={textWidth}
+            onTextLayout={measureLeading('withSpace')}
+          >
+            {leadingText}
+            {'\u2060'}
+          </TextLayoutProbe>
+        </Fragment>
+      ) : null}
+      {dashedLines.map((line, lineIndex) => {
+        const left = (textLayout?.x ?? 0) + leftInset + line.x;
+        const top = (textLayout?.y ?? 0) + topInset + line.y;
+        return (
+          <XStack
+            key={lineIndex}
+            position="absolute"
+            // Text layout reports physical x coordinates, even in RTL.
+            start={rtl ? undefined : left}
+            end={rtl ? left : undefined}
+            flexDirection={rtl ? 'row-reverse' : 'row'}
+            top={top + line.height + dashOffset}
+            width={line.width}
+            height={dashThickness}
+            gap={dashGap}
+            overflow="hidden"
+            pointerEvents="none"
+          >
+            {renderDashes(line.width)}
+          </XStack>
+        );
+      })}
+    </>
+  );
+}
+
 function DashTextCore({
   children,
   dashLength = DEFAULT_DASH_LENGTH,
@@ -169,30 +307,7 @@ function DashTextCore({
   const theme = useTheme();
   const [textWidth, setTextWidth] = useState(0);
   const [textLines, setTextLines] = useState<ITextLine[]>([]);
-  const [leadingMeasurements, setLeadingMeasurements] = useState<{
-    plain?: { width: number; lines: ITextLine[] };
-    withSpace?: { width: number; lines: ITextLine[] };
-  }>({});
-  const handleLeadingTextLayout = useCallback<ITextLayoutHandler>(
-    (event) => {
-      const { lines } = event.nativeEvent;
-      setLeadingMeasurements((previous) => ({
-        ...previous,
-        plain: { width: textWidth, lines },
-      }));
-    },
-    [textWidth],
-  );
-  const handleLeadingTextWithSpaceLayout = useCallback<ITextLayoutHandler>(
-    (event) => {
-      const { lines } = event.nativeEvent;
-      setLeadingMeasurements((previous) => ({
-        ...previous,
-        withSpace: { width: textWidth, lines },
-      }));
-    },
-    [textWidth],
-  );
+  const [paragraphLayout, setParagraphLayout] = useState<LayoutRectangle>();
   const handleTextLayout = useCallback<ITextLayoutHandler>(
     (event) => {
       setTextLines(event.nativeEvent.lines);
@@ -270,15 +385,35 @@ function DashTextCore({
   const onLayout = textProps.onLayout;
   const handleParagraphLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      handleLayout(event);
+      setParagraphLayout(event.nativeEvent.layout);
       onLayout?.(event);
     },
-    [handleLayout, onLayout],
+    [onLayout],
   );
 
   const overlayProps = dashOverlay
     ? ({ position: 'absolute', bottom: 0, left: 0, right: 0 } as const)
     : undefined;
+
+  const renderDashes = useCallback(
+    (width: number) => {
+      const period = dashLength + dashGap;
+      const count =
+        period > 0 && width > 0
+          ? Math.min(length, Math.ceil(width / period))
+          : 0;
+      return Array.from({ length: count }, (_, index) => (
+        <YStack
+          key={index}
+          width={dashLength}
+          height={dashThickness}
+          bg={dashColor}
+          flexShrink={0}
+        />
+      ));
+    },
+    [dashColor, dashGap, dashLength, dashThickness, length],
+  );
 
   if (!platformEnv.isNative) {
     const webDashedChildren =
@@ -368,36 +503,13 @@ function DashTextCore({
       ? (multiline ? dashSpacing : 0) + dashThickness
       : undefined;
 
-  const renderDashes = (width: number) => {
-    const period = dashLength + dashGap;
-    const count =
-      period > 0 && width > 0 ? Math.min(length, Math.ceil(width / period)) : 0;
-    return Array.from({ length: count }, (_, index) => (
-      <YStack
-        key={index}
-        width={dashLength}
-        height={dashThickness}
-        bg={dashColor}
-        flexShrink={0}
-      />
-    ));
-  };
-
   if (multiline) {
     const hasLeadingText = leadingText !== undefined;
-    const measureLeadingText = hasDashes && hasLeadingText;
     const dashOffset = dashOverlay ? -dashThickness : dashSpacing;
-    const { plain, withSpace } = leadingMeasurements;
-    let dashedLines = textLines;
-    if (measureLeadingText) {
-      dashedLines =
-        plain?.width === textWidth && withSpace?.width === textWidth
-          ? getTrailingLines(textLines, plain.lines, withSpace.lines)
-          : [];
-    }
     return (
       <YStack
         maxWidth="100%"
+        onLayout={useMeasuredDashes ? handleLayout : undefined}
         paddingBottom={
           reservesDashHeight && nativeDashPadding === undefined
             ? dashSpacing + dashThickness
@@ -410,7 +522,11 @@ function DashTextCore({
           {...(nativeDashPadding === undefined
             ? undefined
             : { paddingBottom: nativeDashPadding })}
-          onLayout={hasLeadingText ? handleParagraphLayout : onLayout}
+          onLayout={
+            hasLeadingText || useMeasuredDashes
+              ? handleParagraphLayout
+              : onLayout
+          }
           onTextLayout={
             hasLeadingText || useMeasuredDashes || onTextLayout
               ? handleTextLayout
@@ -420,46 +536,19 @@ function DashTextCore({
           {leadingText}
           {children}
         </SizableText>
-        {measureLeadingText && textWidth > 0 ? (
-          // The joiner preserves the trailing space in the second measurement.
-          <Fragment key={`probes-${textWidth}`}>
-            <TextLayoutProbe
-              textProps={textProps}
-              width={textWidth}
-              onTextLayout={handleLeadingTextLayout}
-            >
-              {leadingText}
-            </TextLayoutProbe>
-            <TextLayoutProbe
-              textProps={textProps}
-              width={textWidth}
-              onTextLayout={handleLeadingTextWithSpaceLayout}
-            >
-              {leadingText}
-              {'\u2060'}
-            </TextLayoutProbe>
-          </Fragment>
+        {useMeasuredDashes ? (
+          <MeasuredTextDashes
+            textProps={textProps}
+            textLines={textLines}
+            textLayout={paragraphLayout}
+            wrapperWidth={textWidth}
+            leadingText={leadingText}
+            dashOffset={dashOffset}
+            dashThickness={dashThickness}
+            dashGap={dashGap}
+            renderDashes={renderDashes}
+          />
         ) : null}
-        {useMeasuredDashes
-          ? dashedLines.map((line, lineIndex) => (
-              <XStack
-                key={lineIndex}
-                position="absolute"
-                // Text layout reports physical x coordinates, even in RTL.
-                start={I18nManager.isRTL ? undefined : line.x}
-                end={I18nManager.isRTL ? line.x : undefined}
-                flexDirection={I18nManager.isRTL ? 'row-reverse' : 'row'}
-                top={line.y + line.height + dashOffset}
-                width={line.width}
-                height={dashThickness}
-                gap={dashGap}
-                overflow="hidden"
-                pointerEvents="none"
-              >
-                {renderDashes(line.width)}
-              </XStack>
-            ))
-          : null}
       </YStack>
     );
   }

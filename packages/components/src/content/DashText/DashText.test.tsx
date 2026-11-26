@@ -8,6 +8,7 @@ import { isValidElement } from 'react';
 
 import { DashText } from '.';
 
+import { normalizeStyle } from '@tamagui/web';
 import { act, render, screen } from '@testing-library/react';
 import { I18nManager } from 'react-native';
 
@@ -32,6 +33,22 @@ jest.mock('react-native', () => ({
 }));
 jest.mock('../../hooks/useStyle', () => ({ useMedia: () => ({ gtMd: true }) }));
 jest.mock('../../shared/tamagui', () => ({
+  useStyle: ({
+    padding,
+    paddingVertical,
+    paddingBottom,
+    p,
+    py,
+    pb,
+  }: ISizableTextProps) =>
+    normalizeStyle(
+      {
+        padding: padding ?? p,
+        paddingVertical: paddingVertical ?? py,
+        paddingBottom: paddingBottom ?? pb,
+      },
+      true,
+    ),
   useTheme: () => ({ borderStrong: { val: '#888888' } }),
 }));
 jest.mock('../../primitives/Stack', () => {
@@ -329,15 +346,16 @@ it('reuses native overlay lines when the caller changes the dash pattern', () =>
 });
 
 it.each([
-  { paddingBottom: 4 },
-  { paddingVertical: 4 },
-  { padding: 4 },
-  { pb: 4 },
-  { py: 4 },
-  { p: 4 },
-])(
-  'preserves direct multiline padding while drawing the dash (%j)',
-  (padding) => {
+  [{ paddingBottom: 4 }, 0, 0],
+  [{ paddingVertical: 4 }, 0, 4],
+  [{ padding: 4 }, 4, 4],
+  [{ pb: 4 }, 0, 0],
+  [{ py: 4 }, 0, 4],
+  [{ p: 4 }, 4, 4],
+  [{ padding: 4, style: { paddingVertical: 6 } }, 4, 6],
+] as const)(
+  'positions multiline dashes inside the caller padding (%j)',
+  (padding, left, top) => {
     platformEnv.isNative = true;
     const view = render(
       <DashText multiline {...padding}>
@@ -348,8 +366,63 @@ it.each([
     expect(lastTextProps()).toMatchObject(padding);
     expect(lastTextProps().textDecorationLine).toBeUndefined();
     expect(wrapperLayout(view.container).paddingBottom).toBe(1.5);
-    layoutText([{ x: 0, y: 0, width: 40, height: 15 }]);
-    expect(underlines(view.container)).toHaveLength(1);
+    layoutText([
+      { x: 3, y: 0, width: 40, height: 15 },
+      { x: 5, y: 15, width: 35, height: 15 },
+    ]);
+    expect(
+      underlines(view.container).map(
+        (line) =>
+          JSON.parse(line.dataset.layout ?? '{}') as Record<string, unknown>,
+      ),
+    ).toMatchObject([
+      { start: 3 + left, top: 16 + top, width: 40 },
+      { start: 5 + left, top: 31 + top, width: 35 },
+    ]);
+  },
+);
+
+const percentagePaddingStyle = { padding: '10%' } as const;
+
+it.each([
+  [false, 'start'],
+  [true, 'end'],
+] as const)(
+  'uses the padded text frame for measured dashes in RTL=%s',
+  (rtl, horizontalProp) => {
+    platformEnv.isNative = true;
+    I18nManager.isRTL = rtl;
+    const view = render(
+      <DashText
+        multiline
+        dashOverlay
+        dashGap={3}
+        style={percentagePaddingStyle}
+      >
+        Label
+      </DashText>,
+    );
+    const wrapperOnLayout = jest.mocked(YStack).mock.lastCall?.[0].onLayout;
+    const textOnLayout = lastTextProps().onLayout;
+    if (typeof wrapperOnLayout !== 'function' || !textOnLayout) {
+      throw new OneKeyLocalError('Missing measured layout handlers');
+    }
+    void act(() => {
+      wrapperOnLayout({
+        nativeEvent: { layout: { x: 0, y: 0, width: 100, height: 40 } },
+      } as LayoutChangeEvent);
+      textOnLayout({
+        nativeEvent: { layout: { x: 2, y: 3, width: 80, height: 35 } },
+      } as LayoutChangeEvent);
+    });
+    layoutText([{ x: 5, y: 0, width: 40, height: 15 }]);
+    expect(
+      JSON.parse(underlines(view.container)[0].dataset.layout ?? '{}'),
+    ).toMatchObject({
+      [horizontalProp]: 17,
+      top: 27.5,
+      width: 40,
+    });
   },
 );
 
