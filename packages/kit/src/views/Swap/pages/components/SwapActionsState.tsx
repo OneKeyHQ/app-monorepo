@@ -106,7 +106,17 @@ import {
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
+import {
+  SWAP_ACTION_CONTENT_EXIT_MS,
+  SWAP_ACTION_CONTENT_EXIT_PX,
+  SWAP_ACTION_CONTENT_FADE_EASING,
+  SWAP_ACTION_CONTENT_FADE_MS,
+  SWAP_ACTION_CONTENT_RISE_EASING,
+  SWAP_ACTION_CONTENT_RISE_MS,
+  SWAP_ACTION_CONTENT_RISE_PX,
+} from '../../utils/swapActionContentMotion';
 
+import { SwapActionContentMotion } from './SwapActionContentMotion';
 import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
@@ -203,11 +213,9 @@ const ACTION_BUTTON_DISABLED_STYLE = {
 // a fill tween would first show the new content on the wrong fill, and across
 // such a flip the old content would sit on the wrong fill and is skipped. The
 // fade and the rise run apart, so the text reads while it still glides up.
-const CONTENT_FADE_MS = 180;
-const CONTENT_RISE_MS = 260;
-const CONTENT_RISE_PX = 8;
-const CONTENT_EXIT_MS = 120;
-const CONTENT_EXIT_PX = 4;
+// Native runs the same motion in SwapActionContentMotion.native.
+const CONTENT_FADE_EASING = `cubic-bezier(${SWAP_ACTION_CONTENT_FADE_EASING.join(', ')})`;
+const CONTENT_RISE_EASING = `cubic-bezier(${SWAP_ACTION_CONTENT_RISE_EASING.join(', ')})`;
 const CONTENT_EXIT_LAYER_STYLE =
   'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none';
 
@@ -246,8 +254,8 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
         content.animate(
           { opacity: [from.opacity, 1] },
           {
-            duration: CONTENT_FADE_MS * (1 - from.opacity),
-            easing: 'ease-out',
+            duration: SWAP_ACTION_CONTENT_FADE_MS * (1 - from.opacity),
+            easing: CONTENT_FADE_EASING,
           },
         ),
       ];
@@ -256,8 +264,10 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
           content.animate(
             { transform: [`translateY(${from.y}px)`, 'translateY(0)'] },
             {
-              duration: CONTENT_RISE_MS * (from.y / CONTENT_RISE_PX),
-              easing: 'cubic-bezier(0.33, 1, 0.68, 1)',
+              duration:
+                SWAP_ACTION_CONTENT_RISE_MS *
+                (from.y / SWAP_ACTION_CONTENT_RISE_PX),
+              easing: CONTENT_RISE_EASING,
             },
           ),
         );
@@ -308,7 +318,10 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       animation?.effect?.getComputedTiming().progress ?? 1;
     const reached = {
       opacity: inFlight ? progress(fade) : 1,
-      y: inFlight && !reduced ? CONTENT_RISE_PX * (1 - progress(rise)) : 0,
+      y:
+        inFlight && !reduced
+          ? SWAP_ACTION_CONTENT_RISE_PX * (1 - progress(rise))
+          : 0,
     };
 
     // The old content is already out of the tree (or holds the new text), so
@@ -336,10 +349,13 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
                 opacity: [reached.opacity, 0],
                 transform: [
                   `translateY(${reached.y}px)`,
-                  `translateY(${reached.y - CONTENT_EXIT_PX}px)`,
+                  `translateY(${reached.y - SWAP_ACTION_CONTENT_EXIT_PX}px)`,
                 ],
               },
-          { duration: CONTENT_EXIT_MS, easing: 'ease-out' },
+          {
+            duration: SWAP_ACTION_CONTENT_EXIT_MS,
+            easing: CONTENT_FADE_EASING,
+          },
         )
         .finished.then(removeLayer, removeLayer);
     }
@@ -348,7 +364,7 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       enter(
         content,
         reduced,
-        inFlight ? reached : { opacity: 0, y: CONTENT_RISE_PX },
+        inFlight ? reached : { opacity: 0, y: SWAP_ACTION_CONTENT_RISE_PX },
       );
       return;
     }
@@ -362,7 +378,7 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       observer.disconnect();
       pendingContent.current = null;
       remember(mounted);
-      enter(mounted, reduced, { opacity: 0, y: CONTENT_RISE_PX });
+      enter(mounted, reduced, { opacity: 0, y: SWAP_ACTION_CONTENT_RISE_PX });
     });
     observer.observe(button, { childList: true });
     pendingContent.current = observer;
@@ -1452,7 +1468,12 @@ const SwapActionsState = ({
             borderRadius="$full"
             childrenAsText={false}
           >
-            {actionButtonChildren}
+            <SwapActionContentMotion
+              contentKey={actionContentKey}
+              fillKey={!!isActionDisabled}
+            >
+              {actionButtonChildren}
+            </SwapActionContentMotion>
           </Button>
           {/* In regular pages and non-desktop modal: show savings below button */}
           {!isDesktopModalPage ? costSavingsBelowButtonComponent : null}
@@ -1462,6 +1483,7 @@ const SwapActionsState = ({
     [
       onActionHandlerBefore,
       actionButtonChildren,
+      actionContentKey,
       actionButtonRef,
       isActionDisabled,
       isDesktopModalPage,
@@ -1575,7 +1597,12 @@ const SwapActionsState = ({
                 borderRadius="$full"
                 childrenAsText={false}
               >
-                {actionButtonChildren}
+                <SwapActionContentMotion
+                  contentKey={actionContentKey}
+                  fillKey={!!isActionDisabled}
+                >
+                  {actionButtonChildren}
+                </SwapActionContentMotion>
               </Button>
             </Stack>
           </XStack>
@@ -1589,6 +1616,7 @@ const SwapActionsState = ({
     ),
     [
       actionButtonChildren,
+      actionContentKey,
       costSavingsComponent,
       desktopActionButtonRef,
       desktopActionWidth,
