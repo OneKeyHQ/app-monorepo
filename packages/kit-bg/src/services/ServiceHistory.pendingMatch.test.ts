@@ -289,6 +289,46 @@ describe('ServiceHistory local pending reconciliation', () => {
     }
   });
 
+  it('visits the next account before expired failures can take the backfill budget again', async () => {
+    const { service } = createService();
+    const details = jest
+      .spyOn(service, 'fetchHistoryTxDetails')
+      .mockResolvedValue(null);
+    const prefix = Array.from({ length: 25 }, (_, i) =>
+      legacyTransfer(String(i).padStart(2, '0')),
+    );
+    const tail = legacyTransfer('last');
+    tail.fiatCurrency = 'eur';
+    const batch = [prefix, [tail]].map((confirmedTxs, i) => ({
+      networkId: 'evm--56',
+      accountAddress: String(i),
+      confirmedTxs,
+      onChainHistoryTxs: [],
+      pendingTxs: [],
+      pendingTxsToModify: [],
+    }));
+    const clock = jest.spyOn(Date, 'now');
+    try {
+      for (let i = 0; i <= prefix.length; i += 1) {
+        await service.batchUpdateLocalHistoryTxs(batch);
+        expect(details).toHaveBeenCalledTimes(i + 1);
+        clock.mockReturnValue(Date.now() + 15_000);
+      }
+      expect(details.mock.calls.map(([request]) => request.txid)).toEqual([
+        ...prefix.map((row) => row.decodedTx.txid),
+        'last',
+      ]);
+      expect(details).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          accountAddress: '1',
+          requestCurrency: 'eur',
+        }),
+      );
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it.each([
     ['a local pending row', EDecodedTxStatus.Pending, localTx()],
     [

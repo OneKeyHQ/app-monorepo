@@ -2491,36 +2491,27 @@ class ServiceHistory extends ServiceBase {
   >({ max: 100, ttl: 5 * 60_000 });
   private nextHistoryBackfillAt = 0;
 
-  private getBackfilledHistoryTx(
-    tx: IAccountHistoryTx,
-    accountAddress: string,
-    xpub?: string,
+  private lastHistoryBackfillKey = '';
+
+  private scheduleHistoryBackfill(
+    candidates: Map<string, IFetchHistoryTxDetailsParams>,
   ) {
-    const { accountId, networkId, txid } = tx.decodedTx;
-    const requestCurrency = tx.fiatCurrency ?? USD_CURRENCY_ID;
-    const key = JSON.stringify([
-      accountId,
-      networkId,
-      accountAddress,
-      xpub,
-      tx.id,
-      requestCurrency,
-    ]);
-    const cached = this.historyBackfill.get(key);
-    if (cached !== undefined || Date.now() < this.nextHistoryBackfillAt) {
-      return cached
-        ? restoreHistoryAmounts(tx, cached.data, cached.tokens, requestCurrency)
-        : tx;
-    }
+    if (!candidates.size || Date.now() < this.nextHistoryBackfillAt) return;
+    // Rotate across the whole batch, including account boundaries. Expired
+    // failures at the front cannot reclaim every slot before the last row.
+    const keys = [...candidates.keys()].toSorted();
+    const key =
+      keys.find((item) => item > this.lastHistoryBackfillKey) ?? keys[0];
+    const request = candidates.get(key);
+    if (!request) return;
+    this.lastHistoryBackfillKey = key;
     this.nextHistoryBackfillAt = Infinity;
-    const scope = { accountId, networkId, accountAddress, xpub };
-    void this.fetchHistoryTxDetails({ ...scope, txid, requestCurrency })
+    void this.fetchHistoryTxDetails(request)
       .catch(() => null)
       .then((detail) => {
         this.historyBackfill.set(key, detail ?? null);
         this.nextHistoryBackfillAt = Date.now() + 10_000;
       });
-    return tx;
   }
 
   @backgroundMethod()
@@ -2535,6 +2526,7 @@ class ServiceHistory extends ServiceBase {
       pendingTxsToModify: IAccountHistoryTx[];
     }[],
   ) {
+    const backfillCandidates = new Map<string, IFetchHistoryTxDetailsParams>();
     const allConfirmedTxsToSave: IAccountHistoryTx[] = [];
     const allMergedOnChainHistoryTxs: IAccountHistoryTx[] = [];
     const allNonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
@@ -2594,7 +2586,35 @@ class ServiceHistory extends ServiceBase {
             isPrivateSendAccountHistoryTx(tx)
           )
             return fresh ?? tx;
-          return this.getBackfilledHistoryTx(tx, accountAddress, xpub);
+          const { accountId, txid } = tx.decodedTx;
+          const requestCurrency = tx.fiatCurrency ?? USD_CURRENCY_ID;
+          const key = JSON.stringify([
+            accountId,
+            networkId,
+            accountAddress,
+            xpub,
+            tx.id,
+            requestCurrency,
+          ]);
+          const detail = this.historyBackfill.get(key);
+          if (detail === undefined) {
+            backfillCandidates.set(key, {
+              accountId,
+              networkId,
+              accountAddress,
+              xpub,
+              txid,
+              requestCurrency,
+            });
+          }
+          return detail
+            ? restoreHistoryAmounts(
+                tx,
+                detail.data,
+                detail.tokens,
+                requestCurrency,
+              )
+            : tx;
         })
         .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
@@ -2677,6 +2697,7 @@ class ServiceHistory extends ServiceBase {
       });
     }
 
+    this.scheduleHistoryBackfill(backfillCandidates);
     await this.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs(
       updateQuery,
     );
