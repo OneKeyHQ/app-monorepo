@@ -177,6 +177,11 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
   require('./src/startupProfile').scheduleStartupProfileJsFlush();
 
   ReactNativeDeviceUtils.initEventListeners();
+  {
+    const { initFirstLaunchForApp } =
+      require('@onekeyhq/shared/src/utils/freshInstallDetector') as typeof import('@onekeyhq/shared/src/utils/freshInstallDetector');
+    initFirstLaunchForApp();
+  }
   initSentry();
   nativeStorageContractViolation.markNativeStorageContractViolationSentryReady();
 

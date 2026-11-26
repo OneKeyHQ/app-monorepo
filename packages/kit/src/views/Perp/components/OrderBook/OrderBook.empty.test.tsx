@@ -88,8 +88,16 @@ jest.mock('react-native', () => ({
       {children}
     </span>
   ),
-  TouchableOpacity: ({ children }: { children?: ReactNode }) => (
-    <button type="button">{children}</button>
+  TouchableOpacity: ({
+    children,
+    accessibilityLabel,
+  }: {
+    children?: ReactNode;
+    accessibilityLabel?: string;
+  }) => (
+    <button type="button" aria-label={accessibilityLabel}>
+      {children}
+    </button>
   ),
   View: ({
     children,
@@ -803,14 +811,15 @@ describe('OrderBook desktop display modes', () => {
         <OrderBook
           {...props}
           showTickSelector
+          priceDecimals={6}
           selectedTickOption={{
-            targetTick: 1,
-            apiTick: 1,
+            targetTick: 0.0001,
+            apiTick: 0.0001,
             exact: true,
             nSigFigs: 3,
             multiplier: 1,
-            label: '1',
-            value: '1',
+            label: '0.0001',
+            value: '0.0001',
           }}
         />,
       );
@@ -845,10 +854,21 @@ describe('OrderBook desktop display modes', () => {
           ),
         ).toBeTruthy();
         expect(
-          within(view.getByTestId('perp-select')).getByText(
+          within(view.getByTestId('perp-select')).queryByText(
             'perp.orderbook_spread',
           ),
+        ).toBeNull();
+        expect(
+          within(view.getByTestId('perp-select')).getByText('0.0001'),
         ).toBeTruthy();
+        expect(
+          within(view.getByTestId('perp-select')).getByRole('button', {
+            name: 'perp.orderbook_spread 0.0001',
+          }),
+        ).toBeTruthy();
+        expect(
+          within(view.getByTestId('perp-select')).queryByText('0.000100'),
+        ).toBeNull();
         expect(view.getByText('perp.orderbook_size (BTC)')).toBeTruthy();
         expect(view.getByText('perp.orderbook_total (BTC)')).toBeTruthy();
         expect(

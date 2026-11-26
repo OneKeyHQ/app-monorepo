@@ -59,6 +59,27 @@
     // noop
   }
 
+  // firstLaunchLegacyProbe start ----------------------------------------------
+  // Sample legacy install evidence before app JS writes to localStorage.
+  try {
+    if (localStorage.getItem('1k_fl_launched') === null) {
+      let legacy = localStorage.getItem('ONEKEY_THEME_PRELOAD') !== null;
+      if (!legacy) {
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('onekey-app-setting\\')) {
+            legacy = true;
+            break;
+          }
+        }
+      }
+      window.__ONEKEY_LEGACY_INSTALL__ = legacy;
+    }
+  } catch (_error) {
+    // Private browsing / disabled storage / sandboxed iframe: fail closed.
+  }
+  // firstLaunchLegacyProbe end ----------------------------------------------
+
   // themePreload start ----------------------------------------------
   const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
   // packages/components/tamagui.config.ts

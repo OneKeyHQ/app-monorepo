@@ -28,7 +28,7 @@
     "@noble/hashes": "^1.4.0",
     "@noble/secp256k1": "1.7.1",
     "@onekeyfe/bitcoinforksjs-lib": "7.0.0-rc.1",
-    "@onekeyfe/cardano-coin-selection-asmjs": "1.1.11",
+    "@onekeyfe/cardano-coin-selection-asmjs": "1.1.13",
     "@onekeyfe/coinselect": "3.1.17",
     "@onekeyfe/kaspa-core-lib": "^1.0.2",
     "@onekeyfe/kaspa-wasm": "^1.0.2",

@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { type Atom, atom, useAtomValue } from 'jotai';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -21,17 +22,16 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useTokenApproveAllowance } from '@onekeyhq/kit/src/hooks/useTokenApproveAllowance';
 import {
-  useSignatureConfirmActions,
-  useTokenApproveInfoAtom,
-  useUnsignedTxsAtom,
+  tokenApproveInfoAtom,
+  unsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import type { IJotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { SignatureConfirmTestIDs } from '../../testIDs';
-import { SignatureConfirmProviderMirror } from '../SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
 export type IProps = {
   accountId: string;
@@ -59,12 +59,17 @@ export type IProps = {
 
 const ALLOWANCE_MAX = 10_000_000_000_000;
 
-function ApproveEditor(props: IProps) {
-  const intl = useIntl();
+type IAllowance = Pick<IProps, 'allowance' | 'isUnlimited'>;
 
-  const [unsignedTxs] = useUnsignedTxsAtom();
-  const [tokenApproveInfo] = useTokenApproveInfoAtom();
-  const { updateUnsignedTxs } = useSignatureConfirmActions().current;
+function ApproveEditor(
+  props: IProps & {
+    store: IJotaiContextStore;
+    updatingAtom: Atom<boolean>;
+    onSave: (edit: IAllowance) => Promise<void>;
+  },
+) {
+  const intl = useIntl();
+  const updating = useAtomValue(props.updatingAtom, { store: props.store });
 
   const {
     accountId,
@@ -75,8 +80,7 @@ function ApproveEditor(props: IProps) {
     tokenAddress,
     balanceParsed,
     tokenSymbol,
-    onResetTokenApproveInfo,
-    onChangeTokenApproveInfo,
+    onSave,
     approveInfo,
     approveType = EApproveType.Approve,
     spender,
@@ -89,30 +93,6 @@ function ApproveEditor(props: IProps) {
   // Unlimited would silently rewrite the call to approve(MAX); only allow it
   // for absolute approve.
   const showUnlimitedToggle = !isIncrease;
-
-  const handleUpdateUnsignedTxs = useCallback(
-    async ({
-      allowance: newAllowance,
-      isUnlimited: newIsUnlimited,
-    }: {
-      allowance: string;
-      isUnlimited: boolean;
-    }) => {
-      const newUnsignedTx =
-        await backgroundApiProxy.serviceSend.updateUnsignedTx({
-          accountId,
-          networkId,
-          unsignedTx: unsignedTxs[0],
-          tokenApproveInfo: {
-            allowance: newAllowance,
-            isUnlimited: newIsUnlimited,
-            approveType,
-          },
-        });
-      updateUnsignedTxs([newUnsignedTx]);
-    },
-    [accountId, approveType, networkId, unsignedTxs, updateUnsignedTxs],
-  );
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -269,6 +249,7 @@ function ApproveEditor(props: IProps) {
                 testID={SignatureConfirmTestIDs.ApproveEditorBalanceButton}
                 size="small"
                 variant="tertiary"
+                disabled={updating}
                 icon="WalletOutline"
                 onPress={() => {
                   if (
@@ -297,7 +278,7 @@ function ApproveEditor(props: IProps) {
           <Input
             testID={SignatureConfirmTestIDs.ApproveEditorAllowanceInput}
             flex={1}
-            editable={!watchAllFields.isUnlimited}
+            editable={!updating && !watchAllFields.isUnlimited}
             addOns={[
               {
                 label: tokenSymbol,
@@ -333,6 +314,7 @@ function ApproveEditor(props: IProps) {
           >
             <Switch
               testID={SignatureConfirmTestIDs.ApproveEditorUnlimitedSwitch}
+              disabled={updating}
               size="small"
             />
           </Form.Field>
@@ -380,60 +362,82 @@ function ApproveEditor(props: IProps) {
       ) : null}
       <Dialog.Footer
         confirmButtonProps={{
-          disabled: !form.formState.isValid,
+          disabled: updating || !form.formState.isValid,
         }}
-        onConfirm={async ({ close }) => {
-          const currentAllowance = form.getValues('allowance');
-          const currentIsUnlimited = form.getValues('isUnlimited');
-
-          if (currentAllowance !== '') {
-            void handleUpdateUnsignedTxs({
-              allowance: currentAllowance,
-              isUnlimited: currentIsUnlimited,
-            });
-            onChangeTokenApproveInfo?.({
-              allowance: currentAllowance,
-              isUnlimited: currentIsUnlimited,
-            });
-          }
-
-          void close();
+        onConfirm={async () => {
+          const edit = form.getValues();
+          if (edit.allowance !== '') await onSave(edit);
         }}
+        cancelButtonProps={{ disabled: updating }}
         onCancelText={intl.formatMessage({
           id: ETranslations.global_reset,
         })}
-        onCancel={() => {
-          if (
-            !(
-              new BigNumber(allowance).isEqualTo(
-                tokenApproveInfo.originalAllowance,
-              ) && isUnlimited === tokenApproveInfo.originalIsUnlimited
-            )
-          ) {
-            void handleUpdateUnsignedTxs({
-              allowance: tokenApproveInfo.originalAllowance,
-              isUnlimited: tokenApproveInfo.originalIsUnlimited,
-            });
-          }
-
-          onResetTokenApproveInfo?.();
-        }}
       />
     </>
   );
 }
 
-const showApproveEditor = (props: IProps) => {
+const showApproveEditor = (store: IJotaiContextStore, props: IProps) => {
+  const unsignedTxs = store.get(unsignedTxsAtom());
+  const original = store.get(tokenApproveInfoAtom());
+  const updatingAtom = atom(false);
+
+  // The dialog lives in a portal. Keep its writes bound to the transaction
+  // that opened it, even if the route's queue advances during the rewrite.
+  const updateAllowance = async (edit: IAllowance) => {
+    if (store.get(updatingAtom) || store.get(unsignedTxsAtom()) !== unsignedTxs)
+      return false;
+    store.set(updatingAtom, true);
+    try {
+      const updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
+        accountId: props.accountId,
+        networkId: props.networkId,
+        unsignedTx: unsignedTxs[0],
+        tokenApproveInfo: {
+          ...edit,
+          approveType: props.approveType ?? EApproveType.Approve,
+        },
+      });
+      if (store.get(unsignedTxsAtom()) !== unsignedTxs) return false;
+      store.set(unsignedTxsAtom(), [updatedTx]);
+      return true;
+    } finally {
+      store.set(updatingAtom, false);
+    }
+  };
+
+  const onSave = async (edit: IAllowance) => {
+    if (await updateAllowance(edit)) props.onChangeTokenApproveInfo?.(edit);
+  };
+
   Dialog.show({
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.approve_edit_title,
     }),
     showExitButton: false,
+    onBeforeClose: () => !store.get(updatingAtom),
+    onCancel: async (close) => {
+      if (store.get(updatingAtom)) return;
+      if (
+        !new BigNumber(props.allowance).isEqualTo(original.originalAllowance) ||
+        props.isUnlimited !== original.originalIsUnlimited
+      ) {
+        await updateAllowance({
+          allowance: original.originalAllowance,
+          isUnlimited: original.originalIsUnlimited,
+        });
+      }
+      props.onResetTokenApproveInfo?.();
+      await close();
+    },
     renderContent: (
-      <SignatureConfirmProviderMirror>
-        <ApproveEditor {...props} />
-      </SignatureConfirmProviderMirror>
+      <ApproveEditor
+        {...props}
+        store={store}
+        updatingAtom={updatingAtom}
+        onSave={onSave}
+      />
     ),
   });
 };

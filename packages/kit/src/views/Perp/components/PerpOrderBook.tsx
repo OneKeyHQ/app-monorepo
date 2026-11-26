@@ -836,7 +836,9 @@ function usePublishVisualL2BookSnapshot({
     const shouldPublishImmediately =
       !currentVisualBook ||
       !isSameVisualBookTarget(currentVisualBook, book) ||
-      (currentVisualBook.isCachedSnapshot && !book.isCachedSnapshot);
+      (currentVisualBook.isCachedSnapshot && !book.isCachedSnapshot) ||
+      Boolean(currentVisualBook.bids.length) !== Boolean(book.bids.length) ||
+      Boolean(currentVisualBook.asks.length) !== Boolean(book.asks.length);
     const now = Date.now();
     const delayMs = shouldPublishImmediately
       ? 0
