@@ -237,7 +237,9 @@ export default function ScanQrCodeModal() {
   const scan = useRef<{
     mounted: boolean;
     phase: 'open' | 'result' | 'cancelled';
-  }>({ mounted: false, phase: 'open' });
+    captureVersion: number;
+    animationReset?: Promise<void>;
+  }>({ mounted: false, phase: 'open', captureVersion: 0 });
   const cancelScan = useCallback(() => {
     if (scan.current.phase !== 'open') return;
     scan.current.phase = 'cancelled';
@@ -265,23 +267,36 @@ export default function ScanQrCodeModal() {
   }, [cancelScan, navigation]);
 
   const callback = useCallback(
-    async (value: string) => {
+    async (value: string, isCaptureCurrent?: () => boolean) => {
       const session = scan.current;
-      if (!value || session.phase !== 'open' || !session.mounted) return {};
+      const canDispatch = () =>
+        session.phase === 'open' &&
+        session.mounted &&
+        isCaptureCurrent?.() !== false;
+      if (!value || !canDispatch()) return {};
       if (process.env.NODE_ENV !== 'production') {
         await appStorage.syncStorage.set(
           EAppSyncStorageKeys.last_scan_qr_code_text,
           value,
         );
-        if (session.phase !== 'open' || !session.mounted) return {};
+        if (!canDispatch()) return {};
+      }
+      while (session.animationReset !== undefined) {
+        try {
+          await session.animationReset;
+        } catch {
+          return { retry: true };
+        }
+        if (!canDispatch()) return {};
       }
 
       return routeCallback({
         value,
         popNavigation: true,
         routeKey: route.key,
+        isCaptureCurrent,
         onResultDismiss: () => {
-          if (session.phase !== 'open' || !session.mounted) return false;
+          if (!canDispatch()) return false;
           session.phase = 'result';
           return true;
         },
@@ -412,16 +427,27 @@ export default function ScanQrCodeModal() {
         return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      const result = await callback(value);
-      return result;
+      const captureVersion = scan.current.captureVersion;
+      return callback(
+        value,
+        () => captureVersion === scan.current.captureVersion,
+      );
     },
     [callback],
   );
 
-  const onResetAnimationData = useCallback(async () => {
-    if (scan.current.mounted && scan.current.phase === 'open') {
-      await backgroundApiProxy.serviceScanQRCode.resetAnimationData();
-    }
+  const onResetAnimationData = useCallback((drain: Promise<void>) => {
+    const session = scan.current;
+    if (!session.mounted || session.phase !== 'open') return drain;
+    session.captureVersion += 1;
+    const reset = drain.then(async () => {
+      if (session.mounted && session.phase === 'open') {
+        await backgroundApiProxy.serviceScanQRCode.resetAnimationData();
+      }
+      if (session.animationReset === reset) session.animationReset = undefined;
+    });
+    session.animationReset = reset;
+    return reset;
   }, []);
 
   // A phone sheet wider than it is tall (iPhone Duo inner display in

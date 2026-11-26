@@ -64,7 +64,7 @@ export type IScanQrCodeProps = {
   handleBarCodeScanned: (
     value: string,
   ) => Promise<{ progress?: number; retry?: boolean }>;
-  onResetAnimationData?: () => Promise<void>;
+  onResetAnimationData?: (drain: Promise<void>) => Promise<void>;
   qrWalletScene?: boolean;
   /** The album picker is covering the live selection. */
   selectionCovered?: boolean;
@@ -163,9 +163,13 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       const currentReset = decoderReset.current;
       if (currentReset !== undefined && currentReset !== 'retry') return;
       setProgress(undefined);
+      const drain =
+        handlingFrame.current?.then(
+          () => {},
+          () => {},
+        ) ?? Promise.resolve();
       const reset = (async () => {
-        await handlingFrame.current?.catch(() => {});
-        await onResetAnimationDataRef.current?.();
+        await (onResetAnimationDataRef.current?.(drain) ?? drain);
         frameGate.current.reset();
       })();
       decoderReset.current = reset;

@@ -32,16 +32,20 @@ type IRouteCallback =
 
 const mockCloseOrder: string[] = [];
 const mockOnCancel = jest.fn();
+const mockResetAnimationData = jest.fn<Promise<void>, []>();
 const mockAddListener = jest.fn<() => void, [string, () => void]>();
 const mockRouteCallback = jest.fn<
   ReturnType<IRouteCallback>,
   Parameters<IRouteCallback>
 >();
 let mockScan: (value: string) => ReturnType<IRouteCallback>;
+let mockResetCapture: (drain: Promise<void>) => Promise<void>;
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { serviceScanQRCode: { resetAnimationData: jest.fn() } },
+  default: {
+    serviceScanQRCode: { resetAnimationData: () => mockResetAnimationData() },
+  },
 }));
 
 jest.mock('@react-navigation/core', () => ({
@@ -153,9 +157,14 @@ jest.mock('../components', () => {
   return {
     ScanQrCode: React.forwardRef<
       unknown,
-      { handleBarCodeScanned: typeof mockScan; selectionCovered?: boolean }
+      {
+        handleBarCodeScanned: typeof mockScan;
+        onResetAnimationData: typeof mockResetCapture;
+        selectionCovered?: boolean;
+      }
     >((props, ref) => {
       mockScan = props.handleBarCodeScanned;
+      mockResetCapture = props.onResetAnimationData;
       React.useImperativeHandle(ref, () => ({
         dispose: () => mockCloseOrder.push('dispose'),
       }));
@@ -214,6 +223,7 @@ beforeEach(() => {
       };
     });
   mockRouteCallback.mockReset().mockResolvedValue({});
+  mockResetAnimationData.mockReset().mockResolvedValue();
   mockAddListener.mockReset().mockReturnValue(() => {});
 });
 
@@ -298,6 +308,45 @@ test('accepts one photo scan from picker launch through parsing', async () => {
   await act(async () => fireEvent.click(albumButton));
   expect(pickImage).toHaveBeenCalledTimes(2);
   await expect(mockScan('camera after closing picker')).resolves.toEqual({});
+});
+
+test('a photo waits for the abandoned camera frame and shared decoder reset', async () => {
+  const cameraParse = Promise.withResolvers<{ progress?: number }>();
+  const resetComplete = Promise.withResolvers<void>();
+  mockResetAnimationData.mockReturnValueOnce(resetComplete.promise);
+  mockRouteCallback.mockReturnValueOnce(cameraParse.promise);
+  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+    canceled: false,
+    uri: 'image',
+  });
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('ur:photo-part');
+  render(<ScanQrCodeModal />);
+
+  const camera = mockScan('ur:previous-camera-part');
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+  const [{ isCaptureCurrent, onResultDismiss }] =
+    mockRouteCallback.mock.calls[0];
+  expect(isCaptureCurrent?.()).toBe(true);
+  const reset = mockResetCapture(camera.then(() => {}));
+  expect(isCaptureCurrent?.()).toBe(false);
+  expect(onResultDismiss?.()).toBe(false);
+  await act(async () =>
+    fireEvent.click(screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn)),
+  );
+  expect(mockResetAnimationData).not.toHaveBeenCalled();
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
+
+  await act(async () => cameraParse.resolve({ progress: 1 }));
+  expect(mockResetAnimationData).toHaveBeenCalledTimes(1);
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    resetComplete.resolve();
+    await reset;
+  });
+  expect(mockRouteCallback).toHaveBeenCalledTimes(2);
+  expect(mockRouteCallback).toHaveBeenLastCalledWith(
+    expect.objectContaining({ value: 'ur:photo-part' }),
+  );
 });
 
 test('allows the camera to retry the same code after photo parsing finishes', async () => {

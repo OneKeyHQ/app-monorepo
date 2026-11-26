@@ -409,14 +409,17 @@ test('camera switch drains an automatic UR frame and resets the decoder before f
       ? { progress: decoder.estimatedPercentComplete() }
       : {};
   });
-  const onResetAnimationData = jest.fn(async () => {
+  const resetAnimationData = jest.fn(async () => {
     await decoderResetFinished.promise;
     decoder = new URDecoder();
   });
   render(
     <ScanQrCode
       handleBarCodeScanned={onScan}
-      onResetAnimationData={onResetAnimationData}
+      onResetAnimationData={async (drain) => {
+        await drain;
+        await resetAnimationData();
+      }}
     />,
   );
   const frame = (text: string) =>
@@ -433,7 +436,7 @@ test('camera switch drains an automatic UR frame and resets the decoder before f
   });
   fireEvent.click(screen.getByText('Switch'));
   expect(screen.queryByText(/\d+%$/)).toBeNull();
-  expect(onResetAnimationData).not.toHaveBeenCalled();
+  expect(resetAnimationData).not.toHaveBeenCalled();
   act(() => {
     frame(nextMessagePart);
   });
@@ -441,7 +444,7 @@ test('camera switch drains an automatic UR frame and resets the decoder before f
   await act(async () => {
     oldFrameFinished.resolve();
   });
-  expect(onResetAnimationData).toHaveBeenCalledTimes(1);
+  expect(resetAnimationData).toHaveBeenCalledTimes(1);
   expect(screen.queryByText(/\d+%$/)).toBeNull();
   act(() => {
     frame(nextMessagePart);
