@@ -107,6 +107,7 @@ private struct SwapActivityETA: View {
 
   private var status: SwapLiveActivityStatus { context.state.status }
   private var order: SwapLiveActivityOrder { context.attributes.order }
+  private var etaLocale: Locale { strings?.locale.map { Locale(identifier: $0) } ?? .current }
 
   var body: some View {
     Group {
@@ -133,12 +134,9 @@ private struct SwapActivityETA: View {
 
   @ViewBuilder
   private var pendingETA: some View {
-    if order.isRealOrderOrPushTest {
-      let remaining = order.estimatedEndAt.timeIntervalSinceNow
-      if remaining < 10 {
-        Text(strings?.almostDone ?? "Almost done")
-      } else if let minutes = Int(exactly: ceil(remaining / 60)) {
-        minuteETA(minutes)
+    if context.attributes.usesRemoteUpdates {
+      if #available(iOSApplicationExtension 18.0, *) {
+        remoteETA
       }
     } else if context.state.almostDone == true {
       Text(strings?.almostDone ?? "~Almost done")
@@ -147,10 +145,35 @@ private struct SwapActivityETA: View {
     }
   }
 
+  @available(iOSApplicationExtension 18.0, *)
+  @ViewBuilder
+  private var remoteETA: some View {
+    let now = Date()
+    let end = order.estimatedEndAt
+    if end.timeIntervalSince(now) < 10 {
+      Text(strings?.almostDone ?? "Almost done")
+    } else {
+      let format = SystemFormatStyle.Timer(
+        countingDownIn: now..<end,
+        showsHours: false,
+        maxFieldCount: 1,
+        maxPrecision: .seconds(60)
+      ).locale(etaLocale)
+      let timer = Text(.currentDate, format: format)
+      Group {
+        if compact {
+          timer
+        } else {
+          Text("≈\(timer)")
+        }
+      }
+      .environment(\.locale, etaLocale)
+    }
+  }
+
   @ViewBuilder
   private func minuteETA(_ minutes: Int) -> some View {
-    let locale = strings?.locale.map { Locale(identifier: $0) } ?? .current
-    let number = minutes.formatted(.number.locale(locale))
+    let number = minutes.formatted(.number.locale(etaLocale))
     if let template = strings?.etaTemplate {
       let localizedTemplate = template.replacingOccurrences(of: "~", with: compact ? "" : "≈", options: .anchored)
       Text(localizedTemplate.replacingOccurrences(of: "{number}", with: number))
@@ -236,18 +259,27 @@ private struct SwapActivityArrows: View {
   private let width: CGFloat = 34.9771
   private let height: CGFloat = 14
 
+  private var arrowImage: some View {
+    Image("SwapArrows").renderingMode(.original).resizable().scaledToFit()
+      .frame(width: width, height: height)
+  }
+
   var body: some View {
-    let allowsMotion = !reduceMotion && !isLuminanceReduced
-    let animationUpdate = allowsMotion ? update : nil
     ZStack {
-      Image("SwapArrows").renderingMode(.original).resizable().scaledToFit()
-        .frame(width: width, height: height)
-        .id(animationUpdate)
-        .transition(allowsMotion ? .push(from: .leading) : .identity)
+      if !reduceMotion, !isLuminanceReduced, let update {
+        ZStack {
+          arrowImage
+            .id(update)
+            .transition(.push(from: .leading))
+        }
+        .animation(.easeInOut(duration: 0.625), value: update)
+        .transition(.identity)
+      } else {
+        arrowImage.transition(.identity)
+      }
     }
     .frame(width: width, height: height)
     .clipped()
-    .animation(animationUpdate == nil ? nil : .easeInOut(duration: 0.625), value: animationUpdate)
     .environment(\.layoutDirection, .leftToRight)
     .rotationEffect(.degrees(reversed ? 180 : 0))
     .opacity(reversed ? 0.5 : 1)
@@ -335,6 +367,15 @@ private struct SwapCompactStatus: View {
 
   private var strings: SwapLiveActivityStrings? { sharedLabels ?? context.state.strings ?? context.attributes.strings }
 
+  private var showsETA: Bool {
+    guard !context.isStale else { return false }
+    if context.attributes.usesRemoteUpdates, !context.state.status.isError {
+      if #available(iOSApplicationExtension 18.0, *) { return true }
+      return false
+    }
+    return context.state.displayPhase == "eta"
+  }
+
   private var statusLabel: String {
     if let label = context.remoteStatusLabel(strings: strings) { return label }
     if sharedLabels == nil, let message = context.state.remoteMessage { return message }
@@ -358,8 +399,7 @@ private struct SwapCompactStatus: View {
         .renderingMode(.original).resizable().scaledToFit()
         .frame(width: 22, height: 22)
         .accessibilityLabel(Text(statusLabel))
-    } else if !context.isStale && (context.state.displayPhase == "eta"
-      || (!context.state.status.isError && context.attributes.usesRemoteUpdates)) {
+    } else if showsETA {
       SwapActivityETA(context: context, strings: strings, compact: true)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")
