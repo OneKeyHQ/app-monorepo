@@ -25,7 +25,10 @@ import type {
   ITradingViewNativeMultiChartPanel,
   ITradingViewNativeMultiChartProps,
 } from './TradingViewNativeMultiChart.types';
-import type { ITradingViewNativeMultiChartDrawingTools } from './TradingViewNativeMultiChartPanelContext';
+import type {
+  ITradingViewNativeMultiChartDrawingTools,
+  ITradingViewNativeMultiChartMaximize,
+} from './TradingViewNativeMultiChartPanelContext';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -36,19 +39,40 @@ jest.mock('@onekeyhq/components', () => ({
     children,
     testID,
     'data-selected': selected,
+    'data-maximized': maximized,
+    left,
+    top,
+    width,
+    height,
+    pointerEvents,
   }: {
     children?: ReactNode;
     testID?: string;
     'data-selected'?: string;
+    'data-maximized'?: string;
+    left?: string | number;
+    top?: string | number;
+    width?: string | number;
+    height?: string | number;
+    pointerEvents?: 'none' | 'auto';
   }) => (
-    <div data-testid={testID} data-selected={selected}>
+    <div
+      data-testid={testID}
+      data-selected={selected}
+      data-maximized={maximized}
+      style={{ left, top, width, height, pointerEvents }}
+    >
       {children}
     </div>
   ),
 }));
 
 jest.mock('./TradingViewNativeMultiChartDivider', () => ({
-  TradingViewNativeMultiChartDivider: () => null,
+  TradingViewNativeMultiChartDivider: ({
+    divider,
+  }: {
+    divider: { axis: string; index: number };
+  }) => <span data-testid={`divider-${divider.axis}-${divider.index}`} />,
 }));
 
 jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
@@ -110,6 +134,11 @@ const mockPickInterval = new Map<string, (interval: string) => void>();
 // Moves a panel's chart to an interval by itself, as when it falls back to
 // the one it showed because the data of a new one fails to load.
 const mockFallBackInterval = new Map<string, (interval: string) => void>();
+// What each panel's chart can do to maximize its panel, by panel id.
+const mockMaximize = new Map<
+  string,
+  ITradingViewNativeMultiChartMaximize | undefined
+>();
 
 function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   const label = `${panel.id}:${getTradingViewNativeSourceKey(panel.source)}`;
@@ -137,6 +166,7 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
   mockPanels.set(panel.id, panel);
   if (controlsSlot) mockDrawingTools.set(panel.id, controlsSlot.drawingTools);
+  mockMaximize.set(panel.id, controlsSlot?.maximize);
   const controls = (
     <span data-testid={`controls-${panel.id}`}>{panel.layoutControl}</span>
   );
@@ -399,6 +429,7 @@ beforeEach(() => {
   mockIntervals.clear();
   mockPickInterval.clear();
   mockFallBackInterval.clear();
+  mockMaximize.clear();
 });
 
 // Sizes jsdom does not lay out.
@@ -2918,4 +2949,119 @@ it('opens a split view on the interval of the single chart the option was turned
   fireEvent.click(screen.getByTestId('preset-2h'));
   expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
   expectIntervals({ main: '60', 'panel-2': '60' });
+});
+
+describe('maximizing a panel', () => {
+  // Behind a maximized panel the chart stays mounted at its place, unseen,
+  // and its box takes no press: one later in the tree lies over the
+  // maximized panel.
+  const isCovered = (id: string) => {
+    const panel = getPanel(id);
+    const isHidden =
+      (panel.firstElementChild as HTMLElement).style.visibility === 'hidden';
+    expect(panel.style.pointerEvents === 'none').toBe(isHidden);
+    return isHidden;
+  };
+  const hostSwitches = () =>
+    jest.fn(async (source: ITradingViewNativeSource, harness: IHarness) => {
+      harness.setActiveSource(source);
+      return true;
+    });
+
+  it('fills the grid with a panel, selecting it, and brings the split back', async () => {
+    const onSelectPanel = hostSwitches();
+    const harness = renderGrid({ onSelectPanel });
+    expect(mockMaximize.get('panel-2')?.isMaximized).toBe(false);
+    expect(screen.queryAllByTestId(/^divider-/)).toHaveLength(1);
+
+    // From the keyboard: nothing has pressed the panel to select it.
+    await act(async () => mockMaximize.get('panel-2')?.toggle());
+
+    expect(onSelectPanel).toHaveBeenCalledTimes(1);
+    expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+    expect(getPanel('panel-2').dataset.maximized).toBe('true');
+    expect(getPanel('panel-2').style).toMatchObject({
+      left: '0%',
+      top: '0%',
+      width: '100%',
+      height: '100%',
+    });
+    expect(mockMaximize.get('panel-2')?.isMaximized).toBe(true);
+    expect(isCovered('main')).toBe(true);
+    expect(isCovered('panel-2')).toBe(false);
+    expect(screen.queryAllByTestId(/^divider-/)).toHaveLength(0);
+    const saved = harness.layout;
+
+    await act(async () => mockMaximize.get('panel-2')?.toggle());
+
+    expect(getPanel('panel-2').dataset.maximized).toBeUndefined();
+    expect(getPanel('panel-2').style).toMatchObject({
+      left: '50%',
+      width: '50%',
+    });
+    expect(isCovered('main')).toBe(false);
+    expect(screen.queryAllByTestId(/^divider-/)).toHaveLength(1);
+    expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+    // A view of the grid only: nothing of it is saved.
+    expect(harness.layout).toBe(saved);
+    expect(onSelectPanel).toHaveBeenCalledTimes(1);
+    expect(mockChartUnmount).not.toHaveBeenCalled();
+  });
+
+  it('asks the host once when a press selected the panel first', async () => {
+    const onSelectPanel = hostSwitches();
+    renderGrid({ onSelectPanel });
+
+    await act(async () => press('panel-2'));
+    await act(async () => mockMaximize.get('panel-2')?.toggle());
+
+    expect(onSelectPanel).toHaveBeenCalledTimes(1);
+    expect(getPanel('panel-2').dataset.maximized).toBe('true');
+  });
+
+  it('ends for good when another preset is picked', async () => {
+    const harness = renderGrid({ onSelectPanel: hostSwitches() });
+    const saved = harness.layout;
+
+    act(() => mockMaximize.get('main')?.toggle());
+    expect(getPanel('main').dataset.maximized).toBe('true');
+    expect(harness.layout).toBe(saved);
+
+    fireEvent.click(screen.getByTestId('preset-4'));
+    expect(getPanel('main').dataset.maximized).toBeUndefined();
+    expect(isCovered('panel-4')).toBe(false);
+    expect(screen.queryAllByTestId(/^divider-/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId('preset-2h'));
+    expect(getPanel('main').dataset.maximized).toBeUndefined();
+    expect(isCovered('panel-2')).toBe(false);
+  });
+
+  it('ends with a selection the host turns down, which a later one does not undo', async () => {
+    const onSelectPanel = hostSwitches().mockImplementationOnce(
+      async () => false,
+    );
+    renderGrid({ onSelectPanel });
+
+    await act(async () => mockMaximize.get('panel-2')?.toggle());
+
+    // The host keeps BTC: the selection goes back, and the split with it.
+    expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+    expect(getPanel('panel-2').dataset.maximized).toBeUndefined();
+    expect(isCovered('main')).toBe(false);
+
+    await act(async () => press('panel-2'));
+    expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+    expect(getPanel('panel-2').dataset.maximized).toBeUndefined();
+  });
+
+  it('offers nothing to a single chart', () => {
+    renderGrid({
+      layout: { preset: '1', panels: {} },
+      onSelectPanel: hostSwitches(),
+    });
+
+    expect(mockMaximize.has('main')).toBe(true);
+    expect(mockMaximize.get('main')).toBeUndefined();
+  });
 });
