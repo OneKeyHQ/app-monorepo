@@ -9,6 +9,7 @@ import { render } from '@testing-library/react';
 import type { ITradingViewNativeIndicatorSelection } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+import { TradingViewNativeFullscreenTrailingInsetContext } from './TradingViewNativeFullscreenTrailingInsetContext';
 import { TRADING_VIEW_NATIVE_INDICATOR_CATALOG } from './utils/chartIndicators/indicatorCatalog';
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators/subIndicatorTypes';
 
@@ -78,6 +79,35 @@ describe('TradingViewNative chart controls', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
+
+  it.each([
+    [0, 0],
+    [62, 54],
+  ])(
+    'extends the controls row as far as the rail reaches into a %ipt clear inset',
+    (clearTrailingInset, reach) => {
+      render(
+        <TradingViewNativeFullscreenTrailingInsetContext.Provider
+          value={clearTrailingInset}
+        >
+          <TradingViewNativeChartControlsContainer
+            {...defaultIndicatorSettingsProps}
+            activeIndicatorValues={new Set()}
+            intervalConfig={{ activeInterval: '60', intervals: [] }}
+            isFullscreen
+            onIndicatorChange={jest.fn()}
+            onIntervalChange={jest.fn()}
+          />
+        </TradingViewNativeFullscreenTrailingInsetContext.Provider>,
+      );
+      expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clearTrailingInset: reach,
+          isFullscreen: true,
+        }),
+      );
+    },
+  );
 
   it('exposes intervals and the implemented indicators in mobile layout', () => {
     render(
