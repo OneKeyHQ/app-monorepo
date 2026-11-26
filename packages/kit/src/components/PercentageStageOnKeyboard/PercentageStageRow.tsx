@@ -4,9 +4,11 @@ import { Button, XStack } from '@onekeyhq/components';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
 
 export function PercentageStageRow({
+  disabled,
   onSelectPercentageStage,
   stageList,
 }: {
+  disabled?: boolean;
   onSelectPercentageStage?: (stage: number) => void;
   stageList: number[];
 }) {
@@ -25,6 +27,7 @@ export function PercentageStageRow({
           key={`swap-percentage-input-stage-${stage}`}
           stage={stage}
           borderRadius={0}
+          disabled={disabled}
           onSelectStage={onSelectPercentageStage}
           flex={1}
           justifyContent="center"

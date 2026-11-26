@@ -7,9 +7,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SwapPercentageInputStageForNative } from '@onekeyhq/shared/types/swap/types';
 
 export function PercentageStageOnKeyboard({
+  disabled,
   onSelectPercentageStage,
   stageList,
 }: {
+  disabled?: boolean;
   onSelectPercentageStage?: (stage: number) => void;
   stageList?: number[];
 }) {
@@ -30,6 +32,7 @@ export function PercentageStageOnKeyboard({
 
   return viewShow ? (
     <PercentageStageRow
+      disabled={disabled}
       onSelectPercentageStage={onSelectPercentageStage}
       stageList={stageListToShow}
     />
