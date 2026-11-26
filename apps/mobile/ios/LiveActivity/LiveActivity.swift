@@ -61,6 +61,9 @@ private struct SwapTokenIcon: View {
         Image(uiImage: image).renderingMode(.original).resizable().scaledToFit()
       } else if token.symbol == "USDC" {
         Image("SwapUSDC").resizable().scaledToFit()
+      } else if token.symbol == "ETH", token.isNative == true,
+                token.networkId?.hasPrefix("evm--") == true {
+        Image("SwapEthereum").renderingMode(.original).resizable().scaledToFit()
       } else {
         Text(String(token.symbol.prefix(1)))
           .font(.system(size: size * 0.6, weight: .semibold))
