@@ -1,4 +1,4 @@
-import { type IToastProps, Toast } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -113,13 +113,6 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
   const config = TOAST_CONFIGS[actionType];
   let loadingToast: ReturnType<typeof Toast.loading>;
   let loadingTimer: ReturnType<typeof setTimeout> | undefined;
-  const showResult = (status: 'success' | 'error', props: IToastProps) => {
-    if (loadingToast?.settle(status, props, { showAtFrontOnWeb: true })) {
-      return;
-    }
-    loadingToast?.close();
-    Toast[status](props);
-  };
 
   if (config?.loading) {
     const loadingText =
@@ -136,8 +129,10 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     const result = await asyncFn();
 
     if (loadingTimer) clearTimeout(loadingTimer);
+    loadingToast?.close();
+    loadingToast = undefined;
+
     if (options.shouldShowSuccess?.(result) === false) {
-      loadingToast?.close();
       return result;
     }
 
@@ -154,11 +149,13 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
           : config.successMessage;
     }
 
-    showResult('success', { title: successTitle, message: successMessage });
+    Toast.success({ title: successTitle, message: successMessage });
 
     return result;
   } catch (error) {
     if (loadingTimer) clearTimeout(loadingTimer);
+    loadingToast?.close();
+
     void Promise.resolve()
       .then(async () => {
         const fallbackTitle = extractErrorMessage(error);
@@ -166,10 +163,9 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
           resolveErrorToastTitle(error, fallbackTitle),
           ERROR_LOCALIZATION_TIMEOUT_MS,
         );
-        showResult('error', { title: title ?? fallbackTitle });
+        Toast.error({ title: title ?? fallbackTitle });
       })
       .catch((e: unknown) => {
-        loadingToast?.close();
         defaultLogger.perp.agentLifeCycle.trackReason({
           reason: 'runtime_handle_error_failed',
           statusDetails: {
