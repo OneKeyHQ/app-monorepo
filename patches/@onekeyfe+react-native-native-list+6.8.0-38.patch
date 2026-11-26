@@ -1,8 +1,8 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
-index c7acfa5..a83b800 100644
+index 95c5ccf..4396ac4 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
-@@ -1546,7 +1546,9 @@ function isAllowedImageUri(value) {
+@@ -1590,7 +1590,9 @@ function isAllowedImageUri(value) {
  }
  const IMAGE_FIELDS = ['uri', 'width', 'height', 'headers', 'contentFit', 'cachePolicy', 'autoplay', 'optimizeTos', 'overscan', 'loadingStrategy', 'fallbackUri', 'fallbackUris', 'retryTimes'];
  const ICON_FIELDS = ['name', 'tintColor', 'backgroundColor', 'size', 'accessibilityLabel', 'hoverActionKey'];
@@ -13,7 +13,7 @@ index c7acfa5..a83b800 100644
  const TEXT_STYLE_FIELDS = ['token', 'fontSize', 'fontWeight', 'color', 'lineHeight', 'lines', 'truncate', 'alignment', 'verticalAlignment', 'offsetY', 'letterSpacing', 'tabularNumbers'];
  const ACCESSORY_FIELDS = {
    value: ['kind', 'text', 'secondary', 'textSegments'],
-@@ -1774,7 +1776,9 @@ function sanitizeDecoration(value, field) {
+@@ -1823,7 +1825,9 @@ function sanitizeDecoration(value, field) {
    if (['leading', 'visual', 'secondaryLeading'].includes(field)) {
      if (next.kind === 'image' && !next.image) return {
        kind: 'token',
@@ -24,21 +24,8 @@ index c7acfa5..a83b800 100644
      };
      if (next.kind === 'stackedImages' && (!Array.isArray(next.images) || next.images.length < 2)) return {
        kind: 'token'
-diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
-index 783b8a2..751648b 100644
---- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
-+++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
-@@ -26,6 +26,8 @@ export const nativeListGeneratedIcons = {
-   PlusLargeOutline: 'PlusLargeOutline',
-   PlusSmallOutline: 'PlusSmallOutline',
-   RefreshCcwOutline: 'RefreshCcwOutline',
-+  // OneKey patch: the history table's swap rows use this icon.
-+  SwitchHorOutline: 'SwitchHorOutline',
-   TicketOutline: 'TicketOutline',
-   WalletOutline: 'WalletOutline'
- };
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-index 24cba50..4a0903f 100644
+index 291aba7..2aac0f4 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 @@ -863,6 +863,12 @@ function createVisual(context, visual, selectorPresentation) {
@@ -67,10 +54,10 @@ index 24cba50..4a0903f 100644
      };
      if (image) image.addEventListener('error', showFallback, {
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-index e4ac102..7ed25ef 100644
+index 776bdb6..9a087a8 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-@@ -263,6 +263,10 @@ type VisualWithImage = Readonly<{
+@@ -265,6 +265,10 @@ type VisualWithImage = Readonly<{
      image?: ImageSource;
      fallbackText?: string;
      fallbackTextColor?: string;
@@ -82,10 +69,10 @@ index e4ac102..7ed25ef 100644
      shape?: 'circle' | 'rounded' | 'square';
      cornerIcon?: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-index a19bcab..a606844 100644
+index e73b0bd..db2c5c5 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-@@ -381,6 +381,10 @@ type VisualWithImage = Readonly<{
+@@ -385,6 +385,10 @@ type VisualWithImage = Readonly<{
    image?: ImageSource;
    fallbackText?: string;
    fallbackTextColor?: string;
@@ -97,10 +84,10 @@ index a19bcab..a606844 100644
    shape?: 'circle' | 'rounded' | 'square';
    cornerIcon?: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
-index e9ff670..f8f71af 100644
+index ac67bb2..5fa37f3 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
-@@ -3429,6 +3429,9 @@ const VISUAL_FIELDS = [
+@@ -3565,6 +3565,9 @@ const VISUAL_FIELDS = [
    'fallbackIcon',
    'fallbackText',
    'fallbackTextColor',
@@ -110,7 +97,7 @@ index e9ff670..f8f71af 100644
    'overlays',
    'borderStyle',
    'borderColor',
-@@ -4083,6 +4086,9 @@ function sanitizeDecoration(value: unknown, field: string): unknown {
+@@ -4226,6 +4229,9 @@ function sanitizeDecoration(value: unknown, field: string): unknown {
            'fallbackIcon',
            'fallbackText',
            'fallbackTextColor',
@@ -120,24 +107,11 @@ index e9ff670..f8f71af 100644
          ]),
        };
      if (
-diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
-index 015e83f..30b82fc 100644
---- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
-+++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
-@@ -24,6 +24,8 @@ export const nativeListGeneratedIcons: Readonly<Record<string, string>> = {
-   PlusLargeOutline: 'PlusLargeOutline',
-   PlusSmallOutline: 'PlusSmallOutline',
-   RefreshCcwOutline: 'RefreshCcwOutline',
-+  // OneKey patch: the history table's swap rows use this icon.
-+  SwitchHorOutline: 'SwitchHorOutline',
-   TicketOutline: 'TicketOutline',
-   WalletOutline: 'WalletOutline',
- };
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-index dba05a2..da837e1 100644
+index 5eb819d..fbb7c98 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-@@ -1424,6 +1424,16 @@ function createVisual(
+@@ -1430,6 +1430,16 @@ function createVisual(
          !fallbackIcon
        )
          fallback.style.color = visual.fallbackTextColor;
@@ -154,7 +128,7 @@ index dba05a2..da837e1 100644
        if (fallbackIcon) {
          applySelectorIcon(fallback, fallbackIcon.name);
          if (fallbackIcon.tintColor)
-@@ -1438,10 +1448,15 @@ function createVisual(
+@@ -1444,10 +1454,15 @@ function createVisual(
            }
          }
        }

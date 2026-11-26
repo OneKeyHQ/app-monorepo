@@ -1,1 +1,1 @@
-export { scanFromURLAsync } from './index.web';
+export { scanFromURLAsync, scanSymbolsFromURLAsync } from './index.web';

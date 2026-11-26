@@ -22,6 +22,7 @@ import { DESKTOP_MODE_UI_PAGE_BORDER_WIDTH } from '@onekeyhq/components/src/util
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useRateDifferenceAtom,
   useSwapActions,
@@ -47,6 +48,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -102,8 +104,11 @@ const SWAP_AMOUNT_FONT_SIZE_TOKEN = '$heading4xl';
 
 // A raised surface: a crisp hairline and a shadow that falls only below. On
 // dark surfaces the black shadow fades out and the theme-aware hairline
-// remains. Native draws the hairline as a border instead.
-export const SWAP_RAISED_SHADOW = `0 0 0 ${DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}px var(--borderSubdued), 0 1px 1px -0.5px rgba(0, 0, 0, 0.05), 0 3px 4px -3px rgba(0, 0, 0, 0.07)`;
+// remains. Native has no CSS variables, so it draws the hairline itself and
+// takes only the drop shadow.
+export const SWAP_RAISED_DROP_SHADOW =
+  '0 1px 1px -0.5px rgba(0, 0, 0, 0.05), 0 3px 4px -3px rgba(0, 0, 0, 0.07)';
+export const SWAP_RAISED_SHADOW = `0 0 0 ${DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}px var(--borderSubdued), ${SWAP_RAISED_DROP_SHADOW}`;
 // The token pill's edge: the same hairline as the pay card.
 const SWAP_TOKEN_PILL_EDGE = platformEnv.isNative
   ? ({
@@ -117,6 +122,9 @@ const SWAP_RECEIVE_CARD_SURFACE = {
   bg: '$bgSubdued',
   borderWidth: '$0',
 } as const;
+// In dark mode the pay card's shadow is lost against the surface and $bg sits
+// only two steps above the receive card, so a lighter fill does the lifting.
+const SWAP_PAY_CARD_DARK_BG = '$gray3';
 
 // The pay card's own controls keep their presses; anywhere else on the card a
 // press goes to the amount.
@@ -222,6 +230,7 @@ const SwapInputContainer = ({
     ? getTokenIdentityKey(tokenSelectorDisplayToken) || undefined
     : undefined;
   const balanceDisplayToken = token?.symbol ? token : tokenSelectorDisplayToken;
+  const isXmrBalance = isXmrSwapNetwork(balanceDisplayToken?.networkId);
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [balanceDisplayCache] = useSwapBalanceDisplayCacheAtom();
   const currentBalanceDisplayAccountKey =
@@ -321,6 +330,19 @@ const SwapInputContainer = ({
     ],
   );
   const displayBalance = useMemo(() => {
+    if (isXmrBalance) {
+      return resolveVerifiedSwapBalance({
+        balance,
+        token: balanceDisplayToken,
+        balanceMeta:
+          direction === ESwapDirectionType.FROM
+            ? swapSelectedTokenBalanceMeta.from
+            : swapSelectedTokenBalanceMeta.to,
+        accountAddress: address,
+        accountIdentity: buildSwapBalanceAccountIdentity(activeAccount),
+        isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
+      });
+    }
     const cachedBalance =
       resolveSwapBalanceDisplayCacheEntry({
         accountAddress: address,
@@ -343,12 +365,17 @@ const SwapInputContainer = ({
         ) ?? '')
       : rawBalance;
   }, [
+    activeAccount,
     address,
     balance,
     balanceDisplayAccountKey,
     balanceDisplayCache,
     balanceDisplayToken,
     coldStartBalanceDisplayEntry?.balance,
+    direction,
+    isXmrBalance,
+    swapAddressInfo.isAddressInfoReady,
+    swapSelectedTokenBalanceMeta,
     token,
   ]);
   const showBalanceSkeleton = useMemo(
@@ -357,9 +384,16 @@ const SwapInputContainer = ({
         balanceDisplayToken &&
         address &&
         !displayBalance &&
-        (balanceLoading || !balance),
+        (balanceLoading || (!isXmrBalance && !balance)),
       ),
-    [address, balance, balanceDisplayToken, balanceLoading, displayBalance],
+    [
+      address,
+      balance,
+      balanceDisplayToken,
+      balanceLoading,
+      displayBalance,
+      isXmrBalance,
+    ],
   );
 
   const fromInputHasError = useMemo(() => {
@@ -370,7 +404,11 @@ const SwapInputContainer = ({
         (accountUtils.isHdWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isHwWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id })));
-    const balanceBN = new BigNumber(fromTokenBalance ?? 0);
+    const balanceBN = new BigNumber(
+      direction === ESwapDirectionType.FROM && isXmrBalance
+        ? (displayBalance ?? NaN)
+        : (fromTokenBalance ?? 0),
+    );
     const amountValueBN = new BigNumber(
       fromToken
         ? (getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down') ??
@@ -391,9 +429,11 @@ const SwapInputContainer = ({
     direction,
     address,
     accountInfo?.wallet?.id,
+    displayBalance,
     fromTokenBalance,
     fromTokenAmount,
     fromToken,
+    isXmrBalance,
   ]);
   const valueMoreComponent = useMemo(() => {
     if (
@@ -415,9 +455,13 @@ const SwapInputContainer = ({
     useState(false);
 
   const amountInputRef = useRef<IInputRef>(null);
+  // Set each render: true while the amount can't be typed, e.g. while a quote
+  // works it out from the receive amount.
+  const amountLockedRef = useRef(false);
   // A press anywhere on the pay card types into its amount. On web it lands
   // on mousedown, so the amount never blurs on the way to it.
   const handlePayCardPress = useCallback(() => {
+    if (amountLockedRef.current) return;
     amountInputRef.current?.focus();
   }, []);
   const handlePayCardMouseDown = useCallback(
@@ -429,6 +473,7 @@ const SwapInputContainer = ({
     }) => {
       const { target, currentTarget } = event;
       if (
+        amountLockedRef.current ||
         event.button !== 0 ||
         !(target instanceof Element) ||
         !(currentTarget instanceof HTMLElement) ||
@@ -565,9 +610,10 @@ const SwapInputContainer = ({
     direction === ESwapDirectionType.FROM
       ? getSwapBalanceActionProps({
           isLoadedZero: isFromBalanceLoadedZero,
+          isUnavailable: isXmrBalance && !!address && !displayBalance,
           refreshing: !!balanceLoading,
           onRefresh: refreshTokenBalance,
-          onMax: onBalanceMaxPress,
+          onMax: isXmrBalance ? undefined : onBalanceMaxPress,
         })
       : undefined;
 
@@ -596,21 +642,25 @@ const SwapInputContainer = ({
     }
     return false;
   }, [direction, swapTypeSwitch, fromToken, toToken]);
+  amountLockedRef.current = !!(readOnly || inputIsLoading);
   // Subdued only while the receive amount is a computed result; in Limit mode
   // it is editable and must not look disabled.
   const amountInputColor =
     direction === ESwapDirectionType.TO && readOnly
       ? '$textSubdued'
       : undefined;
+  const themeVariant = useThemeVariant();
+  const payCardBg = themeVariant === 'dark' ? SWAP_PAY_CARD_DARK_BG : '$bg';
   const payCardProps = platformEnv.isNative
     ? {
-        bg: '$bg',
+        bg: payCardBg,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: '$borderSubdued',
+        style: { boxShadow: SWAP_RAISED_DROP_SHADOW },
         onPress: handlePayCardPress,
       }
     : {
-        bg: '$bg',
+        bg: payCardBg,
         borderWidth: '$0',
         boxShadow: SWAP_RAISED_SHADOW,
         onMouseDown: handlePayCardMouseDown,
@@ -680,6 +730,10 @@ const SwapInputContainer = ({
           ref: amountInputRef,
           height: SWAP_AMOUNT_INPUT_HEIGHT,
           fontSize: getFontSize(SWAP_AMOUNT_FONT_SIZE_TOKEN),
+          // Native text fields clip the amount to the box inside their
+          // padding, and the Input's vertical padding leaves that shorter
+          // than the digits.
+          ...(platformEnv.isNative ? { py: '$0' } : {}),
           placeholder: '0.0',
           // The receive amount is worked out from the pay amount, so its
           // empty 0.0 sits lighter than the pay placeholder until a quote

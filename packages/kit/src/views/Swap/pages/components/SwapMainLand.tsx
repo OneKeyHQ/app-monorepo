@@ -110,6 +110,7 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -1017,7 +1018,12 @@ const SwapMainLoad = ({
   ]);
 
   const onBalanceMaxPress = useCallback(() => {
-    if (multiplierStatus !== 'ready') return;
+    // XMR fees are known once the exact provider transfer has been built.
+    if (
+      multiplierStatus !== 'ready' ||
+      isXmrSwapNetwork(fromSelectToken?.networkId)
+    )
+      return;
     const maxAmount = checkNativeTokenGasToast();
     if (!maxAmount || maxAmount.isNaN() || !maxAmount.isFinite()) {
       return;

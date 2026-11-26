@@ -2,6 +2,7 @@ import { createHash, createPublicKey, verify } from 'crypto';
 
 import axios from 'axios';
 
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   assertHardwareCloudSyncAuthMessage,
@@ -15,6 +16,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHardwareCloudSyncSession } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -130,6 +132,88 @@ describe('hardware Cloud sync session', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  test('uses the actual official base path for a same-environment session', async () => {
+    const baseURL = 'https://prime-new.example.invalid/gateway';
+    jest.replaceProperty(
+      endpointsMap.prod,
+      EServiceEndpointEnum.Prime,
+      baseURL,
+    );
+    const { client, post } = fakeClient();
+    const current = {
+      ...session('https://prime-old.example.invalid'),
+      environment: 'prod' as const,
+    };
+    client.defaults.baseURL = baseURL;
+    post.mockResolvedValue(ok({ nonce: 1 }));
+    const urlPath = '/prime/v1/sync/check';
+    const send = () =>
+      requestWithHardwareCloudSyncSession({
+        client,
+        session: current,
+        method: 'POST',
+        urlPath,
+      });
+    await expect(send()).resolves.toEqual({ nonce: 1 });
+    const config = post.mock.calls[0][2] as {
+      baseURL: string;
+      headers: Record<string, string>;
+    };
+    expect(config.baseURL).toBe(baseURL);
+    expect(config.headers.Authorization).toBe(`DPoP ${current.accessToken}`);
+    expect(
+      JSON.parse(
+        Buffer.from(config.headers.DPoP.split('.')[1], 'base64url').toString(),
+      ),
+    ).toMatchObject({
+      htu: `${baseURL}${urlPath}`,
+      htm: 'POST',
+    });
+    post.mockClear();
+    for (const other of [
+      endpointsMap.test.prime,
+      'https://custom.example.invalid/gateway',
+    ]) {
+      client.defaults.baseURL = other;
+      await expect(send()).rejects.toThrow();
+    }
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  test.each(['business', 'refresh'] as const)(
+    'rechecks the official address after waiting for the clock for %s',
+    async (operation) => {
+      const { client, post } = fakeClient();
+      const current = { ...session(), environment: 'prod' as const };
+      client.defaults.baseURL = endpointsMap.prod.prime;
+      jest
+        .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+        .mockImplementationOnce(async () => {
+          jest.replaceProperty(
+            endpointsMap.prod,
+            EServiceEndpointEnum.Prime,
+            'https://prime-new.example.invalid',
+          );
+          return true;
+        });
+      const request =
+        operation === 'business'
+          ? requestWithHardwareCloudSyncSession({
+              client,
+              session: current,
+              method: 'POST',
+              urlPath: '/prime/v1/sync/check',
+            })
+          : refreshHardwareCloudSyncSessionIfNeeded({
+              client,
+              session: current,
+              force: true,
+            });
+      await expect(request).rejects.toThrow();
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
 
   test('forwards reconciliation cancellation and timeout without replacing auth headers', async () => {
     const c = fakeClient();

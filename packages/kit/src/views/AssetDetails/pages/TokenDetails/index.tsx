@@ -126,6 +126,7 @@ export type IProps = {
   };
   refreshAllNetworkState?: () => void;
   privacyHistoryPoolId?: number;
+  starknetPrivacyMode?: 'public' | 'private';
   // The page's own settings, so a privacy chain's header lays out from its
   // first frame instead of after its own read.
   privacyChainVaultSettings?: IVaultSettings;

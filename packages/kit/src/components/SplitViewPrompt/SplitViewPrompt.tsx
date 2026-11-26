@@ -11,16 +11,20 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-const DIALOG_LOAD_ATTEMPTS = 3;
-
 // Loaded on use: the dialog only opens on split-capable tablets, so it stays
-// off the startup graph. A failed load retries a few times before giving up.
+// off the startup graph. Production builds load it through the native segment
+// loader, which already retries, so they import once per prompt attempt. The
+// Metro loader in development builds fetches once, so those retry here.
+const DIALOG_LOAD_ATTEMPTS = platformEnv.isDev ? 3 : 1;
+
 async function loadSplitViewPromptDialog() {
   for (let attempt = 1; attempt <= DIALOG_LOAD_ATTEMPTS; attempt += 1) {
     try {
       return await import('./showSplitViewPromptDialog');
     } catch {
-      if (attempt < DIALOG_LOAD_ATTEMPTS) await timerUtils.wait(1000 * attempt);
+      if (attempt < DIALOG_LOAD_ATTEMPTS) {
+        await timerUtils.wait(1000 * attempt);
+      }
     }
   }
   return undefined;
@@ -58,7 +62,8 @@ export function SplitViewPrompt() {
         if (visited) return;
         const dialog = await loadSplitViewPromptDialog();
         if (!dialog) {
-          // Let a later split-capable render try again.
+          // Let the next run of this effect (a spanning change, or the next
+          // launch) try again.
           firedRef.current = false;
           return;
         }

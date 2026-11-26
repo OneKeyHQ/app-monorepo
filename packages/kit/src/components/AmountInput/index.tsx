@@ -436,6 +436,9 @@ export function AmountInput({
           py="$1"
           borderRadius={6}
           onPress={balanceActionPress}
+          // A button while it has an action, so a surrounding press target
+          // leaves the press to it.
+          role={balanceActionPress ? 'button' : undefined}
           testID={balanceProps.testID}
           {...(enableMaxAmount && balanceActionPress
             ? {

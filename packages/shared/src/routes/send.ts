@@ -14,6 +14,7 @@ import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
+import type { IStrk20TransferKind } from '../../types/starknetPrivacy';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 import type { IZcashMemoEncoding } from '../utils/zcashMemo';
 
@@ -35,6 +36,7 @@ export enum EModalSendRoutes {
 export type IModalSendParamList = {
   [EModalSendRoutes.SendSelectToken]: ITokenSelectorParamList;
   [EModalSendRoutes.SendDataInput]: {
+    starknetPrivacyKind?: IStrk20TransferKind;
     networkId: string;
     accountId: string;
     isNFT: boolean;
@@ -49,6 +51,7 @@ export type IModalSendParamList = {
     localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSendRoutes.SendAmountInput]: {
+    starknetPrivacyKind?: IStrk20TransferKind;
     networkId: string;
     accountId: string;
     isNFT: boolean;

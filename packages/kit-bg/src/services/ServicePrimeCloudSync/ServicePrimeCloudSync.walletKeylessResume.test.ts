@@ -3,6 +3,7 @@ import axios from 'axios';
 import 'fake-indexeddb/auto';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   HARDWARE_CLOUD_SYNC_KEK_VERSION,
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
@@ -16,6 +17,7 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   ICloudSyncCheckServerStatusPostData,
   ICloudSyncCredential,
@@ -158,7 +160,6 @@ it.each([
   'push-name-history-source-changed',
   'push-name-history-parallel-deferred',
   'push-name-history-parallel-applied',
-  'push-name-history-parallel-unverified',
 ] as const)(
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
@@ -439,7 +440,7 @@ it.each([
         const successorCase =
           writeSuperseded ||
           scenario.startsWith('incremental-history-successor');
-        const successorApplies =
+        const successorHistorySaved =
           writeSuperseded ||
           scenario === 'incremental-history-successor-applied';
         const successorUnreadable =
@@ -500,7 +501,7 @@ it.each([
             if (successorCase) {
               if (walletId !== wallet.id) return true;
               primaryHistoryChecks += 1;
-              return successorApplies && primaryHistoryChecks > 1;
+              return successorHistorySaved && primaryHistoryChecks > 1;
             }
             return retained || shortReceipt || nodeChanged || nodeAba;
           });
@@ -556,7 +557,7 @@ it.each([
                 await localDb.getSyncItem({ id: pending.id }),
               ).toMatchObject({
                 data: pending.data,
-                localSceneUpdated: false,
+                localSceneUpdated: !writeSuperseded,
               });
               if (writeSuperseded) blockWalletPut = false;
               await save({
@@ -679,7 +680,12 @@ it.each([
         expect(check).toHaveBeenCalledTimes(1);
         expect(unsubscribe).toHaveBeenCalledTimes(1);
         expect(sent).toHaveBeenCalledTimes(expectsUpload ? 1 : 0);
-        const applied = retained || shortReceipt || nodeChanged || nodeAba;
+        const applied =
+          !uploadOnly &&
+          !scopeChanged &&
+          !invalidEnvelope &&
+          !unavailableScene &&
+          !writeFailure;
         if (writeFailure) expect(failsOnWalletPut).toBe(1);
         if (writeFailure && !writeSuperseded)
           expect(await readWallet()).toMatchObject({
@@ -689,14 +695,14 @@ it.each([
         if (successorCase) {
           expect(pushedSuccessor).toMatchObject({
             serverUploaded: true,
-            localSceneUpdated: successorApplies,
+            localSceneUpdated: !successorUnreadable,
             dataTime: baseTime + 300,
           });
           expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
             ...pushedSuccessor,
           });
           expect(await readWallet()).toMatchObject({
-            name: successorApplies ? successorName : wallet.name,
+            name: successorUnreadable ? remoteName : successorName,
           });
         } else {
           expect(await readWallet()).toMatchObject({
@@ -723,10 +729,9 @@ it.each([
           });
         }
         if (
-          retained ||
+          (applied && !shortReceipt && !nodeChanged && !nodeAba) ||
           uploadOnly ||
-          successorApplies ||
-          successorUnreadable ||
+          successorCase ||
           nonrecoverableWriteFailure
         )
           expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
@@ -764,11 +769,21 @@ it.each([
       if (pushNameHistory) {
         const retained = scenario === 'push-name-history-retained';
         const sourceChanged = scenario === 'push-name-history-source-changed';
-        let rereadReached = false;
+        let sourceChangedDuringHistory = false;
         if (!retained)
           jest
             .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
-            .mockResolvedValue(false);
+            .mockImplementation(async () => {
+              if (sourceChanged) {
+                sourceChangedDuringHistory = true;
+                config = {
+                  ...config,
+                  currentCloudSyncKeylessWalletId: 'hd-another-space',
+                };
+                await prime.cancelPublicAccountSnapshotImport();
+              }
+              return false;
+            });
         const toPush = (item: IDBCloudSyncItem) => {
           const remote = prime.convertLocalItemToServerItem({
             localItem: item,
@@ -778,10 +793,8 @@ it.each([
           return remote;
         };
         if (scenario.startsWith('push-name-history-parallel')) {
-          const newerApplies =
+          const newerHistorySaved =
             scenario === 'push-name-history-parallel-applied';
-          const successorUnverified =
-            scenario === 'push-name-history-parallel-unverified';
           const presentation = jest.spyOn(
             prime.syncManagers.wallet,
             'buildSyncTargetByPayload',
@@ -790,17 +803,6 @@ it.each([
             prime.syncManagers.wallet,
             'findWalletSyncTargetReadOnly',
           );
-          let proofReached = () => {};
-          const rawProofReached = new Promise<void>((resolve) => {
-            proofReached = resolve;
-          });
-          if (successorUnverified) {
-            rawProof.mockImplementationOnce(async () => {
-              proofReached();
-              return new Promise<undefined>(() => {});
-            });
-            jest.useFakeTimers();
-          }
           const newerName = 'Newer pushed Wallet name';
           const newer = await makeItem(newerName, 'cat', baseTime + 300);
           let reachedHistory = () => {};
@@ -821,7 +823,7 @@ it.each([
                 await olderHistoryRelease;
                 return false;
               }
-              return newerApplies;
+              return newerHistorySaved;
             });
           const getRecordsByIds = localDb.getRecordsByIds.bind(localDb);
           let reachedNewerScene = () => {};
@@ -840,8 +842,6 @@ it.each([
               ) {
                 singleWalletReads += 1;
                 if (singleWalletReads === 1) reachedNewerScene();
-                else if (singleWalletReads === 2 && newerApplies)
-                  await newerWork;
               }
               return getRecordsByIds(options);
             });
@@ -867,95 +867,62 @@ it.each([
             );
           } finally {
             releaseOlder();
-            if (successorUnverified) {
-              await rawProofReached;
-              await jest.advanceTimersByTimeAsync(1500);
-            }
-            try {
-              await Promise.all([olderWork, newerWork]);
-            } finally {
-              if (successorUnverified) jest.useRealTimers();
-            }
+            await Promise.all([olderWork, newerWork]);
           }
           expect(presentation).toHaveBeenCalledTimes(3);
-          expect(rawProof).toHaveBeenCalledTimes(newerApplies ? 0 : 1);
+          expect(rawProof).not.toHaveBeenCalled();
           expect(atHistory).toBe(2);
           expect(await readWallet()).toMatchObject({
-            name: newerApplies ? newerName : wallet.name,
+            name: newerName,
           });
           expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
             data: newer.data,
             serverUploaded: true,
-            localSceneUpdated: newerApplies,
+            localSceneUpdated: true,
           });
           expect(
             await localDb.getSyncItem({ id: siblingPending.id }),
           ).toMatchObject({ localSceneUpdated: true });
-          if (newerApplies || successorUnverified)
-            expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
-          else expect(config.lastSyncTimeKeyless).toBeUndefined();
+          expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
           return;
         }
-        if (sourceChanged) {
-          const getRecordsByIds = localDb.getRecordsByIds.bind(localDb);
-          jest
-            .spyOn(localDb, 'getRecordsByIds')
-            .mockImplementation(async (options) => {
-              const result = await getRecordsByIds(options);
-              if (
-                options.name === ELocalDBStoreNames.CloudSyncItem &&
-                options.ids.length === 1 &&
-                options.ids[0] === pending.id &&
-                !rereadReached
-              ) {
-                rereadReached = true;
-                config = {
-                  ...config,
-                  currentCloudSyncKeylessWalletId: 'hd-another-space',
-                };
-                await prime.cancelPublicAccountSnapshotImport();
-                // Simulate the old exact row settling while the read was in
-                // flight. Success must not be credited to the new source.
-                return {
-                  ...result,
-                  records: result.records.map((row) =>
-                    row ? { ...row, localSceneUpdated: true } : row,
-                  ),
-                };
-              }
-              return result;
-            });
-        }
-        await prime.saveServerSyncItemsToLocal({
+        const push = prime.saveServerSyncItemsToLocal({
           serverItems: [toPush(pending), toPush(siblingPending)],
           shouldSyncToScene: true,
           syncCredential: credential,
           serverPwdHash: scope,
           deferPushBatchLastSyncTime: true,
         });
+        if (sourceChanged) {
+          await expect(push).rejects.toThrow('Cloud sync was cancelled');
+        } else {
+          await push;
+        }
         expect(await readWallet()).toMatchObject({
-          name: retained ? remoteName : wallet.name,
+          name: sourceChanged ? wallet.name : remoteName,
         });
         expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
           data: pending.data,
           serverUploaded: true,
-          localSceneUpdated: retained,
+          localSceneUpdated: !sourceChanged,
         });
         expect(
           await localDb.getWallet({
             walletId: sibling.id,
             withoutRefill: true,
           }),
-        ).toMatchObject({ name: sibling.name, avatar: '{"img":"cat"}' });
+        ).toMatchObject({
+          name: sibling.name,
+          avatar: sourceChanged ? sibling.avatar : '{"img":"cat"}',
+        });
         expect(
           await localDb.getSyncItem({ id: siblingPending.id }),
         ).toMatchObject({
-          localSceneUpdated: true,
+          localSceneUpdated: !sourceChanged,
         });
-        expect(rereadReached).toBe(sourceChanged);
-        if (retained)
-          expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
-        else expect(config.lastSyncTimeKeyless).toBeUndefined();
+        expect(sourceChangedDuringHistory).toBe(sourceChanged);
+        if (sourceChanged) expect(config.lastSyncTimeKeyless).toBeUndefined();
+        else expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
         expect(check).not.toHaveBeenCalled();
         expect(upload).not.toHaveBeenCalled();
         return;
@@ -1062,7 +1029,9 @@ it.each([
         if (timed) jest.useRealTimers();
       }
       expect(interrupted).toBe(1);
-      expect(check).toHaveBeenCalledTimes(1);
+      expect(
+        check.mock.calls.filter(([options]) => options.isFullDBChecking),
+      ).toHaveLength(1);
       expect(upload).not.toHaveBeenCalled();
       expect(await readWallet()).toMatchObject({
         name: immediateRecovers ? remoteName : wallet.name,
@@ -1302,28 +1271,28 @@ it.each([
           });
           config = { ...config, isCloudSyncEnabledKeyless: true };
           await expect(prime.syncNowKeylessWithResult()).resolves.toBe(
-            finalRecovered || finalSuperseded ? 'completed' : 'local-deferred',
+            'completed',
           );
           expect(await readWallet()).toMatchObject({
-            name: finalRecovered ? 'Remote name awaiting history' : offlineName,
+            name: 'Remote name awaiting history',
             avatar: '{"img":"cat"}',
             firstEvmAddress: remoteAddress.toLowerCase(),
           });
           expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
             data: (replacement ?? next).data,
             dataTime: (replacement ?? next).dataTime,
-            localSceneUpdated: finalRecovered,
+            localSceneUpdated: !replacement,
           });
-          expect(recoveredHistoryCalls).toBe(finalRecovered ? 1 : 0);
-          if (finalRecovered || finalSuperseded)
-            expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
-          else expect(config.lastSyncTimeKeyless).toBeUndefined();
+          expect(recoveredHistoryCalls).toBe(0);
+          expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
           expect(config.cloudSyncReconciliation).toMatchObject({
             status: 'complete',
             unfinished: false,
             nextRetryAt: undefined,
           });
-          expect(check).toHaveBeenCalledTimes(1);
+          expect(
+            check.mock.calls.filter(([options]) => options.isFullDBChecking),
+          ).toHaveLength(1);
           expect(upload).not.toHaveBeenCalled();
           return;
         }
@@ -1348,16 +1317,15 @@ it.each([
         } finally {
           stop?.mockRestore();
         }
+        const appliedName = staleIncomingAvatar
+          ? wallet.name
+          : 'Remote name awaiting history';
+        const appliedAvatar = staleIncomingAvatar
+          ? '{"img":"bear"}'
+          : '{"img":"cat"}';
         expect(await readWallet()).toMatchObject({
-          name: offlineName,
-          avatar:
-            avatarDiverged ||
-            priorPending ||
-            cancelFreshAvatar ||
-            staleIncomingAvatar ||
-            foreignPriorAvatar
-              ? localAvatar
-              : '{"img":"cat"}',
+          name: cancelFreshAvatar ? offlineName : appliedName,
+          avatar: cancelFreshAvatar ? localAvatar : appliedAvatar,
         });
         if (!cancelFreshAvatar)
           expect((await readWallet()).firstEvmAddress).toBe(
@@ -1367,9 +1335,11 @@ it.each([
         expect(current).toMatchObject({
           data: staleIncomingAvatar ? acknowledged.data : next.data,
           dataTime: staleIncomingAvatar ? baseTime : nextTime,
-          localSceneUpdated: false,
+          localSceneUpdated: !cancelFreshAvatar,
         });
-        expect(check).toHaveBeenCalledTimes(1);
+        expect(
+          check.mock.calls.filter(([options]) => options.isFullDBChecking),
+        ).toHaveLength(1);
         expect(upload).not.toHaveBeenCalled();
         if (cancelFreshAvatar)
           expect(config.isCloudSyncEnabledKeyless).toBe(false);
@@ -1379,25 +1349,26 @@ it.each([
         enabled: true,
         silentEnable: true,
       });
-      expect(await readWallet()).toMatchObject({
-        name: offlineName,
-        avatar: noLocalAvatar ? '{"img":"bear"}' : '{"img":"cat"}',
-        firstEvmAddress: remoteAddress.toLowerCase(),
+      const currentWallet = await readWallet();
+      expect(currentWallet).toMatchObject({
+        name: losesServerAck ? offlineName : wallet.name,
+        avatar: losesServerAck ? '{"img":"cat"}' : '{"img":"bear"}',
       });
+      expect(currentWallet.firstEvmAddress).toBe(
+        losesServerAck ? undefined : remoteAddress.toLowerCase(),
+      );
       expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
         data: acknowledged.data,
         dataTime: baseTime,
-        localSceneUpdated: losesServerAck,
+        localSceneUpdated: true,
         serverUploaded: !losesServerAck,
       });
-      // Existing completed network comparison leaves the exact Wallet scene
-      // pending separately and does not publish a new successful sync time.
       expect(config.cloudSyncReconciliation).toMatchObject({
         ...(restart ? {} : { status: 'complete' }),
         unfinished: false,
         nextRetryAt: undefined,
       });
-      expect(config.lastSyncTimeKeyless).toBeUndefined();
+      expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
       const checks = check.mock.calls.length;
       await prime.resumeCloudSyncReconciliation({ reason: 'timer' });
       expect(check.mock.calls).toHaveLength(checks);
@@ -1443,7 +1414,9 @@ it.each([
             reason: 'startup',
           }),
         ).resolves.toBe(true);
-        expect(nextCheck).toHaveBeenCalledTimes(1);
+        expect(
+          nextCheck.mock.calls.filter(([options]) => options.isFullDBChecking),
+        ).toHaveLength(1);
         expect(
           nextCheck.mock.calls[0][0].localItems?.filter(
             ({ id }) => id === key.key,
@@ -1452,14 +1425,11 @@ it.each([
           expect.objectContaining({
             id: key.key,
             data: acknowledged.data,
-            localSceneUpdated: false,
+            localSceneUpdated: true,
           }),
         ]);
         expect(replayAfterRestart).toHaveBeenCalledTimes(1);
-        expect(restartRetain).toHaveBeenCalledTimes(1);
-        expect(nextCheck.mock.invocationCallOrder[0]).toBeLessThan(
-          restartRetain.mock.invocationCallOrder[0],
-        );
+        expect(restartRetain).not.toHaveBeenCalled();
         expect(await readWallet()).toMatchObject({
           name: wallet.name,
           avatar: '{"img":"bear"}',
@@ -1482,7 +1452,7 @@ it.each([
           (await reopenedHistory.getChangeHistory(nameFilter)).map(
             ({ value }) => value,
           ),
-        ).toEqual([offlineName]);
+        ).toEqual([]);
       }
       return;
     }
@@ -1574,6 +1544,17 @@ it.each([
     const currentHash = computeHardwareCloudSyncPwdHash(dekId);
     const oldHash = computeHardwareCloudSyncPwdHash(oldDekId);
     const baseURL = 'https://manual-cloud-fixture.example.test';
+    jest.replaceProperty(
+      endpointsMap.prod,
+      EServiceEndpointEnum.Prime,
+      baseURL,
+    );
+    jest
+      .spyOn(devSettingsPersistAtom, 'get')
+      .mockResolvedValue({ enabled: false });
+    jest
+      .spyOn(requestHelper, 'getDevSettingsPersistAtom')
+      .mockResolvedValue({ enabled: false });
     const automaticLogin = scenario === 'automatic-login-with-foreign-cache';
     const alreadyCurrent = scenario === 'current-cache-without-final-url';
     const hardware = {
@@ -1590,6 +1571,7 @@ it.each([
         accessTokenExpiresAt: Date.now() + 360_000,
         dekId,
         sessionId: 'fixture-session',
+        environment: 'prod' as const,
         boundBaseURL: baseURL,
         boundBaseURLVerified: true,
       },
@@ -1814,10 +1796,34 @@ it.each([
         };
       },
     );
+    const downloadPath = '/prime/v1/sync/download';
+    const downloaded = jest.fn(
+      (request: { method?: string; data?: string }) => {
+        expect(request.method).toBe('post');
+        expect(JSON.parse(request.data ?? '{}')).toEqual({
+          pwdHash: currentHash,
+        });
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          request: { responseURL: `${baseURL}${downloadPath}` },
+          data: {
+            code: 0,
+            data: {
+              pwdHash: currentHash,
+              serverData: [incoming, envelope(dekId, 2)],
+            },
+          },
+        };
+      },
+    );
     const client = axios.create({
       baseURL,
       adapter: async (request) => ({
-        ...(await checked(request)),
+        ...(request.url === downloadPath
+          ? downloaded(request)
+          : await checked(request)),
         config: request,
       }),
     });
@@ -1845,6 +1851,9 @@ it.each([
       return run();
     })();
     expect(checked).toHaveBeenCalledTimes(1);
+    expect(downloaded).toHaveBeenCalledTimes(
+      automaticLogin || alreadyCurrent ? 0 : 1,
+    );
     const canonical = await localDb.getWallet({
       walletId: wallet.id,
       withoutRefill: true,

@@ -19,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -1002,7 +1003,11 @@ export function useSwapQuote({
             provider: item.info.provider,
             providerName: item.info.providerName,
             toAmount: item.toAmount,
-            errorMessage: item.errorMessage,
+            errorMessage:
+              isXmrSwapNetwork(item.fromTokenInfo?.networkId) ||
+              isXmrSwapNetwork(item.toTokenInfo?.networkId)
+                ? undefined
+                : item.errorMessage,
           };
         });
       let finalStatus = errorMessage

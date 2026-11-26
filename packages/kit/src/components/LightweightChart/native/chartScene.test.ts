@@ -575,3 +575,69 @@ it('leaves the hover dot to the pulse when asked', () => {
   expect(circles()).toHaveLength(2);
   expect(circles(true)).toHaveLength(0);
 });
+
+const overlayWithTrailingGaps = [
+  ...config.data,
+  { time: 400 as ILightweightChartTime },
+  { time: 500 as ILightweightChartTime },
+  { time: 600 as ILightweightChartTime },
+];
+
+it('keeps the scrub guide on the last price over blank future slots', () => {
+  const chart = scene({
+    hideCrosshairPriceLabel: true,
+    secondaryLineBlankSlots: true,
+    secondaryLineData: overlayWithTrailingGaps,
+  });
+  const last = chart.hoverPoints[chart.hoverPoints.length - 1];
+  expect(last.time).toBe(300);
+  const futureX = last.x + 60;
+  const overlay = buildNativeChartCrosshair(chart, futureX, 100, {
+    labels: { 300: { time: 'last point', price: '$105.00' } },
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    textColor: '#000',
+    timeColor: '#888',
+    largePrice: false,
+  });
+  expect(overlay.commands).toContainEqual(
+    expect.objectContaining({ kind: 'line', x1: last.x, x2: last.x }),
+  );
+  expect(getNativeChartHover(chart, futureX, 100)).toEqual(
+    expect.objectContaining({ time: 300, x: last.x - chart.plot.x }),
+  );
+});
+
+it('keeps the finger x on charts without blank future slots', () => {
+  const chart = scene({ data: series([4.2]) });
+  const only = chart.hoverPoints[0];
+  expect(chart.pricedEndX).toBeUndefined();
+  for (const x of [only.x - 50, only.x + 50]) {
+    expect(getNativeChartHover(chart, x, 100)).toEqual(
+      expect.objectContaining({ x: x - chart.plot.x }),
+    );
+  }
+});
+
+it('leaves trailing overlay gaps alone on charts without blank slots', () => {
+  // The Earn APY overlay can end in gaps past the base line in its Max range;
+  // they are not time slots to come, so nothing about them changes.
+  const axisTexts = (chart: ReturnType<typeof scene>) =>
+    chart.commands.flatMap((command) =>
+      command.kind === 'text' && command.font === 'axis' ? [command.text] : [],
+    );
+  const plain = scene({ secondaryLineData: overlayWithTrailingGaps });
+  const last = plain.hoverPoints[plain.hoverPoints.length - 1];
+  const futureX = last.x + 60;
+  expect(plain.pricedEndX).toBeUndefined();
+  expect(getNativeChartHover(plain, futureX, 100)).toEqual(
+    expect.objectContaining({ time: 300, x: futureX - plain.plot.x }),
+  );
+  expect(axisTexts(plain)).toEqual(axisTexts(scene()));
+
+  const withSlots = scene({
+    secondaryLineBlankSlots: true,
+    secondaryLineData: overlayWithTrailingGaps,
+  });
+  expect(axisTexts(withSlots).length).toBeGreaterThan(axisTexts(plain).length);
+});

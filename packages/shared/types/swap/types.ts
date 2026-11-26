@@ -1,7 +1,11 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
-import type { EAddressEncodings, IEncodedTx } from '@onekeyhq/core/src/types';
+import type {
+  EAddressEncodings,
+  IEncodedTx,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
@@ -34,6 +38,7 @@ import type {
   IGasEIP1559,
   IGasLegacy,
   IGasPayer,
+  ISendSelectedFeeInfo,
 } from '../fee';
 import type { IMarketStockInfo } from '../marketV2';
 import type { EMessageTypesEth } from '../message';
@@ -695,10 +700,16 @@ export interface ISwapPreSwapData {
     reviewQuoteResult?: IFetchQuoteResult;
     swapInfo?: ISwapTxInfo;
     orderId?: string;
+    orderDeadline?: number;
     slippagePercentage?: number;
     skipSendTransAction?: boolean;
     encodedTx?: IEncodedTx;
     transferInfo?: ITransferInfo;
+    xmrPrepared?: {
+      unsignedTx: IUnsignedTxPro;
+      fee: ISendSelectedFeeInfo;
+      totalAtomic: string;
+    };
   };
   fee?: IFetchQuoteFee;
   supportNetworkFeeLevel?: boolean;
@@ -1117,6 +1128,8 @@ export interface ISwapTxInfo {
   accountAddress: string;
   receivingAddress: string;
   swapBuildResData: IFetchBuildTxResponse;
+  /** Safe local order metadata used to track an uncertain Monero broadcast. */
+  xmrPendingHistoryItem?: ISwapTxHistory;
   /** The payer selected by the final estimate-fee/send path. */
   isNetworkFeeSponsored?: boolean;
   swapRequiredApproves?: IDecodedTxActionTokenApprove[];

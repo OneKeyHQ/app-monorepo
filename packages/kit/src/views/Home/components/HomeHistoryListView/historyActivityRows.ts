@@ -19,6 +19,10 @@ import {
   toPrivacyChainLocalWalletDisplay,
 } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
 import type { IPrivacyChainLocalWalletSettings } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
+import {
+  formatMockMessage,
+  getStarknetHistoryOperationTitle,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -617,6 +621,16 @@ function buildHistoryActivityRowUnchecked({
         text: label(ETranslations.kyt_high_risk__title),
         tone: 'warning',
       });
+  }
+  const isStarknetReceiveOnly =
+    action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+    (action.assetTransfer?.sends.length ?? 0) === 0 &&
+    (action.assetTransfer?.receives.length ?? 0) > 0;
+  const operation = getStarknetHistoryOperationTitle(decodedTx.extraInfo, {
+    isReceive: isStarknetReceiveOnly,
+  });
+  if (operation) {
+    title = formatMockMessage(intl, operation);
   }
   const time = decodedTx.updatedAt ?? decodedTx.createdAt;
   const shortAddress =

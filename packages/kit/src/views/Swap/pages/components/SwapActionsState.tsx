@@ -57,6 +57,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  isSwapOrBridgeQuoteType,
   isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
@@ -77,10 +78,12 @@ import {
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapTabSwitchType,
+  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSettledSwapRecipientRequired } from '../../hooks/useSettledSwapRecipientRequired';
@@ -106,10 +109,25 @@ import {
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
+import {
+  SWAP_ACTION_CONTENT_EXIT_MS,
+  SWAP_ACTION_CONTENT_EXIT_PX,
+  SWAP_ACTION_CONTENT_FADE_EASING,
+  SWAP_ACTION_CONTENT_FADE_MS,
+  SWAP_ACTION_CONTENT_RISE_EASING,
+  SWAP_ACTION_CONTENT_RISE_MS,
+  SWAP_ACTION_CONTENT_RISE_PX,
+} from '../../utils/swapActionContentMotion';
 
+import { SwapActionContentMotion } from './SwapActionContentMotion';
 import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
+import { SwapXmrPrivacyNotice } from './SwapXmrPrivacyNotice';
+
+const xmrNativePercentageStages = SwapPercentageInputStageForNative.filter(
+  (stage) => stage < 100,
+);
 
 interface ISwapActionsStateProps {
   disabled?: boolean;
@@ -203,45 +221,143 @@ const ACTION_BUTTON_DISABLED_STYLE = {
 // a fill tween would first show the new content on the wrong fill, and across
 // such a flip the old content would sit on the wrong fill and is skipped. The
 // fade and the rise run apart, so the text reads while it still glides up.
-const CONTENT_FADE_MS = 180;
-const CONTENT_RISE_MS = 260;
-const CONTENT_RISE_PX = 8;
-const CONTENT_EXIT_MS = 120;
-const CONTENT_EXIT_PX = 4;
+// Native runs the same motion in SwapActionContentMotion.native.
+const CONTENT_FADE_EASING = `cubic-bezier(${SWAP_ACTION_CONTENT_FADE_EASING.join(', ')})`;
+const CONTENT_RISE_EASING = `cubic-bezier(${SWAP_ACTION_CONTENT_RISE_EASING.join(', ')})`;
 const CONTENT_EXIT_LAYER_STYLE =
   'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none';
 
 function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
-  const ref = useRef<HTMLElement>(null);
+  const buttonRef = useRef<HTMLElement | null>(null);
   const previous = useRef({ contentKey, fillKey });
-  const shown = useRef<{ node: Element; text: string } | null>(null);
+  const shown = useRef<{ node: Element; text: string; width: number } | null>(
+    null,
+  );
   const animations = useRef<Animation[]>([]);
   const exitLayer = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    if (platformEnv.isNative) {
-      return;
-    }
-    const button = ref.current;
-    // Content swapped in while the last exit overlay is still on the button
-    // lands after it, so skip the overlay rather than take the first child.
-    const content =
+  const pendingContent = useRef<MutationObserver | null>(null);
+  const contentResize = useRef<ResizeObserver | null>(null);
+
+  // Content swapped in while the last exit overlay is still on the button
+  // lands after it, so skip the overlay rather than take the first child.
+  const findContent = useCallback(
+    (button: HTMLElement | null) =>
       (button &&
         Array.from(button.children).find(
           (child) => child !== exitLayer.current,
         )) ??
-      null;
+      null,
+    [],
+  );
+  // The laid-out width is kept so the leaving copy wraps its text as the
+  // content did, and follows the content when the button resizes.
+  const remember = useCallback((content: Element | null) => {
+    shown.current = content
+      ? {
+          node: content,
+          text: content.textContent ?? '',
+          width: content instanceof HTMLElement ? content.offsetWidth : 0,
+        }
+      : null;
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    contentResize.current ??= new ResizeObserver(() => {
+      const current = shown.current;
+      if (current?.node instanceof HTMLElement) {
+        shown.current = { ...current, width: current.node.offsetWidth };
+      }
+    });
+    contentResize.current.disconnect();
+    if (content) {
+      contentResize.current.observe(content);
+    }
+  }, []);
+  const enter = useCallback(
+    (
+      content: Element,
+      reduced: boolean,
+      from: { opacity: number; y: number },
+    ) => {
+      animations.current.forEach((animation) => animation.cancel());
+      animations.current = [
+        content.animate(
+          { opacity: [from.opacity, 1] },
+          {
+            duration: SWAP_ACTION_CONTENT_FADE_MS * (1 - from.opacity),
+            easing: CONTENT_FADE_EASING,
+          },
+        ),
+      ];
+      if (!reduced) {
+        animations.current.push(
+          content.animate(
+            { transform: [`translateY(${from.y}px)`, 'translateY(0)'] },
+            {
+              duration:
+                SWAP_ACTION_CONTENT_RISE_MS *
+                (from.y / SWAP_ACTION_CONTENT_RISE_PX),
+              easing: CONTENT_RISE_EASING,
+            },
+          ),
+        );
+      }
+    },
+    [],
+  );
+
+  // A button that attaches after the last change (the other layout's button
+  // after a resize) records what it shows, so its next change can leave.
+  const ref = useCallback(
+    (node: HTMLElement | null) => {
+      buttonRef.current = node;
+      if (node && !platformEnv.isNative) {
+        remember(findContent(node));
+      }
+    },
+    [findContent, remember],
+  );
+
+  useLayoutEffect(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    pendingContent.current?.disconnect();
+    pendingContent.current = null;
+    const button = buttonRef.current;
+    const content = findContent(button);
     const last = previous.current;
     const before = shown.current;
     previous.current = { contentKey, fillKey };
-    shown.current = content
-      ? { node: content, text: content.textContent ?? '' }
-      : null;
-    if (last.contentKey === contentKey || !button || !content) {
+    remember(content);
+    if (last.fillKey !== fillKey) {
+      // A copy still leaving would now sit on the wrong fill.
+      exitLayer.current?.remove();
+      exitLayer.current = null;
+    }
+    if (last.contentKey === contentKey || !button) {
       return;
     }
     const reduced = globalThis.matchMedia(
       '(prefers-reduced-motion: reduce)',
     ).matches;
+
+    // Where an interrupted entrance has got to. The leaving copy starts there,
+    // and the next entrance carries on from it, so quick successive changes
+    // neither flash the old content nor drop the new one back to invisible.
+    const [fade, rise] = animations.current;
+    const inFlight = animations.current.some(
+      (animation) => animation.playState === 'running',
+    );
+    const progress = (animation?: Animation) =>
+      animation?.effect?.getComputedTiming().progress ?? 1;
+    const reached = {
+      opacity: inFlight ? progress(fade) : 1,
+      y:
+        inFlight && !reduced
+          ? SWAP_ACTION_CONTENT_RISE_PX * (1 - progress(rise))
+          : 0,
+    };
 
     // The old content is already out of the tree (or holds the new text), so
     // a copy of it leaves from an overlay on the button.
@@ -251,6 +367,12 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       const copy = before.node.cloneNode(true) as Element;
       if (before.node === content) {
         copy.textContent = before.text;
+      }
+      // The overlay spans the button's padding too; at its old width the
+      // copy keeps its line breaks.
+      if (copy instanceof HTMLElement && before.width > 0) {
+        copy.style.width = `${before.width}px`;
+        copy.style.flexShrink = '0';
       }
       const layer = document.createElement('div');
       layer.style.cssText = CONTENT_EXIT_LAYER_STYLE;
@@ -263,50 +385,53 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       copy
         .animate(
           reduced
-            ? { opacity: [1, 0] }
+            ? { opacity: [reached.opacity, 0] }
             : {
-                opacity: [1, 0],
+                opacity: [reached.opacity, 0],
                 transform: [
-                  'translateY(0)',
-                  `translateY(-${CONTENT_EXIT_PX}px)`,
+                  `translateY(${reached.y}px)`,
+                  `translateY(${reached.y - SWAP_ACTION_CONTENT_EXIT_PX}px)`,
                 ],
               },
-          { duration: CONTENT_EXIT_MS, easing: 'ease-out' },
+          {
+            duration: SWAP_ACTION_CONTENT_EXIT_MS,
+            easing: CONTENT_FADE_EASING,
+          },
         )
         .finished.then(removeLayer, removeLayer);
     }
 
-    // A change during an entrance carries on from where that entrance is, so
-    // quick successive changes don't drop the content back to invisible.
-    const [fade, rise] = animations.current;
-    const inFlight = animations.current.some(
-      (animation) => animation.playState === 'running',
-    );
-    const progress = (animation?: Animation) =>
-      animation?.effect?.getComputedTiming().progress ?? 1;
-    const fromOpacity = inFlight ? progress(fade) : 0;
-    const fromY = inFlight
-      ? CONTENT_RISE_PX * (1 - progress(rise))
-      : CONTENT_RISE_PX;
-    animations.current.forEach((animation) => animation.cancel());
-    animations.current = [
-      content.animate(
-        { opacity: [fromOpacity, 1] },
-        { duration: CONTENT_FADE_MS * (1 - fromOpacity), easing: 'ease-out' },
-      ),
-    ];
-    if (!reduced) {
-      animations.current.push(
-        content.animate(
-          { transform: [`translateY(${fromY}px)`, 'translateY(0)'] },
-          {
-            duration: CONTENT_RISE_MS * (fromY / CONTENT_RISE_PX),
-            easing: 'cubic-bezier(0.33, 1, 0.68, 1)',
-          },
-        ),
+    if (content) {
+      enter(
+        content,
+        reduced,
+        inFlight ? reached : { opacity: 0, y: SWAP_ACTION_CONTENT_RISE_PX },
       );
+      return;
     }
-  }, [contentKey, fillKey]);
+    // The new content mounts later (the quote dots suspend first), so it
+    // enters once it is in the tree.
+    const observer = new MutationObserver(() => {
+      const mounted = findContent(button);
+      if (!mounted) {
+        return;
+      }
+      observer.disconnect();
+      pendingContent.current = null;
+      remember(mounted);
+      enter(mounted, reduced, { opacity: 0, y: SWAP_ACTION_CONTENT_RISE_PX });
+    });
+    observer.observe(button, { childList: true });
+    pendingContent.current = observer;
+  }, [contentKey, enter, fillKey, findContent, remember]);
+
+  useEffect(
+    () => () => {
+      pendingContent.current?.disconnect();
+      contentResize.current?.disconnect();
+    },
+    [],
+  );
   return ref;
 }
 
@@ -341,6 +466,15 @@ const SwapActionsState = ({
   const [deferredQuote] = useSwapDeferredQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const isXmrSource = isXmrSwapNetwork(fromToken?.networkId);
+  const isXmrDestination = isXmrSwapNetwork(toToken?.networkId);
+  const xmrAddressInfo = isXmrSource ? swapFromAddressInfo : swapToAddressInfo;
+  const xmrNetworkId = isXmrSource ? fromToken?.networkId : toToken?.networkId;
+  const xmrAccountId = xmrAddressInfo.accountInfo?.account?.id;
+  const shouldShowXmrPrivacyNotice =
+    isSwapOrBridgeQuoteType(swapTypeSwitch) &&
+    (isXmrSource || isXmrDestination) &&
+    xmrAddressInfo.isAddressInfoReady;
   // Publishing a recipient must not change its own validation account or readiness.
   const recipientValidationAddressInfo = useSwapAddressInfo(
     ESwapDirectionType.TO,
@@ -375,7 +509,7 @@ const SwapActionsState = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { quoteLoading, quoteEventFetching } = useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
-    swapEnableRecipientAddress,
+    swapEnableRecipientAddress && !isXmrDestination,
   );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -504,6 +638,7 @@ const SwapActionsState = ({
 
   const shouldShowRecipientForCurrentState = useMemo(
     () =>
+      !isXmrDestination &&
       shouldShowSwapRecipientEntry({
         swapType: swapTypeSwitch,
         incognitoMode: swapIncognitoMode,
@@ -516,6 +651,7 @@ const SwapActionsState = ({
         hasToToken: Boolean(toToken),
       }),
     [
+      isXmrDestination,
       swapIncognitoMode,
       swapEnableRecipientAddress,
       recipientRequiredSettled,
@@ -558,12 +694,18 @@ const SwapActionsState = ({
 
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
+      !isXmrDestination &&
       shouldShowSwapIncognitoRecipientInput({
         incognitoMode: swapIncognitoMode,
         providerSupportsRecipient: providerSupportReceiveAddressSettled,
         swapType: swapTypeSwitch,
       }),
-    [swapIncognitoMode, providerSupportReceiveAddressSettled, swapTypeSwitch],
+    [
+      isXmrDestination,
+      swapIncognitoMode,
+      providerSupportReceiveAddressSettled,
+      swapTypeSwitch,
+    ],
   );
 
   const incognitoRecipientNetworkId =
@@ -698,6 +840,7 @@ const SwapActionsState = ({
       (!shouldRetryTokenDetails &&
         (swapActionState.disabled || swapActionState.isLoading)) ||
       shouldShowQuoteActionLoading ||
+      (isXmrDestination && swapActionState.shouldEnterRecipient) ||
       shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
@@ -1385,7 +1528,12 @@ const SwapActionsState = ({
             borderRadius="$full"
             childrenAsText={false}
           >
-            {actionButtonChildren}
+            <SwapActionContentMotion
+              contentKey={actionContentKey}
+              fillKey={!!isActionDisabled}
+            >
+              {actionButtonChildren}
+            </SwapActionContentMotion>
           </Button>
           {/* In regular pages and non-desktop modal: show savings below button */}
           {!isDesktopModalPage ? costSavingsBelowButtonComponent : null}
@@ -1395,6 +1543,7 @@ const SwapActionsState = ({
     [
       onActionHandlerBefore,
       actionButtonChildren,
+      actionContentKey,
       actionButtonRef,
       isActionDisabled,
       isDesktopModalPage,
@@ -1508,7 +1657,12 @@ const SwapActionsState = ({
                 borderRadius="$full"
                 childrenAsText={false}
               >
-                {actionButtonChildren}
+                <SwapActionContentMotion
+                  contentKey={actionContentKey}
+                  fillKey={!!isActionDisabled}
+                >
+                  {actionButtonChildren}
+                </SwapActionContentMotion>
               </Button>
             </Stack>
           </XStack>
@@ -1516,16 +1670,19 @@ const SwapActionsState = ({
         {!platformEnv.isNativeIOS ? (
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
+            stageList={isXmrSource ? xmrNativePercentageStages : undefined}
           />
         ) : null}
       </Page.Footer>
     ),
     [
       actionButtonChildren,
+      actionContentKey,
       costSavingsComponent,
       desktopActionButtonRef,
       desktopActionWidth,
       isActionDisabled,
+      isXmrSource,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,
@@ -1541,16 +1698,26 @@ const SwapActionsState = ({
           <Page.Footer>
             <PercentageStageOnKeyboard
               onSelectPercentageStage={onSelectPercentageStage}
+              stageList={isXmrSource ? xmrNativePercentageStages : undefined}
             />
           </Page.Footer>
         ) : null}
       </>
     ),
-    [actionComponent, onSelectPercentageStage],
+    [actionComponent, isXmrSource, onSelectPercentageStage],
   );
 
   return (
     <>
+      {shouldShowXmrPrivacyNotice && xmrNetworkId && xmrAccountId ? (
+        <SwapXmrPrivacyNotice
+          accountId={xmrAccountId}
+          networkId={xmrNetworkId}
+          walletId={xmrAddressInfo.accountInfo?.wallet?.id}
+          fromAmount={isXmrSource ? fromTokenAmount.value : undefined}
+          onBalanceVerified={requestSelectedTokenBalanceRefresh}
+        />
+      ) : null}
       {isDesktopModalPage ? (
         <>
           {desktopModalRecipientSection}
