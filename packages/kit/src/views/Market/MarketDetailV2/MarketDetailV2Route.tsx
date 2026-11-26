@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { memo, useLayoutEffect, useRef } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
@@ -38,15 +39,20 @@ export function createMarketDetailV2Route(
     const preloadedShell = getPreloadedMarketDetailV2Shell()?.default;
     const lastRenderedShell = useRef(preloadedShell);
     const hasRenderedAssetPreview = useRef(false);
+    const openedFromIPhoneMarketList = useRef(
+      platformEnv.isNativeIOS &&
+        !platformEnv.isNativeIOSPad &&
+        params.from === EEnterWay.MarketList,
+    );
     const isPendingAsset =
       'pendingMarketAsset' in params && Boolean(params.pendingMarketAsset);
     const shouldKeepComponentTypeStable =
       platformEnv.isDesktop ||
       platformEnv.isWeb ||
+      openedFromIPhoneMarketList.current ||
       isPendingAsset ||
       hasRenderedAssetPreview.current;
-    // A pending asset can arrive after a native route has switched to the
-    // preloaded shell. Preserve the component already mounted for that route.
+    // Keep an already mounted detail when preload or asset resolution finishes.
     const PreloadedMarketDetailV2 = shouldKeepComponentTypeStable
       ? lastRenderedShell.current
       : preloadedShell;

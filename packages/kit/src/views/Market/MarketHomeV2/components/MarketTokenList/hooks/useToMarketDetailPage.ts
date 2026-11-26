@@ -202,12 +202,20 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
         : options?.marketTokenCategory;
-      const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
-        includeBodyModules: !pendingMarketAssetId,
-        includeHeavyModules: true,
-        isStockRoute: Boolean(stockId),
-        layout: preloadLayout,
-      });
+      const isIPhoneMarketListEntry =
+        platformEnv.isNativeIOS &&
+        !platformEnv.isNativeIOSPad &&
+        options?.from === EEnterWay.MarketList &&
+        !options?.replaceCurrentDetail &&
+        !options?.switchToMarketTabFirst;
+      const marketDetailShellPreloadPromise = isIPhoneMarketListEntry
+        ? undefined
+        : preloadMarketDetailV2Page({
+            includeBodyModules: !pendingMarketAssetId,
+            includeHeavyModules: true,
+            isStockRoute: Boolean(stockId),
+            layout: preloadLayout,
+          });
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: resolvedItem.networkId,
       });
@@ -385,7 +393,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         const targetTab = ETabRoutes.Market;
 
-        if (!pendingMarketAssetId) {
+        if (marketDetailShellPreloadPromise && !pendingMarketAssetId) {
           await marketDetailShellPreloadPromise;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
@@ -430,7 +438,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           );
         }
 
-        if (platformEnv.isNative && !pendingMarketAssetId) {
+        if (
+          platformEnv.isNative &&
+          marketDetailShellPreloadPromise &&
+          !pendingMarketAssetId
+        ) {
           await marketDetailShellPreloadPromise;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;

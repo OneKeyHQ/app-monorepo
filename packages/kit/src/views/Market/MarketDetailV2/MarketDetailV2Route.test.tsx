@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 
 import { render } from '@testing-library/react';
 
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -99,6 +100,7 @@ describe('createMarketDetailV2Route', () => {
     mockedPlatformEnv.isDesktop = true;
     mockedPlatformEnv.isWeb = false;
     mockedPlatformEnv.isNative = false;
+    Object.assign(mockedPlatformEnv, { isNativeIOS: false });
   });
 
   it('keeps a cold-loaded route mounted after preload finishes', () => {
@@ -122,6 +124,31 @@ describe('createMarketDetailV2Route', () => {
     expect(view.getByTestId('direct-route').textContent).toBe('ready');
     expect(view.queryByTestId('lazy-route')).toBeNull();
     expect(mockDirectMounts).toEqual({ mounted: 1, unmounted: 0 });
+  });
+
+  it('keeps a cold-loaded iOS list detail mounted after its params change', () => {
+    Object.assign(mockedPlatformEnv, {
+      isDesktop: false,
+      isNative: true,
+      isNativeIOS: true,
+    });
+    const MarketDetailRoute = createMarketDetailV2Route();
+    const view = render(
+      <MarketDetailRoute
+        {...buildRouteProps('first', { from: EEnterWay.MarketList })}
+      />,
+    );
+
+    mockPreloadedComponent = MockDirectRoute;
+    view.rerender(
+      <MarketDetailRoute
+        {...buildRouteProps('second', { from: EEnterWay.DetailSwitch })}
+      />,
+    );
+
+    expect(view.getByTestId('lazy-route').textContent).toBe('second');
+    expect(mockLazyMounts).toEqual({ mounted: 1, unmounted: 0 });
+    expect(mockDirectMounts).toEqual({ mounted: 0, unmounted: 0 });
   });
 
   it('keeps the page backdrop around the preloaded shell on desktop and web', () => {

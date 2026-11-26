@@ -188,14 +188,22 @@ export function useToMarketStockDetailPage(
           nextStockId: stockId,
           replaceCurrentDetail: options?.replaceCurrentDetail,
         });
-      const preloadPromise = preloadMarketDetailV2Page({
-        includeBodyModules: true,
-        includeHeavyModules: true,
-        isStockRoute: true,
-        layout: preloadLayout,
-      });
-      if (platformEnv.isNative) {
-        await preloadPromise;
+      const entryFrom = stockPreview?.from ?? options?.from;
+      const isIPhoneMarketListEntry =
+        platformEnv.isNativeIOS &&
+        !platformEnv.isNativeIOSPad &&
+        entryFrom === EEnterWay.MarketList &&
+        !options?.replaceCurrentDetail;
+      if (!isIPhoneMarketListEntry) {
+        const preloadPromise = preloadMarketDetailV2Page({
+          includeBodyModules: true,
+          includeHeavyModules: true,
+          isStockRoute: true,
+          layout: preloadLayout,
+        });
+        if (platformEnv.isNative) {
+          await preloadPromise;
+        }
       }
 
       if (!isCurrentRequest()) return false;
@@ -257,7 +265,6 @@ export function useToMarketStockDetailPage(
         return true;
       }
 
-      const entryFrom = stockPreview?.from ?? options?.from;
       const entryCategoryParams = options?.entryCategory
         ? { entryCategory: options.entryCategory }
         : undefined;
