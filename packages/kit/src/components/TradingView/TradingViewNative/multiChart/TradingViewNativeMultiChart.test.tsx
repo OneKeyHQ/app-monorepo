@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -16,6 +16,7 @@ import type {
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { getTradingViewNativeSourceKey } from '../data/getTradingViewNativeSource';
+import { useChartViewportSync } from '../web/useChartViewportSync';
 
 import { TradingViewNativeMultiChart } from './TradingViewNativeMultiChart';
 import { TradingViewNativeMultiChartControlsContext } from './TradingViewNativeMultiChartPanelContext';
@@ -58,8 +59,16 @@ jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
     sync,
   }: {
     onChange: (preset: '2h' | '4') => void;
-    onSyncChange: (option: 'symbol' | 'interval', isSynced: boolean) => void;
-    sync: { symbol: boolean; interval: boolean };
+    onSyncChange: (
+      option: 'symbol' | 'interval' | 'time' | 'dateRange',
+      isSynced: boolean,
+    ) => void;
+    sync: {
+      symbol: boolean;
+      interval: boolean;
+      time: boolean;
+      dateRange: boolean;
+    };
   }) => (
     <span data-testid="layout-select">
       <button
@@ -75,6 +84,15 @@ jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
         data-checked={String(sync.interval)}
         onClick={() => onSyncChange('interval', !sync.interval)}
       />
+      {(['time', 'dateRange'] as const).map((option) => (
+        <button
+          key={option}
+          type="button"
+          aria-label={`${option} sync`}
+          data-testid={`sync-${option}`}
+          onClick={() => onSyncChange(option, !sync[option])}
+        />
+      ))}
       {(['2h', '4'] as const).map((preset) => (
         <button
           key={preset}
@@ -110,6 +128,15 @@ const mockPickInterval = new Map<string, (interval: string) => void>();
 // Moves a panel's chart to an interval by itself, as when it falls back to
 // the one it showed because the data of a new one fails to load.
 const mockFallBackInterval = new Map<string, (interval: string) => void>();
+// Where each panel's chart ends its view, e.g. moved there by a picked date
+// range. A chart that follows another one of the grid lines up with it.
+const mockViewportEnds = new Map<string, number>();
+const viewportEndingAt = (toTime: number) => ({
+  toTime,
+  rightGap: 0.1,
+  fromTime: toTime - 3600,
+  span: 0.8,
+});
 
 function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   const label = `${panel.id}:${getTradingViewNativeSourceKey(panel.source)}`;
@@ -133,6 +160,18 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
     publishInterval(next);
   });
   mockFallBackInterval.set(panel.id, applyInterval);
+  // Draws as the web chart does: lines up with the chart it follows, if any,
+  // then reports what it shows.
+  const viewportRedrawRef = useRef<() => void>(() => undefined);
+  const viewportSync = useChartViewportSync(viewportRedrawRef);
+  viewportRedrawRef.current = () => {
+    const followed = viewportSync.getFollowedViewport();
+    if (followed) mockViewportEnds.set(panel.id, followed.viewport.toTime);
+    const toTime = mockViewportEnds.get(panel.id);
+    if (toTime !== undefined) {
+      viewportSync.publishViewport(viewportEndingAt(toTime));
+    }
+  };
   // Stands in for the chart's controls row, as `TradingViewNative` places it.
   const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
   mockPanels.set(panel.id, panel);
@@ -376,6 +415,7 @@ beforeEach(() => {
   mockIntervals.clear();
   mockPickInterval.clear();
   mockFallBackInterval.clear();
+  mockViewportEnds.clear();
 });
 
 // Sizes jsdom does not lay out.
@@ -2832,4 +2872,50 @@ it('opens a split view on the interval of the single chart the option was turned
   fireEvent.click(screen.getByTestId('preset-2h'));
   expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
   expectIntervals({ main: '60', 'panel-2': '60' });
+});
+
+it('lines the charts up with the selected one when the date range is turned on', () => {
+  // The selected chart went to a picked date range; the first one shows the
+  // latest candles.
+  mockViewportEnds.set('main', 2_000_000);
+  mockViewportEnds.set('panel-2', 1_000_000);
+  renderGrid({ layout: secondPanelSelected, onSelectPanel: async () => true });
+
+  fireEvent.click(screen.getByTestId('sync-dateRange'));
+  expect(mockViewportEnds.get('panel-2')).toBe(1_000_000);
+  expect(mockViewportEnds.get('main')).toBe(1_000_000);
+});
+
+it('lines the charts up with the chart selected at each press of the time option', async () => {
+  mockViewportEnds.set('main', 2_000_000);
+  mockViewportEnds.set('panel-2', 1_000_000);
+  renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async (source, harness) => {
+      harness.setActiveSource(source);
+      return true;
+    },
+  });
+  fireEvent.click(screen.getByTestId('sync-time'));
+  expect(mockViewportEnds.get('main')).toBe(1_000_000);
+
+  // Off, the first chart goes on by itself; on again from it, it leads.
+  fireEvent.click(screen.getByTestId('sync-time'));
+  await act(async () => press('main'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  mockViewportEnds.set('main', 3_000_000);
+  fireEvent.click(screen.getByTestId('sync-time'));
+  expect(mockViewportEnds.get('main')).toBe(3_000_000);
+  expect(mockViewportEnds.get('panel-2')).toBe(3_000_000);
+});
+
+it('lines the charts up with the first panel when a split view opens with the time synced', () => {
+  mockViewportEnds.set('main', 2_000_000);
+  mockViewportEnds.set('panel-2', 1_000_000);
+  renderGrid({
+    layout: { ...secondPanelSelected, sync: { time: true } },
+    onSelectPanel: async () => true,
+  });
+  expect(mockViewportEnds.get('main')).toBe(2_000_000);
+  expect(mockViewportEnds.get('panel-2')).toBe(2_000_000);
 });
