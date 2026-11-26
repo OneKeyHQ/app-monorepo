@@ -44,26 +44,18 @@ private struct SwapTokenIcon: View {
   let size: CGFloat
 
   private var image: UIImage? {
-    guard !filename.isEmpty,
-          let directory = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.so.onekey.wallet"
-          ) else { return nil }
-    return UIImage(contentsOfFile: directory
-      .appendingPathComponent("LiveActivityIcons")
-      .appendingPathComponent(filename).path)
+    guard !filename.isEmpty, let directory = SwapLiveActivityIconFiles.directory else { return nil }
+    return UIImage(contentsOfFile: directory.appendingPathComponent(filename).path)
   }
 
   var body: some View {
     Group {
-      if token.symbol == "BTC" {
-        Image("SwapBitcoin").renderingMode(.original).resizable().scaledToFit()
-      } else if let image {
+      if let image {
         Image(uiImage: image).renderingMode(.original).resizable().scaledToFit()
+      } else if token.symbol == "BTC" {
+        Image("SwapBitcoin").renderingMode(.original).resizable().scaledToFit()
       } else if token.symbol == "USDC" {
         Image("SwapUSDC").resizable().scaledToFit()
-      } else if token.symbol == "ETH", token.isNative == true,
-                token.networkId?.hasPrefix("evm--") == true {
-        Image("SwapEthereum").renderingMode(.original).resizable().scaledToFit()
       } else {
         Text(String(token.symbol.prefix(1)))
           .font(.system(size: size * 0.6, weight: .semibold))

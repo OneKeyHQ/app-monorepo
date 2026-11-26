@@ -80,7 +80,16 @@ private final class SwapLiveActivityManager {
     await activity.update(content(state, order: activity.attributes.order), alertConfiguration: alert)
   }
 
-  func start(_ request: SwapLiveActivityRequest) throws {
+  private func canStart(_ order: SwapLiveActivityOrder) -> Bool {
+    let attempted = defaults.dictionary(forKey: attemptedKey) as? [String: Double] ?? [:]
+    return UIApplication.shared.applicationState == .active &&
+      !OneKeyIsTravelModeMaskingData() && ActivityAuthorizationInfo().areActivitiesEnabled &&
+      order.expiresAt > Date() &&
+      (attempted[order.orderKey] ?? 0) <= Date().timeIntervalSince1970 * 1000 &&
+      !activities.contains(where: { $0.attributes.order.orderKey == order.orderKey })
+  }
+
+  func start(_ request: SwapLiveActivityRequest) async throws {
     let order = request.order
     let fromNativeBitcoin = order.fromToken.isNativeBitcoin
     let toNativeBitcoin = order.toToken.isNativeBitcoin
@@ -91,18 +100,19 @@ private final class SwapLiveActivityManager {
     guard order.schemaVersion == 1, hasNativeBitcoin,
           !order.orderKey.isEmpty, order.orderKey.count <= 256,
           order.estimatedEndAtMs > order.startedAtMs,
-          order.expiresAt > Date(), !request.content.status.isTerminal else { return }
-    guard !activities.contains(where: { $0.attributes.order.orderKey == order.orderKey }) else { return }
-    var attempted = defaults.dictionary(forKey: attemptedKey) as? [String: Double] ?? [:]
-    attempted = attempted.filter { $0.value > Date().timeIntervalSince1970 * 1000 }
-    guard attempted[order.orderKey] == nil else { return }
-    guard UIApplication.shared.applicationState == .active,
-          ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+          !request.content.status.isTerminal, canStart(order) else { return }
+    var iconNames = (from: "", to: "")
+    if let icons = request.iconUrls {
+      async let from = SwapLiveActivityIconCache.shared.filename(for: icons.from)
+      async let to = SwapLiveActivityIconCache.shared.filename(for: icons.to)
+      iconNames = await (from, to)
+    }
+    guard canStart(order) else { return }
     let usesRemoteUpdates = order.isRealOrderOrPushTest
     let attributes = SwapLiveActivityAttributes(
       order: order,
-      fromIconName: "",
-      toIconName: "",
+      fromIconName: iconNames.from,
+      toIconName: iconNames.to,
       remoteUpdatesEnabled: usesRemoteUpdates,
       strings: usesRemoteUpdates ? request.content.strings : nil
     )
@@ -115,6 +125,8 @@ private final class SwapLiveActivityManager {
       attributes: attributes, content: content(state, order: order),
       pushType: usesRemoteUpdates ? .token : nil
     )
+    var attempted = defaults.dictionary(forKey: attemptedKey) as? [String: Double] ?? [:]
+    attempted = attempted.filter { $0.value > Date().timeIntervalSince1970 * 1000 }
     attempted[order.orderKey] = order.expiresAtMs
     defaults.set(attempted, forKey: attemptedKey)
     if !usesRemoteUpdates { acceptedStates[activity.id] = state }
@@ -443,7 +455,7 @@ final class SwapLiveActivityModule: NSObject {
   @objc(start:resolver:rejecter:)
   func start(_ value: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock,
              rejecter reject: @escaping RCTPromiseRejectBlock) {
-    run(resolve, reject) { try SwapLiveActivityManager.shared.start(self.decode(value)) }
+    run(resolve, reject) { try await SwapLiveActivityManager.shared.start(self.decode(value)) }
   }
 
   @objc(update:resolver:rejecter:)

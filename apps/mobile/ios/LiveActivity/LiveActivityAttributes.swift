@@ -249,6 +249,11 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
 }
 
 struct SwapLiveActivityRequest: Decodable {
+  struct IconURLs: Decodable {
+    let from: String?
+    let to: String?
+  }
+
   struct Content: Decodable {
     let status: SwapLiveActivityStatus
     let updatedAtMs: Double
@@ -257,6 +262,14 @@ struct SwapLiveActivityRequest: Decodable {
   }
   let order: SwapLiveActivityOrder
   let content: Content
+  let iconUrls: IconURLs?
+}
+
+enum SwapLiveActivityIconFiles {
+  static var directory: URL? {
+    FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.so.onekey.wallet")?
+      .appendingPathComponent("LiveActivityIcons", isDirectory: true)
+  }
 }
 
 struct SwapLiveActivityStringsRequest: Decodable {

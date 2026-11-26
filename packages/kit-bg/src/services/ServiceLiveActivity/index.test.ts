@@ -181,6 +181,87 @@ describe('Live Activity subscription lifecycle', () => {
       .mockImplementation(async () => status);
   });
 
+  function createLocalOnlyActivity() {
+    const start = jest.mocked(liveActivity.start).getMockImplementation();
+    if (!start) throw new OneKeyLocalError('Missing mock');
+    jest.mocked(liveActivity.start).mockImplementation(async (request) => {
+      const nativeStatus = await start(request);
+      for (const activity of nativeStatus.activities) {
+        activity.pushRegistration = 'notRequested';
+      }
+      return nativeStatus;
+    });
+  }
+
+  it.each(['from-btc', 'to-btc'] as const)(
+    'passes logo URLs only in the start request for a %s swap',
+    async (direction) => {
+      createLocalOnlyActivity();
+      const history = createHistory(direction);
+      const { fromToken, toToken } = history.baseInfo;
+      fromToken.logoURI = `https://uni.onekey-asset.com/${fromToken.symbol}.png`;
+      toToken.logoURI = `https://uni.onekey-asset.com/${toToken.symbol}.png`;
+      const service = new ServiceLiveActivity({ backgroundApi: {} });
+      await service.onSwapBroadcast(history);
+      expect(liveActivity.start).toHaveBeenCalledWith(
+        expect.objectContaining({
+          iconUrls: {
+            from: fromToken.logoURI,
+            to: toToken.logoURI,
+          },
+          order: expect.objectContaining({
+            fromToken: expect.objectContaining({ iconUrl: '' }),
+            toToken: expect.objectContaining({ iconUrl: '' }),
+          }),
+        }),
+      );
+      await service.onSwapStatus({
+        history,
+        status: { state: ESwapTxHistoryStatus.PENDING },
+      });
+      expect(liveActivity.update).toHaveBeenCalledWith(
+        expect.not.objectContaining({ iconUrls: expect.anything() }),
+      );
+    },
+  );
+
+  it('avoids periodic bridge reads and local status writes for a subscribed activity', async () => {
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    const history = createHistory();
+    await service.onSwapBroadcast(history);
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+    jest.mocked(liveActivity.getStatus).mockClear();
+    await service.onSwapStatus({
+      history,
+      status: { state: ESwapTxHistoryStatus.SUCCESS },
+    });
+    await jest.advanceTimersByTimeAsync(59_999);
+    expect(liveActivity.update).not.toHaveBeenCalled();
+    expect(liveActivity.getStatus).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(liveActivity.getStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('still subscribes if the JPush acknowledgement arrives after the initial polling window', async () => {
+    const start = jest.mocked(liveActivity.start).getMockImplementation();
+    if (!start) throw new OneKeyLocalError('Missing mock');
+    jest.mocked(liveActivity.start).mockImplementation(async (request) => {
+      const nativeStatus = await start(request);
+      nativeStatus.activities[0].pushRegistration = 'pending';
+      return nativeStatus;
+    });
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    await service.onSwapBroadcast(createHistory());
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
+    jest.mocked(liveActivity.getStatus).mockClear();
+    status.activities[0].pushRegistration = 'registered';
+    await jest.advanceTimersByTimeAsync(59_999);
+    expect(liveActivity.getStatus).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+  });
+
   it('does not create a real activity before remote tracking is available', async () => {
     jest.mocked(liveActivityRemoteTracking.isReady).mockResolvedValue(false);
     const service = new ServiceLiveActivity({ backgroundApi: {} });
@@ -429,6 +510,7 @@ describe('Live Activity subscription lifecycle', () => {
   it.each([false, true])(
     'keeps a same-ID order on another network after restart=%s',
     async (restart) => {
+      createLocalOnlyActivity();
       const history = createHistory();
       const end = jest.spyOn(liveActivity, 'end').mockResolvedValue(status);
       const service = new ServiceLiveActivity({ backgroundApi: {} });
@@ -483,6 +565,7 @@ describe('Live Activity subscription lifecycle', () => {
   });
 
   it('gives successive status updates distinct revisions in the same millisecond', async () => {
+    createLocalOnlyActivity();
     jest.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000);
     const service = new ServiceLiveActivity({ backgroundApi: {} });
     const history = createHistory();
@@ -538,6 +621,7 @@ describe('Live Activity subscription lifecycle', () => {
   });
 
   it('drains an in-flight native update, drops queued old states, and closes the replaced order', async () => {
+    createLocalOnlyActivity();
     const service = new ServiceLiveActivity({ backgroundApi: {} });
     const history = createHistory();
     await service.onSwapBroadcast(history);
@@ -579,6 +663,7 @@ describe('Live Activity subscription lifecycle', () => {
   });
 
   it('invalidates queued updates before a delayed real lazy-service proxy can notify the coordinator', async () => {
+    createLocalOnlyActivity();
     const service = new ServiceLiveActivity({ backgroundApi: {} });
     const history = createHistory();
     await service.onSwapBroadcast(history);

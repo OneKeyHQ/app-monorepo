@@ -76,6 +76,10 @@ export type ILiveActivitySnapshot = {
   content: ILiveActivityContent;
 };
 
+export type ILiveActivityStartRequest = ILiveActivitySnapshot & {
+  iconUrls?: { from?: string; to?: string };
+};
+
 export type ILiveActivityInstance = Omit<ILiveActivitySnapshot, 'content'> & {
   content: Pick<ILiveActivityPushContent, 'status'> &
     Partial<Omit<ILiveActivityPushContent, 'status'>>;
@@ -126,7 +130,7 @@ export type ILiveActivityMockScenario =
 export type ILiveActivityModule = {
   getStatus: () => Promise<ILiveActivitySystemStatus>;
   start: (
-    snapshot: ILiveActivitySnapshot,
+    snapshot: ILiveActivityStartRequest,
   ) => Promise<ILiveActivitySystemStatus>;
   update: (
     snapshot: ILiveActivitySnapshot,

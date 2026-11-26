@@ -28,6 +28,7 @@ import type {
   ILiveActivityInstance,
   ILiveActivityMockScenario,
   ILiveActivitySnapshot,
+  ILiveActivityStartRequest,
   ILiveActivityStatus,
   ILiveActivitySubscriptionResult,
   ILiveActivitySystemStatus,
@@ -58,6 +59,11 @@ import {
 } from './subscriptionTransport';
 
 import type { IRemoteActivityCleanup } from './subscriptionTransport';
+
+const INITIAL_REGISTRATION_WINDOW_MS = 30_000;
+const REGISTRATION_POLL_MS = 3000;
+const RETRY_POLL_MS = 15_000;
+const RECONCILE_POLL_MS = 60_000;
 
 @backgroundClass()
 class ServiceLiveActivity extends ServiceBase {
@@ -120,7 +126,10 @@ class ServiceLiveActivity extends ServiceBase {
 
   private unsubscribing = new Map<string, Promise<void>>();
 
-  private remoteSyncTimer?: ReturnType<typeof setTimeout>;
+  private remoteSyncTimer?: {
+    handle: ReturnType<typeof setTimeout>;
+    atMs: number;
+  };
 
   private remoteTransport?: ReturnType<
     typeof createServerLiveActivitySubscriptionTransport
@@ -139,13 +148,50 @@ class ServiceLiveActivity extends ServiceBase {
   }
 
   private scheduleRemoteSync(delayMs: number) {
-    if (this.activityHalted || this.remoteSyncTimer) return;
-    this.remoteSyncTimer = setTimeout(() => {
-      this.remoteSyncTimer = undefined;
-      void this.resumeRemoteSubscriptions().catch(() => {
-        this.scheduleRemoteSync(15_000);
-      });
-    }, delayMs);
+    const atMs = Date.now() + delayMs;
+    if (this.activityHalted || (this.remoteSyncTimer?.atMs ?? Infinity) <= atMs)
+      return;
+    this.cancelRemoteSync();
+    this.remoteSyncTimer = {
+      atMs,
+      handle: setTimeout(() => {
+        this.remoteSyncTimer = undefined;
+        void this.resumeRemoteSubscriptions().catch(() => {
+          this.scheduleRemoteSync(RETRY_POLL_MS);
+        });
+      }, delayMs),
+    };
+  }
+
+  private cancelRemoteSync() {
+    clearTimeout(this.remoteSyncTimer?.handle);
+    this.remoteSyncTimer = undefined;
+  }
+
+  private scheduleNextRemoteSync(
+    activities: ILiveActivityInstance[],
+    cleanupPending = false,
+  ) {
+    const now = Date.now();
+    const awaitingRegistration = activities.some(
+      (item) =>
+        now - item.order.startedAtMs < INITIAL_REGISTRATION_WINDOW_MS &&
+        item.order.expiresAtMs > now &&
+        item.pushRegistration !== 'notRequested' &&
+        !this.subscriptions.has(item.activityId) &&
+        item.pushRegistration !== 'failed' &&
+        (this.remoteAttempts.get(item.activityId)?.retryAtMs ?? 0) <=
+          now + REGISTRATION_POLL_MS,
+    );
+    const hasRetry = [...this.remoteAttempts.values()].some(
+      (attempt) =>
+        attempt.expiresAtMs > now && Number.isFinite(attempt.retryAtMs),
+    );
+    const retryDelay =
+      cleanupPending || hasRetry ? RETRY_POLL_MS : RECONCILE_POLL_MS;
+    this.scheduleRemoteSync(
+      awaitingRegistration ? REGISTRATION_POLL_MS : retryDelay,
+    );
   }
 
   @backgroundMethod()
@@ -194,16 +240,7 @@ class ServiceLiveActivity extends ServiceBase {
         (subscription) => subscription.remote,
       )
     ) {
-      const now = Date.now();
-      const awaitingRegistration = trackedActivities.some(
-        (item) =>
-          item.pushRegistration !== 'notRequested' &&
-          !this.subscriptions.has(item.activityId) &&
-          item.pushRegistration !== 'failed' &&
-          (this.remoteAttempts.get(item.activityId)?.retryAtMs ?? 0) <=
-            now + 3000,
-      );
-      this.scheduleRemoteSync(awaitingRegistration ? 3000 : 15_000);
+      this.scheduleNextRemoteSync(trackedActivities, cleanupPending);
     }
   }
 
@@ -432,7 +469,7 @@ class ServiceLiveActivity extends ServiceBase {
     }
   }
 
-  private async present(snapshot: ILiveActivitySnapshot, create: boolean) {
+  private async present(snapshot: ILiveActivityStartRequest, create: boolean) {
     if (!platformEnv.isNativeIOS || this.activityHalted) {
       return;
     }
@@ -466,7 +503,7 @@ class ServiceLiveActivity extends ServiceBase {
           isReplacedDeposit(networkId, depositTxId)
         )
           return undefined;
-        const localizedSnapshot: ILiveActivitySnapshot = {
+        const localizedSnapshot: ILiveActivityStartRequest = {
           ...snapshot,
           content: {
             ...snapshot.content,
@@ -503,10 +540,10 @@ class ServiceLiveActivity extends ServiceBase {
         (activity) => activity.order.orderKey === snapshot.order.orderKey,
       );
       if (instance) {
-        if (!instance.order.isMock || instance.order.isPushTest === true) {
-          this.scheduleRemoteSync(3000);
-        }
         await this.syncSubscription(instance);
+        if (!instance.order.isMock || instance.order.isPushTest === true) {
+          this.scheduleNextRemoteSync([instance]);
+        }
       }
     } catch (error) {
       defaultLogger.notification.jpush.consoleError('Live Activity failed', {
@@ -634,7 +671,17 @@ class ServiceLiveActivity extends ServiceBase {
         this.lastStatusRevision,
         snapshot.content.revision,
       );
-      await this.present(snapshot, true);
+      const { fromToken, toToken } = history.baseInfo;
+      await this.present(
+        {
+          ...snapshot,
+          iconUrls:
+            fromToken.logoURI || toToken.logoURI
+              ? { from: fromToken.logoURI, to: toToken.logoURI }
+              : undefined,
+        },
+        true,
+      );
     }
   }
 
@@ -649,6 +696,15 @@ class ServiceLiveActivity extends ServiceBase {
     if (!(await this.canTrackRealActivity())) return;
     const snapshot = buildSwapLiveActivitySnapshot(history, status);
     if (snapshot) {
+      // A subscribed activity receives its state through ActivityKit pushes.
+      if (
+        [...this.subscriptions.values()].some(
+          (subscription) =>
+            subscription.remote &&
+            subscription.orderKey === snapshot.order.orderKey,
+        )
+      )
+        return;
       snapshot.content.updatedAtMs = Date.now();
       this.lastStatusRevision = Math.max(
         snapshot.content.updatedAtMs,
@@ -769,8 +825,7 @@ class ServiceLiveActivity extends ServiceBase {
   async withTestEndpointDisabled<T>(update: () => Promise<T>): Promise<T> {
     this.changingEndpoint = true;
     this.testEndpointGeneration += 1;
-    clearTimeout(this.remoteSyncTimer);
-    this.remoteSyncTimer = undefined;
+    this.cancelRemoteSync();
     try {
       const { closing, remaining } = await this.closeActivitiesForTransition({
         testOnly: true,
@@ -815,7 +870,7 @@ class ServiceLiveActivity extends ServiceBase {
     } finally {
       this.changingEndpoint = false;
       if (await liveActivityRemoteTracking.isReady()) {
-        this.scheduleRemoteSync(3000);
+        this.scheduleRemoteSync(REGISTRATION_POLL_MS);
       }
     }
   }
@@ -824,8 +879,7 @@ class ServiceLiveActivity extends ServiceBase {
   async stopForPrivacyTransition() {
     if (!platformEnv.isNativeIOS) return;
     this.privacyHalted = true;
-    clearTimeout(this.remoteSyncTimer);
-    this.remoteSyncTimer = undefined;
+    this.cancelRemoteSync();
     for (const timers of this.mockTimers.values()) timers.forEach(clearTimeout);
     this.mockTimers.clear();
     await this.closeActivitiesForTransition({ testOnly: false });
