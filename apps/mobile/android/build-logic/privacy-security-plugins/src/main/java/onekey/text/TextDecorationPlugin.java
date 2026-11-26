@@ -26,6 +26,7 @@ import org.objectweb.asm.commons.Method;
  * <p>Full lines use their visual edges. Partial lines use Android's selection geometry
  * to coalesce touching runs and restart the decoration only after a visual gap.
  * Wavy strokes are clipped to each interval because the last curve may extend past it.
+ * DashText uses its own rule geometry within those same intervals.
  *
  * <ul>
  *   <li>{@code שלום עולם} with a dashed underline wraps between words. Both lines
@@ -36,12 +37,14 @@ import org.objectweb.asm.commons.Method;
  *       letter. The two visual intervals leave the unstyled gap undecorated.
  * </ul>
  *
- * <p>{@code TextDecorationBoundsTest} covers the mixed-direction cases. Remove this
- * transform once the bundled AAR handles these spans correctly.
+ * <p>{@code TextDecorationBoundsTest} covers the mixed-direction cases and dash styling.
  */
 public class TextDecorationPlugin implements Plugin<Project> {
     private static final Type RENDERER =
             Type.getObjectType("com/facebook/react/views/text/TextDecorationStyleKt");
+    private static final String TEXT_VIEW = "com.facebook.react.views.text.ReactTextView";
+    private static final String TEXT_VIEW_MANAGER = "com.facebook.react.views.text.ReactTextViewManager";
+    private static final String EFFECT_SPAN = "com/facebook/react/views/text/internal/span/CanvasEffectSpan";
     private static final Type BOUNDS =
             Type.getObjectType("so/onekey/app/wallet/text/TextDecorationBounds");
     private static final String LAYOUT = "android/text/Layout";
@@ -53,10 +56,19 @@ public class TextDecorationPlugin implements Plugin<Project> {
                     + "Lcom/facebook/react/views/text/TextDecorationStyle;Landroid/graphics/Path;)V");
     private static final Method LINE_INTERVALS =
             new Method("forLine", "(Landroid/text/Layout;III)[F");
+    private static final Method DRAW_DASHED_UNDERLINE = new Method("drawDashedUnderline",
+            "(Landroid/graphics/Canvas;Landroid/graphics/Paint;Landroid/text/Layout;IFF)Z");
     private static final Method DRAW_PATH =
             new Method("drawPath", "(Landroid/graphics/Path;Landroid/graphics/Paint;)V");
     private static final Method DRAW_CLIPPED_WAVE = new Method("drawClippedWave",
             "(Landroid/graphics/Canvas;Landroid/graphics/Path;Landroid/graphics/Paint;FF)V");
+
+    private static final Method UPDATE_PROPERTIES = new Method("updateProperties",
+            "(Landroid/view/View;Lcom/facebook/react/uimanager/ReactStylesDiffMap;)V");
+    private static final Method UPDATE_DASH_TEXT = new Method("updateDashText", UPDATE_PROPERTIES.getDescriptor());
+    private static final Method CLEAR_DASH_TEXT = new Method("clearDashText", "(Landroid/view/View;)V");
+    private static final Method DRAW_TEXT_SPAN = new Method("drawTextSpan",
+            "(L" + EFFECT_SPAN + ";IILandroid/graphics/Canvas;Landroid/text/Layout;Landroid/widget/TextView;F)V");
 
     @Override
     public void apply(Project project) {
@@ -74,12 +86,143 @@ public class TextDecorationPlugin implements Plugin<Project> {
             implements AsmClassVisitorFactory<InstrumentationParameters.None> {
         @Override
         public boolean isInstrumentable(ClassData classData) {
-            return classData.getClassName().equals(RENDERER.getClassName());
+            String name = classData.getClassName();
+            return name.equals(RENDERER.getClassName()) || name.equals(TEXT_VIEW) || name.equals(TEXT_VIEW_MANAGER);
         }
 
         @Override
         public ClassVisitor createClassVisitor(ClassContext context, ClassVisitor next) {
+            String name = context.getCurrentClassData().getClassName();
+            if (name.equals(TEXT_VIEW)) {
+                return carryDashTextIntoDraw(next);
+            }
+            if (name.equals(TEXT_VIEW_MANAGER)) {
+                return addDashTextPropUpdater(next);
+            }
             return fixDecorationBounds(next);
+        }
+    }
+
+    private static ClassVisitor addDashTextPropUpdater(ClassVisitor next) {
+        return new ClassVisitor(Opcodes.ASM9, next) {
+            private String parent;
+
+            @Override
+            public void visit(int version, int access, String name, String signature, String superName,
+                    String[] interfaces) {
+                parent = superName;
+                super.visit(version, access, name, signature, superName, interfaces);
+            }
+
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String descriptor,
+                    String signature, String[] exceptions) {
+                if (name.equals(UPDATE_PROPERTIES.getName())
+                        && descriptor.equals(UPDATE_PROPERTIES.getDescriptor())) {
+                    throw new IllegalStateException("ReactTextViewManager already overrides updateProperties");
+                }
+                return super.visitMethod(access, name, descriptor, signature, exceptions);
+            }
+
+            @Override
+            public void visitEnd() {
+                MethodVisitor method = super.visitMethod(Opcodes.ACC_PUBLIC, UPDATE_PROPERTIES.getName(),
+                        UPDATE_PROPERTIES.getDescriptor(), null, null);
+                method.visitCode();
+                method.visitVarInsn(Opcodes.ALOAD, 1);
+                method.visitVarInsn(Opcodes.ALOAD, 2);
+                method.visitMethodInsn(Opcodes.INVOKESTATIC, BOUNDS.getInternalName(), UPDATE_DASH_TEXT.getName(),
+                        UPDATE_DASH_TEXT.getDescriptor(), false);
+                method.visitVarInsn(Opcodes.ALOAD, 0);
+                method.visitVarInsn(Opcodes.ALOAD, 1);
+                method.visitVarInsn(Opcodes.ALOAD, 2);
+                method.visitMethodInsn(Opcodes.INVOKESPECIAL, parent, UPDATE_PROPERTIES.getName(),
+                        UPDATE_PROPERTIES.getDescriptor(), false);
+                method.visitInsn(Opcodes.RETURN);
+                method.visitMaxs(3, 3);
+                method.visitEnd();
+                super.visitEnd();
+            }
+        };
+    }
+
+    private static ClassVisitor carryDashTextIntoDraw(ClassVisitor next) {
+        return new ClassVisitor(Opcodes.ASM9, next) {
+            private boolean hooksDraw;
+            private boolean hooksRecycle;
+
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String descriptor,
+                    String signature, String[] exceptions) {
+                MethodVisitor method = super.visitMethod(access, name, descriptor, signature, exceptions);
+                if (method == null) {
+                    return null;
+                }
+                if (name.equals("drawTextEffects")) {
+                    hooksDraw = true;
+                    return new DrawSpanVisitor(method, access, name, descriptor);
+                }
+                if (name.equals("recycleView") && descriptor.equals("()V")) {
+                    hooksRecycle = true;
+                    return new AdviceAdapter(Opcodes.ASM9, method, access, name, descriptor) {
+                        @Override
+                        protected void onMethodEnter() {
+                            loadThis();
+                            invokeStatic(BOUNDS, CLEAR_DASH_TEXT);
+                        }
+                    };
+                }
+                return method;
+            }
+
+            @Override
+            public void visitEnd() {
+                if (!hooksDraw || !hooksRecycle) {
+                    throw new IllegalStateException("Could not attach DashText geometry to ReactTextView");
+                }
+                super.visitEnd();
+            }
+        };
+    }
+
+    private static final class DrawSpanVisitor extends AdviceAdapter {
+        private final int offsetY = newLocal(Type.FLOAT_TYPE);
+        private boolean foundOffset;
+        private boolean replacedDraw;
+
+        DrawSpanVisitor(MethodVisitor next, int access, String name, String descriptor) {
+            super(Opcodes.ASM9, next, access, name, descriptor);
+        }
+
+        @Override
+        public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
+                boolean isInterface) {
+            if (opcode == INVOKEVIRTUAL && owner.equals(CANVAS.getInternalName())
+                    && name.equals("translate") && descriptor.equals("(FF)V")) {
+                dup();
+                storeLocal(offsetY);
+                foundOffset = true;
+            }
+            if (opcode == INVOKEVIRTUAL && owner.equals(EFFECT_SPAN) && name.equals("onDraw")
+                    && descriptor.equals("(IILandroid/graphics/Canvas;Landroid/text/Layout;)V")) {
+                if (!foundOffset || replacedDraw) {
+                    throw new IllegalStateException("Unexpected ReactTextView span draw loop");
+                }
+                loadThis();
+                loadLocal(offsetY);
+                invokeStatic(BOUNDS, DRAW_TEXT_SPAN);
+                replacedDraw = true;
+                return;
+            }
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+        }
+
+        @Override
+        public void visitEnd() {
+            if (!replacedDraw) {
+                throw new IllegalStateException("Could not forward the ReactTextView draw geometry");
+            }
+            super.visitEnd();
         }
     }
 
@@ -175,20 +318,37 @@ public class TextDecorationPlugin implements Plugin<Project> {
             Label done = newLabel();
             ifICmp(GE, done);
 
-            loadLocal(arguments[0]); // Canvas
-            loadLocal(arguments[1]); // Paint
             loadLocal(intervals);
             loadLocal(offset);
             arrayLoad(Type.FLOAT_TYPE);
+            storeLocal(arguments[2]); // Left edge
             loadLocal(intervals);
             loadLocal(offset);
             push(1);
             math(ADD, Type.INT_TYPE);
             arrayLoad(Type.FLOAT_TYPE);
-            for (int i = 4; i < arguments.length; i++) {
-                loadLocal(arguments[i]);
+            storeLocal(arguments[3]); // Right edge
+
+            Label original = newLabel();
+            Label nextInterval = newLabel();
+            loadLocal(arguments[7]); // Decoration style
+            getStatic(DECORATION_STYLE, "DASHED", DECORATION_STYLE);
+            ifCmp(DECORATION_STYLE, NE, original);
+            loadLocal(arguments[0]); // Canvas
+            loadLocal(arguments[1]); // Paint
+            loadArg(3); // Layout
+            loadLocal(line);
+            loadLocal(arguments[2]); // Left edge
+            loadLocal(arguments[3]); // Right edge
+            invokeStatic(BOUNDS, DRAW_DASHED_UNDERLINE);
+            ifZCmp(NE, nextInterval);
+
+            mark(original);
+            for (int argument : arguments) {
+                loadLocal(argument);
             }
             invokeStatic(RENDERER, DRAW_LINE);
+            mark(nextInterval);
             iinc(offset, 2);
             goTo(loop);
             mark(done);
