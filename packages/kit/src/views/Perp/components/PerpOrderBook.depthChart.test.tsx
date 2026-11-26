@@ -251,7 +251,7 @@ it('pauses the workspace depth feed under a modal and keeps the committed frame 
   expect(queryByTestId('depth')).toBeNull();
 });
 
-it('rejects a shared book queued before the latest pause even if the atom receives it later', async () => {
+it('rejects a shared book queued before the latest pause and subscribes independently when it expires', async () => {
   mockReadBook.mockReturnValue(createBook(59_999));
   const { getByTestId, rerender } = render(workspaceDepthChart());
   const depth = getByTestId('depth');
@@ -269,10 +269,16 @@ it('rejects a shared book queued before the latest pause even if the atom receiv
   setModalOpen(true);
   rerender(workspaceDepthChart());
   await advanceTime(1);
-  updateSharedBook({ ...queuedBook, localReceivedAt: Date.now() });
   setModalOpen(false);
   rerender(workspaceDepthChart());
+  updateSharedBook({ ...queuedBook, localReceivedAt: Date.now() });
   expect(depth.dataset.status).toBe('stale');
+  expect(depth.textContent).toBe('60000');
+
+  await advanceTime(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS);
+  expect(mockSubscribe).not.toHaveBeenCalled();
+  await advanceTime(1);
+  expect(mockSubscribe).toHaveBeenCalledTimes(1);
   expect(depth.textContent).toBe('60000');
 
   updateSharedBook(createBook(60_199));

@@ -226,7 +226,9 @@ export function usePerpDepthBook(
         : undefined;
     book = lastBook ?? independent?.book ?? shared;
   }
-  const { time, localReceivedAt, isCachedSnapshot } = book ?? {};
+  // The shared book can still own the feed while the chart displays a fallback.
+  const { time, localReceivedAt, isCachedSnapshot } =
+    (usesSharedSubscription ? shared : book) ?? {};
   useEffect(() => {
     if (!active) return undefined;
     const delay = getPerpsL2BookInteractiveRefreshDelayMs({
