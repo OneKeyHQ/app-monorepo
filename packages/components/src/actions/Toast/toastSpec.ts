@@ -139,39 +139,18 @@ const ACTION_VARIANTS: Record<
     focusRing: 'focusRing',
   },
 };
-const ACTION_PADDING_VERTICAL = 7;
-const ACTION_PADDING_HORIZONTAL = 14;
+const ACTION_PADDING_VERTICAL = 4;
+const ACTION_PADDING_HORIZONTAL = 10;
 const ACTION_TERTIARY_PADDING_HORIZONTAL = 8;
 const ACTION_TERTIARY_MARGIN_VERTICAL = -5;
 const ACTION_TERTIARY_MARGIN_HORIZONTAL = -9;
 const ACTION_BORDER_WIDTH = 1;
-const ACTION_RADIUS = 11;
+const ACTION_RADIUS = 9999;
 const ACTION_DISABLED_OPACITY = 0.4;
 const ACTION_ICON_SIZE = 18;
 const ACTION_ICON_GAP = 8;
 
 const STATUS_ICON_SIZE = 20;
-const STATUS_TILE_SIZE = 36;
-type IToastStatus = Exclude<IToastHaptic, 'none'>;
-type IToastStatusIcon = {
-  kind: 'status';
-  status: IToastStatus;
-  color: string;
-  backgroundColor: string;
-  size: number;
-};
-
-const STATUS_TILE_COLORS: Record<
-  IToastStatus,
-  { background: IToastColorKey; glyph: IToastColorKey }
-> = {
-  success: { background: 'bgSuccessStrong', glyph: 'iconOnColor' },
-  error: { background: 'bgCriticalStrong', glyph: 'iconOnColor' },
-  warning: { background: 'bgCautionStrong', glyph: 'iconOnBrightColor' },
-  info: { background: 'bgInfoStrong', glyph: 'iconOnColor' },
-  loading: { background: 'bgStrong', glyph: 'iconSubdued' },
-};
-
 const STATUS_ICONS: Record<
   'success' | 'error' | 'info' | 'warning',
   { name: IKeyOfIcons; color: IToastColorKey }
@@ -328,7 +307,7 @@ function buildActions(
   });
 }
 
-function messageIcon(
+function statusIcon(
   context: IToastStyleContext,
   input: IToastMessageSpecInput,
 ): IOverlayToastIcon | undefined {
@@ -365,27 +344,14 @@ function messageIcon(
 export function buildMessageToastSpec(
   context: IToastStyleContext,
   input: IToastMessageSpecInput,
-): IOverlayMessageToast & { statusIcon?: IToastStatusIcon } {
+): IOverlayMessageToast {
   const { colors } = context;
-  const status =
-    input.icon || input.haptic === 'none' ? undefined : input.haptic;
-  const tile = status && STATUS_TILE_COLORS[status];
   return {
     id: input.id,
     layout: 'message',
     duration: input.duration,
     position: input.position,
-    icon: messageIcon(context, input),
-    statusIcon:
-      status && tile
-        ? {
-            kind: 'status',
-            status,
-            color: colors[tile.glyph],
-            backgroundColor: colors[tile.background],
-            size: STATUS_TILE_SIZE,
-          }
-        : undefined,
+    icon: statusIcon(context, input),
     title: input.title
       ? richText(context, input.title, 'headingSm', colors.text)
       : undefined,
