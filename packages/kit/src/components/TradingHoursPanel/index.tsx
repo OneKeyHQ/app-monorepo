@@ -324,8 +324,10 @@ function TradingHoursClosedTimeline({
                   'aria-label': part.label,
                   'aria-valuemin': 0,
                   'aria-valuemax': 100,
+                  // Capped at 99: the market is still closed until the
+                  // reopen, however close rounding gets.
                   'aria-valuenow': nextSessionKey
-                    ? Math.round(clampedProgress * 100)
+                    ? Math.min(Math.round(clampedProgress * 100), 99)
                     : undefined,
                   testID: 'trading-hours-closure-progress',
                 }

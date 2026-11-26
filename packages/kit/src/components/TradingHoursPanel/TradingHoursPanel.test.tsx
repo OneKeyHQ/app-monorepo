@@ -582,6 +582,19 @@ describe('closed timeline', () => {
     expect(nowLinePercent()).toBeCloseTo((elapsedMinutes / 2885) * 100, 6);
   });
 
+  it('never announces a finished closure before the reopen', () => {
+    mockStatus = { open: false, session: 'CLOSED', reason: 'weekend' };
+    // Sun 19:55 EST: 2875 of the 2885 weekend minutes, ten before overnight
+    jest.setSystemTime(new Date('2026-11-30T00:55:00Z'));
+    renderClosedUSListing();
+
+    expect(
+      screen
+        .getByRole('progressbar', { name: ETranslations.market_status_closed })
+        .getAttribute('aria-valuenow'),
+    ).toBe('99');
+  });
+
   it('keeps the closure start across the 04:01 cycle rollover', () => {
     // Fri 03:59 EST, closed until the Fri 09:31 EST regular open: 23h58m
     // into the closure that started Thu 04:01 (29h30m long)
