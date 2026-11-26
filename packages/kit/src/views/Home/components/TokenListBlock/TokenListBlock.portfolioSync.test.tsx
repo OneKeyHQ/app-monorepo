@@ -58,7 +58,6 @@ const mockShowPortfolioProcessing = jest.fn<Promise<void>, []>(
 );
 let mockCustomTokens: ICustomTokenItem[] = [];
 const mockGetHomeDefaultTokenMap = jest.fn(async () => ({}));
-const mockSyncWalletConfigIfNeeded = jest.fn(async () => undefined);
 const mockCurrencyMap = {};
 let mockEpoch = 0;
 let mockTokenWorth = '125';
@@ -494,7 +493,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getVaultSettings: (params: { networkId?: string }) =>
         mockGetVaultSettings(params),
     },
-    serviceSetting: { syncWalletConfigIfNeeded: mockSyncWalletConfigIfNeeded },
+    serviceSetting: { syncWalletConfigIfNeeded: mockAsyncNoop },
   },
 }));
 
@@ -628,42 +627,44 @@ describe('Home automatic Portfolio sync', () => {
       }),
     );
     const token = response.tokens.data[0];
-    mockCustomTokens = [token];
+    const other = { ...token, $key: 'other', address: '0xABC' };
+    mockCustomTokens = [token, other];
     const { rerender } = render(<TokenListBlock />);
     await waitFor(() =>
       expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(1),
     );
 
-    mockCustomTokens = [{ ...token }];
+    mockCustomTokens = [
+      { ...other, address: '0xabc', name: 'Renamed' },
+      { ...token },
+      { ...token },
+    ];
     await act(async () => rerender(<TokenListBlock />));
     expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(1);
 
-    mockCustomTokens = [];
+    mockCustomTokens = [token, { ...other, networkId: 'evm--10' }];
     await act(async () => rerender(<TokenListBlock />));
     expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(2);
+
+    mockCustomTokens = [token];
+    await act(async () => rerender(<TokenListBlock />));
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(3);
   });
 
-  it('reloads extension Home defaults after the wallet config has been persisted', async () => {
+  it('reloads defaults in every mounted extension Home when background writes them', async () => {
     platformEnv.isExtensionUi = true;
-    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
-    let finishSync!: () => void;
-    mockSyncWalletConfigIfNeeded.mockReturnValueOnce(
-      new Promise((resolve) => {
-        finishSync = () => resolve(undefined);
-      }),
-    );
     render(<TokenListBlock />);
+    const peer = render(<TokenListBlock />);
     await act(async () => {
-      await mockAllNetworkParams?.onStarted?.({
-        accountId: mockAccount.id,
-        networkId: mockNetwork.id,
-        generation: 1,
-      });
+      appEventBus.emit(EAppEventBusNames.HomeDefaultTokensUpdated, undefined);
     });
-    expect(mockSyncWalletConfigIfNeeded).toHaveBeenCalledTimes(1);
-    expect(mockGetHomeDefaultTokenMap).not.toHaveBeenCalled();
-    await act(async () => finishSync());
-    expect(mockGetHomeDefaultTokenMap).toHaveBeenCalledTimes(1);
+    expect(mockGetHomeDefaultTokenMap).toHaveBeenCalledTimes(2);
+
+    peer.unmount();
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.HomeDefaultTokensUpdated, undefined);
+    });
+    expect(mockGetHomeDefaultTokenMap).toHaveBeenCalledTimes(3);
   });
 
   it('does not query categories until a current spot response is available', async () => {

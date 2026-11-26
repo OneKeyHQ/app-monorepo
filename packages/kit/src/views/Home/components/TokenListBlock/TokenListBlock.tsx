@@ -258,6 +258,19 @@ function pickTokenListFiatMap({
   return map;
 }
 
+// computeNonZeroIds matches either the row key or the network/address pair.
+function getCustomTokenMembership(tokens: ICustomTokenItem[] = []) {
+  const keys = new Set<string>();
+  const addresses = new Set<string>();
+  for (const token of tokens) {
+    keys.add(token.$key);
+    addresses.add(
+      JSON.stringify([token.networkId, token.address.toLowerCase()]),
+    );
+  }
+  return { keys: [...keys].toSorted(), addresses: [...addresses].toSorted() };
+}
+
 type IActiveAccountTokenListRequestContext = {
   accountId: string;
   indexedAccountId: string;
@@ -939,6 +952,15 @@ function TokenListBlock({
       { checkIsFocused: !platformEnv.isExtensionUi },
     );
 
+  useEffect(() => {
+    if (!platformEnv.isExtensionUi) return;
+    const reload = () => void reloadHomeDefaultTokens().catch(() => undefined);
+    appEventBus.on(EAppEventBusNames.HomeDefaultTokensUpdated, reload);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HomeDefaultTokensUpdated, reload);
+    };
+  }, [reloadHomeDefaultTokens]);
+
   const { run } = usePromiseResult(
     async () => {
       const requestAccountEpoch = activeAccountEpoch;
@@ -1540,7 +1562,17 @@ function TokenListBlock({
     // Each structure broadcast re-reads custom tokens. Equal bridge results
     // must not make two Home windows publish their retained snapshots again.
     const previous = cellsIngestInputsRef.current.nonZeroInputs;
-    return isEqual(previous, inputs) ? previous : inputs;
+    if (
+      isEqual(previous.homeDefaultTokenMap, homeDefaultTokenMap) &&
+      (previous.customTokens === inputs.customTokens ||
+        isEqual(
+          getCustomTokenMembership(previous.customTokens),
+          getCustomTokenMembership(inputs.customTokens),
+        ))
+    ) {
+      return previous;
+    }
+    return inputs;
   }, [homeDefaultTokenMap, cellsCustomTokens]);
   useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
 
@@ -2159,13 +2191,6 @@ function TokenListBlock({
       if (!homeRequest) {
         const configSync =
           backgroundApiProxy.serviceSetting.syncWalletConfigIfNeeded();
-        // A window can read defaults before the first config sync completes.
-        // Both extension surfaces need the persisted defaults after that sync.
-        if (platformEnv.isExtensionUi) {
-          void configSync
-            .then(() => reloadHomeDefaultTokens())
-            .catch(() => undefined);
-        }
         if (!a?.aggregateTokenConfigMap) {
           await configSync;
           a =
@@ -2216,7 +2241,6 @@ function TokenListBlock({
       isAccountEpochCurrent,
       isHomeRequestCurrent,
       getHomeRequest,
-      reloadHomeDefaultTokens,
       network?.id,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
