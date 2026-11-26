@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { EPageType } from '@onekeyhq/components';
 import {
+  BUTTON_DISABLED_COLORS,
   Button,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
@@ -699,6 +700,12 @@ function StockActionGate({
         disabled
         borderRadius="$full"
         childrenAsText={!hasPositiveInputAmount}
+        // The spinner is custom content, which Button would fade; like the
+        // Swap quote dots, it sits on Button's disabled fill instead.
+        {...(hasPositiveInputAmount && {
+          opacity: 1,
+          bg: BUTTON_DISABLED_COLORS.bg,
+        })}
       >
         {hasPositiveInputAmount ? (
           <Spinner
@@ -706,7 +713,7 @@ function StockActionGate({
             alignItems="center"
             justifyContent="center"
             size="small"
-            color="$iconInverse"
+            color="$icon"
           />
         ) : (
           intl.formatMessage({
