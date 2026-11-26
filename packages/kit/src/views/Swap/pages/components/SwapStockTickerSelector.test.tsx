@@ -182,6 +182,14 @@ describe('SwapStockTickerSelector', () => {
     mockListResult.isLoadingMore = false;
   });
 
+  it('shows the current stock without opening the ticker picker in read-only mode', () => {
+    render(<SwapStockTickerSelector readOnly />);
+    fireEvent.click(screen.getByText('AAPL'));
+    expect(screen.getByText('Apple')).toBeTruthy();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(mockSelectStock).not.toHaveBeenCalled();
+  });
+
   afterEach(() => {
     jest.useRealTimers();
   });

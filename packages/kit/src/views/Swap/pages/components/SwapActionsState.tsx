@@ -1669,6 +1669,7 @@ const SwapActionsState = ({
         </Stack>
         {!platformEnv.isNativeIOS ? (
           <PercentageStageOnKeyboard
+            disabled={multiplierStatus !== 'ready'}
             onSelectPercentageStage={onSelectPercentageStage}
             stageList={isXmrSource ? xmrNativePercentageStages : undefined}
           />
@@ -1683,6 +1684,7 @@ const SwapActionsState = ({
       desktopActionWidth,
       isActionDisabled,
       isXmrSource,
+      multiplierStatus,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,
@@ -1697,6 +1699,7 @@ const SwapActionsState = ({
         {!platformEnv.isNativeIOS ? (
           <Page.Footer>
             <PercentageStageOnKeyboard
+              disabled={multiplierStatus !== 'ready'}
               onSelectPercentageStage={onSelectPercentageStage}
               stageList={isXmrSource ? xmrNativePercentageStages : undefined}
             />
@@ -1704,7 +1707,7 @@ const SwapActionsState = ({
         ) : null}
       </>
     ),
-    [actionComponent, isXmrSource, onSelectPercentageStage],
+    [actionComponent, isXmrSource, multiplierStatus, onSelectPercentageStage],
   );
 
   return (

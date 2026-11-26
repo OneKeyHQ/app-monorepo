@@ -465,29 +465,36 @@ export function getCachedSwapStockDisplayVariants(
     : undefined;
 }
 
+export function getFreshSwapStockVariants(stockId: string, locale: string) {
+  const normalizedStockId = stockId.trim().toUpperCase();
+  const cached =
+    swrCacheUtils.getWithTimestamp<IStockTokenVariantsRequestResult>(
+      swrKeys.marketStockTokenVariants({ stockId: normalizedStockId, locale }),
+    );
+  const age = Date.now() - (cached?.updatedAt ?? 0);
+  return cached?.data.stockId?.trim().toUpperCase() === normalizedStockId &&
+    !cached.data.failed &&
+    age >= 0 &&
+    age < STOCK_VARIANTS_CACHE_TTL_MS
+    ? {
+        data: cached.data,
+        expiresAt: cached.updatedAt + STOCK_VARIANTS_CACHE_TTL_MS,
+      }
+    : undefined;
+}
+
 function getCachedSwapStockVariant(
   stock: IMarketStockPublicItem,
   query?: string,
   locale?: string,
   preferredIssuer?: string,
 ) {
-  const normalizedStockId = stock.stockId.trim().toUpperCase();
-  const cached = locale
-    ? swrCacheUtils.getWithTimestamp<IStockTokenVariantsRequestResult>(
-        swrKeys.marketStockTokenVariants({
-          stockId: normalizedStockId,
-          locale,
-        }),
-      )
+  const variants = locale
+    ? getFreshSwapStockVariants(stock.stockId, locale)
     : undefined;
-  const age = Date.now() - (cached?.updatedAt ?? 0);
-  const cachedVariant =
-    cached?.data.stockId?.trim().toUpperCase() === normalizedStockId &&
-    !cached.data.failed &&
-    age >= 0 &&
-    age < STOCK_VARIANTS_CACHE_TTL_MS
-      ? selectSwapStockVariant({ ...cached.data, query, preferredIssuer })
-      : undefined;
+  const cachedVariant = variants
+    ? selectSwapStockVariant({ ...variants.data, query, preferredIssuer })
+    : undefined;
   if (cachedVariant && isStockTokenVariantTradable(cachedVariant)) {
     return cachedVariant;
   }
