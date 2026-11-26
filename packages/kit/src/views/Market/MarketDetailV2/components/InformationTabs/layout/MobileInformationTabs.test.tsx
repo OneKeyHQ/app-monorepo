@@ -14,8 +14,8 @@ import { Portfolio } from '../components/Portfolio';
 
 import { MobileInformationTabs } from './MobileInformationTabs';
 
+import type { IMarketDetailPagerProps } from './MarketDetailPager';
 import type { useStockFinancials } from '../../StockFinancials/useStockFinancials';
-import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
 const mockContainerProps = jest.fn();
 const mockChartMount = jest.fn();
@@ -31,6 +31,25 @@ jest.mock('../../StockFinancials/useStockFinancials', () => ({
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('./MarketDetailPager', () => ({
+  MarketDetailPager: (props: IMarketDetailPagerProps) => {
+    mockContainerProps(props);
+    const headerProps = {
+      tabNames: ['transactions'],
+      focusedTab: { value: 'transactions' } as Parameters<
+        IMarketDetailPagerProps['renderTabBar']
+      >[0]['focusedTab'],
+      onTabPress: jest.fn(),
+    };
+    return (
+      <div data-testid="information-scroll-container">
+        {props.renderHeader()}
+        {props.renderTabBar(headerProps)}
+        {props.children}
+      </div>
+    );
+  },
 }));
 jest.mock('@onekeyhq/components', () => {
   const Box = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
@@ -58,21 +77,6 @@ jest.mock('@onekeyhq/components', () => {
     ),
     TabBar: () => <div data-testid="information-tab-bar" />,
     Tabs: {
-      Container: (props: CollapsibleProps) => {
-        mockContainerProps(props);
-        const headerProps = {
-          tabNames: ['transactions'],
-          focusedTab: { value: 'transactions' },
-        } as Parameters<NonNullable<CollapsibleProps['renderHeader']>>[0];
-        return (
-          <div data-testid="information-scroll-container">
-            {props.renderHeader?.(headerProps)}
-            {props.renderTabBar?.(headerProps)}
-            {props.children}
-          </div>
-        );
-      },
-
       ScrollView: Box,
       FlatList: ({
         data,

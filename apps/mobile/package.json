@@ -94,7 +94,7 @@
     "@onekeyfe/react-native-image-crop-picker": "6.8.0-38",
     "@onekeyfe/react-native-keychain-module": "6.8.0-38",
     "@onekeyfe/react-native-lite-card": "6.8.0-38",
-    "@onekeyfe/react-native-native-list": "6.8.0-38",
+    "@onekeyfe/react-native-native-list": "6.8.0-43",
     "@onekeyfe/react-native-native-logger": "6.8.0-38",
     "@onekeyfe/react-native-native-overlay": "6.8.0-38",
     "@onekeyfe/react-native-network-throttle": "6.8.0-38",

@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import { buildMarketHolderPercentages } from './useMarketHolders.utils';
+import {
+  buildMarketHolderPercentages,
+  getUniqueMarketHolders,
+} from './useMarketHolders.utils';
 import { useMarketTokenListRequest } from './useMarketTokenListRequest';
 import { useTokenDetail } from './useTokenDetail';
 
@@ -60,15 +63,18 @@ export function useMarketHolders({
     run: fetchHolders,
   } = useMarketTokenListRequest(
     async () => {
-      return backgroundApiProxy.serviceMarketV2.fetchMarketTokenHolders({
-        tokenAddress,
-        networkId,
-      });
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenHolders({
+          tokenAddress,
+          networkId,
+        });
+      return { ...response, list: getUniqueMarketHolders(response.list) };
     },
     {
       tokenAddress,
       networkId,
       isTabFocused,
+      keepResultIfError: true,
     },
   );
 

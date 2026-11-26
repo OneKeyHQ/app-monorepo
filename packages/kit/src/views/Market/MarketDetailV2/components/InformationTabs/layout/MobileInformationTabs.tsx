@@ -33,6 +33,7 @@ import { useStockFinancialLabels } from '../../StockFinancials/stockFinancialLab
 import { useStockFinancials } from '../../StockFinancials/useStockFinancials';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
+import { HoldersLayoutProvider } from '../components/Holders/HoldersLayoutContext';
 import { Portfolio } from '../components/Portfolio';
 import {
   TransactionsHistory,
@@ -57,7 +58,7 @@ import { StickyHeader } from './StickyHeader';
 import type { IMarketMobileDetailKind } from '../../../utils/marketMobileDetailKind';
 
 function getStickyHeaderHeight(tabKey: string) {
-  // Reserve the destination's column header before iOS displays its list.
+  // Reserve the destination's column header before the native pager displays its list.
   return tabKey === 'transactions' ||
     tabKey === 'portfolio' ||
     tabKey === 'holders'
@@ -427,25 +428,27 @@ export function MobileInformationTabs({
     preferPosition ? 'portfolio' : 'overview',
   );
   return (
-    <MarketDetailPager
-      key={tabsKey}
-      initialHeaderHeight={initialHeaderHeight}
-      initialStickyHeaderHeight={
-        initialHeaderHeight === undefined ? undefined : initialStickyHeight
-      }
-      getStickyHeaderHeight={
-        platformEnv.isNativeIOS ? getStickyHeaderHeight : undefined
-      }
-      width={platformEnv.isNative ? resolvedContainerWidth : undefined}
-      scrollEnabled={scrollEnabled}
-      renderHeader={renderHeader}
-      renderTabBar={renderTabBar}
-      // Opens on My position when that was the last tab picked on any detail
-      // page; read once when the tabs mount.
-      initialTabName={preferPosition ? positionTabName : undefined}
-      onTabChange={handleTabChange}
-    >
-      {tabs}
-    </MarketDetailPager>
+    <HoldersLayoutProvider>
+      <MarketDetailPager
+        key={tabsKey}
+        initialHeaderHeight={initialHeaderHeight}
+        initialStickyHeaderHeight={
+          initialHeaderHeight === undefined ? undefined : initialStickyHeight
+        }
+        getStickyHeaderHeight={
+          platformEnv.isNative ? getStickyHeaderHeight : undefined
+        }
+        width={platformEnv.isNative ? resolvedContainerWidth : undefined}
+        scrollEnabled={scrollEnabled}
+        renderHeader={renderHeader}
+        renderTabBar={renderTabBar}
+        // Opens on My position when that was the last tab picked on any detail
+        // page; read once when the tabs mount.
+        initialTabName={preferPosition ? positionTabName : undefined}
+        onTabChange={handleTabChange}
+      >
+        {tabs}
+      </MarketDetailPager>
+    </HoldersLayoutProvider>
   );
 }

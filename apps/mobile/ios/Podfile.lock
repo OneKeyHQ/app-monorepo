@@ -2370,7 +2370,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-native-list (6.8.0-38):
+  - react-native-native-list (6.8.0-43):
     - hermes-engine
     - NitroModules
     - OneKeyImage
@@ -4848,7 +4848,7 @@ SPEC CHECKSUMS:
   react-native-compat: 3daa09b83589170412693b46ff289f868ac9bd8e
   react-native-document-picker: 58a3a5797bb334a2c4dad0583416057657a0c44f
   react-native-keyboard-controller: 8e4aaae6b15664bda1cf867ab1720213cbf52492
-  react-native-native-list: ad4ff771ff5dff0c5fc23b98f4b0976c45fc3ea4
+  react-native-native-list: ca56ed9a295e549cdf8cab883597aa7c602fe14a
   react-native-netinfo: aac21e38ce217d5625187e3388fba2ff22a422d1
   react-native-pager-view: b772c5b983c2d97f10d228820f7c70d50defa01e
   react-native-quick-base64: 3f24d3c28843c94ac266b2d7b3afb3c32e86196f

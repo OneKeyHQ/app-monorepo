@@ -199,6 +199,182 @@ describe('useMarketTokenListRequest', () => {
 });
 
 describe('useMarketHolders request ownership', () => {
+  it.each(['mount', 'focus'])(
+    'handles a conflict during automatic %s refresh and recovers on the next poll',
+    async (trigger) => {
+      mockFetchHolders
+        .mockResolvedValueOnce({
+          list: [holderA, { ...holderA, amount: '999' }],
+        })
+        .mockResolvedValue({ list: [holderA] });
+      const { result, rerender } = renderHook(
+        (props) => useMarketHolders(props),
+        {
+          initialProps: {
+            ...initialScope,
+            isTabFocused: trigger === 'mount',
+          },
+        },
+      );
+      if (trigger === 'focus') {
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(0);
+        });
+        expect(mockFetchHolders).not.toHaveBeenCalled();
+        rerender({ ...initialScope, isTabFocused: true });
+      }
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(mockFetchHolders).toHaveBeenCalledTimes(1);
+      expect(result.current.holders).toEqual([]);
+      expect(result.current.isInitialPending).toBe(false);
+      expect(result.current.isRefreshing).toBe(false);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockFetchHolders).toHaveBeenCalledTimes(2);
+      expect(result.current.holders).toEqual([
+        { ...holderA, percentage: '1.00' },
+      ]);
+    },
+  );
+
+  it('keeps valid holders through conflicting automatic polls and recovers', async () => {
+    const updatedHolder = { ...holderA, amount: '11', fiatValue: '22' };
+    const conflict = { list: [holderA, { ...holderA, fiatValue: '1998' }] };
+    mockFetchHolders
+      .mockResolvedValueOnce({ list: [holderA] })
+      .mockResolvedValueOnce(conflict)
+      .mockResolvedValueOnce(conflict)
+      .mockResolvedValue({ list: [updatedHolder] });
+    const { result } = renderHook(() =>
+      useMarketHolders({ ...initialScope, isTabFocused: true }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.holders).toEqual([
+      { ...holderA, percentage: '1.00' },
+    ]);
+    for (const requestCount of [2, 3]) {
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockFetchHolders).toHaveBeenCalledTimes(requestCount);
+      expect(result.current.holders).toEqual([
+        { ...holderA, percentage: '1.00' },
+      ]);
+      expect(result.current.isInitialPending).toBe(false);
+      expect(result.current.isRefreshing).toBe(false);
+    }
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(5000);
+    });
+    expect(mockFetchHolders).toHaveBeenCalledTimes(4);
+    expect(result.current.holders).toEqual([
+      { ...updatedHolder, percentage: '1.10' },
+    ]);
+  });
+
+  it.each([true, false])(
+    'collapses matching holder balances with token detail available: %s',
+    async (hasTokenDetail) => {
+      if (!hasTokenDetail) {
+        mockTokenDetail = undefined;
+      }
+      mockFetchHolders.mockResolvedValue({
+        list: [
+          holderA,
+          holderB,
+          { ...holderA, amount: '10.00', fiatValue: '20.0' },
+          { ...holderB },
+        ],
+      });
+      const { result } = renderHook(() =>
+        useMarketHolders({ ...initialScope, isTabFocused: true }),
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(0);
+      });
+      expect(result.current.holders).toEqual([
+        { ...holderA, ...(hasTokenDetail ? { percentage: '1.00' } : {}) },
+        { ...holderB, ...(hasTokenDetail ? { percentage: '2.00' } : {}) },
+      ]);
+      expect(result.current.isInitialPending).toBe(false);
+    },
+  );
+
+  it('preserves distinct case-sensitive Solana wallet addresses', async () => {
+    const address = '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM';
+    const holders = [
+      { ...holderA, accountAddress: address },
+      { ...holderB, accountAddress: address.replace('W', 'w') },
+    ];
+    mockFetchHolders.mockResolvedValue({ list: [...holders, holders[0]] });
+    const { result } = renderHook(() =>
+      useMarketHolders({
+        ...initialScope,
+        networkId: 'sol--101',
+        isTabFocused: true,
+      }),
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(0);
+    });
+    expect(result.current.holders).toEqual(holders);
+  });
+
+  it.each([
+    { amount: '999', fiatValue: holderA.fiatValue, reverse: false },
+    { amount: '999', fiatValue: holderA.fiatValue, reverse: true },
+    { amount: holderA.amount, fiatValue: '1998', reverse: false },
+    { amount: holderA.amount, fiatValue: '1998', reverse: true },
+  ])('does not publish conflicting holder balances: %j', async (conflict) => {
+    const list = [
+      holderA,
+      holderB,
+      { ...holderA, amount: conflict.amount, fiatValue: conflict.fiatValue },
+    ];
+    mockFetchHolders.mockResolvedValue({
+      list: conflict.reverse ? list.toReversed() : list,
+    });
+    const { result } = renderHook(() => useMarketHolders(initialScope));
+    await act(async () => {
+      jest.advanceTimersByTime(0);
+    });
+    await act(async () => {
+      await result.current.fetchHolders({ alwaysSetState: true });
+    });
+    expect(result.current.holders).toEqual([]);
+    expect(result.current.isInitialPending).toBe(false);
+    expect(result.current.isRefreshing).toBe(false);
+  });
+
+  it('retains the last valid holders on conflict and accepts a later valid refresh', async () => {
+    mockFetchHolders.mockResolvedValueOnce({ list: [holderA] });
+    const { result } = renderHook(() => useMarketHolders(initialScope));
+    await act(async () => {
+      jest.advanceTimersByTime(0);
+      await result.current.fetchHolders({ alwaysSetState: true });
+    });
+    expect(result.current.holders).toEqual([holderA]);
+    mockFetchHolders.mockResolvedValueOnce({
+      list: [holderA, { ...holderA, amount: '999', fiatValue: '1998' }],
+    });
+    await act(async () => {
+      await result.current.fetchHolders({ alwaysSetState: true });
+    });
+    expect(result.current.holders).toEqual([holderA]);
+    expect(result.current.isRefreshing).toBe(false);
+    const updatedHolder = { ...holderA, amount: '11', fiatValue: '22' };
+    mockFetchHolders.mockResolvedValueOnce({ list: [updatedHolder] });
+    await act(async () => {
+      await result.current.fetchHolders({ alwaysSetState: true });
+    });
+    expect(result.current.holders).toEqual([updatedHolder]);
+  });
+
   it.each([
     { networkId: 'evm--1', tokenAddress: '0xb' },
     { networkId: 'evm--56', tokenAddress: '0xa' },

@@ -1,32 +1,43 @@
-import { memo } from 'react';
-
 import { Skeleton, XStack, YStack } from '@onekeyhq/components';
 
-function HoldersSkeletonBase() {
+import type { holderLayout } from '../holderTable';
+
+export function HoldersSkeleton({
+  layout,
+}: {
+  layout: ReturnType<typeof holderLayout>;
+}) {
   return (
-    <YStack gap="$3" p="$4">
-      {Array.from({ length: 10 }).map((_, index) => (
-        <XStack key={index} alignItems="center" gap="$3">
-          {/* Rank */}
-          <Skeleton height="$4" width="$6" />
-
-          {/* Address */}
-          <Skeleton height="$4" width="$32" />
-
-          {/* Percentage */}
-          <Skeleton height="$4" width="$16" />
-
-          {/* Amount */}
-          <Skeleton height="$4" width="$16" />
-
-          {/* Value */}
-          <Skeleton height="$4" width="$20" />
+    <YStack px={layout.padding}>
+      {Array.from({ length: 10 }, (_, i) => (
+        <XStack
+          key={i}
+          height={layout.wide ? 40 : 52}
+          alignItems="center"
+          gap={layout.gap}
+        >
+          <YStack width={layout.rankWidth}>
+            <Skeleton height={16} width={18} />
+          </YStack>
+          <YStack
+            flex={layout.wide ? undefined : 1}
+            width={layout.addressWidth}
+          >
+            <Skeleton height={16} width="80%" />
+          </YStack>
+          <YStack width={layout.percentageWidth} alignItems="flex-end">
+            <Skeleton height={16} width={40} />
+          </YStack>
+          {layout.wide ? (
+            <YStack width={layout.amountWidth} alignItems="flex-end">
+              <Skeleton height={16} width={72} />
+            </YStack>
+          ) : null}
+          <YStack width={layout.valueWidth} alignItems="flex-end">
+            <Skeleton height={16} width={64} />
+          </YStack>
         </XStack>
       ))}
     </YStack>
   );
 }
-
-const HoldersSkeleton = memo(HoldersSkeletonBase);
-
-export { HoldersSkeleton };

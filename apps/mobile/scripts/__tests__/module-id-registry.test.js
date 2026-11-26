@@ -31,6 +31,19 @@ function createRegistry({ modules = {}, tombstones = {} } = {}) {
 }
 
 describe('module ID registry CLI helpers', () => {
+  it.each([
+    'HoldersTableHeader.tsx',
+    'HoldersLayoutContext.tsx',
+    'holderTable.ts',
+    'useHoldersScrollHost.native.ts',
+  ])('resolves Holders module %s in strict mobile builds', (filename) => {
+    const map = createFileToIdMap({ registry: loadRegistry(), strict: true });
+    expect(
+      map.get(
+        `packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Holders/${filename}`,
+      ),
+    ).toEqual(expect.any(Number));
+  });
   it('resolves the legacy favorite hook in strict mobile builds', () => {
     const map = createFileToIdMap({ registry: loadRegistry(), strict: true });
     expect(

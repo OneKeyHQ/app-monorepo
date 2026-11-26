@@ -10,10 +10,7 @@ import {
   type IMarketMobileDetailKind,
   resolveMobileInformationColumnHeader,
 } from '../../../utils/marketMobileDetailKind';
-import {
-  HoldersHeaderNormal,
-  HoldersHeaderSmall,
-} from '../components/Holders/layout';
+import { HoldersTableHeader } from '../components/Holders/HoldersTableHeader';
 import {
   PortfolioHeaderNormal,
   PortfolioHeaderSmall,
@@ -44,10 +41,6 @@ function BaseStickyHeader({
     }
     return gtLg ? <PortfolioHeaderNormal /> : <PortfolioHeaderSmall />;
   }, [detailKind, gtLg]);
-
-  const holdersHeader = useMemo(() => {
-    return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;
-  }, [gtLg]);
 
   // Determine which header to show based on focused tab name
   const transactionsTabName = intl.formatMessage({
@@ -81,7 +74,7 @@ function BaseStickyHeader({
   if (columnHeader === 'portfolio') {
     currentHeader = portfolioHeader;
   } else if (columnHeader === 'holders') {
-    currentHeader = holdersHeader;
+    currentHeader = <HoldersTableHeader />;
   }
 
   return (
