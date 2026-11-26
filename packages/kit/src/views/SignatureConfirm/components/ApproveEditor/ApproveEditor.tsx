@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { type Atom, atom, useAtomValue } from 'jotai';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -61,9 +62,14 @@ const ALLOWANCE_MAX = 10_000_000_000_000;
 type IAllowance = Pick<IProps, 'allowance' | 'isUnlimited'>;
 
 function ApproveEditor(
-  props: IProps & { onSave: (edit: IAllowance) => Promise<void> },
+  props: IProps & {
+    store: IJotaiContextStore;
+    updatingAtom: Atom<boolean>;
+    onSave: (edit: IAllowance) => Promise<void>;
+  },
 ) {
   const intl = useIntl();
+  const updating = useAtomValue(props.updatingAtom, { store: props.store });
 
   const {
     accountId,
@@ -243,6 +249,7 @@ function ApproveEditor(
                 testID={SignatureConfirmTestIDs.ApproveEditorBalanceButton}
                 size="small"
                 variant="tertiary"
+                disabled={updating}
                 icon="WalletOutline"
                 onPress={() => {
                   if (
@@ -271,7 +278,7 @@ function ApproveEditor(
           <Input
             testID={SignatureConfirmTestIDs.ApproveEditorAllowanceInput}
             flex={1}
-            editable={!watchAllFields.isUnlimited}
+            editable={!updating && !watchAllFields.isUnlimited}
             addOns={[
               {
                 label: tokenSymbol,
@@ -307,6 +314,7 @@ function ApproveEditor(
           >
             <Switch
               testID={SignatureConfirmTestIDs.ApproveEditorUnlimitedSwitch}
+              disabled={updating}
               size="small"
             />
           </Form.Field>
@@ -354,12 +362,13 @@ function ApproveEditor(
       ) : null}
       <Dialog.Footer
         confirmButtonProps={{
-          disabled: !form.formState.isValid,
+          disabled: updating || !form.formState.isValid,
         }}
         onConfirm={async () => {
           const edit = form.getValues();
           if (edit.allowance !== '') await onSave(edit);
         }}
+        cancelButtonProps={{ disabled: updating }}
         onCancelText={intl.formatMessage({
           id: ETranslations.global_reset,
         })}
@@ -371,13 +380,14 @@ function ApproveEditor(
 const showApproveEditor = (store: IJotaiContextStore, props: IProps) => {
   const unsignedTxs = store.get(unsignedTxsAtom());
   const original = store.get(tokenApproveInfoAtom());
-  let updating = false;
+  const updatingAtom = atom(false);
 
   // The dialog lives in a portal. Keep its writes bound to the transaction
   // that opened it, even if the route's queue advances during the rewrite.
   const updateAllowance = async (edit: IAllowance) => {
-    if (updating || store.get(unsignedTxsAtom()) !== unsignedTxs) return false;
-    updating = true;
+    if (store.get(updatingAtom) || store.get(unsignedTxsAtom()) !== unsignedTxs)
+      return false;
+    store.set(updatingAtom, true);
     try {
       const updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
         accountId: props.accountId,
@@ -392,7 +402,7 @@ const showApproveEditor = (store: IJotaiContextStore, props: IProps) => {
       store.set(unsignedTxsAtom(), [updatedTx]);
       return true;
     } finally {
-      updating = false;
+      store.set(updatingAtom, false);
     }
   };
 
@@ -406,9 +416,9 @@ const showApproveEditor = (store: IJotaiContextStore, props: IProps) => {
       id: ETranslations.approve_edit_title,
     }),
     showExitButton: false,
-    onBeforeClose: () => !updating,
+    onBeforeClose: () => !store.get(updatingAtom),
     onCancel: async (close) => {
-      if (updating) return;
+      if (store.get(updatingAtom)) return;
       if (
         !new BigNumber(props.allowance).isEqualTo(original.originalAllowance) ||
         props.isUnlimited !== original.originalIsUnlimited
@@ -421,7 +431,14 @@ const showApproveEditor = (store: IJotaiContextStore, props: IProps) => {
       props.onResetTokenApproveInfo?.();
       await close();
     },
-    renderContent: <ApproveEditor {...props} onSave={onSave} />,
+    renderContent: (
+      <ApproveEditor
+        {...props}
+        store={store}
+        updatingAtom={updatingAtom}
+        onSave={onSave}
+      />
+    ),
   });
 };
 

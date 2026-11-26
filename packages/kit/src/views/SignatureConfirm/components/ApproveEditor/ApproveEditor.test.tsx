@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
-import { isValidElement } from 'react';
+import { type PropsWithChildren, type ReactNode, isValidElement } from 'react';
 
+import { act, render, screen } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import { Dialog } from '@onekeyhq/components';
@@ -13,7 +14,44 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { showApproveEditor } from './ApproveEditor';
 
-jest.mock('@onekeyhq/components', () => ({ Dialog: { show: jest.fn() } }));
+jest.mock('@onekeyhq/components', () => ({
+  Dialog: { show: jest.fn(), Footer: () => null },
+  Form: Object.assign(({ children }: PropsWithChildren) => children, {
+    Field: ({
+      children,
+      labelAddon,
+    }: PropsWithChildren<{ labelAddon?: ReactNode }>) => (
+      <>
+        {labelAddon}
+        {children}
+      </>
+    ),
+  }),
+  Input: ({ editable }: { editable: boolean }) => (
+    <input readOnly={!editable} />
+  ),
+  Switch: ({ disabled }: { disabled: boolean }) => (
+    <input type="checkbox" disabled={disabled} />
+  ),
+  Button: ({ disabled }: { disabled: boolean }) => (
+    <button type="button" disabled={disabled}>
+      Balance
+    </button>
+  ),
+  NumberSizeableText: () => null,
+  useForm:
+    jest.requireActual<typeof import('react-hook-form')>('react-hook-form')
+      .useForm,
+}));
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: () => '' }),
+}));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: () => ({ result: { tokenBalanceParsed: '100' } }),
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useTokenApproveAllowance', () => ({
+  useTokenApproveAllowance: () => ({}),
+}));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: { serviceSend: { updateUnsignedTx: jest.fn() } },
@@ -50,7 +88,7 @@ function openEditor() {
   ) {
     throw new OneKeyLocalError('Missing allowance editor');
   }
-  return { store, dialog, save: () => editor.props.onSave(edit) };
+  return { store, dialog, editor, save: () => editor.props.onSave(edit) };
 }
 
 it('blocks dismissal and reset until the saved transaction is installed', async () => {
@@ -96,3 +134,37 @@ it('keeps the original transaction and allows retry when saving fails', async ()
   await save();
   expect(store.get(unsignedTxsAtom())).toEqual([reduced]);
 });
+
+it.each(['save', 'reset'] as const)(
+  'locks all allowance inputs during %s and unlocks them on failure',
+  async (action) => {
+    const { editor, dialog, save } = openEditor();
+    const pending = Promise.withResolvers<typeof reduced>();
+    service.updateUnsignedTx.mockReturnValueOnce(pending.promise);
+    render(editor);
+    const amount = screen.getByRole<HTMLInputElement>('textbox');
+    const unlimited = screen.getByRole<HTMLInputElement>('checkbox');
+    const balance = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Balance',
+    });
+    const locked = () => [
+      amount.readOnly,
+      unlimited.disabled,
+      balance.disabled,
+    ];
+    expect(locked()).toEqual([false, false, false]);
+    let operation: Promise<void> | undefined;
+    act(() => {
+      operation =
+        action === 'save'
+          ? save()
+          : Promise.resolve(dialog.onCancel?.(jest.fn()));
+    });
+    expect(locked()).toEqual([true, true, true]);
+    await act(async () => {
+      pending.reject(new Error('rewrite failed'));
+      await expect(operation).rejects.toThrow('rewrite failed');
+    });
+    expect(locked()).toEqual([false, false, false]);
+  },
+);
