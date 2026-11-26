@@ -89,6 +89,28 @@ describe('useCursorPagination', () => {
     expect(hook.result.current.scrollProps.isLoading).toBe(false);
   });
 
+  it('shows the first page only after a related request settles', async () => {
+    const { hook, fetchPage } = setup();
+    const summary = createDeferred<void>();
+    fetchPage.mockResolvedValueOnce({ items: ['a1'], cursor: 'c1' });
+
+    let result: Promise<IPage | undefined> | undefined;
+    await act(async () => {
+      result = hook.result.current.loadFirstPage(summary.promise);
+      await Promise.resolve();
+    });
+    expect(hook.result.current.items).toEqual([]);
+    expect(hook.result.current.scrollProps.isLoading).toBe(true);
+
+    // A failed summary still lets the rows show.
+    await act(async () => {
+      summary.reject(new Error('Summary failed'));
+      await result;
+    });
+    expect(hook.result.current.items).toEqual(['a1']);
+    expect(hook.result.current.scrollProps.isLoading).toBe(false);
+  });
+
   it('pages only the rows of the active query', async () => {
     const { hook, fetchPage } = setup();
     fetchPage.mockResolvedValueOnce({ items: ['a1'], cursor: 'c1' });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -206,18 +206,29 @@ function HardwareSalesRewardPageWrapper() {
   });
   const { loadFirstPage } = pagination;
 
+  // Drops summary results and loading updates from a superseded refresh.
+  const refreshIdRef = useRef(0);
+
   const onRefresh = useCallback(async () => {
+    refreshIdRef.current += 1;
+    const refreshId = refreshIdRef.current;
     setIsLoading(true);
     try {
-      const [cumulativeRewardsResult] = await Promise.allSettled([
+      const cumulativeRewardsRequest =
         backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
           filterState.inviteCode,
           effectiveTimeRange,
           filterState.startTime,
           filterState.endTime,
-        ),
-        loadFirstPage(),
+        );
+      // Show the totals and the first page of records together.
+      const [cumulativeRewardsResult] = await Promise.allSettled([
+        cumulativeRewardsRequest,
+        loadFirstPage(cumulativeRewardsRequest),
       ]);
+      if (refreshId !== refreshIdRef.current) {
+        return;
+      }
 
       if (cumulativeRewardsResult.status === 'fulfilled') {
         setCumulativeRewards(cumulativeRewardsResult.value);
@@ -225,7 +236,9 @@ function HardwareSalesRewardPageWrapper() {
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
-      setIsLoading(false);
+      if (refreshId === refreshIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [
     filterState.inviteCode,

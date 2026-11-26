@@ -43,36 +43,43 @@ export function useCursorPagination<TPage extends ICursorPage>({
   const pageCursor = list.queryKey === queryKey ? list.cursor : undefined;
 
   // Resolves with the page once it is shown, or undefined if a newer request
-  // replaced it. Rejects when the request fails.
-  const loadFirstPage = useCallback(async (): Promise<TPage | undefined> => {
-    const request = requestRef.current;
-    request.generation += 1;
-    const { generation } = request;
-    const hasDroppedAppend = request.isAppending;
-    request.isAppending = false;
-    setStatus('firstPage');
-    if (hasDroppedAppend) {
-      // Re-arm the dropped page's cursor in case this request fails.
-      setList((prev) => ({ ...prev, version: prev.version + 1 }));
-    }
-    try {
-      const page = await fetchPage(undefined);
-      if (generation !== requestRef.current.generation) {
-        return undefined;
+  // replaced it. Rejects when the request fails. `publishWith` delays showing
+  // the rows until a related request, such as the page summary, settles.
+  const loadFirstPage = useCallback(
+    async (publishWith?: Promise<unknown>): Promise<TPage | undefined> => {
+      const request = requestRef.current;
+      request.generation += 1;
+      const { generation } = request;
+      const hasDroppedAppend = request.isAppending;
+      request.isAppending = false;
+      setStatus('firstPage');
+      if (hasDroppedAppend) {
+        // Re-arm the dropped page's cursor in case this request fails.
+        setList((prev) => ({ ...prev, version: prev.version + 1 }));
       }
-      setList((prev) => ({
-        items: page.items,
-        cursor: page.cursor ?? undefined,
-        queryKey,
-        version: prev.version + 1,
-      }));
-      return page;
-    } finally {
-      if (generation === requestRef.current.generation) {
-        setStatus('idle');
+      try {
+        const [page] = await Promise.all([
+          fetchPage(undefined),
+          publishWith?.catch(() => undefined),
+        ]);
+        if (generation !== requestRef.current.generation) {
+          return undefined;
+        }
+        setList((prev) => ({
+          items: page.items,
+          cursor: page.cursor ?? undefined,
+          queryKey,
+          version: prev.version + 1,
+        }));
+        return page;
+      } finally {
+        if (generation === requestRef.current.generation) {
+          setStatus('idle');
+        }
       }
-    }
-  }, [fetchPage, queryKey]);
+    },
+    [fetchPage, queryKey],
+  );
 
   const loadMore = useCallback(async () => {
     if (!pageCursor || status !== 'idle') {

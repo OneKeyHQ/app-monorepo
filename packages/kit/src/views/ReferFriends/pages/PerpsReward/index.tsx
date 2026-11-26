@@ -168,18 +168,21 @@ function PerpsRewardPageWrapper() {
   ]);
 
   const fetchInvitesPage = useCallback(
-    (cursor: string | undefined) =>
-      backgroundApiProxy.serviceReferralCode.getPerpsInvites({
-        tab: activeTab,
-        timeRange: effectiveTimeRange,
-        startTime: filterState.startTime,
-        endTime: filterState.endTime,
-        inviteCode: filterState.inviteCode,
-        hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
-        sortBy,
-        sortOrder,
-        cursor,
-      }),
+    async (cursor: string | undefined) => {
+      const result =
+        await backgroundApiProxy.serviceReferralCode.getPerpsInvites({
+          tab: activeTab,
+          timeRange: effectiveTimeRange,
+          startTime: filterState.startTime,
+          endTime: filterState.endTime,
+          inviteCode: filterState.inviteCode,
+          hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
+          sortBy,
+          sortOrder,
+          cursor,
+        });
+      return { ...result, items: result.items ?? [] };
+    },
     [
       activeTab,
       effectiveTimeRange,
