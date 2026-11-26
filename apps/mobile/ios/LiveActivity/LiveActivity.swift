@@ -112,7 +112,7 @@ private struct SwapActivityETA: View {
         case .refunded: Text(strings?.refunded ?? "Refunded")
         case .canceled: Text(strings?.canceled ?? "Order canceled")
         case .refunding: Text(strings?.refunding ?? "Refunding")
-        default: countdown
+        default: pendingETA
         }
       }
     }
@@ -125,11 +125,14 @@ private struct SwapActivityETA: View {
   }
 
   @ViewBuilder
-  private var countdown: some View {
+  private var pendingETA: some View {
     if order.isRealOrderOrPushTest {
-      // WidgetKit updates this countdown while the App is suspended.
-      Text(timerInterval: order.startedAt...order.estimatedEndAt, countsDown: true)
-        .multilineTextAlignment(.trailing)
+      // The system advances timer digits without re-rendering the activity.
+      if order.estimatedEndAt.timeIntervalSinceNow < 10 {
+        Text(strings?.almostDone ?? "Almost done")
+      } else {
+        Text("≈\(order.estimatedEndAt, style: .time)")
+      }
     } else if context.state.almostDone == true {
       Text(strings?.almostDone ?? "~Almost done")
     } else if let minutes = context.state.etaMinutes {
@@ -311,7 +314,7 @@ private struct SwapCompactStatus: View {
         .frame(width: 22, height: 22)
         .accessibilityLabel(Text(statusLabel))
     } else if !context.isStale && (context.state.displayPhase == "eta"
-      || (!context.state.status.isError && context.attributes.order.usesRemoteUpdates)) {
+      || (!context.state.status.isError && context.attributes.usesRemoteUpdates)) {
       SwapActivityETA(context: context, compact: true)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")

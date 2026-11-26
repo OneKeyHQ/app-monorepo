@@ -30,6 +30,8 @@ struct SwapLiveActivityToken: Codable, Hashable {
   let networkName: String
   let networkId: String?
   let isNative: Bool?
+
+  var isNativeBitcoin: Bool { networkId == "btc--0" && isNative == true }
 }
 
 struct SwapLiveActivityStrings: Codable, Hashable {
@@ -68,9 +70,6 @@ struct SwapLiveActivityOrder: Codable, Hashable {
   let isPushTest: Bool?
 
   var isRealOrderOrPushTest: Bool { !isMock || isPushTest == true }
-  var usesRemoteUpdates: Bool {
-    isPushTest == true || (!isMock && fromToken.networkId == "btc--0" && fromToken.isNative == true)
-  }
   var startedAt: Date { Date(timeIntervalSince1970: startedAtMs / 1000) }
   var estimatedEndAt: Date { Date(timeIntervalSince1970: estimatedEndAtMs / 1000) }
   var expiresAt: Date { Date(timeIntervalSince1970: expiresAtMs / 1000) }
@@ -239,7 +238,14 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
   let order: SwapLiveActivityOrder
   let fromIconName: String
   let toIconName: String
+  let remoteUpdatesEnabled: Bool?
   var strings: SwapLiveActivityStrings? = nil
+
+  var usesRemoteUpdates: Bool {
+    if let remoteUpdatesEnabled { return remoteUpdatesEnabled }
+    // Activities created by older builds requested a token only for BTC sends or push tests.
+    return order.isPushTest == true || (!order.isMock && order.fromToken.isNativeBitcoin)
+  }
 }
 
 struct SwapLiveActivityRequest: Decodable {

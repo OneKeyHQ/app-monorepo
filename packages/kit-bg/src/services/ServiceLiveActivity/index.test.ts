@@ -6,7 +6,10 @@ import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import liveActivity from '@onekeyhq/shared/src/modules/LiveActivity';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import { buildLiveActivityPushContent } from '@onekeyhq/shared/src/utils/liveActivityUtils';
+import {
+  buildLiveActivityPushContent,
+  buildSwapLiveActivitySnapshot,
+} from '@onekeyhq/shared/src/utils/liveActivityUtils';
 import type {
   ILiveActivitySubscriptionTransport,
   ILiveActivitySystemStatus,
@@ -47,29 +50,34 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-function createHistory(): ISwapTxHistory {
-  const token = {
+function createHistory(
+  direction: 'from-btc' | 'to-btc' = 'from-btc',
+): ISwapTxHistory {
+  const bitcoin = {
     networkId: 'btc--0',
     contractAddress: '',
     decimals: 8,
     symbol: 'BTC',
     isNative: true,
   };
+  const usdc = {
+    ...bitcoin,
+    networkId: 'evm--1',
+    symbol: 'USDC',
+    isNative: false,
+  };
+  const [fromToken, toToken] =
+    direction === 'from-btc' ? [bitcoin, usdc] : [usdc, bitcoin];
   return {
     protocol: EProtocolOfExchange.SWAP,
     status: ESwapTxHistoryStatus.PENDING,
     accountInfo: {
-      sender: { networkId: 'btc--0' },
-      receiver: { networkId: 'evm--1' },
+      sender: { networkId: fromToken.networkId },
+      receiver: { networkId: toToken.networkId },
     },
     baseInfo: {
-      fromToken: token,
-      toToken: {
-        ...token,
-        networkId: 'evm--1',
-        symbol: 'USDC',
-        isNative: false,
-      },
+      fromToken,
+      toToken,
       fromAmount: '1',
       toAmount: '1',
     },
@@ -263,29 +271,15 @@ describe('Live Activity subscription lifecycle', () => {
     );
   });
 
-  it('updates a swap receiving native Bitcoin from order polling without a push subscription', async () => {
-    const history = createHistory();
-    history.accountInfo = {
-      sender: history.accountInfo.receiver,
-      receiver: history.accountInfo.sender,
-    };
-    history.baseInfo = {
-      ...history.baseInfo,
-      fromToken: history.baseInfo.toToken,
-      toToken: history.baseInfo.fromToken,
-    };
+  it('updates an existing local-only Bitcoin receiving activity from order polling', async () => {
+    const history = createHistory('to-btc');
+    const snapshot = buildSwapLiveActivitySnapshot(history);
+    if (!snapshot) throw new OneKeyLocalError('Missing activity snapshot');
+    await liveActivity.start(snapshot);
+    status.activities[0].pushRegistration = 'notRequested';
     const service = new ServiceLiveActivity({ backgroundApi: {} });
 
-    await service.onSwapBroadcast(history);
-    expect(liveActivity.start).toHaveBeenCalledWith(
-      expect.objectContaining({
-        order: expect.objectContaining({
-          networkId: 'evm--1',
-          depositTxId: 'deposit-a',
-          toToken: expect.objectContaining({ networkId: 'btc--0' }),
-        }),
-      }),
-    );
+    await service.resumeRemoteSubscriptions();
     expect(serverTransport.subscribe).not.toHaveBeenCalled();
     await service.onSwapStatus({
       history,
@@ -803,29 +797,39 @@ describe('Live Activity subscription lifecycle', () => {
     expect(subscribe).not.toHaveBeenCalled();
   });
 
-  it('waits for the JPush acknowledgement before sending the subscription', async () => {
-    const mockStart = jest.mocked(liveActivity.start).getMockImplementation();
-    if (!mockStart) throw new OneKeyLocalError('Missing mock');
-    jest.mocked(liveActivity.start).mockImplementation(async (snapshot) => {
-      await mockStart(snapshot);
-      status.activities[0].pushRegistration = 'pending';
-      return status;
-    });
-    const service = new ServiceLiveActivity({ backgroundApi: {} });
-    await service.onSwapBroadcast(createHistory());
-    expect(serverTransport.subscribe).not.toHaveBeenCalled();
-    status.activities[0].pushRegistration = 'registered';
-    await service.resumeRemoteSubscriptions();
-    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
-    expect(serverTransport.subscribe).toHaveBeenCalledWith(
-      expect.objectContaining({
-        activityId: 'synthetic-activity',
-        order: expect.objectContaining({ serviceOrderId: 'synthetic-order' }),
-      }),
-    );
-    await service.resumeRemoteSubscriptions();
-    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
-  });
+  it.each([
+    ['from-btc', 'btc--0'],
+    ['to-btc', 'evm--1'],
+  ] as const)(
+    'waits for the JPush acknowledgement before subscribing (%s)',
+    async (direction, depositNetworkId) => {
+      const mockStart = jest.mocked(liveActivity.start).getMockImplementation();
+      if (!mockStart) throw new OneKeyLocalError('Missing mock');
+      jest.mocked(liveActivity.start).mockImplementation(async (snapshot) => {
+        await mockStart(snapshot);
+        status.activities[0].pushRegistration = 'pending';
+        return status;
+      });
+      const service = new ServiceLiveActivity({ backgroundApi: {} });
+      await service.onSwapBroadcast(createHistory(direction));
+      expect(serverTransport.subscribe).not.toHaveBeenCalled();
+      status.activities[0].pushRegistration = 'registered';
+      await jest.advanceTimersByTimeAsync(3000);
+      expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+      expect(serverTransport.subscribe).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activityId: 'synthetic-activity',
+          order: expect.objectContaining({
+            serviceOrderId: 'synthetic-order',
+            networkId: depositNetworkId,
+            depositTxId: 'deposit-a',
+          }),
+        }),
+      );
+      await service.resumeRemoteSubscriptions();
+      expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('does not POST again for a replacement hash on an already subscribed order', async () => {
     const service = new ServiceLiveActivity({ backgroundApi: {} });

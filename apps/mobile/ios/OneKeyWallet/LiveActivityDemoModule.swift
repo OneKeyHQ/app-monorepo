@@ -63,7 +63,7 @@ private final class SwapLiveActivityManager {
 
   private func currentState(_ activity: Activity<SwapLiveActivityAttributes>) -> SwapLiveActivityAttributes.ContentState {
     let native = activity.content.state
-    if activity.attributes.order.usesRemoteUpdates { return native }
+    if activity.attributes.usesRemoteUpdates { return native }
     if let accepted = acceptedStates[activity.id], (accepted.revision ?? 0) >= (native.revision ?? 0) {
       return accepted
     }
@@ -82,8 +82,8 @@ private final class SwapLiveActivityManager {
 
   func start(_ request: SwapLiveActivityRequest) throws {
     let order = request.order
-    let fromNativeBitcoin = order.fromToken.networkId == "btc--0" && order.fromToken.isNative == true
-    let toNativeBitcoin = order.toToken.networkId == "btc--0" && order.toToken.isNative == true
+    let fromNativeBitcoin = order.fromToken.isNativeBitcoin
+    let toNativeBitcoin = order.toToken.isNativeBitcoin
     let hasNativeBitcoin = order.isRealOrderOrPushTest
       ? (fromNativeBitcoin || toNativeBitcoin) &&
         !order.networkId.isEmpty && order.networkId == order.fromToken.networkId
@@ -98,24 +98,26 @@ private final class SwapLiveActivityManager {
     guard attempted[order.orderKey] == nil else { return }
     guard UIApplication.shared.applicationState == .active,
           ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    let usesRemoteUpdates = order.isRealOrderOrPushTest
     let attributes = SwapLiveActivityAttributes(
       order: order,
       fromIconName: "",
       toIconName: "",
-      strings: order.usesRemoteUpdates ? request.content.strings : nil
+      remoteUpdatesEnabled: usesRemoteUpdates,
+      strings: usesRemoteUpdates ? request.content.strings : nil
     )
     let state = SwapLiveActivityAttributes.ContentState.make(
       order: order, status: request.content.status,
       revision: request.content.revision, updatedAtMs: request.content.updatedAtMs,
-      strings: order.usesRemoteUpdates ? nil : request.content.strings
+      strings: usesRemoteUpdates ? nil : request.content.strings
     )
     let activity = try Activity.request(
       attributes: attributes, content: content(state, order: order),
-      pushType: order.usesRemoteUpdates ? .token : nil
+      pushType: usesRemoteUpdates ? .token : nil
     )
     attempted[order.orderKey] = order.expiresAtMs
     defaults.set(attempted, forKey: attemptedKey)
-    if !order.usesRemoteUpdates { acceptedStates[activity.id] = state }
+    if !usesRemoteUpdates { acceptedStates[activity.id] = state }
     observe(activity)
     schedulePresentation(activity, status: state.status)
   }
@@ -123,7 +125,7 @@ private final class SwapLiveActivityManager {
   func update(_ request: SwapLiveActivityRequest) async {
     guard let activity = activities.first(where: {
       $0.attributes.order.orderKey == request.order.orderKey
-    }), !activity.attributes.order.usesRemoteUpdates else { return }
+    }), !activity.attributes.usesRemoteUpdates else { return }
     await mutate(activity) {
       let previous = self.currentState(activity)
       guard request.content.revision > max(previous.revision ?? 0, self.acceptedRevisions[activity.id] ?? 0),
@@ -158,7 +160,7 @@ private final class SwapLiveActivityManager {
   func updateStrings(_ request: SwapLiveActivityStringsRequest) async {
     guard let activity = activities.first(where: {
       $0.attributes.order.orderKey == request.orderKey
-    }), !activity.attributes.order.usesRemoteUpdates else { return }
+    }), !activity.attributes.usesRemoteUpdates else { return }
     await mutate(activity) {
       var state = self.currentState(activity)
       guard state.revision == request.revision, state.strings != request.strings else { return }
@@ -187,7 +189,7 @@ private final class SwapLiveActivityManager {
       presentationTasks.removeValue(forKey: activity.id)?.cancel()
       stopPushBinding(activity.id)
       await mutate(activity) {
-        let finalContent = activity.attributes.order.usesRemoteUpdates
+        let finalContent = activity.attributes.usesRemoteUpdates
           ? nil : self.content(self.currentState(activity), order: activity.attributes.order)
         await activity.end(finalContent, dismissalPolicy: .immediate)
       }
@@ -223,7 +225,7 @@ private final class SwapLiveActivityManager {
         }
       }
     }
-    guard activity.attributes.order.usesRemoteUpdates, activity.id.utf8.count <= 64 else { return }
+    guard activity.attributes.usesRemoteUpdates, activity.id.utf8.count <= 64 else { return }
     pushTokenObservers[activity.id] = Task { [weak self] in
       let updates = activity.pushTokenUpdates
       if let token = activity.pushToken { self?.acceptPushToken(token, for: activity.id) }
@@ -309,7 +311,7 @@ private final class SwapLiveActivityManager {
   }
 
   private func pushRegistration(_ activity: Activity<SwapLiveActivityAttributes>) -> String {
-    guard activity.attributes.order.usesRemoteUpdates else { return "notRequested" }
+    guard activity.attributes.usesRemoteUpdates else { return "notRequested" }
     guard activity.id.utf8.count <= 64 else { return "failed" }
     guard let binding = pushBindings[activity.id] else { return "pending" }
     if binding.registered { return "registered" }
@@ -317,7 +319,7 @@ private final class SwapLiveActivityManager {
   }
 
   private func schedulePresentation(_ activity: Activity<SwapLiveActivityAttributes>, status: SwapLiveActivityStatus? = nil) {
-    guard !activity.attributes.order.usesRemoteUpdates else { return }
+    guard !activity.attributes.usesRemoteUpdates else { return }
     presentationTasks.removeValue(forKey: activity.id)?.cancel()
     let initialStatus = status ?? currentState(activity).status
     let generation = (presentationGenerations[activity.id] ?? 0) + 1

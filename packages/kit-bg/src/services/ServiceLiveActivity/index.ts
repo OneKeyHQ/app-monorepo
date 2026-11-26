@@ -59,15 +59,6 @@ import {
 
 import type { IRemoteActivityCleanup } from './subscriptionTransport';
 
-function usesRemotePush(order: ILiveActivitySnapshot['order']) {
-  return (
-    order.isPushTest === true ||
-    (!order.isMock &&
-      order.fromToken.networkId === 'btc--0' &&
-      order.fromToken.isNative === true)
-  );
-}
-
 @backgroundClass()
 class ServiceLiveActivity extends ServiceBase {
   private lastStatusRevision = 0;
@@ -190,7 +181,7 @@ class ServiceLiveActivity extends ServiceBase {
       trackedActivities.map(async (item) => {
         if (item.order.expiresAtMs <= Date.now()) {
           await liveActivity.end(item.order.orderKey);
-        } else if (usesRemotePush(item.order)) {
+        } else if (item.pushRegistration !== 'notRequested') {
           await this.syncSubscription(item);
         }
       }),
@@ -206,7 +197,7 @@ class ServiceLiveActivity extends ServiceBase {
       const now = Date.now();
       const awaitingRegistration = trackedActivities.some(
         (item) =>
-          usesRemotePush(item.order) &&
+          item.pushRegistration !== 'notRequested' &&
           !this.subscriptions.has(item.activityId) &&
           item.pushRegistration !== 'failed' &&
           (this.remoteAttempts.get(item.activityId)?.retryAtMs ?? 0) <=
@@ -526,7 +517,7 @@ class ServiceLiveActivity extends ServiceBase {
   }
 
   private async syncSubscription(instance: ILiveActivityInstance) {
-    const { activityId, order, content } = instance;
+    const { activityId, order, content, pushRegistration } = instance;
     if (
       this.activityHalted ||
       this.subscriptions.has(activityId) ||
@@ -535,13 +526,13 @@ class ServiceLiveActivity extends ServiceBase {
     ) {
       return;
     }
-    const remote = usesRemotePush(order);
-    if (!remote && !order.isMock) return;
+    const remote = pushRegistration !== 'notRequested';
+    if (!remote && (!order.isMock || order.isPushTest === true)) return;
     const generation = this.testEndpointGeneration;
     const attempt = this.remoteAttempts.get(activityId);
     if (
       remote &&
-      (instance.pushRegistration !== 'registered' ||
+      (pushRegistration !== 'registered' ||
         order.expiresAtMs <= Date.now() ||
         (attempt && attempt.retryAtMs > Date.now()))
     ) {
@@ -793,10 +784,7 @@ class ServiceLiveActivity extends ServiceBase {
           (async () => {
             for (const { activityId, order, pushRegistration } of closing) {
               if (controller.signal.aborted || this.privacyHalted) return;
-              if (
-                usesRemotePush(order) ||
-                pushRegistration !== 'notRequested'
-              ) {
+              if (pushRegistration !== 'notRequested') {
                 await this.updateRemoteCleanup(
                   activityId,
                   (previous) =>
