@@ -1,5 +1,5 @@
 // cspell:ignore canvaskit emscripten
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 
 import { WithSkiaWeb } from '@shopify/react-native-skia/lib/module/web';
 // Rspack (rspack.base.config.ts) emits this wasm as an asset/resource so we
@@ -10,7 +10,7 @@ import canvaskitWasmUrl from 'canvaskit-wasm/bin/full/canvaskit.wasm';
 
 import { ErrorBoundarySimple } from '../../../components/ErrorBoundary';
 
-import type { IOrbShaderProps } from './OrbShader.native';
+import type { IOrbShaderProps } from './SkiaOrbShader';
 
 export type { IOrbShaderProps };
 
@@ -23,6 +23,18 @@ const fallbackImageUrl =
 
 const fallbackGifUrl =
   require('@onekeyhq/kit/assets/onboarding/orb-fallback-animated.gif') as string;
+
+const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
+
+function subscribeToReducedMotion(onChange: () => void) {
+  const media = globalThis.matchMedia?.(reducedMotionQuery);
+  media?.addEventListener?.('change', onChange);
+  return () => media?.removeEventListener?.('change', onChange);
+}
+
+function getReducedMotion() {
+  return globalThis.matchMedia?.(reducedMotionQuery).matches ?? false;
+}
 
 // The images are the baseline. Keeping the optional stylesheet with the
 // fallback means the image does not depend on loading a CSS chunk.
@@ -61,10 +73,20 @@ const fallbackStyles = `
   }
 `;
 
-const loadSkiaOrb = async () => {
-  const { SkiaOrbShader } = await import('./OrbShader.native');
-  return { default: SkiaOrbShader };
-};
+const loadSkiaOrb = () => import('./SkiaOrbShader');
+
+function OrbStillImage({ size }: { size: number }) {
+  return (
+    <img
+      alt=""
+      src={fallbackImageUrl}
+      width={size}
+      height={size}
+      data-testid="onboarding-orb-fallback"
+      style={{ display: 'block' }}
+    />
+  );
+}
 
 function OrbFallback({
   autoRotate = true,
@@ -92,10 +114,7 @@ function OrbFallback({
     return (
       <picture>
         {/* The media source honors reduced motion even if the stylesheet was blocked. */}
-        <source
-          media="(prefers-reduced-motion: reduce)"
-          srcSet={fallbackImageUrl}
-        />
+        <source media={reducedMotionQuery} srcSet={fallbackImageUrl} />
         <img
           alt=""
           src={paused || gifFailed ? fallbackImageUrl : fallbackGifUrl}
@@ -134,6 +153,11 @@ function OrbFallback({
 export function OrbShader(props: IOrbShaderProps) {
   const { size = 240 } = props;
   const [contextLost, setContextLost] = useState(false);
+  const reduceMotion = useSyncExternalStore(
+    subscribeToReducedMotion,
+    getReducedMotion,
+    () => true,
+  );
 
   const attachContextLossListener = useCallback(
     (container: HTMLDivElement | null) => {
@@ -149,26 +173,31 @@ export function OrbShader(props: IOrbShaderProps) {
   );
 
   const fallback = <OrbFallback {...props} />;
+  const stillImage = <OrbStillImage size={size} />;
 
-  // Reserve space while CanvasKit loads. Contain render and initialization
-  // errors here so the wallet setup can continue with the CSS orb.
+  let content = stillImage;
+  if (!reduceMotion) {
+    content = contextLost ? (
+      fallback
+    ) : (
+      <ErrorBoundarySimple fallback={fallback}>
+        <WithSkiaWeb
+          getComponent={loadSkiaOrb}
+          componentProps={props}
+          fallback={stillImage}
+          opts={loadSkiaOpts}
+        />
+      </ErrorBoundarySimple>
+    );
+  }
+
   return (
     <div
       aria-hidden="true"
       ref={attachContextLossListener}
       style={{ width: size, height: size }}
     >
-      {contextLost ? (
-        fallback
-      ) : (
-        <ErrorBoundarySimple fallback={fallback}>
-          <WithSkiaWeb
-            getComponent={loadSkiaOrb}
-            componentProps={props}
-            opts={loadSkiaOpts}
-          />
-        </ErrorBoundarySimple>
-      )}
+      {content}
     </div>
   );
 }
