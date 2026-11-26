@@ -10382,16 +10382,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-native-list@npm:6.8.0-38":
-  version: 6.8.0-38
-  resolution: "@onekeyfe/react-native-native-list@npm:6.8.0-38"
+"@onekeyfe/react-native-native-list@npm:6.8.0-43":
+  version: 6.8.0-43
+  resolution: "@onekeyfe/react-native-native-list@npm:6.8.0-43"
   peerDependencies:
     "@onekeyfe/react-native-image": "*"
     "@onekeyfe/react-native-native-logger": "*"
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/6e19b400d6e4b4e7b05f5c7bee53215b8661efb9ff3eb5c0d68943ac4025336a2fd2611bee93ea10db710599bc6c2d0371b3f11640739032e4a39a47f8a73393
+  checksum: 10/0d40e212fda1bcaa142738a2cec797504c8cf49a9c5828db4b9bad619542d5344633a12fbf7804f013ad314b2dc34b33c29af17f6c555e1dd4b5b8559fff14c9
   languageName: node
   linkType: hard
 
@@ -11046,7 +11046,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
-    "@onekeyfe/react-native-native-list": "npm:6.8.0-38"
+    "@onekeyfe/react-native-native-list": "npm:6.8.0-43"
     "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-38"
     "@onekeyfe/react-native-text": "npm:6.8.0-38"
     "@onekeyhq/components": "npm:*"
@@ -11097,7 +11097,7 @@ __metadata:
     "@onekeyfe/react-native-image-crop-picker": "npm:6.8.0-38"
     "@onekeyfe/react-native-keychain-module": "npm:6.8.0-38"
     "@onekeyfe/react-native-lite-card": "npm:6.8.0-38"
-    "@onekeyfe/react-native-native-list": "npm:6.8.0-38"
+    "@onekeyfe/react-native-native-list": "npm:6.8.0-43"
     "@onekeyfe/react-native-native-logger": "npm:6.8.0-38"
     "@onekeyfe/react-native-native-overlay": "npm:6.8.0-38"
     "@onekeyfe/react-native-network-throttle": "npm:6.8.0-38"

@@ -1,4 +1,6 @@
 import { Tabs } from '@onekeyhq/components';
+import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
+import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
 
 export const MarketDetailScrollView = Tabs.ScrollView;
 export const MarketDetailList = Tabs.FlatList;
@@ -7,4 +9,8 @@ export {
   useIsFocusedTab as useMarketDetailIsFocusedTab,
   useCurrentTabScrollY as useMarketDetailScrollY,
 } from '@onekeyhq/components/src/composite/Tabs/hooks';
-export { useFocusedTab as useMarketDetailFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
+export function useMarketDetailFocusedTab() {
+  const { focusedName } = useAppPager();
+  const legacy = useFocusedTab();
+  return focusedName || legacy;
+}

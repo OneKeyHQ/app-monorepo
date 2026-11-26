@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
+import type { IAppPagerTabBarProps } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,18 +36,17 @@ import {
 import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
 import { useNetworkAccountAddress } from '../hooks/useNetworkAccountAddress';
 
+import {
+  type IMarketDetailPagerProps,
+  MarketDetailPager,
+} from './MarketDetailPager';
 import { StickyHeader } from './StickyHeader';
-
-import type {
-  CollapsibleProps,
-  TabBarProps,
-} from 'react-native-collapsible-tab-view';
 
 function MobileInformationTabsHeader({
   holdersTabLabel,
   holdersTabName,
   ...props
-}: TabBarProps<string> & {
+}: IAppPagerTabBarProps & {
   holdersTabLabel: string;
   holdersTabName: string;
 }) {
@@ -125,7 +125,7 @@ export function MobileInformationTabs({
   freezeContent = false,
 }: {
   containerWidth?: number;
-  renderHeader: CollapsibleProps['renderHeader'];
+  renderHeader: IMarketDetailPagerProps['renderHeader'];
   // Shown in place of the tabs until the token's network is known.
   pendingHeader?: ReactNode;
   onScrollEnd: () => void;
@@ -260,7 +260,7 @@ export function MobileInformationTabs({
   const { handleTabChange } = useBottomTabAnalytics(tabKeys);
 
   const renderTabBar = useCallback(
-    (props: TabBarProps<string>) => (
+    (props: IAppPagerTabBarProps) => (
       <MobileInformationTabsHeader
         {...props}
         holdersTabName={holdersTabName}
@@ -285,18 +285,15 @@ export function MobileInformationTabs({
   }
 
   return (
-    <Tabs.Container
+    <MarketDetailPager
       key={tabsKey}
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
-      headerContainerStyle={{
-        width: '100%',
-        shadowColor: 'transparent',
-      }}
+      scrollEnabled={scrollEnabled}
       renderHeader={renderHeader}
       renderTabBar={renderTabBar}
       onTabChange={handleTabChange}
     >
       {tabs}
-    </Tabs.Container>
+    </MarketDetailPager>
   );
 }

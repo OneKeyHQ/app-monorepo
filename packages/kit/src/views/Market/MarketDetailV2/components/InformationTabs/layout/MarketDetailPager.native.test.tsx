@@ -6,7 +6,7 @@ import type { PropsWithChildren } from 'react';
 import { act, fireEvent, render } from '@testing-library/react';
 
 import { MarketDetailNativePageContext } from './MarketDetailNativeContext';
-import { MarketDetailPager } from './MarketDetailPager.ios';
+import { MarketDetailPager } from './MarketDetailPager.native';
 
 import type { IMarketDetailPagerProps } from './MarketDetailPager';
 
@@ -18,6 +18,10 @@ const mockLayouts: Record<
 > = {};
 jest.mock('@onekeyhq/components', () => ({
   useTheme: () => ({ bgApp: { val: '#000' } }),
+}));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNativeAndroid: true },
 }));
 jest.mock('react-native', () => ({
   View: ({
@@ -253,25 +257,27 @@ it.each(['Overview', 'Financials', 'Position'])(
   },
 );
 
-it('shows known header geometry before measurement and enables list ownership only after layout', () => {
+it('shows known header geometry and only forwards Android header gestures when laid out and unlocked', () => {
   function Tab({ children }: PropsWithChildren<{ name: string }>) {
     return children;
   }
-  const { getByTestId } = render(
+  const renderPager = (scrollEnabled: boolean) => (
     <MarketDetailPager
       initialHeaderHeight={454}
       initialStickyHeaderHeight={45}
       renderHeader={() => <div data-testid="early-header">Price</div>}
       renderTabBar={() => <div>Overview</div>}
       onTabChange={jest.fn()}
+      scrollEnabled={scrollEnabled}
     >
       {[
         <Tab key="overview" name="Overview">
           Body
         </Tab>,
       ]}
-    </MarketDetailPager>,
+    </MarketDetailPager>
   );
+  const { getByTestId, rerender } = render(renderPager(true));
   const header = getByTestId('early-header');
   const pager = getByTestId('native-pager');
   expect(pager.style.opacity).toBe('1');
@@ -286,6 +292,15 @@ it('shows known header geometry before measurement and enables list ownership on
       mockLayouts[id]({ nativeEvent: { layout: { width: 402, height } } });
     }
   });
+  expect(pager.dataset.smooth).toBe('true');
+  expect(getByTestId('early-header')).toBe(header);
+
+  rerender(renderPager(false));
+  expect(pager.dataset.smooth).toBe('false');
+  expect(pager.style.opacity).toBe('1');
+  expect(getByTestId('early-header')).toBe(header);
+
+  rerender(renderPager(true));
   expect(pager.dataset.smooth).toBe('true');
   expect(getByTestId('early-header')).toBe(header);
 });

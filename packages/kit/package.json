@@ -4,7 +4,7 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@onekeyfe/react-native-native-list": "6.8.0-38",
+    "@onekeyfe/react-native-native-list": "6.8.0-43",
     "@onekeyfe/react-native-qr-scanner": "6.8.0-38",
     "@onekeyfe/react-native-text": "6.8.0-38",
     "@onekeyhq/components": "*",

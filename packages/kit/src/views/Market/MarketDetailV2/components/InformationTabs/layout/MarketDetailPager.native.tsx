@@ -7,6 +7,7 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import { useTheme } from '@onekeyhq/components';
 import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   MarketDetailNativeContext,
@@ -78,6 +79,9 @@ export function MarketDetailPager({
     measuredStickyHeaderHeight;
   const isLayoutReady =
     hasViewport && headerHeight !== null && stickyHeaderHeight !== null;
+  // Android uses scrollEnabled only for horizontal paging.
+  const nativeSmoothHeaderScrollEnabled =
+    isLayoutReady && (!platformEnv.isNativeAndroid || scrollEnabled);
   const canShowInitialLayout =
     initialHeaderHeight !== undefined &&
     initialStickyHeaderHeight !== undefined;
@@ -110,7 +114,7 @@ export function MarketDetailPager({
           initialPage={controller.initialIndex}
           scrollEnabled={scrollEnabled}
           nestedScrollEnabled
-          nativeSmoothHeaderScrollEnabled={isLayoutReady}
+          nativeSmoothHeaderScrollEnabled={nativeSmoothHeaderScrollEnabled}
           headerHeight={headerHeight ?? initialHeaderHeight ?? 1}
           stickyHeaderHeight={
             stickyHeaderHeight ?? initialStickyHeaderHeight ?? 44

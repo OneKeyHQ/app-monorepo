@@ -57,7 +57,7 @@ import { StickyHeader } from './StickyHeader';
 import type { IMarketMobileDetailKind } from '../../../utils/marketMobileDetailKind';
 
 function getStickyHeaderHeight(tabKey: string) {
-  // Reserve the destination's column header before iOS displays its list.
+  // Reserve the destination's column header before the native pager displays its list.
   return tabKey === 'transactions' ||
     tabKey === 'portfolio' ||
     tabKey === 'holders'
@@ -434,7 +434,7 @@ export function MobileInformationTabs({
         initialHeaderHeight === undefined ? undefined : initialStickyHeight
       }
       getStickyHeaderHeight={
-        platformEnv.isNativeIOS ? getStickyHeaderHeight : undefined
+        platformEnv.isNative ? getStickyHeaderHeight : undefined
       }
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       scrollEnabled={scrollEnabled}
