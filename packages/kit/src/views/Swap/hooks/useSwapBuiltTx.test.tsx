@@ -2,17 +2,21 @@
 
 import type { ReactNode } from 'react';
 
+import { OrderKind, normalizeOrder } from '@cowprotocol/contracts';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import type { IBuildUnsignedTxParams } from '@onekeyhq/kit-bg/src/vaults/types';
+import { XMR_NOT_SYNCED_ERROR_CODE } from '@onekeyhq/shared/src/config/xmr';
 import {
   OneKeyLocalError,
   PasswordPromptDialogCancel,
 } from '@onekeyhq/shared/src/errors';
 import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
+import { createSwapReviewSigningFailure } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -106,6 +110,8 @@ const mockUpdateUnsignedTx = jest.fn(
 const mockPrecheckUnsignedTxs = jest.fn<Promise<void>, unknown[]>(
   async () => undefined,
 );
+const mockPreCheckFee = jest.fn(async () => false);
+const mockXmrPending = jest.fn(async () => false);
 const mockSignAndSendTransaction = jest.fn<
   Promise<ISignedTxPro>,
   [{ unsignedTx: IUnsignedTxPro }]
@@ -207,6 +213,7 @@ jest.mock('./useSwapState', () => ({
 jest.mock('./useSwapTxHistory', () => ({
   useSwapTxHistoryActions: () => ({
     generateSwapHistoryItem: mockGenerateSwapHistory,
+    getXmrPendingHistoryItem: () => ({ id: 'xmr-history' }),
   }),
 }));
 jest.mock('./useSwapAccount', () => ({
@@ -227,6 +234,13 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceToken: { getNativeTokenAddress: async () => '' },
+    serviceValidator: { validateAddress: async () => 'valid' },
+    servicePrivacyChain: {
+      getLocalWalletAccountState: async () => ({ enabled: true }),
+      getLocalWalletSendReadiness: async () => ({ canSend: true }),
+      getLocalWalletAccountBalance: async () => ({ spendable: '200000000000' }),
+      getLocalWalletHasPendingSend: () => mockXmrPending(),
+    },
     serviceSwap: {
       fetchSwapTokenDetails: () => mockFetchSwapTokenDetails(),
       prepareSwapBuildTxContext: (params: {
@@ -244,6 +258,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockUpdateUnsignedTx(params),
       precheckUnsignedTxs: (...args: unknown[]) =>
         mockPrecheckUnsignedTxs(...args),
+      preCheckIsFeeInfoOverflow: () => mockPreCheckFee(),
       signAndSendTransaction: (
         params: Parameters<typeof mockSignAndSendTransaction>[0],
       ) => mockSignAndSendTransaction(params),
@@ -372,6 +387,232 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     mockSaveSendHistory.mockClear();
     mockGenerateSwapHistory.mockClear();
     mockNavigateTxConfirm.mockReset();
+  });
+
+  describe('XMR Swap Review', () => {
+    const xmrToken = {
+      ...fromToken,
+      networkId: 'xmr--0',
+      symbol: 'XMR',
+      decimals: 12,
+    };
+    const xmrQuote: IFetchQuoteResult = {
+      ...quote,
+      fromTokenInfo: xmrToken,
+      info: { provider: 'SwapChangelly', providerName: 'Changelly' },
+      expiredTime: 60,
+    };
+    const sender = '0x0000000000000000000000000000000000000002';
+    const recipient = 'xmr-provider-payin';
+    const encodedTx = {
+      from: sender,
+      to: recipient,
+      amountAtomic: '100000000000',
+      feeAtomic: '122700000',
+    };
+
+    beforeEach(() => {
+      mockSelectedQuote = xmrQuote;
+      mockPreCheckFee.mockReset().mockResolvedValue(false);
+      mockXmrPending.mockReset().mockResolvedValue(false);
+      mockFetchBuildTx.mockResolvedValue({
+        ...buildResponse('120'),
+        result: xmrQuote,
+        ctx: { changellyOrderId: 'provider-order' },
+        changellyOrder: {
+          orderId: 'provider-order',
+          payinAddress: recipient,
+          amountExpectedFrom: '0.1',
+        },
+      });
+      mockPrepareUnsignedTx.mockImplementation(async (params) => ({
+        ...params,
+        encodedTx,
+      }));
+      mockEstimateFee.mockResolvedValue({
+        common: {
+          feeDecimals: 12,
+          nativeDecimals: 12,
+          feeSymbol: 'XMR',
+          nativeSymbol: 'XMR',
+        },
+        feeUTXO: [{ feeValue: '0.0001227' }],
+      });
+    });
+
+    afterEach(() => {
+      mockSelectedQuote = quote;
+    });
+
+    async function prepareReview() {
+      const review = renderExecutionReview({
+        reviewQuote: xmrQuote,
+        preSwapData: { fromToken: xmrToken, supportPreBuild: true },
+      });
+      await act(async () => {
+        await review.result.current.preSwapBeforeStepActions(
+          xmrQuote,
+          xmrToken,
+          toToken,
+        );
+      });
+      const state = review.store.get(swapStepsAtom());
+      expect(state.preSwapData.stepBeforeActionsError).toBeUndefined();
+      return { ...review, state };
+    }
+
+    it('shows the fixed local fee before using the same prepared transaction once', async () => {
+      const { result, state } = await prepareReview();
+      const build = state.preSwapData.swapBuildResultData;
+      expect(build?.xmrPrepared?.fee.totalNative).toBe('0.0001227');
+      expect(build?.xmrPrepared?.totalAtomic).toBe('100122700000');
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await Promise.all([
+          result.current.preSwapStepsStart(state),
+          result.current.preSwapStepsStart(state),
+        ]);
+      });
+
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+      expect(mockPrepareUnsignedTx).toHaveBeenCalledTimes(1);
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          unsignedTx: build?.xmrPrepared?.unsignedTx,
+          stageFeeInfo: build?.xmrPrepared?.fee,
+          reviewQuoteValidUntil: build?.orderDeadline,
+        }),
+      );
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+      expect(mockGenerateSwapHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          txId: 'submitted-tx',
+          gasFeeInNative: '0.0001227',
+        }),
+      );
+    });
+
+    it('keeps an expired prepared order from rebuilding or submitting behind confirmation', async () => {
+      const { result, state } = await prepareReview();
+      const deadline = state.preSwapData.swapBuildResultData?.orderDeadline;
+      expect(deadline).toBeGreaterThan(Date.now());
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(deadline ?? 0);
+      try {
+        await act(async () => {
+          await result.current.preSwapStepsStart(state);
+        });
+      } finally {
+        clock.mockRestore();
+      }
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    });
+
+    it('blocks a fee mismatch before signing without opening a fallback', async () => {
+      const { result, state } = await prepareReview();
+      mockPreCheckFee.mockResolvedValueOnce(true);
+      await act(async () => {
+        await result.current.preSwapStepsStart(state);
+      });
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    });
+
+    it('does not prepare a second local transaction when a slippage rebuild outlives its Review', async () => {
+      const { result } = await prepareReview();
+      const response = await mockFetchBuildTx.mock.results[0].value;
+      const rebuildStarted = deferred<undefined>();
+      const rebuildOrder = deferred<IFetchBuildTxResponse | undefined>();
+      mockFetchBuildTx.mockImplementationOnce(() => {
+        rebuildStarted.resolve(undefined);
+        return rebuildOrder.promise;
+      });
+      await act(async () => {
+        const rebuild = result.current.rebuildSwapWithSlippage({
+          slippagePercentage: 2,
+        });
+        await rebuildStarted.promise;
+        result.current.invalidateSwapReview();
+        rebuildOrder.resolve(response);
+        await expect(rebuild).rejects.toThrow('Swap review changed');
+      });
+      expect(mockPrepareUnsignedTx).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a signing sync failure as a pre-submission error', async () => {
+      const { result, state, store } = await prepareReview();
+      const errorMessage = 'Monero needs to sync before sending';
+      mockSignAndSendTransaction.mockRejectedValueOnce(
+        createSwapReviewSigningFailure(
+          Object.assign(new OneKeyLocalError(errorMessage), {
+            code: XMR_NOT_SYNCED_ERROR_CODE,
+          }),
+        ),
+      );
+      await act(async () => {
+        await result.current.preSwapStepsStart(state);
+      });
+      const step = store.get(swapStepsAtom()).steps[0];
+      expect(step).toMatchObject({
+        status: ESwapStepStatus.FAILED,
+        errorMessage,
+      });
+      expect(step?.submitResultUnknown).not.toBe(true);
+      expect(mockGenerateSwapHistory).not.toHaveBeenCalled();
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    });
+
+    it('lets the same review retry after the device disconnects before broadcast', async () => {
+      const { result, state, store } = await prepareReview();
+      const errorMessage = 'Device disconnected while signing';
+      mockSignAndSendTransaction.mockRejectedValueOnce(
+        createSwapReviewSigningFailure(
+          new OneKeyLocalError({
+            message: errorMessage,
+            code: HardwareErrorCode.BridgeDeviceDisconnected,
+          }),
+        ),
+      );
+
+      await act(async () => {
+        await result.current.preSwapStepsStart(state);
+      });
+      const failed = store.get(swapStepsAtom());
+      expect(failed.steps[0]).toMatchObject({
+        status: ESwapStepStatus.FAILED,
+        canRetry: true,
+        errorMessage,
+      });
+      expect(failed.steps[0]?.submitResultUnknown).not.toBe(true);
+
+      await act(async () => {
+        await result.current.preSwapStepsStart(failed);
+      });
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    });
+
+    it('leaves an uncertain submission terminal without opening a fallback', async () => {
+      const { result, state, store } = await prepareReview();
+      mockSignAndSendTransaction.mockRejectedValueOnce(
+        new OneKeyLocalError('Unknown broadcast'),
+      );
+      await act(async () => {
+        await result.current.preSwapStepsStart(state);
+        await result.current.preSwapStepsStart(state);
+      });
+      expect(store.get(swapStepsAtom()).steps[0]).toEqual(
+        expect.objectContaining({
+          submitResultUnknown: true,
+          canRetry: false,
+        }),
+      );
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    });
   });
 
   it.each([
@@ -1055,6 +1296,109 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     expect(onSwapBroadcast.mock.calls[0][0]?.()).toBe(false);
     expect(store.get(swapStepsAtom())).toBe(newReview);
   });
+
+  it.each([
+    [ESwapQuoteKind.SELL, true],
+    [ESwapQuoteKind.BUY, true],
+    [ESwapQuoteKind.SELL, false],
+    [ESwapQuoteKind.BUY, false],
+  ] as const)(
+    'signs the frozen raw Limit pair for %s only if the quoted fixed side matches (%s)',
+    async (kind, fixedSideMatches) => {
+      const payToken = {
+        ...fromToken,
+        contractAddress: '0x0000000000000000000000000000000000000002',
+        isNative: false,
+        decimals: 3,
+        balanceMultiplier: '2',
+      };
+      const receiveToken = {
+        ...toToken,
+        networkId: payToken.networkId,
+        decimals: 2,
+        balanceMultiplier: '4',
+      };
+      const isSell = kind === ESwapQuoteKind.SELL;
+      const order = {
+        sellToken: payToken.contractAddress,
+        buyToken: receiveToken.contractAddress,
+        sellAmount: isSell && fixedSideMatches ? '1235' : '1499',
+        buyAmount: !isSell && fixedSideMatches ? '357' : '381',
+        validTo: 0,
+        appData: `0x${'0'.repeat(64)}`,
+        feeAmount: '0',
+        kind: isSell ? OrderKind.SELL : OrderKind.BUY,
+        partiallyFillable: false,
+      };
+      const signedQuote: IFetchQuoteResult = {
+        ...quote,
+        protocol: EProtocolOfExchange.LIMIT,
+        kind,
+        fromAmount: isSell && fixedSideMatches ? '1.235' : '1.499',
+        toAmount: !isSell && fixedSideMatches ? '3.57' : '3.81',
+        fromTokenInfo: payToken,
+        toTokenInfo: receiveToken,
+        swapShouldSignedData: {
+          unSignedInfo: {
+            origin: 'test',
+            scope: 'test',
+            signedType: EMessageTypesEth.TYPED_DATA_V4,
+          },
+          unSignedData: {
+            domain: { name: 'Limit', chainId: 1 },
+            types: {
+              Order: [
+                { name: 'sellAmount', type: 'uint256' },
+                { name: 'buyAmount', type: 'uint256' },
+              ],
+            },
+            normalizeData: normalizeOrder(order),
+          },
+        },
+        quoteResultCtx: { cowSwapUnSignedOrder: order },
+      };
+      const { result } = renderExecutionReview({
+        reviewQuote: signedQuote,
+        preSwapData: {
+          fromToken: payToken,
+          toToken: receiveToken,
+          fromTokenAmount: '1.235',
+          toTokenAmount: '3.57',
+        },
+        steps: [
+          { type: ESwapStepType.SIGN_MESSAGE, status: ESwapStepStatus.READY },
+        ],
+      });
+      mockFetchSwapTokenDetails.mockResolvedValue([
+        { ...payToken, balanceParsed: '100' },
+      ]);
+      await act(async () => result.current.preSwapStepsStart());
+      if (!fixedSideMatches) {
+        expect(mockSignMessage).not.toHaveBeenCalled();
+        expect(mockFetchBuildTx).not.toHaveBeenCalled();
+        return;
+      }
+      expect(mockSignMessage).toHaveBeenCalledTimes(1);
+      for (const [field, value] of [
+        ['sellAmount', '1235'],
+        ['buyAmount', '357'],
+      ]) {
+        expect(mockSignMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            unsignedMessage: expect.objectContaining({
+              message: expect.stringContaining(`"${field}":"${value}"`),
+            }),
+          }),
+        );
+      }
+      expect(mockFetchBuildTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromTokenAmount: '1.235',
+          toTokenAmount: '3.57',
+        }),
+      );
+    },
+  );
 
   it('does not start a delayed confirm after close', async () => {
     const { result, store } = renderExecutionReview();

@@ -89,7 +89,6 @@ jest.mock('../../states/jotai/atoms/prime', () => ({
     set: jest.fn(async () => undefined),
   },
 }));
-jest.mock('../ServiceCloudBackup', () => ({ HDWALLET_BACKUP_VERSION: 1 }));
 jest.mock('./e2ee/e2eeClientToClientApi', () => ({}));
 jest.mock('./e2ee/e2eeClientToClientApiProxy', () => ({}));
 jest.mock('./e2ee/e2eeServerApiProxy', () => ({}));

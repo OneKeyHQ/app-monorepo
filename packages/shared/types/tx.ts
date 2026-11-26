@@ -21,6 +21,7 @@ import type {
   ISignatureConfirmDisplay,
   ITransactionData,
 } from './signatureConfirm';
+import type { IDecodedTxExtraStarknet } from './starknetPrivacy';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -121,7 +122,8 @@ export type IDecodedTxExtraInfo =
   | IDecodedTxExtraSol
   | IDecodedTxExtraCosmos
   | IDecodedTxExtraTon
-  | IDecodedTxExtraStellar;
+  | IDecodedTxExtraStellar
+  | IDecodedTxExtraStarknet;
 
 export type IDecodedTx = {
   txid: string; // blockHash
@@ -131,7 +133,7 @@ export type IDecodedTx = {
   to?: string;
   isToContract?: boolean;
 
-  nonce: number;
+  nonce?: number;
   actions: IDecodedTxAction[]; // inputActions
   outputActions?: IDecodedTxAction[];
 
@@ -154,6 +156,8 @@ export type IDecodedTx = {
   approveInfo?: IApproveInfo;
   totalFeeInNative?: string;
   totalFeeFiatValue?: string;
+  /** Actual protocol payment; totalFeeInNative remains the network fee. */
+  protocolFeeInNative?: string;
 
   interactInfo?: IDecodedTxInteractInfo;
 
@@ -168,6 +172,8 @@ export type IDecodedTx = {
   nativeAmount?: string;
   nativeAmountValue?: string;
   riskyLevel?: number;
+  /** Setup with no principal movement; the vault ignores native amount updates for it. */
+  isFeeOnly?: boolean;
   kytRiskLevel?: EKytRiskLevel;
   // Full KYT block carried from the history list so the detail page can render
   // optimistically before its own request resolves.
@@ -279,9 +285,9 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   tokenIdOnNetwork: string;
   label?: string;
   approveType?: EApproveType;
-  // Scaled-UI (rebase) tokens: multiplier used to convert `amount` to
-  // display basis at decode time; lets UI converters fail-close editing.
+  // Scaled-UI (rebase) tokens: multiplier applied to the decoded raw amount.
   balanceMultiplier?: string;
+  disableAllowanceEditing?: boolean;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {

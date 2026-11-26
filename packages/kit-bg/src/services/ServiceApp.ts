@@ -1,4 +1,4 @@
-import { Mutex, Semaphore } from 'async-mutex';
+import { Semaphore } from 'async-mutex';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
@@ -35,6 +35,7 @@ import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { storeExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
@@ -58,10 +59,36 @@ import v4dbHubs from '../migrations/v4ToV5Migration/v4dbHubs';
 import { appIsLocked } from '../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
+import {
+  APP_RESET_CONTROL_NAME,
+  broadcastAppReset,
+  listenForAppReset,
+  readAppResetMarker,
+  runWithAppResetLock,
+  writeAppResetMarker,
+  writeAppResetPrivacyCleanup,
+} from './appResetState';
+import { takeRecoveryTestFault } from './recoveryTestFaults';
 import ServiceBase from './ServiceBase';
+import { RecoveryCacheErasureError } from './ServiceCloudBackupV2/RecoveryCacheErasureError';
+import { markIdentityRecoveryFailed } from './ServiceIdentityExit/identityLifecycleMutex';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
+import { beginSupabaseAuthAppReset } from './ServicePrime/primeAuthSessionAccess';
 
+import type { IAppResetMarker } from './appResetState';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+
+const RESET_REMOTE_DEADLINE_MS = 10_000;
+const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
+const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
+const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
+const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
+
+type IResetStageLogger = (
+  stage: string,
+  event: string,
+  details?: { elapsedMs?: number; deadlineMs?: number },
+) => void;
 
 type IExtensionPrimeWebCheckoutParams = Pick<
   IPrimeWebCheckoutPendingSession,
@@ -160,48 +187,53 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetNativeLocalSecretEnvelopeKeys() {
-    if (!platformEnv.isNative) {
-      return;
-    }
+    if (!platformEnv.isNative) return;
 
-    try {
-      await deleteMmkvProfileKeyForLocalSecretEnvelope();
-    } catch {
-      defaultLogger.app.error.log('Native LSE MMKV key reset failed');
-    }
-    try {
-      await secureStorageInstance.removeSecureItem(
+    const results = await Promise.allSettled([
+      deleteMmkvProfileKeyForLocalSecretEnvelope(),
+      secureStorageInstance.removeSecureItem(
         DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
-      );
-    } catch {
-      defaultLogger.app.error.log('Native LSE secure-storage key reset failed');
-    }
+      ),
+    ]);
     localSecretEnvelopeService.clearCapabilityCache();
+    if (results.some((result) => result.status === 'rejected')) {
+      throw new OneKeyLocalError('Native wallet encryption key erasure failed');
+    }
   }
 
-  private async resetData() {
-    await this.backgroundApi.serviceLogger.stopPersistenceForReset();
-    let appStorageClearError: unknown;
-    let nativeJotaiResetError: unknown;
-    // const v4migrationPersistData = await v4migrationPersistAtom.get();
-    // const v4migrationAutoStartDisabled =
-    //   v4migrationPersistData?.v4migrationAutoStartDisabled;
-    // ----------------------------------------------
+  private async resetData(
+    log: IResetStageLogger = () => {},
+    failedStages = new Map<string, unknown>(),
+  ) {
+    const runCleanup = (stage: string, task: () => unknown) =>
+      this.runResetCleanup(log, failedStages, stage, task);
+    await runCleanup('logPersistence', () =>
+      this.backgroundApi.serviceLogger.stopPersistenceForReset(),
+    );
 
     // Client-scanned chains keep state in their own databases, outside every store cleared below; failures
     // come back as networks to retry and must not take App Reset down.
-    let privacyChainDropFailed: string[] = [];
+    let privacyChainDropFailed: string[] | null = null;
     try {
-      privacyChainDropFailed =
-        await this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData();
+      privacyChainDropFailed = await this.runResetStage(
+        log,
+        'privacyChain',
+        () => this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData(),
+      );
     } catch {
       console.error('servicePrivacyChain.dropAllLocalWalletData() error');
     }
     defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
+    // The old host records may be the only evidence of an unfinished wipe.
+    await this.markPrivacyResetFailures(log, privacyChainDropFailed);
 
     if (platformEnv.isNative) {
       try {
-        await resetIntercomVisitorStorage();
+        await this.runResetStage(
+          log,
+          'supportVisitor',
+          resetIntercomVisitorStorage,
+        );
       } catch {
         // The general app-storage clear below also revokes a visitor reference
         // if secure-store cleanup fails. Wallet erasure must still continue.
@@ -209,304 +241,509 @@ class ServiceApp extends ServiceBase {
       }
     }
 
-    // clean app storage
-    try {
-      await appStorage.clear();
-    } catch (error) {
-      console.error('appStorage.clear() error');
-      if (platformEnv.isNative) {
-        appStorageClearError = error;
-      }
-    }
-    defaultLogger.setting.page.clearDataStep('appStorage-clear');
+    await runCleanup('appStorage', () => appStorage.clear());
+    await runCleanup('biometricStorage', () =>
+      biologyAuthUtils.deletePassword(),
+    );
+    await runCleanup('syncStorage', () => appStorage.syncStorage.clearAll());
 
-    // clean secure storage (WebAuth password)
-    try {
-      await biologyAuthUtils.deletePassword();
-    } catch {
-      console.error('deleteWebAuthPassword error');
-    }
-
-    try {
-      await appStorage.syncStorage.clearAll();
-    } catch {
-      console.error('syncStorage.clear() error');
-    }
-    defaultLogger.setting.page.clearDataStep('syncStorage-clearAll');
-
-    // Clean jotai MMKV per-key storage (separate instance from syncStorage)
     if (platformEnv.isNative) {
-      try {
+      await runCleanup('jotaiStorage', async () => {
         const { clearNativeJotaiStorageForReset } =
           await import('../states/jotai/jotaiStorage');
         await clearNativeJotaiStorageForReset();
-      } catch (error) {
-        nativeJotaiResetError = error;
-        console.error('jotaiMMKV.clearAll() error', error);
-      }
-      defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
+      });
     }
-
-    // Clear every UI snapshot namespace: the context-atom snapshot, the SWR
-    // records and the caches a feature declares. On web one database covers
-    // them all; on native each declared namespace is its own file.
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // A retry must clear snapshots again even if the first attempt cleared them.
+    this.completedResetCleanups.delete('snapshotCaches');
+    await runCleanup('snapshotCaches', async () => {
       const { clearAllSnapshotCaches } =
-        require('@onekeyhq/shared/src/storage/SnapshotCache') as typeof import('@onekeyhq/shared/src/storage/SnapshotCache');
+        await import('@onekeyhq/shared/src/storage/SnapshotCache');
       await clearAllSnapshotCaches();
-    } catch {
-      console.error('clearAllSnapshotCaches() error');
+    });
+    await runCleanup('legacyAppStorage', () => v4appStorage.clear());
+    await runCleanup('walletEncryptionKeys', () =>
+      this.resetNativeLocalSecretEnvelopeKeys(),
+    );
+
+    // The wallet records may still be needed to locate Keyless credentials.
+    if (!failedStages.has('keylessStorage')) {
+      await runCleanup('walletDatabase', () =>
+        localDb.reset((bucket) => log('walletDatabase', `blocked:${bucket}`)),
+      );
     }
-    defaultLogger.setting.page.clearDataStep('uiSnapshotCaches-clearAll');
-
-    await timerUtils.wait(100);
-
-    try {
-      await v4appStorage.clear();
-    } catch {
-      console.error('v4appStorage.clear() error');
-    }
-    defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
-    await timerUtils.wait(100);
-
-    // Explicit App Reset performs crypto erasure before Realm is removed. The
-    // two native LSE keys live outside Realm and general app-settings storage.
-    await this.resetNativeLocalSecretEnvelopeKeys();
-    defaultLogger.setting.page.clearDataStep('localSecretEnvelopeKeys-reset');
-
-    // WARNING:
-    // After deleting the realm database on Android, it blocks the thread for about 300ms. Root cause unknown.
-    // Therefore, do not add any Android-specific business logic after cleaning the realm db
-    try {
-      // clean local db
-      await localDb.reset();
-    } catch {
-      console.error('localDb.reset() error');
-    }
-    defaultLogger.setting.page.clearDataStep('localDb-reset');
-
-    try {
-      const isV4DbExist: boolean =
-        await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
-      if (isV4DbExist) {
+    await runCleanup('legacyWalletDatabase', async () => {
+      if (await this.backgroundApi.serviceV4Migration?.checkIfV4DbExist()) {
         await v4dbHubs.v4localDb.reset();
-        if (!platformEnv.isNativeAndroid) {
-          await timerUtils.wait(600);
-        }
       }
-    } catch (_error) {
-      //
-    }
-    defaultLogger.setting.page.clearDataStep('v4localDb-reset');
+    });
 
     if (!platformEnv.isNative) {
-      if (platformEnv.isRuntimeBrowser || platformEnv.isExtensionBackground) {
-        try {
-          const storageBuckets = (globalThis.navigator as INavigator)
-            .storageBuckets;
-          const names = await storageBuckets?.keys();
-          if (names) {
-            for (const name of names) {
-              try {
-                await storageBuckets?.delete(name);
-              } catch (error) {
-                console.error('storageBuckets.delete() error', error);
-              }
-            }
+      // Origin deletion closes the handles earlier stages may need on retry.
+      if (
+        !failedStages.size &&
+        (platformEnv.isRuntimeBrowser || platformEnv.isExtensionBackground)
+      ) {
+        await runCleanup('storageBuckets', async () => {
+          const buckets = (globalThis.navigator as INavigator)?.storageBuckets;
+          for (const name of (await buckets?.keys()) ?? []) {
+            await buckets?.delete(name);
           }
-        } catch {
-          console.error('storageBuckets.delete() error');
+        });
+        if (!platformEnv.isDesktop) {
+          await runCleanup('otherIndexedDBs', () =>
+            this.deleteOtherIndexedDBs(log),
+          );
         }
-        await timerUtils.wait(100);
-        defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
       }
-
-      if (platformEnv.isRuntimeBrowser || platformEnv.isExtensionBackground) {
-        const shouldDeleteAllOtherIndexedDBs = true;
-        try {
-          if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
-            const indexedDB = globalThis?.indexedDB;
-            const deleteAllIndexedDBs = async () => {
-              const dbNames: IDBDatabaseInfo[] =
-                (await indexedDB?.databases?.()) || [];
-              for (const { name } of dbNames) {
-                if (name) {
-                  try {
-                    await new Promise<void>((resolve, reject) => {
-                      const timer = setTimeout(() => {
-                        reject(new Error(`deleteIndexedDB timeout: ${name}`));
-                      }, 1000);
-
-                      const deleteRequest = indexedDB?.deleteDatabase(name);
-                      deleteRequest.onsuccess = () => {
-                        clearTimeout(timer);
-                        resolve();
-                      };
-                      deleteRequest.onerror = () => {
-                        clearTimeout(timer);
-                        reject(new Error(`deleteIndexedDB error: ${name}`));
-                      };
-                    });
-                  } catch (error) {
-                    console.error('deleteIndexedDB error', error);
-                  }
-                }
-              }
-            };
-            await deleteAllIndexedDBs();
-          }
-        } catch (error) {
-          console.error('deleteAllIndexedDBs error', error);
-        }
-        await timerUtils.wait(100);
-        defaultLogger.setting.page.clearDataStep(
-          'shouldDeleteAllOtherIndexedDBs',
+      if (platformEnv.isRuntimeBrowser) {
+        await runCleanup('browserStorage', () =>
+          globalThis.localStorage.clear(),
+        );
+        await runCleanup('browserSessionStorage', () =>
+          globalThis.sessionStorage.clear(),
+        );
+      } else if (platformEnv.isExtensionBackground) {
+        await runCleanup('extensionPageStorage', async () => {
+          appEventBus.emit(
+            EAppEventBusNames.ClearStorageOnExtension,
+            undefined,
+          );
+          await timerUtils.wait(1200);
+        });
+      }
+      if (platformEnv.isExtension) {
+        await runCleanup('extensionStorage', () =>
+          globalThis.chrome.storage.local.clear(),
+        );
+        await runCleanup('extensionSessionStorage', () =>
+          globalThis.chrome.storage.session.clear(),
         );
       }
-
-      // clear localStorage/sessionStorage
-      if (platformEnv.isRuntimeBrowser) {
-        try {
-          globalThis.localStorage.clear();
-        } catch {
-          console.error('window.localStorage.clear() error');
-        }
-        try {
-          globalThis.sessionStorage.clear();
-        } catch {
-          console.error('window.sessionStorage.clear() error');
-        }
-      } else if (platformEnv.isExtensionBackground) {
-        appEventBus.emit(EAppEventBusNames.ClearStorageOnExtension, undefined);
-        await timerUtils.wait(1200);
-      }
-
-      if (platformEnv.isExtension) {
-        try {
-          await globalThis.chrome.storage.local.clear();
-        } catch {
-          console.error('chrome.storage.local.clear() error');
-        }
-        // try {
-        //   await globalThis.chrome.storage.sync.clear();
-        // } catch {
-        //   console.error('chrome.storage.sync.clear() error');
-        // }
-        try {
-          await globalThis.chrome.storage.session.clear();
-        } catch {
-          console.error('chrome.storage.session.clear() error');
-        }
-        // try {
-        //   await globalThis.chrome.storage.managed.clear();
-        // } catch {
-        //   console.error('chrome.storage.managed.clear() error');
-        // }
-      }
-
       if (platformEnv.isDesktop) {
-        try {
-          await globalThis.desktopApiProxy?.storage.resetAppConfiguration();
-        } catch (error) {
-          console.error('desktopApi.resetAppConfiguration() error', error);
-        }
+        await runCleanup('desktopConfiguration', () =>
+          globalThis.desktopApiProxy?.storage.resetAppConfiguration(),
+        );
       }
     }
-    // Written last: the stores above are cleared, including the IndexedDB holding this marker, while the scan
-    // databases (OPFS) survive and the next reset must retry them.
-    if (privacyChainDropFailed.length > 0) {
-      try {
-        await this.backgroundApi.servicePrivacyChain.markLocalDataDropPending({
-          networkIds: privacyChainDropFailed,
-        });
-      } catch {
-        console.error('markLocalDataDropPending error');
-      }
-    }
-
-    if (appStorageClearError) {
-      return Promise.reject(
-        appStorageClearError instanceof Error
-          ? appStorageClearError
-          : new OneKeyLocalError('AppStorage clear failed'),
+    if (failedStages.size === 1) throw failedStages.values().next().value;
+    if (failedStages.size > 1) {
+      throw new OneKeyLocalError(
+        `App reset could not complete ${[...failedStages.keys()].join(', ')}. Retry Reset App.`,
       );
-    }
-    if (nativeJotaiResetError) {
-      throw new OneKeyLocalError('Jotai storage reset failed');
     }
   }
 
-  private resetAppMutex = new Mutex();
+  private async deleteOtherIndexedDBs(log: IResetStageLogger) {
+    const indexedDB = globalThis.indexedDB;
+    const databases = (await indexedDB?.databases?.()) ?? [];
+    const results = await Promise.allSettled(
+      databases.map(async ({ name }) => {
+        if (name === WALLET_CONNECT_INDEXED_DB_NAME && !platformEnv.isDesktop) {
+          await this.clearAndDeleteWalletConnectIndexedDB(indexedDB, log);
+        } else if (name && name !== APP_RESET_CONTROL_NAME) {
+          await new Promise<void>((resolve, reject) => {
+            const request = indexedDB.deleteDatabase(name);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+            request.onblocked = () => log('otherIndexedDBs', 'blocked');
+          });
+        }
+      }),
+    );
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure) throw failure.reason;
+  }
+
+  private async clearAndDeleteWalletConnectIndexedDB(
+    indexedDB: IDBFactory,
+    log: IResetStageLogger,
+  ) {
+    const stage = 'walletConnectIndexedDB';
+    if (this.completedResetCleanups.has(stage)) return;
+    await new Promise<void>((resolve, reject) => {
+      let missing = false;
+      const open = indexedDB.open(WALLET_CONNECT_INDEXED_DB_NAME);
+      open.onupgradeneeded = () => {
+        missing = true;
+        open.transaction?.abort();
+      };
+      open.onerror = () => {
+        if (missing && open.error?.name === 'AbortError') {
+          resolve();
+          return;
+        }
+        log(stage, 'clear_failed');
+        reject(open.error);
+      };
+      open.onsuccess = () => {
+        const db = open.result;
+        try {
+          const names = Array.from(db.objectStoreNames);
+          if (!names.length) {
+            resolve();
+            return;
+          }
+          const tx = db.transaction(names, 'readwrite');
+          tx.oncomplete = () => {
+            log(stage, 'cleared');
+            resolve();
+          };
+          tx.onabort = () => {
+            log(stage, 'clear_failed');
+            reject(
+              tx.error ?? new OneKeyLocalError('WalletConnect clear aborted'),
+            );
+          };
+          try {
+            for (const name of names) {
+              tx.objectStore(name).clear();
+            }
+          } catch (error) {
+            tx.abort();
+            throw error;
+          }
+        } catch (error) {
+          log(stage, 'clear_failed');
+          reject(error);
+        } finally {
+          db.close();
+        }
+      };
+    });
+    this.completedResetCleanups.add(stage);
+    // The records are gone even if an existing connection still blocks deletion.
+    try {
+      const deletion = indexedDB.deleteDatabase(WALLET_CONNECT_INDEXED_DB_NAME);
+      deletion.onblocked = () => log(stage, 'blocked');
+      deletion.onerror = () => log(stage, 'delete_failed');
+      deletion.onsuccess = () => log(stage, 'deleted');
+    } catch {
+      log(stage, 'delete_failed');
+    }
+  }
+
+  private async markPrivacyResetFailures(
+    log: IResetStageLogger,
+    networkIds: string[] | null,
+  ) {
+    if (networkIds?.length === 0) return;
+    await this.runResetStage(log, 'privacyChainRetry', () =>
+      writeAppResetPrivacyCleanup({
+        id: stringUtils.generateUUID(),
+        networkIds,
+      }),
+    );
+  }
+
+  private resetRequest?: Promise<void>;
+
+  private resetMarker?: IAppResetMarker;
+
+  private readonly runningResetStages = new Map<string, Promise<unknown>>();
+
+  private readonly completedResetCleanups = new Set<string>();
+
+  private async runResetCleanup(
+    log: IResetStageLogger,
+    failedStages: Map<string, unknown>,
+    stage: string,
+    task: () => unknown,
+  ) {
+    if (this.completedResetCleanups.has(stage)) return;
+    try {
+      await this.runResetStage(log, stage, async () => {
+        await task();
+        this.completedResetCleanups.add(stage);
+      });
+    } catch (error) {
+      failedStages.set(stage, error);
+    }
+  }
+
+  private async runResetStage<T>(
+    log: IResetStageLogger,
+    stage: string,
+    task: () => T | Promise<T>,
+    deadlineMs = RESET_LOCAL_STAGE_DEADLINE_MS,
+  ): Promise<T> {
+    const start = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    log(stage, 'start', { deadlineMs });
+    try {
+      // Rejoin a native or database operation after its deadline.
+      // Starting another delete could leave it queued behind a successful retry.
+      const pending =
+        (this.runningResetStages.get(stage) as Promise<T> | undefined) ??
+        Promise.resolve().then(task);
+      this.runningResetStages.set(stage, pending);
+      const clearPending = () => {
+        if (this.runningResetStages.get(stage) === pending) {
+          this.runningResetStages.delete(stage);
+        }
+      };
+      void pending.then(clearPending, clearPending);
+      const result = await Promise.race([
+        pending,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => {
+            log(stage, 'timeout', {
+              elapsedMs: Date.now() - start,
+              deadlineMs,
+            });
+            reject(
+              new OneKeyLocalError(
+                `App reset timed out at ${stage}. Retry Reset App.`,
+              ),
+            );
+          }, deadlineMs);
+        }),
+      ]);
+      log(stage, 'completed', { elapsedMs: Date.now() - start });
+      return result;
+    } catch (error) {
+      log(stage, 'failed', { elapsedMs: Date.now() - start, deadlineMs });
+      if (error instanceof RecoveryCacheErasureError) throw error;
+      throw new OneKeyLocalError(
+        `App reset could not complete ${stage}. Retry Reset App.`,
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private runResetRemoteJobs(
+    log: IResetStageLogger,
+    revokeAuth: (signal: AbortSignal) => Promise<string>,
+  ) {
+    const controller = new AbortController();
+    const start = Date.now();
+    const deadline = setTimeout(
+      () => controller.abort(),
+      RESET_REMOTE_DEADLINE_MS,
+    );
+    const run = async (stage: string, task: () => Promise<unknown>) => {
+      log(stage, 'start', { deadlineMs: RESET_REMOTE_DEADLINE_MS });
+      try {
+        const result = await task();
+        if (!controller.signal.aborted) {
+          log(stage, result === 'skipped' ? 'skipped' : 'completed', {
+            elapsedMs: Date.now() - start,
+          });
+        }
+      } catch {
+        if (!controller.signal.aborted)
+          log(stage, 'failed', { elapsedMs: Date.now() - start });
+      }
+    };
+    controller.signal.addEventListener(
+      'abort',
+      () => {
+        log('remote', 'timeout', { elapsedMs: Date.now() - start });
+      },
+      { once: true },
+    );
+    void Promise.all([
+      run('remoteAuth', () => revokeAuth(controller.signal)),
+      run('remoteNotification', () =>
+        this.backgroundApi.serviceNotification.unregisterClient({
+          signal: controller.signal,
+        }),
+      ),
+      run('remoteGoogle', async () => {
+        if (
+          !platformEnv.isNativeAndroid ||
+          !(await isAvailable()) ||
+          controller.signal.aborted
+        ) {
+          return 'skipped';
+        }
+        await logoutFromGoogleDrive(true, { signal: controller.signal });
+        return 'completed';
+      }),
+    ]).finally(() => clearTimeout(deadline));
+  }
 
   @backgroundMethod()
-  async resetApp(options: { preserveBackupRecovery?: boolean } = {}) {
-    return this.resetAppMutex.runExclusive(async () => {
-      try {
-        await this.resetAppInternal(options);
-      } catch (error) {
-        await this.backgroundApi.serviceCloudBackupV2.finishLocalRecoveryReset();
-        throw error;
-      }
-    });
-  }
-
-  private async resetAppInternal({
+  async resetApp({
     preserveBackupRecovery = false,
   }: { preserveBackupRecovery?: boolean } = {}) {
-    let recoveryErasureFailed = false;
-    // Unknown/programmatic callers retain the existing secure-erasure default.
-    try {
-      await this.backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset(
-        {
-          preserve: preserveBackupRecovery,
-        },
-      );
-    } catch {
-      // Still erase wallet secrets if recovery storage is unavailable.
-      recoveryErasureFailed = true;
-    }
-    defaultLogger.prime.subscription.onekeyIdLogout({
-      reason: 'ServiceApp.resetApp',
-    });
-    try {
-      await this.backgroundApi.serviceIdentityExit.prepareIdentityAuthForAppReset();
-    } catch {
-      // App Reset must remain available when identity recovery itself is
-      // broken; resetData clears the same persisted identity state.
-      defaultLogger.setting.page.clearDataStep('identityAuthCleanup-skipped');
-    }
-
-    defaultLogger.setting.page.clearDataStep('servicePrime-apiLogout');
-    void this.backgroundApi.serviceNotification.unregisterClient();
-    defaultLogger.setting.page.clearDataStep(
-      'serviceNotification-unregisterClient',
+    if (this.resetRequest) return this.resetRequest;
+    return this.startAppReset(
+      this.resetMarker ?? {
+        operationId: stringUtils.generateUUID(),
+        preserveBackupRecovery,
+      },
+      !this.resetMarker,
     );
-    // logout from Google Drive
-    if (platformEnv.isNativeAndroid && (await isAvailable())) {
-      void logoutFromGoogleDrive(true);
-      defaultLogger.setting.page.clearDataStep('logoutFromGoogleDrive');
+  }
+
+  async resumeInterruptedAppReset(): Promise<boolean> {
+    listenForAppReset(() => {
+      resetUtils.startResetting();
+      markIdentityRecoveryFailed('appReset:otherWindow');
+      beginSupabaseAuthAppReset();
+      this.backgroundApi.serviceCloudBackupV2.beginLocalRecoveryReset();
+    });
+    const marker = await readAppResetMarker();
+    if (!marker) return false;
+    if (marker.desktopIndexedDBCleanup && platformEnv.isDesktop) {
+      await runWithAppResetLock(async () => {
+        resetUtils.startResetting();
+        const log = this.buildResetLogger(marker);
+        await this.runResetStage(log, 'otherIndexedDBs', () =>
+          this.deleteOtherIndexedDBs(log),
+        );
+        await this.finishAppReset(log);
+        resetUtils.endResetting();
+      });
+      return false;
     }
-    await timerUtils.wait(1000);
+    await this.startAppReset(marker, false);
+    return true;
+  }
+
+  private async startAppReset(marker: IAppResetMarker, tryRemote: boolean) {
+    this.backgroundApi.serviceCloudBackupV2?.beginLocalRecoveryReset?.();
+    const request = runWithAppResetLock(async () => {
+      const pendingMarker = await readAppResetMarker().catch(() => undefined);
+      if (!tryRemote && !this.resetMarker && !pendingMarker) return;
+      const currentMarker = pendingMarker ?? marker;
+      if (this.resetMarker?.operationId !== currentMarker.operationId) {
+        this.completedResetCleanups.clear();
+      }
+      this.resetMarker = currentMarker;
+      await this.resetAppInternal(currentMarker, tryRemote && !pendingMarker);
+    });
+    this.resetRequest = request;
+    try {
+      await request;
+    } finally {
+      this.resetRequest = undefined;
+    }
+  }
+
+  private buildResetLogger(marker: IAppResetMarker): IResetStageLogger {
+    return (stage, event, details) =>
+      defaultLogger.setting.page.appResetStage({
+        operationId: marker.operationId,
+        stage,
+        event,
+        ...details,
+      });
+  }
+
+  private async finishAppReset(log: IResetStageLogger) {
+    await this.runResetStage(log, 'clearResetMarker', () =>
+      writeAppResetMarker(),
+    );
+    log('localCleanup', 'reset_completed');
+    broadcastAppReset('completed');
+  }
+
+  private async resetAppInternal(marker: IAppResetMarker, tryRemote: boolean) {
+    const log = this.buildResetLogger(marker);
+    if (marker.desktopIndexedDBCleanup && platformEnv.isDesktop) {
+      await this.restartAfterAppReset(log);
+      return;
+    }
 
     resetUtils.startResetting();
-    defaultLogger.setting.page.clearDataStep('startResetting');
-    try {
-      defaultLogger.setting.page.clearDataStep('resetData-start');
-      await this.resetData();
-      defaultLogger.setting.page.clearDataStep('resetData-end');
-      if (recoveryErasureFailed) {
-        throw new OneKeyLocalError('Recovery cache erasure failed');
+    void this.backgroundApi.servicePrimeCloudSync
+      ?.clearCachedSyncCredential()
+      .catch(() => {
+        log('cloudSync', 'cancel_failed');
+      });
+    markIdentityRecoveryFailed(marker.operationId);
+    appEventBus.emit(EAppEventBusNames.AppResetIsolating, undefined);
+    broadcastAppReset('isolating');
+    const auth = beginSupabaseAuthAppReset();
+    await this.runResetStage(log, 'resetMarker', () =>
+      writeAppResetMarker(marker),
+    );
+    let liveActivityCleanupFailed = false;
+    if (platformEnv.isNativeIOS) {
+      try {
+        await this.runResetStage(
+          log,
+          'liveActivityCleanup',
+          () =>
+            this.backgroundApi.serviceLiveActivity.stopForPrivacyTransition(),
+          LIVE_ACTIVITY_RESET_TIMEOUT_MS,
+        );
+      } catch {
+        // Continue erasing wallet data even if the system card could not close.
+        liveActivityCleanupFailed = true;
       }
-    } catch (error) {
-      console.error('resetData error', error);
-      throw error;
-    } finally {
-      resetUtils.endResetting();
-      defaultLogger.setting.page.clearDataStep('endResetting');
+    }
+    if (tryRemote) {
+      this.runResetRemoteJobs(log, async (signal) => {
+        const simulateTimeout =
+          await takeRecoveryTestFault('resetRemoteTimeout');
+        if (signal.aborted) return 'skipped';
+        if (simulateTimeout) {
+          log('remoteAuth', 'developer_fault_injected');
+          appEventBus.emit(EAppEventBusNames.ShowToast, {
+            method: 'error',
+            title: '开发者模拟：远程撤销请求挂起',
+            message: '本地重置继续，远程请求最多等待 10 秒。',
+          });
+          return auth.revoke(signal, { simulateTimeout: true });
+        }
+        return auth.revoke(signal);
+      });
     }
 
+    let recoveryErasureFailed = false;
+    try {
+      await this.runResetStage(
+        log,
+        'recoveryDrain',
+        () =>
+          this.backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset({
+            preserve: marker.preserveBackupRecovery,
+          }),
+        RESET_RECOVERY_STAGE_DEADLINE_MS,
+      );
+    } catch (error) {
+      if (!(error instanceof RecoveryCacheErasureError)) {
+        throw new OneKeyLocalError(
+          'App reset could not drain recovery tasks. Retry Reset App.',
+        );
+      }
+      recoveryErasureFailed = true;
+    }
+    const failedStages = new Map<string, unknown>();
+    await this.runResetCleanup(log, failedStages, 'identityStorage', () =>
+      auth.erase(),
+    );
+    await this.runResetCleanup(log, failedStages, 'keylessStorage', () =>
+      this.backgroundApi.serviceKeylessWallet?.eraseKeylessStorageForAppReset(),
+    );
+    await this.resetData(log, failedStages);
+    if (recoveryErasureFailed) throw new RecoveryCacheErasureError();
+    if (platformEnv.isDesktop) {
+      // WalletConnect and other renderer-owned connections can keep origin
+      // database deletes blocked until Electron reloads this renderer.
+      const nextMarker: IAppResetMarker = {
+        ...marker,
+        desktopIndexedDBCleanup: true,
+      };
+      await this.runResetStage(log, 'resetMarker', () =>
+        writeAppResetMarker(nextMarker),
+      );
+      this.resetMarker = nextMarker;
+    } else {
+      await this.finishAppReset(log);
+    }
+
+    await this.restartAfterAppReset(log);
+    if (liveActivityCleanupFailed) {
+      throw new OneKeyLocalError('Live Activity cleanup failed');
+    }
+  }
+
+  private async restartAfterAppReset(log: IResetStageLogger) {
     if (!platformEnv.isNative && (platformEnv.isWeb || platformEnv.isDesktop)) {
       // reset route/href
       try {
@@ -527,10 +764,12 @@ class ServiceApp extends ServiceBase {
     // is now holding stale state and bundle moduleIds may have re-keyed via
     // OTA. mode=All forces both runtimes cold so nothing reads from the
     // dead state.
-    await this.restartApp({
-      mode: EAppRestartMode.All,
-      reason: 'auth.resetData',
-    });
+    await this.runResetStage(log, 'restart', () =>
+      this.restartApp({
+        mode: EAppRestartMode.All,
+        reason: 'auth.resetData',
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -541,6 +780,9 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async dispatchUnlockJob() {
     defaultLogger.app.page.dispatchUnlockJob();
+    void this.backgroundApi.serviceStarknetPrivacy
+      .prepareUnlockedViewingKeys()
+      .catch(() => undefined);
     appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
   }
 
@@ -737,6 +979,7 @@ class ServiceApp extends ServiceBase {
     from?: EEnterWay;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    entryCategory?: string;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
     const {
@@ -750,6 +993,7 @@ class ServiceApp extends ServiceBase {
       from,
       showFavoriteButton,
       marketTokenCategory,
+      entryCategory,
       tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
@@ -772,6 +1016,9 @@ class ServiceApp extends ServiceBase {
     }
     if (marketTokenCategory) {
       routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (entryCategory) {
+      routeParams.entryCategory = entryCategory;
     }
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;
@@ -812,6 +1059,7 @@ class ServiceApp extends ServiceBase {
     network?: string;
     isNative?: boolean;
     from?: EEnterWay;
+    entryCategory?: string;
     disableTrade?: boolean;
     showFavoriteButton?: boolean;
   }) {
@@ -824,6 +1072,7 @@ class ServiceApp extends ServiceBase {
       network,
       isNative,
       from,
+      entryCategory,
       disableTrade,
       showFavoriteButton,
     } = params;
@@ -849,6 +1098,9 @@ class ServiceApp extends ServiceBase {
     }
     if (from) {
       routeParams.from = from;
+    }
+    if (entryCategory) {
+      routeParams.entryCategory = entryCategory;
     }
     if (typeof disableTrade === 'boolean') {
       routeParams.disableTrade = disableTrade;

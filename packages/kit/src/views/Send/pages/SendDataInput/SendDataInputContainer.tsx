@@ -13,7 +13,6 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -80,7 +79,10 @@ import {
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
+import {
+  getBadgeQueryTokenAddress,
+  getCexDepositWarningFacts,
+} from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   isReusableLightningRecipient,
@@ -103,12 +105,14 @@ import {
 } from '../../../Prime/hooks/usePrimeFeatureAccess';
 import { getAccountIdOnNetwork } from '../../../ScanQrCode/utils/getAccountIdOnNetwork';
 import { parseOnChainAmount } from '../../../ScanQrCode/utils/parseOnChainAmount';
+import { validateStarknetPrivacyRecipient } from '../../../StarknetPrivacy/utils/starknetPrivacySend';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {
   getSendAddressRiskCheckButtonState,
   normalizeOptionalRecipientText,
+  shouldReviewQuickSelectRecipient,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
 } from './recipientSelectionUtils';
@@ -223,6 +227,7 @@ function SendDataInputContainer() {
     onCancel,
     isAllNetworks,
     localWalletSourcePool,
+    starknetPrivacyKind,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -313,6 +318,7 @@ function SendDataInputContainer() {
   // call; failures are silent because the amount page retries on its own.
   useEffect(() => {
     if (
+      starknetPrivacyKind ||
       isNFT ||
       !tokenInfo ||
       !account?.address ||
@@ -333,6 +339,7 @@ function SendDataInputContainer() {
     currentAccount.accountId,
     currentAccount.networkId,
     isNFT,
+    starknetPrivacyKind,
     tokenInfo,
   ]);
 
@@ -470,6 +477,8 @@ function SendDataInputContainer() {
   const toValue = form.watch('to') as IAddressInputValue | undefined;
   const toPending = toValue?.pending;
   const toResolved = toValue?.resolved;
+  const recipientAccountRef = useRef(currentAccount);
+  recipientAccountRef.current = currentAccount;
   const toAddressRaw = toValue?.raw;
   const zcashMemoSupported = toResolved?.startsWith('u1');
   useEffect(() => {
@@ -716,6 +725,32 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
+      // The recipient may have changed while the checks above were awaited;
+      // only warn about and continue with the recipient this attempt started on.
+      if (toVal?.resolved !== toResolved) return;
+      if (starknetPrivacyKind === 'transfer') {
+        if (
+          currentAccount.accountId !== accountId ||
+          currentAccount.networkId !== networkId
+        )
+          return;
+        const message = await validateStarknetPrivacyRecipient(
+          intl,
+          networkId,
+          toResolved,
+        );
+        if (
+          isUnmountedRef.current ||
+          form.getValues('to')?.resolved !== toResolved ||
+          recipientAccountRef.current.accountId !== currentAccount.accountId ||
+          recipientAccountRef.current.networkId !== currentAccount.networkId
+        )
+          return;
+        if (message) {
+          form.setError('to', { type: 'validate', message });
+          return;
+        }
+      }
       const { canProceed, hasAcknowledgedWarning } =
         await confirmCexDepositIfUnsupported({
           intl,
@@ -725,6 +760,7 @@ function SendDataInputContainer() {
           networkName: network?.name,
           page: 'address',
           cexSupportedInfo: toVal?.cexSupportedInfo,
+          exchangeDisplayName: toVal?.exchangeDisplayName,
         });
       if (!canProceed) return;
 
@@ -884,6 +920,7 @@ function SendDataInputContainer() {
       }
 
       pushAmountInput({
+        starknetPrivacyKind,
         networkId: currentAccount.networkId,
         accountId: currentAccount.accountId,
         isNFT,
@@ -920,6 +957,7 @@ function SendDataInputContainer() {
     toResolved,
     form,
     pushAmountInput,
+    starknetPrivacyKind,
     signatureConfirm,
     scannedAmount,
     sendAmount,
@@ -1001,7 +1039,7 @@ function SendDataInputContainer() {
   );
 
   const renderMemoForm = useCallback(
-    (requestFocusVisibility?: IFocusVisibilityRequest) => {
+    (requestFocusVisibility: IFocusVisibilityRequest) => {
       if (!displayMemoForm) return null;
       const maxLength = memoMaxLength || 256;
       const isNumericMemo = Boolean(numericOnlyMemo);
@@ -1051,7 +1089,7 @@ function SendDataInputContainer() {
           >
             <TextArea
               ref={memoInputRef}
-              onFocus={() => requestFocusVisibility?.(memoInputRef.current)}
+              onFocus={() => requestFocusVisibility(memoInputRef.current)}
               testID={SendTestIDs.memoTextarea}
               numberOfLines={memoInputLines}
               size={media.gtMd ? 'medium' : 'large'}
@@ -1123,7 +1161,7 @@ function SendDataInputContainer() {
   );
 
   const renderPaymentIdForm = useCallback(
-    (requestFocusVisibility?: IFocusVisibilityRequest) => {
+    (requestFocusVisibility: IFocusVisibilityRequest) => {
       if (!displayPaymentIdForm) return null;
       return (
         <>
@@ -1165,9 +1203,7 @@ function SendDataInputContainer() {
           >
             <TextArea
               ref={paymentIdInputRef}
-              onFocus={() =>
-                requestFocusVisibility?.(paymentIdInputRef.current)
-              }
+              onFocus={() => requestFocusVisibility(paymentIdInputRef.current)}
               testID={SendTestIDs.paymentIdTextarea}
               numberOfLines={2}
               size={media.gtMd ? 'medium' : 'large'}
@@ -1181,7 +1217,7 @@ function SendDataInputContainer() {
   );
 
   const renderNoteForm = useCallback(
-    (requestFocusVisibility?: IFocusVisibilityRequest) => {
+    (requestFocusVisibility: IFocusVisibilityRequest) => {
       if (!displayNoteForm) return null;
       const maxLength = noteMaxLength ?? 512;
       return (
@@ -1222,7 +1258,7 @@ function SendDataInputContainer() {
         >
           <TextArea
             ref={noteInputRef}
-            onFocus={() => requestFocusVisibility?.(noteInputRef.current)}
+            onFocus={() => requestFocusVisibility(noteInputRef.current)}
             testID={SendTestIDs.noteTextarea}
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
@@ -1237,7 +1273,7 @@ function SendDataInputContainer() {
   );
 
   const renderDataInput = useCallback(
-    (requestFocusVisibility?: IFocusVisibilityRequest) => {
+    (requestFocusVisibility: IFocusVisibilityRequest) => {
       return (
         <>
           {renderMemoForm(requestFocusVisibility)}
@@ -1357,31 +1393,6 @@ function SendDataInputContainer() {
     [displayMemoForm, isNoteOnlyChain, form],
   );
 
-  const shouldStayOnDataStepForQuickSelect = useCallback(
-    ({
-      selectedMemo,
-      selectedNote,
-    }: {
-      selectedMemo?: string;
-      selectedNote?: string;
-    }) => {
-      const hasSelectedMemo = Boolean(selectedMemo?.trim());
-      const hasSelectedNote = Boolean(selectedNote?.trim());
-      const needsMemoInput = vaultSettings?.withMemo && !hasSelectedMemo;
-      const needsPaymentId =
-        vaultSettings?.withPaymentId && !form.getValues('paymentId');
-      const needsNote =
-        vaultSettings?.withNote && !hasSelectedNote && !hasSelectedMemo;
-      return needsMemoInput || needsPaymentId || needsNote;
-    },
-    [
-      form,
-      vaultSettings?.withMemo,
-      vaultSettings?.withNote,
-      vaultSettings?.withPaymentId,
-    ],
-  );
-
   const navigateQuickSelectRecipientToAmount = useCallback(
     async ({
       selectedAddress,
@@ -1435,6 +1446,10 @@ function SendDataInputContainer() {
             networkName: network?.name,
             page: 'address',
             cexSupportedInfo: queryResult.cexSupportedInfo,
+            exchangeDisplayName: getCexDepositWarningFacts({
+              exchangeLabel: queryResult.cexSupportedInfo?.cexLabel,
+              addressBadges: queryResult.addressBadges,
+            }).exchangeName,
           });
         if (!canProceed) return;
 
@@ -1602,7 +1617,10 @@ function SendDataInputContainer() {
       }
 
       if (isFromAccount || isFromAddressBook) {
-        const willSkip = !shouldStayOnDataStepForQuickSelect({
+        const willSkip = !shouldReviewQuickSelectRecipient({
+          privateTransfer: Boolean(starknetPrivacyKind),
+          vaultSettings,
+          paymentId: form.getValues('paymentId'),
           selectedMemo,
           selectedNote,
         });
@@ -1658,157 +1676,15 @@ function SendDataInputContainer() {
       currentAccount.networkId,
       fillRecipientFromQuickSelect,
       navigateQuickSelectRecipientToAmount,
-      shouldStayOnDataStepForQuickSelect,
+      form,
+      starknetPrivacyKind,
+      vaultSettings,
     ],
-  );
-
-  // Temporary iOS workaround for the 6.7.0 OTA. In 6.8.0, use the native
-  // recipient layout after bundling the NativeList fix (OneKeyHQ/app-modules#279).
-  const useLegacyRecipientLayout = Platform.select({
-    ios: true,
-    default: false,
-  });
-  const renderRecipientFields = (
-    requestFocusVisibility?: IFocusVisibilityRequest,
-  ) => (
-    <>
-      {isNFT ? (
-        <Form.Field
-          label={intl.formatMessage({
-            id: ETranslations.global_nft,
-          })}
-          name="nft"
-        >
-          <ListItem
-            mx="$0"
-            borderWidth={1}
-            borderColor="$border"
-            borderRadius="$2"
-          >
-            <XStack alignItems="center" gap="$1" flex={1}>
-              <Token
-                isNFT
-                size="lg"
-                tokenImageUri={nft?.metadata?.image}
-                networkImageUri={network?.logoURI}
-                networkId={network?.id}
-                showNetworkIcon
-              />
-              <ListItem.Text
-                flex={1}
-                primary={nft?.metadata?.name ?? ''}
-                secondary={
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    style={
-                      platformEnv.isNative
-                        ? undefined
-                        : { wordBreak: 'break-all' }
-                    }
-                  >
-                    {!isNil(nft?.itemId)
-                      ? `${intl.formatMessage({
-                          id: ETranslations.nft_token_id,
-                        })}: ${accountUtils.shortenAddress({
-                          address: nft.itemId,
-                          leadingLength: 6,
-                        })}`
-                      : ''}
-                  </SizableText>
-                }
-              />
-            </XStack>
-          </ListItem>
-        </Form.Field>
-      ) : null}
-      <AddressInputField
-        name="to"
-        labelAddon={addressRiskCheckLabelAddon}
-        testID={SendTestIDs.recipientInput}
-        numberOfLines={
-          networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
-            ? 5
-            : 2
-        }
-        actionsLayout="recipient"
-        placeholder={
-          // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
-          networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
-            ? undefined
-            : intl.formatMessage({
-                id: ETranslations.search_or_paste_address__desc,
-              })
-        }
-        onScanResult={onScanResult}
-        accountId={currentAccount.accountId}
-        networkId={currentAccount.networkId}
-        enableAddressBook
-        enableWalletName
-        enableVerifySendFundToSelf
-        enableAddressInteractionStatus
-        enableAddressContract
-        enableAllowListValidation={enableAllowListValidation}
-        onInputTypeChange={handleAddressInputChangeType}
-        hideNonBackedUpWallet
-        ignoreSimilarAddressInAddressBook
-        enableCheckSimilarAddressInAddressBook
-        hasQuickSelectMatches={hasQuickSelectMatches}
-        tokenAddress={badgeQueryTokenAddress}
-        onFocus={(event) =>
-          requestFocusVisibility?.(getFocusedInputMeasurement(event.target))
-        }
-      />
-      {toSimilarAddress ? (
-        <Alert
-          type="warning"
-          title={intl.formatMessage({
-            id: ETranslations.wallet_address_poisoning_alert,
-          })}
-        />
-      ) : null}
-      {renderDataInput(requestFocusVisibility)}
-    </>
-  );
-
-  const recipientPicker = (
-    <RecipientQuickSelect
-      accountNetwork={network}
-      pagerHeader={
-        useLegacyRecipientLayout
-          ? undefined
-          : (requestFocusVisibility) => (
-              <Form form={form}>
-                {renderRecipientFields(requestFocusVisibility)}
-              </Form>
-            )
-      }
-      accountId={currentAccount.accountId}
-      networkId={currentAccount.networkId}
-      senderDeriveType={senderDeriveType}
-      senderAddressForm={
-        // Only a chain with both forms (Zcash) has a form to open on.
-        vaultSettings?.localWallet?.addressForms.publicLabel
-          ? vaultSettings.localWallet.pools.find(
-              (pool) => pool.key === localWalletSourcePool,
-            )?.kind
-          : undefined
-      }
-      searchKey={toAddressRaw}
-      isSearchMode={!!toAddressRaw?.trim()}
-      activeTab={quickSelectActiveTab}
-      onActiveTabChange={setQuickSelectActiveTab}
-      onInputTypeChange={handleAddressInputChangeType}
-      onMatchStatusChange={setHasQuickSelectMatches}
-      onSelect={handleQuickSelectRecipient}
-      hideTabs={recipientHiddenTabs}
-      keylessWalletsOnly={keylessWalletsOnly}
-    />
   );
 
   return (
     <Page
-      scrollEnabled={useLegacyRecipientLayout}
+      scrollEnabled={false}
       safeAreaEnabled
       scrollProps={{
         keyboardShouldPersistTaps: 'handled',
@@ -1828,11 +1704,7 @@ function SendDataInputContainer() {
             : undefined
         }
       />
-      <Page.Body
-        px={useLegacyRecipientLayout ? '$5' : '$0'}
-        flex={useLegacyRecipientLayout ? undefined : 1}
-        testID="send-recipient-amount-form"
-      >
+      <Page.Body px="$0" flex={1} testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
@@ -1847,14 +1719,136 @@ function SendDataInputContainer() {
             },
           }}
         >
-          {useLegacyRecipientLayout ? (
-            <Form form={form}>
-              {renderRecipientFields()}
-              {recipientPicker}
-            </Form>
-          ) : (
-            recipientPicker
-          )}
+          <RecipientQuickSelect
+            accountNetwork={network}
+            pagerHeader={(requestFocusVisibility) => (
+              <Form form={form}>
+                {isNFT ? (
+                  <Form.Field
+                    label={intl.formatMessage({
+                      id: ETranslations.global_nft,
+                    })}
+                    name="nft"
+                  >
+                    <ListItem
+                      mx="$0"
+                      borderWidth={1}
+                      borderColor="$border"
+                      borderRadius="$2"
+                    >
+                      <XStack alignItems="center" gap="$1" flex={1}>
+                        <Token
+                          isNFT
+                          size="lg"
+                          tokenImageUri={nft?.metadata?.image}
+                          networkImageUri={network?.logoURI}
+                          networkId={network?.id}
+                          showNetworkIcon
+                        />
+                        <ListItem.Text
+                          flex={1}
+                          primary={nft?.metadata?.name ?? ''}
+                          secondary={
+                            <SizableText
+                              size="$bodyMd"
+                              color="$textSubdued"
+                              style={
+                                platformEnv.isNative
+                                  ? undefined
+                                  : { wordBreak: 'break-all' }
+                              }
+                            >
+                              {!isNil(nft?.itemId)
+                                ? `${intl.formatMessage({
+                                    id: ETranslations.nft_token_id,
+                                  })}: ${accountUtils.shortenAddress({
+                                    address: nft.itemId,
+                                    leadingLength: 6,
+                                  })}`
+                                : ''}
+                            </SizableText>
+                          }
+                        />
+                      </XStack>
+                    </ListItem>
+                  </Form.Field>
+                ) : null}
+                <AddressInputField
+                  name="to"
+                  labelAddon={addressRiskCheckLabelAddon}
+                  testID={SendTestIDs.recipientInput}
+                  numberOfLines={
+                    networkUtils.isLightningNetworkByNetworkId(
+                      currentAccount.networkId,
+                    )
+                      ? 5
+                      : 2
+                  }
+                  actionsLayout="recipient"
+                  placeholder={
+                    // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
+                    networkUtils.isLightningNetworkByNetworkId(
+                      currentAccount.networkId,
+                    )
+                      ? undefined
+                      : intl.formatMessage({
+                          id: ETranslations.search_or_paste_address__desc,
+                        })
+                  }
+                  onScanResult={onScanResult}
+                  accountId={currentAccount.accountId}
+                  networkId={currentAccount.networkId}
+                  enableAddressBook
+                  enableWalletName
+                  enableVerifySendFundToSelf
+                  enableAddressInteractionStatus
+                  recipientOnlyBadges={Boolean(starknetPrivacyKind)}
+                  enableAddressContract
+                  enableAllowListValidation={enableAllowListValidation}
+                  onInputTypeChange={handleAddressInputChangeType}
+                  hideNonBackedUpWallet
+                  ignoreSimilarAddressInAddressBook
+                  enableCheckSimilarAddressInAddressBook
+                  hasQuickSelectMatches={hasQuickSelectMatches}
+                  tokenAddress={badgeQueryTokenAddress}
+                  onFocus={(event) =>
+                    requestFocusVisibility(
+                      getFocusedInputMeasurement(event.target),
+                    )
+                  }
+                />
+                {toSimilarAddress ? (
+                  <Alert
+                    type="warning"
+                    title={intl.formatMessage({
+                      id: ETranslations.wallet_address_poisoning_alert,
+                    })}
+                  />
+                ) : null}
+                {renderDataInput(requestFocusVisibility)}
+              </Form>
+            )}
+            accountId={currentAccount.accountId}
+            networkId={currentAccount.networkId}
+            senderDeriveType={senderDeriveType}
+            senderAddressForm={
+              // Only a chain with both forms (Zcash) has a form to open on.
+              vaultSettings?.localWallet?.addressForms.publicLabel
+                ? vaultSettings.localWallet.pools.find(
+                    (pool) => pool.key === localWalletSourcePool,
+                  )?.kind
+                : undefined
+            }
+            searchKey={toAddressRaw}
+            isSearchMode={!!toAddressRaw?.trim()}
+            activeTab={quickSelectActiveTab}
+            onActiveTabChange={setQuickSelectActiveTab}
+            onInputTypeChange={handleAddressInputChangeType}
+            onMatchStatusChange={setHasQuickSelectMatches}
+            onSelect={handleQuickSelectRecipient}
+            hideTabs={recipientHiddenTabs}
+            keylessWalletsOnly={keylessWalletsOnly}
+          />
         </AccountSelectorProviderMirror>
       </Page.Body>
       {(toResolved && !toPending) || isSubmitting ? (

@@ -17,10 +17,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import {
   ESwapNetworkFeeLevel,
   type ISwapPreSwapData,
@@ -79,6 +81,8 @@ const PreSwapInfoGroup = ({
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const [swapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
+  const isXmrSource = isXmrSwapNetwork(preSwapData.fromToken?.networkId);
+  const xmrFee = preSwapData.swapBuildResultData?.xmrPrepared?.fee;
 
   const networkFeeLevelArray = useMemo(() => {
     const feeArray = [
@@ -239,7 +243,22 @@ const PreSwapInfoGroup = ({
     [preSwapData.netWorkFee?.gasInfos],
   );
 
-  const networkFeeSelect = useMemo(() => {
+  const networkFeeValue = useMemo(() => {
+    if (isXmrSource) {
+      if (
+        preSwapData.stepBeforeActionsLoading ||
+        preSwapData.swapBuildLoading
+      ) {
+        return <Skeleton width="$10" height="$4" />;
+      }
+      return (
+        <SizableText testID="swap-review-xmr-network-fee" size="$bodyMd">
+          {xmrFee
+            ? `${xmrFee.totalNative} ${xmrFee.feeInfo.common.feeSymbol}`
+            : '--'}
+        </SizableText>
+      );
+    }
     // OneKey sponsors the network fee: the estimated amount and the fee-level
     // selector are meaningless to the user, so show only the sponsored badge.
     if (isGasSponsored) {
@@ -296,6 +315,8 @@ const PreSwapInfoGroup = ({
     return feeLevelSelect;
   }, [
     intl,
+    isXmrSource,
+    xmrFee,
     isGasSponsored,
     showExternalSponsorPromo,
     activeNetworkFeeSelectValue,
@@ -306,6 +327,7 @@ const PreSwapInfoGroup = ({
     settings.currencyInfo.symbol,
     preSwapData.estimateNetworkFeeLoading,
     preSwapData.stepBeforeActionsLoading,
+    preSwapData.swapBuildLoading,
   ]);
 
   const slippageValue = useMemo(() => {
@@ -473,18 +495,21 @@ const PreSwapInfoGroup = ({
                 tokenSymbol: preSwapData?.toToken?.symbol ?? '-',
               }}
             >
-              {preSwapData?.minToAmount}
+              {getSwapDisplayAmount(
+                preSwapData.minToAmount,
+                preSwapData.toToken?.balanceMultiplier,
+              ) ?? '--'}
             </NumberSizeableText>
           }
         />
       ) : null}
 
-      {preSwapData.supportNetworkFeeLevel ? (
+      {isXmrSource || preSwapData.supportNetworkFeeLevel ? (
         <PreSwapInfoItem
           title={intl.formatMessage({
             id: ETranslations.provider_network_fee,
           })}
-          value={networkFeeSelect}
+          value={networkFeeValue}
           popoverContent={intl.formatMessage({
             id: ETranslations.swap_review_network_cost_popover_content,
           })}

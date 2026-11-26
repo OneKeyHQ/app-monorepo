@@ -1420,7 +1420,10 @@ class ServiceMarketV2 extends ServiceBase {
     const { stockId } = params;
     const chartParams = params.interval
       ? { interval: params.interval, from: params.from, to: params.to }
-      : { period: params.period ?? '1d' };
+      : {
+          period: params.period ?? '1d',
+          ...(params.session ? { session: params.session } : undefined),
+        };
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;

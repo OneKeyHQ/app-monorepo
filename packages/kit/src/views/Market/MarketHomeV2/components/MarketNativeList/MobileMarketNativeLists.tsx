@@ -39,6 +39,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EEnterWay,
+  EMarketEntryCategory,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -1009,7 +1010,10 @@ function MobileMarketNativeWatchlistImpl({
   const intl = useIntl();
   const listRef = useRef<NativeListRef>(null);
   const presentation = useMarketNativeListPresentation();
-  const toMarketDetailPage = useToDetailPage({ from: EEnterWay.MarketList });
+  const toMarketDetailPage = useToDetailPage({
+    from: EEnterWay.MarketList,
+    entryCategory: EMarketEntryCategory.Watchlist,
+  });
   const { navigateToPerps } = usePerpsNavigation();
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
@@ -1289,6 +1293,7 @@ function MobileMarketNativeStockListImpl({
   const presentation = useMarketNativeListPresentation();
   const toMarketStockDetailPage = useToMarketStockDetailPage({
     from: EEnterWay.MarketList,
+    entryCategory: EMarketEntryCategory.Stocks,
   });
   const result = useMarketStockList({
     category: selectedCategoryId === 'all' ? undefined : selectedCategoryId,

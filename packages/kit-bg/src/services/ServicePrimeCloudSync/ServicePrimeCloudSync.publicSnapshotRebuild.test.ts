@@ -1,7 +1,10 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+import { AxiosHeaders } from 'axios';
 import { cloneDeep } from 'lodash';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   ICloudSyncCredential,
@@ -16,9 +19,13 @@ import {
   getPublicAccountSnapshotIdentityHash,
 } from './publicAccountSnapshot';
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
+import { getOfflinePublicAccountSnapshotFill } from './publicAccountSnapshotWriteGuard';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
-import type { IDBCloudSyncItem } from '../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBIndexedAccount,
+} from '../../dbs/local/types';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const passthroughDecorator =
@@ -51,7 +58,7 @@ jest.mock('../../states/jotai/atoms', () => ({
     set: jest.fn(),
   },
   addressBookPersistAtom: {},
-  devSettingsPersistAtom: {},
+  devSettingsPersistAtom: { sub: jest.fn(() => () => undefined) },
   primeMasterPasswordPersistAtom: {},
   primePersistAtom: {},
 }));
@@ -94,6 +101,8 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     addAndUpdateSyncItems: jest.fn(async () => undefined),
+    getSyncItemSafe: jest.fn(),
+    updateSyncItem: jest.fn(),
     getAccountSafe: jest.fn(),
     getWalletSafe: jest.fn(),
     addAccountsToWallet: jest.fn(),
@@ -121,10 +130,6 @@ jest.mock('../../dbs/simple/simpleDb', () => ({
 
 jest.mock('./botWalletCloudSyncUtils', () => ({
   filterBotWalletRecordsByCurrentKeylessSyncScope: jest.fn(),
-}));
-
-jest.mock('./cloudSyncCheckUtils', () => ({
-  buildOnlyCheckLocalDataTypes: jest.fn(),
 }));
 
 // Public synthetic keys used only by these in-memory crypto round trips.
@@ -182,6 +187,56 @@ function rawItem(raw = rawFixture()): IDBCloudSyncItem {
   };
 }
 
+async function makeRepairFixture(serverUploaded: boolean) {
+  const hardware: ICloudSyncCredential = {
+    ...credential,
+    keylessCredential: {
+      ...credential.keylessCredential,
+      pwdHash: 'hw-dek-public-repair-fixture',
+      source: {
+        type: 'hardware',
+        credentialId: credential.keylessCredential.keylessWalletId,
+        derivationVersion: 1,
+        deviceName: 'Public test hardware',
+        deviceType: EDeviceType.Pro,
+      },
+    },
+  };
+  const dataType = EPrimeCloudSyncDataType.BrowserBookmark;
+  const rawKey = 'BrowserBookmark >> https://repair.example.invalid';
+  const lastGood = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+    key: sha512ProSync({ data: rawKey }),
+    rawDataJson: {
+      dataType,
+      rawKey,
+      payload: {
+        title: 'Public repair fixture',
+        url: 'https://repair.example.invalid',
+        logo: undefined,
+        sortIndex: 1,
+      },
+    },
+    syncCredential: hardware,
+    dataTime: 1_750_000_000_000,
+  });
+  const damaged = {
+    ...lastGood,
+    data: '00'.repeat(32),
+    rawData: serverUploaded ? '' : lastGood.rawData,
+    serverUploaded,
+    localSceneUpdated: !serverUploaded,
+  };
+  const { service } = harness([damaged], hardware);
+  const row = { ...damaged };
+  jest.spyOn(localDb, 'getSyncItemSafe').mockResolvedValue(row);
+  const update = jest
+    .spyOn(localDb, 'updateSyncItem')
+    .mockImplementation(async ({ updater }) => {
+      await updater(row);
+    });
+  return { service, hardware, lastGood, damaged, row, update };
+}
+
 function harness(
   items: IDBCloudSyncItem[],
   selected: ICloudSyncCredential | undefined = credential,
@@ -191,9 +246,17 @@ function harness(
   const getWallet = jest.spyOn(localDb, 'getWalletSafe');
   const createAccounts = jest.spyOn(localDb, 'addAccountsToWallet');
   const importAccounts = jest.spyOn(localDb, 'importPublicCloudAccounts');
+  const getAllWallets = jest.fn(async () => ({ wallets: [], allDevices: [] }));
+  const getAllAccounts = jest.fn(async () => ({ accounts: [] }));
+  const getAllIndexedAccounts = jest.fn(
+    async (): Promise<{ indexedAccounts: IDBIndexedAccount[] }> => ({
+      indexedAccounts: [],
+    }),
+  );
   const service = new ServicePrimeCloudSync({
     backgroundApi: {
       localDb,
+      serviceAccount: { getAllWallets, getAllAccounts, getAllIndexedAccounts },
       serviceKeylessCloudSync: { getCloudAccountImportGeneration: () => 0 },
     },
   });
@@ -213,6 +276,9 @@ function harness(
   return {
     service,
     buildTarget,
+    getAllWallets,
+    getAllAccounts,
+    getAllIndexedAccounts,
     getItems,
     getCredential,
     upload,
@@ -230,6 +296,262 @@ describe('ServicePrimeCloudSync reserved public snapshot rebuilding', () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
   afterEach(() => jest.restoreAllMocks());
+
+  test.each(['replace', 'concurrent-write', 'older-cloud'] as const)(
+    'requests just the acknowledged damaged record and checks the version before writing (%s)',
+    async (scenario) => {
+      const { service, hardware, lastGood, damaged, row, update } =
+        await makeRepairFixture(true);
+      const wire = service.convertLocalItemToServerItem({
+        localItem: lastGood,
+      });
+      if (!wire) throw new OneKeyLocalError('Missing wire fixture');
+      const check = jest
+        .spyOn(service, 'apiCheckServerStatusKeyless')
+        .mockImplementation(async () => {
+          if (scenario === 'concurrent-write') {
+            row.data = 'newer-local-ciphertext';
+            row.dataTime = (damaged.dataTime ?? 0) + 1000;
+            row.serverUploaded = false;
+          }
+          return {
+            pwdHash: damaged.pwdHash,
+            response: {
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              config: { headers: new AxiosHeaders() },
+              data: {
+                code: 0,
+                message: '',
+                data: {
+                  pwdHash: damaged.pwdHash,
+                  serverTime: 1_750_000_001_000,
+                  diff: [],
+                  deleted: [],
+                  obsoleted: [],
+                  updated: [
+                    {
+                      ...wire,
+                      dataTimestamp:
+                        scenario === 'older-cloud'
+                          ? 1_749_999_999_000
+                          : wire.dataTimestamp,
+                    },
+                  ],
+                },
+              },
+            },
+          };
+        });
+      const result = await service.repairUnreadableHardwareSyncItem({
+        item: damaged,
+        syncCredential: hardware,
+      });
+      expect(check).toHaveBeenCalledWith(
+        expect.objectContaining({
+          postData: expect.objectContaining({
+            localData: [
+              { key: damaged.id, dataType: damaged.dataType, dataTimestamp: 0 },
+            ],
+          }),
+        }),
+      );
+      if (scenario === 'replace') {
+        expect(result).toMatchObject({
+          data: lastGood.data,
+          dataTime: damaged.dataTime,
+          serverUploaded: true,
+        });
+        expect(row.data).toBe(lastGood.data);
+      } else {
+        expect(result).toBeUndefined();
+        if (scenario === 'older-cloud') {
+          expect(row).toEqual(damaged);
+          expect(update).not.toHaveBeenCalled();
+        } else {
+          expect(row).toMatchObject({
+            data: 'newer-local-ciphertext',
+            serverUploaded: false,
+          });
+        }
+      }
+    },
+  );
+
+  test('rebuilds pending local data at its original time without requesting a cloud copy', async () => {
+    const { service, hardware, lastGood, damaged, row } =
+      await makeRepairFixture(false);
+    const check = jest.spyOn(service, 'apiCheckServerStatusKeyless');
+    const result = await service.repairUnreadableHardwareSyncItem({
+      item: damaged,
+      syncCredential: hardware,
+    });
+    expect(result).toMatchObject({
+      dataTime: damaged.dataTime,
+      rawData: lastGood.rawData,
+      serverUploaded: false,
+    });
+    expect(row.data).not.toBe(damaged.data);
+    expect(check).not.toHaveBeenCalled();
+  });
+
+  test('only dispatches authoritative recovery to the requested data type', async () => {
+    const { service, getAllWallets, getAllAccounts, getAllIndexedAccounts } =
+      harness([]);
+    const accounts = jest.fn(async () => []);
+    const wallets = jest.fn(async () => []);
+    const indexedAccounts = jest.fn(
+      async (): Promise<IDBCloudSyncItem[]> => [],
+    );
+    service.syncManagers.account.buildHardwareRestoreLegacyAccountItems =
+      accounts;
+    service.syncManagers.wallet.buildInitSyncDBItems = wallets;
+    service.syncManagers.indexedAccount.buildInitSyncDBItems = indexedAccounts;
+    const accountCopy = { ...rawItem(), rawData: '', isDeleted: false };
+    await service.buildHardwareRestoreBusinessItems(credential, [accountCopy]);
+    expect(accounts).toHaveBeenCalledWith({
+      items: [accountCopy],
+      syncCredential: credential,
+    });
+    expect(getAllWallets).not.toHaveBeenCalled();
+    expect(wallets).not.toHaveBeenCalled();
+    expect(getAllAccounts).not.toHaveBeenCalled();
+    expect(getAllIndexedAccounts).not.toHaveBeenCalled();
+    accounts.mockClear();
+    const walletCopy = {
+      ...accountCopy,
+      id: 'wallet-id',
+      rawKey: 'Wallet >> known',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+    };
+    await service.buildHardwareRestoreBusinessItems(credential, [walletCopy]);
+    expect(accounts).not.toHaveBeenCalled();
+    expect(getAllWallets).toHaveBeenCalledTimes(1);
+    expect(getAllAccounts).not.toHaveBeenCalled();
+    expect(wallets).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requiredSyncItems: new Map([[walletCopy.id, walletCopy.rawKey]]),
+      }),
+    );
+    expect(getAllIndexedAccounts).not.toHaveBeenCalled();
+    wallets.mockClear();
+    const indexCopy = {
+      ...accountCopy,
+      id: 'indexed-account-id',
+      rawKey: '',
+      data: '',
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+    };
+    await service.buildHardwareRestoreBusinessItems(credential, [indexCopy]);
+    expect(getAllIndexedAccounts).toHaveBeenCalledTimes(1);
+    expect(indexedAccounts).toHaveBeenCalledWith({
+      dbRecords: [],
+      initDataTime: undefined,
+      syncCredential: credential,
+      requiredSyncItems: new Map([[indexCopy.id, undefined]]),
+    });
+    expect(accounts).not.toHaveBeenCalled();
+    expect(wallets).not.toHaveBeenCalled();
+  });
+
+  test('reuses read-only business sources and requests only the missing metadata keys', async () => {
+    const { service } = harness([]);
+    const bookmark = {
+      url: 'https://example.invalid',
+      title: 'Public test bookmark',
+      logo: undefined,
+      sortIndex: undefined,
+    };
+    const address = {
+      id: 'public-test-address-book-item',
+      name: 'Public test contact',
+      networkId: 'eth--1',
+      address: '0x0000000000000000000000000000000000000001',
+    };
+    const readBookmarks = jest.fn(async () => [bookmark]);
+    const fillBookmarks = jest.fn();
+    const readAddressBook = jest.fn(async () => [address]);
+    const readWatchList = jest.fn();
+    Object.assign(service.backgroundApi, {
+      serviceDiscovery: {
+        getBrowserBookmarks: readBookmarks,
+        getBrowserBookmarksWithFillingSortIndex: fillBookmarks,
+      },
+      serviceAddressBook: { getItemsByNetwork: readAddressBook },
+      serviceMarketV2: { getMarketWatchListV2: readWatchList },
+    });
+    const bookmarkCopy = {
+      ...rawItem(),
+      id: 'public-test-bookmark',
+      dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+      rawKey: '',
+    };
+    const addressCopy = {
+      ...rawItem(),
+      id: 'public-test-contact',
+      dataType: EPrimeCloudSyncDataType.AddressBook,
+      rawKey: 'AddressBook >> public-test-contact',
+    };
+    const buildBookmarks = jest.fn(async () => [bookmarkCopy]);
+    const buildAddresses = jest.fn(async () => [addressCopy]);
+    service.syncManagers.browserBookmark.buildInitSyncDBItems = buildBookmarks;
+    service.syncManagers.addressBook.buildInitSyncDBItems = buildAddresses;
+
+    await expect(
+      service.buildHardwareRestoreBusinessItems(credential, [
+        bookmarkCopy,
+        addressCopy,
+      ]),
+    ).resolves.toEqual([bookmarkCopy, addressCopy]);
+    expect(buildBookmarks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dbRecords: [bookmark],
+        requiredSyncItems: new Map([[bookmarkCopy.id, undefined]]),
+      }),
+    );
+    expect(buildAddresses).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dbRecords: [address],
+        requiredSyncItems: new Map([[addressCopy.id, addressCopy.rawKey]]),
+      }),
+    );
+    expect(readBookmarks).toHaveBeenCalledTimes(1);
+    expect(readAddressBook).toHaveBeenCalledWith({});
+    expect(fillBookmarks).not.toHaveBeenCalled();
+    expect(readWatchList).not.toHaveBeenCalled();
+  });
+
+  test('leaves a foreign business deletion under its original key during pool rebuild', async () => {
+    const rawKey = 'public-deleted-bookmark';
+    const ref = {
+      dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+      rawKey,
+      payload: { url: 'https://example.com/' },
+    };
+    const source: IDBCloudSyncItem = {
+      ...rawItem(),
+      id: sha512ProSync({ data: rawKey }),
+      dataType: ref.dataType,
+      rawKey,
+      rawData: stringUtils.stableStringify(ref),
+      pwdHash: 'keyless-previous-space',
+      dataTime: 1_750_000_000_000,
+      isDeleted: true,
+      localSceneUpdated: true,
+      serverUploaded: true,
+    };
+    const { service, writePool } = harness([source]);
+    const rebuild = jest.fn(async () => undefined);
+    service.syncManagers.browserBookmark.buildSyncItem = rebuild;
+
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+
+    expect(rebuild).not.toHaveBeenCalled();
+    expect(writePool).not.toHaveBeenCalled();
+  });
 
   test('after reload, resolves a validated deletion only in its original Cloud space', async () => {
     const raw = rawFixture();
@@ -369,6 +691,66 @@ describe('ServicePrimeCloudSync reserved public snapshot rebuilding', () => {
     expect(importAccounts).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();
   });
+
+  test.each([false, true])(
+    'passes final local-row proof only for a never-uploaded live snapshot (deleted=%s)',
+    async (isDeleted) => {
+      const original = { ...rawItem(), isDeleted };
+      const { service, writePool } = harness([original]);
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: true,
+      });
+      const candidate = writePool.mock.calls[0]?.[0]?.items[0];
+      expect(candidate).toBeDefined();
+      if (!candidate) throw new OneKeyLocalError('Missing fixture raw fill');
+      if (isDeleted) {
+        expect(getOfflinePublicAccountSnapshotFill(candidate)).toBeUndefined();
+      } else {
+        expect(
+          getOfflinePublicAccountSnapshotFill(candidate)?.previous,
+        ).toEqual(original);
+      }
+    },
+  );
+
+  test.each([
+    { dataType: EPrimeCloudSyncDataType.Wallet },
+    { remoteHardwareAccountTombstoneProof: 'preserve-fixture-proof' },
+  ] satisfies Partial<IDBCloudSyncItem>[])(
+    'preserves a mismatched outer row or remote tombstone proof (%o)',
+    async (patch) => {
+      const original = { ...rawItem(), isDeleted: false, ...patch };
+      const previous = cloneDeep(original);
+      const { service, writePool, upload } = harness([original]);
+      const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: false,
+      });
+      expect(encrypt).not.toHaveBeenCalled();
+      expect(writePool).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+      expect(original).toEqual(previous);
+    },
+  );
+
+  test.each([undefined, '', 'not-ciphertext', 'aa'])(
+    'does not replace or cancel the original if encryption produced no valid envelope (%s)',
+    async (encryptedData) => {
+      const original = { ...rawItem(), isDeleted: false };
+      const previous = cloneDeep(original);
+      const { service, writePool, upload } = harness([original]);
+      jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem').mockResolvedValue({
+        rawData: original.rawData ?? '',
+        encryptedData,
+      });
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: false,
+      });
+      expect(writePool).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+      expect(original).toEqual(previous);
+    },
+  );
 
   test.each([
     [

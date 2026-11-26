@@ -18,6 +18,17 @@ export enum EEnterWay {
   WatchlistSidebar = 'WatchlistSidebar',
   // Switching assets from inside Market detail (selector, top coins strip).
   DetailSwitch = 'DetailSwitch',
+  // An asset row of the Market Highlights page.
+  Highlights = 'Highlights',
+  // A Market row of the desktop tray menu (watchlist, assets).
+  DesktopTray = 'DesktopTray',
+}
+
+// Analytics-only list context for detail entries whose route has no
+// `marketTokenCategory` (stock lists, watchlist lists).
+export enum EMarketEntryCategory {
+  Stocks = 'stocks',
+  Watchlist = 'watchlist',
 }
 
 export enum EDexListName {
@@ -98,10 +109,66 @@ export enum ETVPriceMCSelect {
 }
 
 // Interface definitions
-export interface IDexEnterParams {
+// The kind of asset a Market detail page shows, taken from the asset itself
+// (stock route, top coins category), never from the list it was opened from.
+export type IDexDetailKind = 'trending' | 'topCoin' | 'stock';
+
+// Pro chart renderer: the in-app native candles or the TradingView chart.
+export type IDexChartMode = 'native' | 'tradingView';
+
+// Chart shown on a Market detail page: the Simple line chart or the Pro chart.
+export type IDexChartDisplayMode = 'simple' | 'pro';
+
+// Asset and chart fields shared by the Market detail visit events. Every field
+// is optional: an entry reports only what its route already knows.
+export interface IDexDetailVisitFields {
+  detailKind?: IDexDetailKind;
+  tokenSymbol?: string;
+  // Network id, e.g. `evm--1`, as in the watchlist events. Missing while
+  // the entry has not resolved its asset yet.
+  network?: string;
+  // Stable Market asset id grouping every chain of the asset: the stock id
+  // of a stock detail page, otherwise the Market token id.
+  marketAssetId?: string;
+  // Persisted chart preferences, not the chart a layout falls back to.
+  chartMode?: IDexChartMode;
+  chartDisplayMode?: IDexChartDisplayMode;
+}
+
+export interface IDexEnterParams extends IDexDetailVisitFields {
   enterWay: EEnterWay;
   // Market list category the detail was opened from, when known.
   marketTokenCategory?: string;
+}
+
+export interface IDexLeaveParams extends IDexDetailVisitFields {
+  enterWay: EEnterWay;
+  // Foreground time spent on the focused detail page.
+  durationMs: number;
+}
+
+export interface IDexChartModeSwitchParams {
+  fromMode: IDexChartMode;
+  toMode: IDexChartMode;
+  detailKind?: IDexDetailKind;
+}
+
+export interface IDexChartDisplayModeSwitchParams {
+  fromMode: IDexChartDisplayMode;
+  toMode: IDexChartDisplayMode;
+  detailKind?: IDexDetailKind;
+}
+
+export interface IDexNativeChartIntervalParams {
+  // Same values as `tvIntervalSelect`, e.g. `1`, `60`, `1D`.
+  intervalSelect: string;
+  detailKind?: IDexDetailKind;
+}
+
+export interface IDexSimpleChartRangeParams {
+  // Simple chart range, e.g. `1H`, `1D`, `1W`, `All`.
+  rangeSelect: string;
+  detailKind?: IDexDetailKind;
 }
 
 export interface IDexListParams {

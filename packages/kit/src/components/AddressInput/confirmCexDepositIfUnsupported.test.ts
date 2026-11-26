@@ -1,18 +1,32 @@
+import type { ReactElement, ReactNode } from 'react';
+import { isValidElement } from 'react';
+
+import { createIntl } from 'react-intl';
+
 import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 
 import { confirmCexDepositIfUnsupported } from './confirmCexDepositIfUnsupported';
-
-import type { IntlShape } from 'react-intl';
 
 const sendCexDepositWarningShow = jest.fn();
 const sendCexDepositWarningAction = jest.fn();
 
-jest.mock('@onekeyhq/components', () => ({
-  Dialog: {
-    show: jest.fn(),
-  },
-}));
+jest.mock('@onekeyhq/components', () => {
+  function Component() {
+    return null;
+  }
+  const Item = Object.assign(Component, { Key: Component, Value: Component });
+  const DescriptionList = Object.assign(Component, { Item });
+  return {
+    DescriptionList,
+    Dialog: {
+      show: jest.fn(),
+    },
+    SizableText: Component,
+    YStack: Component,
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -32,13 +46,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: {
-    isLightningNetworkByNetworkId: jest.fn(() => false),
+    isLightningNetworkByNetworkId: jest.fn(
+      (networkId?: string) => networkId === 'lightning',
+    ),
   },
 }));
 
-const intl = {
-  formatMessage: ({ id }: { id: string }) => id,
-} as unknown as IntlShape;
+const enTranslations: Record<string, string> = enMessages;
+const intl = createIntl({ locale: 'en', messages: enTranslations });
 
 const mockedDialogShow = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
 
@@ -62,24 +77,113 @@ function showUnsupportedWarning(
       cexLabel: 'Binance',
       depositEnable: false,
     },
+    exchangeDisplayName: 'Binance',
     ...extra,
   });
 }
+
+function getTextValues(node: ReactNode): string[] {
+  if (typeof node === 'string') {
+    return [node];
+  }
+  if (typeof node === 'number') {
+    return [String(node)];
+  }
+  if (Array.isArray(node)) {
+    return node.flatMap(getTextValues);
+  }
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return getTextValues(node.props.children);
+  }
+  return [];
+}
+
+function getDialogContentText(element: ReactElement): string[] {
+  const renderContent = element.type as unknown as (
+    props: unknown,
+  ) => ReactNode;
+  return getTextValues(renderContent(element.props));
+}
+
+const incompleteWarningCases: {
+  name: string;
+  extra: Partial<Parameters<typeof confirmCexDepositIfUnsupported>[0]>;
+  missingLabel: string;
+  title: string;
+  visibleValues: string[];
+}[] = [
+  {
+    name: 'exchange',
+    extra: {
+      cexSupportedInfo: {
+        depositEnable: false,
+      },
+    },
+    missingLabel: enTranslations[ETranslations.exchange__title],
+    title: 'This exchange may not accept this deposit',
+    visibleValues: ['DAI', 'Ethereum'],
+  },
+  {
+    name: 'asset',
+    extra: {
+      tokenSymbol: undefined,
+    },
+    missingLabel: enTranslations[ETranslations.global_asset],
+    title: 'Binance may not accept this deposit',
+    visibleValues: ['Binance', 'Ethereum'],
+  },
+  {
+    name: 'network',
+    extra: {
+      networkName: undefined,
+    },
+    missingLabel: enTranslations[ETranslations.global_network],
+    title: 'Binance may not accept this deposit',
+    visibleValues: ['Binance', 'DAI'],
+  },
+];
 
 describe('confirmCexDepositIfUnsupported', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('does not mark the warning acknowledged when deposit is still allowed', async () => {
+  it.each([true, null, undefined])(
+    'does not show or acknowledge a warning when deposits are %s',
+    async (depositEnable) => {
+      await expect(
+        confirmCexDepositIfUnsupported({
+          intl,
+          networkId: 'evm--1',
+          page: 'address',
+          cexSupportedInfo: {
+            cexLabel: 'Binance',
+            depositEnable,
+          },
+        }),
+      ).resolves.toEqual({
+        canProceed: true,
+        hasAcknowledgedWarning: false,
+      });
+      expect(mockedDialogShow).not.toHaveBeenCalled();
+      expect(sendCexDepositWarningShow).not.toHaveBeenCalled();
+      expect(sendCexDepositWarningAction).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { networkId: 'lightning', isNFT: false, label: 'Lightning transfers' },
+    { networkId: 'evm--1', isNFT: true, label: 'NFT transfers' },
+  ])('does not show a warning for $label', async ({ networkId, isNFT }) => {
     await expect(
       confirmCexDepositIfUnsupported({
         intl,
-        networkId: 'evm--1',
+        networkId,
+        isNFT,
         page: 'address',
         cexSupportedInfo: {
           cexLabel: 'Binance',
-          depositEnable: true,
+          depositEnable: false,
         },
       }),
     ).resolves.toEqual({
@@ -116,27 +220,51 @@ describe('confirmCexDepositIfUnsupported', () => {
     const resultPromise = showUnsupportedWarning();
     const options = mockedDialogShow.mock.calls[0][0];
     expect(options.description).toBeUndefined();
+    expect(options.icon).toBe('ErrorOutline');
+    expect(options.tone).toBe('warning');
+    expect(options.title).toBe('Binance may not accept this deposit');
     expect(options.renderContent).toMatchObject({
       props: {
         tokenSymbol: 'DAI',
         networkName: 'Ethereum',
-        networkLabel: ETranslations.global_network,
+        networkLabel: enTranslations[ETranslations.global_network],
+        assetLabel: enTranslations[ETranslations.global_asset],
         exchangeName: 'Binance',
-        exchangeLabel: ETranslations.exchange__title,
-        body: ETranslations.cex_deposit_may_not_be_supported__desc,
+        exchangeLabel: enTranslations[ETranslations.exchange__title],
+        body: 'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
       },
     });
     expect(options).toMatchObject({
-      title: ETranslations.cex_deposit_may_not_be_supported__title,
-      onConfirmText: ETranslations.global_continue,
-      onCancelText: ETranslations.global_back,
+      onConfirmText: enTranslations[ETranslations.global_continue_anyway],
+      onCancelText: enTranslations[ETranslations.global_back],
       confirmButtonProps: {
+        testID: 'cex-deposit-unsupported-confirm-btn',
         variant: 'secondary',
       },
       cancelButtonProps: {
+        testID: 'cex-deposit-unsupported-cancel-btn',
         variant: 'primary',
       },
+      footerProps: {
+        flexDirection: 'row-reverse',
+        $md: {
+          flexDirection: 'column',
+        },
+      },
     });
+    const contentText = getDialogContentText(
+      options.renderContent as ReactElement,
+    );
+    expect(contentText).toEqual(
+      expect.arrayContaining([
+        enTranslations[ETranslations.exchange__title],
+        enTranslations[ETranslations.global_asset],
+        enTranslations[ETranslations.global_network],
+        'DAI',
+        'Ethereum',
+        'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
+      ]),
+    );
     expect(sendCexDepositWarningShow).toHaveBeenCalledWith(warningContext);
     const onConfirm = options.onConfirm;
     expect(onConfirm).toEqual(expect.any(Function));
@@ -182,13 +310,70 @@ describe('confirmCexDepositIfUnsupported', () => {
     });
   });
 
+  it.each(incompleteWarningCases)(
+    'omits the missing $name row and uses fallback wording',
+    ({ extra, missingLabel, title, visibleValues }) => {
+      void showUnsupportedWarning(extra);
+      const options = mockedDialogShow.mock.calls[0][0];
+
+      expect(options.title).toBe(title);
+      const contentText = getDialogContentText(
+        options.renderContent as ReactElement,
+      );
+      expect(contentText).not.toContain(missingLabel);
+      for (const value of visibleValues) {
+        expect(contentText).toContain(value);
+      }
+      expect(contentText).toContain(
+        'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
+      );
+    },
+  );
+
+  it('keeps the full exchange name in the title without repeating it in the body', () => {
+    const exchange = 'Coinbase International Digital Asset Exchange';
+    void showUnsupportedWarning({
+      cexSupportedInfo: { cexLabel: exchange, depositEnable: false },
+      exchangeDisplayName: exchange,
+      tokenSymbol: 'USDT0',
+      networkName: 'Arbitrum One',
+    });
+    const options = mockedDialogShow.mock.calls[0][0];
+
+    expect(options.title).toBe(`${exchange} may not accept this deposit`);
+    expect(options.renderContent).toMatchObject({
+      props: {
+        exchangeName: exchange,
+        tokenSymbol: 'USDT0',
+        networkName: 'Arbitrum One',
+        body: 'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
+      },
+    });
+  });
+
+  it('keeps the same risk copy when all details are missing', () => {
+    void showUnsupportedWarning({
+      cexSupportedInfo: { depositEnable: false },
+      tokenSymbol: undefined,
+      networkName: undefined,
+    });
+    const options = mockedDialogShow.mock.calls[0][0];
+
+    expect(options.title).toBe('This exchange may not accept this deposit');
+    expect(getDialogContentText(options.renderContent as ReactElement)).toEqual(
+      [
+        'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
+      ],
+    );
+  });
+
   it('resolves false only after one cancel close teardown completes', async () => {
     const resultPromise = showUnsupportedWarning();
     const options = mockedDialogShow.mock.calls[0][0];
     expect(options.renderContent).toMatchObject({
       props: {
         exchangeName: 'Binance',
-        exchangeLabel: ETranslations.exchange__title,
+        exchangeLabel: enTranslations[ETranslations.exchange__title],
       },
     });
     let finishClose: (() => void) | undefined;

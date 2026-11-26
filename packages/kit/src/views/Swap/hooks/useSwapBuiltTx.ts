@@ -22,6 +22,12 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
+  getScaledSwapLimitOrderBaseUnits,
+  getSwapDisplayRate,
+  getSwapLimitOrderBaseUnits,
+  hasScaledSwapLimitPair,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
   useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsAtom,
@@ -39,7 +45,10 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
-import { isSwapReviewQuoteExpiredWithoutSubmission } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
+import {
+  isSwapReviewQuoteExpiredWithoutSubmission,
+  isSwapReviewSigningFailureBeforeBroadcast,
+} from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isGasAccountSubmitResultUnknownError } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
@@ -57,6 +66,7 @@ import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/mark
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
@@ -123,8 +133,6 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
-  useSwapLimitPriceFromAmountAtom,
-  useSwapLimitPriceToAmountAtom,
   useSwapProInputAmountAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -192,6 +200,15 @@ import {
   getSwapTradeSource,
 } from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
+import {
+  XmrSwapPreflightError,
+  assertXmrSwapBalance,
+  assertXmrSwapSyncReady,
+  getXmrSwapOrderDeadline,
+  readXmrSwapAmountAtomic,
+  readXmrSwapTotalAtomic,
+  readXmrSwapTransfer,
+} from '../utils/xmrSwapExecution';
 
 import {
   completeBroadcastedSwapSuccess,
@@ -449,10 +466,9 @@ export function useSwapBuildTx({
     swapFromAddressInfo.accountInfo?.dbAccount?.id,
     swapProAccount.result?.id,
   ]);
-  const { generateSwapHistoryItem } = useSwapTxHistoryActions();
+  const { generateSwapHistoryItem, getXmrPendingHistoryItem } =
+    useSwapTxHistoryActions();
   const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
-  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
-  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [persistSettings, setPersistSettings] = useSettingsPersistAtom();
@@ -476,6 +492,7 @@ export function useSwapBuildTx({
   const rebuildSwapRequestIdRef = useRef(0);
   const reviewUsesCustomSlippageRef = useRef(false);
   const reviewPreparationRequestIdRef = useRef(0);
+  const xmrSubmittedReviewsRef = useRef(new WeakSet<IFetchQuoteResult>());
   const reviewSessionRef = useRef({ active: false });
   const reviewOwnerRef = useRef({
     fromAccountId,
@@ -858,8 +875,50 @@ export function useSwapBuildTx({
     [getSwapBalanceInsufficientToast, intl],
   );
 
+  const assertXmrSourceReady = useCallback(
+    async (networkId: string, accountId: string, amountAtomic: string) => {
+      const privacyChain = backgroundApiProxy.servicePrivacyChain;
+      const accountScope = { networkId, accountId };
+      const [state, readiness] = await Promise.all([
+        privacyChain.getLocalWalletAccountState(accountScope),
+        privacyChain.getLocalWalletSendReadiness(accountScope),
+      ]);
+      assertXmrSwapSyncReady({ state, readiness, intl });
+      const [balance, pending] = await Promise.all([
+        privacyChain.getLocalWalletAccountBalance(accountScope),
+        privacyChain.getLocalWalletHasPendingSend(accountScope),
+      ]);
+      assertXmrSwapBalance({ amountAtomic, balance, pending, intl });
+    },
+    [intl],
+  );
+
   const checkQuoteBalances = useCallback(
     async (quoteResult: IFetchQuoteResult) => {
+      if (isXmrSwapNetwork(quoteResult.fromTokenInfo.networkId)) {
+        const amountAtomic = readXmrSwapAmountAtomic(quoteResult.fromAmount);
+        if (
+          !fromAccountId ||
+          !fromAccountNetworkId ||
+          !isXmrSwapNetwork(fromAccountNetworkId) ||
+          !amountAtomic ||
+          quoteResult.fee?.otherFeeInfos?.some(
+            ({ amount }) => !new BigNumber(amount).isZero(),
+          )
+        ) {
+          throw new XmrSwapPreflightError(
+            intl.formatMessage({
+              id: ETranslations.privacy_error_build_failed__msg,
+            }),
+          );
+        }
+        await assertXmrSourceReady(
+          fromAccountNetworkId,
+          fromAccountId,
+          amountAtomic,
+        );
+        return true;
+      }
       const requirements = getSwapQuoteBalanceRequirements({
         fromToken: quoteResult.fromTokenInfo,
         fromAmount: quoteResult.fromAmount,
@@ -872,6 +931,7 @@ export function useSwapBuildTx({
             amount: item.amount,
             accountAddress: fromUserAddress,
             accountId: fromAccountId,
+            accountNetworkId: fromAccountNetworkId,
           }),
         ),
       );
@@ -895,7 +955,14 @@ export function useSwapBuildTx({
       }
       return true;
     },
-    [fromUserAddress, fromAccountId, getSwapBalanceInsufficientToast],
+    [
+      assertXmrSourceReady,
+      fromAccountNetworkId,
+      fromUserAddress,
+      fromAccountId,
+      getSwapBalanceInsufficientToast,
+      intl,
+    ],
   );
 
   const showLatestBalanceInsufficientToast = useCallback(
@@ -917,6 +984,7 @@ export function useSwapBuildTx({
         amount,
         accountAddress: fromUserAddress,
         accountId: fromAccountId,
+        accountNetworkId: fromAccountNetworkId,
       });
       if (!checkResult.isSufficient) {
         showLatestBalanceInsufficientToast(
@@ -927,7 +995,12 @@ export function useSwapBuildTx({
       }
       return true;
     },
-    [fromAccountId, fromUserAddress, showLatestBalanceInsufficientToast],
+    [
+      fromAccountId,
+      fromAccountNetworkId,
+      fromUserAddress,
+      showLatestBalanceInsufficientToast,
+    ],
   );
 
   const checkLatestNativeTokenBalance = useCallback(
@@ -1002,6 +1075,7 @@ export function useSwapBuildTx({
               amount: nativeBalanceRequirement?.amount ?? '0',
               accountAddress: fromUserAddress,
               accountId: fromAccountId,
+              accountNetworkId: fromAccountNetworkId,
             });
       if (!checkResult.isSufficient) {
         const toastId = [
@@ -1032,7 +1106,12 @@ export function useSwapBuildTx({
         nativeBalance: checkResult.balance,
       };
     },
-    [fromAccountId, fromUserAddress, getSwapBalanceInsufficientToast],
+    [
+      fromAccountId,
+      fromAccountNetworkId,
+      fromUserAddress,
+      getSwapBalanceInsufficientToast,
+    ],
   );
 
   const cancelLimitOrder = useCallback(
@@ -2700,7 +2779,7 @@ export function useSwapBuildTx({
       currentToToken?: ISwapToken,
       data?: IFetchQuoteResult,
       options?: IBuildSwapActionOptions,
-    ) => {
+    ): Promise<NonNullable<ISwapPreSwapData['swapBuildResultData']>> => {
       const {
         skipLoading = false,
         forceRebuild = false,
@@ -2739,6 +2818,7 @@ export function useSwapBuildTx({
         fromAccountId
       ) {
         const { fromAmount, toAmount } = data;
+        const isXmrSource = isXmrSwapNetwork(data.fromTokenInfo.networkId);
         const existingBuildResult =
           getReviewState().preSwapData.swapBuildResultData;
         const matchesCurrentQuoteAndAccount = (
@@ -2750,7 +2830,9 @@ export function useSwapBuildTx({
           buildResult.swapInfo.accountAddress === fromUserAddress &&
           buildResult.swapInfo.receivingAddress === toUserAddress &&
           buildResult.swapInfo.receiver.accountInfo.accountId ===
-            (toAccountId ?? '');
+            (toAccountId ?? '') &&
+          (buildResult.orderDeadline === undefined ||
+            Date.now() < buildResult.orderDeadline);
         const needsBuildContext =
           forceRebuild ||
           !matchesCurrentQuoteAndAccount(existingBuildResult) ||
@@ -2811,6 +2893,8 @@ export function useSwapBuildTx({
           };
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
+        let xmrTransferInfo: ITransferInfo | undefined;
+        let orderRequestedAt = 0;
         const logBuildFailure = (error: unknown) => {
           try {
             const swapType = getSwapExecutionTypeFromQuoteResult(data);
@@ -2894,6 +2978,7 @@ export function useSwapBuildTx({
             'buildTx',
             () => {
               assertSwapReviewQuoteValid(reviewGuard);
+              orderRequestedAt = Date.now();
               return backgroundApiProxy.serviceSwap.fetchBuildTx({
                 fromToken: requestFromToken,
                 toToken: requestToToken,
@@ -2925,6 +3010,24 @@ export function useSwapBuildTx({
           if (buildSwapRes?.reviewQuoteExpiredBeforeSubmit) {
             throw new SwapReviewQuoteExpiredError('Swap review quote expired');
           }
+          if (isXmrSource && buildSwapRes) {
+            xmrTransferInfo = readXmrSwapTransfer({
+              build: buildSwapRes,
+              quote: data,
+              sender: fromUserAddress,
+              intl,
+            });
+            const addressStatus =
+              await backgroundApiProxy.serviceValidator.validateAddress({
+                networkId: fromAccountNetworkId,
+                address: xmrTransferInfo.to,
+              });
+            if (addressStatus !== 'valid') {
+              throw new XmrSwapPreflightError(
+                intl.formatMessage({ id: ETranslations.send_address_invalid }),
+              );
+            }
+          }
         } catch (e: any) {
           if (!skipLoading && updateReviewState) {
             updateReviewSteps((prev) => ({
@@ -2937,6 +3040,7 @@ export function useSwapBuildTx({
           }
           if (e instanceof SwapReviewQuoteExpiredError) throw e;
           logBuildFailure(e);
+          if (e instanceof XmrSwapPreflightError) throw e;
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -2958,9 +3062,17 @@ export function useSwapBuildTx({
         }
         let skipSendTransAction = false;
         if (buildSwapRes) {
+          const orderDeadline = isXmrSource
+            ? getXmrSwapOrderDeadline(
+                orderRequestedAt,
+                buildSwapRes.result.expiredTime ?? data.expiredTime,
+              )
+            : undefined;
           let transferInfo: ITransferInfo | undefined;
           let encodedTx: IEncodedTx | undefined;
-          if (buildSwapRes?.swftOrder) {
+          if (isXmrSource) {
+            transferInfo = xmrTransferInfo;
+          } else if (buildSwapRes?.swftOrder) {
             encodedTx = undefined;
             // swft order
             transferInfo = {
@@ -3157,6 +3269,97 @@ export function useSwapBuildTx({
             },
           };
           const orderId = getSwapBuildOrderId(buildSwapRes);
+          let xmrPrepared: NonNullable<
+            ISwapPreSwapData['swapBuildResultData']
+          >['xmrPrepared'];
+          if (isXmrSource) {
+            const pendingHistory = getXmrPendingHistoryItem(swapInfo);
+            if (!transferInfo || !pendingHistory) {
+              throw new XmrSwapPreflightError(
+                intl.formatMessage({
+                  id: ETranslations.privacy_error_build_failed__msg,
+                }),
+              );
+            }
+            if (!canExecuteSwapReview(reviewGuard)) {
+              throw new OneKeyError('Swap review changed while building');
+            }
+            const xmrTransfer = transferInfo;
+            xmrPrepared = await measureSwapReviewStage(
+              reviewPreparation,
+              'estimateFee',
+              async () => {
+                const unsignedTx =
+                  await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
+                    {
+                      networkId: fromAccountNetworkId,
+                      accountId: fromAccountId,
+                      transfersInfo: [xmrTransfer],
+                      swapInfo,
+                      isInternalSwap: true,
+                    },
+                  );
+                const totalAtomic = readXmrSwapTotalAtomic(
+                  unsignedTx.encodedTx,
+                  xmrTransfer,
+                );
+                if (!totalAtomic) {
+                  throw new XmrSwapPreflightError(
+                    intl.formatMessage({
+                      id: ETranslations.privacy_error_build_failed__msg,
+                    }),
+                  );
+                }
+                await assertXmrSourceReady(
+                  fromAccountNetworkId,
+                  fromAccountId,
+                  totalAtomic,
+                );
+                if (!canExecuteSwapReview(reviewGuard)) {
+                  throw new OneKeyError('Swap review changed while building');
+                }
+                const { common, feeUTXO } =
+                  await backgroundApiProxy.serviceGas.estimateFee({
+                    networkId: fromAccountNetworkId,
+                    accountId: fromAccountId,
+                    accountAddress: xmrTransfer.from,
+                    encodedTx: unsignedTx.encodedTx,
+                  });
+                if (!feeUTXO?.[0]?.feeValue) {
+                  throw new XmrSwapPreflightError(
+                    intl.formatMessage({
+                      id: ETranslations.privacy_error_build_failed__msg,
+                    }),
+                  );
+                }
+                const feeInfo = { common, feeUTXO: feeUTXO[0] };
+                const fee = calculateFeeForSend({
+                  feeInfo,
+                  nativeTokenPrice: common.nativeTokenPrice ?? 0,
+                });
+                return {
+                  unsignedTx: {
+                    ...unsignedTx,
+                    swapInfo: {
+                      ...swapInfo,
+                      ...unsignedTx.swapInfo,
+                      xmrPendingHistoryItem: {
+                        ...pendingHistory,
+                        txInfo: {
+                          ...pendingHistory.txInfo,
+                          gasFeeFiatValue: common.nativeTokenPrice
+                            ? fee.totalFiat
+                            : undefined,
+                        },
+                      },
+                    },
+                  },
+                  totalAtomic,
+                  fee: { ...fee, feeInfo },
+                };
+              },
+            );
+          }
           // A signed-order build may already have submitted the order. Keep
           // its history even after closing, while guarded UI writes stay inert.
           if (!canExecuteSwapReview(reviewGuard) && !skipSendTransAction) {
@@ -3186,7 +3389,11 @@ export function useSwapBuildTx({
                         toTokenCurrency: prev.preSwapData.toToken?.currency,
                         defaultTokenCurrency: persistSettings.currencyInfo.id,
                         currencyMap,
-                        instantRate: builtInstantRate,
+                        instantRate: getSwapDisplayRate(
+                          builtInstantRate,
+                          prev.preSwapData.fromToken?.balanceMultiplier,
+                          prev.preSwapData.toToken?.balanceMultiplier,
+                        ),
                         strictCurrencyConversion:
                           prev.preSwapData.strictCurrencyConversion ||
                           prev.preSwapData.swapType ===
@@ -3196,10 +3403,12 @@ export function useSwapBuildTx({
                   reviewQuoteResult: data,
                   swapInfo,
                   orderId,
+                  orderDeadline,
                   slippagePercentage: effectiveSlippagePercentage,
                   skipSendTransAction,
                   encodedTx,
                   transferInfo,
+                  ...(xmrPrepared ? { xmrPrepared } : {}),
                 },
               },
             }));
@@ -3212,10 +3421,12 @@ export function useSwapBuildTx({
             reviewQuoteResult: data,
             swapInfo,
             orderId,
+            orderDeadline,
             slippagePercentage: effectiveSlippagePercentage,
             skipSendTransAction,
             encodedTx,
             transferInfo,
+            ...(xmrPrepared ? { xmrPrepared } : {}),
           };
         }
       }
@@ -3243,6 +3454,8 @@ export function useSwapBuildTx({
       swapFromAddressInfo.accountInfo?.device?.deviceType,
       quoteActionLock.source,
       buildTxSource,
+      assertXmrSourceReady,
+      getXmrPendingHistoryItem,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       focusSwapPro,
       isFirstTimeSwap,
@@ -3255,6 +3468,183 @@ export function useSwapBuildTx({
       intl,
       persistSettings.currencyInfo.id,
       currencyMap,
+    ],
+  );
+
+  const sendPreparedXmrSwap = useCallback(
+    async ({
+      networkId,
+      accountId,
+      quote,
+      stepIndex,
+      onSignAndSendProgress,
+      reviewGuard,
+    }: {
+      networkId: string;
+      accountId: string;
+      quote: IFetchQuoteResult;
+      stepIndex: number;
+      onSignAndSendProgress?: ISwapSignAndSendProgressCallback;
+      reviewGuard?: ISwapReviewRequestGuard;
+    }) => {
+      const build =
+        reviewGuard?.execution?.state.preSwapData.swapBuildResultData;
+      const swapInfo = build?.swapInfo;
+      const prepared = build?.xmrPrepared;
+      if (
+        !prepared ||
+        !swapInfo ||
+        build.reviewQuoteResult !== quote ||
+        swapInfo.sender.accountInfo.accountId !== accountId ||
+        swapInfo.sender.accountInfo.networkId !== networkId ||
+        swapInfo.accountAddress !== fromUserAddress ||
+        swapInfo.receivingAddress !== toUserAddress ||
+        swapInfo.receiver.accountInfo.accountId !== (toAccountId ?? '')
+      ) {
+        throw new XmrSwapPreflightError(
+          intl.formatMessage({
+            id: ETranslations.privacy_error_build_failed__msg,
+          }),
+        );
+      }
+      const { unsignedTx, fee, totalAtomic } = prepared;
+      const quoteDeadline = reviewGuard?.execution?.isQuoteValid?.deadline;
+      const orderDeadline = build.orderDeadline;
+      const deadline =
+        orderDeadline === undefined
+          ? quoteDeadline
+          : Math.min(orderDeadline, quoteDeadline ?? orderDeadline);
+      const assertCurrentOrder = () => {
+        assertSwapReviewExecutionAllowed(reviewGuard);
+        assertSwapReviewQuoteValid(reviewGuard);
+        if (deadline !== undefined && Date.now() >= deadline) {
+          throw new SwapReviewQuoteExpiredError('Swap review quote expired');
+        }
+      };
+      assertCurrentOrder();
+      const submittedReviews = xmrSubmittedReviewsRef.current;
+      submittedReviews.add(quote);
+      let enteredSend = false;
+      let signedTx: ISignedTxPro;
+      try {
+        await assertXmrSourceReady(networkId, accountId, totalAtomic);
+        await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+          networkId,
+          accountId,
+          unsignedTxs: [unsignedTx],
+          precheckTiming: ESendPreCheckTimingEnum.Confirm,
+          feeInfos: [fee],
+        });
+        const feeChanged =
+          await backgroundApiProxy.serviceSend.preCheckIsFeeInfoOverflow({
+            networkId,
+            accountAddress: swapInfo.accountAddress,
+            feeTokenSymbol: fee.feeInfo.common.feeSymbol,
+            feeAmount: fee.totalNative,
+            encodedTx: unsignedTx.encodedTx,
+          });
+        if (feeChanged) {
+          throw new XmrSwapPreflightError(
+            intl.formatMessage({
+              id: ETranslations.privacy_error_review_expired__msg,
+            }),
+          );
+        }
+        assertCurrentOrder();
+        updateSwapReviewState(
+          (prev) =>
+            updateSwapReviewStep({
+              reviewState: prev,
+              stepIndex,
+              partialStep: {
+                stepSubTitle: intl.formatMessage({
+                  id: ETranslations.swap_process_sign_and_sent_tx,
+                }),
+              },
+            }),
+          reviewGuard,
+        );
+        onSignAndSendProgress?.({ stage: 'entered', isApprove: false });
+        enteredSend = true;
+        signedTx = await backgroundApiProxy.serviceSend.signAndSendTransaction({
+          networkId,
+          accountId,
+          unsignedTx,
+          signOnly: false,
+          stageFeeInfo: fee,
+          reviewQuoteValidUntil: deadline,
+        });
+      } catch (error) {
+        const sendError = error as IOneKeyError | undefined;
+        const expiredBeforeSend =
+          isSwapReviewQuoteExpiredWithoutSubmission(error);
+        if (
+          !enteredSend ||
+          expiredBeforeSend ||
+          isSwapReviewSigningFailureBeforeBroadcast(error) ||
+          sendError?.key === ETranslations.privacy_error_pending_send__msg ||
+          sendError?.name ===
+            EOneKeyErrorClassNames.PasswordPromptDialogCancel ||
+          sendError?.className ===
+            EOneKeyErrorClassNames.PasswordPromptDialogCancel ||
+          sendError?.code === HardwareErrorCode.ActionCancelled ||
+          (sendError?.code === HardwareErrorCode.PinCancelled &&
+            (sendError.$isHardwareError === true ||
+              accountUtils.isHwAccount({ accountId })))
+        ) {
+          submittedReviews.delete(quote);
+          onSignAndSendProgress?.({ stage: 'notSubmitted', isApprove: false });
+        }
+        if (expiredBeforeSend) {
+          throw new SwapReviewQuoteExpiredError('Swap review quote expired');
+        }
+        throw error;
+      }
+      onSignAndSendProgress?.({
+        stage: 'succeeded',
+        isApprove: false,
+        txId: signedTx.txid,
+      });
+      logSwapReviewApiResult({
+        event: 'sendTx',
+        swapInfo,
+        status: ESwapEventAPIStatus.SUCCESS,
+      });
+      await persistBroadcastedSendHistory({
+        buildDecodedTx: () =>
+          backgroundApiProxy.serviceSend.buildDecodedTx({
+            networkId,
+            accountId,
+            unsignedTx,
+            signedTx,
+            feeInfo: fee,
+            saveToLocalHistory: true,
+          }),
+        saveHistory: (decodedTx) =>
+          backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+            networkId,
+            accountId,
+            data: { signedTx, decodedTx, feeInfo: fee.feeInfo },
+          }),
+      });
+      void onBuildTxSuccess(
+        signedTx.txid,
+        swapInfo,
+        build.orderId,
+        fee.feeInfo.common.nativeTokenPrice ? fee.totalFiat : undefined,
+        fee.totalNative,
+        false,
+        reviewGuard,
+      );
+    },
+    [
+      assertXmrSourceReady,
+      fromUserAddress,
+      intl,
+      onBuildTxSuccess,
+      toAccountId,
+      toUserAddress,
+      updateSwapReviewState,
     ],
   );
 
@@ -3290,6 +3680,17 @@ export function useSwapBuildTx({
         fromAccountNetworkId &&
         fromAccountId
       ) {
+        if (isXmrSwapNetwork(fromAccountNetworkId)) {
+          await sendPreparedXmrSwap({
+            networkId: fromAccountNetworkId,
+            accountId: fromAccountId,
+            quote: data,
+            stepIndex,
+            onSignAndSendProgress,
+            reviewGuard,
+          });
+          return;
+        }
         updateExecutionState((prev) =>
           updateSwapReviewStep({
             reviewState: prev,
@@ -3435,6 +3836,7 @@ export function useSwapBuildTx({
       fromAccountId,
       updateSwapReviewState,
       buildSwapAction,
+      sendPreparedXmrSwap,
       intl,
       handleBuildTxSuccessWithSignedNoSend,
       navigationToTxConfirm,
@@ -3472,9 +3874,25 @@ export function useSwapBuildTx({
       ) {
         const selectQuoteRes = cloneDeep(data);
         if (selectQuoteRes.swapShouldSignedData && fromAccountId) {
+          const isScaledLimit =
+            selectQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+            hasScaledSwapLimitPair(
+              selectQuoteRes.fromTokenInfo,
+              selectQuoteRes.toTokenInfo,
+            );
+          if (isScaledLimit) {
+            const { fromTokenAmount, toTokenAmount } = (
+              reviewGuard?.execution?.state ?? swapStepsRef.current
+            ).preSwapData;
+            if (!fromTokenAmount || !toTokenAmount) {
+              throw new OneKeyAppError('Invalid raw limit order amounts');
+            }
+            selectQuoteRes.fromAmount = fromTokenAmount;
+            selectQuoteRes.toAmount = toTokenAmount;
+          }
           const checkLatestBalanceRes = await checkLatestFromTokenBalance(
             selectQuoteRes.fromTokenInfo,
-            data.fromAmount,
+            selectQuoteRes.fromAmount ?? data.fromAmount,
           );
           if (!checkLatestBalanceRes) {
             throw new OneKeyAppError('checkLatestFromTokenBalance failed');
@@ -3504,6 +3922,11 @@ export function useSwapBuildTx({
               selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
             unSignedOrder.receiver = toUserAddress ?? '';
             let dataMessage = unSignedMessage;
+            if (isScaledLimit && (dataMessage || !unSignedData)) {
+              throw new OneKeyAppError(
+                'Scaled limit order requires typed quote data',
+              );
+            }
             if (!dataMessage && unSignedData) {
               let validTo = unSignedOrder.validTo;
               const swapLimitExpirationTimeValueBN = new BigNumber(
@@ -3516,27 +3939,49 @@ export function useSwapBuildTx({
                 .toNumber();
               let finalBuyAmount = unSignedOrder.buyAmount;
               let finalSellAmount = unSignedOrder.sellAmount;
-              if (
-                selectQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
-                (swapLimitPriceFromAmount || swapLimitPriceToAmount)
+              if (isScaledLimit) {
+                const orderAmounts = getScaledSwapLimitOrderBaseUnits({
+                  amounts: {
+                    fromTokenAmount: selectQuoteRes.fromAmount ?? '',
+                    toTokenAmount: selectQuoteRes.toAmount ?? '',
+                  },
+                  fromToken: selectQuoteRes.fromTokenInfo,
+                  toToken: selectQuoteRes.toTokenInfo,
+                  kind: selectQuoteRes.kind,
+                  quotedSellAmount: unSignedOrder.sellAmount,
+                  quotedBuyAmount: unSignedOrder.buyAmount,
+                });
+                if (!orderAmounts) {
+                  throw new OneKeyAppError(
+                    'Limit order does not match the reviewed raw amounts',
+                  );
+                }
+                finalSellAmount = orderAmounts.sellAmount;
+                finalBuyAmount = orderAmounts.buyAmount;
+              } else if (
+                selectQuoteRes.protocol === EProtocolOfExchange.LIMIT
               ) {
-                const decimals =
-                  selectQuoteRes.kind === ESwapQuoteKind.SELL
-                    ? selectQuoteRes.toTokenInfo.decimals
-                    : selectQuoteRes.fromTokenInfo.decimals;
-                const finalAmountBN = new BigNumber(
-                  selectQuoteRes.kind === ESwapQuoteKind.SELL
-                    ? (swapLimitPriceToAmount ??
-                        selectQuoteRes.toAmount ??
-                        unSignedOrder.buyAmount)
-                    : (swapLimitPriceFromAmount ??
-                        selectQuoteRes.fromAmount ??
-                        unSignedOrder.sellAmount),
-                ).shiftedBy(decimals);
+                const isSell = selectQuoteRes.kind === ESwapQuoteKind.SELL;
+                const token = isSell
+                  ? (currentToToken ?? selectQuoteRes.toTokenInfo)
+                  : (currentFromToken ?? selectQuoteRes.fromTokenInfo);
+                const reviewData = (
+                  reviewGuard?.execution?.state ?? swapStepsRef.current
+                ).preSwapData;
+                const finalAmount = getSwapLimitOrderBaseUnits({
+                  rawFallback: isSell
+                    ? (reviewData.toTokenAmount ?? selectQuoteRes.toAmount)
+                    : (reviewData.fromTokenAmount ?? selectQuoteRes.fromAmount),
+                  token,
+                  rounding: isSell ? 'up' : 'down',
+                });
+                if (!finalAmount) {
+                  throw new OneKeyAppError('Invalid raw limit order amount');
+                }
                 if (selectQuoteRes.kind === ESwapQuoteKind.SELL) {
-                  finalBuyAmount = finalAmountBN.toFixed();
+                  finalBuyAmount = finalAmount;
                 } else {
-                  finalSellAmount = finalAmountBN.toFixed();
+                  finalSellAmount = finalAmount;
                 }
               }
               let partiallyFillable = unSignedOrder.partiallyFillable;
@@ -3684,8 +4129,6 @@ export function useSwapBuildTx({
       fromAccountNetworkId,
       swapLimitExpirationTime.value,
       swapLimitPartiallyFillObj.value,
-      swapLimitPriceFromAmount,
-      swapLimitPriceToAmount,
       toUserAddress,
     ],
   );
@@ -3941,6 +4384,8 @@ export function useSwapBuildTx({
       approveUnsignedTxArr?: IUnsignedTxPro[],
       options?: IEstimateNetworkFeeOptions,
     ): Promise<IEstimateNetworkFeeResult> => {
+      // The Monero review already has the fixed fee from its prepared transaction.
+      if (isXmrSwapNetwork(networkId)) return {};
       const {
         updateReviewState = true,
         reviewGuard,
@@ -4009,6 +4454,7 @@ export function useSwapBuildTx({
           amount: '0',
           accountAddress: fromUserAddress,
           accountId,
+          accountNetworkId: networkId,
         }),
       ]).then(([result]) =>
         result.status === 'fulfilled' && result.value.balance !== undefined
@@ -4471,20 +4917,26 @@ export function useSwapBuildTx({
 
       const requestId = rebuildSwapRequestIdRef.current + 1;
       rebuildSwapRequestIdRef.current = requestId;
-      const isFreshReviewCurrent = (state: ISwapReviewState) =>
+      const isGuardedRebuild =
+        Boolean(freshQuote) ||
+        isXmrSwapNetwork(frozenQuoteResult.fromTokenInfo.networkId);
+      const isCurrentRebuild = (state: ISwapReviewState) =>
         requestId === rebuildSwapRequestIdRef.current &&
         reviewSessionRef.current.active &&
         isEqual(inputIdentityRef.current, frozenInputIdentity) &&
         state.quoteResult === frozenQuoteResult &&
         canRefreshSwapReviewSteps(state.steps);
-      const freshReviewGuard: ISwapReviewRequestGuard | undefined = freshQuote
+      const rebuildGuard: ISwapReviewRequestGuard | undefined = isGuardedRebuild
         ? {
             quoteResult: frozenQuoteResult,
-            isCurrent: () => isFreshReviewCurrent(swapStepsRef.current),
+            isCurrent: () => isCurrentRebuild(swapStepsRef.current),
           }
         : undefined;
+      if (rebuildGuard && !rebuildGuard.isCurrent()) {
+        throw new OneKeyError('Swap review changed before rebuilding');
+      }
       setSwapSteps((prev) =>
-        freshQuote && !isFreshReviewCurrent(prev)
+        isGuardedRebuild && !isCurrentRebuild(prev)
           ? prev
           : {
               ...prev,
@@ -4518,7 +4970,7 @@ export function useSwapBuildTx({
                 reviewUsesCustomSlippageRef.current)
               : true,
             updateReviewState: false,
-            reviewGuard: freshReviewGuard,
+            reviewGuard: rebuildGuard,
           },
         );
         const { swapInfo, transferInfo, encodedTx } =
@@ -4553,7 +5005,7 @@ export function useSwapBuildTx({
           unsignedTxArr,
           {
             updateReviewState: false,
-            reviewGuard: freshReviewGuard,
+            reviewGuard: rebuildGuard,
             vaultSettingsResult,
             quoteResult: rebuiltQuoteResult,
           },
@@ -4562,7 +5014,7 @@ export function useSwapBuildTx({
         if (
           requestId !== rebuildSwapRequestIdRef.current ||
           swapStepsRef.current.quoteResult !== frozenQuoteResult ||
-          (freshQuote && !isFreshReviewCurrent(swapStepsRef.current))
+          (isGuardedRebuild && !isCurrentRebuild(swapStepsRef.current))
         ) {
           throw new OneKeyError('Swap review changed while rebuilding');
         }
@@ -4590,7 +5042,7 @@ export function useSwapBuildTx({
           reviewUsesCustomSlippageRef.current = true;
         }
         setSwapSteps((prev) =>
-          freshQuote && !isFreshReviewCurrent(prev)
+          isGuardedRebuild && !isCurrentRebuild(prev)
             ? prev
             : {
                 ...prev,
@@ -4618,11 +5070,13 @@ export function useSwapBuildTx({
                             prev.preSwapData.strictCurrencyConversion ||
                             prev.preSwapData.swapType ===
                               ESwapTabSwitchType.STOCK,
-                          instantRate: new BigNumber(
-                            rebuiltQuoteResult.toAmount ?? '',
-                          )
-                            .dividedBy(rebuiltQuoteResult.fromAmount ?? '')
-                            .toFixed(),
+                          instantRate: getSwapDisplayRate(
+                            new BigNumber(rebuiltQuoteResult.toAmount ?? '')
+                              .dividedBy(rebuiltQuoteResult.fromAmount ?? '')
+                              .toFixed(),
+                            prev.preSwapData.fromToken?.balanceMultiplier,
+                            prev.preSwapData.toToken?.balanceMultiplier,
+                          ),
                         }),
                   minToAmount: rebuiltQuoteResult.minToAmount,
                   providerInfo: rebuiltQuoteResult.info,
@@ -4655,13 +5109,13 @@ export function useSwapBuildTx({
       } catch (error) {
         if (
           requestId === rebuildSwapRequestIdRef.current &&
-          (!freshQuote || reviewSessionRef.current.active) &&
+          (!rebuildGuard || rebuildGuard.isCurrent()) &&
           swapStepsRef.current.quoteResult === frozenQuoteResult
         ) {
           setSwapSteps((prev) =>
             requestId !== rebuildSwapRequestIdRef.current ||
             prev.quoteResult !== frozenQuoteResult ||
-            (freshQuote && !reviewSessionRef.current.active)
+            (isGuardedRebuild && !isCurrentRebuild(prev))
               ? prev
               : {
                   ...prev,
@@ -4859,7 +5313,10 @@ export function useSwapBuildTx({
                 }
               : prev,
           );
-        } catch {
+        } catch (error) {
+          if (isCurrentRequest() && error instanceof XmrSwapPreflightError) {
+            Toast.error({ title: error.message });
+          }
           cancelled = true;
           setSwapSteps((prev) =>
             prev.quoteResult === data && isLatestRequest()
@@ -4914,6 +5371,12 @@ export function useSwapBuildTx({
       const quoteResultFinal =
         swapStepsValues?.quoteResult ?? swapSteps.quoteResult;
       if (!quoteResultFinal) {
+        return;
+      }
+      const isXmrSource = isXmrSwapNetwork(
+        quoteResultFinal.fromTokenInfo.networkId,
+      );
+      if (isXmrSource && xmrSubmittedReviewsRef.current.has(quoteResultFinal)) {
         return;
       }
       const session = reviewSessionRef.current;
@@ -5522,7 +5985,9 @@ export function useSwapBuildTx({
                       canRetry: false,
                       submitResultUnknown: true,
                       errorMessage: intl.formatMessage({
-                        id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                        id: isXmrSource
+                          ? ETranslations.privacy_error_broadcast_unknown__msg
+                          : ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
                       }),
                     },
                   }),
@@ -5530,6 +5995,7 @@ export function useSwapBuildTx({
                 return;
               }
               const shouldFallback =
+                !isXmrSource &&
                 !isGasAccountSubmitResultUnknownError(error) &&
                 shouldFallbackSwapStep({
                   error,
@@ -5595,6 +6061,12 @@ export function useSwapBuildTx({
                   id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
                 }),
               });
+              if (
+                isXmrSource &&
+                isSwapReviewSigningFailureBeforeBroadcast(error)
+              ) {
+                failedStepPatch.canRetry = true;
+              }
               updateExecutionState((prevSteps) => {
                 if (shouldFallback) {
                   return {

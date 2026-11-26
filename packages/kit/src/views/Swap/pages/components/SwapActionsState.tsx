@@ -31,6 +31,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
+  useSwapDeferredQuoteAtom,
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
@@ -41,11 +42,13 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  isSwapOrBridgeQuoteType,
   isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
@@ -66,10 +69,12 @@ import {
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapTabSwitchType,
+  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSettledSwapRecipientRequired } from '../../hooks/useSettledSwapRecipientRequired';
@@ -99,6 +104,11 @@ import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings'
 import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
+import { SwapXmrPrivacyNotice } from './SwapXmrPrivacyNotice';
+
+const xmrNativePercentageStages = SwapPercentageInputStageForNative.filter(
+  (stage) => stage < 100,
+);
 
 interface ISwapActionsStateProps {
   disabled?: boolean;
@@ -202,8 +212,19 @@ const SwapActionsState = ({
   const [, setSwapQuoteList] = useSwapQuoteListAtom();
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
+  const [deferredQuote] = useSwapDeferredQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const isXmrSource = isXmrSwapNetwork(fromToken?.networkId);
+  const isXmrDestination = isXmrSwapNetwork(toToken?.networkId);
+  const xmrAddressInfo = isXmrSource ? swapFromAddressInfo : swapToAddressInfo;
+  const xmrNetworkId = isXmrSource ? fromToken?.networkId : toToken?.networkId;
+  const xmrAccountId = xmrAddressInfo.accountInfo?.account?.id;
+  const shouldShowXmrPrivacyNotice =
+    isSwapOrBridgeQuoteType(swapTypeSwitch) &&
+    (isXmrSource || isXmrDestination) &&
+    xmrAddressInfo.isAddressInfoReady;
   // Publishing a recipient must not change its own validation account or readiness.
   const recipientValidationAddressInfo = useSwapAddressInfo(
     ESwapDirectionType.TO,
@@ -238,7 +259,7 @@ const SwapActionsState = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { quoteLoading, quoteEventFetching } = useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
-    swapEnableRecipientAddress,
+    swapEnableRecipientAddress && !isXmrDestination,
   );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -367,6 +388,7 @@ const SwapActionsState = ({
 
   const shouldShowRecipientForCurrentState = useMemo(
     () =>
+      !isXmrDestination &&
       shouldShowSwapRecipientEntry({
         swapType: swapTypeSwitch,
         incognitoMode: swapIncognitoMode,
@@ -379,6 +401,7 @@ const SwapActionsState = ({
         hasToToken: Boolean(toToken),
       }),
     [
+      isXmrDestination,
       swapIncognitoMode,
       swapEnableRecipientAddress,
       recipientRequiredSettled,
@@ -421,12 +444,18 @@ const SwapActionsState = ({
 
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
+      !isXmrDestination &&
       shouldShowSwapIncognitoRecipientInput({
         incognitoMode: swapIncognitoMode,
         providerSupportsRecipient: providerSupportReceiveAddressSettled,
         swapType: swapTypeSwitch,
       }),
-    [swapIncognitoMode, providerSupportReceiveAddressSettled, swapTypeSwitch],
+    [
+      isXmrDestination,
+      swapIncognitoMode,
+      providerSupportReceiveAddressSettled,
+      swapTypeSwitch,
+    ],
   );
 
   const incognitoRecipientNetworkId =
@@ -543,17 +572,25 @@ const SwapActionsState = ({
     onClose: refreshFromTokenBalance,
   });
 
+  const shouldRetryTokenDetails = multiplierStatus === 'failed';
+  const isWaitingForMultiplier =
+    multiplierStatus === 'checking' ||
+    (multiplierStatus === 'ready' && Boolean(deferredQuote));
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
-    !swapActionState.isRefreshQuote &&
-    !swapActionState.shouldDepositToTrade &&
-    (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
+    (isWaitingForMultiplier ||
+      (multiplierStatus === 'ready' &&
+        !swapActionState.isRefreshQuote &&
+        !swapActionState.shouldDepositToTrade &&
+        (swapActionState.isQuoteActionLoading ||
+          Boolean(forceQuoteActionLoading))));
   const isActionDisabled = noConnectWallet
     ? shouldRedirectOnboardingToTravelMode()
     : Boolean(disabled) ||
-      swapActionState.disabled ||
-      swapActionState.isLoading ||
+      (!shouldRetryTokenDetails &&
+        (swapActionState.disabled || swapActionState.isLoading)) ||
       shouldShowQuoteActionLoading ||
+      (isXmrDestination && swapActionState.shouldEnterRecipient) ||
       shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
@@ -570,6 +607,13 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (shouldRetryTokenDetails) {
+      requestSelectedTokenBalanceRefresh();
+      return;
+    }
+    if (isWaitingForMultiplier) {
       return;
     }
     if (swapActionState.shouldDepositToTrade) {
@@ -605,6 +649,7 @@ const SwapActionsState = ({
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
+    isWaitingForMultiplier,
     onDepositToTrade,
     navigation,
     onOpenRecipientAddress,
@@ -615,6 +660,7 @@ const SwapActionsState = ({
     requestSelectedTokenBalanceRefresh,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
+    shouldRetryTokenDetails,
     swapActionState.shouldDepositToTrade,
     noConnectWallet,
     swapActionState.shouldEnterRecipient,
@@ -1145,9 +1191,9 @@ const SwapActionsState = ({
     [],
   );
 
-  const actionButtonChildren = useMemo(
-    () =>
-      shouldShowQuoteActionLoading ? (
+  const actionButtonChildren = useMemo(() => {
+    if (shouldShowQuoteActionLoading) {
+      return (
         <LottieView
           source={
             themeVariant === 'light'
@@ -1161,29 +1207,37 @@ const SwapActionsState = ({
             height: 24,
           }}
         />
-      ) : (
-        <SizableText
-          flex={platformEnv.isNativeAndroid ? 1 : undefined}
-          flexShrink={1}
-          minWidth={0}
-          maxWidth="100%"
-          size="$bodyLgMedium"
-          color="$textInverse"
-          textAlign="center"
-        >
-          {noConnectWallet
-            ? intl.formatMessage({ id: ETranslations.global_connect_wallet })
-            : swapActionState.label}
-        </SizableText>
-      ),
-    [
-      intl,
-      noConnectWallet,
-      swapActionState.label,
-      shouldShowQuoteActionLoading,
-      themeVariant,
-    ],
-  );
+      );
+    }
+    let label = swapActionState.label;
+    if (noConnectWallet) {
+      label = intl.formatMessage({ id: ETranslations.global_connect_wallet });
+    } else if (shouldRetryTokenDetails) {
+      label = intl.formatMessage({
+        id: ETranslations.swap_page_button_refresh_quotes,
+      });
+    }
+    return (
+      <SizableText
+        flex={platformEnv.isNativeAndroid ? 1 : undefined}
+        flexShrink={1}
+        minWidth={0}
+        maxWidth="100%"
+        size="$bodyLgMedium"
+        color="$textInverse"
+        textAlign="center"
+      >
+        {label}
+      </SizableText>
+    );
+  }, [
+    intl,
+    noConnectWallet,
+    swapActionState.label,
+    shouldShowQuoteActionLoading,
+    shouldRetryTokenDetails,
+    themeVariant,
+  ]);
 
   const actionRowComponent = useMemo(
     () => (
@@ -1340,6 +1394,7 @@ const SwapActionsState = ({
         {!platformEnv.isNativeIOS ? (
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
+            stageList={isXmrSource ? xmrNativePercentageStages : undefined}
           />
         ) : null}
       </Page.Footer>
@@ -1349,6 +1404,7 @@ const SwapActionsState = ({
       costSavingsComponent,
       desktopActionWidth,
       isActionDisabled,
+      isXmrSource,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,
@@ -1364,16 +1420,26 @@ const SwapActionsState = ({
           <Page.Footer>
             <PercentageStageOnKeyboard
               onSelectPercentageStage={onSelectPercentageStage}
+              stageList={isXmrSource ? xmrNativePercentageStages : undefined}
             />
           </Page.Footer>
         ) : null}
       </>
     ),
-    [actionComponent, onSelectPercentageStage],
+    [actionComponent, isXmrSource, onSelectPercentageStage],
   );
 
   return (
     <>
+      {shouldShowXmrPrivacyNotice && xmrNetworkId && xmrAccountId ? (
+        <SwapXmrPrivacyNotice
+          accountId={xmrAccountId}
+          networkId={xmrNetworkId}
+          walletId={xmrAddressInfo.accountInfo?.wallet?.id}
+          fromAmount={isXmrSource ? fromTokenAmount.value : undefined}
+          onBalanceVerified={requestSelectedTokenBalanceRefresh}
+        />
+      ) : null}
       {isDesktopModalPage ? (
         <>
           {desktopModalRecipientSection}

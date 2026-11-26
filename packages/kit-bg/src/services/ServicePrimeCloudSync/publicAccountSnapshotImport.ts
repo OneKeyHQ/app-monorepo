@@ -3,7 +3,6 @@ import {
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
@@ -17,12 +16,13 @@ import { vaultFactory } from '../../vaults/factory';
 import { preparePublicAccountIndexedNames } from './publicAccountIndexedNames';
 import {
   PublicAccountSnapshotUnsupportedError,
+  getLocalPublicAccountWalletMatchKey,
   getPublicAccountSnapshotId,
   getPublicAccountSnapshotTaprootDescriptor,
+  getPublicAccountWalletMatchKey,
   normalizePublicAccountSnapshot,
-  normalizePublicAccountWalletXfp,
-  publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
+  publicAccountSyncIdentityEqual,
 } from './publicAccountSnapshot';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -38,6 +38,7 @@ const BATCH_SIZE = 50;
 
 export type IPublicAccountSnapshotApplyResult =
   ICloudPublicAccountSnapshotResult & {
+    updated: number;
     deleted: number;
     indexedAccountsChanged: boolean;
     skippedSnapshotIds: string[];
@@ -47,6 +48,7 @@ export type IPublicAccountSnapshotApplyResult =
 function emptyResult(): IPublicAccountSnapshotApplyResult {
   return {
     added: 0,
+    updated: 0,
     deleted: 0,
     indexedAccountsChanged: false,
     issuesBySnapshotId: {},
@@ -58,24 +60,6 @@ function emptyResult(): IPublicAccountSnapshotApplyResult {
     appliedSnapshotIds: [],
     skippedSnapshotIds: [],
   };
-}
-
-function walletMatchKey(wallet: IDBWallet): string | undefined {
-  const hardware = accountUtils.isHwWallet({ walletId: wallet.id });
-  if (
-    wallet.isMocked ||
-    wallet.isTemp ||
-    (!hardware &&
-      (!accountUtils.isHdWallet({ walletId: wallet.id }) ||
-        accountUtils.isBotWallet({ walletId: wallet.id })))
-  ) {
-    return undefined;
-  }
-  try {
-    return `${hardware ? 'hardware' : 'hd'}__${normalizePublicAccountWalletXfp(wallet.xfp || '')}__${Boolean(wallet.passphraseState)}`;
-  } catch (_error) {
-    return undefined;
-  }
 }
 
 async function validatePublicAccount({
@@ -171,6 +155,7 @@ export async function importPublicAccountSnapshots({
   snapshots,
   isCurrent,
   sourceItemsBySnapshotId,
+  foreignAccountsByWireId,
   syncCredential,
   action = 'copy',
 }: {
@@ -178,15 +163,28 @@ export async function importPublicAccountSnapshots({
   snapshots: readonly unknown[];
   isCurrent: () => boolean;
   sourceItemsBySnapshotId?: ReadonlyMap<string, IDBCloudSyncItem>;
+  foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
   syncCredential?: ICloudSyncCredential;
   action?: 'copy' | 'delete';
 }): Promise<IPublicAccountSnapshotApplyResult> {
   const result = emptyResult();
+  const remainingWalletsBySnapshotId = new Map<string, Set<string>>();
+  const finish = (cancelled: boolean): IPublicAccountSnapshotApplyResult => {
+    for (const [id, remainingWallets] of remainingWalletsBySnapshotId) {
+      if (!remainingWallets.size && !result.issuesBySnapshotId[id]) {
+        result.appliedSnapshotIds.push(id);
+      }
+    }
+    return { ...result, cancelled };
+  };
   const recordIssue = (
     snapshot: ICloudPublicAccountSnapshot,
     issue: 'pending' | 'conflicts' | 'rejected',
   ) => {
-    result.issuesBySnapshotId[getPublicAccountSnapshotId(snapshot)] = issue;
+    const id = getPublicAccountSnapshotId(snapshot);
+    const previous = result.issuesBySnapshotId[id];
+    if (!previous || previous === 'pending')
+      result.issuesBySnapshotId[id] = issue;
   };
   if (!isCurrent()) return { ...result, cancelled: true };
   const { localDb } = backgroundApi;
@@ -194,7 +192,7 @@ export async function importPublicAccountSnapshots({
   if (!isCurrent()) return { ...result, cancelled: true };
   const walletsByIdentity = new Map<string, IDBWallet[]>();
   for (const wallet of wallets) {
-    const key = walletMatchKey(wallet);
+    const key = getLocalPublicAccountWalletMatchKey(wallet);
     if (key) {
       const matches = walletsByIdentity.get(key) || [];
       matches.push({ ...wallet });
@@ -238,7 +236,7 @@ export async function importPublicAccountSnapshots({
 
   try {
     for (let offset = 0; offset < snapshots.length; offset += BATCH_SIZE) {
-      if (!isCurrent()) return { ...result, cancelled: true };
+      if (!isCurrent()) return finish(true);
       const groups = new Map<
         string,
         {
@@ -256,24 +254,38 @@ export async function importPublicAccountSnapshots({
           else result.rejected += 1;
           return;
         }
-        const matches =
-          walletsByIdentity.get(
-            `${snapshot.wallet.kind}__${snapshot.wallet.xfp}__${snapshot.wallet.hidden}`,
-          ) || [];
-        if (matches.length === 0) {
-          result.skippedSnapshotIds.push(getPublicAccountSnapshotId(snapshot));
+        const matches = walletsByIdentity.get(
+          getPublicAccountWalletMatchKey(snapshot.wallet),
+        );
+        const snapshotId = getPublicAccountSnapshotId(snapshot);
+        if (!matches?.length) {
+          result.skippedSnapshotIds.push(snapshotId);
           return;
         }
-        if (matches.length !== 1) {
+        const source = sourceItemsBySnapshotId?.get(snapshotId);
+        // A cross-space cache handoff acknowledges its source inside the
+        // single-wallet transaction. Keep it separate from shared scene replay.
+        if (
+          matches.length > 1 &&
+          (snapshot.wallet.kind !== 'hardware' ||
+            (source && foreignAccountsByWireId?.has(source.id)))
+        ) {
           result.pending += 1;
           recordIssue(snapshot, 'pending');
           return;
         }
-        const wallet = matches[0];
-        const key = `${wallet.id}__${snapshot.account.networkId}__${snapshot.account.template}__${snapshot.account.idSuffix || ''}`;
-        const group = groups.get(key) || { wallet, snapshots: [] };
-        group.snapshots.push(snapshot);
-        groups.set(key, group);
+        if (!remainingWalletsBySnapshotId.has(snapshotId)) {
+          remainingWalletsBySnapshotId.set(
+            snapshotId,
+            new Set(matches.map((wallet) => wallet.id)),
+          );
+        }
+        for (const wallet of matches) {
+          const key = `${wallet.id}__${snapshot.account.networkId}__${snapshot.account.template}__${snapshot.account.idSuffix || ''}`;
+          const group = groups.get(key) || { wallet, snapshots: [] };
+          group.snapshots.push(snapshot);
+          groups.set(key, group);
+        }
       });
 
       const processGroup = async ({
@@ -283,10 +295,10 @@ export async function importPublicAccountSnapshots({
         wallet: IDBWallet;
         snapshots: ICloudPublicAccountSnapshot[];
       }): Promise<IPublicAccountSnapshotApplyResult | undefined> => {
-        if (!isCurrent()) return { ...result, cancelled: true };
+        if (!isCurrent()) return finish(true);
         const first = group[0];
         const context = await getContext(wallet, first.wallet.kind);
-        if (!isCurrent()) return { ...result, cancelled: true };
+        if (!isCurrent()) return finish(true);
         if (!context.ready) {
           result.pending += group.length;
           group.forEach((snapshot) => recordIssue(snapshot, 'pending'));
@@ -301,9 +313,9 @@ export async function importPublicAccountSnapshots({
             walletId: wallet.id,
             networkId: first.account.networkId,
           });
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
           const settings = await vault.getVaultSettings();
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
           if (
             settings.impl === first.account.impl &&
             !(first.wallet.kind === 'hd' && settings.softwareAccountDisabled)
@@ -338,7 +350,7 @@ export async function importPublicAccountSnapshots({
                 publicAccountSnapshotToAccount(snapshot, wallet.id).id,
             ),
           });
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
           for (const account of records)
             if (account) existingById.set(account.id, account);
         }
@@ -347,7 +359,7 @@ export async function importPublicAccountSnapshots({
             const account = publicAccountSnapshotToAccount(snapshot, wallet.id);
             const existing = existingById.get(account.id);
             if (
-              (existing && publicAccountIdentityEqual(existing, account)) ||
+              (existing && publicAccountSyncIdentityEqual(existing, account)) ||
               (await validatePublicAccount({
                 snapshot,
                 vault,
@@ -361,7 +373,7 @@ export async function importPublicAccountSnapshots({
                 recordIssue(snapshot, 'conflicts');
               } else if (
                 previous &&
-                !publicAccountIdentityEqual(previous, account)
+                !publicAccountSyncIdentityEqual(previous, account)
               ) {
                 conflictingIds.add(account.id);
                 result.conflicts +=
@@ -386,10 +398,10 @@ export async function importPublicAccountSnapshots({
             result.pending += 1;
             recordIssue(snapshot, 'pending');
           }
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
         }
 
-        if (!isCurrent()) return { ...result, cancelled: true };
+        if (!isCurrent()) return finish(true);
         const candidates = valid.filter(
           (account) => !conflictingIds.has(account.id),
         );
@@ -418,7 +430,7 @@ export async function importPublicAccountSnapshots({
                   syncCredential,
                 })
               : undefined;
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
           const params = {
             indexedNames,
             walletId: wallet.id,
@@ -430,6 +442,7 @@ export async function importPublicAccountSnapshots({
             expectedCredential: credential,
             accounts: candidates,
             sourceItemsByAccountId,
+            foreignAccountsByWireId,
             isCurrent,
           };
           if (action === 'delete' && !sourceItemsByAccountId) {
@@ -439,14 +452,38 @@ export async function importPublicAccountSnapshots({
             );
             return undefined;
           }
-          const imported =
+          const hasForeignCollision = Array.from(
+            sourceItemsByAccountId?.values() ?? [],
+          ).some((item) => foreignAccountsByWireId?.has(item.id));
+          const apply = () =>
             action === 'delete'
-              ? await localDb.deletePublicCloudAccounts({
+              ? localDb.deletePublicCloudAccounts({
                   ...params,
                   sourceItemsByAccountId: sourceItemsByAccountId ?? new Map(),
                 })
-              : await localDb.importPublicCloudAccounts(params);
+              : localDb.importPublicCloudAccounts(params);
+          let imported;
+          if (hasForeignCollision) {
+            const hardware = syncCredential?.keylessCredential;
+            if (hardware) {
+              imported =
+                await backgroundApi.serviceKeylessCloudSync.runWithVerifiedHardwareAccountArchiveSession(
+                  hardware,
+                  apply,
+                );
+            }
+          } else {
+            imported = await apply();
+          }
+          if (!imported) {
+            result.pending += candidates.length;
+            validSnapshots.forEach((snapshot) =>
+              recordIssue(snapshot, 'pending'),
+            );
+            return undefined;
+          }
           result.added += imported.added;
+          result.updated += imported.updated ?? 0;
           result.deleted += imported.deleted ?? 0;
           result.indexedAccountsChanged ||= imported.indexedAccountsChanged;
           result.unchanged += imported.unchanged;
@@ -458,12 +495,9 @@ export async function importPublicAccountSnapshots({
               !conflictingIds.has(account.id) &&
               imported.appliedAccountIds.includes(account.id)
             ) {
-              result.appliedSnapshotIds.push(
-                getPublicAccountSnapshotId(snapshot),
-              );
-              delete result.issuesBySnapshotId[
-                getPublicAccountSnapshotId(snapshot)
-              ];
+              remainingWalletsBySnapshotId
+                .get(getPublicAccountSnapshotId(snapshot))
+                ?.delete(wallet.id);
             } else if (!conflictingIds.has(account.id)) {
               recordIssue(
                 snapshot,
@@ -471,7 +505,7 @@ export async function importPublicAccountSnapshots({
               );
             }
           }
-          if (imported.cancelled) return { ...result, cancelled: true };
+          if (imported.cancelled) return finish(true);
         }
         return undefined;
       };
@@ -507,11 +541,7 @@ export async function importPublicAccountSnapshots({
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
     }
-    return {
-      ...result,
-      appliedSnapshotIds: Array.from(new Set(result.appliedSnapshotIds)),
-      cancelled: !isCurrent(),
-    };
+    return finish(!isCurrent());
   } finally {
     contexts.clear();
     walletsByIdentity.clear();

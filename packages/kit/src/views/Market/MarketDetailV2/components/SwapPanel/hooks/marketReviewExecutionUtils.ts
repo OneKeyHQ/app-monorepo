@@ -3,6 +3,7 @@ import {
   type ISwapReviewStepTexts,
   buildSwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import { getSwapDisplayRate } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
@@ -96,8 +97,12 @@ export function buildMarketReviewRateDifference({
 }: {
   quoteResult?: Pick<IFetchQuoteResult, 'instantRate' | 'protocol'>;
   swapInfo?: {
-    sender?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
-    receiver?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
+    sender?: {
+      token?: Pick<ISwapToken, 'price' | 'currency' | 'balanceMultiplier'>;
+    };
+    receiver?: {
+      token?: Pick<ISwapToken, 'price' | 'currency' | 'balanceMultiplier'>;
+    };
   };
   defaultTokenCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
@@ -110,7 +115,11 @@ export function buildMarketReviewRateDifference({
     toTokenCurrency: swapInfo?.receiver?.token?.currency,
     defaultTokenCurrency,
     currencyMap,
-    instantRate: quoteResult?.instantRate,
+    instantRate: getSwapDisplayRate(
+      quoteResult?.instantRate ?? '',
+      swapInfo?.sender?.token?.balanceMultiplier,
+      swapInfo?.receiver?.token?.balanceMultiplier,
+    ),
     strictCurrencyConversion:
       strictCurrencyConversion ||
       quoteResult?.protocol === EProtocolOfExchange.STOCK,

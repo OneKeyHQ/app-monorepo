@@ -191,6 +191,7 @@ export function QrScanFrame({
           <Icon name="CameraOutline" size="$8" color="$iconSubdued" />
         )}
         <Stack
+          pointerEvents="none"
           position="absolute"
           top={CORNER_INSET}
           left={CORNER_INSET}
@@ -203,6 +204,7 @@ export function QrScanFrame({
           borderCurve="continuous"
         />
         <Stack
+          pointerEvents="none"
           position="absolute"
           top={CORNER_INSET}
           right={CORNER_INSET}
@@ -215,6 +217,7 @@ export function QrScanFrame({
           borderCurve="continuous"
         />
         <Stack
+          pointerEvents="none"
           position="absolute"
           bottom={CORNER_INSET}
           left={CORNER_INSET}
@@ -227,6 +230,7 @@ export function QrScanFrame({
           borderCurve="continuous"
         />
         <Stack
+          pointerEvents="none"
           position="absolute"
           bottom={CORNER_INSET}
           right={CORNER_INSET}

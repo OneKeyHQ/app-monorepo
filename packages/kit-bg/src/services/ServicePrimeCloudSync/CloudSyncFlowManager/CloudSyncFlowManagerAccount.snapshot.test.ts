@@ -2,6 +2,7 @@ import {
   EPrimeCloudSyncDataType,
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
 } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   ICloudSyncCredential,
   ICloudSyncRawDataJson,
@@ -109,6 +110,7 @@ function harness() {
     },
     serviceKeylessCloudSync: {
       getCloudAccountImportGeneration: () => generation,
+      getLocalMutationSyncCredential: jest.fn(async () => undefined),
       runWithCloudAccountImportLock: async <T>(operation: () => Promise<T>) =>
         operation(),
     },
@@ -157,6 +159,7 @@ async function encryptedItem(
   manager: CloudSyncFlowManagerAccount,
   snapshot: unknown = publicAccountTestSnapshot(),
   accountId = getPublicAccountSnapshotId(publicAccountTestSnapshot()),
+  selectedCredential = credential,
 ) {
   const rawKey = `${EPrimeCloudSyncDataType.Account} >> ${accountId}`;
   const item = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
@@ -170,7 +173,7 @@ async function encryptedItem(
         publicAccountSnapshot: snapshot,
       },
     } as ICloudSyncRawDataJson,
-    syncCredential: credential,
+    syncCredential: selectedCredential,
     dataTime: 1_750_000_000_000,
   });
   item.rawData = '';
@@ -194,6 +197,7 @@ describe('public account snapshot Cloud scene integration', () => {
         added: action === 'delete' ? 0 : snapshots.length,
         deleted: action === 'delete' ? snapshots.length : 0,
         skippedSnapshotIds: [],
+        updated: 0,
         indexedAccountsChanged: false,
         issuesBySnapshotId: {},
         unchanged: 0,
@@ -206,6 +210,84 @@ describe('public account snapshot Cloud scene integration', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  test('offline public account apply never reselects using the generic credential reader', async () => {
+    const h = harness();
+    const item = await encryptedItem(h.manager);
+    await h.manager.syncToScene({
+      items: [item],
+      syncCredential: credential,
+      localOnly: true,
+    });
+    expect(
+      h.bg.serviceKeylessCloudSync.getLocalMutationSyncCredential,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      h.bg.servicePrimeCloudSync.getSyncCredentialSafe,
+    ).not.toHaveBeenCalled();
+    expect(importPublicAccountSnapshots).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['valid', false],
+    ['valid', true],
+    ['invalid cipher', true],
+    ['wrong ID', true],
+  ] as const)(
+    'only forwards a collision with authenticated current ciphertext and wire identity to the account apply boundary: %s (deleted=%s)',
+    async (scenario, isDeleted) => {
+      const h = harness();
+      const fixtureCredential = credential.keylessCredential;
+      if (!fixtureCredential)
+        throw new OneKeyLocalError('Missing fixture credential');
+      const selected: ICloudSyncCredential = {
+        ...credential,
+        keylessCredential: {
+          ...fixtureCredential,
+          pwdHash: 'hw-dek-archive-fixture',
+        },
+      };
+      h.bg.servicePrimeCloudSync.getSyncCredentialSafe.mockResolvedValue(
+        selected,
+      );
+      const snapshot = publicAccountTestSnapshot();
+      const item = await encryptedItem(
+        h.manager,
+        snapshot,
+        undefined,
+        selected,
+      );
+      item.isDeleted = isDeleted;
+      if (scenario === 'invalid cipher') item.data = 'inauthentic-fixture';
+      if (scenario === 'wrong ID') item.id = `wrong-${item.id}`;
+      const foreignCopy: IDBCloudSyncItem = {
+        ...item,
+        pwdHash: 'foreign-cloud-fixture',
+        data: 'opaque-foreign-ciphertext',
+        localSceneUpdated: true,
+        isDeleted: false,
+      };
+      const foreignAccountsByWireId = new Map([[item.id, foreignCopy]]);
+      await h.manager.syncToScene({
+        syncCredential: selected,
+        items: [item],
+        foreignAccountsByWireId,
+      });
+      if (scenario === 'valid') {
+        expect(importPublicAccountSnapshots).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: isDeleted ? 'delete' : 'copy',
+            foreignAccountsByWireId,
+            snapshots: [snapshot],
+          }),
+        );
+      } else {
+        expect(importPublicAccountSnapshots).not.toHaveBeenCalled();
+      }
+      // Only the atomic database path may acknowledge a collided source.
+      expect(h.updateSyncItem).not.toHaveBeenCalled();
+    },
+  );
 
   test('clears pending issues for skipped snapshots and keeps them available for later replay', async () => {
     const h = harness();
@@ -223,6 +305,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [matchingId],
       skippedSnapshotIds: [missingId],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 1,
       deleted: 0,
@@ -273,6 +356,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [],
       skippedSnapshotIds: [id],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 0,
       deleted: 0,
@@ -304,6 +388,7 @@ describe('public account snapshot Cloud scene integration', () => {
         getPublicAccountSnapshotId(publicAccountTestSnapshot()),
       ],
       skippedSnapshotIds: [],
+      updated: 0,
       indexedAccountsChanged: true,
       added: 0,
       deleted: 0,
@@ -421,6 +506,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [],
       skippedSnapshotIds: [],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 0,
       deleted: 0,
@@ -769,7 +855,7 @@ describe('public account snapshot Cloud scene integration', () => {
     expect(encrypt).not.toHaveBeenCalled();
   });
 
-  test('a tombstone is sticky and unknown future records cannot be renamed or deleted', async () => {
+  test('a tombstone is sticky and unknown future Cloud records cannot be replaced', async () => {
     const h = harness();
     const snapshot = publicAccountTestSnapshot();
     const account = publicAccountSnapshotToAccount(snapshot, h.wallet.id);
@@ -800,7 +886,7 @@ describe('public account snapshot Cloud scene integration', () => {
         dataTime: undefined,
         syncCredential: credential,
       }),
-    ).rejects.toThrow('compatible App version');
+    ).resolves.toBeUndefined();
     expect(h.pool.get(item.id)?.data).toBe(future.data);
   });
 

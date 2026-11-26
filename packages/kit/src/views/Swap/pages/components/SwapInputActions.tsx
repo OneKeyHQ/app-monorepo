@@ -18,14 +18,29 @@ import {
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 
+// Phones show the percentage stages in the pay card's label row, as desktop
+// does, rather than on a bar above the keyboard. iPad has no percentage entry
+// yet, so it stays out.
+export const SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE =
+  platformEnv.isNative && !platformEnv.isNativeIOSPad;
+
+const SWAP_PERCENTAGE_STAGE_TOUCH_SLOP = {
+  top: 10,
+  bottom: 10,
+  left: 2,
+  right: 2,
+} as const;
+
 const SwapInputActions = ({
   showPercentageInput,
+  percentageInputOnNative = false,
   percentageInputDisabled = false,
   showActionBuy,
   actionBuyHighlighted = true,
@@ -36,6 +51,11 @@ const SwapInputActions = ({
   activeAccount,
 }: {
   showPercentageInput: boolean;
+  // Native hosts that still use a keyboard bar for the percentage stages
+  // leave this off; hosts without that bar show the stages here. The row also
+  // holds the top-up chip, so it takes the three desktop stages rather than
+  // the bar's four.
+  percentageInputOnNative?: boolean;
   percentageInputDisabled?: boolean;
   showActionBuy: boolean;
   // Green when the chip is the recovery action (partial balance); subdued
@@ -53,11 +73,17 @@ const SwapInputActions = ({
 }) => {
   const intl = useIntl();
   const { gtSm } = useMedia();
+  const isXmrSource = isXmrSwapNetwork(fromToken?.networkId);
 
-  const needSwapPercentageInputStage = useMemo(
-    () => (gtSm ? SwapPercentageInputStage : SwapPercentageInputStage.slice(1)),
-    [gtSm],
-  );
+  const needSwapPercentageInputStage = useMemo(() => {
+    // Native media queries keep phone breakpoints on every screen, so a host
+    // that opts in on native is trusted to have room for all three.
+    const stages =
+      platformEnv.isNative || gtSm
+        ? SwapPercentageInputStage
+        : SwapPercentageInputStage.slice(1);
+    return isXmrSource ? stages.filter((stage) => stage < 100) : stages;
+  }, [gtSm, isXmrSource]);
 
   const handleBuyPress = useSwapDepositEntryPress({
     token: fromToken,
@@ -109,7 +135,8 @@ const SwapInputActions = ({
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
-        {!platformEnv.isNative && showPercentageInput ? (
+        {(!platformEnv.isNative || percentageInputOnNative) &&
+        showPercentageInput ? (
           <XStack
             transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
@@ -122,6 +149,15 @@ const SwapInputActions = ({
               x: 4,
             }}
             gap="$0.5"
+            // A hit slop only reaches as far as the parent's frame, so the
+            // row is padded to hold it and pulled back by the same margin to
+            // keep its place.
+            {...(platformEnv.isNative
+              ? {
+                  py: SWAP_PERCENTAGE_STAGE_TOUCH_SLOP.top,
+                  my: -SWAP_PERCENTAGE_STAGE_TOUCH_SLOP.top,
+                }
+              : undefined)}
           >
             <>
               {needSwapPercentageInputStage.map((stage) => (
@@ -130,6 +166,13 @@ const SwapInputActions = ({
                   stage={stage}
                   disabled={percentageInputDisabled}
                   onSelectStage={onSelectStage}
+                  // The badge is shorter than a finger; widen what a touch
+                  // hits without changing how it looks.
+                  hitSlop={
+                    platformEnv.isNative
+                      ? SWAP_PERCENTAGE_STAGE_TOUCH_SLOP
+                      : undefined
+                  }
                 />
               ))}
             </>

@@ -11,6 +11,38 @@ jest.mock('../IndexedDBPromised', () => ({
   IndexedDBPromised: jest.fn(),
 }));
 
+describe('WebStorage.getItem during app reset', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    [true, 'The connection was closed.', false],
+    [false, 'The connection was closed.', undefined],
+    [true, 'The transaction was aborted.', undefined],
+  ])(
+    'handles a read with reset=%s and error=%s',
+    async (resetting, message, autoToast) => {
+      jest.spyOn(resetUtils, 'getIsResetting').mockReturnValue(resetting);
+      const error = new DOMException(message, 'AbortError');
+      const get = jest.fn().mockRejectedValue(error);
+      (IndexedDBPromised as unknown as jest.Mock).mockImplementation(() => ({
+        open: jest.fn().mockResolvedValue(undefined),
+        get,
+      }));
+      const storage = new WebStorage({
+        dbName: 'test-db',
+        bucketName: 'test-bucket',
+        tableName: 'test-table',
+        legacyKeyPrefix: EWebStorageKeyPrefix.AppStorage,
+      });
+
+      await expect(storage.getItem('key', undefined)).rejects.toBe(error);
+      expect(Reflect.get(error, 'autoToast')).toBe(autoToast);
+    },
+  );
+});
+
 describe('WebStorage.checkDiskFull', () => {
   const callCheckDiskFull = (payload?: {
     method: string;

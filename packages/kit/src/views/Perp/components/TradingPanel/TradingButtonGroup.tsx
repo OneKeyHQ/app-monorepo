@@ -27,6 +27,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
+  type IActiveTradeInstrument,
   type ITradingFormData,
   type ITradingFormEmptySizeParams,
   useActiveTradeInstrumentAtom,
@@ -92,7 +93,7 @@ import {
 
 import {
   useOrderConfirmWithMarketDataFreshness,
-  usePerpsMarketDataFreshness,
+  usePerpsOrderFormMarketDataFreshness,
 } from '../../hooks';
 import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import {
@@ -128,8 +129,11 @@ import {
 } from '../../utils/mobileLayoutTrace';
 import {
   type IPerpsMarketDataFreshness,
+  getPerpsMarketDataBlockedMessageIds,
   getPerpsMarketDataFreshness,
+  isPerpsOrderFormDataOfInstrument,
   shouldBlockPerpsTradingForMarketData,
+  withPerpsMarketOfInstrument,
 } from '../../utils/perpsMarketDataFreshness';
 import {
   type IPerpsOrderPanelEnableTradingMode,
@@ -240,18 +244,26 @@ function shouldUseEmptySizeTradingButtons(
   );
 }
 
-async function getLatestPerpsMarketDataFreshness() {
-  const [networkStatus, readyState] = await Promise.all([
+// As the atoms hold it when the order is pressed, the market included: its
+// data is the order's only while it is on the page's token.
+async function getLatestPerpsMarketDataFreshness(
+  instrument: IActiveTradeInstrument,
+) {
+  const [networkStatus, readyState, isDataOfInstrument] = await Promise.all([
     perpsNetworkStatusAtom.get(),
     perpsWebSocketReadyStateAtom.get(),
+    isPerpsOrderFormDataOfInstrument(instrument),
   ]);
 
-  return getPerpsMarketDataFreshness({
-    isWebSocketConnected:
-      readyState?.readyState === PERPS_WEBSOCKET_OPEN_READY_STATE,
-    networkConnected: networkStatus?.connected,
-    lastMessageAt: networkStatus?.lastMessageAt ?? null,
-  });
+  return withPerpsMarketOfInstrument(
+    getPerpsMarketDataFreshness({
+      isWebSocketConnected:
+        readyState?.readyState === PERPS_WEBSOCKET_OPEN_READY_STATE,
+      networkConnected: networkStatus?.connected,
+      lastMessageAt: networkStatus?.lastMessageAt ?? null,
+    }),
+    isDataOfInstrument,
+  );
 }
 
 // Est. Liq price isolated into its own leaf: it owns the price-driven
@@ -878,6 +890,7 @@ function SideButtonInternal({
         isTriggerMode: latestIsTriggerMode,
         isTwapMode: latestIsTwapMode,
         midPriceBN: latestMidPriceBN,
+        marketDataFreshness: latestMarketDataFreshness,
         priceError: latestPriceError,
         shouldBlockForMarketData: latestShouldBlockForMarketData,
         szDecimals: latestSzDecimals,
@@ -898,13 +911,14 @@ function SideButtonInternal({
       }
 
       if (latestShouldBlockForMarketData) {
+        const blocked = getPerpsMarketDataBlockedMessageIds(
+          latestMarketDataFreshness,
+        );
         Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.perp_offline,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.perps_offline_moblie,
-          }),
+          title: intl.formatMessage({ id: blocked.title }),
+          message: blocked.message
+            ? intl.formatMessage({ id: blocked.message })
+            : undefined,
         });
         return 'marketDataUnavailable' as const;
       }
@@ -1774,7 +1788,7 @@ function SideButtonInternal({
         testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
         size="medium"
         childrenAsText={false}
-        borderRadius="$4"
+        borderRadius={isMobile ? '$5' : '$4'}
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
@@ -1786,13 +1800,13 @@ function SideButtonInternal({
         }
         opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
         onPress={handlePress}
-        h={36}
+        h={isMobile ? 42 : 36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
       >
-        <YStack alignItems="center" gap={2}>
+        <YStack alignItems="center" gap={isMobile ? 0 : 2}>
           <SizableText
-            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-            lineHeight={isMobile ? 16 : 18}
+            size={isMobile ? '$headingSm' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 20 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -1801,10 +1815,10 @@ function SideButtonInternal({
 
           {buttonSecondaryText ? (
             <SizableText
-              fontSize={11}
+              size={isMobile ? '$bodySmMedium' : '$bodyXs'}
               color={labelColor}
-              opacity={0.8}
-              lineHeight={11}
+              opacity={isMobile ? 1 : 0.8}
+              lineHeight={isMobile ? 16 : 11}
               numberOfLines={1}
             >
               {buttonSecondaryText}
@@ -2225,7 +2239,9 @@ function EmptySizeSideButton({
         }
       }
 
-      const marketDataFreshness = await getLatestPerpsMarketDataFreshness();
+      const marketDataFreshness = await getLatestPerpsMarketDataFreshness(
+        activeTradeInstrument,
+      );
       const shouldBlockForMarketData =
         shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
@@ -2241,13 +2257,13 @@ function EmptySizeSideButton({
             symbol: activeTradeInstrument.coin,
           });
         }
+        const blocked =
+          getPerpsMarketDataBlockedMessageIds(marketDataFreshness);
         Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.perp_offline,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.perps_offline_moblie,
-          }),
+          title: intl.formatMessage({ id: blocked.title }),
+          message: blocked.message
+            ? intl.formatMessage({ id: blocked.message })
+            : undefined,
         });
         return;
       }
@@ -2341,7 +2357,7 @@ function EmptySizeSideButton({
         testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
         size="medium"
         childrenAsText={false}
-        borderRadius="$4"
+        borderRadius={isMobile ? '$5' : '$4'}
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
@@ -2353,12 +2369,12 @@ function EmptySizeSideButton({
         }
         opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
         onPress={handlePress}
-        h={36}
+        h={isMobile ? 42 : 36}
       >
         <YStack alignItems="center" gap={2}>
           <SizableText
-            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-            lineHeight={isMobile ? 16 : 18}
+            size={isMobile ? '$headingSm' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 20 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -2564,7 +2580,7 @@ function TradingButtonGroupLive({
   const tradingMode = activeTradeInstrumentForMode.mode;
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
-  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const marketDataFreshness = usePerpsOrderFormMarketDataFreshness();
   const liveHandleConfirmRef = useRef(noopHandleConfirm);
   const handleConfirm = useCallback(
     (overrideSide?: 'long' | 'short') =>

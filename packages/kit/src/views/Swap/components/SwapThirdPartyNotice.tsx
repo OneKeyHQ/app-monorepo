@@ -96,6 +96,8 @@ function showSwapHowTradingWorksDialog({ intl }: { intl: IntlShape }) {
 
 // Tells users that swaps are provided by third parties, with an entry to the
 // "How trading works" explainer. Sits below the trade card on the Swap page.
+// It is a footnote under the trade action, so it takes the faintest text
+// color and leaves the emphasis to the form above it.
 // Memoized: it takes no props, while its parents re-render on every keystroke
 // and quote update and the dashed underline is expensive to reconcile on
 // native.
@@ -103,7 +105,7 @@ export const SwapThirdPartyNotice = memo(function SwapThirdPartyNotice() {
   const intl = useIntl();
   return (
     <YStack testID="swap-third-party-notice" alignItems="center" gap="$1">
-      <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+      <SizableText size="$bodySm" color="$textDisabled" textAlign="center">
         {intl.formatMessage({
           id: ETranslations.swap_third_party_notice__desc,
         })}
@@ -111,8 +113,8 @@ export const SwapThirdPartyNotice = memo(function SwapThirdPartyNotice() {
       <DashText
         testID="swap-how-trading-works"
         size="$bodySm"
-        color="$textSubdued"
-        dashColor="$textSubdued"
+        color="$textDisabled"
+        dashColor="$textDisabled"
         cursor="pointer"
         role="button"
         hoverStyle={{ color: '$text' }}

@@ -26,6 +26,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getCexDepositWarningFacts } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -122,6 +123,7 @@ export type IAddressInputValue = {
   };
   similarAddress?: string;
   cexSupportedInfo?: ICexSupportedInfo;
+  exchangeDisplayName?: string;
 };
 
 type IAddressInputActionsLayout = 'default' | 'recipient';
@@ -156,6 +158,7 @@ type IAddressInputProps = Omit<
 
   enableAddressContract?: boolean;
   enableAddressInteractionStatus?: boolean; // for check address interaction
+  recipientOnlyBadges?: boolean;
   enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
   enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
@@ -336,6 +339,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableWalletName,
     accountId,
     enableAddressInteractionStatus,
+    recipientOnlyBadges,
     enableAddressContract,
     enableVerifySendFundToSelf,
     enableAllowListValidation,
@@ -374,8 +378,14 @@ export function AddressInput(props: IAddressInputProps) {
   >(undefined);
 
   const inputTypeRef = useRef<EInputAddressChangeType | undefined>(undefined);
-  const queryContextRef = useRef({ networkId, accountId, tokenAddress });
-  queryContextRef.current = { networkId, accountId, tokenAddress };
+  const queryContext = {
+    networkId,
+    accountId,
+    tokenAddress,
+    recipientOnlyBadges,
+  };
+  const queryContextRef = useRef(queryContext);
+  queryContextRef.current = queryContext;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const hasAppliedQueryContextRef = useRef(false);
@@ -461,6 +471,8 @@ export function AddressInput(props: IAddressInputProps) {
           params.networkId === currentQueryContext.networkId &&
           params.accountId === currentQueryContext.accountId &&
           params.tokenAddress === currentQueryContext.tokenAddress &&
+          params.recipientOnlyBadges ===
+            currentQueryContext.recipientOnlyBadges &&
           (!resolvedAddressContext ||
             selectedResolveAddressRef.current ===
               resolvedAddressContext.resolveAddress)
@@ -481,6 +493,7 @@ export function AddressInput(props: IAddressInputProps) {
       accountId,
       enableAddressBook,
       enableAddressInteractionStatus,
+      recipientOnlyBadges,
       enableNameResolve,
       enableWalletName,
       enableVerifySendFundToSelf,
@@ -495,6 +508,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableAddressBook,
       enableAddressContract,
       enableAddressInteractionStatus,
+      recipientOnlyBadges,
       enableAllowListValidation,
       enableCheckSimilarAddressInAddressBook,
       enableNameResolve,
@@ -540,7 +554,7 @@ export function AddressInput(props: IAddressInputProps) {
       raw: textRef.current,
       pending: true,
     });
-  }, [accountId, networkId, tokenAddress]);
+  }, [accountId, networkId, tokenAddress, recipientOnlyBadges]);
 
   // Query address validation when text changes
   useEffect(() => {
@@ -569,6 +583,10 @@ export function AddressInput(props: IAddressInputProps) {
       isContract: queryResult.isContract,
       similarAddress: queryResult.similarAddress,
       cexSupportedInfo: queryResult.cexSupportedInfo,
+      exchangeDisplayName: getCexDepositWarningFacts({
+        exchangeLabel: queryResult.cexSupportedInfo?.cexLabel,
+        addressBadges: queryResult.addressBadges,
+      }).exchangeName,
     };
     if (queryResult.validStatus === 'valid') {
       clearErrors(name);

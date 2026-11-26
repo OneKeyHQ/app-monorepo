@@ -17,6 +17,7 @@ import { createHardwareCloudSyncDataError } from './hardwareCloudSyncLog';
 import {
   downloadAllForReset,
   isHardwareCloudSyncKeyEnvelopeItem,
+  matchesRecordFields,
   readLockEnvelope,
   reencryptHardwareCloudSyncItems,
   requestWithHardwareCloudSyncSession,
@@ -340,15 +341,15 @@ async function reencryptLocalItems(
       if (
         before &&
         after &&
-        record.pwdHash === before.pwdHash &&
-        record.data === before.data &&
-        record.rawData === before.rawData &&
-        record.dataTime === before.dataTime &&
-        record.isDeleted === before.isDeleted &&
-        record.pendingPublicAccountDeletionAt ===
-          before.pendingPublicAccountDeletionAt &&
-        record.pendingPublicAccountDeletionHash ===
-          before.pendingPublicAccountDeletionHash
+        matchesRecordFields(record, before, [
+          'pwdHash',
+          'data',
+          'rawData',
+          'dataTime',
+          'isDeleted',
+          'pendingPublicAccountDeletionAt',
+          'pendingPublicAccountDeletionHash',
+        ])
       ) {
         record.data = after.data;
         record.pwdHash = after.pwdHash;

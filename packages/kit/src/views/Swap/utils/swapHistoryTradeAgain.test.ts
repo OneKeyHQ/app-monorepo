@@ -121,12 +121,47 @@ describe('swap history Trade Again', () => {
     expect(
       getSwapHistorySourceIntentKey({
         swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapTabPrefill: { requestId: 'new-route', fromToken, toToken },
+      }),
+    ).not.toBe(
+      getSwapHistorySourceIntentKey({
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(
+      getSwapHistorySourceIntentKey({
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
       }),
     ).not.toBe(
       getSwapHistorySourceIntentKey({
         swapTabSwitchType: ESwapTabSwitchType.STOCK,
       }),
     );
+  });
+
+  it('keeps the history owner through cleanup and releases it for the next tab-only entry', () => {
+    const entry = {
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      swapTabNavigationId: 'first-delivery',
+    };
+    const historyOwner = getSwapHistorySourceIntentKey({
+      ...entry,
+      swapTabPrefill: { requestId: 'first-delivery', fromToken, toToken },
+    });
+
+    expect(getSwapHistorySourceIntentKey(entry)).toBe(historyOwner);
+    expect(
+      getSwapHistorySourceIntentKey({
+        ...entry,
+        swapTabNavigationId: 'next-delivery',
+      }),
+    ).not.toBe(historyOwner);
+    expect(
+      getSwapHistorySourceIntentKey({
+        ...entry,
+        swapTabSwitchType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).not.toBe(historyOwner);
   });
   it.each([
     ESwapTxHistoryStatus.SUCCESS,
@@ -230,6 +265,34 @@ describe('swap history Trade Again', () => {
     expect(result?.importToToken.networkId).toBe('sol--101');
     expect(result?.fromAmount).toBeUndefined();
   });
+
+  it.each(['sol--101', 'ton--mainnet'])(
+    'reacquires the multiplier for both contract tokens restored on %s',
+    (networkId) => {
+      const item = history();
+      item.baseInfo.fromToken = {
+        ...toToken,
+        networkId,
+        contractAddress: 'pay-mint',
+        balanceMultiplier: '1',
+      };
+      item.baseInfo.toToken = {
+        ...toToken,
+        networkId,
+        contractAddress: 'receive-mint',
+        balanceMultiplier: '2',
+      };
+      const route = buildSwapHistoryTradeAgainParams(item);
+      expect(route?.importFromToken).toMatchObject({
+        contractAddress: 'pay-mint',
+        balanceMultiplier: undefined,
+      });
+      expect(route?.importToToken).toMatchObject({
+        contractAddress: 'receive-mint',
+        balanceMultiplier: undefined,
+      });
+    },
+  );
 
   it('routes Stock history and legacy stock tokens to the Stock tab', () => {
     const item = history();

@@ -76,18 +76,26 @@ export type ICloudSyncReconciliationAdapter = {
     signal: AbortSignal;
     timeoutMs: number;
   }): Promise<ICloudSyncCheckServerStatusResult>;
+  getAdditionalUploadKeys?(
+    response: ICloudSyncCheckServerStatusResult,
+  ): string[];
   // Transactions must check signal/isCurrent before committing. Returning a
-  // receipt counts accepted record-version/deletion changes, excluding mere
-  // ciphertext changes and rejected business records. It is not a batch size.
+  // receipt counts applied record versions/deletions and skipped account
+  // versions that can advance the summary.
   apply(options: {
     response: ICloudSyncCheckServerStatusResult;
     signal: AbortSignal;
-  }): Promise<{ applied: number } | void>;
+  }): Promise<{ applied: number; skipped?: number } | void>;
   uploadObsoleted(options: {
     keys: string[];
     response: ICloudSyncCheckServerStatusResult;
     signal: AbortSignal;
-  }): Promise<{ uploaded: number } | void>;
+  }): Promise<{
+    uploaded: number;
+    skipped?: number;
+    // Legacy-only local verification that was interrupted, not a skip or ACK.
+    verificationDeferred?: number;
+  } | void>;
   isCurrent(): boolean;
   // A recognized declaration enables bounded draining; it does not prove
   // that a deployed backend has passed its independent acceptance tests.

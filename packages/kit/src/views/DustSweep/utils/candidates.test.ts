@@ -177,13 +177,22 @@ describe('Dust Sweep candidate eligibility', () => {
       added.visible.find((token) => token.key === 'risk-hidden')?.suspicious,
     ).toBe(true);
   });
-  it('does not expose scaled tokens that the existing Swap pipeline cannot execute', () => {
-    expect(
-      buildFixtureCandidates(
-        response([{ key: 'scaled', value: '4', balanceMultiplier: '3' }]),
-        'sol--101',
-      ),
-    ).toEqual([]);
+  it('keeps the Wallet balance and USD value on their original bases for scaled tokens', () => {
+    const data = response([
+      { key: 'scaled', value: '4', balanceMultiplier: '2' },
+    ]);
+    data.tokens.map.scaled.balanceMultiplier = '3';
+
+    expect(buildFixtureCandidates(data, 'sol--101')).toMatchObject([
+      {
+        key: 'scaled',
+        amount: '1.234567',
+        balanceParsed: '1.234567',
+        balanceMultiplier: '3',
+        fiatValue: '4',
+        valueUsd: '4',
+      },
+    ]);
   });
   it.each(['NaN', 'Infinity', '-1', '0'])(
     'rejects nonpositive or invalid USD value %s',
@@ -259,10 +268,10 @@ describe('Dust Sweep candidates from Swap identities', () => {
       buildDustSweepCandidates(data, 'evm--1', swapTokens).map(
         (token) => token.contractAddress,
       ),
-    ).toEqual(['valid']);
+    ).toEqual(['scaled', 'valid']);
   });
 
-  it('does not discard a Swap risk or multiplier exclusion when Wallet data looks eligible', () => {
+  it('keeps the Swap spam exclusion and uses the catalog multiplier when Wallet omits it', () => {
     const data = response([
       { key: 'swap-spam', value: '1' },
       { key: 'swap-scaled', value: '1' },
@@ -270,15 +279,22 @@ describe('Dust Sweep candidates from Swap identities', () => {
     ]);
     const swapTokens = [
       { ...swapToken('swap-spam'), riskLevel: ETokenRiskLevel.SPAM },
-      { ...swapToken('swap-scaled'), balanceMultiplier: '2' },
+      {
+        ...swapToken('swap-scaled'),
+        balanceMultiplier: '2',
+        balanceParsed: '2.469134',
+      },
       swapToken('valid'),
     ];
 
-    expect(
-      buildDustSweepCandidates(data, 'evm--1', swapTokens).map(
-        (token) => token.contractAddress,
-      ),
-    ).toEqual(['valid']);
+    expect(buildDustSweepCandidates(data, 'evm--1', swapTokens)).toMatchObject([
+      {
+        contractAddress: 'swap-scaled',
+        amount: '1.234567',
+        balanceMultiplier: '2',
+      },
+      { contractAddress: 'valid' },
+    ]);
   });
 
   it('matches and deduplicates EVM addresses case-insensitively', () => {

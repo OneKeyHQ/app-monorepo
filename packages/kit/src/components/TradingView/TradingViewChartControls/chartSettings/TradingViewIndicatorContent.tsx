@@ -93,7 +93,10 @@ function TradingViewIndicatorContent({
     >
       {/* The mobile settings page prints the indicator name in its own
           header, so the group only carries the title on desktop. */}
-      <SettingsGroup title={mobileLayout ? undefined : indicator.title}>
+      <SettingsGroup
+        title={mobileLayout ? undefined : indicator.title}
+        description={indicator.description}
+      >
         {parameterRows.map((parameters) => (
           <TradingViewIndicatorParameterRow
             key={parameters[0]?.rowId ?? parameters[0]?.id}

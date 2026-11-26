@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -30,6 +31,15 @@ const buildParams = {
   tradeSource: ESwapTradeSource.SWAP_BRIDGE,
 };
 
+const xmrToken: ISwapToken = {
+  networkId: 'xmr--0',
+  contractAddress: '',
+  decimals: 12,
+  symbol: 'XMR',
+  isNative: true,
+};
+const xmrPrimaryAddress = `4${'aB'.repeat(47)}`;
+
 function createService() {
   const getBoundEvmReferralCodeWalletInfo = jest.fn().mockResolvedValue({
     address: '0xbound',
@@ -41,11 +51,16 @@ function createService() {
     .mockResolvedValue({ 'X-OneKey-Wallet-Type': 'hd' });
   const post = jest.fn().mockResolvedValue({ data: { data: {} } });
   const getAccountDeviceSafe = jest.fn().mockResolvedValue(null);
+  const getAccountAddressForApi = jest
+    .fn()
+    .mockResolvedValue(xmrPrimaryAddress);
+  const localValidateAddress = jest.fn().mockResolvedValue({ isValid: true });
   const service = new ServiceSwap({
     backgroundApi: {
       serviceReferralCode: { getBoundEvmReferralCodeWalletInfo },
       serviceAccountProfile: { _getWalletTypeHeader: getWalletTypeHeader },
-      serviceAccount: { getAccountDeviceSafe },
+      serviceAccount: { getAccountDeviceSafe, getAccountAddressForApi },
+      serviceValidator: { localValidateAddress },
     },
   });
   jest.spyOn(service, 'getClient').mockResolvedValue({ post } as never);
@@ -54,6 +69,8 @@ function createService() {
     getBoundEvmReferralCodeWalletInfo,
     getWalletTypeHeader,
     getAccountDeviceSafe,
+    getAccountAddressForApi,
+    localValidateAddress,
     post,
   };
 }
@@ -153,6 +170,120 @@ describe('ServiceSwap build transaction context', () => {
       }),
       expect.any(Object),
     );
+  });
+
+  it.each(['SwapChangelly', 'SwapRocketX'])(
+    'accepts %s XMR orders with both bound IDs',
+    async (provider) => {
+      jest.replaceProperty(platformEnv, 'isWeb', false);
+      const { service, localValidateAddress, post } = createService();
+      const params = {
+        ...buildParams,
+        provider,
+        toToken: xmrToken,
+        receivingAddress: xmrPrimaryAddress,
+      };
+      const build = {
+        orderId: 'onekey-order',
+        changellyOrder: {
+          orderId: 'channel-order',
+          payinAddress: '0xdeposit',
+          amountExpectedFrom: '1.0',
+        },
+        result: {
+          info: { provider },
+          fromTokenInfo: params.fromToken,
+          toTokenInfo: params.toToken,
+          fromAmount: '1',
+        },
+        ctx:
+          provider === 'SwapChangelly'
+            ? { changellyOrderId: 'channel-order' }
+            : { rocketXOrderId: 'channel-order' },
+      };
+      post.mockResolvedValueOnce({ data: { data: build } });
+
+      await expect(service.fetchBuildTx(params)).resolves.toEqual(build);
+      expect(localValidateAddress).toHaveBeenCalledWith({
+        networkId: 'xmr--0',
+        address: xmrPrimaryAddress,
+      });
+      expect(post).toHaveBeenCalledWith(
+        '/swap/v1/build-tx',
+        expect.objectContaining({ receivingAddress: xmrPrimaryAddress }),
+        expect.any(Object),
+      );
+
+      post.mockResolvedValueOnce({
+        data: { data: { ...build, orderId: undefined } },
+      });
+      await expect(service.fetchBuildTx(params)).rejects.toThrow(
+        'XMR swap order could not be verified',
+      );
+
+      for (const inconsistentBuild of [
+        { ...build, swftOrder: { platformAddr: '0xdeposit' } },
+        { ...build, result: { ...build.result, fromAmount: '2' } },
+        {
+          ...build,
+          result: {
+            ...build.result,
+            fromTokenInfo: { ...build.result.fromTokenInfo, isNative: true },
+          },
+        },
+        {
+          ...build,
+          result: {
+            ...build.result,
+            fromTokenInfo: { ...build.result.fromTokenInfo, decimals: 18 },
+          },
+        },
+        { ...build, orderId: undefined, reviewQuoteExpiredBeforeSubmit: true },
+      ]) {
+        post.mockResolvedValueOnce({ data: { data: inconsistentBuild } });
+        await expect(service.fetchBuildTx(params)).rejects.toThrow(
+          'XMR swap order could not be verified',
+        );
+      }
+
+      post.mockResolvedValueOnce({
+        data: { data: { ...build, reviewQuoteExpiredBeforeSubmit: true } },
+      });
+      await expect(service.fetchBuildTx(params)).resolves.toEqual(build);
+
+      post.mockResolvedValueOnce({
+        data: {
+          data: {
+            ...build,
+            changellyOrder: {
+              ...build.changellyOrder,
+              orderId: 'unbound-order',
+            },
+          },
+        },
+      });
+      await expect(service.fetchBuildTx(params)).rejects.toThrow(
+        'XMR swap order could not be verified',
+      );
+    },
+  );
+
+  it('keeps the XMR refund address bound to the source account before calling the service', async () => {
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    const { service, getAccountAddressForApi, post } = createService();
+    const params = {
+      ...buildParams,
+      fromToken: xmrToken,
+      userAddress: `4${'cD'.repeat(47)}`,
+      provider: 'SwapChangelly',
+    };
+
+    await expect(service.fetchBuildTx(params)).rejects.toThrow();
+    expect(getAccountAddressForApi).toHaveBeenCalledWith({
+      accountId: params.accountId,
+      networkId: 'xmr--0',
+    });
+    expect(post).not.toHaveBeenCalled();
   });
 
   it('keeps Market attribution and the quoted provider for native BTC outbound builds', async () => {

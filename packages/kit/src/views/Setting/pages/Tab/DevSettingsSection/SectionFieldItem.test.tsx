@@ -11,6 +11,7 @@ import {
 } from '@testing-library/react';
 
 import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IIdentityExitPlan,
   IIdentityExitPlanId,
@@ -26,7 +27,12 @@ const mockUpdateSetting = jest
   .mockResolvedValue(undefined);
 const mockToastError = jest.fn<void, unknown[]>();
 const mockClose = jest.fn<Promise<void>, []>();
-const mockShowDialog = jest.fn((options: { onClose: () => void }) => {
+type IDialogOptions = {
+  onClose: () => void;
+  title: string;
+  renderContent: ReactNode;
+};
+const mockShowDialog = jest.fn((options: IDialogOptions) => {
   mockClose.mockImplementation(async () => options.onClose());
   return { close: mockClose };
 });
@@ -73,7 +79,26 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
 jest.mock('@onekeyhq/components', () => ({
   Toast: { error: (...args: unknown[]) => mockToastError(...args) },
   Dialog: {
-    show: (options: { onClose: () => void }) => mockShowDialog(options),
+    show: (options: IDialogOptions) => mockShowDialog(options),
+    Footer: ({
+      onConfirm,
+      onConfirmText,
+    }: {
+      onConfirm: (params: {
+        preventClose: () => void;
+        close: () => Promise<void>;
+      }) => Promise<void>;
+      onConfirmText: string;
+    }) => (
+      <button
+        type="button"
+        onClick={() =>
+          void onConfirm({ preventClose: () => undefined, close: mockClose })
+        }
+      >
+        {onConfirmText}
+      </button>
+    ),
   },
 }));
 
@@ -128,16 +153,27 @@ describe('API environment switch', () => {
   });
 
   test.each([false, true])(
-    'switches without presenting a logout confirmation from test=%s',
+    'switches from test=%s after the required confirmation',
     async (wasTest) => {
       mockTestEndpoint = wasTest;
       triggerEnvironmentSwitch();
+      if (wasTest) {
+        await waitFor(() => expect(mockShowDialog).toHaveBeenCalledTimes(1));
+        expect(mockExecuteExit).not.toHaveBeenCalled();
+        expect(mockUpdateSetting).not.toHaveBeenCalled();
+        const { renderContent, title } = mockShowDialog.mock.calls[0][0];
+        expect(title).toBe(ETranslations.prime_onekeyid_log_out);
+        const dialog = render(renderContent);
+        fireEvent.click(
+          dialog.getByRole('button', { name: ETranslations.prime_log_out }),
+        );
+      }
       await waitFor(() => expect(mockUpdateSetting).toHaveBeenCalled());
       expect(mockPrepareExit).toHaveBeenCalledWith({
         type: 'switchEnvironment',
         scene: 'devSettings',
       });
-      expect(mockShowDialog).not.toHaveBeenCalled();
+      expect(mockShowDialog).toHaveBeenCalledTimes(wasTest ? 1 : 0);
       expect(mockUpdateSetting).toHaveBeenCalledWith(
         'enableTestEndpoint',
         !wasTest,
@@ -151,6 +187,16 @@ describe('API environment switch', () => {
       );
     },
   );
+
+  test('keeps the test environment when the user dismisses confirmation', async () => {
+    mockTestEndpoint = true;
+    const view = triggerEnvironmentSwitch();
+    await waitFor(() => expect(mockShowDialog).toHaveBeenCalledTimes(1));
+    await act(async () => mockClose());
+    expect(mockExecuteExit).not.toHaveBeenCalled();
+    expect(mockUpdateSetting).not.toHaveBeenCalled();
+    expect(view.getByRole('switch')).toHaveProperty('checked', true);
+  });
 
   test('updates the environment when identity exit is already completed', async () => {
     mockPrepareExit.mockResolvedValueOnce({
@@ -220,6 +266,7 @@ describe('API environment switch', () => {
   });
 
   test('keeps the Keyless removal confirmation for a destructive plan', async () => {
+    mockTestEndpoint = true;
     mockPrepareExit.mockResolvedValueOnce({
       status: 'ready',
       planId: 'environment-exit' as IIdentityExitPlanId,

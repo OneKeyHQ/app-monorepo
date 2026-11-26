@@ -1,12 +1,13 @@
 import {
   type CSSProperties,
+  Fragment,
   type ReactNode,
   useCallback,
   useMemo,
   useState,
 } from 'react';
 
-import { I18nManager } from 'react-native';
+import { I18nManager, processColor } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -37,6 +38,11 @@ export interface IDashTextProps extends ISizableTextProps {
   dashOverlay?: boolean;
   /** Draw an underline for each wrapped line instead of the whole text box. */
   multiline?: boolean;
+  /**
+   * Plain text laid out in the same paragraph before `children`, which keeps
+   * its dashes, e.g. a sentence ending in a dashed link. Implies `multiline`.
+   */
+  leadingText?: ReactNode;
   // Widened from `string` so a formatted value (a price, a percentage) can
   // carry the same dashes as a plain label. Every existing caller passes a
   // string, which is still a ReactNode.
@@ -60,6 +66,80 @@ export interface IDashTextProps extends ISizableTextProps {
   tooltipHovering?: boolean;
 }
 
+type ITextLine = { x: number; y: number; width: number; height: number };
+
+// The parts of the paragraph lines that follow the leading text (LTR text).
+// The leading text laid out alone breaks like the paragraph, so its last line
+// is the paragraph line where the dashed text starts, and its width says where
+// on that line, whatever the alignment. That width leaves out a trailing
+// space; the copy ending in a word joiner keeps it, when that copy breaks the
+// same way (it can wrap one word earlier).
+function getTrailingLines(
+  lines: ITextLine[],
+  leadingLines: ITextLine[],
+  leadingLinesWithSpace: ITextLine[],
+): ITextLine[] {
+  const leadingEnd = leadingLines[leadingLines.length - 1];
+  if (!leadingEnd) {
+    return [];
+  }
+  const startWidth =
+    leadingLinesWithSpace.length === leadingLines.length
+      ? leadingLinesWithSpace[leadingLinesWithSpace.length - 1].width
+      : leadingEnd.width;
+  return lines
+    .slice(leadingLines.length - 1)
+    .map((line, index) => {
+      const x = index === 0 ? line.x + startWidth : line.x;
+      return { ...line, x, width: line.x + line.width - x };
+    })
+    .filter((line) => line.width >= 1);
+}
+
+type ITextLayoutHandler = Exclude<
+  ISizableTextProps['onTextLayout'],
+  'unset' | undefined
+>;
+
+// An invisible copy of the text at the paragraph's width, laid out only to
+// read its lines; it gets just the props that affect layout.
+function TextLayoutProbe({
+  textProps,
+  width,
+  onTextLayout,
+  children,
+}: {
+  textProps: ISizableTextProps;
+  width: number;
+  onTextLayout: ITextLayoutHandler;
+  children: ReactNode;
+}) {
+  return (
+    <SizableText
+      size={textProps.size}
+      fontSize={textProps.fontSize}
+      fontFamily={textProps.fontFamily}
+      fontWeight={textProps.fontWeight}
+      fontStyle={textProps.fontStyle}
+      fontVariant={textProps.fontVariant}
+      lineHeight={textProps.lineHeight}
+      letterSpacing={textProps.letterSpacing}
+      textTransform={textProps.textTransform}
+      position="absolute"
+      top={0}
+      left={0}
+      width={width}
+      opacity={0}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      onTextLayout={onTextLayout}
+    >
+      {children}
+    </SizableText>
+  );
+}
+
 function DashTextCore({
   children,
   dashLength = 3,
@@ -68,8 +148,9 @@ function DashTextCore({
   dashSpacing = 1,
   dashColor = '$borderStrong',
   dashOverlay = false,
-  multiline = false,
-  length = 200,
+  multiline: multilineProp = false,
+  leadingText,
+  length: maxDashCount,
   onTextLayout,
   ...textProps
 }: Omit<
@@ -80,14 +161,36 @@ function DashTextCore({
   | 'tooltipPlacement'
   | 'tooltipTriggerAsChild'
 >) {
+  const multiline = multilineProp || leadingText !== undefined;
+  const length = maxDashCount ?? 200;
   const theme = useTheme();
   const [textWidth, setTextWidth] = useState(0);
-  const [textLines, setTextLines] = useState<
-    { x: number; y: number; width: number; height: number }[]
-  >([]);
-  const handleTextLayout = useCallback<
-    Exclude<ISizableTextProps['onTextLayout'], 'unset' | undefined>
-  >(
+  const [textLines, setTextLines] = useState<ITextLine[]>([]);
+  const [leadingMeasurements, setLeadingMeasurements] = useState<{
+    plain?: { width: number; lines: ITextLine[] };
+    withSpace?: { width: number; lines: ITextLine[] };
+  }>({});
+  const handleLeadingTextLayout = useCallback<ITextLayoutHandler>(
+    (event) => {
+      const { lines } = event.nativeEvent;
+      setLeadingMeasurements((previous) => ({
+        ...previous,
+        plain: { width: textWidth, lines },
+      }));
+    },
+    [textWidth],
+  );
+  const handleLeadingTextWithSpaceLayout = useCallback<ITextLayoutHandler>(
+    (event) => {
+      const { lines } = event.nativeEvent;
+      setLeadingMeasurements((previous) => ({
+        ...previous,
+        withSpace: { width: textWidth, lines },
+      }));
+    },
+    [textWidth],
+  );
+  const handleTextLayout = useCallback<ITextLayoutHandler>(
     (event) => {
       setTextLines(event.nativeEvent.lines);
       if (typeof onTextLayout === 'function') {
@@ -96,12 +199,8 @@ function DashTextCore({
     },
     [onTextLayout],
   );
-  const resolvedDashThickness = platformEnv.isNative
-    ? dashThickness
-    : Math.max(1, dashThickness);
-  const webDashScaleY = platformEnv.isNative
-    ? 1
-    : Math.max(0, Math.min(1, dashThickness));
+  const webDashThickness = Math.max(1, dashThickness);
+  const webDashScaleY = Math.max(0, Math.min(1, dashThickness));
   const webDashWrapperStyle = useMemo<CSSProperties | undefined>(
     () =>
       platformEnv.isNative
@@ -123,19 +222,17 @@ function DashTextCore({
             }px)`,
             WebkitMaskPosition: 'left bottom',
             WebkitMaskRepeat: 'repeat-x',
-            WebkitMaskSize: `${
-              dashLength + dashGap
-            }px ${resolvedDashThickness}px`,
+            WebkitMaskSize: `${dashLength + dashGap}px ${webDashThickness}px`,
             maskImage: `repeating-linear-gradient(to right, #000 0 ${dashLength}px, #000 ${dashLength}px, transparent ${dashLength}px, transparent ${
               dashLength + dashGap
             }px)`,
             maskPosition: 'left bottom',
             maskRepeat: 'repeat-x',
-            maskSize: `${dashLength + dashGap}px ${resolvedDashThickness}px`,
+            maskSize: `${dashLength + dashGap}px ${webDashThickness}px`,
             transform: `translateZ(0) scaleY(${webDashScaleY})`,
             transformOrigin: 'top left',
           },
-    [dashGap, dashLength, resolvedDashThickness, webDashScaleY],
+    [dashGap, dashLength, webDashThickness, webDashScaleY],
   );
 
   const dashColorValue = dashColor.startsWith('$')
@@ -167,11 +264,26 @@ function DashTextCore({
     setTextWidth(event.nativeEvent.layout.width);
   }, []);
 
+  const onLayout = textProps.onLayout;
+  const handleParagraphLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      handleLayout(event);
+      onLayout?.(event);
+    },
+    [handleLayout, onLayout],
+  );
+
   const overlayProps = dashOverlay
     ? ({ position: 'absolute', bottom: 0, left: 0, right: 0 } as const)
     : undefined;
 
   if (!platformEnv.isNative) {
+    const webDashedChildren =
+      multiline && length > 0 ? (
+        <span style={webMultilineStyle}>{children}</span>
+      ) : (
+        children
+      );
     return (
       <YStack alignItems="flex-start" style={webDashWrapperStyle}>
         <SizableText
@@ -180,17 +292,20 @@ function DashTextCore({
           paddingBottom={dashOverlay ? 0 : '$0.2'}
           maxWidth={multiline ? '100%' : textProps.maxWidth}
         >
-          {multiline && length > 0 ? (
-            <span style={webMultilineStyle}>{children}</span>
+          {leadingText === undefined ? (
+            webDashedChildren
           ) : (
-            children
+            <>
+              {leadingText}
+              {webDashedChildren}
+            </>
           )}
         </SizableText>
         {length > 0 && !multiline ? (
           <YStack
             width="100%"
             mt={dashOverlay ? 0 : dashSpacing}
-            height={resolvedDashThickness}
+            height={webDashThickness}
             bg={dashColor}
             pointerEvents="none"
             style={webDashLineStyle}
@@ -201,19 +316,100 @@ function DashTextCore({
     );
   }
 
+  // Android misplaces native underline endpoints on wrapped text.
+  const tracksAndroidWrapping = platformEnv.isNativeAndroid && multiline;
+  const hasDashes = length > 0 && dashThickness > 0;
+  const useMeasuredDashes =
+    hasDashes &&
+    (leadingText !== undefined ||
+      maxDashCount !== undefined ||
+      textProps.textDecorationLine !== undefined ||
+      (tracksAndroidWrapping && textLines.length > 1));
+
+  // Android treats transparent decoration as a request to use the text color.
+  const nativeDashColor = platformEnv.isNativeAndroid
+    ? processColor(dashColorValue)
+    : undefined;
+  const hasVisibleDashColor =
+    typeof nativeDashColor !== 'number' || nativeDashColor >>> 24 !== 0;
+  const decorationProps =
+    hasDashes && !useMeasuredDashes && hasVisibleDashColor
+      ? ({
+          textDecorationLine: 'underline',
+          textDecorationStyle: 'dashed',
+          textDecorationColor: dashColor,
+        } as const)
+      : undefined;
+  const reservesDashHeight = !dashOverlay && length > 0;
+
+  const renderDashes = (width: number) => {
+    const period = dashLength + dashGap;
+    const count =
+      period > 0 && width > 0 ? Math.min(length, Math.ceil(width / period)) : 0;
+    return Array.from({ length: count }, (_, index) => (
+      <YStack
+        key={index}
+        width={dashLength}
+        height={dashThickness}
+        bg={dashColor}
+        flexShrink={0}
+      />
+    ));
+  };
+
   if (multiline) {
+    const hasLeadingText = leadingText !== undefined;
+    const measureLeadingText = hasDashes && hasLeadingText;
+    const dashOffset = dashOverlay ? -dashThickness : dashSpacing;
+    const { plain, withSpace } = leadingMeasurements;
+    let dashedLines = textLines;
+    if (measureLeadingText) {
+      dashedLines =
+        plain?.width === textWidth && withSpace?.width === textWidth
+          ? getTrailingLines(textLines, plain.lines, withSpace.lines)
+          : [];
+    }
     return (
       <YStack
         maxWidth="100%"
-        paddingBottom={
-          dashOverlay || length <= 0 ? 0 : dashSpacing + dashThickness
-        }
+        paddingBottom={reservesDashHeight ? dashSpacing + dashThickness : 0}
       >
-        <SizableText {...textProps} onTextLayout={handleTextLayout}>
+        <SizableText
+          {...textProps}
+          {...decorationProps}
+          onLayout={hasLeadingText ? handleParagraphLayout : onLayout}
+          onTextLayout={
+            hasLeadingText ||
+            (hasDashes && (useMeasuredDashes || tracksAndroidWrapping))
+              ? handleTextLayout
+              : onTextLayout
+          }
+        >
+          {leadingText}
           {children}
         </SizableText>
-        {length > 0
-          ? textLines.map((line, lineIndex) => (
+        {measureLeadingText && textWidth > 0 ? (
+          // The joiner preserves the trailing space in the second measurement.
+          <Fragment key={`probes-${textWidth}`}>
+            <TextLayoutProbe
+              textProps={textProps}
+              width={textWidth}
+              onTextLayout={handleLeadingTextLayout}
+            >
+              {leadingText}
+            </TextLayoutProbe>
+            <TextLayoutProbe
+              textProps={textProps}
+              width={textWidth}
+              onTextLayout={handleLeadingTextWithSpaceLayout}
+            >
+              {leadingText}
+              {'\u2060'}
+            </TextLayoutProbe>
+          </Fragment>
+        ) : null}
+        {useMeasuredDashes
+          ? dashedLines.map((line, lineIndex) => (
               <XStack
                 key={lineIndex}
                 position="absolute"
@@ -221,34 +417,14 @@ function DashTextCore({
                 start={I18nManager.isRTL ? undefined : line.x}
                 end={I18nManager.isRTL ? line.x : undefined}
                 flexDirection={I18nManager.isRTL ? 'row-reverse' : 'row'}
-                top={
-                  line.y +
-                  line.height +
-                  (dashOverlay ? -dashThickness : dashSpacing)
-                }
+                top={line.y + line.height + dashOffset}
                 width={line.width}
                 height={dashThickness}
                 gap={dashGap}
                 overflow="hidden"
                 pointerEvents="none"
               >
-                {Array.from(
-                  {
-                    length: Math.min(
-                      length,
-                      Math.ceil(line.width / Math.max(1, dashLength + dashGap)),
-                    ),
-                  },
-                  (_, i) => (
-                    <YStack
-                      key={i}
-                      width={dashLength}
-                      height={dashThickness}
-                      bg={dashColor}
-                      flexShrink={0}
-                    />
-                  ),
-                )}
+                {renderDashes(line.width)}
               </XStack>
             ))
           : null}
@@ -256,39 +432,40 @@ function DashTextCore({
     );
   }
 
+  const label = (
+    <SizableText
+      {...textProps}
+      {...decorationProps}
+      onTextLayout={onTextLayout}
+      paddingBottom={dashOverlay ? 0 : '$0.2'}
+    >
+      {children}
+    </SizableText>
+  );
   return (
-    <YStack alignItems="flex-start">
-      <YStack onLayout={handleLayout}>
-        <SizableText
-          {...textProps}
-          onTextLayout={onTextLayout}
-          paddingBottom={dashOverlay ? 0 : '$0.2'}
-        >
-          {children}
-        </SizableText>
-      </YStack>
-      {length > 0 ? (
-        <XStack
-          gap={dashGap}
-          height={dashThickness}
-          overflow="hidden"
-          flexWrap="nowrap"
-          width={textWidth || 0}
-          {...overlayProps}
-        >
-          {textWidth > 0
-            ? Array.from({ length }, (_, i) => (
-                <YStack
-                  key={i}
-                  width={dashLength}
-                  height={resolvedDashThickness}
-                  bg={dashColor}
-                  flexShrink={0}
-                />
-              ))
-            : null}
-        </XStack>
-      ) : null}
+    <YStack
+      alignItems="flex-start"
+      paddingBottom={
+        !useMeasuredDashes && reservesDashHeight ? dashThickness : 0
+      }
+    >
+      {useMeasuredDashes ? (
+        <>
+          <YStack onLayout={handleLayout}>{label}</YStack>
+          <XStack
+            gap={dashGap}
+            height={dashThickness}
+            overflow="hidden"
+            flexWrap="nowrap"
+            width={textWidth}
+            {...overlayProps}
+          >
+            {renderDashes(textWidth)}
+          </XStack>
+        </>
+      ) : (
+        label
+      )}
     </YStack>
   );
 }

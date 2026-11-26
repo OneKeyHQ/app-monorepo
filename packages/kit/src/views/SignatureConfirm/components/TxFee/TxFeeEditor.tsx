@@ -37,8 +37,11 @@ import {
   calculateCkbTotalFee,
   calculateNeoN3TotalFee,
   calculateSolTotalFee,
+  calculateStarknetMinFee,
+  calculateStarknetTotalFee,
   calculateSuiTotalFee,
   calculateTotalFeeNative,
+  getStarknetFeeForBudget,
 } from '@onekeyhq/shared/src/utils/feeUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import type {
@@ -210,9 +213,14 @@ function TxFeeEditor(props: IProps) {
     sendSelectedFee.feeType,
   );
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
+  const canSaveDefaultCustomFee =
+    !isDappSuggestedFeeInfo && !customFee?.feeStarknet;
 
   const { feeSymbol, feeDecimals, nativeSymbol, nativeTokenPrice } =
     customFee?.common ?? {};
+  const originalStarknetMaxFee = customFee?.feeStarknet
+    ? calculateStarknetTotalFee({ feeInfo: customFee }).toFixed()
+    : '';
 
   const {
     vaultSettings,
@@ -293,12 +301,43 @@ function TxFeeEditor(props: IProps) {
       neoN3PriorityFee: new BigNumber(customFee?.feeNeoN3?.priorityFee ?? '0')
         .shiftedBy(-feeDecimals)
         .toFixed(),
+      starknetMaxFee: originalStarknetMaxFee,
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
 
   const watchAllFields = form.watch();
+  const estimatedStarknetFee = feeSelectorItems.find(
+    (item) => item.type === EFeeType.Standard && item.feeInfo.feeStarknet,
+  )?.feeInfo;
+  const getCustomStarknetFee = useCallback(
+    (maxFee: string) => {
+      if (!estimatedStarknetFee) return undefined;
+      const fee = getStarknetFeeForBudget({
+        feeInfo: estimatedStarknetFee,
+        maxFee,
+      });
+      if (
+        fee &&
+        sendSelectedFee.feeType === EFeeType.Custom &&
+        new BigNumber(maxFee).eq(originalStarknetMaxFee)
+      ) {
+        return customFee?.feeStarknet;
+      }
+      return fee;
+    },
+    [
+      customFee?.feeStarknet,
+      estimatedStarknetFee,
+      originalStarknetMaxFee,
+      sendSelectedFee.feeType,
+    ],
+  );
+  const customStarknetFee = useMemo(
+    () => getCustomStarknetFee(watchAllFields.starknetMaxFee),
+    [getCustomStarknetFee, watchAllFields.starknetMaxFee],
+  );
 
   const customFeeInfo = useMemo(
     () => ({
@@ -356,6 +395,7 @@ function TxFeeEditor(props: IProps) {
           .shiftedBy(feeDecimals)
           .toFixed(0),
       },
+      feeStarknet: customStarknetFee,
     }),
     [
       customFee?.common,
@@ -368,6 +408,7 @@ function TxFeeEditor(props: IProps) {
       customFee?.feeDot,
       customFee?.feeBudget,
       customFee?.feeNeoN3,
+      customStarknetFee,
       watchAllFields.gasPrice,
       watchAllFields.gasLimitLegacy,
       watchAllFields.priorityFee,
@@ -448,11 +489,10 @@ function TxFeeEditor(props: IProps) {
     };
   }, [feeSelectorItems]);
 
-  const isSaveFeeDisabled = useMemo(() => {
-    if (currentFeeType === EFeeType.Standard) return false;
-
-    return !form.formState.isValid;
-  }, [currentFeeType, form.formState.isValid]);
+  const isSaveFeeDisabled =
+    currentFeeType === EFeeType.Custom &&
+    (!form.formState.isValid ||
+      (!!customFee?.feeStarknet && !customStarknetFee));
 
   const handleValidateMaxBaseFee = useCallback(
     (value: string) => {
@@ -858,7 +898,7 @@ function TxFeeEditor(props: IProps) {
   );
 
   const handleApplyFeeInfo = useCallback(async () => {
-    if (!isDappSuggestedFeeInfo) {
+    if (canSaveDefaultCustomFee) {
       void backgroundApiProxy.serviceGas.updateCustomFeeInfo({
         networkId,
         enabled: defaultCustomFeeInfoEnabled,
@@ -901,6 +941,7 @@ function TxFeeEditor(props: IProps) {
     });
     await dialog?.close();
   }, [
+    canSaveDefaultCustomFee,
     currentFeeIndex,
     currentFeeType,
     customFeeInfo,
@@ -1056,6 +1097,31 @@ function TxFeeEditor(props: IProps) {
   const renderFeeEditorForm = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
     if (currentFeeType !== EFeeType.Custom || !customFee) return null;
+
+    if (customFee.feeStarknet) {
+      return (
+        <Form form={form}>
+          <Form.Field
+            label={intl.formatMessage({ id: ETranslations.fee_max_fee })}
+            name="starknetMaxFee"
+            rules={{
+              required: true,
+              validate: (value: string) =>
+                getCustomStarknetFee(value)
+                  ? true
+                  : intl.formatMessage({
+                      id: ETranslations.defi_action_invalid_amount__msg,
+                    }),
+            }}
+          >
+            <Input
+              testID="sig-confirm-starknet-max-fee"
+              addOns={[{ label: feeSymbol }]}
+            />
+          </Form.Field>
+        </Form>
+      );
+    }
 
     if (customFee?.feeAlgo) {
       return (
@@ -1580,6 +1646,7 @@ function TxFeeEditor(props: IProps) {
     feeAlert,
     feeSymbol,
     form,
+    getCustomStarknetFee,
     feeSelectorItems,
     handleFormValueOnChange,
     handleValidateComputeUnitPrice,
@@ -1610,7 +1677,27 @@ function TxFeeEditor(props: IProps) {
         ? customFee
         : feeSelectorItems[currentFeeIndex]?.feeInfo) ?? {};
 
-    if (fee.feeAlgo) {
+    if (fee.feeStarknet) {
+      const estimated = calculateStarknetMinFee({
+        feeInfo: estimatedStarknetFee ?? fee,
+      });
+      feeInfoItems = [
+        {
+          label: intl.formatMessage({
+            id: ETranslations.global_est_network_fee,
+          }),
+          nativeValue: estimated.toFixed(),
+          nativeSymbol,
+        },
+      ];
+      if (currentFeeType !== EFeeType.Custom) {
+        feeInfoItems.push({
+          label: intl.formatMessage({ id: ETranslations.fee_max_fee }),
+          nativeValue: calculateStarknetTotalFee({ feeInfo: fee }).toFixed(),
+          nativeSymbol,
+        });
+      }
+    } else if (fee.feeAlgo) {
       let feeAlgo = new BigNumber(0);
       if (currentFeeType === EFeeType.Custom) {
         feeAlgo = new BigNumber(watchAllFields.flatFee || 0);
@@ -2009,6 +2096,7 @@ function TxFeeEditor(props: IProps) {
     feeSelectorItems,
     currentFeeIndex,
     estimateFeeParams?.estimateFeeParamsSol,
+    estimatedStarknetFee,
     intl,
     nativeSymbol,
     nativeTokenPrice,
@@ -2132,7 +2220,7 @@ function TxFeeEditor(props: IProps) {
             />
           ) : null}
           {renderFeeEditorForm()}
-          {isDappSuggestedFeeInfo ||
+          {!canSaveDefaultCustomFee ||
           currentFeeType !== EFeeType.Custom ||
           !customFee ? null : (
             <Checkbox

@@ -2,6 +2,7 @@
 import type { IHardwarePathTestRequest } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IIdentityExitPlan,
   IIdentityExitPlanId,
@@ -29,6 +30,15 @@ const mockSetSettings = jest.fn(
     mockSettings = update(mockSettings);
   },
 );
+const mockInvalidateColdCloudActionTime = jest.fn();
+jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
+  __esModule: true,
+  default: {
+    invalidateColdCloudActionTime: () => {
+      mockInvalidateColdCloudActionTime();
+    },
+  },
+}));
 const mockClearEmailSessions = jest.fn<Promise<void>, []>();
 const mockPrepareExit = jest.fn<Promise<IIdentityExitPlan>, [unknown]>();
 const mockExecuteExit = jest.fn<Promise<IIdentityExitReceipt>, [unknown]>();
@@ -98,6 +108,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isNative: false,
     isDesktop: false,
     isJest: true,
+    isDev: false,
     isNativeBackgroundThread: false,
   },
 }));
@@ -271,11 +282,47 @@ describe('OneKey ID environment switching', () => {
     await service.updateDevSetting('enableTestEndpoint', true);
     await service.updateDevSetting('enableAnalyticsRequest', true);
     expect(mockPrepareExit).not.toHaveBeenCalled();
+    expect(mockInvalidateColdCloudActionTime).not.toHaveBeenCalled();
     expect(mockClearEmailSessions).not.toHaveBeenCalled();
     expect(mockUnregister).not.toHaveBeenCalled();
     await jest.runOnlyPendingTimersAsync();
     expect(mockRestart).not.toHaveBeenCalled();
   });
+
+  test('invalidates the cold sync clock at the endpoint setting mutation before deferred restart', async () => {
+    mockInvalidateColdCloudActionTime.mockImplementationOnce(() => {
+      expect(mockSettings.settings?.enableTestEndpoint).toBe(true);
+    });
+    await createService().updateDevSetting('enableTestEndpoint', false);
+    expect(mockInvalidateColdCloudActionTime).toHaveBeenCalledTimes(1);
+    expect(mockSettings.settings?.enableTestEndpoint).toBe(false);
+    expect(mockRestart).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    EServiceEndpointEnum.Wallet,
+    EServiceEndpointEnum.Prime,
+    EServiceEndpointEnum.Swap,
+  ])(
+    'only changes the cold sync clock for relevant custom API routes: %s',
+    async (serviceModule) => {
+      jest.replaceProperty(platformEnv, 'isDev', true);
+      const service = createService();
+      await service.updateDevSetting('customApiEndpoints', [
+        {
+          serviceModule,
+          enabled: true,
+          api: 'https://custom.onekeycn.com',
+          id: 'synthetic',
+          name: 'synthetic',
+        },
+      ]);
+      expect(mockInvalidateColdCloudActionTime).toHaveBeenCalledTimes(
+        serviceModule === EServiceEndpointEnum.Swap ? 0 : 1,
+      );
+      expect(mockRestart).not.toHaveBeenCalled();
+    },
+  );
 
   test('still switches and restarts when unregistering notifications rejects', async () => {
     mockUnregister.mockRejectedValueOnce(

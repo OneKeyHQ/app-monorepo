@@ -77,6 +77,11 @@ export type IHardwareCloudSyncSession = {
   refreshToken: string;
   sessionId: string;
   dekId: string;
+  environment?: 'prod' | 'test';
+  // Issuance address required for persisted sessions. Environment-aware
+  // requests use the current official address for this environment.
+  boundBaseURL?: string;
+  boundBaseURLVerified?: boolean;
 };
 
 export type IHardwareCloudSyncDeviceKeyJwk = {

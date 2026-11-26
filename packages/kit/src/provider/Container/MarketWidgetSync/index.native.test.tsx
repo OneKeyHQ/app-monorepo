@@ -2,17 +2,23 @@
 
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 
+import type { IMarketWidgetChartMode } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { MarketWidgetSync } from './index.native';
 
 const mockSetConfiguration = jest.fn(async (_value: unknown) => undefined);
+const mockEmitToSelf = jest.fn();
+const mockSetChartMode = jest.fn(
+  async (_mode: IMarketWidgetChartMode) => undefined,
+);
 const mockGetNativeTokenAddress = jest.fn(async (_value: unknown) => '0xeeee');
 let mockWatchlist: IMarketWatchListItemV2[] = [];
 const mockReadWatchlist = jest.fn(async () => ({ data: mockWatchlist }));
 let mockSupported = true;
 let mockStockSupported = true;
 let mockMasked = false;
+let mockChartMode: IMarketWidgetChartMode = 'simple';
 let mockWatchlistChanged: (() => void) | undefined;
 let mockAppStateChanged: ((state: string) => void) | undefined;
 
@@ -29,14 +35,23 @@ jest.mock('react-native', () => ({
     },
   },
 }));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useMarketDetailChartDisplayModePersistAtom: () => [{ mode: mockChartMode }],
+}));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: { MarketWatchListV2Changed: 'watchlist' },
+  EAppEventBusNames: {
+    MarketWatchListV2Changed: 'watchlist',
+    MarketWidgetConfigurationSynced: 'widget-configuration-synced',
+  },
   appEventBus: {
     on: (_name: string, callback: () => void) => {
       mockWatchlistChanged = callback;
     },
     off: () => {
       mockWatchlistChanged = undefined;
+    },
+    emitToSelf: (event: unknown) => {
+      mockEmitToSelf(event);
     },
   },
 }));
@@ -49,6 +64,7 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
     isSupported: () => mockSupported,
     supportsStockAssets: () => mockStockSupported,
     setConfiguration: (value: unknown) => mockSetConfiguration(value),
+    setChartMode: (mode: IMarketWidgetChartMode) => mockSetChartMode(mode),
   },
 }));
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
@@ -78,11 +94,22 @@ describe('native market widget sync host', () => {
     mockSupported = true;
     mockStockSupported = true;
     mockMasked = false;
+    mockChartMode = 'simple';
     mockWatchlist = [
       { chainId: 'evm--1', contractAddress: '', isNative: true },
     ];
   });
   afterEach(cleanup);
+
+  it('syncs the selected chart mode to the native widget on mount and on change', async () => {
+    const { rerender } = render(<MarketWidgetSync />);
+    await waitFor(() => expect(mockSetConfiguration).toHaveBeenCalledTimes(1));
+    expect(mockSetChartMode).toHaveBeenNthCalledWith(1, 'simple');
+
+    mockChartMode = 'pro';
+    rerender(<MarketWidgetSync />);
+    expect(mockSetChartMode).toHaveBeenNthCalledWith(2, 'pro');
+  });
 
   it.each([true, false])(
     'syncs mixed favorites only to stock-capable binaries: %s',
@@ -152,6 +179,24 @@ describe('native market widget sync host', () => {
     });
     expect(mockReadWatchlist).not.toHaveBeenCalled();
     expect(mockSetConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('notifies the editor only after the native configuration is written', async () => {
+    let finishWrite = () => {};
+    mockSetConfiguration.mockReturnValueOnce(
+      new Promise<undefined>((resolve) => {
+        finishWrite = () => resolve(undefined);
+      }),
+    );
+    render(<MarketWidgetSync />);
+    await waitFor(() => expect(mockSetConfiguration).toHaveBeenCalledTimes(1));
+    expect(mockEmitToSelf).not.toHaveBeenCalled();
+    await act(async () => finishWrite());
+    expect(mockEmitToSelf).toHaveBeenCalledWith({
+      type: 'widget-configuration-synced',
+      payload: undefined,
+      isRemote: false,
+    });
   });
 
   it('clears exported identities in the masked runtime without reading the real watchlist', async () => {

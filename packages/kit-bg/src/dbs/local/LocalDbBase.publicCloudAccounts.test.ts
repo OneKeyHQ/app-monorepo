@@ -2,6 +2,8 @@ import { createHash } from 'crypto';
 
 import { cloneDeep } from 'lodash';
 
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
+import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -24,6 +26,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
+import { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
 import { EIndexedDBBucketNames } from './types';
 
 import type {
@@ -89,6 +92,8 @@ class PublicAccountTestDb extends LocalDbBase {
   writes: ELocalDBStoreNames[] = [];
 
   useRealmAccountProjection = false;
+
+  useRealmCloudSchema = false;
 
   projectRecord<T extends ELocalDBStoreNames>(
     name: T,
@@ -256,6 +261,21 @@ class PublicAccountTestDb extends LocalDbBase {
         const input = { ...current };
         const updated = await updater(input);
         if (
+          this.useRealmCloudSchema &&
+          name === ELocalDBStoreNames.CloudSyncItem
+        ) {
+          if (
+            updated !== input ||
+            Object.keys(updated).some(
+              (key) =>
+                !Object.hasOwn(RealmSchemaCloudSyncItem.schema.properties, key),
+            )
+          )
+            throw new OneKeyLocalError(
+              'Expected a writable Realm schema field',
+            );
+        }
+        if (
           this.useRealAvatarHashes &&
           name === ELocalDBStoreNames.IndexedAccount &&
           updated !== input
@@ -384,6 +404,93 @@ describe('wallet metadata avatar seed sync', () => {
 });
 
 describe('LocalDbBase.importPublicCloudAccounts', () => {
+  it.each([
+    'newer',
+    'realm-newer',
+    'older',
+    'equal',
+    'pending-edit',
+    'pending-delete',
+    'malformed-old-dek',
+    'malformed-old-ciphertext',
+    'truncated-old-ciphertext',
+    'deleted',
+    'unexpected-raw-key',
+    'missing-local',
+    'changed-before-transaction',
+  ] as const)(
+    'handles a proven live cache replacement: %s',
+    async (variant) => {
+      const db = new PublicAccountTestDb();
+      const cloud = account(9);
+      const local = { ...cloud, name: 'New local name' };
+      if (variant !== 'missing-local') await db.run([local]);
+      const old = {
+        id: sha512ProSync({ data: 'public-key' }),
+        rawKey: 'public-key',
+        rawData: '',
+        dataType: EPrimeCloudSyncDataType.Account,
+        data: `${'ab'.repeat(variant === 'truncated-old-ciphertext' ? 27 : 48)}${variant === 'malformed-old-ciphertext' ? 'zz' : ''}`,
+        dataTime: 10,
+        pwdHash: `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${(variant === 'malformed-old-dek' ? 'A' : 'a').repeat(64)}`,
+        isDeleted: variant === 'deleted',
+        localSceneUpdated: true,
+        serverUploaded: variant !== 'pending-edit',
+        ...(variant === 'pending-delete'
+          ? { pendingPublicAccountDeletionAt: 12 }
+          : {}),
+      } satisfies IDBCloudSyncItem;
+      db.put(ELocalDBStoreNames.CloudSyncItem, { ...old });
+      const times = { older: 9, equal: 10 };
+      const incoming = {
+        ...old,
+        rawKey: variant === 'unexpected-raw-key' ? 'wrong-key' : old.rawKey,
+        data: 'verified-current ciphertext',
+        dataTime:
+          variant === 'older' || variant === 'equal' ? times[variant] : 11,
+        pwdHash: `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}new-source`,
+        isDeleted: false,
+        localSceneUpdated: false,
+        serverUploaded: true,
+        pendingPublicAccountDeletionAt: undefined,
+      };
+      const replaced = variant === 'newer' || variant === 'realm-newer';
+      db.useRealmCloudSchema = variant === 'realm-newer';
+      const expectedOld =
+        variant === 'changed-before-transaction'
+          ? { ...old, pendingPublicAccountDeletionAt: 13 }
+          : old;
+      if (variant === 'changed-before-transaction') {
+        db.beforeTransaction = () =>
+          db.put(ELocalDBStoreNames.CloudSyncItem, expectedOld);
+      }
+      expect(
+        await db.importPublicCloudAccounts({
+          walletId: WALLET.id,
+          expectedWallet: { kind: 'hd', xfp: XFP, hidden: false },
+          expectedCredential: 'encrypted-local-test-credential',
+          accounts: [cloud],
+          sourceItemsByAccountId: new Map([[cloud.id, incoming]]),
+          foreignAccountsByWireId: new Map([[old.id, old]]),
+          isCurrent: () => true,
+        }),
+      ).toMatchObject({
+        added: 0,
+        unchanged: replaced ? 1 : 0,
+        pending: replaced ? 0 : 1,
+        appliedAccountIds: replaced ? [local.id] : [],
+      });
+      expect(db.stores.get(ELocalDBStoreNames.Account)?.get(local.id)).toEqual(
+        variant === 'missing-local' ? undefined : local,
+      );
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(old.id),
+      ).toMatchObject(
+        replaced ? { ...incoming, localSceneUpdated: true } : expectedOld,
+      );
+    },
+  );
+
   it('restores a missing index for an existing matching account', async () => {
     const db = new PublicAccountTestDb();
     const cloud = account(9);
@@ -930,6 +1037,83 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     expect(db.writes).toEqual([]);
   });
 
+  it('replays confirmed same-time account metadata into the business record', async () => {
+    const db = new PublicAccountTestDb();
+    const addChangeHistory = jest.fn(async () => {
+      throw new OneKeyLocalError('Synthetic history write failure');
+    });
+    db.setBackgroundApi({
+      simpleDb: { changeHistory: { addChangeHistory } },
+    } as unknown as IBackgroundApi);
+    const local = { ...account(), name: 'Local name', accountOrderSaved: 7 };
+    const cloud = {
+      ...account(),
+      name: 'Cloud name',
+      createAtNetwork: 'evm--1',
+    };
+    db.put(ELocalDBStoreNames.Account, local);
+    const sources = db.prepareSources([cloud], false, 20);
+    const source = sources.get(cloud.id);
+    if (!source) throw new OneKeyLocalError('Missing synthetic cloud version');
+    const pending = { ...source, data: 'local version', serverUploaded: false };
+    db.put(ELocalDBStoreNames.CloudSyncItem, pending);
+    await db.addAndUpdateSyncItems({
+      items: [source],
+      skipUploadToServer: true,
+    });
+    await db.addAndUpdateSyncItems({
+      items: [pending],
+      skipUploadToServer: true,
+    });
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
+    ).toMatchObject({
+      data: source.data,
+      dataTime: 20,
+      serverUploaded: true,
+    });
+
+    await expect(
+      db.importPublicCloudAccounts({
+        walletId: WALLET.id,
+        expectedWallet: { kind: 'hd', xfp: XFP, hidden: false },
+        expectedCredential: 'encrypted-local-test-credential',
+        accounts: [cloud],
+        sourceItemsByAccountId: sources,
+        isCurrent: () => true,
+      }),
+    ).resolves.toMatchObject({ updated: 1, conflicts: 0 });
+    expect(
+      db.stores.get(ELocalDBStoreNames.Account)?.get(local.id),
+    ).toMatchObject({
+      name: cloud.name,
+      createAtNetwork: cloud.createAtNetwork,
+      accountOrderSaved: 7,
+    });
+    expect(addChangeHistory).toHaveBeenCalledWith({
+      items: [
+        expect.objectContaining({
+          entityId: local.id,
+          oldValue: local.name,
+          value: cloud.name,
+        }),
+      ],
+    });
+  });
+
+  it('applies a remote deletion when the local creation network differs', async () => {
+    const db = new PublicAccountTestDb();
+    const original = { ...account(), createAtNetwork: 'evm--137' };
+    db.put(ELocalDBStoreNames.Account, original);
+    await expect(db.delete([account()])).resolves.toMatchObject({
+      deleted: 1,
+      conflicts: 0,
+    });
+    expect(db.stores.get(ELocalDBStoreNames.Account)?.has(original.id)).toBe(
+      false,
+    );
+  });
+
   it('advances one wallet counter per batch, preserves other counters, and never decreases it', async () => {
     const db = new PublicAccountTestDb();
     db.put(ELocalDBStoreNames.Wallet, {
@@ -1280,6 +1464,71 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     expect(db.stores.get(ELocalDBStoreNames.Credential)?.get(WALLET.id)).toBe(
       beforeCredential,
     );
+  });
+
+  it.each(['createAtNetwork', 'relPath'] as const)(
+    'applies a remote account deletion when Realm stores missing %s as null',
+    async (field) => {
+      const db = new PublicAccountTestDb();
+      db.useRealmAccountProjection = true;
+      const source =
+        field === 'createAtNetwork'
+          ? account()
+          : (await publicAccountAllChainFixtures()).find(
+              ({ impl }) => impl === 'cosmos',
+            )?.account;
+      if (!source) throw new OneKeyLocalError('Missing public account fixture');
+      const snapshot = buildPublicAccountSnapshot({
+        wallet: WALLET,
+        account: source,
+      });
+      if (!snapshot) throw new OneKeyLocalError('Missing public snapshot');
+      const incoming = publicAccountSnapshotToAccount(snapshot, WALLET.id);
+      expect(incoming[field]).toBeUndefined();
+      await db.run([incoming]);
+      const local = Object.assign({ ...incoming }, { [field]: null });
+      db.put(ELocalDBStoreNames.Account, local);
+
+      expect(await db.delete([incoming])).toMatchObject({
+        deleted: 1,
+        conflicts: 0,
+      });
+      expect(db.stores.get(ELocalDBStoreNames.Account)?.has(incoming.id)).toBe(
+        false,
+      );
+      expect(
+        db.stores.get(ELocalDBStoreNames.IndexedAccount)?.has('hd-1--0'),
+      ).toBe(false);
+    },
+  );
+
+  it('projects missing Realm account fields as undefined and keeps zero values', () => {
+    const row = Object.create(
+      RealmSchemaAccount.prototype,
+    ) as RealmSchemaAccount;
+    Object.assign(row, account(), {
+      pathIndex: null,
+      relPath: null,
+      indexedAccountId: null,
+      createAtNetwork: null,
+      accountOrderSaved: null,
+    });
+    expect(row.record).toMatchObject({
+      pathIndex: undefined,
+      relPath: undefined,
+      indexedAccountId: undefined,
+      createAtNetwork: undefined,
+      accountOrderSaved: undefined,
+    });
+
+    const stored = {
+      pathIndex: 0,
+      relPath: '0/0',
+      indexedAccountId: 'hd-1--0',
+      createAtNetwork: 'evm--1',
+      accountOrderSaved: 0,
+    };
+    expect(Object.assign(row, stored).record).toMatchObject(stored);
   });
 
   it('retains a shared index and its name while another chain references it', async () => {
@@ -1860,6 +2109,157 @@ describe('cloud tombstone cleanup source guard', () => {
     expect(
       db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
     ).toEqual(change === 'unchanged' ? undefined : current);
+  });
+});
+
+describe('wrong-key cloud pool pruning', () => {
+  const oldCopy: IDBCloudSyncItem = {
+    id: 'synthetic-old-bookmark',
+    dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+    dataTime: 100,
+    data: 'synthetic-old-ciphertext',
+    rawData: undefined,
+    rawKey: '',
+    pwdHash: 'synthetic-previous-key',
+    isDeleted: false,
+    localSceneUpdated: false,
+    serverUploaded: true,
+  };
+
+  it.each([false, true])(
+    'prunes an unchanged old copy, deleted=%s',
+    async (isDeleted) => {
+      const db = new PublicAccountTestDb();
+      const copy = { ...oldCopy, isDeleted };
+      db.put(ELocalDBStoreNames.CloudSyncItem, copy);
+
+      await db.pruneWrongKeyCloudSyncPoolItems({
+        expectedItems: [copy],
+        activePwdHash: 'synthetic-active-key',
+        isCurrent: () => true,
+      });
+
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(copy.id),
+      ).toBeUndefined();
+    },
+  );
+
+  it.each([
+    { data: 'synthetic-replacement' },
+    { dataTime: 101 },
+    { pwdHash: 'synthetic-active-key' },
+    { rawKey: 'changed-raw-key' },
+    { rawData: 'scene-cache' },
+    { pendingPublicAccountDeletionAt: 101 },
+    { isDeleted: false },
+    { localSceneUpdated: true },
+    { serverUploaded: false },
+  ])('preserves a concurrent change: %j', async (change) => {
+    const db = new PublicAccountTestDb();
+    const source = { ...oldCopy, isDeleted: true };
+    const current = { ...source, ...change };
+    db.put(ELocalDBStoreNames.CloudSyncItem, source);
+    db.beforeTransaction = () =>
+      db.put(ELocalDBStoreNames.CloudSyncItem, current);
+
+    await db.pruneWrongKeyCloudSyncPoolItems({
+      expectedItems: [source],
+      activePwdHash: 'synthetic-active-key',
+      isCurrent: () => true,
+    });
+
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
+    ).toEqual(current);
+  });
+
+  it.each([EPrimeCloudSyncDataType.Wallet, EPrimeCloudSyncDataType.Account])(
+    'preserves an inactive hardware %s even if proposed for pruning',
+    async (dataType) => {
+      const db = new PublicAccountTestDb();
+      const copy = { ...oldCopy, dataType };
+      db.put(ELocalDBStoreNames.CloudSyncItem, copy);
+
+      await db.pruneWrongKeyCloudSyncPoolItems({
+        expectedItems: [copy],
+        activePwdHash: 'hw-dek-active',
+        isCurrent: () => true,
+      });
+
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(copy.id),
+      ).toEqual(copy);
+    },
+  );
+
+  it.each([
+    EPrimeCloudSyncDataType.AddressBook,
+    EPrimeCloudSyncDataType.BrowserBookmark,
+    EPrimeCloudSyncDataType.CustomNetwork,
+    EPrimeCloudSyncDataType.CustomRpc,
+    EPrimeCloudSyncDataType.MarketWatchList,
+  ])(
+    'preserves an applied foreign cross-space deletion tombstone with empty rawData (%s)',
+    async (dataType) => {
+      const db = new PublicAccountTestDb();
+      const copy: IDBCloudSyncItem = {
+        ...oldCopy,
+        dataType,
+        isDeleted: true,
+        localSceneUpdated: true,
+        rawData: '',
+      };
+      db.put(ELocalDBStoreNames.CloudSyncItem, copy);
+
+      await db.pruneWrongKeyCloudSyncPoolItems({
+        expectedItems: [copy],
+        activePwdHash: 'synthetic-active-key',
+        isCurrent: () => true,
+      });
+
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(copy.id),
+      ).toEqual(copy);
+    },
+  );
+
+  it('rolls back a prune if the key generation changes during the write', async () => {
+    const db = new PublicAccountTestDb();
+    db.put(ELocalDBStoreNames.CloudSyncItem, oldCopy);
+    let isCurrent = true;
+    db.afterWrite = () => {
+      isCurrent = false;
+    };
+
+    await expect(
+      db.pruneWrongKeyCloudSyncPoolItems({
+        expectedItems: [oldCopy],
+        activePwdHash: 'synthetic-active-key',
+        isCurrent: () => isCurrent,
+      }),
+    ).rejects.toThrow('Cloud sync cleanup was cancelled');
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(oldCopy.id),
+    ).toEqual(oldCopy);
+  });
+
+  it('does not accept a live record in strict server tombstone cleanup', async () => {
+    const db = new PublicAccountTestDb();
+    db.put(ELocalDBStoreNames.CloudSyncItem, oldCopy);
+
+    await db.removeCloudSyncPoolItems({
+      keys: [oldCopy.id],
+      expectedItems: [oldCopy],
+    });
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(oldCopy.id),
+    ).toEqual(oldCopy);
+
+    await db.removeCloudSyncPoolItems({ keys: [oldCopy.id] });
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(oldCopy.id),
+    ).toBeUndefined();
   });
 });
 

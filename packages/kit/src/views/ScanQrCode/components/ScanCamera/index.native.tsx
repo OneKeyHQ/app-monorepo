@@ -3,25 +3,53 @@ import {
   useCallback,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { callback } from 'react-native-nitro-modules';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { IScanCameraProps, IScanCameraRef } from './types';
+import type {
+  IScanCameraInfo,
+  IScanCameraProps,
+  IScanCameraRef,
+} from './types';
+import type { IMultiQrSymbol } from '../../utils/multiQrSymbols';
+import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParamListBase } from '@react-navigation/routers';
-import type { CameraApi } from 'react-native-camera-kit';
 
-const nativeCamera = platformEnv.isNativeIOSMacCatalyst
+// Mac Catalyst has no scanner camera; image decoding still works there.
+const qrScanner = platformEnv.isNativeIOSMacCatalyst
   ? undefined
-  : (require('react-native-camera-kit') as typeof import('react-native-camera-kit'));
+  : (require('@onekeyfe/react-native-qr-scanner') as typeof import('@onekeyfe/react-native-qr-scanner'));
 
-export type { IScanCameraProps, IScanCameraRef };
+const QR_SCANNER_ERROR_CODES: readonly QrScannerErrorCode[] = [
+  'permission-denied',
+  'no-camera',
+  'camera-busy',
+  'decoder-unavailable',
+  'invalid-image',
+  'resource-limit',
+];
+
+function toErrorCode(code: string): QrScannerErrorCode {
+  return (QR_SCANNER_ERROR_CODES as readonly string[]).includes(code)
+    ? (code as QrScannerErrorCode)
+    : 'decoder-unavailable';
+}
+
+export type { IScanCameraInfo, IScanCameraProps, IScanCameraRef };
 
 type ICameraNavigation = NativeStackNavigationProp<ParamListBase>;
+type ICaptureActivity = {
+  status: 'idle' | 'active' | 'paused' | 'disposed';
+  epoch: number;
+};
 
 function ScreenCameraActivity({
   onActiveChange,
@@ -73,35 +101,65 @@ function ScreenCameraActivity({
 
 export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
   function ScanCamera(
-    { children, handleScanResult, disableNavigationGuard, ...rest },
+    {
+      children,
+      handleScanResult,
+      onFrameSymbols,
+      multiSymbol,
+      frozen,
+      onCameraError,
+      onCameraReady,
+      cameraId,
+      disableNavigationGuard,
+      style,
+    },
     ref,
   ) {
-    const activeRef = useRef(disableNavigationGuard === true);
+    const [activity, setActivity] = useState<ICaptureActivity>({
+      status: disableNavigationGuard ? 'active' : 'idle',
+      epoch: 0,
+    });
+    // Navigation events retire capture before React commits the next view.
+    const requestedActivity = useRef(activity);
     const mountedRef = useRef(true);
-    const disposedRef = useRef(false);
-    const cameraRef = useRef<CameraApi | null>(null);
+    const hasOnFrameSymbols = typeof onFrameSymbols === 'function';
+    const handlers = useRef({
+      handleScanResult,
+      onFrameSymbols,
+      onCameraError,
+      onCameraReady,
+    });
+    handlers.current = {
+      handleScanResult,
+      onFrameSymbols,
+      onCameraError,
+      onCameraReady,
+    };
 
     const onActiveChange = useCallback((active: boolean) => {
-      if (disposedRef.current) return;
-      activeRef.current = active;
-      cameraRef.current?.setActive(active);
-    }, []);
-
-    const setCameraRef = useCallback((camera: CameraApi | null) => {
-      cameraRef.current = camera;
-      if (!camera) return;
-      if (disposedRef.current) {
-        camera.dispose();
-      } else {
-        camera.setActive(activeRef.current);
-      }
+      const current = requestedActivity.current;
+      const status = active ? 'active' : 'paused';
+      if (
+        current.status === 'disposed' ||
+        current.status === status ||
+        (!active && current.status === 'idle')
+      )
+        return;
+      // A resume needs a fresh view even if React batches away active={false}.
+      const next: ICaptureActivity = {
+        status,
+        epoch: current.epoch + (active && current.status === 'paused' ? 1 : 0),
+      };
+      requestedActivity.current = next;
+      setActivity(next);
     }, []);
 
     const dispose = useCallback(() => {
-      if (disposedRef.current) return;
-      disposedRef.current = true;
-      activeRef.current = false;
-      cameraRef.current?.dispose();
+      const current = requestedActivity.current;
+      if (current.status === 'disposed') return;
+      const next = { ...current, status: 'disposed' } as const;
+      requestedActivity.current = next;
+      setActivity(next);
     }, []);
 
     useImperativeHandle(ref, () => ({ dispose }), [dispose]);
@@ -113,33 +171,78 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       };
     }, []);
 
+    const { epoch } = activity;
+    const nativeCallbacks = useMemo(() => {
+      let current: { generation: number; ready: boolean } | undefined;
+      const isCurrent = (generation: number) =>
+        mountedRef.current &&
+        requestedActivity.current.status === 'active' &&
+        requestedActivity.current.epoch === epoch &&
+        generation >= (current?.generation ?? 0);
+
+      return {
+        onReady: callback((generation: number, activeCameraId?: string) => {
+          if (!isCurrent(generation)) return;
+          current = { generation, ready: true };
+          handlers.current.onCameraReady?.(activeCameraId);
+        }),
+        onFrameText: callback((text: string, generation: number) => {
+          if (
+            !isCurrent(generation) ||
+            !current?.ready ||
+            generation !== current.generation
+          ) {
+            return;
+          }
+          handlers.current.handleScanResult?.(text);
+        }),
+        ...(hasOnFrameSymbols
+          ? {
+              onFrameSymbols: callback(
+                (symbols: IMultiQrSymbol[], generation: number) => {
+                  if (
+                    !isCurrent(generation) ||
+                    !current?.ready ||
+                    generation !== current.generation
+                  ) {
+                    return;
+                  }
+                  handlers.current.onFrameSymbols?.({
+                    symbols,
+                    coordinateSpace: 'view',
+                  });
+                },
+              ),
+            }
+          : null),
+        onError: callback(
+          (code: string, _message: string, generation: number) => {
+            if (!isCurrent(generation)) return;
+            current = { generation, ready: false };
+            handlers.current.onCameraError?.(toErrorCode(code));
+          },
+        ),
+      };
+    }, [epoch, hasOnFrameSymbols]);
+
+    const extraNativeProps = {
+      ...(multiSymbol !== undefined ? { multiSymbol } : null),
+      ...(frozen !== undefined ? { frozen } : null),
+    };
+
     return (
       <>
-        {!disableNavigationGuard && nativeCamera ? (
+        {!disableNavigationGuard && qrScanner ? (
           <ScreenCameraActivity onActiveChange={onActiveChange} />
         ) : null}
-        {nativeCamera ? (
-          <nativeCamera.Camera
-            ref={setCameraRef}
-            style={{ flex: 1 }}
-            resizeMode="cover"
-            showFrame={false}
-            zoom={1}
-            zoomMode="on"
-            cameraType={nativeCamera.CameraType.Back}
-            scanBarcode
-            onReadCode={({ nativeEvent: { codeStringValue } }) => {
-              if (
-                disposedRef.current ||
-                !mountedRef.current ||
-                !activeRef.current ||
-                typeof codeStringValue !== 'string'
-              ) {
-                return;
-              }
-              handleScanResult?.(codeStringValue);
-            }}
-            {...rest}
+        {qrScanner ? (
+          <qrScanner.QrScannerView
+            style={[{ flex: 1 }, style]}
+            key={epoch}
+            active={activity.status === 'active'}
+            cameraId={cameraId}
+            {...extraNativeProps}
+            {...nativeCallbacks}
           />
         ) : null}
         {children}

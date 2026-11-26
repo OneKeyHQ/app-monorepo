@@ -2,9 +2,14 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { privacyChainAtom } from '../states/jotai/atoms';
 
+import { readAppResetPrivacyCleanup } from './appResetState';
+
 import type { ILocalWalletCapability } from '../vaults/localWallet/types';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
+jest.mock('./appResetState', () => ({
+  readAppResetPrivacyCleanup: jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockGetChainOnlyVault = jest.fn();
 const mockGetVault = jest.fn();
@@ -883,9 +888,18 @@ describe('Privacy database erasure', () => {
   it.each([
     { pending: [] as string[], expected: [] as string[] },
     { pending: ['zec--0'], expected: ['zec--0'] },
+    { pending: [], journal: ['xmr--0'], expected: ['xmr--0'] },
+    { pending: [], journal: null, expected: ['zec--0', 'xmr--0'] },
   ])(
-    'wipes only networks that may hold data (pending $pending)',
-    async ({ pending, expected }) => {
+    'wipes networks that may hold data (pending $pending, journal $journal)',
+    async ({ pending, journal, expected }) => {
+      jest
+        .mocked(readAppResetPrivacyCleanup)
+        .mockResolvedValueOnce(
+          journal === undefined
+            ? undefined
+            : { id: 'interrupted-reset', networkIds: journal },
+        );
       const dropped: string[] = [];
       mockGetChainOnlyVault.mockImplementation(
         async ({ networkId }: { networkId: string }) => ({
@@ -1141,7 +1155,7 @@ describe('Privacy page reads while the runtime is held', () => {
     mockGetChainOnlyVault.mockReset();
   });
 
-  function createService() {
+  function createService(custom?: { enabled: boolean; rpc: string }) {
     const never = () => new Promise<never>(() => {});
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
@@ -1157,7 +1171,8 @@ describe('Privacy page reads while the runtime is held', () => {
       {
         backgroundApi: {
           serviceCustomRpc: {
-            resolveDefaultRpcUrl: async () => 'https://node.example',
+            resolveDefaultRpcUrl: async () => 'https://new-default.example',
+            getCustomRpcForNetwork: async () => custom,
           },
         },
       },
@@ -1182,6 +1197,17 @@ describe('Privacy page reads while the runtime is held', () => {
     await expect(info).resolves.toMatchObject({
       storageBytes: null,
       endpointUrl: 'https://node.example',
+      endpointDefaultUrl: 'https://new-default.example',
+      endpointIsCustom: false,
     });
+  });
+
+  it('recognizes an enabled equivalent custom RPC address', async () => {
+    const info = createService({
+      enabled: true,
+      rpc: 'https://node.example:443/',
+    }).getLocalWalletNetworkInfo({ networkId: 'zec--custom' });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(info).resolves.toMatchObject({ endpointIsCustom: true });
   });
 });

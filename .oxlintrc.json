@@ -806,6 +806,18 @@
     "packages/shared/src/locale/localeJsonMap.ts",
     "apps/mobile/.rnstorybook/storybook.requires.ts",
     "packages/shared/src/locale/json/*",
+    // Vendored StarkWare starknet-privacy SDK source (see
+    // packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/VENDOR.md). Kept byte-comparable with
+    // upstream apart from the recorded `// onekey:` patches, so upstream
+    // syncs stay a diff instead of a restyle. OneKey-authored files in that
+    // folder (onekey/**, platform/**, debugFlags.ts, *.test.ts) are linted
+    // and formatted normally.
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/index.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/factory.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/interfaces.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/simple-private-transfers.ts",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/internal/**",
+    "packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/utils/**",
     "node_modules/**",
     ".history/**",
     "dist/**",

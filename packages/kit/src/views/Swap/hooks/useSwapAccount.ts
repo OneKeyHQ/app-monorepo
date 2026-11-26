@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
@@ -10,6 +17,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  hasXmrMainnetPrimaryAddressShape,
+  isXmrSwapNetwork,
+} from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -72,23 +83,35 @@ function isSameSwapRecipientAddress({
   return address.toLowerCase() === targetAddress.toLowerCase();
 }
 
+export const SwapTabPrefillPendingContext = createContext(false);
+
 /**
  * Synchronizes the selected swap account networks with the currently selected swap tokens and manages the "swap to another account" state.
  *
  * Ensures that the account network selection matches the chosen swap tokens for both "from" and "to" directions. Automatically resets the "swap to another account" switch and address if the selected network or account becomes invalid or unsupported. Triggers synchronization on relevant changes, tab focus, and modal state transitions.
  */
-export function useSwapFromAccountNetworkSync() {
+export function useSwapFromAccountNetworkSync(prefillPending = false) {
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
   isFocusedRef.current = isFocused;
   const scope = useSwapColdStartScopeKey();
   const isRootSwap = scope === `store:${EJotaiContextStoreNames.swap}`;
+  // Returning from Pro restores the parked pair before the prefill resolves.
+  // Synchronize account networks once the final pair owns the form.
+  const pauseForPrefill = isRootSwap && prefillPending;
+  // The router keeps the callback registered on mount.
+  const pauseForPrefillRef = useRef(pauseForPrefill);
+  pauseForPrefillRef.current = pauseForPrefill;
   const isTabVisibleRef = useRef(isFocused);
   const syncAuthorityRef = useRef({ active: false, generation: 0 });
   const recipientRetryRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  if (!isFocused || (isRootSwap && !isTabVisibleRef.current)) {
+  if (
+    !isFocused ||
+    pauseForPrefill ||
+    (isRootSwap && !isTabVisibleRef.current)
+  ) {
     if (syncAuthorityRef.current.active) {
       syncAuthorityRef.current.generation += 1;
     }
@@ -195,6 +218,7 @@ export function useSwapFromAccountNetworkSync() {
     const toNetworkId = toTokenRef.current?.networkId;
     const shouldCommit = () =>
       syncAuthorityRef.current.active &&
+      !pauseForPrefillRef.current &&
       syncAuthorityRef.current.generation === generation &&
       isSelectedTokensColdStartContextValidRef.current &&
       fromTokenRef.current?.networkId === fromNetworkId &&
@@ -281,7 +305,7 @@ export function useSwapFromAccountNetworkSync() {
         return;
       }
       isTabVisibleRef.current = isFocus && !isHideByModal;
-      if (!isTabVisibleRef.current) {
+      if (!isTabVisibleRef.current || pauseForPrefillRef.current) {
         cancelNetworkSync();
       } else if (isFocusedRef.current) {
         syncAuthorityRef.current.active = true;
@@ -291,7 +315,11 @@ export function useSwapFromAccountNetworkSync() {
   );
 
   useEffect(() => {
-    if (!isFocused || (isRootSwap && !isTabVisibleRef.current)) {
+    if (
+      !isFocused ||
+      pauseForPrefill ||
+      (isRootSwap && !isTabVisibleRef.current)
+    ) {
       cancelNetworkSync();
       return;
     }
@@ -302,6 +330,7 @@ export function useSwapFromAccountNetworkSync() {
     checkTokenForAccountNetworkDebounce,
     isFocused,
     isRootSwap,
+    pauseForPrefill,
     fromToken?.networkId,
     fromToken?.contractAddress,
     toToken?.networkId,
@@ -356,17 +385,25 @@ export function useSwapAddressInfo(
   } = {},
 ) {
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const selectorNetworkId =
+    networkScope === 'selector' ? currentSelectNetwork?.networkId : undefined;
+  const useTradeRecipientAddress =
+    useCustomRecipientAddress &&
+    !(
+      type === ESwapDirectionType.TO &&
+      isXmrSwapNetwork(selectorNetworkId ?? toToken?.networkId)
+    );
   const useRecipientAccount =
-    useCustomRecipientAddress && swapToAnotherAccountSwitchOn;
+    useTradeRecipientAddress && swapToAnotherAccountSwitchOn;
   const { activeAccount } = useActiveAccount({
     num: getSwapAddressAccountSelectorNum({
       type,
       swapToAnotherAccountSwitchOn: useRecipientAccount,
     }),
   });
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
-  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
@@ -407,8 +444,6 @@ export function useSwapAddressInfo(
             : swapProSellToToken
           )?.networkId ?? '');
     }
-    const selectorNetworkId =
-      networkScope === 'selector' ? currentSelectNetwork?.networkId : undefined;
     return type === ESwapDirectionType.FROM
       ? (selectorNetworkId ?? fromToken?.networkId ?? '')
       : (selectorNetworkId ?? toToken?.networkId ?? '');
@@ -417,8 +452,7 @@ export function useSwapAddressInfo(
     type,
     fromToken?.networkId,
     toToken?.networkId,
-    currentSelectNetwork?.networkId,
-    networkScope,
+    selectorNetworkId,
     swapProDirection,
     swapProSelectToken,
     swapProUseSelectBuyToken,
@@ -584,7 +618,7 @@ export function useSwapAddressInfo(
     // Native LIMIT has a separate Pro account path; preserve its existing
     // recipient selection until quote and build share the same account source.
     const shouldUseCustomRecipient =
-      useCustomRecipientAddress &&
+      useTradeRecipientAddress &&
       (focusSwapPro ||
         networkScope === 'selector' ||
         Boolean(tokenNetworkId)) &&
@@ -668,7 +702,7 @@ export function useSwapAddressInfo(
     }
 
     if (
-      useCustomRecipientAddress &&
+      useTradeRecipientAddress &&
       !focusSwapPro &&
       networkScope === 'trade' &&
       type === ESwapDirectionType.TO &&
@@ -712,7 +746,13 @@ export function useSwapAddressInfo(
       });
       return {
         ...res,
-        address: resolvedAccount?.addressDetail?.address,
+        address:
+          isXmrSwapNetwork(tokenNetworkId) &&
+          !hasXmrMainnetPrimaryAddressShape(
+            resolvedAccount?.addressDetail?.address,
+          )
+            ? undefined
+            : resolvedAccount?.addressDetail?.address,
         // Keep the token network and the resolved account aligned so the
         // inline recipient badge matches the modal parser result.
         networkId: tokenNetworkId || activeAccount.network?.id,
@@ -744,7 +784,7 @@ export function useSwapAddressInfo(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     type,
-    useCustomRecipientAddress,
+    useTradeRecipientAddress,
     focusSwapPro,
     networkScope,
     swapToAnotherAccountSwitchOn,

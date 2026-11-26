@@ -208,7 +208,7 @@ class ClientLightning {
         throw new OneKeyLocalError('Bad Auth');
       }
       return this.request
-        .get<IOneKeyAPIBaseResponse<boolean>>(
+        .get<IOneKeyAPIBaseResponse<{ result: string } | null>>(
           `${this.prefix}/account/auth/check`,
           {
             params: { testnet: this.testnet },
@@ -217,7 +217,7 @@ class ClientLightning {
             },
           },
         )
-        .then((i) => i.data.data);
+        .then((i) => i.data.data?.result === 'OK');
     },
     {
       promise: true,
