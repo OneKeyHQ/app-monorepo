@@ -6,11 +6,13 @@ import type { PropsWithChildren } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
+import type { IInterfaceOrientation } from '@onekeyhq/shared/src/modules/InterfaceOrientation';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartReadyContext } from './TradingViewNativeChartReadyContext';
 import { useIsTradingViewNativeFullscreenActive } from './tradingViewNativeFullscreenState';
+import { TradingViewNativeFullscreenTrailingInsetContext } from './TradingViewNativeFullscreenTrailingInsetContext';
 import {
   TradingViewNativeFullscreenPage,
   TradingViewNativePresentation,
@@ -24,6 +26,8 @@ let mockPageLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockChartReady: (() => void) | undefined;
 let mockIsNativeIOSPad = false;
 let mockIsFoldableIPhone = false;
+let mockInterfaceOrientation: IInterfaceOrientation = 'portrait';
+const mockOrientationListeners = new Set<() => void>();
 const mockDispatch = jest.fn();
 const mockPageNavigation = {
   setOptions: jest.fn(),
@@ -87,12 +91,27 @@ jest.mock('react-native', () => ({
   StatusBar: () => null,
   useWindowDimensions: () => ({ width: 402, height: 874 }),
 }));
+jest.mock('@onekeyhq/shared/src/modules/InterfaceOrientation', () => {
+  const { useSyncExternalStore } =
+    jest.requireActual<typeof import('react')>('react');
+  const subscribe = (listener: () => void) => {
+    mockOrientationListeners.add(listener);
+    return () => {
+      mockOrientationListeners.delete(listener);
+    };
+  };
+  return {
+    useInterfaceOrientation: () =>
+      useSyncExternalStore(subscribe, () => mockInterfaceOrientation),
+  };
+});
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: PropsWithChildren) => (
     <div>{children}</div>
   ),
 }));
 jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 62, bottom: 20, left: 62 }),
   SafeAreaProvider: ({ children }: PropsWithChildren) => <div>{children}</div>,
   SafeAreaView: ({
     children,
@@ -115,6 +134,8 @@ jest.mock('react-native-safe-area-context', () => ({
 beforeEach(() => {
   mockIsNativeIOSPad = false;
   mockIsFoldableIPhone = false;
+  mockInterfaceOrientation = 'portrait';
+  mockOrientationListeners.clear();
   mockDispatch.mockReset();
   mockChartReady = undefined;
   mockPageNavigation.setOptions.mockClear();
@@ -145,6 +166,28 @@ function layout(width: number, height: number) {
 
 function FullscreenActiveProbe() {
   return <i>{String(useIsTradingViewNativeFullscreenActive())}</i>;
+}
+
+function TrailingInsetProbe() {
+  return <b>{useContext(TradingViewNativeFullscreenTrailingInsetContext)}</b>;
+}
+
+function renderTrailingInsetPage() {
+  render(
+    <TradingViewNativePresentation isFullscreen>
+      <TrailingInsetProbe />
+    </TradingViewNativePresentation>,
+  );
+  const page = render(<TradingViewNativeFullscreenPage />);
+  layout(874, 402);
+  return page;
+}
+
+function rotate(orientation: IInterfaceOrientation) {
+  act(() => {
+    mockInterfaceOrientation = orientation;
+    mockOrientationListeners.forEach((listener) => listener());
+  });
 }
 
 it('reports fullscreen from the open request until the native page is gone', () => {
@@ -358,5 +401,50 @@ it.each([true, false])(
       source: 'fullscreen',
       target: 'root',
     });
+  },
+);
+
+it('lets edge controls reach the right edge once the window turns landscape right', () => {
+  const page = renderTrailingInsetPage();
+  expect(page.container.textContent).toBe('0');
+  rotate('landscapeRight');
+  expect(page.container.textContent).toBe('62');
+});
+
+it('keeps the right inset while the sensor housing is on the right', () => {
+  const page = renderTrailingInsetPage();
+  rotate('landscapeRight');
+  expect(page.container.textContent).toBe('62');
+  // Turning the phone over brings the sensor housing to the right edge.
+  rotate('landscapeLeft');
+  expect(page.container.textContent).toBe('0');
+  rotate('landscapeRight');
+  expect(page.container.textContent).toBe('62');
+});
+
+it('keeps the right inset when the orientation is unknown', () => {
+  // e.g. a native shell without the orientation API, or iOS before 16
+  const page = renderTrailingInsetPage();
+  rotate('unknown');
+  expect(page.container.textContent).toBe('0');
+});
+
+it('reads the orientation of a page mounted after the rotation', () => {
+  mockInterfaceOrientation = 'landscapeRight';
+  const page = renderTrailingInsetPage();
+  expect(page.container.textContent).toBe('62');
+});
+
+it.each([
+  { isPad: true, isFoldable: false },
+  { isPad: false, isFoldable: true },
+])(
+  'keeps both side insets on windows that keep their orientation (iPad: $isPad, foldable: $isFoldable)',
+  ({ isPad, isFoldable }) => {
+    mockIsNativeIOSPad = isPad;
+    mockIsFoldableIPhone = isFoldable;
+    const page = renderTrailingInsetPage();
+    rotate('landscapeRight');
+    expect(page.container.textContent).toBe('0');
   },
 );

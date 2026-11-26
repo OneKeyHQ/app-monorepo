@@ -16,16 +16,22 @@ import {
 } from '@react-navigation/native';
 import { StatusBar, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { Stack, rootNavigationRef } from '@onekeyhq/components';
 import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
+import { useInterfaceOrientation } from '@onekeyhq/shared/src/modules/InterfaceOrientation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartReadyContext } from './TradingViewNativeChartReadyContext';
 import { publishTradingViewNativeFullscreenActive } from './tradingViewNativeFullscreenState';
+import { TradingViewNativeFullscreenTrailingInsetContext } from './TradingViewNativeFullscreenTrailingInsetContext';
 
 import type {
   IPushTradingViewNativeFullscreenModal,
@@ -79,6 +85,33 @@ export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscr
 const keepsDeviceOrientation = () =>
   platformEnv.isNativeIOSPad || isFoldableIPhone();
 
+// iPhones reserve the same safe-area inset on both sides in landscape, though
+// only the side with the sensor housing needs it. Landscape right puts the
+// housing on the left and leaves the right inset clear; the phone can turn to
+// either side while the chart is fullscreen.
+function useIsTrailingInsetClear() {
+  const interfaceOrientation = useInterfaceOrientation();
+  return !keepsDeviceOrientation() && interfaceOrientation === 'landscapeRight';
+}
+
+// Reads the page's own insets, which follow the rotated window.
+function FullscreenTrailingInsetProvider({
+  children,
+  isTrailingInsetClear,
+}: {
+  children: ReactNode;
+  isTrailingInsetClear: boolean;
+}) {
+  const { right } = useSafeAreaInsets();
+  return (
+    <TradingViewNativeFullscreenTrailingInsetContext.Provider
+      value={isTrailingInsetClear ? right : 0}
+    >
+      {children}
+    </TradingViewNativeFullscreenTrailingInsetContext.Provider>
+  );
+}
+
 function publishFullscreenActivity() {
   publishTradingViewNativeFullscreenActive(
     entries.size > 0 || mountedPageCount > 0,
@@ -131,6 +164,7 @@ export function TradingViewNativeFullscreenPage() {
   );
   const onCloseRef = useRef(entry?.onClose);
   const { width, height } = useWindowDimensions();
+  const isTrailingInsetClear = useIsTrailingInsetClear();
   const layoutRef = useRef({ width: 0, height: 0 });
   const closingRef = useRef(entry?.closing);
   const revealedRef = useRef(false);
@@ -223,7 +257,11 @@ export function TradingViewNativeFullscreenPage() {
               <TradingViewNativeChartReadyContext.Provider
                 value={hasExpectedLayout ? handleChartReady : undefined}
               >
-                {entry?.content}
+                <FullscreenTrailingInsetProvider
+                  isTrailingInsetClear={isTrailingInsetClear}
+                >
+                  {entry?.content}
+                </FullscreenTrailingInsetProvider>
               </TradingViewNativeChartReadyContext.Provider>
             </TradingViewNativeChartActiveContext.Provider>
           </SafeAreaView>

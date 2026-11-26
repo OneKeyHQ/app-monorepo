@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useContext } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { TradingViewNativeFullscreenTrailingInsetContext } from './TradingViewNativeFullscreenTrailingInsetContext';
 
 import type { ITradingViewIndicatorOption } from '../TradingViewChartControls/types';
 
@@ -81,6 +83,11 @@ export const TradingViewNativeFullscreenIndicatorRail = memo(
     onOpenPanel: () => void;
   }) => {
     const intl = useIntl();
+    // Sit against the screen edge when the trailing inset is clear; the chart
+    // takes the width the rail leaves.
+    const clearTrailingInset = useContext(
+      TradingViewNativeFullscreenTrailingInsetContext,
+    );
     const renderItem = (indicator: ITradingViewIndicatorOption) => (
       <RailItem
         key={indicator.value}
@@ -93,6 +100,7 @@ export const TradingViewNativeFullscreenIndicatorRail = memo(
     return (
       <YStack
         w={TRADING_VIEW_NATIVE_FULLSCREEN_INDICATOR_RAIL_WIDTH}
+        mr={-clearTrailingInset}
         flexShrink={0}
         bg="$bgApp"
         borderLeftWidth={1}
