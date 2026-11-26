@@ -243,9 +243,10 @@ export default class ClientStarknet {
         tag === BLOCK_TAG_PRE_CONFIRMED &&
         this.isRejectedPreConfirmedError(error)
       ) {
+        const result = await exec(BLOCK_TAG_PENDING);
         this.preConfirmedBlockTagCache = Promise.resolve(BLOCK_TAG_PENDING);
         this.preConfirmedProbeRetryAfter = 0;
-        return exec(BLOCK_TAG_PENDING);
+        return result;
       }
       throw error;
     }

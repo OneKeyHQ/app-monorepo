@@ -1824,6 +1824,21 @@ export default class Vault extends VaultBase {
         .catch(() => undefined);
     }
 
+    const localExtraInfo = localTx?.decodedTx.extraInfo as
+      | IDecodedTxExtraStarknet
+      | undefined;
+    const localEncodedTx = localTx?.decodedTx.encodedTx as
+      | IEncodedTxStarknet
+      | undefined;
+    const localPrivacyKind =
+      localExtraInfo?.privacy?.kind ?? localEncodedTx?.privacy?.kind;
+    let historyLabel = '';
+    if (receipt?.type?.toUpperCase() === 'DEPLOY_ACCOUNT') {
+      historyLabel = 'deploy_account';
+    } else if (localPrivacyKind) {
+      historyLabel = `strk20_${localPrivacyKind}`;
+    }
+
     return {
       data: {
         data: {
@@ -1852,7 +1867,7 @@ export default class Vault extends VaultBase {
             functionCode: '',
             params: [],
             value: '0',
-            label: '',
+            label: historyLabel,
             block: receipt?.block_number,
           },
           tokens: {},

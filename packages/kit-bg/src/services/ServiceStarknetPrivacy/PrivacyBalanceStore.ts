@@ -127,6 +127,11 @@ export class PrivacyBalanceStore {
     }
     // Pure in-memory read: never await `getAccountPrivacyState` here because
     // reconciling a pending transfer performs a receipt RPC and would stall Home.
+    const { isLocalWalletPrivacyDisabled } =
+      await import('../../vaults/localWallet/remoteConfig');
+    if (isLocalWalletPrivacyDisabled(p.networkId)) {
+      return undefined;
+    }
     const cached = this.privateBalances.get(key);
     if (
       cached &&

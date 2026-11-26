@@ -922,7 +922,7 @@ class ServiceToken extends ServiceBase {
       }
     }
     throwIfRequestAborted();
-    if (vault.overlaySessionTokenListResponse) {
+    if (vault.overlaySessionTokenListResponse && !params.withoutWalletToken) {
       // Clone persisted token groups before overlaying session-only private
       // balances so `localAccountTokensCache` / `simpleDb.localTokens` stay
       // strictly public-only even after wallet lock.
