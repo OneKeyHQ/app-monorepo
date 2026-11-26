@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Page,
   RefreshControl,
-  ScrollView,
   Spinner,
   Toast,
   XStack,
@@ -33,6 +32,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ExportButton,
   FilterButton,
+  LoadMoreScrollView,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
   RewardDateRangeField,
@@ -52,7 +52,6 @@ import {
 } from './utils';
 
 import type { ISwapRecordQuery, ISwapRecordsTab } from './types';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 interface ISwapOverviewState {
   overviewQuerySignature: string;
@@ -97,6 +96,8 @@ function SwapRewardPageWrapper() {
   const [sortBy, setSortBy] = useState<ISwapInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<ISwapInvitesSortOrder>('desc');
   const [cursor, setCursor] = useState<string>();
+  // Bumped when a first page starts or lands, see useScrollViewLoadMore.
+  const [listVersion, setListVersion] = useState(0);
 
   const refreshRequestIdRef = useRef(0);
   const listGenerationRef = useRef(0);
@@ -104,6 +105,9 @@ function SwapRewardPageWrapper() {
   const loadingMoreRequestRef = useRef<ILoadingMoreRequest | undefined>(
     undefined,
   );
+  // Set when a list request drops a pending append, so its cursor can be
+  // requested again if that list request fails.
+  const hasDroppedAppendRef = useRef(false);
   const hasOverviewDataRef = useRef(false);
   const displayedInviteQueryRef = useRef<ISwapInvitesParams | undefined>(
     undefined,
@@ -266,6 +270,22 @@ function SwapRewardPageWrapper() {
     setCursor(nextCursor);
   }, []);
 
+  const dropPendingAppend = useCallback(() => {
+    if (loadingMoreRequestRef.current) {
+      loadingMoreRequestRef.current = undefined;
+      hasDroppedAppendRef.current = true;
+    }
+  }, []);
+
+  // Call when a list request starts.
+  const rearmDroppedAppend = useCallback(() => {
+    dropPendingAppend();
+    if (hasDroppedAppendRef.current) {
+      hasDroppedAppendRef.current = false;
+      setListVersion((version) => version + 1);
+    }
+  }, [dropPendingAppend]);
+
   const isLatestListRequest = useCallback(
     (generation: number, querySignature: string) =>
       listGenerationRef.current === generation &&
@@ -288,6 +308,8 @@ function SwapRewardPageWrapper() {
       setHasListError(false);
       setCurrentInvites(result);
       updateCursor(result.cursor ?? undefined);
+      hasDroppedAppendRef.current = false;
+      setListVersion((version) => version + 1);
     },
     [updateCursor],
   );
@@ -295,25 +317,30 @@ function SwapRewardPageWrapper() {
   useEffect(() => {
     refreshRequestIdRef.current += 1;
     listGenerationRef.current += 1;
-    loadingMoreRequestRef.current = undefined;
+    dropPendingAppend();
     updateCursor(undefined);
     hasOverviewDataRef.current = false;
     displayedInviteQueryRef.current = undefined;
     displayedListDatasetSignatureRef.current = undefined;
     setCurrentInvites(undefined);
     setHasListError(false);
-  }, [overviewQuerySignature, updateCursor]);
+  }, [dropPendingAppend, overviewQuerySignature, updateCursor]);
 
   useEffect(() => {
     const hasReusableListData =
       displayedListDatasetSignatureRef.current === listDatasetSignature;
     listGenerationRef.current += 1;
-    loadingMoreRequestRef.current = undefined;
+    dropPendingAppend();
     if (!hasReusableListData) {
       updateCursor(undefined);
     }
     setHasListError(false);
-  }, [listControlSignature, listDatasetSignature, updateCursor]);
+  }, [
+    dropPendingAppend,
+    listControlSignature,
+    listDatasetSignature,
+    updateCursor,
+  ]);
 
   const refreshDashboard = useCallback(async () => {
     const querySnapshot = dashboardQuerySnapshotRef.current;
@@ -331,7 +358,7 @@ function SwapRewardPageWrapper() {
     listGenerationRef.current += 1;
     const requestId = refreshRequestIdRef.current;
     const listGeneration = listGenerationRef.current;
-    loadingMoreRequestRef.current = undefined;
+    rearmDroppedAppend();
     setIsLoadingMore(false);
     setIsLoading(true);
     setIsTabLoading(true);
@@ -461,7 +488,7 @@ function SwapRewardPageWrapper() {
     if (isLatestList) {
       setIsTabLoading(false);
     }
-  }, [commitListResult, intl, isLatestListRequest]);
+  }, [commitListResult, intl, isLatestListRequest, rearmDroppedAppend]);
 
   const refreshCurrentList = useCallback(async () => {
     const querySnapshot = dashboardQuerySnapshotRef.current;
@@ -477,7 +504,7 @@ function SwapRewardPageWrapper() {
     const listGeneration = listGenerationRef.current;
     const hadReusableListData =
       displayedListDatasetSignatureRef.current === requestListDatasetSignature;
-    loadingMoreRequestRef.current = undefined;
+    rearmDroppedAppend();
     if (!hadReusableListData) {
       updateCursor(undefined);
     }
@@ -540,7 +567,13 @@ function SwapRewardPageWrapper() {
         setIsTabLoading(false);
       }
     }
-  }, [commitListResult, intl, isLatestListRequest, updateCursor]);
+  }, [
+    commitListResult,
+    intl,
+    isLatestListRequest,
+    rearmDroppedAppend,
+    updateCursor,
+  ]);
 
   useEffect(() => {
     if (!isRouteFocused) {
@@ -625,20 +658,6 @@ function SwapRewardPageWrapper() {
     }
   }, [updateCursor]);
 
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent;
-      const isCloseToBottom =
-        contentOffset.y + layoutMeasurement.height >= contentSize.height - 100;
-
-      if (isCloseToBottom && cursor && !isLoadingMore && !isTabLoading) {
-        void onLoadMore();
-      }
-    },
-    [cursor, isLoadingMore, isTabLoading, onLoadMore],
-  );
-
   const handleSort = useCallback(
     (field: ISwapInvitesSortBy) => {
       if (sortBy === field) {
@@ -720,7 +739,7 @@ function SwapRewardPageWrapper() {
               <Spinner size="large" />
             </YStack>
           ) : (
-            <ScrollView
+            <LoadMoreScrollView
               flex={1}
               refreshControl={
                 <RefreshControl
@@ -729,8 +748,11 @@ function SwapRewardPageWrapper() {
                 />
               }
               contentContainerStyle={{ pb: '$5' }}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
+              cursor={cursor}
+              isLoading={isLoading || isTabLoading || isLoadingMore}
+              itemCount={currentInvites?.items.length ?? 0}
+              listVersion={listVersion}
+              onLoadMore={onLoadMore}
             >
               <SwapRewardHeader
                 data={cumulativeRewards}
@@ -754,7 +776,7 @@ function SwapRewardPageWrapper() {
                 hasError={hasListError}
                 onRetry={refreshCurrentList}
               />
-            </ScrollView>
+            </LoadMoreScrollView>
           )}
         </ReferFriendsPageContainer>
       </Page.Body>
