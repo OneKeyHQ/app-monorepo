@@ -541,35 +541,6 @@ function HistoryDetails() {
           });
       }
 
-      const starknetPrivacy = readStarknetPrivacyBlock(
-        decodedOnChainTx?.decodedTx.extraInfo,
-      );
-      if (
-        decodedOnChainTx &&
-        starknetPrivacy?.kind === 'transfer' &&
-        !decodedOnChainTx.decodedTx.actions[0]?.assetTransfer
-      ) {
-        const decryptedTx = await backgroundApiProxy.serviceStarknetPrivacy
-          .resolvePrivateHistoryTx({
-            networkId,
-            accountId,
-            txid,
-          })
-          .catch(() => undefined);
-        const decryptedAction = decryptedTx?.decodedTx.actions[0];
-        if (decryptedTx && decryptedAction?.assetTransfer) {
-          decodedOnChainTx = {
-            ...decodedOnChainTx,
-            decodedTx: {
-              ...decodedOnChainTx.decodedTx,
-              signer: decryptedTx.decodedTx.signer,
-              to: decryptedAction.assetTransfer.to,
-              actions: decryptedTx.decodedTx.actions,
-            },
-          };
-        }
-      }
-
       if (decodedOnChainTx && isPrivateSendHistoryTx(decodedOnChainTx)) {
         await openPrivateSendHistoryDetailOnce(decodedOnChainTx);
         return {
@@ -623,7 +594,7 @@ function HistoryDetails() {
   );
 
   const { txDetails, decodedOnChainTx, addressMap } = result || {};
-  const historyTx = decodedOnChainTx ?? historyTxParam;
+  const historyTx = historyTxParam ?? decodedOnChainTx;
 
   // Prefer the detail response's KYT block, falling back to the one carried from
   // the history list so the section renders before the detail request resolves.

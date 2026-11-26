@@ -20,7 +20,10 @@ import { buildPrivacyCacheKey } from './types';
 
 import type { IStarknetPrivacyContext, IStoredHistoryCursor } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IStrk20InternalHistoryCursor } from '../../vaults/impls/starknet/strk20Adapter';
+import type {
+  IStrk20HistoryPage,
+  IStrk20InternalHistoryCursor,
+} from '../../vaults/impls/starknet/strk20Adapter';
 
 const MAX_HISTORY_CURSORS = 32;
 const MAX_PENDING_PRIVATE_TXS = 64;
@@ -29,6 +32,11 @@ const MAX_RESOLVED_PRIVATE_TXS = 128;
 type IStoredPendingPrivateTx = {
   scopeKey: string;
   tx: IAccountHistoryTx;
+};
+
+type IStoredDiscoveredRawTx = {
+  scopeKey: string;
+  transaction: IStrk20HistoryPage['transactions'][number];
 };
 
 type IPrivacyHistoryStoreDeps = {
@@ -63,6 +71,8 @@ export class PrivacyHistoryStore {
     IStoredPendingPrivateTx
   >();
 
+  private readonly discoveredRawTxs = new Map<string, IStoredDiscoveredRawTx>();
+
   constructor(deps: IPrivacyHistoryStoreDeps) {
     this.deps = deps;
   }
@@ -71,6 +81,7 @@ export class PrivacyHistoryStore {
     this.historyCursors.clear();
     this.pendingPrivateTxs.clear();
     this.resolvedPrivateTxs.clear();
+    this.discoveredRawTxs.clear();
   }
 
   dropScope(scopeKey: string): void {
@@ -87,6 +98,43 @@ export class PrivacyHistoryStore {
     for (const [hash, stored] of this.resolvedPrivateTxs.entries()) {
       if (stored.scopeKey === scopeKey) {
         this.resolvedPrivateTxs.delete(hash);
+      }
+    }
+    for (const [hash, stored] of this.discoveredRawTxs.entries()) {
+      if (stored.scopeKey === scopeKey) {
+        this.discoveredRawTxs.delete(hash);
+      }
+    }
+  }
+
+  private rememberDiscoveredRawTxs(
+    scopeKey: string,
+    transactions: IStrk20HistoryPage['transactions'],
+  ): void {
+    for (const transaction of transactions) {
+      let hash: string;
+      try {
+        const felt = BigInt(transaction.transactionHash);
+        if (felt === 0n) {
+          // Skip synthetic zero-hash entries.
+          hash = '';
+        } else {
+          hash = felt.toString();
+        }
+      } catch {
+        hash = '';
+      }
+      if (hash) {
+        if (
+          !this.discoveredRawTxs.has(hash) &&
+          this.discoveredRawTxs.size >= MAX_RESOLVED_PRIVATE_TXS
+        ) {
+          const oldestKey = this.discoveredRawTxs.keys().next().value;
+          if (oldestKey !== undefined) {
+            this.discoveredRawTxs.delete(oldestKey);
+          }
+        }
+        this.discoveredRawTxs.set(hash, { scopeKey, transaction });
       }
     }
   }
@@ -289,6 +337,7 @@ export class PrivacyHistoryStore {
       }),
     );
     ctx.assertSession();
+    this.rememberDiscoveredRawTxs(scopeKey, page.transactions);
     for (const tx of datedTxs) {
       this.rememberResolvedTx(scopeKey, tx);
     }
@@ -355,27 +404,32 @@ export class PrivacyHistoryStore {
     }
     if (!ctx) return undefined;
 
+    const scopeKey = buildPrivacyCacheKey({
+      networkId: p.networkId,
+      accountId: p.accountId,
+      poolAddress: ctx.poolAddress,
+    });
     const {
       fetchStrk20HistoryPage,
       getStrk20HistoryTransfers,
       buildOhttpOption,
     } = await import('../../vaults/impls/starknet/strk20Adapter');
-    const page = await fetchStrk20HistoryPage({
-      discoveryUrl: ctx.config.discoveryUrl,
-      poolAddress: ctx.poolAddress,
-      accountAddress: ctx.account.address,
-      viewingKey: ctx.viewing.viewingKey,
-      ohttp: buildOhttpOption(ctx.config.ohttp),
-    });
-    ctx.assertSession();
 
-    const matched = page.transactions.find((transaction) => {
-      try {
-        return BigInt(transaction.transactionHash).toString() === hash;
-      } catch {
-        return false;
-      }
-    });
+    const cachedRaw = this.discoveredRawTxs.get(hash);
+    let matched =
+      cachedRaw?.scopeKey === scopeKey ? cachedRaw.transaction : undefined;
+    if (!matched) {
+      const page = await fetchStrk20HistoryPage({
+        discoveryUrl: ctx.config.discoveryUrl,
+        poolAddress: ctx.poolAddress,
+        accountAddress: ctx.account.address,
+        viewingKey: ctx.viewing.viewingKey,
+        ohttp: buildOhttpOption(ctx.config.ohttp),
+      });
+      ctx.assertSession();
+      this.rememberDiscoveredRawTxs(scopeKey, page.transactions);
+      matched = this.discoveredRawTxs.get(hash)?.transaction;
+    }
     if (!matched) return undefined;
 
     const movements = await getStrk20HistoryTransfers(
@@ -415,11 +469,6 @@ export class PrivacyHistoryStore {
     });
     ctx.assertSession();
     if (built) {
-      const scopeKey = buildPrivacyCacheKey({
-        networkId: p.networkId,
-        accountId: p.accountId,
-        poolAddress: ctx.poolAddress,
-      });
       this.rememberResolvedTx(scopeKey, built);
     }
     return built;

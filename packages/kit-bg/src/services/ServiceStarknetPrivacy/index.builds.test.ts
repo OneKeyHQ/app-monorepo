@@ -2114,16 +2114,26 @@ describe('in-memory pending private history & public-only localHistory redaction
     expect(merged.txs[0].decodedTx.nonce).toBe(9);
   });
 
-  it('resolves a single decrypted private transfer by txid for HistoryDetails and caches it in memory', async () => {
+  it('resolves a single decrypted private transfer by txid for HistoryDetails and caches the full Discovery page in memory', async () => {
     const { service } = build();
     await service.buildRegisterTx(key);
-    const txHash =
+    const txHash1 =
       '0x07a05aee3df9732da878e1c3e69edcbc43d364584cf5fc93a87de44f60c43425';
+    const txHash2 =
+      '0x073eea35b563a08aa687ecc144183c8b4cd865f79f7ec8949f9ab8a098d3ea98';
     jest.mocked(fetchStrk20HistoryPage).mockResolvedValueOnce({
       transactions: [
         {
-          transactionHash: BigInt(txHash),
+          transactionHash: BigInt(txHash1),
           blockNumber: 18_511_946,
+          notes: [],
+          deposits: [],
+          withdrawals: [],
+          openNoteDeposits: [],
+        },
+        {
+          transactionHash: BigInt(txHash2),
+          blockNumber: 18_551_966,
           notes: [],
           deposits: [],
           withdrawals: [],
@@ -2144,7 +2154,7 @@ describe('in-memory pending private history & public-only localHistory redaction
 
     const resolved = await service.resolvePrivateHistoryTx({
       ...key,
-      txid: txHash,
+      txid: txHash1,
     });
     expect(resolved?.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
       '2',
@@ -2157,9 +2167,18 @@ describe('in-memory pending private history & public-only localHistory redaction
       .length;
     const cached = await service.resolvePrivateHistoryTx({
       ...key,
-      txid: txHash,
+      txid: txHash1,
     });
     expect(cached).toBe(resolved);
+
+    // Resolving a second tx from the same Discovery page must not re-fetch Discovery.
+    const resolvedSecond = await service.resolvePrivateHistoryTx({
+      ...key,
+      txid: txHash2,
+    });
+    expect(
+      resolvedSecond?.decodedTx.actions[0].assetTransfer?.sends[0].amount,
+    ).toBe('2');
     expect(jest.mocked(fetchStrk20HistoryPage).mock.calls.length).toBe(
       callsAfterFirst,
     );
