@@ -177,10 +177,27 @@ export function MultiQrSelectionOverlay({
       onCancel();
       return;
     }
-    const { locationX, locationY } = event.nativeEvent;
+    const { nativeEvent, currentTarget } = event;
+    let { locationX, locationY } = nativeEvent;
+    let { width, height } = layout;
+    if (!platformEnv.isNative) {
+      // React Native Web delivers a DOM click. Keyboard clicks have no position.
+      if (
+        !(nativeEvent instanceof MouseEvent) ||
+        nativeEvent.detail === 0 ||
+        !(currentTarget instanceof HTMLElement)
+      ) {
+        onRefocus();
+        return;
+      }
+      const rect = currentTarget.getBoundingClientRect();
+      ({ width, height } = rect);
+      locationX = nativeEvent.clientX - rect.left;
+      locationY = nativeEvent.clientY - rect.top;
+    }
     if (
-      layout.width <= 0 ||
-      layout.height <= 0 ||
+      width <= 0 ||
+      height <= 0 ||
       !Number.isFinite(locationX) ||
       !Number.isFinite(locationY)
     ) {
@@ -188,8 +205,8 @@ export function MultiQrSelectionOverlay({
       return;
     }
     onRefocus({
-      x: Math.max(0, Math.min(1, locationX / layout.width)),
-      y: Math.max(0, Math.min(1, locationY / layout.height)),
+      x: Math.max(0, Math.min(1, locationX / width)),
+      y: Math.max(0, Math.min(1, locationY / height)),
     });
   };
 

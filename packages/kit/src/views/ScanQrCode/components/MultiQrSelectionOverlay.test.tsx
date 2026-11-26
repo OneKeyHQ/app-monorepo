@@ -153,6 +153,7 @@ describe('MultiQrSelectionOverlay', () => {
   });
 
   it('requests refocus at the tapped normalized point and keeps explicit cancel separate', () => {
+    (platformEnv as { isNative?: boolean }).isNative = true;
     const onRefocus = jest.fn();
     const onCancel = jest.fn();
     let renderer: ReactTestRenderer;
@@ -189,6 +190,49 @@ describe('MultiQrSelectionOverlay', () => {
     });
     act(() => (cancel.props.onPress as () => void)());
     expect(onCancel).toHaveBeenCalledTimes(1);
+    act(() => renderer!.unmount());
+  });
+
+  it('uses browser pointer coordinates and resumes without focusing on keyboard activation', () => {
+    (platformEnv as { isNative?: boolean }).isNative = false;
+    const onRefocus = jest.fn();
+    let renderer: ReactTestRenderer;
+    act(() => {
+      renderer = create(
+        <MultiQrSelectionOverlay
+          symbols={symbols}
+          onSelect={jest.fn()}
+          onCancel={jest.fn()}
+          onRefocus={onRefocus}
+        />,
+      );
+    });
+    const backdrop = renderer!.root.findByProps({
+      testID: 'multi-qr-selection-backdrop',
+    });
+    const currentTarget = document.createElement('button');
+    jest.spyOn(currentTarget, 'getBoundingClientRect').mockReturnValue({
+      left: 50,
+      top: 100,
+      width: 400,
+      height: 800,
+    } as DOMRect);
+    const press = backdrop.props.onPress as (event: object) => void;
+    act(() => {
+      press({
+        currentTarget,
+        nativeEvent: new MouseEvent('click', {
+          detail: 1,
+          clientX: 150,
+          clientY: 700,
+        }),
+      });
+      press({
+        currentTarget,
+        nativeEvent: new MouseEvent('click', { detail: 0 }),
+      });
+    });
+    expect(onRefocus.mock.calls).toEqual([[{ x: 0.25, y: 0.75 }], []]);
     act(() => renderer!.unmount());
   });
 
@@ -534,10 +578,14 @@ test('two refocus cycles reacquire old codes without submitting an old singleton
     jest.advanceTimersByTime(350);
     expect(coordinator.receiveFrame([a])).toBe(true);
     expect(onSelectingChange).toHaveBeenLastCalledWith([a]);
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    expect(coordinator.receiveFrame([b])).toBe(true);
+    expect(onSelectingChange).toHaveBeenLastCalledWith([b]);
     jest.advanceTimersByTime(1000);
     expect(onCommitText).not.toHaveBeenCalled();
-    await act(async () => coordinator.selectSymbol(a));
-    expect(onCommitText).toHaveBeenCalledWith(a.text, 'static');
+    await act(async () => coordinator.selectSymbol(b));
+    expect(onCommitText).toHaveBeenCalledWith(b.text, 'static');
     coordinator.dispose();
   } finally {
     jest.useRealTimers();

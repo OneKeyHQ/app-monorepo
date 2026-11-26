@@ -1,4 +1,4 @@
-import { getMultipartUrKey } from '@onekeyhq/qr-wallet-sdk/src/boundedUr';
+import { getMultipartUrKey } from '@onekeyhq/shared/src/utils/boundedUr';
 
 export type IMultiQrCoordinateSpace = 'view' | 'frame';
 
@@ -242,6 +242,7 @@ export type IMultiSymbolCoordinator = {
   selectSymbol(symbol: IMultiQrSymbol): void;
   cancelSelection(): void;
   refocus(): void;
+  resetCapture(): void;
   reset(): void;
   dispose(): void;
 };
@@ -307,10 +308,9 @@ export function createMultiSymbolCoordinator(
 
   function dismissOffered(refocusAfter?: number) {
     if (offered.length > 0) {
-      dismissed = {
-        keys: new Set(offered.map(selectionKey)),
-        refocusAfter,
-      };
+      const keys = dismissed?.keys ?? new Set<string>();
+      for (const symbol of offered) keys.add(selectionKey(symbol));
+      dismissed = { keys, refocusAfter };
       offered = [];
     }
   }
@@ -328,7 +328,13 @@ export function createMultiSymbolCoordinator(
     selectedUrKey = undefined;
     phase = 'selecting';
     offered = symbols;
-    dismissed = undefined;
+    const previousKeys = dismissed?.keys;
+    if (
+      previousKeys &&
+      !symbols.some((symbol) => previousKeys.has(selectionKey(symbol)))
+    ) {
+      dismissed = undefined;
+    }
     options.onFrozenChange(true);
     options.onSelectingChange(symbols);
   }
@@ -365,15 +371,18 @@ export function createMultiSymbolCoordinator(
       pendingCommit = undefined;
 
       if (outcome === 'complete') {
+        if (starting) dismissed = undefined;
         dismissOffered();
         resumeScanning();
       } else if (outcome === 'progress' && starting) {
+        dismissed = undefined;
         selectedUrKey = urKey(texts[0]);
         acceptFastPathText = !keepMultiSymbol;
         phase = 'ur-streaming';
         closeSelection();
         options.onMultiSymbolChange(keepMultiSymbol);
-      } else if (starting && !wasSelecting && outcome !== 'progress') {
+      } else if (starting && phase !== 'selecting') {
+        offered = [];
         resumeScanning();
       }
     });
@@ -384,6 +393,7 @@ export function createMultiSymbolCoordinator(
     clearTimer();
     pendingSymbol = undefined;
     selectedUrKey = undefined;
+    dismissed = undefined;
     phase = 'resolved';
     options.onSelectingChange([]);
     const request = Symbol('static commit');
@@ -415,6 +425,17 @@ export function createMultiSymbolCoordinator(
       isUrFrameText(text) &&
       (selectedUrKey === undefined || urKey(text) === selectedUrKey)
     );
+  }
+
+  function reset() {
+    clearTimer();
+    pendingSymbol = undefined;
+    pendingCommit = undefined;
+    previewVerification = undefined;
+    dismissed = undefined;
+    offered = [];
+    recentUrKeys.clear();
+    resumeScanning();
   }
 
   return {
@@ -479,7 +500,6 @@ export function createMultiSymbolCoordinator(
 
       const requiredCount = requiredSelectionCount(visible);
       if (!Number.isFinite(requiredCount)) return;
-      dismissed = undefined;
 
       if (visible.length >= requiredCount) {
         enterSelecting(visible);
@@ -553,16 +573,19 @@ export function createMultiSymbolCoordinator(
       previewVerification = undefined;
       phase = 'normal';
     },
-    reset() {
-      clearTimer();
-      pendingSymbol = undefined;
-      pendingCommit = undefined;
-      previewVerification = undefined;
-      dismissed = undefined;
-      offered = [];
-      recentUrKeys.clear();
-      resumeScanning();
+    resetCapture() {
+      const isStartingSelection = phase === 'selecting' && pendingCommit;
+      if (phase !== 'ur-streaming' && !isStartingSelection) {
+        reset();
+        return;
+      }
+      // The host is still assembling the same UR after the camera changes.
+      phase = 'ur-streaming';
+      acceptFastPathText = false;
+      closeSelection();
+      options.onMultiSymbolChange(true);
     },
+    reset,
     dispose() {
       clearTimer();
       pendingSymbol = undefined;

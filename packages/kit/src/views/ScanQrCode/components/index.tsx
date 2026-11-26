@@ -155,7 +155,12 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     useLayoutEffect(() => {
       setFocusRequest(undefined);
       coordinatorRef.current?.reset();
-    }, [cameraActive, cameraId, isFocused, useWebCamera]);
+    }, [cameraActive, isFocused]);
+
+    useLayoutEffect(() => {
+      setFocusRequest(undefined);
+      coordinatorRef.current?.resetCapture();
+    }, [cameraId, useWebCamera]);
 
     useLayoutEffect(() => {
       if (isFocused) frameGate.current.reset();
