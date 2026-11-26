@@ -43,6 +43,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type {
   IUSMarketSessionSegment,
+  IUSMarketTradingHours,
   IUSTradingHoursCountdown,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -199,14 +200,143 @@ const NOW_LINE_WIDTH = 4;
 const NOW_TAG_SPACE = 28;
 const NOW_LINE_OVERHANG = 4;
 
+/** Vertical marker line; 1px surface-colored edges keep it legible where it
+ * crosses a segment. */
+function TimelineMarkerLine({ color }: { color: IColorTokens }) {
+  return (
+    <Stack
+      w={NOW_LINE_WIDTH}
+      h="$4"
+      px={1}
+      bg="$bg"
+      testID="trading-hours-now-line"
+    >
+      <Stack flex={1} bg={color} />
+    </Stack>
+  );
+}
+
+// Share of the track kept for the session that follows the closure. It is
+// illustrative only: the closure itself can last from minutes to days.
+const CLOSED_TIMELINE_NEXT_RATIO = 0.25;
+
+interface IClosedTimelineModel {
+  /** Position of `now` inside the closure, 0..1. */
+  progress: number;
+  /** The session that ends the closure, when the reopen time is known. */
+  nextSessionKey?: EUSMarketSessionKey;
+}
+
+/**
+ * While the market is closed the track shows how far the closure has run and
+ * which session ends it. The backend only reports when the market reopens,
+ * so the closure's start comes from the clock: the weekend closure's own
+ * start, else the start of today's cycle (a holiday).
+ */
+function getClosedTimelineModel({
+  tradingHours,
+  countdown,
+  nowMs,
+}: {
+  tradingHours: IUSMarketTradingHours;
+  countdown?: IUSTradingHoursCountdown;
+  nowMs: number;
+}): IClosedTimelineModel {
+  const reopen =
+    countdown?.kind === 'sessionStarts' && countdown.segment
+      ? { instant: countdown.targetInstant, key: countdown.segment.key }
+      : undefined;
+  if (!reopen || reopen.instant <= nowMs) {
+    // Unknown reopen: no next session to name, so fall back to the cycle.
+    return { progress: tradingHours.nowRatio };
+  }
+  const isInWeekend =
+    nowMs >= tradingHours.weekendStartInstant &&
+    nowMs < tradingHours.weekendEndInstant;
+  const closureStart = Math.min(
+    isInWeekend
+      ? tradingHours.weekendStartInstant
+      : tradingHours.cycleStartInstant,
+    nowMs,
+  );
+  return {
+    progress: (nowMs - closureStart) / (reopen.instant - closureStart),
+    nextSessionKey: reopen.key,
+  };
+}
+
+function TradingHoursClosedTimeline({
+  progress,
+  nextSessionKey,
+}: IClosedTimelineModel) {
+  const intl = useIntl();
+  const closedRatio = nextSessionKey ? 1 - CLOSED_TIMELINE_NEXT_RATIO : 1;
+  const parts: Array<{ key: string; ratio: number; label: string }> = [
+    {
+      key: 'closed',
+      ratio: closedRatio,
+      label: intl.formatMessage({ id: ETranslations.market_status_closed }),
+    },
+  ];
+  if (nextSessionKey) {
+    parts.push({
+      key: nextSessionKey,
+      ratio: CLOSED_TIMELINE_NEXT_RATIO,
+      label: intl.formatMessage({ id: TIMELINE_LABEL_ID[nextSessionKey] }),
+    });
+  }
+  return (
+    <YStack gap="$2" pt={NOW_LINE_OVERHANG} testID="trading-hours-timeline">
+      <XStack gap={TIMELINE_GAP}>
+        {parts.map((part) => (
+          <Stack
+            key={part.key}
+            flexGrow={part.ratio}
+            flexBasis={0}
+            h="$2"
+            borderRadius="$1"
+            bg="$bgStrong"
+          >
+            {part.key === 'closed' ? (
+              <Stack
+                position="absolute"
+                left={`${Math.min(Math.max(progress, 0), 1) * 100}%`}
+                top={-NOW_LINE_OVERHANG}
+                w={0}
+                alignItems="center"
+              >
+                <TimelineMarkerLine color="$textSubdued" />
+              </Stack>
+            ) : null}
+          </Stack>
+        ))}
+      </XStack>
+      <XStack gap={TIMELINE_GAP} testID="trading-hours-timeline-labels">
+        {parts.map((part) => (
+          <SizableText
+            key={part.key}
+            flexGrow={part.ratio}
+            flexBasis={0}
+            textAlign="center"
+            numberOfLines={1}
+            size="$bodySm"
+            color="$textSubdued"
+          >
+            {part.label}
+          </SizableText>
+        ))}
+      </XStack>
+    </YStack>
+  );
+}
+
 function TradingHoursTimeline({
   segments,
   activeSessionKey,
   marker,
 }: {
   segments: IUSMarketSessionSegment[];
-  /** Colored segment; none while the market is closed. */
-  activeSessionKey?: EUSMarketSessionKey;
+  activeSessionKey: EUSMarketSessionKey;
   marker?: ITimelineMarker;
 }) {
   const intl = useIntl();
@@ -281,20 +411,9 @@ function TradingHoursTimeline({
                   w={0}
                   alignItems="center"
                 >
-                  {/* 1px surface-colored edges keep the line legible where
-                      it crosses the segment. */}
-                  <Stack
-                    w={NOW_LINE_WIDTH}
-                    h="$4"
-                    px={1}
-                    bg="$bg"
-                    testID="trading-hours-now-line"
-                  >
-                    <Stack
-                      flex={1}
-                      bg={segmentMarker.type === 'now' ? meta.accent : '$text'}
-                    />
-                  </Stack>
+                  <TimelineMarkerLine
+                    color={segmentMarker.type === 'now' ? meta.accent : '$text'}
+                  />
                   {segmentMarker.type === 'now' ? (
                     <Stack
                       position="absolute"
@@ -622,6 +741,12 @@ function TradingHoursContent({
     }
   }
 
+  const closedTimeline = getClosedTimelineModel({
+    tradingHours,
+    countdown,
+    nowMs,
+  });
+
   // Collapsed row: the running session, or the one that opens next.
   const isUpcomingRow = activeRow === 'closed' || isAwaitingOpen;
   // An upcoming row follows the countdown's segment: past the overnight
@@ -723,11 +848,18 @@ function TradingHoursContent({
       </YStack>
 
       <YStack gap="$3.5">
-        <TradingHoursTimeline
-          segments={tradingHours.segments}
-          activeSessionKey={sessionKey}
-          marker={marker}
-        />
+        {sessionKey ? (
+          <TradingHoursTimeline
+            segments={tradingHours.segments}
+            activeSessionKey={sessionKey}
+            marker={marker}
+          />
+        ) : (
+          <TradingHoursClosedTimeline
+            progress={closedTimeline.progress}
+            nextSessionKey={closedTimeline.nextSessionKey}
+          />
+        )}
         <YStack>
           <Accordion
             type="single"

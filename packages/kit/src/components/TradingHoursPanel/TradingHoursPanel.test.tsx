@@ -4,7 +4,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 import { TradingHoursTrigger } from '.';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFetchUSMarketStatusResult } from '@onekeyhq/shared/types/swap/types';
@@ -58,11 +58,13 @@ jest.mock('@onekeyhq/components', () => {
   const Frame = ({
     children: frameChildren,
     bg,
+    left,
     opacity,
     testID,
     onPress,
   }: PropsWithChildren<{
     bg?: string;
+    left?: string | number;
     opacity?: number;
     testID?: string;
     onPress?: (event: unknown) => void;
@@ -73,7 +75,7 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </button>
     ) : (
-      <div data-bg={bg} data-testid={testID}>
+      <div data-bg={bg} data-left={left} data-testid={testID}>
         {children}
       </div>
     );
@@ -163,6 +165,15 @@ const sessionRowBg = () =>
   screen
     .getByTestId('trading-hours-session-row-content')
     .getAttribute('data-bg');
+const timelineLabels = () =>
+  within(screen.getByTestId('trading-hours-timeline-labels'))
+    .getAllByText(/\S/)
+    .map((node) => node.textContent);
+const nowLinePercent = () =>
+  parseFloat(
+    screen.getByTestId('trading-hours-now-line').parentElement?.dataset.left ??
+      '',
+  );
 
 it.each(['ondo', 'xstock', 'bstock'])(
   'updates %s trading hours when the backend reports a weekday closure',
@@ -214,7 +225,11 @@ it.each(['ondo', 'xstock', 'bstock'])(
     expect(sessionRowBg()).toBe('$bgSubdued');
     // A weekday closure the clock cannot see has no reopen time to count to.
     expect(screen.queryByTestId('trading-hours-countdown')).toBeNull();
-    expect(screen.queryByTestId('trading-hours-now-line')).toBeNull();
+    // A weekday closure with no reopen time names no next session.
+    expect(timelineLabels()).toEqual([ETranslations.market_status_closed]);
+    expect(
+      screen.queryByText(ETranslations.trading_hours_regular_market_now),
+    ).toBeNull();
     expect(
       screen.getByText(ETranslations.trading_hours_closed_tradable_description),
     ).toBeTruthy();
@@ -412,8 +427,84 @@ it('points a halt at no session through a market-wide closure', () => {
   expect(
     screen.getByText(ETranslations.trading_hours_trading_halts),
   ).toBeTruthy();
-  expect(screen.queryByTestId('trading-hours-now-line')).toBeNull();
+  expect(timelineLabels()).toEqual([ETranslations.market_status_closed]);
   expect(sessionRowBg()).toBe('$bgSubdued');
+});
+
+const renderClosedUSListing = (nextOpenTime?: string) =>
+  render(
+    <TradingHoursTrigger
+      stock={{
+        title: 'AAPL',
+        subtitle: 'Apple',
+        source: 'bstock',
+        sourceLogoUri: '',
+        isUSListing: true,
+        isOpen: false,
+        nextOpenTime,
+      }}
+      renderTrigger={<span>status</span>}
+    />,
+  );
+
+describe('closed timeline', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockStatus = { open: false, session: 'CLOSED', reason: 'holiday' };
+  });
+
+  it('falls back to the cycle without naming a next session', () => {
+    // Thu 10:00 EST, no reopen time: 5h59m into the 04:01 → 03:56 cycle
+    jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+    renderClosedUSListing();
+
+    expect(timelineLabels()).toEqual([ETranslations.market_status_closed]);
+    expect(nowLinePercent()).toBeCloseTo((359 / 1435) * 100, 6);
+    expect(
+      screen.queryByText(ETranslations.trading_hours_regular_market_now),
+    ).toBeNull();
+  });
+
+  it('runs a holiday to the next pre-market', () => {
+    // Thu 10:00 EST; reopens Fri 04:01 EST — 5h59m of 24h
+    jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+    renderClosedUSListing('2026-11-27T09:01:00Z');
+
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      'Pre',
+    ]);
+    expect(nowLinePercent()).toBeCloseTo((359 / 1440) * 100, 6);
+  });
+
+  it('runs a holiday to the same evening overnight', () => {
+    // Thu 10:00 EST; reopens Thu 20:05 EST — 5h59m of 16h04m
+    jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+    renderClosedUSListing('2026-11-27T01:05:00Z');
+
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      ETranslations.trading_hours_overnight,
+    ]);
+    expect(nowLinePercent()).toBeCloseTo((359 / 964) * 100, 6);
+  });
+
+  it.each([
+    // Sat 10:00 EST — 14h into the Fri 20:00 → Sun 20:05 closure
+    ['Saturday', '2026-11-28T15:00:00Z', 840],
+    // Sun 10:00 EST — 38h in; the cycle rolled over at 04:01, the line not
+    ['Sunday', '2026-11-29T15:00:00Z', 2280],
+  ])('tracks the whole weekend on %s', (_day, now, elapsedMinutes) => {
+    mockStatus = { open: false, session: 'CLOSED', reason: 'weekend' };
+    jest.setSystemTime(new Date(now));
+    renderClosedUSListing();
+
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      ETranslations.trading_hours_overnight,
+    ]);
+    expect(nowLinePercent()).toBeCloseTo((elapsedMinutes / 2885) * 100, 6);
+  });
 });
 
 it('counts the cycle-edge gap down to the next pre-market', () => {
