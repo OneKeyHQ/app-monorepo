@@ -313,14 +313,20 @@ function TradingHoursClosedTimeline({
             borderRadius="$1"
             bg="$bgStrong"
             // The closure part carries the marker, so it is what a screen
-            // reader announces as the progress through the closure.
+            // reader announces as the progress through the closure. Without a
+            // reopen time the marker sits on the daily cycle instead, which is
+            // no closure progress, so the bar stays indeterminate. `accessible`
+            // makes the native view a VoiceOver/TalkBack stop.
             {...(part.key === 'closed'
               ? {
+                  accessible: true,
                   role: 'progressbar' as const,
                   'aria-label': part.label,
                   'aria-valuemin': 0,
                   'aria-valuemax': 100,
-                  'aria-valuenow': Math.round(clampedProgress * 100),
+                  'aria-valuenow': nextSessionKey
+                    ? Math.round(clampedProgress * 100)
+                    : undefined,
                   testID: 'trading-hours-closure-progress',
                 }
               : null)}

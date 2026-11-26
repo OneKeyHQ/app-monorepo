@@ -68,12 +68,14 @@ jest.mock('@onekeyhq/components', () => {
     testID,
     onPress,
     role,
+    accessible,
     'aria-label': ariaLabel,
     'aria-valuenow': ariaValueNow,
   }: PropsWithChildren<{
     bg?: string;
     left?: string | number;
     role?: string;
+    accessible?: boolean;
     'aria-label'?: string;
     'aria-valuenow'?: number;
     opacity?: number;
@@ -91,6 +93,7 @@ jest.mock('@onekeyhq/components', () => {
         data-left={left}
         data-testid={testID}
         role={role}
+        data-accessible={accessible}
         aria-label={ariaLabel}
         aria-valuenow={ariaValueNow}
       >
@@ -490,6 +493,12 @@ describe('closed timeline', () => {
     expect(
       screen.queryByText(ETranslations.trading_hours_regular_market_now),
     ).toBeNull();
+    // The cycle position is no closure progress: the bar stays indeterminate.
+    expect(
+      screen
+        .getByRole('progressbar', { name: ETranslations.market_status_closed })
+        .hasAttribute('aria-valuenow'),
+    ).toBe(false);
   });
 
   it('runs a holiday to the next pre-market', () => {
@@ -506,6 +515,7 @@ describe('closed timeline', () => {
       name: ETranslations.market_status_closed,
     });
     expect(progress.getAttribute('aria-valuenow')).toBe('25');
+    expect(progress.getAttribute('data-accessible')).toBe('true');
   });
 
   it('updates an open sheet when a refresh brings the reopen time', () => {
