@@ -646,6 +646,26 @@ describe('split view', () => {
     ]);
   });
 
+  it('shows the panel interval pickers only while the chart is on screen', async () => {
+    const view = render(<PerpCandles isVisible={false} />);
+    // Behind another workspace view, a picker left open would stay over it.
+    expect(view.UNSAFE_queryAllByType(MockPanelInterval)).toEqual([]);
+
+    view.rerender(<PerpCandles isVisible />);
+    expect(
+      view
+        .UNSAFE_queryAllByType(MockPanelInterval)
+        .map((node) => (node.props as { panelId: string }).panelId),
+    ).toEqual(['main', 'panel-2']);
+
+    view.rerender(<PerpCandles isVisible={false} />);
+    expect(view.UNSAFE_queryAllByType(MockPanelInterval)).toEqual([]);
+    // The second panel's own metadata lands inside the test.
+    await waitFor(() =>
+      expect(getChartProps('ETH')?.priceDecimalPlaces).toBe(3),
+    );
+  });
+
   it('leaves a single chart to the page header', () => {
     mockMultiChartLayout = { preset: '1', panels: {} };
     const view = renderTradingViewCandles();

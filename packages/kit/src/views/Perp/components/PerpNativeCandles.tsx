@@ -104,6 +104,8 @@ export function PerpNativeCandles({
 }
 
 const PANEL_HEADER_HEIGHT = 32;
+// One line of the header's items: the height of its token picker.
+const PANEL_HEADER_ITEM_HEIGHT = 28;
 
 // Offered to newly opened panels, most liquid first.
 const DEFAULT_PANEL_COINS = ['BTC', 'ETH', 'SOL', 'HYPE'];
@@ -259,18 +261,33 @@ function PerpNativeSplitPanel({
           overflow="hidden"
           testID={`${PerpTestIDs.NativeChartPanelHeader}-${id}`}
         >
-          <PerpChartTokenSelector
-            display={tokenDisplay}
-            onSelectToken={handleSelectToken}
-            testID={`${PerpTestIDs.NativeChartPanelToken}-${id}`}
-          />
-          <PerpChartPanelQuote
-            coin={coin}
-            mode={instrument.mode}
-            assetId={instrument.assetId}
-            isLive={isVisible}
-          />
-          {intervalControl}
+          {/* Gives way first on a narrow panel, so the interval picker after
+              it stays whole. What does not fit wraps onto a line out of view,
+              so a price is left out rather than cut short. */}
+          <XStack
+            h={PANEL_HEADER_ITEM_HEIGHT}
+            flexShrink={1}
+            minWidth={0}
+            flexWrap="wrap"
+            gap="$2"
+            alignItems="center"
+            overflow="hidden"
+          >
+            <PerpChartTokenSelector
+              display={tokenDisplay}
+              onSelectToken={handleSelectToken}
+              testID={`${PerpTestIDs.NativeChartPanelToken}-${id}`}
+            />
+            <PerpChartPanelQuote
+              coin={coin}
+              mode={instrument.mode}
+              assetId={instrument.assetId}
+              isLive={isVisible}
+            />
+          </XStack>
+          {/* Leaves with the chart, e.g. for another workspace view, so its
+              popover cannot stay open over that view. */}
+          {isVisible ? intervalControl : null}
         </XStack>
       ) : null}
       <TradingViewNative
