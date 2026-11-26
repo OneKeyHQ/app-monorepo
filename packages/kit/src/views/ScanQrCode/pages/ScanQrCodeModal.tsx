@@ -238,7 +238,7 @@ export default function ScanQrCodeModal() {
     mounted: boolean;
     phase: 'open' | 'result' | 'cancelled';
     captureVersion: number;
-    animationReset?: Promise<void>;
+    animationReset?: Promise<void> | 'retry';
   }>({ mounted: false, phase: 'open', captureVersion: 0 });
   const cancelScan = useCallback(() => {
     if (scan.current.phase !== 'open') return;
@@ -266,6 +266,35 @@ export default function ScanQrCodeModal() {
     navigation.popStack();
   }, [cancelScan, navigation]);
 
+  const onResetAnimationData = useCallback((drain?: Promise<void>) => {
+    const session = scan.current;
+    const pending = session.animationReset;
+    if (pending !== undefined && pending !== 'retry') return pending;
+    if (!session.mounted || session.phase !== 'open') {
+      return drain ?? Promise.resolve();
+    }
+    if (drain !== undefined) session.captureVersion += 1;
+    else if (pending !== 'retry') return Promise.resolve();
+
+    const reset = (drain ?? Promise.resolve())
+      .then(async () => {
+        if (session.mounted && session.phase === 'open') {
+          await backgroundApiProxy.serviceScanQRCode.resetAnimationData();
+        }
+      })
+      .then(
+        () => {
+          session.animationReset = undefined;
+        },
+        (error: unknown) => {
+          session.animationReset = 'retry';
+          throw error;
+        },
+      );
+    session.animationReset = reset;
+    return reset;
+  }, []);
+
   const callback = useCallback(
     async (value: string, isCaptureCurrent?: () => boolean) => {
       const session = scan.current;
@@ -281,11 +310,17 @@ export default function ScanQrCodeModal() {
         );
         if (!canDispatch()) return {};
       }
+      let retriedReset = false;
       while (session.animationReset !== undefined) {
+        const pending = session.animationReset;
+        if (pending === 'retry') {
+          if (retriedReset) return { retry: true };
+          retriedReset = true;
+        }
         try {
-          await session.animationReset;
+          await (pending === 'retry' ? onResetAnimationData() : pending);
         } catch {
-          return { retry: true };
+          if (retriedReset) return { retry: true };
         }
         if (!canDispatch()) return {};
       }
@@ -302,7 +337,7 @@ export default function ScanQrCodeModal() {
         },
       });
     },
-    [route.key, routeCallback],
+    [onResetAnimationData, route.key, routeCallback],
   );
 
   const isPhotoScanInProgress = useRef(false);
@@ -435,20 +470,6 @@ export default function ScanQrCodeModal() {
     },
     [callback],
   );
-
-  const onResetAnimationData = useCallback((drain: Promise<void>) => {
-    const session = scan.current;
-    if (!session.mounted || session.phase !== 'open') return drain;
-    session.captureVersion += 1;
-    const reset = drain.then(async () => {
-      if (session.mounted && session.phase === 'open') {
-        await backgroundApiProxy.serviceScanQRCode.resetAnimationData();
-      }
-      if (session.animationReset === reset) session.animationReset = undefined;
-    });
-    session.animationReset = reset;
-    return reset;
-  }, []);
 
   // A phone sheet wider than it is tall (iPhone Duo inner display in
   // landscape) can't fit a full-width square camera above the hints, so

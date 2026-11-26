@@ -39,7 +39,7 @@ const mockRouteCallback = jest.fn<
   Parameters<IRouteCallback>
 >();
 let mockScan: (value: string) => ReturnType<IRouteCallback>;
-let mockResetCapture: (drain: Promise<void>) => Promise<void>;
+let mockResetCapture: (drain?: Promise<void>) => Promise<void>;
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -347,6 +347,42 @@ test('a photo waits for the abandoned camera frame and shared decoder reset', as
   expect(mockRouteCallback).toHaveBeenLastCalledWith(
     expect.objectContaining({ value: 'ur:photo-part' }),
   );
+});
+
+test('an album scan can retry a failed reset without a live camera frame', async () => {
+  const firstReset = Promise.withResolvers<void>();
+  const retryReset = Promise.withResolvers<void>();
+  mockResetAnimationData
+    .mockReturnValueOnce(firstReset.promise)
+    .mockReturnValueOnce(retryReset.promise);
+  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+    canceled: false,
+    uri: 'image',
+  });
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('ur:photo-part');
+  render(<ScanQrCodeModal />);
+
+  const first = mockResetCapture(Promise.resolve());
+  await act(async () =>
+    fireEvent.click(screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn)),
+  );
+  expect(mockRouteCallback).not.toHaveBeenCalled();
+  await act(async () => {
+    firstReset.reject(new Error('decoder offline'));
+    await expect(first).rejects.toThrow('decoder offline');
+  });
+  expect(mockResetAnimationData).toHaveBeenCalledTimes(2);
+  expect(mockRouteCallback).not.toHaveBeenCalled();
+  const cameraRetry = mockResetCapture();
+  await act(async () => {
+    retryReset.resolve();
+    await cameraRetry;
+  });
+  expect(mockRouteCallback).toHaveBeenCalledWith(
+    expect.objectContaining({ value: 'ur:photo-part' }),
+  );
+  await mockResetCapture();
+  expect(mockResetAnimationData).toHaveBeenCalledTimes(2);
 });
 
 test('allows the camera to retry the same code after photo parsing finishes', async () => {
