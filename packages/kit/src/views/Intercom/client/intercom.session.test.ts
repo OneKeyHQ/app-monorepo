@@ -837,3 +837,47 @@ describe('cached support answers', () => {
     unsubscribe();
   });
 });
+
+it('keeps the unread badge in the same poll when another window replaced the visitor', async () => {
+  jest.useFakeTimers();
+  await subject.createIntercomMessengerSession(null);
+  await subject.startIntercomBackgroundPolling();
+  subject.setIntercomInAppMessageVisibility(true);
+  await jest.advanceTimersByTimeAsync(0);
+  expect(subject.getIntercomUnreadCount()).toBe(1);
+  // Another window saved a replacement visitor; the next boot here finds it.
+  mockVisitor = JSON.stringify({
+    anonymousId: 'next-visitor',
+    anonymousSession: 'next-session',
+    expiresAt: 9_999_999_999_000,
+  } satisfies IIntercomVisitor);
+  mockFetch.mockImplementation(
+    async (url) =>
+      new Response(
+        JSON.stringify(
+          url.endsWith('/ping')
+            ? {
+                ...boot,
+                user: { id: 'next-user', anonymous_id: 'next-visitor' },
+                anonymous_session: 'next-session',
+              }
+            : { unread_conversation_ids: ['42'] },
+        ),
+      ),
+  );
+  const generation = subject.getIntercomSessionGeneration();
+  mockFetch.mockClear();
+  // The poll after five minutes boots again and meets the replacement.
+  await jest.advanceTimersByTimeAsync(5 * 60_000 + 1000);
+  expect(subject.getIntercomSessionGeneration()).toBe(generation + 1);
+  expect(subject.getIntercomUnreadCount()).toBe(1);
+  const unread = mockFetch.mock.calls.filter(([url]) =>
+    url.endsWith('/conversations/unread'),
+  );
+  expect(
+    JSON.parse(
+      new URLSearchParams(String(unread.at(-1)?.[1]?.body)).get('user_data') ||
+        '{}',
+    ),
+  ).toMatchObject({ anonymous_id: 'next-visitor' });
+});

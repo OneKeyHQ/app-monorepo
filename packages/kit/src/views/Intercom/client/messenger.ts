@@ -67,6 +67,7 @@ let sessionGeneration = 0;
 const sessionListeners = new Set<() => void>();
 // The anonymous visitor the live client booted; undefined for a JWT session.
 let liveVisitor: IIntercomVisitor | undefined;
+let visitorReplacements = 0;
 
 function setUnread(ids: string[]) {
   unreadIds = new Set(ids);
@@ -402,6 +403,7 @@ export async function createIntercomMessengerSession(
           // that triggered the boot fails before it is posted as the new
           // visitor. The next session boots the visitor saved above.
           if (liveVisitor && liveVisitor.anonymousId !== visitor.anonymousId) {
+            visitorReplacements += 1;
             invalidate();
             throw new OneKeyLocalError('Support session changed');
           }
@@ -467,6 +469,19 @@ export function getIntercomResponseCache<K extends keyof IIntercomResponses>(
   };
 }
 
+// A boot that replaced the visitor retires the client and fails, although the
+// visitor it saved is current. A read-only poll opens the session once more on
+// a new client instead of waiting for its failure backoff.
+async function createPollingSession(userId: string | null) {
+  const replacements = visitorReplacements;
+  try {
+    return await createIntercomMessengerSession(userId);
+  } catch (error) {
+    if (visitorReplacements === replacements) throw error;
+    return createIntercomMessengerSession(userId);
+  }
+}
+
 async function pollUnread() {
   if (!visible || isLocked()) {
     stopUnreadPolling();
@@ -482,7 +497,7 @@ async function pollUnread() {
     !parseVisitor(await storageOperation(() => visitorStorage.get(storageKey)))
   )
     return;
-  const session = await createIntercomMessengerSession(userId);
+  const session = await createPollingSession(userId);
   await session.refreshUnread();
   if (visible && !isLocked() && notificationListeners.size) {
     let conversations: IIntercomConversation[] = [];
