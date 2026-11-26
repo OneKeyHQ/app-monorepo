@@ -7,7 +7,8 @@
     "initialScriptRawBytes": 15728640,
     "initialScriptGzipBytes": 3984589,
     "initialScriptBrotliBytes": 3145728,
-    "allScriptRawBytes": 127926272,
+    "_allScriptRawBytes_note": "Raised from 122 MiB for the release/v6.7.0 #5 sync (#14805). x measured 121.96 MiB, and the sync adds 58.6 KB, about 35 KB of it small modules copied into several async chunks (psbtAuthorization x5, swapStockMarketData x3). 123 MiB leaves about 1 MiB of headroom.",
+    "allScriptRawBytes": 128974848,
     "largestModuleBytes": 665600,
     "forbiddenSources": ["@sentry/", "@sentry-internal/"]
   },

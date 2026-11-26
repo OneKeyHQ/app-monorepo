@@ -6,15 +6,14 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { shouldKeepSwapQuoteAliveOnFocusLoss } from '../utils/swapProviderSelectRoute';
+
 import {
   isSwapProTokenBalanceRequestCurrent,
   isSwapProTradeStateOwner,
   useSwapProTokenSearch,
 } from './useSwapPro';
-import {
-  isSwapQuoteTabEffectivelyVisible,
-  shouldKeepSwapQuoteAliveOnFocusLoss,
-} from './useSwapQuote';
+import { isSwapQuoteTabEffectivelyVisible } from './useSwapQuote';
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => {
   const universalSearchOfV2MarketToken = jest.fn();
