@@ -72,9 +72,7 @@ struct MarketLockScreenView: View {
           Text(price(row, compact: true))
             .font(.system(size: 12, weight: .medium))
             .lineLimit(1).minimumScaleFactor(0.6).monospacedDigit()
-          if let date = row.lockScreenCacheDate(at: entry.date) {
-            cacheTimestamp(date, size: 9)
-          } else {
+          if row.lockScreenCacheDate(at: entry.date) == nil {
             direction(row, size: 8)
           }
         }
@@ -87,13 +85,11 @@ struct MarketLockScreenView: View {
   private var largePrice: some View {
     VStack(alignment: .leading, spacing: 5) {
       if let row {
+        let isCached = row.lockScreenCacheDate(at: entry.date) != nil
         HStack(spacing: 3) {
-          if let date = row.lockScreenCacheDate(at: entry.date) {
-            Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.65)
-            cacheTimestamp(date, size: 11)
-          } else {
-            direction(row, size: 10)
-            Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.65)
+          if !isCached { direction(row, size: 10) }
+          Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.65)
+          if !isCached {
             Text(MarketLockScreenFormatting.change(row.quote?.change24h, locale: locale))
               .lineLimit(1).minimumScaleFactor(0.75).monospacedDigit()
           }
@@ -155,28 +151,16 @@ struct MarketLockScreenView: View {
   }
 
   private func priceLine(_ row: MarketWidgetRow, currency: Bool = false) -> some View {
-    let cachedDate = row.lockScreenCacheDate(at: entry.date)
+    let isCached = row.lockScreenCacheDate(at: entry.date) != nil
     return HStack(spacing: 4) {
       Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.7)
-      if let cachedDate { cacheTimestamp(cachedDate, size: 9).layoutPriority(1) }
       Spacer(minLength: 0)
       HStack(spacing: 2) {
-        if cachedDate == nil, row.quote != nil { direction(row, size: 8) }
+        if !isCached, row.quote != nil { direction(row, size: 8) }
         Text(price(row, currency: currency)).lineLimit(1).minimumScaleFactor(0.65).monospacedDigit()
       }
       .layoutPriority(1)
     }
-  }
-
-  private func cacheTimestamp(_ date: Date, size: CGFloat) -> some View {
-    let sameDay = Calendar.current.isDate(date, inSameDayAs: entry.date)
-    let format = sameDay ? Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)
-      : Date.FormatStyle(locale: locale).year(.twoDigits).month(.defaultDigits).day()
-    return HStack(spacing: 2) {
-      Image(systemName: "clock")
-      Text(date, format: format).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-    }
-    .font(.system(size: size, weight: .medium))
   }
 
   @ViewBuilder private func direction(_ row: MarketWidgetRow, size: CGFloat) -> some View {

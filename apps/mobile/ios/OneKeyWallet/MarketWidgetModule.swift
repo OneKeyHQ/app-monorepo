@@ -35,6 +35,20 @@ final class MarketWidgetModule: NSObject {
     beginEditing(instance: nil, resolve: resolve, reject: reject)
   }
 
+  @objc(getInstalledWidgetInstances:rejecter:)
+  func getInstalledWidgetInstances(_ resolve: @escaping RCTPromiseResolveBlock,
+                                   rejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard #available(iOS 17.0, *) else { resolve("[]"); return }
+    Task {
+      do {
+        let instances = try await MarketWidgetStore().installedInstancePreviews()
+        resolve(String(decoding: try JSONEncoder().encode(instances), as: UTF8.self))
+      } catch {
+        reject("MARKET_WIDGET_EDITOR_FAILED", "Unable to list installed market widgets.", error)
+      }
+    }
+  }
+
   @objc(beginWidgetInstanceEditing:kind:resolver:rejecter:)
   func beginWidgetInstanceEditing(_ id: String, kind: String, resolver resolve: RCTPromiseResolveBlock,
                                   rejecter reject: RCTPromiseRejectBlock) {

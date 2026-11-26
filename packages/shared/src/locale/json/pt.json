@@ -4032,6 +4032,8 @@
   "perp_deposit_estimate_route_refresh__desc": "O montante final recebido pode ser atualizado com a rota e as taxas mais recentes.",
   "perp_deposit_eta_one_minute__desc": "Est. 1 min para chegar",
   "perp_deposit_more_tokens_coming_soon__desc": "Mais tokens de depósito em breve",
+  "perp_depth_chart__title": "Gráfico de profundidade",
+  "perp_depth_range__title": "Intervalo",
   "perp_direction__title": "Direção",
   "perp_distance_from_mid__title": "Distância do preço médio",
   "perp_enable_trading_steps_abstraction__desc": "Habilitar conta de negociação unificada",

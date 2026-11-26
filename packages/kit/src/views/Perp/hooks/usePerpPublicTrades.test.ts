@@ -13,7 +13,12 @@ import {
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { serviceHyperliquid: { getPerpRecentTrades: jest.fn() } },
+  default: {
+    serviceHyperliquid: { getPerpRecentTrades: jest.fn() },
+    serviceHyperliquidSubscription: {
+      getRetainedPublicTrades: jest.fn().mockResolvedValue([]),
+    },
+  },
 }));
 jest.mock('../../../utils/watchHyperliquidPublicTrades', () => ({
   watchHyperliquidPublicTrades: jest.fn(() => jest.fn()),
@@ -80,6 +85,37 @@ it.each([
     expect(result.current.trades).toHaveLength(afterDeadline + 1);
   },
 );
+
+it('shows retained trades on initial connection and recovery while keeping backfill failures visible', async () => {
+  const retained = jest
+    .spyOn(
+      backgroundApiProxy.serviceHyperliquidSubscription,
+      'getRetainedPublicTrades',
+    )
+    .mockClear()
+    .mockResolvedValueOnce(trades(1, 30))
+    .mockResolvedValueOnce(trades(30, 3));
+  snapshot.mockRejectedValueOnce(new Error('unavailable'));
+  const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+  const feed = watch.mock.calls[0][0];
+  await act(async () => feed.onStatus?.('connected'));
+  expect(result.current.trades).toHaveLength(30);
+  expect(result.current.isError).toBe(true);
+  act(() => feed.onTrades(trades(30, 2)));
+  expect(result.current.trades).toHaveLength(31);
+  expect(result.current.trades[0].tid).toBe(31);
+
+  snapshot.mockRejectedValueOnce(new Error('still unavailable'));
+  await act(async () => {
+    feed.onStatus?.('failed');
+    feed.onStatus?.('connected');
+    feed.onStatus?.('connected');
+  });
+  expect(result.current.trades).toHaveLength(32);
+  expect(result.current.trades[0].tid).toBe(32);
+  expect(result.current.isError).toBe(true);
+  expect(retained).toHaveBeenCalledTimes(2);
+});
 
 it('keeps the successful fallback when the queued acknowledged backfill fails', async () => {
   let resolveFallback: (value: IRecentTrade[]) => void = () => undefined;
@@ -255,6 +291,31 @@ it('does not restore expired cached rows on a new mount', async () => {
   await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
   first.unmount();
   jest.advanceTimersByTime(5 * 60_000);
+  const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+  expect(result.current.trades).toHaveLength(0);
+});
+
+it('expires cached rows on time after an identical retained replay and a failed snapshot', async () => {
+  snapshot.mockResolvedValueOnce(trades(1, 30));
+  const first = renderHook(() => usePerpPublicTrades(coin, true));
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  first.unmount();
+  jest.advanceTimersByTime(4 * 60_000);
+
+  jest
+    .spyOn(
+      backgroundApiProxy.serviceHyperliquidSubscription,
+      'getRetainedPublicTrades',
+    )
+    .mockResolvedValueOnce(trades(1, 30));
+  snapshot.mockRejectedValueOnce(new Error('snapshot unavailable'));
+  const second = renderHook(() => usePerpPublicTrades(coin, true));
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  expect(second.result.current.trades).toHaveLength(30);
+  expect(second.result.current.isError).toBe(true);
+  second.unmount();
+
+  jest.advanceTimersByTime(60_000);
   const { result } = renderHook(() => usePerpPublicTrades(coin, true));
   expect(result.current.trades).toHaveLength(0);
 });
