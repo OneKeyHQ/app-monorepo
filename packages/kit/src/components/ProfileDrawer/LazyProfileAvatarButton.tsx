@@ -7,6 +7,8 @@ import avatarFallback from '@onekeyhq/kit/assets/avatar-fallback.png';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ErrorBoundarySimple } from '../ErrorBoundary';
+
 import { PROFILE_AVATAR_SIZE, ProfileAvatarFrame } from './ProfileAvatarFrame';
 
 // The real button pulls the update and unread checks; until it loads the
@@ -28,7 +30,7 @@ function ProfileAvatarButtonFallback() {
   );
 }
 
-export const LazyProfileAvatarButton = LazyLoad(
+const ProfileAvatarButtonLoader = LazyLoad(
   async () => {
     const { default: ProfileAvatarButton } =
       await import('./ProfileAvatarButton');
@@ -39,3 +41,13 @@ export const LazyProfileAvatarButton = LazyLoad(
   undefined,
   <ProfileAvatarButtonFallback />,
 );
+
+// A button that fails to load keeps the default avatar, which still opens the
+// drawer, instead of the app's error screen.
+export function LazyProfileAvatarButton() {
+  return (
+    <ErrorBoundarySimple fallback={<ProfileAvatarButtonFallback />}>
+      <ProfileAvatarButtonLoader />
+    </ErrorBoundarySimple>
+  );
+}
