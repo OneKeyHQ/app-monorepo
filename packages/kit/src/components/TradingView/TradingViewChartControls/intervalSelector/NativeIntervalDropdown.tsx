@@ -2,12 +2,13 @@ import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
-import type { ISelectItem } from '@onekeyhq/components';
+import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useNativeIntervalSelector } from './hooks/useNativeIntervalSelector';
 import {
+  buildIntervalItemTestID,
   formatIntervalOptionDisplayLabel,
   isIntervalOptionDisabled,
 } from './NativeIntervalUtils';
@@ -26,8 +27,8 @@ const FLOATING_PANEL_PROPS = { width: 120 };
 /**
  * The chart's interval as a small select, e.g. "1D", for a header with no
  * room for the controls row's intervals, such as a split-view panel's. It
- * lists every interval in a short list; the preferred intervals and their
- * editing stay in the controls row.
+ * lists every interval in a short list under the trigger; the preferred
+ * intervals and their editing stay in the controls row.
  */
 export const TradingViewNativeIntervalDropdown = memo(
   ({
@@ -41,27 +42,30 @@ export const TradingViewNativeIntervalDropdown = memo(
         intervalConfig,
         visiblePreferredIntervalCount: null,
       });
-    // As the intervals popover's full list: the chart's order and labels.
-    const items = useMemo<ISelectItem[]>(
+    // Rebuilt whenever the chart's interval changes, so an open list follows
+    // it, e.g. a load that fails and rolls the chart back.
+    const items = useMemo<IActionListItemProps[]>(
       () =>
         options.map((option) => ({
           label: formatIntervalOptionDisplayLabel(intl, option.label),
-          value: option.value,
           disabled: isIntervalOptionDisabled(option),
+          extra:
+            option.value === activeInterval ? (
+              <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
+            ) : undefined,
+          onPress: () => onIntervalChange(option.value),
+          testID: buildIntervalItemTestID('menu', option.value),
         })),
-      [intl, options],
+      [activeInterval, intl, onIntervalChange, options],
     );
     if (!shouldRender) return null;
     return (
-      <Select
-        testID={`${testID}-select`}
+      <ActionList
         title={intl.formatMessage({ id: ETranslations.market_intervals })}
         items={items}
-        value={activeInterval}
-        onChange={onIntervalChange}
         placement="bottom-start"
         floatingPanelProps={FLOATING_PANEL_PROPS}
-        renderTrigger={() => (
+        renderTrigger={
           <XStack
             testID={testID}
             role="button"
@@ -83,7 +87,7 @@ export const TradingViewNativeIntervalDropdown = memo(
               color="$iconSubdued"
             />
           </XStack>
-        )}
+        }
       />
     );
   },
