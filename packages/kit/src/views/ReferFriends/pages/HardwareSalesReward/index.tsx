@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,10 +10,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IHardwareCumulativeRewards,
-  IHardwareRecordItem,
-} from '@onekeyhq/shared/src/referralCode/type';
+import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -28,6 +25,7 @@ import {
   ReferFriendsPageContainer,
   RewardDateRangeField,
 } from '../../components';
+import { useCursorPagination } from '../../hooks/useCursorPagination';
 import {
   REFERRAL_ALL_TIME_START,
   useDatePresets,
@@ -87,20 +85,6 @@ function HardwareSalesRewardPageWrapper() {
   const [cumulativeRewards, setCumulativeRewards] = useState<
     IHardwareCumulativeRewards | undefined
   >();
-
-  // Hardware Records state
-  const [hardwareRecords, setHardwareRecords] = useState<IHardwareRecordItem[]>(
-    [],
-  );
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // Bumped when a first page starts or lands, see useScrollViewLoadMore.
-  const [listVersion, setListVersion] = useState(0);
-  // Drops responses from a list that a newer refresh has replaced.
-  const listGenerationRef = useRef(0);
-  const isAppendingRef = useRef(false);
-  // Query of the displayed rows; a failed refresh can leave older rows shown.
-  const [displayedQueryKey, setDisplayedQueryKey] = useState<string>();
 
   // Filter state
   const {
@@ -185,115 +169,70 @@ function HardwareSalesRewardPageWrapper() {
     ],
   );
 
-  const listQueryKey = [
-    filterState.inviteCode,
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-  ].join('|');
-  // Only page the rows that match the active filters.
-  const pageCursor = displayedQueryKey === listQueryKey ? cursor : undefined;
-
-  const onRefresh = useCallback(async () => {
-    listGenerationRef.current += 1;
-    const listGeneration = listGenerationRef.current;
-    const requestQueryKey = listQueryKey;
-    setIsLoading(true);
-    setIsLoadingMore(false);
-    if (isAppendingRef.current) {
-      // Re-arm the dropped page's cursor in case this refresh fails.
-      isAppendingRef.current = false;
-      setListVersion((version) => version + 1);
-    }
-    try {
-      const [cumulativeRewardsResult, recordsResult] = await Promise.allSettled(
-        [
-          backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
-            filterState.inviteCode,
-            effectiveTimeRange,
-            filterState.startTime,
-            filterState.endTime,
-          ),
-          backgroundApiProxy.serviceReferralCode.getHardwareRecords(
-            undefined,
-            effectiveTimeRange,
-            filterState.inviteCode,
-            filterState.startTime,
-            filterState.endTime,
-          ),
-        ],
-      );
-      if (listGeneration !== listGenerationRef.current) {
-        return;
-      }
-
-      if (cumulativeRewardsResult.status === 'fulfilled') {
-        setCumulativeRewards(cumulativeRewardsResult.value);
-      }
-
-      if (recordsResult.status === 'fulfilled') {
-        const items = recordsResult.value.items || [];
-        setHardwareRecords(items);
-        const hasMore = items.length >= 10;
-        setCursor(hasMore ? items[items.length - 1]?._id : undefined);
-        setDisplayedQueryKey(requestQueryKey);
-        setListVersion((version) => version + 1);
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      if (listGeneration === listGenerationRef.current) {
-        setIsLoading(false);
-      }
-    }
-  }, [
-    filterState.inviteCode,
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    listQueryKey,
-  ]);
-
-  const onLoadMore = useCallback(async () => {
-    if (!pageCursor || isLoadingMore) {
-      return;
-    }
-    const listGeneration = listGenerationRef.current;
-    isAppendingRef.current = true;
-    setIsLoadingMore(true);
-    try {
+  const fetchRecordsPage = useCallback(
+    async (cursor: string | undefined) => {
       const result =
         await backgroundApiProxy.serviceReferralCode.getHardwareRecords(
-          pageCursor,
+          cursor,
           effectiveTimeRange,
           filterState.inviteCode,
           filterState.startTime,
           filterState.endTime,
         );
-      if (listGeneration !== listGenerationRef.current) {
-        return;
-      }
       const items = result.items || [];
-      setHardwareRecords((prev) => [...prev, ...items]);
       // Use last item's _id as cursor, undefined if no more data (items < limit)
       const hasMore = items.length >= 10;
-      setCursor(hasMore ? items[items.length - 1]?._id : undefined);
-    } catch (error) {
-      console.error('Failed to load more:', error);
-    } finally {
-      // A refresh releases the gate of the list it replaced.
-      if (listGeneration === listGenerationRef.current) {
-        isAppendingRef.current = false;
-        setIsLoadingMore(false);
+      return {
+        items,
+        cursor: hasMore ? items[items.length - 1]?._id : undefined,
+      };
+    },
+    [
+      effectiveTimeRange,
+      filterState.inviteCode,
+      filterState.startTime,
+      filterState.endTime,
+    ],
+  );
+
+  const pagination = useCursorPagination({
+    queryKey: [
+      filterState.inviteCode,
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+    ].join('|'),
+    fetchPage: fetchRecordsPage,
+  });
+  const { loadFirstPage } = pagination;
+
+  const onRefresh = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [cumulativeRewardsResult] = await Promise.allSettled([
+        backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
+          filterState.inviteCode,
+          effectiveTimeRange,
+          filterState.startTime,
+          filterState.endTime,
+        ),
+        loadFirstPage(),
+      ]);
+
+      if (cumulativeRewardsResult.status === 'fulfilled') {
+        setCumulativeRewards(cumulativeRewardsResult.value);
       }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setIsLoading(false);
     }
   }, [
-    pageCursor,
-    isLoadingMore,
-    effectiveTimeRange,
     filterState.inviteCode,
+    effectiveTimeRange,
     filterState.startTime,
     filterState.endTime,
+    loadFirstPage,
   ]);
 
   useEffect(() => {
@@ -327,11 +266,7 @@ function HardwareSalesRewardPageWrapper() {
             <LoadMoreScrollView
               flex={1}
               contentContainerStyle={{ pb: '$5' }}
-              cursor={pageCursor}
-              isLoading={isLoading || isLoadingMore}
-              itemCount={hardwareRecords.length}
-              listVersion={listVersion}
-              onLoadMore={onLoadMore}
+              {...pagination.scrollProps}
             >
               {/* Hardware Sales Reward Header */}
               <HardwareSalesRewardHeader
@@ -343,9 +278,9 @@ function HardwareSalesRewardPageWrapper() {
               {/* Hardware Records List */}
               <HardwareRecordsList
                 isLoading={isLoading}
-                records={hardwareRecords}
+                records={pagination.items}
                 isMobile={md}
-                isLoadingMore={isLoadingMore}
+                isLoadingMore={pagination.isLoadingMore}
               />
             </LoadMoreScrollView>
           )}

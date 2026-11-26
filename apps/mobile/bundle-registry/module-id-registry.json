@@ -26526,6 +26526,7 @@
     "packages/kit/src/views/ReferFriends/components/StatCard.tsx": 3716,
     "packages/kit/src/views/ReferFriends/components/index.ts": 5055,
     "packages/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension.ts": 24320,
+    "packages/kit/src/views/ReferFriends/hooks/useCursorPagination.ts": 19714,
     "packages/kit/src/views/ReferFriends/hooks/useDatePresets.ts": 4881,
     "packages/kit/src/views/ReferFriends/hooks/useExportInviteData.ts": 10827,
     "packages/kit/src/views/ReferFriends/hooks/useInvitePostConfig.ts": 22887,

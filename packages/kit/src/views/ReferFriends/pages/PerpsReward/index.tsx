@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,7 +18,6 @@ import {
   EExportSubject,
   EExportTimeRange,
   type IPerpsCumulativeRewardsResponse,
-  type IPerpsInvitesResponse,
   type IPerpsInvitesSortBy,
   type IPerpsInvitesSortOrder,
 } from '@onekeyhq/shared/src/referralCode/type';
@@ -32,6 +31,7 @@ import {
   ReferFriendsPageContainer,
   RewardDateRangeField,
 } from '../../components';
+import { useCursorPagination } from '../../hooks/useCursorPagination';
 import {
   REFERRAL_ALL_TIME_START,
   useDatePresets,
@@ -53,9 +53,6 @@ function PerpsRewardPageWrapper() {
   const [cumulativeRewards, setCumulativeRewards] = useState<
     IPerpsCumulativeRewardsResponse | undefined
   >();
-  const [currentInvites, setCurrentInvites] = useState<
-    IPerpsInvitesResponse | undefined
-  >();
   const [undistributedCount, setUndistributedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] =
@@ -63,21 +60,6 @@ function PerpsRewardPageWrapper() {
   const [hideZeroVolume, setHideZeroVolume] = useState(true);
   const [sortBy, setSortBy] = useState<IPerpsInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<IPerpsInvitesSortOrder>('desc');
-
-  // Pagination state
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // Bumped when a first page starts or lands, see useScrollViewLoadMore.
-  const [listVersion, setListVersion] = useState(0);
-  // Only the latest first-page request may commit rows or page them.
-  const listGenerationRef = useRef(0);
-  const tabRequestIdRef = useRef(0);
-  const isAppendingRef = useRef(false);
-  // Holds pagination until the latest first-page request settles, for both
-  // tab changes and manual refresh.
-  const [isFirstPageLoading, setIsFirstPageLoading] = useState(false);
-  // Query of the displayed rows; a failed request can leave older rows shown.
-  const [displayedQueryKey, setDisplayedQueryKey] = useState<string>();
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
@@ -185,130 +167,59 @@ function PerpsRewardPageWrapper() {
     filterState.inviteCode,
   ]);
 
-  const listQueryKey = [
-    activeTab,
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-    activeTab === 'total' ? hideZeroVolume : undefined,
-    sortBy,
-    sortOrder,
-  ].join('|');
-  // Only page the rows that match the active tab, filters and sort.
-  const pageCursor = displayedQueryKey === listQueryKey ? cursor : undefined;
+  const fetchInvitesPage = useCallback(
+    (cursor: string | undefined) =>
+      backgroundApiProxy.serviceReferralCode.getPerpsInvites({
+        tab: activeTab,
+        timeRange: effectiveTimeRange,
+        startTime: filterState.startTime,
+        endTime: filterState.endTime,
+        inviteCode: filterState.inviteCode,
+        hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
+        sortBy,
+        sortOrder,
+        cursor,
+      }),
+    [
+      activeTab,
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+      filterState.inviteCode,
+      hideZeroVolume,
+      sortBy,
+      sortOrder,
+    ],
+  );
+
+  const pagination = useCursorPagination({
+    queryKey: [
+      activeTab,
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+      filterState.inviteCode,
+      activeTab === 'total' ? hideZeroVolume : undefined,
+      sortBy,
+      sortOrder,
+    ].join('|'),
+    fetchPage: fetchInvitesPage,
+  });
+  const { loadFirstPage } = pagination;
 
   // Fetch current tab data (resets pagination)
   const fetchCurrentTab = useCallback(async () => {
-    listGenerationRef.current += 1;
-    const listGeneration = listGenerationRef.current;
-    const requestQueryKey = listQueryKey;
-    setIsFirstPageLoading(true);
-    setIsLoadingMore(false);
-    if (isAppendingRef.current) {
-      // Re-arm the dropped page's cursor in case this request fails.
-      isAppendingRef.current = false;
-      setListVersion((version) => version + 1);
-    }
-    try {
-      const result =
-        await backgroundApiProxy.serviceReferralCode.getPerpsInvites({
-          tab: activeTab,
-          timeRange: effectiveTimeRange,
-          startTime: filterState.startTime,
-          endTime: filterState.endTime,
-          inviteCode: filterState.inviteCode,
-          hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
-          sortBy,
-          sortOrder,
-        });
-      if (listGeneration !== listGenerationRef.current) {
-        return;
-      }
-      setCurrentInvites(result);
-
-      // Update cursor for pagination - trust API's cursor
-      setCursor(result.cursor ?? undefined);
-      setDisplayedQueryKey(requestQueryKey);
-      setListVersion((version) => version + 1);
-
-      // Update the count for current tab
-      if (activeTab === 'undistributed') {
-        setUndistributedCount(result.total);
-      } else {
-        setTotalCount(result.total);
-      }
-    } finally {
-      if (listGeneration === listGenerationRef.current) {
-        setIsFirstPageLoading(false);
-      }
-    }
-  }, [
-    activeTab,
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-    hideZeroVolume,
-    sortBy,
-    sortOrder,
-    listQueryKey,
-  ]);
-
-  // Load more data for pagination
-  const onLoadMore = useCallback(async () => {
-    if (!pageCursor || isLoadingMore) {
+    const result = await loadFirstPage();
+    if (!result) {
       return;
     }
-    const listGeneration = listGenerationRef.current;
-    isAppendingRef.current = true;
-    setIsLoadingMore(true);
-    try {
-      const result =
-        await backgroundApiProxy.serviceReferralCode.getPerpsInvites({
-          tab: activeTab,
-          timeRange: effectiveTimeRange,
-          startTime: filterState.startTime,
-          endTime: filterState.endTime,
-          inviteCode: filterState.inviteCode,
-          hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
-          sortBy,
-          sortOrder,
-          cursor: pageCursor,
-        });
-      if (listGeneration !== listGenerationRef.current) {
-        return;
-      }
-
-      // Append new items to existing list
-      setCurrentInvites((prev) => ({
-        ...result,
-        items: [...(prev?.items ?? []), ...(result.items ?? [])],
-      }));
-
-      // Update cursor - trust API's cursor
-      setCursor(result.cursor ?? undefined);
-    } catch (error) {
-      console.error('Failed to load more:', error);
-    } finally {
-      // A new first-page request releases the gate of the list it replaced.
-      if (listGeneration === listGenerationRef.current) {
-        isAppendingRef.current = false;
-        setIsLoadingMore(false);
-      }
+    // Update the count for current tab
+    if (activeTab === 'undistributed') {
+      setUndistributedCount(result.total);
+    } else {
+      setTotalCount(result.total);
     }
-  }, [
-    pageCursor,
-    isLoadingMore,
-    activeTab,
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-    filterState.inviteCode,
-    hideZeroVolume,
-    sortBy,
-    sortOrder,
-  ]);
+  }, [activeTab, loadFirstPage]);
 
   const loadDashboard = useCallback(
     async (includeList: boolean) => {
@@ -358,21 +269,15 @@ function PerpsRewardPageWrapper() {
 
   // Fetch data when tab changes
   useEffect(() => {
-    tabRequestIdRef.current += 1;
-    const tabRequestId = tabRequestIdRef.current;
     setIsTabLoading(true);
     fetchCurrentTab()
       .catch((error) => console.error('Failed to fetch tab data:', error))
-      .finally(() => {
-        if (tabRequestId === tabRequestIdRef.current) {
-          setIsTabLoading(false);
-        }
-      });
+      .finally(() => setIsTabLoading(false));
   }, [fetchCurrentTab]);
 
   // Client-side sorting as a fallback in case the API doesn't sort correctly
   const sortedRecords = useMemo(() => {
-    const items = currentInvites?.items ?? [];
+    const { items } = pagination;
     if (items.length === 0) return items;
 
     return items.toSorted((a, b) => {
@@ -406,7 +311,7 @@ function PerpsRewardPageWrapper() {
 
       return sortOrder === 'desc' ? valB - valA : valA - valB;
     });
-  }, [currentInvites?.items, sortBy, sortOrder]);
+  }, [pagination.items, sortBy, sortOrder]);
 
   // Max date for DatePicker (today)
   const maxDate = useMemo(() => new Date(), []);
@@ -475,13 +380,7 @@ function PerpsRewardPageWrapper() {
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
               }
               contentContainerStyle={{ pb: '$5' }}
-              cursor={pageCursor}
-              isLoading={
-                isLoading || isTabLoading || isFirstPageLoading || isLoadingMore
-              }
-              itemCount={sortedRecords.length}
-              listVersion={listVersion}
-              onLoadMore={onLoadMore}
+              {...pagination.scrollProps}
             >
               {/* Perps Reward Header - Stats Cards */}
               <PerpsRewardHeader
@@ -502,7 +401,7 @@ function PerpsRewardPageWrapper() {
                 sortBy={sortBy}
                 sortOrder={sortOrder}
                 onSort={handleSort}
-                isLoadingMore={isLoadingMore}
+                isLoadingMore={pagination.isLoadingMore}
                 isTabLoading={isTabLoading}
               />
             </LoadMoreScrollView>
