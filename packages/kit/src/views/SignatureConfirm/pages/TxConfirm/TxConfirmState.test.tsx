@@ -1,13 +1,14 @@
 /** @jest-environment jsdom */
-import { act, render } from '@testing-library/react';
-import { createStore } from 'jotai';
+import type { PropsWithChildren } from 'react';
+
+import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  ProviderJotaiContextSignatureConfirm,
   decodedTxsAtom,
   decodedTxsInitAtom,
   unsignedTxsAtom,
+  useSignatureConfirmContextData,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
@@ -53,33 +54,30 @@ function decoded(tx: typeof sui): IDecodedTx {
   };
 }
 
-function Review() {
+function useReview() {
   const [txs] = useUnsignedTxsAtom();
   useTxConfirmDecodedTxs({
     accountId: txs[0].accountId ?? '',
     networkId: txs[0].networkId ?? '',
     unsignedTxs: txs,
   });
-  return null;
+  const { store } = useSignatureConfirmContextData();
+  return store!;
+}
+
+function openReview(tx: typeof sui) {
+  const unsignedTxs = [tx];
+  return renderHook(useReview, {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <TxConfirmState unsignedTxs={unsignedTxs}>{children}</TxConfirmState>
+    ),
+  });
 }
 
 it('binds the route before decoding and ignores old completions after a queue switch or edit', async () => {
-  const store = createStore();
-  store.set(unsignedTxsAtom(), [btc]);
-  store.set(decodedTxsAtom(), {
-    decodedTxs: [decoded(btc)],
-    isBuildingDecodedTxs: false,
-  });
-  store.set(decodedTxsInitAtom(), true);
   const pending = Promise.withResolvers<IDecodedTx[]>();
   service.buildDecodedTxs.mockReturnValueOnce(pending.promise);
-  render(
-    <ProviderJotaiContextSignatureConfirm store={store}>
-      <TxConfirmState unsignedTxs={[sui]}>
-        <Review />
-      </TxConfirmState>
-    </ProviderJotaiContextSignatureConfirm>,
-  );
+  const store = openReview(sui).result.current;
   expect(service.buildDecodedTxs.mock.calls.map(([p]) => p.networkId)).toEqual([
     sui.networkId,
   ]);
@@ -105,27 +103,34 @@ it('binds the route before decoding and ignores old completions after a queue sw
 });
 
 it('keeps the Sui review when BTC resolves after its page was closed', async () => {
-  const store = createStore();
   const pending = Promise.withResolvers<IDecodedTx[]>();
   service.buildDecodedTxs
     .mockReturnValueOnce(pending.promise)
     .mockResolvedValueOnce([decoded(sui)]);
-  const open = (tx: typeof sui) =>
-    render(
-      <ProviderJotaiContextSignatureConfirm store={store}>
-        <TxConfirmState unsignedTxs={[tx]}>
-          <Review />
-        </TxConfirmState>
-      </ProviderJotaiContextSignatureConfirm>,
-    );
-  open(btc).unmount();
-  await act(async () => {
-    open(sui);
-  });
-  expect(store.get(decodedTxsAtom()).decodedTxs).toEqual([decoded(sui)]);
-  await act(async () => {
-    pending.resolve([decoded(btc)]);
-  });
+  openReview(btc).unmount();
+  const { result } = openReview(sui);
+  await act(async () => pending.resolve([decoded(btc)]));
+  const store = result.current;
   expect(store.get(decodedTxsAtom()).decodedTxs).toEqual([decoded(sui)]);
   expect(store.get(decodedTxsInitAtom())).toBe(true);
+});
+
+it('keeps stacked BTC reviews and their edits in their originating route', async () => {
+  const second = { ...btc, encodedTx: 'second row' };
+  const edited = { ...second, encodedTx: 'edited second row' };
+  service.buildDecodedTxs.mockImplementation(async ({ unsignedTxs }) => [
+    decoded({ ...btc, encodedTx: String(unsignedTxs[0].encodedTx) }),
+  ]);
+  const first = openReview(btc);
+  const top = openReview(second);
+  await act(async () => top.result.current.set(unsignedTxsAtom(), [edited]));
+  expect(top.result.current.get(decodedTxsAtom()).decodedTxs).toEqual([
+    decoded(edited),
+  ]);
+  top.unmount();
+  expect(first.result.current.get(unsignedTxsAtom())).toEqual([btc]);
+  expect(first.result.current.get(decodedTxsAtom()).decodedTxs).toEqual([
+    decoded(btc),
+  ]);
+  expect(first.result.current.get(decodedTxsInitAtom())).toBe(true);
 });

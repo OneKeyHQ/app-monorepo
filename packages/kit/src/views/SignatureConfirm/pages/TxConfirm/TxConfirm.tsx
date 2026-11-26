@@ -58,7 +58,6 @@ import {
   getTxConfirmMevProtectionProvider,
 } from '../../components/SignatureConfirmHeader';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
-import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
@@ -582,11 +581,9 @@ function TxConfirm({ route }: { route: ITxConfirmRoute }) {
 const TxConfirmWithProvider = memo(() => {
   const route = useRoute<ITxConfirmRoute>();
   return (
-    <SignatureConfirmProviderMirror>
-      <TxConfirmState unsignedTxs={route.params.unsignedTxs}>
-        <TxConfirm route={route} />
-      </TxConfirmState>
-    </SignatureConfirmProviderMirror>
+    <TxConfirmState unsignedTxs={route.params.unsignedTxs}>
+      <TxConfirm route={route} />
+    </TxConfirmState>
   );
 });
 TxConfirmWithProvider.displayName = 'TxConfirmWithProvider';
