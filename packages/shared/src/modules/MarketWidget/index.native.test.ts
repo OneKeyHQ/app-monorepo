@@ -1,6 +1,7 @@
 import { NativeModules, Platform } from 'react-native';
 
 import platformEnv from '../../platformEnv';
+import { travelModeManager } from '../../travelMode';
 
 import marketWidget from './index.native';
 
@@ -15,6 +16,7 @@ jest.mock('../../platformEnv', () => ({
 }));
 jest.mock('../../travelMode', () => ({
   travelModeManager: {
+    ready: Promise.resolve(),
     isMaskingDataSync: () => false,
     getRuntimeStateSync: () => 'inactive',
   },
@@ -73,6 +75,44 @@ describe('market widget editor bridge availability', () => {
     platformEnv.isNativeIOS = false;
     platformEnv.isNativeAndroid = true;
     expect(marketWidget.supportsChartModeQuotes?.()).toBe(false);
+  });
+
+  it('reads installed instances on supported iOS shells and hides results if travel mode starts', async () => {
+    const instance = {
+      id: profile.id,
+      kind: 'list',
+      instanceNumber: 1,
+      symbols: ['BTC', 'ETH'],
+    };
+    await expect(marketWidget.getInstalledInstances?.()).resolves.toEqual([]);
+    let complete = () => {};
+    const getInstalledWidgetInstances = jest
+      .fn(async () => JSON.stringify([instance]))
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            complete = () => resolve(JSON.stringify([instance]));
+          }),
+      );
+    NativeModules.OneKeyMarketWidget = {
+      ...nativeModule,
+      getInstalledWidgetInstances,
+    };
+    const result = marketWidget.getInstalledInstances?.();
+    await Promise.resolve();
+    const masking = jest
+      .spyOn(travelModeManager, 'isMaskingDataSync')
+      .mockReturnValue(true);
+    complete();
+    await expect(result).resolves.toEqual([]);
+    masking.mockReturnValue(false);
+    await expect(marketWidget.getInstalledInstances?.()).resolves.toEqual([
+      instance,
+    ]);
+    platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeIOS = false;
+    await expect(marketWidget.getInstalledInstances?.()).resolves.toEqual([]);
+    expect(getInstalledWidgetInstances).toHaveBeenCalledTimes(2);
   });
 
   it('routes iOS draft, search, save and cleanup through one ephemeral native session', async () => {
