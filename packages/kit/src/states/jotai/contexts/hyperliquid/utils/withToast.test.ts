@@ -4,7 +4,7 @@ jest.mock('@onekeyhq/components', () => ({
   __esModule: true,
   Toast: {
     error: jest.fn(),
-    loading: jest.fn(() => ({ close: jest.fn(), settle: jest.fn(() => true) })),
+    loading: jest.fn(() => ({ close: jest.fn() })),
     success: jest.fn(),
   },
 }));
@@ -51,47 +51,33 @@ describe('withToast', () => {
     expect(getPerpsTradingNotEnabledMessage()).toBe('perp.error_enable');
   });
 
-  it.each([true, false])(
-    'shows an order result after a loading card (in place=%s)',
-    async (canSettle) => {
-      jest.useFakeTimers();
-      try {
-        const close = jest.fn();
-        const settle = jest.fn(() => canSettle);
-        jest.mocked(Toast.loading).mockReturnValueOnce({ close, settle });
-        const success = jest.spyOn(Toast, 'success');
-        const task = withToast({
-          actionType: EActionType.PLACE_ORDER,
-          asyncFn: async () =>
-            new Promise<void>((resolve) => {
-              setTimeout(resolve, 500);
-            }),
-        });
+  it('closes the loading card and shows a separate order result', async () => {
+    jest.useFakeTimers();
+    const success = jest.spyOn(Toast, 'success');
+    try {
+      const close = jest.fn();
+      jest.mocked(Toast.loading).mockReturnValueOnce({ close });
+      const task = withToast({
+        actionType: EActionType.PLACE_ORDER,
+        asyncFn: async () =>
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 500);
+          }),
+      });
 
-        await jest.advanceTimersByTimeAsync(500);
-        await task;
-        if (!canSettle) {
-          expect(close).toHaveBeenCalledTimes(1);
-          expect(success).toHaveBeenCalledWith(
-            expect.objectContaining({ title: expect.any(String) }),
-          );
-        } else {
-          expect(close).not.toHaveBeenCalled();
-          expect(success).not.toHaveBeenCalled();
-        }
-        expect(settle).toHaveBeenCalledWith(
-          'success',
-          expect.objectContaining({ title: expect.any(String) }),
-          { showAtFrontOnWeb: true },
-        );
-        success.mockRestore();
-      } finally {
-        jest.useRealTimers();
-      }
-    },
-  );
+      await jest.advanceTimersByTimeAsync(500);
+      await task;
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(success).toHaveBeenCalledWith(
+        expect.objectContaining({ title: expect.any(String) }),
+      );
+    } finally {
+      success.mockRestore();
+      jest.useRealTimers();
+    }
+  });
 
-  it('settles an order error while the locale lookup is pending', async () => {
+  it('closes the loading card and shows an order error while the locale lookup is pending', async () => {
     jest.useFakeTimers();
     const locale = Promise.withResolvers<{
       localizedMessage: string;
@@ -101,10 +87,8 @@ describe('withToast', () => {
       .spyOn(hyperLiquidErrorResolver, 'resolveAsync')
       .mockReturnValue(locale.promise);
     try {
-      const settle = jest.fn(() => true);
-      jest
-        .mocked(Toast.loading)
-        .mockReturnValueOnce({ close: jest.fn(), settle });
+      const close = jest.fn();
+      jest.mocked(Toast.loading).mockReturnValueOnce({ close });
       const operation = Promise.withResolvers<void>();
       const error = new Error('Price too far from oracle');
       const result = withToast({
@@ -115,19 +99,17 @@ describe('withToast', () => {
       await jest.advanceTimersByTimeAsync(300);
       operation.reject(error);
       await expect(result).rejects.toBe(error);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(toastErrorSpy).not.toHaveBeenCalled();
       await jest.advanceTimersByTimeAsync(300);
-      expect(settle).toHaveBeenCalledWith(
-        'error',
-        { title: error.message },
-        { showAtFrontOnWeb: true },
-      );
+      expect(toastErrorSpy).toHaveBeenCalledWith({ title: error.message });
 
       locale.resolve({
         rawMessage: error.message,
         localizedMessage: 'Too far',
       });
       await jest.advanceTimersByTimeAsync(0);
-      expect(settle).toHaveBeenCalledTimes(1);
+      expect(toastErrorSpy).toHaveBeenCalledTimes(1);
     } finally {
       lookup.mockRestore();
       jest.useRealTimers();
@@ -143,8 +125,7 @@ describe('withToast', () => {
         .mockImplementation((params) => params);
       try {
         const close = jest.fn();
-        const settle = jest.fn(() => true);
-        jest.mocked(Toast.loading).mockReturnValueOnce({ close, settle });
+        jest.mocked(Toast.loading).mockReturnValueOnce({ close });
         const operation = Promise.withResolvers<void>();
         const unprintable = Object.create(null) as object;
         const error = getterThrows
@@ -164,7 +145,7 @@ describe('withToast', () => {
         await expect(result).rejects.toBe(error);
         await jest.advanceTimersByTimeAsync(0);
         expect(close).toHaveBeenCalledTimes(1);
-        expect(settle).not.toHaveBeenCalled();
+        expect(toastErrorSpy).not.toHaveBeenCalled();
         expect(diagnostic).toHaveBeenCalledWith({
           reason: 'runtime_handle_error_failed',
           statusDetails: {
