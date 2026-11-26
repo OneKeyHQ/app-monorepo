@@ -12,6 +12,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapNativeTokenReserveGasAtom,
   useSwapStockBalanceDisplayCacheAtom,
+  useSwapStockFromAccountRefreshAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -86,6 +87,8 @@ import {
   type IUseSwapStockChannelReturn,
 } from './useSwapStockChannel';
 import { useSwapStockSelectedBalanceSync } from './useSwapStockSelectedBalanceSync';
+
+import type { useSwapAddressInfo } from './useSwapAccount';
 
 function getNetworkLogoURI(networkId?: string) {
   if (!networkId) {
@@ -275,7 +278,13 @@ function useStockInputTokenBalance({
         if (currentBalanceScopeRef.current === requestScope) {
           completedBalanceScopeRef.current = requestScope;
         }
-        return result;
+        return {
+          ...result,
+          ownerScope:
+            shouldFetchNetworkAccount && !shouldWaitForNetworkAccount
+              ? balanceOwnerScope
+              : undefined,
+        };
       };
       if (!enabled || !token || shouldWaitForNetworkAccount) {
         return completeRequestScope({
@@ -357,12 +366,14 @@ function useStockInputTokenBalance({
       enabled,
       networkAccount,
       refreshOwnedByPayTokenDetails,
+      shouldFetchNetworkAccount,
       shouldWaitForNetworkAccount,
       token,
     ],
     {
       initResult: {
         scope: '',
+        ownerScope: undefined as string | undefined,
         balance: undefined as string | undefined,
         hasAuthoritativeBalance: false,
         tokenDetail: undefined as ISwapToken | undefined,
@@ -493,7 +504,12 @@ function useStockInputTokenBalance({
   ]);
 
   return {
-    accountLookupFailed,
+    retryAvailable:
+      accountLookupFailed ||
+      (shouldFetchNetworkAccount &&
+        networkAccountReady &&
+        detailState.ownerScope === balanceOwnerScope &&
+        !detailState.hasAuthoritativeBalance),
     authoritativeTokenDetail,
     accountAddress: networkAccount?.address,
     accountId: networkAccount?.id,
@@ -685,13 +701,23 @@ export function useSwapStockEstimatedReceiveState({
 
 export function useSwapStockAmountInputState({
   stockChannel,
+  fromAddressInfo,
 }: {
   stockChannel: IUseSwapStockChannelReturn;
+  fromAddressInfo: Pick<
+    ReturnType<typeof useSwapAddressInfo>,
+    | 'address'
+    | 'isRecipientValidationReady'
+    | 'networkId'
+    | 'targetNetworkAccountResolveKey'
+  >;
 }) {
   const intl = useIntl();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapAlerts] = useSwapAlertsAtom();
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
+  const [stockFromAccountRefresh, setStockFromAccountRefresh] =
+    useSwapStockFromAccountRefreshAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const {
@@ -754,8 +780,34 @@ export function useSwapStockAmountInputState({
   const isBalanceLoadedZero =
     Boolean(inputToken) &&
     isSwapBalanceLoadedZero(stockInputTokenBalance.settledBalance);
-  const balanceRefreshing = stockInputTokenBalance.refreshing;
-  const onBalanceRefreshPress = stockInputTokenBalance.refresh;
+  const senderRetryScope =
+    inputTokenReady &&
+    !fromAddressInfo.address &&
+    fromAddressInfo.networkId === inputToken?.networkId
+      ? fromAddressInfo.targetNetworkAccountResolveKey
+      : undefined;
+  const senderRetryRequested = Boolean(
+    senderRetryScope && stockFromAccountRefresh?.scopeKey === senderRetryScope,
+  );
+  const balanceRetryAvailable =
+    stockInputTokenBalance.retryAvailable ||
+    Boolean(
+      senderRetryScope &&
+      (fromAddressInfo.isRecipientValidationReady || senderRetryRequested),
+    );
+  const balanceRefreshing =
+    stockInputTokenBalance.refreshing ||
+    (senderRetryRequested && !fromAddressInfo.isRecipientValidationReady);
+  const { refresh: refreshBalance } = stockInputTokenBalance;
+  const onBalanceRefreshPress = useCallback(() => {
+    if (senderRetryScope) {
+      setStockFromAccountRefresh((previous) => ({
+        scopeKey: senderRetryScope,
+        revision: (previous?.revision ?? 0) + 1,
+      }));
+    }
+    refreshBalance();
+  }, [refreshBalance, senderRetryScope, setStockFromAccountRefresh]);
   const shouldReserveInputGas = shouldReserveSwapGas(inputToken);
   const reserveGas = useMemo(() => {
     if (!inputToken?.networkId || !shouldReserveInputGas) {
@@ -1018,7 +1070,7 @@ export function useSwapStockAmountInputState({
         ? { ...amountInputToken, ...inputTokenPrice }
         : undefined,
     balanceActionsReady,
-    balanceAccountLookupFailed: stockInputTokenBalance.accountLookupFailed,
+    balanceRetryAvailable,
     balanceLoading: stockInputTokenBalance.loading,
     balanceRefreshing,
     currencySymbol,

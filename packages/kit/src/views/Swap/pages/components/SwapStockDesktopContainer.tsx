@@ -870,10 +870,10 @@ function StockAmountInput({
   const [, setInAppNotification] = useInAppNotificationAtom();
   const {
     amountFiatValue,
-    balanceAccountLookupFailed,
     balanceActionsReady,
     balanceLoading,
     balanceRefreshing,
+    balanceRetryAvailable,
     currencySymbol,
     disableNativePayToken,
     displayBalance,
@@ -952,7 +952,7 @@ function StockAmountInput({
   // refresh control existed.
   const balanceActionProps = getSwapBalanceActionProps({
     isLoadedZero: !contentLoading && isBalanceLoadedZero,
-    isUnavailable: !contentLoading && balanceAccountLookupFailed,
+    isUnavailable: !contentLoading && balanceRetryAvailable,
     refreshing: balanceRefreshing,
     onRefresh: onBalanceRefreshPress,
     onMax:
@@ -1014,8 +1014,7 @@ function StockAmountInput({
         }}
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
-          loading:
-            contentLoading || (balanceLoading && !balanceAccountLookupFailed),
+          loading: contentLoading || (balanceLoading && !balanceRetryAvailable),
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
           ...balanceActionProps,
@@ -1127,7 +1126,10 @@ function StockTradeTicket({
   );
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const amountInputState = useSwapStockAmountInputState({
+    stockChannel,
+    fromAddressInfo: swapFromAddressInfo,
+  });
   const [settings] = useSettingsPersistAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
