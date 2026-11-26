@@ -1832,7 +1832,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     },
   );
 
-  test('manual sync uploads missing hardware snapshots without adding a selector scan', async () => {
+  test('forced sync uploads missing hardware snapshots without adding a selector scan', async () => {
     const h = harness();
     const snapshot = publicAccountTestSnapshot();
     const hardwareAccount = publicAccountSnapshotToAccount(
@@ -1884,6 +1884,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(build).toHaveBeenCalledWith(
       expect.objectContaining({
         dbRecords: [hardwareAccount],
+        lookupIndexedAccountsById: true,
         initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
       }),
     );
