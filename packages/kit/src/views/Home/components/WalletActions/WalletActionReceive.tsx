@@ -4,6 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
@@ -49,6 +50,7 @@ function WalletActionReceive({
     activeAccount: {
       network,
       account,
+      dbAccount,
       wallet,
       deriveInfoItems,
       indexedAccount,
@@ -104,6 +106,15 @@ function WalletActionReceive({
     }
 
     if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: wallet?.id,
+        accountId: dbAccount?.id ?? account?.id,
+      })
+    ) {
+      return;
+    }
+
+    if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
       })
@@ -129,6 +140,8 @@ function WalletActionReceive({
       });
     }
   }, [
+    account?.id,
+    dbAccount?.id,
     wallet?.id,
     wallet?.type,
     network?.id,

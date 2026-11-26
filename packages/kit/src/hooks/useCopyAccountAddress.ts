@@ -14,6 +14,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 
 import useAppNavigation from './useAppNavigation';
 
@@ -37,6 +38,13 @@ export const useCopyAccountAddress = () => {
       onDeriveTypeChange?: (deriveType: IAccountDeriveTypes) => void;
       localWalletAddressForm?: 'public' | 'private';
     }) => {
+      if (
+        await blockIfWalletLocalSecretEnvelopeUnavailable({
+          accountId,
+        })
+      ) {
+        return;
+      }
       if (
         accountUtils.isHwAccount({ accountId }) ||
         accountUtils.isQrAccount({ accountId })

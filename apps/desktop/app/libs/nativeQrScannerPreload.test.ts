@@ -19,6 +19,7 @@ const mockRegisterReceiver = jest.fn<
     (
       event: { importedSharedTexture: ITexture },
       sessionId: string,
+      revision?: number,
     ) => Promise<void>,
   ]
 >();
@@ -59,19 +60,27 @@ test('freezing keeps the current pixels and releases incoming shared textures wi
     const bridge = createNativeQrScannerBridge()!;
     await bridge.start(sessionId);
     const receive = mockRegisterReceiver.mock.lastCall![0];
-    await receive(texture, sessionId);
-    bridge.setPreviewFrozen?.(sessionId, true);
-    await receive(texture, sessionId);
+    await receive(texture, sessionId, 0);
+    expect(bridge.hasFreshPreview?.(sessionId, 0)).toBe(true);
+    bridge.setPreviewFrozen?.(sessionId, true, 1);
+    await receive(texture, sessionId, 1);
     expect(drawImage).toHaveBeenCalledTimes(1);
     expect(getVideoFrame).toHaveBeenCalledTimes(1);
     expect(close).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledTimes(2);
 
-    bridge.setPreviewFrozen?.(sessionId, false);
-    await receive(texture, sessionId);
+    bridge.setPreviewFrozen?.(sessionId, false, 2);
+    expect(bridge.hasFreshPreview?.(sessionId, 2)).toBe(false);
+    await receive(texture, sessionId, 0);
+    expect(getVideoFrame).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledTimes(3);
+    expect(bridge.hasFreshPreview?.(sessionId, 2)).toBe(false);
+
+    await receive(texture, sessionId, 2);
     expect(drawImage).toHaveBeenCalledTimes(2);
     expect(close).toHaveBeenCalledTimes(2);
-    expect(release).toHaveBeenCalledTimes(3);
+    expect(release).toHaveBeenCalledTimes(4);
+    expect(bridge.hasFreshPreview?.(sessionId, 2)).toBe(true);
   } finally {
     canvas.remove();
     Object.defineProperty(process, 'platform', platform);

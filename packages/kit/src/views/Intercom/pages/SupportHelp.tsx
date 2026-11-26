@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -18,6 +18,7 @@ import {
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
+import { getIntercomResponseCache } from '@onekeyhq/kit/src/views/Intercom/client';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -65,7 +66,11 @@ function SupportHelpContent({
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.getHome();
   }, [session]);
-  const home = useSupportResource(loadHome, active);
+  const homeCache = useMemo(
+    () => getIntercomResponseCache(session, 'home'),
+    [session],
+  );
+  const home = useSupportResource(loadHome, active, false, homeCache);
   const loadSearch = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.searchArticles(phrase);
@@ -76,11 +81,30 @@ function SupportHelpContent({
   // Placeholders cover only the first answer; later retries keep the screen.
   const homeLoading = !sessionError && !home.settled;
   const showSkeleton = homeLoading && !isSearching;
-  const loading = isSearching ? waiting || search.loading : home.loading;
+  // Suggestions on screen refresh silently instead of under a spinner.
+  const loading = isSearching
+    ? waiting || search.loading
+    : home.loading && !home.data;
   const failed = !!sessionError || (isSearching ? search.failed : home.failed);
   let articles = NO_ARTICLES;
-  if (!failed && !waiting)
-    articles = (isSearching ? search.data : home.data?.articles) ?? NO_ARTICLES;
+  if (!waiting) {
+    // Suggestions on screen stay usable while their refresh is retried; a
+    // failed search shows only its retry.
+    if (!isSearching) articles = home.data?.articles ?? NO_ARTICLES;
+    else if (!failed) articles = search.data ?? NO_ARTICLES;
+  }
+  const retryPrompt = (
+    <Empty
+      title={intl.formatMessage({
+        id: ETranslations.global_connet_error_try_again,
+      })}
+      buttonProps={{
+        testID: 'support-help-retry',
+        children: intl.formatMessage({ id: ETranslations.global_retry }),
+        onPress: sessionError || (isSearching ? search.refresh : home.refresh),
+      }}
+    />
+  );
   let emptyState: ReactElement | undefined;
   if (showSkeleton) {
     emptyState = (
@@ -101,19 +125,7 @@ function SupportHelpContent({
       </YStack>
     );
   } else if (failed) {
-    emptyState = (
-      <Empty
-        title={intl.formatMessage({
-          id: ETranslations.global_connet_error_try_again,
-        })}
-        buttonProps={{
-          testID: 'support-help-retry',
-          children: intl.formatMessage({ id: ETranslations.global_retry }),
-          onPress:
-            sessionError || (isSearching ? search.refresh : home.refresh),
-        }}
-      />
-    );
+    emptyState = retryPrompt;
   } else if (!loading) {
     emptyState = (
       <Empty
@@ -157,6 +169,9 @@ function SupportHelpContent({
             loading && !showSkeleton ? <Spinner /> : undefined
           }
           ListEmptyComponent={emptyState}
+          ListFooterComponent={
+            failed && articles.length ? retryPrompt : undefined
+          }
           renderItem={({ item }) => (
             // Standard list-row spacing, so the highlight pads the text. The
             // row keeps its own button role, which ListItem does not declare.
