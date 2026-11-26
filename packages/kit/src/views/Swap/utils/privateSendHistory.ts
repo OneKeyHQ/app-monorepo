@@ -3,7 +3,10 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  getSwapProviderOrderIdFromContext,
+  isPrivateSendSwapHistoryItem,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
@@ -91,14 +94,6 @@ function ensurePrivateSendHistoryOrderId(item: ISwapTxHistory) {
       orderId,
     },
   };
-}
-
-function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
-  const rocketXOrderId = (ctx as IPrivateSendTxStateCtx | undefined)
-    ?.rocketXOrderId;
-  return typeof rocketXOrderId === 'string' && rocketXOrderId
-    ? rocketXOrderId
-    : undefined;
 }
 
 function getPrivateSendPayinAddressFromCtx(ctx: unknown) {
@@ -246,11 +241,15 @@ function mergePrivateSendHistoryReplayFields({
   shouldMergeReplayBaseInfo?: boolean;
   isReplayFeeConfirmed: boolean;
 }) {
-  const replayRocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(
+  const replayRocketXOrderId = getSwapProviderOrderIdFromContext(
+    privateSendProvider,
     replayItem.ctx,
   );
   const replayPayinAddress = getPrivateSendPayinAddressFromCtx(replayItem.ctx);
-  const currentRocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(item.ctx);
+  const currentRocketXOrderId = getSwapProviderOrderIdFromContext(
+    privateSendProvider,
+    item.ctx,
+  );
   const currentPayinAddress = getPrivateSendPayinAddressFromCtx(item.ctx);
   const replayDisplayTransfers = getPrivateSendDisplayTransfersFromCtx(
     replayItem.ctx,

@@ -902,6 +902,7 @@ export interface IBroadcastTransactionParams {
   gasAccountUiState?: IGasAccountUiState;
   isPrivateSend?: boolean;
   useDefaultRpc?: boolean;
+  reviewQuoteValidUntil?: number;
 }
 
 export interface IBroadcastTransactionByCustomRpcParams extends IBroadcastTransactionParams {

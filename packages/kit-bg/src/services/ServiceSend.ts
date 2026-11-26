@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import {
   createSwapReviewQuoteExpiredError,
+  createSwapReviewSigningFailure,
   isLocallyCreatedSwapReviewQuoteExpiredError,
   sanitizeSwapReviewQuoteExpiredError,
 } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
@@ -80,6 +81,7 @@ import {
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { hasUnconfirmedPrimeInfiniPaymentWarnings } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -1875,6 +1877,16 @@ class ServiceSend extends ServiceBase {
         signOnly, // external account should send tx here
         stageFeeInfo,
         ...(diagnostic ? { diagnosticSendState: diagnosticState } : {}),
+      }).catch((error: unknown) => {
+        if (
+          isXmrSwapNetwork(networkId) &&
+          unsignedTx.swapInfo &&
+          !isExternalAccount &&
+          !hasEarlierAmbiguousAttempt
+        ) {
+          throw createSwapReviewSigningFailure(error);
+        }
+        throw error;
       }));
 
     diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
@@ -2101,6 +2113,7 @@ class ServiceSend extends ServiceBase {
             gasAccountUiState,
             isPrivateSend,
             useDefaultRpc,
+            reviewQuoteValidUntil,
           });
           logSolanaTxDiagnostic(diagnosticState.context, {
             stage: 'broadcast',
@@ -2110,6 +2123,11 @@ class ServiceSend extends ServiceBase {
           });
           return result;
         } catch (error) {
+          if (isLocallyCreatedSwapReviewQuoteExpiredError(error)) {
+            throw createSwapReviewQuoteExpiredError(
+              !hadAmbiguousBroadcastAttempt,
+            );
+          }
           if (preserveBroadcastTxIdOnError) {
             const serverError = error as
               | {
