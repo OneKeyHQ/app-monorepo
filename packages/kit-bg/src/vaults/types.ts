@@ -58,6 +58,7 @@ import type {
   ILMTronObject,
   IOKXTransactionObject,
   ISwapTokenBase,
+  ISwapTxHistory,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -1003,6 +1004,7 @@ export interface ISignMessageParams extends IPbkdf2KdfParams {
 }
 
 export interface IBuildHistoryTxParams {
+  swapHistories?: ISwapTxHistory[];
   accountId: string;
   networkId: string;
   accountAddress: string;

@@ -56,6 +56,23 @@ export function getOnChainHistoryTxStatus(
   return EDecodedTxStatus.Pending;
 }
 
+// Indexer-decoded transfers carry the multiplier used for their displayed amount.
+export function needsHistoryTransferRefresh(tx?: IAccountHistoryTx) {
+  const transfer = tx?.decodedTx.actions?.[0]?.assetTransfer;
+  return (
+    tx?.isLocalCreated === false &&
+    tx.decodedTx.isFinal &&
+    !!transfer &&
+    [...transfer.sends, ...transfer.receives].some(
+      (asset) =>
+        asset.tokenIdOnNetwork &&
+        !asset.isNative &&
+        !asset.isNFT &&
+        asset.balanceMultiplier === undefined,
+    )
+  );
+}
+
 export function getOnChainHistoryTxAssetInfo({
   key,
   tokenAddress,

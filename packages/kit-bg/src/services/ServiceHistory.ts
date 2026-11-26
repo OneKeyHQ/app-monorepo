@@ -26,6 +26,7 @@ import {
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
   isHistoryCursorAdvanced,
+  needsHistoryTransferRefresh,
   scaleFeeFiatValueToNativeFee,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -2466,6 +2467,8 @@ class ServiceHistory extends ServiceBase {
         pendingTxsToModify,
       } = param;
       const localHistoryTxs = [...confirmedTxs, ...pendingTxs];
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
       const mergedOnChainHistoryTxs = onChainHistoryTxs.map(
         (onChainHistoryTx) => {
           const localHistoryTx = localHistoryTxs.find((tx) =>
@@ -2485,19 +2488,43 @@ class ServiceHistory extends ServiceBase {
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
 
-      // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
-      let confirmedTxsToSave: IAccountHistoryTx[] = [];
-
-      confirmedTxsToSave = confirmedTxs
-        .map((tx) => {
-          const onChainHistoryTx = mergedOnChainHistoryTxs.find((item) =>
-            this.isSameScopedHistoryTx(item, tx),
-          );
-          if (onChainHistoryTx) {
-            return onChainHistoryTx;
-          }
-          return tx;
-        })
+      const confirmedTxsToSave = (
+        await promiseAllSettledEnhanced(
+          confirmedTxs.map((tx) => async () => {
+            const onChain = mergedOnChainHistoryTxs.find((item) =>
+              this.isSameScopedHistoryTx(item, tx),
+            );
+            if (
+              onChain ||
+              vaultSettings.localWallet ||
+              !needsHistoryTransferRefresh(tx)
+            ) {
+              return onChain ?? tx;
+            }
+            const { accountId, txid } = tx.decodedTx;
+            const scope = { accountId, networkId, accountAddress, xpub };
+            const requestCurrency = tx.fiatCurrency ?? USD_CURRENCY_ID;
+            const detail = await this.fetchHistoryTxDetails({
+              ...scope,
+              txid,
+              requestCurrency,
+            });
+            if (!detail?.data || detail.data.tx !== txid) return tx;
+            const fresh = await this.decodeOnChainHistoryTx({
+              ...scope,
+              tx: detail.data,
+              tokens: detail.tokens,
+              nfts: detail.nfts,
+              cachedTx: tx,
+            });
+            return fresh && fresh !== tx
+              ? { ...fresh, fiatCurrency: requestCurrency }
+              : tx;
+          }),
+          { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+        )
+      )
+        .map((tx, index) => tx ?? confirmedTxs[index])
         .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
       const resp = unionBy(
@@ -2521,9 +2548,6 @@ class ServiceHistory extends ServiceBase {
           finalConfirmedTxs.push(tx);
         }
       }
-
-      const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
 
       const nonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
       let finalPendingTxs: IAccountHistoryTx[] = [];
@@ -2769,6 +2793,14 @@ class ServiceHistory extends ServiceBase {
     }
   }
 
+  private async getHistorySwapSnapshots(
+    tokens: Record<string, IOnChainHistoryTxToken>,
+  ) {
+    return Object.values(tokens).some(({ info }) => !info.isNative)
+      ? this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList()
+      : [];
+  }
+
   @backgroundMethod()
   public async fetchAccountOnChainHistory(
     params: IFetchAccountHistoryParams & {
@@ -2962,6 +2994,7 @@ class ServiceHistory extends ServiceBase {
       [accountId: string]: IDBAccount;
     } = {};
 
+    const swapHistories = await this.getHistorySwapSnapshots(tokens);
     const txs = (
       await Promise.all(
         onChainHistoryTxs.map((tx, index) =>
@@ -2972,6 +3005,7 @@ class ServiceHistory extends ServiceBase {
             accountAddress,
             xpub,
             onChainHistoryTx: tx,
+            swapHistories,
             tokens,
             nfts,
             index,
@@ -3411,13 +3445,14 @@ class ServiceHistory extends ServiceBase {
   public async decodeOnChainHistoryTx(params: {
     accountId: string;
     networkId: string;
+    cachedTx?: IAccountHistoryTx;
     tx: IOnChainHistoryTx;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
     accountAddress?: string;
     xpub?: string;
   }) {
-    const { accountId, networkId, tx, tokens, nfts } = params;
+    const { accountId, networkId, tx, tokens, nfts, cachedTx } = params;
 
     let accountAddress = params.accountAddress;
     let xpub = params.xpub;
@@ -3447,11 +3482,17 @@ class ServiceHistory extends ServiceBase {
       accountAddress: accountAddress || '',
       xpub: xpub || '',
       onChainHistoryTx: tx,
+      swapHistories: await this.getHistorySwapSnapshots(tokens),
       tokens,
       nfts,
     });
 
-    if (resp) return resp;
+    if (!cachedTx) return resp ?? undefined;
+    if (!resp || !this.isSameScopedHistoryTx(resp, cachedTx)) return cachedTx;
+    return mergeLocalTxDisplayFields({
+      localTx: cachedTx,
+      onChainHistoryTx: { ...resp, id: cachedTx.id },
+    });
   }
 
   @backgroundMethod()

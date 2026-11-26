@@ -3,7 +3,10 @@
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxStatus,
+  EDecodedTxActionType,
+} from '@onekeyhq/shared/types/tx';
 
 const ServiceHistory = require('./ServiceHistory')
   .default as typeof import('./ServiceHistory').default;
@@ -46,6 +49,83 @@ describe('ServiceHistory local pending reconciliation', () => {
     );
     return { service, batchUpdateLocalHistoryTxs };
   }
+
+  it('refreshes an older off-page token transfer from raw detail once and retries after a failed request', async () => {
+    const { service, batchUpdateLocalHistoryTxs } = createService();
+    const networkId = 'evm--56';
+    const legacy = tx(EDecodedTxStatus.Confirmed);
+    const transfer = {
+      from: 'sender',
+      to: 'addr',
+      amount: '2',
+      icon: '',
+      name: 'Stock',
+      symbol: 'SNDKB',
+      tokenIdOnNetwork: 'stock',
+    };
+    legacy.isLocalCreated = false;
+    Object.assign(legacy.decodedTx, { networkId, isFinal: true });
+    const assetTransfer = {
+      from: 'sender',
+      to: 'addr',
+      sends: [],
+      receives: [transfer],
+    };
+    legacy.decodedTx.actions = [
+      { type: EDecodedTxActionType.ASSET_TRANSFER, assetTransfer },
+    ];
+    const refreshed = {
+      ...legacy,
+      decodedTx: {
+        ...legacy.decodedTx,
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            assetTransfer: {
+              ...assetTransfer,
+              receives: [{ ...transfer, amount: '16', balanceMultiplier: '8' }],
+            },
+          },
+        ],
+      },
+    };
+    const details = jest
+      .spyOn(service, 'fetchHistoryTxDetails')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({
+        data: { tx: legacy.decodedTx.txid },
+        tokens: {},
+        nfts: {},
+      } as Awaited<ReturnType<typeof service.fetchHistoryTxDetails>>);
+    const decode = jest
+      .spyOn(service, 'decodeOnChainHistoryTx')
+      .mockResolvedValue(refreshed);
+    const refresh = async (cached: IAccountHistoryTx) =>
+      (
+        await service.batchUpdateLocalHistoryTxs([
+          {
+            networkId,
+            accountAddress: 'addr',
+            onChainHistoryTxs: [],
+            confirmedTxs: [cached],
+            pendingTxs: [],
+            pendingTxsToModify: [],
+          },
+        ])
+      ).allConfirmedTxsToSave[0];
+    const offline = await refresh(legacy);
+    expect(offline).toEqual(legacy);
+    const online = await refresh(offline);
+    expect(online.decodedTx.actions[0].assetTransfer?.receives[0].amount).toBe(
+      '16',
+    );
+    expect(await refresh(online)).toEqual(online);
+    expect(details).toHaveBeenCalledTimes(2);
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(batchUpdateLocalHistoryTxs).toHaveBeenLastCalledWith([
+      expect.objectContaining({ confirmedTxsToSave: [online] }),
+    ]);
+  });
 
   it.each([
     ['a local pending row', EDecodedTxStatus.Pending, localTx()],

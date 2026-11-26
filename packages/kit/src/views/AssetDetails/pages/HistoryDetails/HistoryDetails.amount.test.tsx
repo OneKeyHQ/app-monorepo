@@ -60,12 +60,14 @@ function mockGatedDetails() {
 }
 
 let mockDeepLink = false;
+let mockRefreshedHistory: IAccountHistoryTx | undefined;
 let mockNativeSymbol: string | undefined;
 
 beforeEach(() => {
   mockTxDetails = undefined;
   mockAccountAddresses = undefined;
   mockDeepLink = false;
+  mockRefreshedHistory = undefined;
   mockNativeSymbol = 'XMR';
 });
 
@@ -194,8 +196,8 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
       symbol: 'XMR',
       name: 'Monero',
     },
-    vaultSettings: mockHistory.decodedTx.networkId.startsWith('btc')
-      ? { isUtxo: true }
+    vaultSettings: /^(btc|evm)--/.test(mockHistory.decodedTx.networkId)
+      ? { isUtxo: mockHistory.decodedTx.networkId.startsWith('btc') }
       : {
           localWallet: {
             publicAddressPattern:
@@ -239,7 +241,8 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
           }
         : {
             txDetails: mockGatedDetails(),
-            decodedOnChainTx: mockDeepLink ? mockHistory : undefined,
+            decodedOnChainTx:
+              mockRefreshedHistory ?? (mockDeepLink ? mockHistory : undefined),
           },
     isLoading: false,
   }),
@@ -670,6 +673,42 @@ it('shows our transparent change address beside the displayed t1', () => {
   expect(result.queryByTestId('history-details-to-pool')).toBeNull();
   expect(result.getAllByText(OWN_T)).toHaveLength(1);
   expect(result.getAllByText(external)).toHaveLength(1);
+});
+
+it('replaces a legacy route amount when the decoded detail arrives', () => {
+  mockHistory = history('evm--56', '2');
+  mockHistory.isLocalCreated = false;
+  mockHistory.decodedTx.isFinal = true;
+  const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
+  if (!transfer) throw new OneKeyLocalError('missing asset transfer fixture');
+  Object.assign(transfer.sends[0], {
+    tokenIdOnNetwork: 'stock',
+    isNative: false,
+    symbol: 'SNDKB',
+  });
+  mockRefreshedHistory = {
+    ...mockHistory,
+    decodedTx: {
+      ...mockHistory.decodedTx,
+      actions: [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            ...transfer,
+            sends: [
+              { ...transfer.sends[0], amount: '16', balanceMultiplier: '8' },
+            ],
+          },
+        },
+      ],
+    },
+  };
+  const result = render(<HistoryDetails />);
+  const assets = within(
+    result.getByTestId('history-details-what-assets-change'),
+  );
+  expect(assets.getByText('-16')).toBeTruthy();
+  expect(assets.queryByText('-2')).toBeNull();
 });
 
 it('waits for the native asset before showing a Manta Pacific fee in ETH', () => {

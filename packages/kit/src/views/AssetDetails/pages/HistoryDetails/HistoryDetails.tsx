@@ -62,7 +62,10 @@ import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/as
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
-import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  getHistoryTxDetailInfo,
+  needsHistoryTransferRefresh,
+} from '@onekeyhq/shared/src/utils/historyUtils';
 import {
   collectPrivacyChainOwnAddresses,
   getPrivacyChainEndpointFlow,
@@ -478,6 +481,8 @@ function HistoryDetails() {
     ],
   );
 
+  const refreshTransfer =
+    !isLocalWalletHistory && needsHistoryTransferRefresh(historyTxParam);
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (isInitialPrivateSendHistory && historyTxParam) {
@@ -519,13 +524,14 @@ function HistoryDetails() {
 
       let decodedOnChainTx: IAccountHistoryTx | undefined = historyTxParam;
 
-      if (!decodedOnChainTx && r?.data) {
+      if ((!decodedOnChainTx || refreshTransfer) && r?.data) {
         decodedOnChainTx =
           await backgroundApiProxy.serviceHistory.decodeOnChainHistoryTx({
             accountId,
             networkId,
             accountAddress,
             tx: r.data,
+            cachedTx: historyTxParam,
             tokens: r.tokens,
             nfts: r.nfts,
           });
@@ -556,6 +562,7 @@ function HistoryDetails() {
       vaultSettings?.fixConfirmedTxEnabled,
       historyTxParam,
       isInitialPrivateSendHistory,
+      refreshTransfer,
       openPrivateSendHistoryDetailOnce,
     ],
     {
@@ -582,7 +589,9 @@ function HistoryDetails() {
   );
 
   const { txDetails, decodedOnChainTx, addressMap } = result || {};
-  const historyTx = historyTxParam ?? decodedOnChainTx;
+  const historyTx = refreshTransfer
+    ? (decodedOnChainTx ?? historyTxParam)
+    : (historyTxParam ?? decodedOnChainTx);
 
   // Prefer the detail response's KYT block, falling back to the one carried from
   // the history list so the section renders before the detail request resolves.
