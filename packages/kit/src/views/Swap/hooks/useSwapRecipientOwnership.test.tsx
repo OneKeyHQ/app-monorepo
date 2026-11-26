@@ -196,6 +196,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapProSelectTokenAtom: () => [undefined],
   useSwapProUseSelectBuyTokenAtom: () => [undefined],
   useSwapProSellToTokenAtom: () => [undefined],
+  useSwapStockFromAccountRefreshAtom: () => [undefined],
   useSwapToAnotherAccountAddressAtom: () => useMockRecipientAtom(),
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({

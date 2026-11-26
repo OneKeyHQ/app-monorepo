@@ -16,6 +16,17 @@ import {
 
 import SwapHeaderContainer from './SwapHeaderContainer';
 
+type IStockKLineVisibilityCase = {
+  label: string;
+  desktop: boolean;
+  native: boolean;
+  modal: boolean;
+  type: ESwapTabSwitchType;
+  extensionSurface?: 'expanded' | 'popup' | 'side panel';
+  source?: ESwapSource;
+  hideKLine?: boolean;
+};
+
 const mockSwapTypeSwitchAction = jest.fn<
   Promise<ISwapToken | undefined>,
   [
@@ -332,7 +343,7 @@ describe('SwapHeaderContainer', () => {
     }
   });
 
-  it.each([
+  it.each<IStockKLineVisibilityCase>([
     {
       label: 'Desktop modal Swap',
       desktop: true,
@@ -393,10 +404,84 @@ describe('SwapHeaderContainer', () => {
       modal: true,
       type: ESwapTabSwitchType.STOCK,
     },
+    {
+      label: 'expanded Extension Stock modal from Wallet Home',
+      desktop: false,
+      native: false,
+      extensionSurface: 'expanded',
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+      source: ESwapSource.WALLET_HOME,
+      hideKLine: true,
+    },
+    {
+      label: 'expanded Extension Stock modal from a Wallet Home token row',
+      desktop: false,
+      native: false,
+      extensionSurface: 'expanded',
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+      source: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      hideKLine: true,
+    },
+    ...[ESwapTabSwitchType.SWAP, ESwapTabSwitchType.LIMIT].map(
+      (type): IStockKLineVisibilityCase => ({
+        label: `expanded Extension ${type} modal`,
+        desktop: false,
+        native: false,
+        extensionSurface: 'expanded',
+        modal: true,
+        type,
+      }),
+    ),
+    {
+      label: 'expanded Extension Stock page',
+      desktop: false,
+      native: false,
+      extensionSurface: 'expanded',
+      modal: false,
+      type: ESwapTabSwitchType.STOCK,
+    },
+    ...(['popup', 'side panel'] as const).map(
+      (extensionSurface): IStockKLineVisibilityCase => ({
+        label: `Extension ${extensionSurface} Stock modal`,
+        desktop: false,
+        native: false,
+        extensionSurface,
+        modal: true,
+        type: ESwapTabSwitchType.STOCK,
+      }),
+    ),
   ])(
     'sets K-line visibility for $label',
-    ({ desktop, native, modal, type, source, hideKLine = false }) => {
+    ({
+      desktop,
+      native,
+      extensionSurface,
+      modal,
+      type,
+      source,
+      hideKLine = false,
+    }) => {
       const originalDesktop = platformEnv.isDesktop;
+      const restoreExtension = [
+        jest.replaceProperty(platformEnv, 'isExtension', !!extensionSurface),
+        jest.replaceProperty(
+          platformEnv,
+          'isExtensionUiExpandTab',
+          extensionSurface === 'expanded',
+        ),
+        jest.replaceProperty(
+          platformEnv,
+          'isExtensionUiPopup',
+          extensionSurface === 'popup',
+        ),
+        jest.replaceProperty(
+          platformEnv,
+          'isExtensionUiSidePanel',
+          extensionSurface === 'side panel',
+        ),
+      ];
       platformEnv.isDesktop = desktop;
       platformEnv.isNative = native;
       mockSwapTypeSwitch = type;
@@ -414,6 +499,7 @@ describe('SwapHeaderContainer', () => {
         ).toBe(String(hideKLine));
       } finally {
         platformEnv.isDesktop = originalDesktop;
+        restoreExtension.forEach((property) => property.restore());
       }
     },
   );
