@@ -1,231 +1,186 @@
-/** @jest-environment jsdom */
+import { toAssetId } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import type {
+  IPerpsAssetCtx,
+  IPerpsUniverse,
+  ISpotUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
 
-import type { ReactNode, Ref } from 'react';
+import { getPerpChartTokenItems } from './PerpChartTokenSelector';
 
-import { act, render } from '@testing-library/react';
+import type { IPerpChartTokenUniverse } from './PerpChartTokenSelector';
 
-import { PerpChartTokenSelector } from './PerpChartTokenSelector';
-
-import type { LayoutChangeEvent } from 'react-native';
-
-interface IMockPopoverProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  renderTrigger: ReactNode;
-  renderContent: ReactNode;
-}
-
-let mockPopover: IMockPopoverProps | undefined;
-let mockLayout: ((event: LayoutChangeEvent) => void) | undefined;
-const mockContent = jest.fn<
-  null,
-  [{ bodyHeight?: number; onSelectToken?: (selection: unknown) => void }]
->(() => null);
-const mockSelectToken = jest.fn();
-
-jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+// The picker's view code is not under test here.
+jest.mock('@onekeyhq/components', () => ({}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
 }));
-
-jest.mock('@react-navigation/native', () => ({
-  useIsFocused: () => true,
-}));
-
-jest.mock('@onekeyhq/components', () => ({
-  Icon: () => null,
-  SizableText: ({ children }: { children?: ReactNode }) => children,
-  XStack: ({
-    children,
-    ref,
-    testID,
-  }: {
-    children?: ReactNode;
-    ref?: Ref<HTMLDivElement>;
-    testID?: string;
-  }) => (
-    <div ref={ref} data-testid={testID}>
-      {children}
-    </div>
-  ),
-  YStack: ({
-    children,
-    onLayout,
-  }: {
-    children?: ReactNode;
-    onLayout?: (event: LayoutChangeEvent) => void;
-  }) => {
-    mockLayout = onLayout;
-    return children;
-  },
-  Popover: (props: IMockPopoverProps) => {
-    mockPopover = props;
-    return (
-      <>
-        {props.renderTrigger}
-        {props.open ? props.renderContent : null}
-      </>
-    );
-  },
-}));
-
-jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  Token: () => null,
-}));
-
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({}));
 jest.mock('@onekeyhq/kit/src/hooks/useListenTabFocusState', () => ({
   __esModule: true,
   default: () => undefined,
 }));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({}));
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms',
+  () => ({}),
+);
+jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({}));
+jest.mock('@react-navigation/native', () => ({}));
+jest.mock('./PerpTokenSelectorRow', () => ({}));
 
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
-  useHyperliquidActions: () => ({
-    current: { setTokenSelectorOpen: () => undefined },
-  }),
-}));
-
-jest.mock('../../hooks', () => ({
-  usePrewarmPerpsTokenSelectorImages: () => () => undefined,
-}));
-
-jest.mock('./PerpTokenSelector', () => ({
-  DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT: 440,
-  DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT: 132,
-  DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH: 800,
-  PerpTokenSelectorContent: (props: {
-    bodyHeight?: number;
-    onSelectToken?: (selection: unknown) => void;
-  }) => mockContent(props),
-}));
-
-// What the popover holds besides the list: search, tabs and key hints. A bit
-// more than the picker guesses before it measures.
-const CHROME_HEIGHT = 170;
-
-function getBodyHeight() {
-  return mockContent.mock.calls.at(-1)?.[0].bodyHeight;
+function perp(name: string, assetId: number, isDelisted?: boolean) {
+  return { name, assetId, isDelisted } as IPerpsUniverse;
 }
 
-// Reports the popover content's height for the list it was given.
-function layOut() {
-  const bodyHeight = getBodyHeight() ?? 0;
-  act(() =>
-    mockLayout?.({
-      nativeEvent: { layout: { height: CHROME_HEIGHT + bodyHeight } },
-    } as LayoutChangeEvent),
-  );
+function spot(name: string, baseName: string) {
+  return { name, baseName, quoteName: 'USDC' } as ISpotUniverse;
 }
 
-function openAt(rect: { top: number; bottom: number }, windowHeight: number) {
-  const view = render(
-    <PerpChartTokenSelector
-      display={{ label: 'ETHUSDC', tokenImageUri: 'eth.png' }}
-      onSelectToken={mockSelectToken}
-      testID="picker"
-    />,
-  );
-  jest
-    .spyOn(view.getByTestId('picker'), 'getBoundingClientRect')
-    .mockReturnValue({
-      x: 0,
-      y: rect.top,
-      left: 0,
-      right: 120,
-      width: 120,
-      height: rect.bottom - rect.top,
-      ...rect,
-      toJSON: () => rect,
-    });
-  Object.defineProperty(globalThis, 'innerHeight', {
-    configurable: true,
-    value: windowHeight,
-  });
-  act(() => mockPopover?.onOpenChange(true));
-  return view;
+function volumes(...values: number[]) {
+  return values.map((dayNtlVlm) => ({
+    dayNtlVlm: String(dayNtlVlm),
+  })) as IPerpsAssetCtx[];
 }
 
-function resizeWindow(windowHeight: number) {
-  Object.defineProperty(globalThis, 'innerHeight', {
-    configurable: true,
-    value: windowHeight,
-  });
-  act(() => {
-    globalThis.dispatchEvent(new Event('resize'));
-  });
+const universe: IPerpChartTokenUniverse = {
+  perpsByDex: [
+    [
+      perp('BTC', 0),
+      perp('ETH', 1),
+      perp('SOL', 2),
+      perp('OLD', 3, true),
+      perp('SOPH', 4),
+      perp('THE', 5),
+    ],
+    [
+      perp('xyz:SOXL', toAssetId({ dexIndex: 1, index: 0 })),
+      perp('xyz:NVDA', toAssetId({ dexIndex: 1, index: 1 })),
+    ],
+  ],
+  spot: [spot('@1', 'SOLV'), spot('PURR/USDC', 'PURR')],
+  aliases: { BTC: { aliases: ['bitcoin'] } },
+};
+
+// The delisted OLD trades the most, so it would lead if it were listed.
+const assetCtxsByDex = [volumes(100, 80, 10, 1000, 1, 2), volumes(50, 60)];
+
+function labels({
+  query = '',
+  perpFavorites = [],
+  spotFavorites = [],
+  ctxs = assetCtxsByDex,
+  favoritesOrder = [],
+}: {
+  query?: string;
+  perpFavorites?: string[];
+  spotFavorites?: string[];
+  ctxs?: IPerpsAssetCtx[][];
+  favoritesOrder?: { mode: 'perp' | 'spot'; coinName: string }[];
+}) {
+  return getPerpChartTokenItems({
+    universe,
+    assetCtxsByDex: ctxs,
+    query,
+    perpFavorites,
+    spotFavorites,
+    favoritesOrder,
+  }).map((item) => item.label);
 }
 
-const sharedAddEventListener = globalThis.addEventListener;
-
-// The shared Jest setup replaces window listeners; the picker listens for
-// the window's resizes.
-beforeAll(() => {
-  Object.defineProperty(globalThis, 'addEventListener', {
-    configurable: true,
-    value: EventTarget.prototype.addEventListener.bind(globalThis),
-  });
+it('lists the favorites in the favorites bar order, then the perps by 24h volume', () => {
+  expect(
+    labels({
+      // GONE is no longer listed, and a favorite is not listed twice.
+      perpFavorites: ['SOL', 'GONE'],
+      spotFavorites: ['PURR/USDC'],
+      favoritesOrder: [
+        { mode: 'spot', coinName: 'PURR/USDC' },
+        { mode: 'perp', coinName: 'SOL' },
+      ],
+    }),
+  ).toEqual([
+    'PURR/USDC',
+    'SOLUSDC',
+    'BTCUSDC',
+    'ETHUSDC',
+    'NVDAUSDC',
+    'SOXLUSDC',
+    'THEUSDC',
+    'SOPHUSDC',
+  ]);
 });
 
-afterAll(() => {
-  Object.defineProperty(globalThis, 'addEventListener', {
-    configurable: true,
-    value: sharedAddEventListener,
-  });
+it('keeps the listing order while no volumes have arrived', () => {
+  expect(labels({ ctxs: [] })).toEqual([
+    'BTCUSDC',
+    'ETHUSDC',
+    'SOLUSDC',
+    'SOPHUSDC',
+    'THEUSDC',
+    'SOXLUSDC',
+    'NVDAUSDC',
+  ]);
 });
 
-beforeEach(() => {
-  mockPopover = undefined;
-  mockLayout = undefined;
-  mockContent.mockClear();
+it('carries what a pick and its row need', () => {
+  const [nvda] = getPerpChartTokenItems({
+    universe,
+    assetCtxsByDex,
+    query: 'nvda',
+    perpFavorites: [],
+    spotFavorites: [],
+    favoritesOrder: [],
+  });
+  expect(nvda).toMatchObject({
+    mode: 'perp',
+    coin: 'xyz:NVDA',
+    label: 'NVDAUSDC',
+    dexLabel: 'xyz',
+  });
+  const [pair] = getPerpChartTokenItems({
+    universe,
+    assetCtxsByDex,
+    query: 'SOLV',
+    perpFavorites: [],
+    spotFavorites: [],
+    favoritesOrder: [],
+  });
+  expect(pair).toMatchObject({ mode: 'spot', coin: '@1', label: 'SOLV/USDC' });
 });
 
 it.each([
-  // Room below the header of a panel at the top: the whole list.
-  ['below a header near the top', { top: 100, bottom: 128 }, 1000, 440],
-  // A header low on the page opens upwards, with the whole list.
-  ['above a header near the bottom', { top: 700, bottom: 728 }, 800, 440],
-  // Neither side has room for it all: the list gives way, so nothing is cut.
-  ['in a short window', { top: 400, bottom: 428 }, 800, 400 - 20 - 170],
-  // Still the case with room for only a few rows: the list takes what is
-  // left and scrolls, instead of pushing the search or the key hints out.
-  ['in a shorter window', { top: 330, bottom: 358 }, 660, 330 - 20 - 170],
-  // Down to its header rows and one result: below that the popover scrolls
-  // as a whole, so a token can still be picked.
-  ['in a tiny window', { top: 200, bottom: 228 }, 400, 132],
-])(
-  'fits the token list to the roomier side %s',
-  (_, rect, windowHeight, expected) => {
-    openAt(rect, windowHeight);
-    expect(mockPopover?.open).toBe(true);
+  // Prefix matches first; perps by volume, then spot pairs.
+  ['so', ['SOXLUSDC', 'SOLUSDC', 'SOPHUSDC', 'SOLV/USDC']],
+  ['th', ['THEUSDC', 'ETHUSDC']],
+  // The pair as the header shows it.
+  [' ETHUSDC ', ['ETHUSDC']],
+  // A server alias.
+  ['bitcoin', ['BTCUSDC']],
+  // A sub-DEX by its prefix.
+  ['xyz', ['NVDAUSDC', 'SOXLUSDC']],
+  // Neither favorites nor delisted perps join a search on their own.
+  ['old', []],
+])('matches %j', (query, expected) => {
+  expect(labels({ query, perpFavorites: ['SOL'] })).toEqual(expected);
+});
 
-    layOut();
-    layOut();
-
-    expect(getBodyHeight()).toBe(expected);
-    // A pick goes to the panel, which selects itself with it.
-    expect(mockContent.mock.calls.at(-1)?.[0].onSelectToken).toBe(
-      mockSelectToken,
-    );
-  },
-);
-
-it('fits the token list again as the window changes under the open popover', () => {
-  openAt({ top: 100, bottom: 128 }, 1000);
-  layOut();
-  expect(getBodyHeight()).toBe(440);
-
-  // Dragged shorter: the list gives way, so the search and the key hints
-  // stay in reach.
-  resizeWindow(480);
-  expect(getBodyHeight()).toBe(480 - 128 - 20 - 170);
-  layOut();
-  expect(getBodyHeight()).toBe(162);
-
-  // And taller again.
-  resizeWindow(1000);
-  layOut();
-  expect(getBodyHeight()).toBe(440);
-
-  // A closed popover no longer listens.
-  act(() => mockPopover?.onOpenChange(false));
-  resizeWindow(480);
-  expect(mockPopover?.open).toBe(false);
+it('stops at 50 rows', () => {
+  const many: IPerpChartTokenUniverse = {
+    ...universe,
+    perpsByDex: [
+      Array.from({ length: 80 }, (_, index) => perp(`T${index}`, index)),
+    ],
+  };
+  const items = getPerpChartTokenItems({
+    universe: many,
+    assetCtxsByDex: [],
+    query: 't',
+    perpFavorites: [],
+    spotFavorites: [],
+    favoritesOrder: [],
+  });
+  expect(items).toHaveLength(50);
+  expect(items[0].label).toBe('T0USDC');
 });

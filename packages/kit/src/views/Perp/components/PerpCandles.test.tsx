@@ -68,6 +68,7 @@ const mockMarkAllAssetCtxsRequired = jest.fn();
 const mockMarkAllAssetCtxsNotRequired = jest.fn();
 const mockSetTradeRouteViewState = jest.fn();
 type IMockTokenSelectorProps = {
+  coin: string;
   display: { label: string };
   onSelectToken: (selection: { mode: 'perp' | 'spot'; coin: string }) => void;
   testID?: string;
@@ -568,16 +569,18 @@ describe('split view', () => {
 
     // A pick switches the trade instrument, as from the page's picker, and
     // the press on the picker selects its panel like any press in the panel.
+    // Each picker knows its panel's token, to mark it in the list.
     await waitFor(() =>
       expect(
         mockTokenSelector.mock.calls.map(([props]) => [
           props.testID,
+          props.coin,
           props.display.label,
         ]),
       ).toEqual(
         expect.arrayContaining([
-          [`${PerpTestIDs.NativeChartPanelToken}-main`, 'BTCUSDC'],
-          [`${PerpTestIDs.NativeChartPanelToken}-panel-2`, 'ETHUSDC'],
+          [`${PerpTestIDs.NativeChartPanelToken}-main`, 'BTC', 'BTCUSDC'],
+          [`${PerpTestIDs.NativeChartPanelToken}-panel-2`, 'ETH', 'ETHUSDC'],
         ]),
       ),
     );
