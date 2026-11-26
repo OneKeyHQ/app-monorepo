@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { chunk } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -30,6 +30,7 @@ import {
   useTradingViewMobileIndicatorEditor,
 } from './TradingViewMobileIndicatorEditor';
 import { TradingViewMobileIndicatorList } from './TradingViewMobileIndicatorList';
+import { TradingViewNativeFullscreenTrailingInsetContext } from './TradingViewNativeFullscreenTrailingInsetContext';
 
 import type { ITradingViewMobileIndicatorEditorProps } from './TradingViewMobileIndicatorEditor';
 import type { ITradingViewNativeAnyIndicator } from './utils/chartIndicators';
@@ -250,8 +251,14 @@ export function TradingViewNativeFullscreenIndicatorPanel({
 }: ITradingViewNativeFullscreenIndicatorPanelProps) {
   const intl = useIntl();
   const { width: windowWidth } = useWindowDimensions();
+  // The backdrop and the panel background cover the clear trailing inset the
+  // rail reaches into; the panel content stays clear of the rounded corner.
+  const clearTrailingInset = useContext(
+    TradingViewNativeFullscreenTrailingInsetContext,
+  );
   const panelWidth =
-    getTradingViewNativeFullscreenIndicatorPanelWidth(windowWidth);
+    getTradingViewNativeFullscreenIndicatorPanelWidth(windowWidth) +
+    clearTrailingInset;
   const [views, setViews] = useState<IPanelView[]>(() => [
     initialIndicatorId
       ? { kind: 'editor', indicatorId: initialIndicatorId }
@@ -375,7 +382,7 @@ export function TradingViewNativeFullscreenIndicatorPanel({
     <Stack
       position="absolute"
       top={0}
-      right={0}
+      right={-clearTrailingInset}
       bottom={0}
       left={0}
       // Above the chart toolbar and quick bar, which raise themselves to 3.
@@ -399,7 +406,7 @@ export function TradingViewNativeFullscreenIndicatorPanel({
         style={[PANEL_STYLE, { width: panelWidth }, panelStyle]}
         accessibilityViewIsModal
       >
-        <YStack flex={1} bg="$bgApp" testID={TEST_ID}>
+        <YStack flex={1} bg="$bgApp" pr={clearTrailingInset} testID={TEST_ID}>
           <XStack
             minHeight={56}
             pl={canGoBack ? '$2' : '$4'}
