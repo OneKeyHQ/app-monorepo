@@ -1,4 +1,4 @@
-import { type ReactNode, memo, useCallback, useMemo } from 'react';
+import { type ReactNode, memo, useCallback, useContext, useMemo } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView
 import { showMarketChartSettingsDialog } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { TradingViewNativeFullscreenTrailingInsetContext } from './TradingViewNativeFullscreenTrailingInsetContext';
 import {
   type ITradingViewNativeAnyIndicator,
   TRADING_VIEW_NATIVE_INDICATOR_CATALOG,
@@ -103,6 +104,10 @@ export const TradingViewNativeChartControlsContainer = memo(
     onFullscreenChange,
   }: ITradingViewNativeChartControlsContainerProps) => {
     const intl = useIntl();
+    // Set inside the iOS fullscreen page when the right inset is clear.
+    const clearTrailingInset = useContext(
+      TradingViewNativeFullscreenTrailingInsetContext,
+    );
     const chartStyleTitle = intl.formatMessage({
       id: ETranslations.market_chart_style,
     });
@@ -243,6 +248,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         chartTimezone={getTradingViewTimezone()}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
+        clearTrailingInset={clearTrailingInset}
         chartMode={layoutMode === 'desktop' ? 'native' : undefined}
         isChartSwitchDisabled={isChartSwitchDisabled}
         onChartSwitch={layoutMode === 'desktop' ? onChartSwitch : undefined}

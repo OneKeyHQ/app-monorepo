@@ -104,6 +104,7 @@ jest.mock('@onekeyhq/components', () => ({
     h,
     justifyContent,
     minHeight,
+    mr,
     pb,
     pt,
     py,
@@ -118,6 +119,7 @@ jest.mock('@onekeyhq/components', () => ({
     h?: number | string;
     justifyContent?: string;
     minHeight?: number;
+    mr?: number;
     pb?: string;
     pt?: string;
     py?: string;
@@ -126,6 +128,7 @@ jest.mock('@onekeyhq/components', () => ({
   }) => (
     <div
       data-bg={bg}
+      data-mr={mr}
       data-border-bottom-color={borderBottomColor}
       data-border-bottom-width={borderBottomWidth}
       data-flex-shrink={flexShrink}
@@ -457,6 +460,30 @@ describe('TradingView chart controls', () => {
     expect(
       screen.queryByTestId('trading-view-mobile-fullscreen-toolbar'),
     ).toBeNull();
+  });
+
+  it('extends only the mobile fullscreen row into a clear trailing inset', () => {
+    const { rerender } = render(
+      <TradingViewChartControls
+        {...BASE_PROPS}
+        fullscreenHeader={<span>Token</span>}
+        isFullscreen
+        clearTrailingInset={62}
+        onFullscreenToggle={jest.fn()}
+      />,
+    );
+    const row = () => screen.getByTestId('trading-view-chart-controls');
+    // The exit control moves toward the edge but keeps 12pt off the corner.
+    expect(row().getAttribute('data-mr')).toBe('-50');
+
+    rerender(
+      <TradingViewChartControls
+        {...BASE_PROPS}
+        clearTrailingInset={62}
+        onFullscreenToggle={jest.fn()}
+      />,
+    );
+    expect(row().hasAttribute('data-mr')).toBe(false);
   });
 
   it('widens regular mobile interval preferences once the interval area fits six', () => {
