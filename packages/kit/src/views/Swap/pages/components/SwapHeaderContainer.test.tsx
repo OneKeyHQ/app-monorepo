@@ -16,6 +16,17 @@ import {
 
 import SwapHeaderContainer from './SwapHeaderContainer';
 
+type IStockKLineVisibilityCase = {
+  label: string;
+  desktop: boolean;
+  native: boolean;
+  modal: boolean;
+  type: ESwapTabSwitchType;
+  extensionSurface?: 'expanded' | 'popup' | 'side panel';
+  source?: ESwapSource;
+  hideKLine?: boolean;
+};
+
 const mockSwapTypeSwitchAction = jest.fn<
   Promise<ISwapToken | undefined>,
   [
@@ -240,6 +251,43 @@ describe('SwapHeaderContainer', () => {
     }
   });
 
+  it.each([
+    ['native tabs', true, false, ESwapTabSwitchType.SWAP],
+    ['native Market', true, true, ESwapTabSwitchType.SWAP],
+    ['desktop Market Limit', false, true, ESwapTabSwitchType.LIMIT],
+  ] as const)(
+    'shows the available Trade actions for %s',
+    (_, native, filtered, type) => {
+      platformEnv.isNative = native;
+      mockSwapTypeSwitch = type;
+      const onSwapTypeSwitch = jest.fn();
+      const view = render(
+        <SwapHeaderContainer
+          pageType={EPageType.modal}
+          showSwapPro={native}
+          hideStockAndProTabs={filtered}
+          onSwapTypeSwitch={onSwapTypeSwitch}
+        />,
+      );
+      const {
+        perps_token_selector_stocks: stocks,
+        dexmarket_pro: pro,
+        swap_history_title: swap,
+      } = ETranslations;
+      expect(Boolean(view.queryByText(stocks))).toBe(!filtered);
+      expect(Boolean(view.queryByText(pro))).toBe(!filtered);
+      expect(view.getByText(swap)).toBeTruthy();
+      expect(view.getByTestId('swap-header-right-actions')).toBeTruthy();
+      const button = view.queryByRole('button', { name: swap });
+      expect(Boolean(button)).toBe(!native || !filtered);
+      if (type === ESwapTabSwitchType.LIMIT) {
+        expect(view.getByText(ETranslations.swap_page_limit)).toBeTruthy();
+        fireEvent.click(view.getByRole('button', { name: swap }));
+        expect(onSwapTypeSwitch).toHaveBeenCalledWith(ESwapTabSwitchType.SWAP);
+      }
+    },
+  );
+
   it.each([true, false])(
     'forwards the Market store through the header (single: %s)',
     (singleSwapBridgeTab) => {
@@ -295,7 +343,7 @@ describe('SwapHeaderContainer', () => {
     }
   });
 
-  it.each([
+  it.each<IStockKLineVisibilityCase>([
     {
       label: 'Desktop modal Swap',
       desktop: true,
@@ -356,10 +404,84 @@ describe('SwapHeaderContainer', () => {
       modal: true,
       type: ESwapTabSwitchType.STOCK,
     },
+    {
+      label: 'expanded Extension Stock modal from Wallet Home',
+      desktop: false,
+      native: false,
+      extensionSurface: 'expanded',
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+      source: ESwapSource.WALLET_HOME,
+      hideKLine: true,
+    },
+    {
+      label: 'expanded Extension Stock modal from a Wallet Home token row',
+      desktop: false,
+      native: false,
+      extensionSurface: 'expanded',
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+      source: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      hideKLine: true,
+    },
+    ...[ESwapTabSwitchType.SWAP, ESwapTabSwitchType.LIMIT].map(
+      (type): IStockKLineVisibilityCase => ({
+        label: `expanded Extension ${type} modal`,
+        desktop: false,
+        native: false,
+        extensionSurface: 'expanded',
+        modal: true,
+        type,
+      }),
+    ),
+    {
+      label: 'expanded Extension Stock page',
+      desktop: false,
+      native: false,
+      extensionSurface: 'expanded',
+      modal: false,
+      type: ESwapTabSwitchType.STOCK,
+    },
+    ...(['popup', 'side panel'] as const).map(
+      (extensionSurface): IStockKLineVisibilityCase => ({
+        label: `Extension ${extensionSurface} Stock modal`,
+        desktop: false,
+        native: false,
+        extensionSurface,
+        modal: true,
+        type: ESwapTabSwitchType.STOCK,
+      }),
+    ),
   ])(
     'sets K-line visibility for $label',
-    ({ desktop, native, modal, type, source, hideKLine = false }) => {
+    ({
+      desktop,
+      native,
+      extensionSurface,
+      modal,
+      type,
+      source,
+      hideKLine = false,
+    }) => {
       const originalDesktop = platformEnv.isDesktop;
+      const restoreExtension = [
+        jest.replaceProperty(platformEnv, 'isExtension', !!extensionSurface),
+        jest.replaceProperty(
+          platformEnv,
+          'isExtensionUiExpandTab',
+          extensionSurface === 'expanded',
+        ),
+        jest.replaceProperty(
+          platformEnv,
+          'isExtensionUiPopup',
+          extensionSurface === 'popup',
+        ),
+        jest.replaceProperty(
+          platformEnv,
+          'isExtensionUiSidePanel',
+          extensionSurface === 'side panel',
+        ),
+      ];
       platformEnv.isDesktop = desktop;
       platformEnv.isNative = native;
       mockSwapTypeSwitch = type;
@@ -377,6 +499,7 @@ describe('SwapHeaderContainer', () => {
         ).toBe(String(hideKLine));
       } finally {
         platformEnv.isDesktop = originalDesktop;
+        restoreExtension.forEach((property) => property.restore());
       }
     },
   );

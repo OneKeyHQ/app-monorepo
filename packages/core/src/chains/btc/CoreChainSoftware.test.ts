@@ -153,4 +153,54 @@ describe('BTC Core tests', () => {
       }),
     ).rejects.toThrow('SIGHASH_NONE is not supported for input 0');
   });
+
+  it.each([
+    [0x04, 'Sighash type 0x04 is not supported for input 0'],
+    [
+      Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY,
+      'SIGHASH_SINGLE input 1 has no matching output',
+    ],
+  ])(
+    'rejects sighash %s that the signing policy refuses',
+    async (sighashType, message) => {
+      const network = getBtcForkNetwork('tbtc');
+      const psbt = new Psbt({ network });
+      const isSingle = sighashType !== 0x04;
+      const witnessUtxo = {
+        script: Buffer.from(`0014${'00'.repeat(20)}`, 'hex'),
+        value: BigInt(1000),
+      };
+      // SIGHASH_SINGLE is put on the second input, which has no output at its
+      // index; the unsupported byte goes on the first.
+      psbt.addInput({
+        hash: Buffer.alloc(32),
+        index: 0,
+        witnessUtxo,
+        ...(isSingle ? {} : { sighashType }),
+      });
+      psbt.addInput({
+        hash: Buffer.alloc(32),
+        index: 1,
+        witnessUtxo,
+        ...(isSingle ? { sighashType } : {}),
+      });
+      psbt.addOutput({
+        script: Buffer.from(`0014${'11'.repeat(20)}`, 'hex'),
+        value: BigInt(900),
+      });
+
+      const coreApi = new CoreChainHd();
+      await expect(
+        coreApi.signPsbt({
+          encodedTx: null,
+          network,
+          psbt,
+          signers: {},
+          inputsToSign: [
+            { index: isSingle ? 1 : 0, publicKey: '', address: '' },
+          ],
+        }),
+      ).rejects.toThrow(message);
+    },
+  );
 });

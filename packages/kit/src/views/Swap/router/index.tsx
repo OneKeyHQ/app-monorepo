@@ -79,7 +79,7 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapMainLand,
     component: SwapMainLandModal,
-    translationId: ETranslations.swap_page_swap,
+    translationId: ETranslations.global_trade,
   },
   {
     name: EModalSwapRoutes.SwapProviderSelect,

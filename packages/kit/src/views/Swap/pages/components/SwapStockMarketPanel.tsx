@@ -294,6 +294,7 @@ function SwapStockMarketStatus({
   isError,
   onRetry,
   status,
+  inlineSize,
   showLastUpdate,
   tokenTrading,
   loadingWidth = 220,
@@ -302,6 +303,7 @@ function SwapStockMarketStatus({
   isError: boolean;
   onRetry: () => Promise<void>;
   status: ReturnType<typeof useSwapStockPrice>['status'];
+  inlineSize?: 'sm';
   showLastUpdate?: boolean;
   tokenTrading?: IStockTokenTradingStatus;
   loadingWidth?: number;
@@ -327,6 +329,7 @@ function SwapStockMarketStatus({
     <StockMarketStatusBadge
       stock={status}
       variant="inline"
+      inlineSize={inlineSize}
       showLastUpdate={showLastUpdate}
       tokenTrading={tokenTrading}
     />
@@ -339,10 +342,12 @@ const SWAP_STOCK_HEADER_STATUS_LOADING_WIDTH = 96;
 
 export function SwapStockMobileHeader({
   statusBesideTicker,
+  tradeModalSettings,
 }: {
   // Put the market status on the ticker's row when the header is wide enough
   // for both, for hosts whose header width changes while it is mounted.
   statusBesideTicker?: boolean;
+  tradeModalSettings?: ReactNode;
 }) {
   const { status } = useSwapStockPrice('share');
   // Mobile trade quotes the token only, so its status is always the token's.
@@ -366,7 +371,7 @@ export function SwapStockMobileHeader({
   );
   const marketStatus = (
     <Stack
-      minHeight={20}
+      minHeight={tradeModalSettings ? 16 : 20}
       flexShrink={1}
       testID={
         isStatusLoading &&
@@ -382,6 +387,7 @@ export function SwapStockMobileHeader({
         )}
         onRetry={retryStockDetail}
         status={status}
+        inlineSize={tradeModalSettings ? 'sm' : undefined}
         // Mobile trade quotes the token only, so the share price's
         // last-update note does not apply; show the token's countdown.
         showLastUpdate={false}
@@ -423,9 +429,14 @@ export function SwapStockMobileHeader({
     );
   }
   return (
-    <YStack gap="$2" pb="$5">
+    <YStack
+      gap={tradeModalSettings ? '$3' : '$2'}
+      pt={tradeModalSettings ? '$2' : undefined}
+      pb="$5"
+    >
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
-        <SwapStockTickerSelector />
+        <SwapStockTickerSelector readOnly={Boolean(tradeModalSettings)} />
+        {tradeModalSettings}
       </XStack>
       {marketStatus}
     </YStack>

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { useContext, useEffect, useState } from 'react';
+import { Fragment, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -144,6 +144,16 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   return (
     <>
       {controlsSlot ? controlsSlot.renderControls(controls) : controls}
+      {/* Stands in for the chart's own interval picker, as `TradingViewNative`
+          places it. */}
+      {controlsSlot
+        ? controlsSlot.renderIntervalControl(
+            <span
+              data-testid={`interval-${panel.id}`}
+              data-interval={interval}
+            />,
+          )
+        : null}
       {/* Stands in for the drawing tools, as the web chart places them. */}
       {toolsContainer
         ? createPortal(
@@ -188,6 +198,17 @@ const renderPanel = (panel: ITradingViewNativeMultiChartPanel) => (
   <Chart key={getTradingViewNativeSourceKey(panel.source)} panel={panel} />
 );
 
+// A host that names every panel of a split in a header, as Perps does, with
+// the interval picker of the panel's chart in it.
+const renderPanelWithHeader = (panel: ITradingViewNativeMultiChartPanel) => (
+  <Fragment key={getTradingViewNativeSourceKey(panel.source)}>
+    {panel.isSplit ? (
+      <div data-testid={`header-${panel.id}`}>{panel.intervalControl}</div>
+    ) : null}
+    <Chart panel={panel} />
+  </Fragment>
+);
+
 interface IHarness {
   layout: ITradingViewNativeMultiChartLayout;
   setActiveSource: (source: ITradingViewNativeSource) => void;
@@ -214,6 +235,7 @@ function renderGrid({
   activeSource: initialActiveSource = coin('BTC'),
   keepsSelectedPanel = false,
   layoutKey,
+  renderHostPanel = renderPanel,
 }: {
   activeSource?: ITradingViewNativeSource;
   // The host keeps the panel selected on its page, as one whose saved layout
@@ -221,6 +243,7 @@ function renderGrid({
   keepsSelectedPanel?: boolean;
   layout?: ITradingViewNativeMultiChartLayout;
   layoutKey?: string;
+  renderHostPanel?: ITradingViewNativeMultiChartProps['renderPanel'];
   onSelectPanel: (
     source: ITradingViewNativeSource,
     harness: IHarness,
@@ -323,7 +346,7 @@ function renderGrid({
         onSelectPanel={(source) => onSelectPanel(source, harness)}
         defaultIndicatorSettings={indicatorSettings}
         getDefaultPanelSource={() => coin('SOL')}
-        renderPanel={renderPanel}
+        renderPanel={renderHostPanel}
       />
     );
   }
@@ -835,6 +858,69 @@ it('shows the selected panel drawing tools once, at the left of the grid', async
 
   expectTools('panel-2');
   expect(mockChartUnmount).not.toHaveBeenCalled();
+});
+
+it('puts every panel interval picker in its own header, selected or not', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+    renderHostPanel: renderPanelWithHeader,
+  });
+  const expectPickers = (expected: Record<string, string>) => {
+    for (const [id, interval] of Object.entries(expected)) {
+      const picker = screen.getByTestId(`interval-${id}`);
+      expect(screen.getByTestId(`header-${id}`).contains(picker)).toBe(true);
+      expect(picker.dataset.interval).toBe(interval);
+    }
+  };
+  expectPickers({ main: '1', 'panel-2': '240' });
+
+  // A pick in a chart that is not selected moves that chart only.
+  pickInterval('panel-2', '1D');
+  expectPickers({ main: '1', 'panel-2': '1D' });
+  expectIntervals({ main: '1', 'panel-2': '1D' });
+
+  // Selecting the panel moves its controls row, not its picker.
+  const picker = screen.getByTestId('interval-panel-2');
+  await act(async () => press('panel-2'));
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+  expect(screen.getByTestId('interval-panel-2')).toBe(picker);
+  expectPickers({ main: '1', 'panel-2': '1D' });
+  expect(mockChartUnmount).not.toHaveBeenCalled();
+});
+
+it('shows no interval picker where the host places none', () => {
+  renderGrid({ onSelectPanel: async () => true });
+
+  expect(screen.queryAllByTestId(/^interval-/)).toEqual([]);
+});
+
+it('takes the interval pickers away with the headers of a split', () => {
+  const harness = renderGrid({
+    onSelectPanel: async () => true,
+    renderHostPanel: renderPanelWithHeader,
+  });
+  expect(
+    screen.getAllByTestId(/^interval-/).map((node) => node.dataset.testid),
+  ).toEqual(['interval-main', 'interval-panel-2']);
+
+  // A single chart has no header to show it in.
+  act(() => harness.replaceLayout({ ...harness.layout, preset: '1' }));
+  expect(screen.queryAllByTestId(/^header-/)).toEqual([]);
+  expect(screen.queryAllByTestId(/^interval-/)).toEqual([]);
+
+  act(() => harness.replaceLayout({ ...harness.layout, preset: '2h' }));
+  for (const id of ['main', 'panel-2']) {
+    expect(
+      screen
+        .getByTestId(`header-${id}`)
+        .contains(screen.getByTestId(`interval-${id}`)),
+    ).toBe(true);
+  }
 });
 
 it('keeps a layout change still on its way to a split runtime for a selection answered after the grid is gone', async () => {
