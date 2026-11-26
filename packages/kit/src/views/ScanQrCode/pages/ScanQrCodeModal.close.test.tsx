@@ -32,12 +32,21 @@ type IRouteCallback =
 
 const mockCloseOrder: string[] = [];
 const mockOnCancel = jest.fn();
+const mockResetAnimationData = jest.fn<Promise<void>, []>();
 const mockAddListener = jest.fn<() => void, [string, () => void]>();
 const mockRouteCallback = jest.fn<
   ReturnType<IRouteCallback>,
   Parameters<IRouteCallback>
 >();
 let mockScan: (value: string) => ReturnType<IRouteCallback>;
+let mockResetCapture: (drain?: Promise<void>) => Promise<void>;
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceScanQRCode: { resetAnimationData: () => mockResetAnimationData() },
+  },
+}));
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({
@@ -148,9 +157,14 @@ jest.mock('../components', () => {
   return {
     ScanQrCode: React.forwardRef<
       unknown,
-      { handleBarCodeScanned: typeof mockScan; selectionCovered?: boolean }
+      {
+        handleBarCodeScanned: typeof mockScan;
+        onResetAnimationData: typeof mockResetCapture;
+        selectionCovered?: boolean;
+      }
     >((props, ref) => {
       mockScan = props.handleBarCodeScanned;
+      mockResetCapture = props.onResetAnimationData;
       React.useImperativeHandle(ref, () => ({
         dispose: () => mockCloseOrder.push('dispose'),
       }));
@@ -209,6 +223,7 @@ beforeEach(() => {
       };
     });
   mockRouteCallback.mockReset().mockResolvedValue({});
+  mockResetAnimationData.mockReset().mockResolvedValue();
   mockAddListener.mockReset().mockReturnValue(() => {});
 });
 
@@ -294,6 +309,136 @@ test('accepts one photo scan from picker launch through parsing', async () => {
   expect(pickImage).toHaveBeenCalledTimes(2);
   await expect(mockScan('camera after closing picker')).resolves.toEqual({});
 });
+
+test('a photo waits for the abandoned camera frame and shared decoder reset', async () => {
+  const cameraParse = Promise.withResolvers<{ progress?: number }>();
+  const resetComplete = Promise.withResolvers<void>();
+  mockResetAnimationData.mockReturnValueOnce(resetComplete.promise);
+  mockRouteCallback.mockReturnValueOnce(cameraParse.promise);
+  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+    canceled: false,
+    uri: 'image',
+  });
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('ur:photo-part');
+  render(<ScanQrCodeModal />);
+
+  const camera = mockScan('ur:previous-camera-part');
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+  const [{ isCaptureCurrent, onResultDismiss }] =
+    mockRouteCallback.mock.calls[0];
+  expect(isCaptureCurrent?.()).toBe(true);
+  const reset = mockResetCapture(camera.then(() => {}));
+  expect(isCaptureCurrent?.()).toBe(false);
+  expect(onResultDismiss?.()).toBe(false);
+  await act(async () =>
+    fireEvent.click(screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn)),
+  );
+  expect(mockResetAnimationData).not.toHaveBeenCalled();
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
+
+  await act(async () => cameraParse.resolve({ progress: 1 }));
+  expect(mockResetAnimationData).toHaveBeenCalledTimes(1);
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    resetComplete.resolve();
+    await reset;
+  });
+  expect(mockRouteCallback).toHaveBeenCalledTimes(2);
+  expect(mockRouteCallback).toHaveBeenLastCalledWith(
+    expect.objectContaining({ value: 'ur:photo-part' }),
+  );
+});
+
+test('an album scan can retry a failed reset without a live camera frame', async () => {
+  const firstReset = Promise.withResolvers<void>();
+  const retryReset = Promise.withResolvers<void>();
+  mockResetAnimationData
+    .mockReturnValueOnce(firstReset.promise)
+    .mockReturnValueOnce(retryReset.promise);
+  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+    canceled: false,
+    uri: 'image',
+  });
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('ur:photo-part');
+  render(<ScanQrCodeModal />);
+
+  const first = mockResetCapture(Promise.resolve());
+  await act(async () =>
+    fireEvent.click(screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn)),
+  );
+  expect(mockRouteCallback).not.toHaveBeenCalled();
+  await act(async () => {
+    firstReset.reject(new Error('decoder offline'));
+    await expect(first).rejects.toThrow('decoder offline');
+  });
+  expect(mockResetAnimationData).toHaveBeenCalledTimes(2);
+  expect(mockRouteCallback).not.toHaveBeenCalled();
+  const cameraRetry = mockResetCapture();
+  await act(async () => {
+    retryReset.resolve();
+    await cameraRetry;
+  });
+  expect(mockRouteCallback).toHaveBeenCalledWith(
+    expect.objectContaining({ value: 'ur:photo-part' }),
+  );
+  await mockResetCapture();
+  expect(mockResetAnimationData).toHaveBeenCalledTimes(2);
+});
+
+test.each([false, true])(
+  'an album QR can be retried from the same image after repeated reset failures (multi: %s)',
+  async (multiple) => {
+    const firstReset = Promise.withResolvers<void>();
+    const retryReset = Promise.withResolvers<void>();
+    mockResetAnimationData
+      .mockReturnValueOnce(firstReset.promise)
+      .mockReturnValueOnce(retryReset.promise);
+    jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+      canceled: false,
+      uri: 'image',
+    });
+    const photoCode = { text: 'ur:photo-part', centerX: 0.3, centerY: 0.5 };
+    jest.mocked(scanSymbolsFromURLAsync).mockResolvedValueOnce({
+      width: 100,
+      height: 100,
+      symbols: multiple
+        ? [photoCode, { text: 'other code', centerX: 0.7, centerY: 0.5 }]
+        : [photoCode],
+    });
+    render(<ScanQrCodeModal />);
+
+    const first = mockResetCapture(Promise.resolve());
+    await act(async () =>
+      fireEvent.click(screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn)),
+    );
+    if (multiple) {
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: photoCode.text })),
+      );
+    }
+    await act(async () => {
+      firstReset.reject(new Error('decoder offline'));
+      await expect(first).rejects.toThrow('decoder offline');
+    });
+    await act(async () =>
+      retryReset.reject(new Error('decoder still offline')),
+    );
+
+    expect(mockRouteCallback).not.toHaveBeenCalled();
+    expect(PhotoLibrary.releasePickedImage).not.toHaveBeenCalled();
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: photoCode.text })),
+    );
+    expect(mockResetAnimationData).toHaveBeenCalledTimes(3);
+    expect(mockRouteCallback).toHaveBeenCalledTimes(1);
+    expect(mockRouteCallback).toHaveBeenCalledWith(
+      expect.objectContaining({ value: photoCode.text }),
+    );
+    expect(PhotoLibrary.pickImage).toHaveBeenCalledTimes(1);
+    expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledTimes(1);
+    expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith('image');
+  },
+);
 
 test('allows the camera to retry the same code after photo parsing finishes', async () => {
   const parse = Promise.withResolvers<Awaited<ReturnType<IRouteCallback>>>();
