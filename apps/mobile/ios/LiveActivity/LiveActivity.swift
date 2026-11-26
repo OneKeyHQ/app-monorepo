@@ -25,10 +25,10 @@ private extension ActivityViewContext where Attributes == SwapLiveActivityAttrib
     return nil
   }
 
-  var lastUpdatedText: String {
+  var lastUpdatedText: String? {
+    guard let timestamp = state.updatedAtMs else { return nil }
     if let text = state.strings?.lastUpdated { return text }
     let label = swapStrings?.lastUpdatedLabel ?? "Last updated"
-    guard let timestamp = state.updatedAtMs else { return "\(label): —" }
     let date = Date(timeIntervalSince1970: timestamp / 1000)
     let locale = swapStrings?.locale.map { Locale(identifier: $0) } ?? .current
     let formatted = date.formatted(
