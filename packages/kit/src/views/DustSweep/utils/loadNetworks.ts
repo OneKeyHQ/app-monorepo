@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -736,12 +737,12 @@ export type IDustSweepBannerOffer = {
   networkId?: string;
 };
 
-async function resolveDustSweepNetworkAccount(
+// The wallet's account on every network, looked up once per banner check.
+async function loadDustSweepBannerAccounts(
   params: IDustSweepRouteParams,
-  networkId: string,
-) {
+): Promise<IAllNetworkAccountInfo[]> {
   const { accountId } = params;
-  if (!accountId) return undefined;
+  if (!accountId) return [];
   const { accountsInfo } = await loadQuietly(() =>
     backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
       accountId,
@@ -753,28 +754,19 @@ async function resolveDustSweepNetworkAccount(
       includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
     }),
   );
-  const account = accountsInfo.find(
-    (item) =>
-      item.networkId === networkId &&
-      (!params.networkId || item.accountId === params.accountId),
-  );
-  return account?.apiAddress
-    ? { accountId: account.accountId, address: account.apiAddress }
-    : undefined;
+  return accountsInfo;
 }
 
 // One network's offer, or undefined when the page would not list it.
 async function loadDustSweepBannerNetworkOffer({
-  params,
+  account,
   networkId,
   holdings,
   threshold,
 }: IDustSweepBannerNetwork & {
-  params: IDustSweepRouteParams;
+  account: { accountId: string; address: string };
   threshold: IDustSweepThreshold;
 }): Promise<IDustSweepBannerOffer | undefined> {
-  const account = await resolveDustSweepNetworkAccount(params, networkId);
-  if (!account) return undefined;
   const swapTokens = await loadDustSweepSwapTokens({ ...account, networkId });
   const swapRiskByAddress = new Map<string, number>();
   swapTokens.forEach((token) => {
@@ -838,21 +830,35 @@ export async function loadDustSweepBannerOffer({
   params,
   networks,
   threshold,
+  signal,
 }: {
   params: IDustSweepRouteParams;
   networks: IDustSweepBannerNetwork[];
   threshold: IDustSweepThreshold;
+  // Aborted when a newer check replaces this one or Home goes away.
+  signal?: AbortSignal;
 }): Promise<IDustSweepBannerOffer> {
+  const accountsInfo = await loadDustSweepBannerAccounts(params).catch(
+    (): IAllNetworkAccountInfo[] => [],
+  );
   // One network at a time, largest first, until one has enough.
   for (const network of networks) {
-    // A network whose lookup fails is skipped, as the page skips it.
-    // oxlint-disable-next-line no-await-in-loop
-    const offer = await loadDustSweepBannerNetworkOffer({
-      ...network,
-      params,
-      threshold,
-    }).catch(() => undefined);
-    if (offer && offer.count >= DUST_SWEEP_BANNER_MIN_COUNT) return offer;
+    if (signal?.aborted) break;
+    const account = accountsInfo.find(
+      (item) =>
+        item.networkId === network.networkId &&
+        (!params.networkId || item.accountId === params.accountId),
+    );
+    if (account?.apiAddress) {
+      // A network whose lookup fails is skipped, as the page skips it.
+      // oxlint-disable-next-line no-await-in-loop
+      const offer = await loadDustSweepBannerNetworkOffer({
+        ...network,
+        account: { accountId: account.accountId, address: account.apiAddress },
+        threshold,
+      }).catch(() => undefined);
+      if (offer && offer.count >= DUST_SWEEP_BANNER_MIN_COUNT) return offer;
+    }
   }
   return { count: 0, logos: [] };
 }

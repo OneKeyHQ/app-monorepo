@@ -1361,6 +1361,34 @@ describe('loadDustSweepBannerOffer', () => {
       networkId: 'evm--10',
     });
     expect(serviceSwap.fetchSwapTokens.mock.calls).toHaveLength(4);
+    expect(serviceAllNetwork.getAllNetworkAccounts.mock.calls).toHaveLength(1);
+  });
+
+  it('starts no further network once its check is aborted', async () => {
+    const controller = new AbortController();
+    serviceSwap.fetchSwapTokens.mockImplementation(async ({ networkId }) => {
+      controller.abort();
+      return networkId === 'evm--56'
+        ? [swapToken('evm--56', '0xc'), swapToken('evm--56', '0xd')]
+        : [];
+    });
+    await expect(
+      loadDustSweepBannerOffer({
+        params,
+        threshold: 10,
+        signal: controller.signal,
+        networks: [
+          { networkId: 'evm--1', holdings: [holding('0xa', '5')] },
+          {
+            networkId: 'evm--56',
+            holdings: [holding('0xc', '6'), holding('0xd', '2')],
+          },
+        ],
+      }),
+    ).resolves.toEqual({ count: 0, logos: [] });
+    expect(
+      serviceSwap.fetchSwapTokens.mock.calls.map(([p]) => p.networkId),
+    ).toEqual(['evm--1']);
   });
 
   it('moves to the next network when the Swap list has nothing to sweep on the first', async () => {

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { atom, useAtomValue } from 'jotai';
@@ -208,16 +208,22 @@ export function useDustSweepBannerCount(
           networkId,
           holdings: entry.holdings,
         }));
-      // Cents keep a price tick from starting another check.
+      // Cents keep a price tick from starting another check; a holding that
+      // crosses the amount setting or the gas floor still starts one.
       const key = JSON.stringify([
         candidates.map(({ networkId, holdings }) => [
           networkId,
-          holdings.map((holding) => [
-            holding.contractAddress,
-            new BigNumber(holding.valueUsd).toFixed(2),
-            holding.price,
-            holding.riskLevel,
-          ]),
+          holdings.map((holding) => {
+            const usd = new BigNumber(holding.valueUsd);
+            return [
+              holding.contractAddress,
+              usd.toFixed(2),
+              usd.lt(threshold),
+              usd.lt(getDustSweepHiddenThreshold(networkId)),
+              holding.price,
+              holding.riskLevel,
+            ];
+          }),
         ]),
       ]);
       if (key !== last.key) {
@@ -257,18 +263,26 @@ export function useDustSweepBannerCount(
   // A new account or amount setting waits for its own check; a Home refresh
   // keeps the last checked offer until the next one lands.
   const ownerCheckKey = JSON.stringify([threshold, params]);
+  // A newer check (another account, plan or amount setting, or a closed
+  // banner) or leaving Home stops the networks the older one has not reached.
+  const check = useRef<AbortController | undefined>(undefined);
+  useEffect(() => () => check.current?.abort(), []);
   const { result } = usePromiseResult(
     async () => {
+      check.current?.abort();
       // No network can offer enough without a request.
       if (!params || !plan.networks.length) {
         return { ownerCheckKey, offer: NONE };
       }
+      const controller = new AbortController();
+      check.current = controller;
       const { loadDustSweepBannerOffer } =
         await import('@onekeyhq/kit/src/views/DustSweep/utils/loadNetworks');
       const offer = await loadDustSweepBannerOffer({
         params,
         networks: plan.networks,
         threshold,
+        signal: controller.signal,
       });
       return { ownerCheckKey, offer };
     },
