@@ -348,3 +348,26 @@ test('drops Nitro callbacks queued before freeze when the capture resumes at the
     symbols: fresh,
   });
 });
+
+test('delivers queued Nitro frames when frozen changes from omitted to false', () => {
+  const screen = createNavigation();
+  useTestNavigation(screen);
+  const handleScanResult = jest.fn();
+  const onFrameSymbols = jest.fn();
+  const handlers = { handleScanResult, onFrameSymbols };
+  const { rerender } = render(<ScanCamera {...handlers} />);
+  const previous = view();
+  act(() => previous.onReady(1, 'camera'));
+
+  rerender(<ScanCamera {...handlers} frozen={false} />);
+  const symbols = [{ text: 'fresh', centerX: 0.2, centerY: 0.5 }];
+  act(() => {
+    previous.onFrameText('fresh', 1);
+    previous.onFrameSymbols?.(symbols, 1);
+  });
+  expect(handleScanResult).toHaveBeenCalledWith('fresh');
+  expect(onFrameSymbols).toHaveBeenCalledWith({
+    coordinateSpace: 'view',
+    symbols,
+  });
+});

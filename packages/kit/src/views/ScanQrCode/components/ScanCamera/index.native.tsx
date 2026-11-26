@@ -204,14 +204,15 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       };
     }, [epoch]);
 
-    const frameIdentity = useMemo(() => ({}), [frozen]);
+    const isFrozen = frozen === true;
+    const frameIdentity = useMemo(() => ({ frozen: isFrozen }), [isFrozen]);
     const committedFrame = useRef<object | undefined>(undefined);
     useLayoutEffect(() => {
-      committedFrame.current = frozen ? undefined : frameIdentity;
+      committedFrame.current = frameIdentity.frozen ? undefined : frameIdentity;
       return () => {
         committedFrame.current = undefined;
       };
-    }, [frameIdentity, frozen]);
+    }, [frameIdentity]);
 
     const nativeCallbacks = useMemo(() => {
       const acceptsFrame = (generation: number) =>
