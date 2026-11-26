@@ -202,13 +202,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
         : options?.marketTokenCategory;
-      const isIPhoneMarketListEntry =
-        platformEnv.isNativeIOS &&
+      const shouldSkipListDetailPreload =
+        platformEnv.isNative &&
         !platformEnv.isNativeIOSPad &&
         options?.from === EEnterWay.MarketList &&
         !options?.replaceCurrentDetail &&
         !options?.switchToMarketTabFirst;
-      const marketDetailShellPreloadPromise = isIPhoneMarketListEntry
+      const marketDetailShellPreloadPromise = shouldSkipListDetailPreload
         ? undefined
         : preloadMarketDetailV2Page({
             includeBodyModules: !pendingMarketAssetId,

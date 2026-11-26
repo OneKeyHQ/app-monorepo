@@ -642,7 +642,7 @@ function useNativeMarketBadgeInfo(listRef: RefObject<NativeListRef | null>) {
 
 function prewarmTokenDetail(item: IMarketToken) {
   void preloadMarketDetailV2Page({
-    includeBodyModules: !platformEnv.isNativeIOS || platformEnv.isNativeIOSPad,
+    includeBodyModules: !platformEnv.isNative || platformEnv.isNativeIOSPad,
     includeHeavyModules: true,
     isStockRoute: Boolean(resolveMarketStockId(item)),
     layout: 'mobile',
@@ -1350,7 +1350,7 @@ function MobileMarketNativeStockListImpl({
       if (event.actionKey === 'prewarm-stock-detail') {
         void preloadMarketDetailV2Page({
           includeBodyModules:
-            !platformEnv.isNativeIOS || platformEnv.isNativeIOSPad,
+            !platformEnv.isNative || platformEnv.isNativeIOSPad,
           includeHeavyModules: true,
           isStockRoute: true,
           layout: 'mobile',

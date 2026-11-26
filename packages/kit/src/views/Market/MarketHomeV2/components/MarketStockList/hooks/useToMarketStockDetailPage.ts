@@ -189,12 +189,12 @@ export function useToMarketStockDetailPage(
           replaceCurrentDetail: options?.replaceCurrentDetail,
         });
       const entryFrom = stockPreview?.from ?? options?.from;
-      const isIPhoneMarketListEntry =
-        platformEnv.isNativeIOS &&
+      const shouldSkipListDetailPreload =
+        platformEnv.isNative &&
         !platformEnv.isNativeIOSPad &&
         entryFrom === EEnterWay.MarketList &&
         !options?.replaceCurrentDetail;
-      if (!isIPhoneMarketListEntry) {
+      if (!shouldSkipListDetailPreload) {
         const preloadPromise = preloadMarketDetailV2Page({
           includeBodyModules: true,
           includeHeavyModules: true,

@@ -39,8 +39,8 @@ export function createMarketDetailV2Route(
     const preloadedShell = getPreloadedMarketDetailV2Shell()?.default;
     const lastRenderedShell = useRef(preloadedShell);
     const hasRenderedAssetPreview = useRef(false);
-    const openedFromIPhoneMarketList = useRef(
-      platformEnv.isNativeIOS &&
+    const openedFromNativeMarketList = useRef(
+      platformEnv.isNative &&
         !platformEnv.isNativeIOSPad &&
         params.from === EEnterWay.MarketList,
     );
@@ -49,7 +49,7 @@ export function createMarketDetailV2Route(
     const shouldKeepComponentTypeStable =
       platformEnv.isDesktop ||
       platformEnv.isWeb ||
-      openedFromIPhoneMarketList.current ||
+      openedFromNativeMarketList.current ||
       isPendingAsset ||
       hasRenderedAssetPreview.current;
     // Keep an already mounted detail when preload or asset resolution finishes.
