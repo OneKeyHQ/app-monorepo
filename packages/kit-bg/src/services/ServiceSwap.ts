@@ -2146,6 +2146,12 @@ export default class ServiceSwap extends ServiceBase {
         },
       };
     }
+    if (platformEnv.isNativeIOS) {
+      // Start warming the icons before signing without holding up the swap.
+      void this.backgroundApi.serviceLiveActivity
+        ?.prefetchSwapIcons?.({ protocol, fromToken, toToken })
+        ?.catch(() => undefined);
+    }
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
