@@ -28,7 +28,11 @@ import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { rootRouter, useRootRouter } from '../router';
 
-import { getColdStartOnboardingInitialState } from './coldStartOnboardingState';
+import {
+  getColdStartOnboardingInitialState,
+  isColdStartOnboardingRoute,
+  useColdStart,
+} from './coldStartOnboardingState';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
@@ -300,6 +304,7 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
 
 export const useRouterConfig = (seedColdStartOnboarding = false) => {
   const routerRef = useRouterEventsRef();
+  const dispatchColdStart = useColdStart()?.dispatch;
   const linking = useBuildLinking();
   const intl = useIntl();
 
@@ -346,6 +351,16 @@ export const useRouterConfig = (seedColdStartOnboarding = false) => {
           },
         },
         onStateChange: (state) => {
+          if (
+            seedColdStartOnboarding &&
+            state &&
+            !isColdStartOnboardingRoute(state.routes[state.index])
+          ) {
+            dispatchColdStart?.({
+              type: 'interrupted',
+              entry: 'launch-intent',
+            });
+          }
           if (process.env.NODE_ENV !== 'production') {
             const mainRoute = state?.routes?.[state?.index ?? 0];
             const tabState = mainRoute?.state;
@@ -392,5 +407,5 @@ export const useRouterConfig = (seedColdStartOnboarding = false) => {
           : undefined,
       } as INavigationContainerProps,
     };
-  }, [linking, routerRef, intl, seedColdStartOnboarding]);
+  }, [linking, routerRef, intl, seedColdStartOnboarding, dispatchColdStart]);
 };

@@ -13,8 +13,8 @@ import { hasPendingInstallTask } from '@onekeyhq/shared/src/utils/pendingTaskUti
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import {
-  isColdStartIntoOnboarding,
-  isColdStartOnboardingMounted,
+  ColdStartContext,
+  useNativeColdStart,
 } from '../routes/config/coldStartOnboardingState';
 
 const SPLASH_SAFETY_TIMEOUT = 5000;
@@ -177,15 +177,22 @@ const useCanDismissSplashForOtherPlatforms =
  * │ Safety: 5s timeout guarantees splash dismissal if any path stalls. │
  * └─────────────────────────────────────────────────────────────────────┘
  */
+async function processPendingInstallTask() {
+  try {
+    logSplashProvider('processPendingInstallTask start');
+    await backgroundApiProxy.servicePendingInstallTask.processPendingInstallTask();
+    logSplashProvider('processPendingInstallTask resolved');
+  } catch (error) {
+    logSplashProvider(
+      `processPendingInstallTask failed: ${(error as Error)?.message ?? 'unknown'}`,
+    );
+  }
+}
+
 export const useCanDismissSplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
         const hasCachedStates = hasBalanceCacheInSnapshot();
-        // Fresh-install cold start renders GetStarted from the first frame;
-        // keep the splash until that lazy page has mounted so Main never
-        // shows through. Purely main-side, never waits on bg.
-        const waitsForColdStartOnboarding = isColdStartIntoOnboarding();
-
         const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
 
@@ -195,10 +202,9 @@ export const useCanDismissSplash =
         // in React's scheduler directly and avoids the starvation tax.
         useEffect(() => {
           if (!EXPERIMENT_DISMISS_SPLASH_ON_MOUNT) return;
-          if (waitsForColdStartOnboarding) return;
           logSplashProvider('experiment: immediate dismiss on mount');
           setCanDismissSplash(true);
-        }, [waitsForColdStartOnboarding]);
+        }, []);
 
         // Unconditional safety timer: mounts once and guarantees dismissal
         // regardless of which path (cached/pending/none) is taken, or whether
@@ -233,11 +239,6 @@ export const useCanDismissSplash =
             dismiss();
           };
 
-          const handleColdStartOnboardingMounted = () => {
-            logSplashProvider('cold start onboarding mounted');
-            dismiss();
-          };
-
           const handlePendingInstallTaskFinished = () => {
             logSplashProvider('pending install task finished event received');
             dismiss();
@@ -252,16 +253,7 @@ export const useCanDismissSplash =
             `hasCachedStates=${hasCachedStates}, hasPendingTask=${hasPendingTask}`,
           );
 
-          if (waitsForColdStartOnboarding) {
-            if (isColdStartOnboardingMounted()) {
-              dismiss();
-            } else {
-              appEventBus.on(
-                EAppEventBusNames.ColdStartOnboardingMounted,
-                handleColdStartOnboardingMounted,
-              );
-            }
-          } else if (hasCachedStates) {
+          if (hasCachedStates) {
             // SSR hydration path: cached balance renders instantly,
             // HomePageReady fires on first render frame.
             if ((globalThis as any).__onekeyBalanceDisplayed) {
@@ -289,18 +281,7 @@ export const useCanDismissSplash =
             dismiss();
           }
 
-          // Fire-and-forget: run pending task in background without blocking splash.
-          void (async () => {
-            try {
-              logSplashProvider('processPendingInstallTask start');
-              await backgroundApiProxy.servicePendingInstallTask.processPendingInstallTask();
-              logSplashProvider('processPendingInstallTask resolved');
-            } catch (error) {
-              logSplashProvider(
-                `processPendingInstallTask failed: ${(error as Error)?.message ?? 'unknown'}`,
-              );
-            }
-          })();
+          void processPendingInstallTask();
 
           return () => {
             logSplashProvider('effect cleanup');
@@ -312,12 +293,8 @@ export const useCanDismissSplash =
               EAppEventBusNames.PendingInstallTaskProcessFinished,
               handlePendingInstallTaskFinished,
             );
-            appEventBus.off(
-              EAppEventBusNames.ColdStartOnboardingMounted,
-              handleColdStartOnboardingMounted,
-            );
           };
-        }, [hasCachedStates, waitsForColdStartOnboarding]);
+        }, [hasCachedStates]);
 
         useEffect(() => {
           logSplashProvider(`canDismissSplash=${canDismissSplash}`);
@@ -327,7 +304,31 @@ export const useCanDismissSplash =
       }
     : useCanDismissSplashForOtherPlatforms;
 
-export function SplashProvider({ children }: PropsWithChildren<unknown>) {
+type ISplashProviderProps = PropsWithChildren<{
+  hasLaunchNotification?: boolean;
+}>;
+
+function NativeStartupSplash({
+  children,
+  hasLaunchNotification = false,
+}: ISplashProviderProps) {
+  useEffect(() => {
+    void processPendingInstallTask();
+  }, []);
+  const coldStart = useNativeColdStart(hasLaunchNotification);
+  const { state } = coldStart;
+  // Only GetStarted gates splash dismissal on page readiness. For other
+  // entries, choosing the startup flow is enough to dismiss the splash.
+  return (
+    <ColdStartContext.Provider value={coldStart}>
+      <Splash canDismissSplash={state.phase === 'ready'}>
+        {state.phase === 'resolving' ? null : children}
+      </Splash>
+    </ColdStartContext.Provider>
+  );
+}
+
+function DefaultSplashProvider({ children }: ISplashProviderProps) {
   const canDismissSplash = useCanDismissSplash();
   logSplashProvider(`render canDismissSplash=${canDismissSplash}`);
 
@@ -347,4 +348,12 @@ export function SplashProvider({ children }: PropsWithChildren<unknown>) {
   }
 
   return <Splash canDismissSplash={canDismissSplash}>{children}</Splash>;
+}
+
+export function SplashProvider(props: ISplashProviderProps) {
+  return platformEnv.isNative ? (
+    <NativeStartupSplash {...props} />
+  ) : (
+    <DefaultSplashProvider {...props} />
+  );
 }

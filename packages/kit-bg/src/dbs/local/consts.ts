@@ -1,3 +1,4 @@
+import { LOCAL_WALLET_DB_NAME } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ELocalDBStoreNames } from './localDBStoreNames';
@@ -8,7 +9,7 @@ export const IS_DB_BUCKET_SUPPORT = Boolean(
   (globalThis?.navigator as INavigator)?.storageBuckets,
 );
 
-const LOCAL_DB_NAME = 'OneKeyV5';
+const LOCAL_DB_NAME = LOCAL_WALLET_DB_NAME;
 const LOCAL_DB_VERSION = 21;
 
 // ----------------------------------------------

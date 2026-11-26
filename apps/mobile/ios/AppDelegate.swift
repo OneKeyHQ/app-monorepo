@@ -31,6 +31,21 @@ private enum NitroModuleBridge {
     _ = cls.perform(selector, with: builder)
   }
 
+  // DeviceUtilsFirstLaunch is @objc(OneKeyDeviceUtilsFirstLaunch) in ReactNativeDeviceUtils.
+  static func hasFirstLaunchPersistedState() -> Bool {
+    guard let cls = NSClassFromString("OneKeyDeviceUtilsFirstLaunch") as? NSObject.Type else { return false }
+    let selector = NSSelectorFromString("hasPersistedStateNumber")
+    guard cls.responds(to: selector) else { return false }
+    return (cls.perform(selector)?.takeUnretainedValue() as? NSNumber)?.boolValue ?? false
+  }
+
+  static func initializeFirstLaunch(options: NSDictionary?) {
+    guard let cls = NSClassFromString("OneKeyDeviceUtilsFirstLaunch") as? NSObject.Type else { return }
+    let selector = NSSelectorFromString("initializeWithOptions:")
+    guard cls.responds(to: selector) else { return }
+    _ = cls.perform(selector, with: options)
+  }
+
   // OneKeyLog is @objc in ReactNativeNativeLogger
   static func logInfo(_ tag: String, _ message: String) {
     guard let cls = NSClassFromString("ReactNativeNativeLogger.OneKeyLog") as? NSObject.Type else { return }
@@ -221,11 +236,52 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
   private(set) var launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   private(set) var needsRecoveryWindow = false
 
+  private func initializeFirstLaunch() {
+    if NitroModuleBridge.hasFirstLaunchPersistedState() {
+      NitroModuleBridge.initializeFirstLaunch(options: nil)
+      return
+    }
+    let fileManager = FileManager.default
+    let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+    let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    let bundleId = Bundle.main.bundleIdentifier
+
+    let hasV5Realm = documentsURL.map {
+      fileManager.fileExists(atPath: $0.appendingPathComponent("OneKeyV5").path)
+    } ?? false
+    let hasV4Realm = documentsURL.map {
+      fileManager.fileExists(atPath: $0.appendingPathComponent("default.realm").path)
+    } ?? false
+    let hasMmkvSettings = documentsURL.map {
+      fileManager.fileExists(atPath: $0.appendingPathComponent("mmkv/onekey-app-setting").path)
+    } ?? false
+    let hasLegacyAsyncStorage: Bool = {
+      guard let appSupportURL, let bundleId else { return false }
+      return fileManager.fileExists(
+        atPath: appSupportURL
+          .appendingPathComponent(bundleId, isDirectory: true)
+          .appendingPathComponent("RCTAsyncLocalStorage_V1")
+          .path
+      )
+    }()
+    let storedRecoveryVersion = UserDefaults.standard.string(forKey: BootRecoveryKeys.bootFailAppVersion) ?? ""
+    let hasRecoveryVersion = !storedRecoveryVersion.isEmpty
+
+    let isLegacyInstall = hasV5Realm || hasV4Realm || hasMmkvSettings || hasLegacyAsyncStorage || hasRecoveryVersion
+    var options: [String: Any] = ["isLegacyInstall": NSNumber(value: isLegacyInstall)]
+    if hasRecoveryVersion {
+      options["legacyAppVersion"] = storedRecoveryVersion
+    }
+    NitroModuleBridge.initializeFirstLaunch(options: options as NSDictionary)
+  }
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     self.launchOptions = launchOptions
+    // Must run before MMKV.initialize and boot-recovery UserDefaults writes.
+    initializeFirstLaunch()
     let didFinishLaunchingStartAt = CFAbsoluteTimeGetCurrent()
     initializeNativeSentry()
     NitroModuleBridge.logInfo(
@@ -491,9 +547,28 @@ class SceneDelegate: ExpoAppSceneDelegate {
         "UIApplicationLaunchOptionsUserActivityKey": userActivity,
       ]
     }
-    if let response = connectionOptions.notificationResponse,
-      response.notification.request.trigger is UNPushNotificationTrigger {
-      launchOptions[.remoteNotification] = response.notification.request.content.userInfo
+    var initialProperties: [String: Any] = [:]
+    if let response = connectionOptions.notificationResponse {
+      let request = response.notification.request
+      let content = request.content
+      if request.trigger is UNPushNotificationTrigger {
+        launchOptions[.remoteNotification] = content.userInfo
+      } else if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+        if !OneKeyIsTravelModeMaskingData() {
+          let data = content.userInfo["body"] as? [AnyHashable: Any] ?? content.userInfo
+          var localNotification: [String: Any] = [
+            "title": content.title,
+            "content": content.body,
+            "notificationId": request.identifier,
+          ]
+          localNotification["extras"] = data["extras"]
+          initialProperties["onekeyColdStartLocalNotification"] = localNotification
+        }
+      }
+    }
+    if !OneKeyIsTravelModeMaskingData(),
+      let remoteNotification = launchOptions[.remoteNotification] as? [AnyHashable: Any] {
+      initialProperties["UIApplicationLaunchOptionsRemoteNotificationKey"] = remoteNotification
     }
     let mergedLaunchOptions = launchOptions.isEmpty ? nil : launchOptions
     NitroModuleBridge.launchOptionsStore()?.setValue(mergedLaunchOptions, forKey: "launchOptions")
@@ -521,6 +596,7 @@ class SceneDelegate: ExpoAppSceneDelegate {
     factory.startReactNative(
       withModuleName: appDelegate.reactNativeFactoryModuleName,
       in: window,
+      initialProperties: initialProperties.isEmpty ? nil : initialProperties,
       launchOptions: mergedLaunchOptions
     )
 

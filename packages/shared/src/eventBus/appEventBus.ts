@@ -854,7 +854,6 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HomePageReady]: undefined;
   [EAppEventBusNames.BackgroundThreadReady]: { bootId: string };
   [EAppEventBusNames.ModalNavigatorMounted]: undefined;
-  [EAppEventBusNames.ColdStartOnboardingMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
   [EAppEventBusNames.MemoryPressureWarning]: {
     /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */

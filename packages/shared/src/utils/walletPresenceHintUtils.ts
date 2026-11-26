@@ -2,9 +2,7 @@ import platformEnv from '../platformEnv';
 import { syncStorage } from '../storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
-import { isFreshInstallSync } from './freshInstallDetector';
-
-export type IWalletPresenceHint = 'has_wallet' | 'no_wallet';
+export type IWalletPresenceHint = 'has_wallet' | 'no_wallet' | 'unknown';
 
 /**
  * Synchronously read the wallet presence hint that bg wrote from the real
@@ -16,7 +14,11 @@ export function readWalletPresenceHintSync(): IWalletPresenceHint | undefined {
     const value = syncStorage.getString(
       EAppSyncStorageKeys.onekey_wallet_presence_hint,
     );
-    if (value === 'has_wallet' || value === 'no_wallet') {
+    if (
+      value === 'has_wallet' ||
+      value === 'no_wallet' ||
+      value === 'unknown'
+    ) {
       return value;
     }
   } catch {
@@ -26,13 +28,14 @@ export function readWalletPresenceHintSync(): IWalletPresenceHint | undefined {
 }
 
 /** bg-only writer. Callers pass the result of the real DB count. */
-export function writeWalletPresenceHint({ hasWallet }: { hasWallet: boolean }) {
-  // Sync storage is unavailable in the extension background, and no
-  // extension surface reads the hint.
-  if (platformEnv.isExtension) {
+export function writeWalletPresenceHint(hasWallet: boolean | undefined) {
+  if (!platformEnv.isNativeBackgroundThread) {
     return;
   }
-  const next: IWalletPresenceHint = hasWallet ? 'has_wallet' : 'no_wallet';
+  let next: IWalletPresenceHint = 'unknown';
+  if (hasWallet !== undefined) {
+    next = hasWallet ? 'has_wallet' : 'no_wallet';
+  }
   try {
     if (readWalletPresenceHintSync() === next) {
       return;
@@ -43,32 +46,4 @@ export function writeWalletPresenceHint({ hasWallet }: { hasWallet: boolean }) {
   } catch {
     // Best effort: a missing hint only falls back to the old startup path.
   }
-}
-
-let coldStartDecision: boolean | undefined;
-
-/**
- * Whether the app should open straight into Onboarding on this cold start.
- *
- * Decided once and cached, so later hint writes by bg cannot flip the initial
- * route mid-session. Errs towards `false`: a wrong `false` only keeps the old
- * behavior, while a wrong `true` would show Onboarding to a user with wallets.
- */
-export function shouldColdStartIntoOnboardingSync(): boolean {
-  if (coldStartDecision !== undefined) {
-    return coldStartDecision;
-  }
-  const hint = readWalletPresenceHintSync();
-  if (hint === 'no_wallet') {
-    coldStartDecision = true;
-  } else if (hint === 'has_wallet') {
-    coldStartDecision = false;
-  } else {
-    coldStartDecision = isFreshInstallSync();
-  }
-  return coldStartDecision;
-}
-
-export function resetColdStartOnboardingDecisionForTest() {
-  coldStartDecision = undefined;
 }

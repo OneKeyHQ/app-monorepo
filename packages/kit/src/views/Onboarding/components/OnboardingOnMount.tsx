@@ -9,6 +9,7 @@ import {
   YStack,
   resetAboveMainRoute,
   rootNavigationRef,
+  useSplitMainView,
 } from '@onekeyhq/components';
 import {
   isOnboardingFromExtensionUrl,
@@ -23,7 +24,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
+  EOnboardingPagesV2,
   ERootRoutes,
+  ETabHomeRoutes,
   ETabMarketRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -31,7 +34,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { isColdStartIntoOnboarding } from '../../../routes/config/coldStartOnboardingState';
+import {
+  isColdStartOnboardingRoute,
+  useColdStart,
+} from '../../../routes/config/coldStartOnboardingState';
 import { EModalMarketRoutes } from '../../Market/router/types';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
@@ -39,7 +45,6 @@ let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
 let downgradeConfirmDialogShown = false;
 let isAutoStartV4MigrationShown = false;
-let isColdStartOnboardingVerified = false;
 
 function isOnboardingRouteOnTop() {
   const rootState = rootNavigationRef.current?.getRootState();
@@ -47,6 +52,35 @@ function isOnboardingRouteOnTop() {
     rootState?.routes[rootState.index ?? 0]?.name === ERootRoutes.Onboarding
   );
 }
+function isNativeBackgroundReady() {
+  const runtime = globalThis as typeof globalThis & {
+    __onekeyBackgroundThreadReadyPayload?: unknown;
+  };
+  return Boolean(runtime.__onekeyBackgroundThreadReadyPayload);
+}
+
+function getInitialWalletScreenKey() {
+  const navigation = rootNavigationRef.current;
+  const state = navigation?.getRootState();
+  const root = state?.routes[state.index ?? 0];
+  const screen = navigation?.getCurrentRoute();
+  return root?.name === ERootRoutes.Main &&
+    screen?.name === ETabHomeRoutes.TabHome
+    ? screen.key
+    : undefined;
+}
+
+function getUntouchedColdStartOnboardingKey() {
+  const navigation = rootNavigationRef.current;
+  const state = navigation?.getRootState();
+  const root = state?.routes[state.index ?? 0];
+  const screen = navigation?.getCurrentRoute();
+  return isColdStartOnboardingRoute(root) &&
+    screen?.name === EOnboardingPagesV2.GetStarted
+    ? screen.key
+    : undefined;
+}
+
 const publicMarketRoutes = new Set<string>([
   EModalMarketRoutes.MarketWidgetEditor,
   EModalMarketRoutes.MarketWidgetList,
@@ -111,6 +145,12 @@ function DowngradeWarningDialogContent({
 function OnboardingOnMountCmp() {
   const toOnBoardingPage = useToOnBoardingPage();
   const navigation = useAppNavigation();
+  const isSplitMainView = useSplitMainView();
+  const startup = useColdStart();
+  const coldStart = startup?.state;
+  const claimReconciliation = startup?.claimReconciliation;
+  const coldStartEntry =
+    coldStart?.phase === 'ready' ? coldStart.entry : undefined;
   const v4migrationActions = useV4MigrationActions();
   const [v4migrationPersistData, setV4MigrationPersistAtom] =
     useV4migrationPersistAtom();
@@ -131,7 +171,15 @@ function OnboardingOnMountCmp() {
   }, []);
 
   const checkOnboardingState = useCallback(
-    async ({ checkingV4Migration }: { checkingV4Migration?: boolean } = {}) => {
+    async ({
+      checkingV4Migration,
+      coldStartOnboardingKey,
+      initialWalletScreenKey,
+    }: {
+      checkingV4Migration?: boolean;
+      coldStartOnboardingKey?: string;
+      initialWalletScreenKey?: string;
+    } = {}) => {
       // if (!isFocused) {
       //   return;
       // }
@@ -143,15 +191,19 @@ function OnboardingOnMountCmp() {
         return;
       }
 
-      // console.log('OnboardingOnMount: call checkOnboardingState');
+      const canApplyLateStartupResult = () =>
+        !initialWalletScreenKey ||
+        getInitialWalletScreenKey() === initialWalletScreenKey;
 
       try {
         if (checkingV4Migration) {
           const shouldMigrateFromV4: boolean =
             await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
           if (shouldMigrateFromV4) {
+            if (!canApplyLateStartupResult()) return;
             await migrateBaseSettings();
             await timerUtils.wait(600);
+            if (!canApplyLateStartupResult()) return;
             if (!isAutoStartV4MigrationShown) {
               isAutoStartV4MigrationShown = true;
               await v4migrationActions.navigateToV4MigrationPage({
@@ -171,10 +223,10 @@ function OnboardingOnMountCmp() {
           }
         }
       } catch (_error) {
-        //
+        // Continue with the usual onboarding check if migration did not start.
       }
 
-      if (isOnboardingFromExtensionUrl()) {
+      if (!canApplyLateStartupResult() || isOnboardingFromExtensionUrl()) {
         return;
       }
       if (
@@ -183,24 +235,25 @@ function OnboardingOnMountCmp() {
       ) {
         return;
       }
-      const { isOnboardingDone } =
-        await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
-      // The cold start opened GetStarted from a stale hint: the user does have
-      // wallets, so drop back to Main. Only the first check may do this, so a
-      // user who later opens onboarding on purpose is never pulled out.
-      const isFirstColdStartCheck =
-        isColdStartIntoOnboarding() && !isColdStartOnboardingVerified;
-      if (isFirstColdStartCheck) {
-        isColdStartOnboardingVerified = true;
-      }
       if (
-        isOnboardingDone &&
-        isFirstColdStartCheck &&
-        isOnboardingRouteOnTop()
+        coldStartOnboardingKey &&
+        getUntouchedColdStartOnboardingKey() !== coldStartOnboardingKey
       ) {
-        resetAboveMainRoute();
         return;
       }
+      const { isOnboardingDone } =
+        await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+      if (!canApplyLateStartupResult()) return;
+      if (coldStartOnboardingKey) {
+        if (
+          isOnboardingDone &&
+          getUntouchedColdStartOnboardingKey() === coldStartOnboardingKey
+        ) {
+          resetAboveMainRoute();
+        }
+        return;
+      }
+
       // dapp mode auto onboarding is conflict with url account landing page
       if (
         !isOnboardingDone &&
@@ -310,9 +363,68 @@ function OnboardingOnMountCmp() {
   }, [v4migrationActions]);
 
   useEffect(() => {
-    // console.log('OnboardingOnMount: checkStateOnMount on mount');
-    void checkStateOnMount();
-  }, [checkStateOnMount]);
+    if (!platformEnv.isNative || !coldStart) {
+      void checkStateOnMount();
+      return;
+    }
+    if (
+      isSplitMainView ||
+      (coldStartEntry !== 'wallet' && coldStartEntry !== 'onboarding')
+    ) {
+      return;
+    }
+
+    const run = () => {
+      if (!claimReconciliation?.()) {
+        return;
+      }
+      const coldStartOnboardingKey =
+        coldStartEntry === 'onboarding'
+          ? getUntouchedColdStartOnboardingKey()
+          : undefined;
+      if (coldStartEntry === 'onboarding' && !coldStartOnboardingKey) {
+        return;
+      }
+
+      const isLateOrdinaryLaunch =
+        coldStart.phase === 'ready' && coldStart.lateOrdinaryLaunch;
+      const initialWalletScreenKey = isLateOrdinaryLaunch
+        ? getInitialWalletScreenKey()
+        : undefined;
+      if (isLateOrdinaryLaunch && !initialWalletScreenKey) return;
+
+      // Preserve migration-first behavior inside onboarding, after reveal.
+      void checkOnboardingState({
+        checkingV4Migration: true,
+        coldStartOnboardingKey,
+        initialWalletScreenKey,
+      }).catch(() => undefined);
+    };
+
+    if (!platformEnv.enableNativeBackgroundThread) {
+      run();
+      return;
+    }
+
+    // Neither the first frame nor the background runtime waits on this check.
+    const afterReveal = requestAnimationFrame(() => {
+      appEventBus.on(EAppEventBusNames.BackgroundThreadReady, run);
+      if (isNativeBackgroundReady()) {
+        run();
+      }
+    });
+    return () => {
+      cancelAnimationFrame(afterReveal);
+      appEventBus.off(EAppEventBusNames.BackgroundThreadReady, run);
+    };
+  }, [
+    checkOnboardingState,
+    checkStateOnMount,
+    claimReconciliation,
+    coldStart,
+    coldStartEntry,
+    isSplitMainView,
+  ]);
 
   useEffect(() => {
     // console.log('OnboardingOnMount: checkOnboardingState on appEventBus');

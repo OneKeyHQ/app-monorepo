@@ -34,7 +34,6 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
   const EAppEventBusNames = {
     PendingInstallTaskProcessFinished: 'PendingInstallTaskProcessFinished',
     HomePageReady: 'HomePageReady',
-    ColdStartOnboardingMounted: 'ColdStartOnboardingMounted',
   };
   type IMockAppEventBus = {
     on: jest.Mock<IMockAppEventBus, [string, (payload: unknown) => void]>;
@@ -74,12 +73,13 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
 });
 
 jest.mock('../routes/config/coldStartOnboardingState', () => {
-  const state = { coldStart: false, mounted: false };
-  (globalThis as any).__mockColdStartOnboarding = state;
+  const React = require('react');
+  const startup = { state: { phase: 'resolving' }, dispatch: jest.fn() };
+  (globalThis as any).__mockColdStart = startup;
   return {
     __esModule: true,
-    isColdStartIntoOnboarding: () => state.coldStart,
-    isColdStartOnboardingMounted: () => state.mounted,
+    ColdStartContext: React.createContext(undefined),
+    useNativeColdStart: () => startup,
   };
 });
 
@@ -148,10 +148,6 @@ beforeEach(() => {
   delete g.__onekeyBalanceDisplayed;
   delete g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT;
   g.__mockHasPendingInstallTask?.mockReturnValue(false);
-  if (g.__mockColdStartOnboarding) {
-    g.__mockColdStartOnboarding.coldStart = false;
-    g.__mockColdStartOnboarding.mounted = false;
-  }
   const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
   platformEnvMock.version = '1.0.0';
   platformEnvMock.bundleVersion = '1';
@@ -542,49 +538,36 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
   });
 });
 
-describe('useCanDismissSplash — cold start into onboarding (OK-46368)', () => {
-  test('holds the splash until GetStarted mounts, even with dismiss-on-mount', async () => {
-    const { useCanDismissSplash } = freshSplash();
-    g.__mockColdStartOnboarding.coldStart = true;
-    const { result } = renderHook(() => useCanDismissSplash());
+describe('Native startup splash', () => {
+  test('holds splash while resolving or laying out onboarding and releases on ready', () => {
+    const { SplashProvider } = freshSplash();
+    g.__mockPlatformEnv.isNative = true;
+    const splash = React.createElement(
+      SplashProvider,
+      {},
+      React.createElement('div', { 'data-testid': 'startup-content' }),
+    );
 
-    await flushMicrotasks();
-    expect(result.current).toBe(false);
+    g.__mockColdStart.state = { phase: 'resolving' };
+    const { rerender } = render(splash);
+    expect(g.__lastCanDismissSplash).toBe(false);
+    expect(screen.queryByTestId('startup-content')).toBeNull();
 
-    act(() => {
-      g.__mockAppEventBus.emit(
-        g.__mockAppEventBusNames.ColdStartOnboardingMounted,
-        undefined,
-      );
-    });
-    await flushMicrotasks();
+    g.__mockColdStart.state = { phase: 'waiting-for-onboarding' };
+    rerender(React.cloneElement(splash));
+    expect(g.__lastCanDismissSplash).toBe(false);
+    expect(screen.getByTestId('startup-content')).toBeTruthy();
 
-    expect(result.current).toBe(true);
+    g.__mockColdStart.state = { phase: 'ready', entry: 'onboarding' };
+    rerender(React.cloneElement(splash));
+    expect(g.__lastCanDismissSplash).toBe(true);
   });
 
-  test('dismisses at once when GetStarted mounted before the listener', async () => {
-    const { useCanDismissSplash } = freshSplash();
-    g.__mockColdStartOnboarding.coldStart = true;
-    g.__mockColdStartOnboarding.mounted = true;
-    const { result } = renderHook(() => useCanDismissSplash());
-
-    await flushMicrotasks();
-
-    expect(result.current).toBe(true);
-  });
-
-  test('safety timer still hides the splash if GetStarted never mounts', async () => {
-    jest.useFakeTimers();
-    const { useCanDismissSplash } = freshSplash();
-    g.__mockColdStartOnboarding.coldStart = true;
-    const { result } = renderHook(() => useCanDismissSplash());
-
-    expect(result.current).toBe(false);
-    act(() => {
-      jest.advanceTimersByTime(5000);
-    });
-
-    expect(result.current).toBe(true);
-    jest.useRealTimers();
+  test('releases locked or superseded startup without onboarding', () => {
+    const { SplashProvider } = freshSplash();
+    g.__mockPlatformEnv.isNative = true;
+    g.__mockColdStart.state = { phase: 'ready', entry: 'locked' };
+    render(React.createElement(SplashProvider));
+    expect(g.__lastCanDismissSplash).toBe(true);
   });
 });

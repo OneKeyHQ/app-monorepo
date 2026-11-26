@@ -18,6 +18,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { ensureLocalDbNotOnNativeMainThread } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { writeWalletPresenceHint } from '@onekeyhq/shared/src/utils/walletPresenceHintUtils';
 
 import { localDbOpenErrorAtom } from '../../../states/jotai/atoms/localDb';
 import { REALM_DB_NAME, REALM_DB_VERSION } from '../consts';
@@ -110,6 +111,7 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
     const db = new RealmDBAgent(realm);
     // init db records here
     await this._initDBRecords(db);
+    db.publishWalletPresenceHint();
     return db;
   }
 
@@ -162,6 +164,7 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
       operation: async () => {
         try {
           const db = await this.getRealDb();
+          writeWalletPresenceHint(undefined);
           db.realm.close();
           Realm.deleteFile({ path: REALM_DB_NAME });
         } catch (error: any) {

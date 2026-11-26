@@ -1,3 +1,4 @@
+export const LOCAL_WALLET_DB_NAME = 'OneKeyV5';
 export const DEFAULT_VERIFY_STRING = 'OneKey';
 export const DB_MAIN_CONTEXT_ID = 'mainContext';
 export const WALLET_TYPE_HD = 'hd';

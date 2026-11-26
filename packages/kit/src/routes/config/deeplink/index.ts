@@ -806,4 +806,12 @@ if (process.env.NODE_ENV !== 'production') {
   globalThis.$$handleDeepLinkUrl = handleDeepLinkUrl;
 }
 
-export const registerDeepLinking = () => registerHandler(handleDeepLinkUrl);
+let nativeDeepLinkingRegistered = false;
+
+export function registerDeepLinking() {
+  if (platformEnv.isNative) {
+    if (nativeDeepLinkingRegistered) return;
+    nativeDeepLinkingRegistered = true;
+  }
+  return registerHandler(handleDeepLinkUrl);
+}
