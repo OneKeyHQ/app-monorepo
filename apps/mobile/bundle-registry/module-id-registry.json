@@ -26232,6 +26232,7 @@
     "packages/kit/src/views/Perp/layouts/perpLayoutUtils.ts": 21964,
     "packages/kit/src/views/Perp/pages/ExtPerp.tsx": 15348,
     "packages/kit/src/views/Perp/pages/MobilePerpMarket.tsx": 384,
+    "packages/kit/src/views/Perp/pages/MobilePerpMarketRoute.tsx": 18484,
     "packages/kit/src/views/Perp/pages/Perp.tsx": 11035,
     "packages/kit/src/views/Perp/router/index.ts": 16067,
     "packages/kit/src/views/Perp/testIDs.ts": 7665,
