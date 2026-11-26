@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -7,6 +8,8 @@ import {
   buildMarketStockTokenMetadata,
   resolveMarketStockId,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   swrCacheUtils,
@@ -21,6 +24,7 @@ import {
   getStockTokenDetailDisplaySeed,
   isStockTokenDetailStateLanded,
 } from '../utils/stockTokenDetailFreshness';
+import { isSwapProviderSelectRouteActive } from '../utils/swapProviderSelectRoute';
 
 import { getTokenIdentityKey } from './swapStockChannelUtils';
 
@@ -48,9 +52,11 @@ function nextStockDetailMountId() {
 
 export function useSwapStockTokenDetail({
   enabled = true,
+  providerSelectStoreName,
   token,
 }: {
   enabled?: boolean;
+  providerSelectStoreName?: EJotaiContextStoreNames;
   token?: ISwapToken;
 }) {
   const locale = useLocaleVariant().toLowerCase();
@@ -72,6 +78,27 @@ export function useSwapStockTokenDetail({
   // last-good snapshot used by the new token scope.
   const latestScopeRef = useRef(tokenDetailScope);
   latestScopeRef.current = tokenDetailScope;
+  const [appIsLocked] = useAppIsLockedAtom();
+  const subscribeToProviderSelectRoute = useCallback(
+    (onChange: () => void) => {
+      const unsubscribe =
+        providerSelectStoreName === undefined
+          ? undefined
+          : rootNavigationRef.current?.addListener('state', onChange);
+      return () => unsubscribe?.();
+    },
+    [providerSelectStoreName],
+  );
+  const getProviderSelectRouteActive = useCallback(
+    () =>
+      providerSelectStoreName !== undefined &&
+      isSwapProviderSelectRouteActive(providerSelectStoreName),
+    [providerSelectStoreName],
+  );
+  const isProviderSelectActive = useSyncExternalStore(
+    subscribeToProviderSelectRoute,
+    getProviderSelectRouteActive,
+  );
 
   const { result: tokenDetailState, setStopPolling } = usePromiseResult(
     async () => {
@@ -181,6 +208,8 @@ export function useSwapStockTokenDetail({
       // Keep the interval identity stable so enabling a quote-driven detail
       // check starts immediately instead of preserving the old cadence.
       pollingInterval: SWAP_STOCK_DETAIL_POLLING_INTERVAL_MS,
+      overrideIsFocused: (isFocused) =>
+        isFocused || (!appIsLocked && isProviderSelectActive),
       resumeOnEffectReconnect: true,
       swrKey:
         isActive && tokenDetailScope

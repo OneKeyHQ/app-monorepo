@@ -35,6 +35,7 @@ describe('getMarketTradeFallbackInput', () => {
       }),
     ).toEqual({
       fromAmount: '',
+      marketNonStockTrade: true,
       importFromToken: undefined,
       importToToken: marketToken,
       marketPresetToken: {
@@ -60,6 +61,26 @@ describe('getMarketTradeFallbackInput', () => {
         fromAmount: tokenMetadataReady ? '0.01' : '',
         importFromToken: marketToken,
         importToToken: tokenMetadataReady ? paymentToken : undefined,
+      });
+    },
+  );
+
+  it.each([ESwapDirection.BUY, ESwapDirection.SELL])(
+    'requests a fresh amount draft for a %s Max fallback',
+    (tradeType) => {
+      expect(
+        getMarketTradeFallbackInput({
+          marketToken: { ...marketToken, isStock: true },
+          paymentToken,
+          tokenMetadataReady: true,
+          tradeType,
+          amount: '10',
+          isMaxAmount: true,
+        }),
+      ).toMatchObject({
+        fromAmount: '',
+        clearInputAmounts: true,
+        marketStockTrade: true,
       });
     },
   );
