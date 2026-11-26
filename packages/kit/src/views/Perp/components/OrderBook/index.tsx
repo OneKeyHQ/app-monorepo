@@ -1588,6 +1588,19 @@ export function OrderBook({
       renderTrigger={({ onPress }) => (
         <TouchableOpacity
           activeOpacity={isDesktopVertical ? 0.8 : undefined}
+          accessibilityRole={isDesktopVertical ? 'button' : undefined}
+          accessibilityLabel={
+            isDesktopVertical
+              ? [
+                  intl.formatMessage({
+                    id: ETranslations.perp_orderbook_spread,
+                  }),
+                  selectedTickOption?.label,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              : undefined
+          }
           style={{
             minWidth: 56,
             maxWidth: isDesktopVertical ? 200 : 150,

@@ -88,8 +88,16 @@ jest.mock('react-native', () => ({
       {children}
     </span>
   ),
-  TouchableOpacity: ({ children }: { children?: ReactNode }) => (
-    <button type="button">{children}</button>
+  TouchableOpacity: ({
+    children,
+    accessibilityLabel,
+  }: {
+    children?: ReactNode;
+    accessibilityLabel?: string;
+  }) => (
+    <button type="button" aria-label={accessibilityLabel}>
+      {children}
+    </button>
   ),
   View: ({
     children,
@@ -852,6 +860,11 @@ describe('OrderBook desktop display modes', () => {
         ).toBeNull();
         expect(
           within(view.getByTestId('perp-select')).getByText('0.0001'),
+        ).toBeTruthy();
+        expect(
+          within(view.getByTestId('perp-select')).getByRole('button', {
+            name: 'perp.orderbook_spread 0.0001',
+          }),
         ).toBeTruthy();
         expect(
           within(view.getByTestId('perp-select')).queryByText('0.000100'),
