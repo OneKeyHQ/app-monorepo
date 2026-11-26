@@ -40,6 +40,12 @@ export interface ITradingViewNativeMultiChartControlsSlot {
    * the selected panel's, so the other panels leave theirs out.
    */
   renderControls: (controls: ReactNode) => ReactNode;
+  /**
+   * Places the chart's own interval picker where the host put the panel's
+   * `intervalControl`, e.g. in its header, so every panel shows and picks its
+   * interval, the selected one or not. Nothing while the host shows none.
+   */
+  renderIntervalControl: (control: ReactNode) => ReactNode;
   drawingTools: ITradingViewNativeMultiChartDrawingTools;
 }
 
