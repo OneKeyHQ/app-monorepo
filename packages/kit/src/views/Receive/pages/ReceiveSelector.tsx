@@ -43,6 +43,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '../../../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
@@ -211,7 +212,15 @@ function ReceiveSelectorContent() {
   const { isSupported, url } = result ?? {};
 
   const handleReceiveOnPress = useCallback(
-    ({ onPress }: { onPress: () => void }) => {
+    async ({ onPress }: { onPress: () => void }) => {
+      if (
+        await blockIfWalletLocalSecretEnvelopeUnavailable({
+          walletId,
+          accountId,
+        })
+      ) {
+        return;
+      }
       if (token) {
         navigation.push(EModalReceiveRoutes.ReceiveToken, {
           networkId,
@@ -375,6 +384,14 @@ function ReceiveSelectorContent() {
 
   const handleExchangePress = useCallback(
     async (config: IExchangeConfig) => {
+      if (
+        await blockIfWalletLocalSecretEnvelopeUnavailable({
+          walletId,
+          accountId,
+        })
+      ) {
+        return;
+      }
       defaultLogger.transaction.receive.clickExchangeEntry({
         exchangeSource: config.id,
         walletType: wallet?.type,
@@ -676,7 +693,7 @@ function ReceiveSelectorContent() {
                         exchangeSource: 'others',
                         walletType: wallet?.type,
                       });
-                      handleReceiveOnPress({ onPress });
+                      void handleReceiveOnPress({ onPress });
                     }}
                     disabled={disabled}
                     gap="$4"

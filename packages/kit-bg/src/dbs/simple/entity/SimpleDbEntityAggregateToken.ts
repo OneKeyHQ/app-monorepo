@@ -1,4 +1,9 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { buildLocalAggregateTokenMapKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -55,6 +60,14 @@ export interface ISimpleDBAggregateToken {
   >;
 }
 
+function notifyHomeDefaultTokensUpdated(
+  saved: ISimpleDBAggregateToken | undefined,
+) {
+  if (saved && platformEnv.isExtensionBackground) {
+    appEventBus.emit(EAppEventBusNames.HomeDefaultTokensUpdated, undefined);
+  }
+}
+
 export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAggregateToken> {
   entityName = 'aggregateToken';
 
@@ -89,12 +102,13 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
     merge?: boolean;
   }) {
-    await this.setRawData((rawData) => ({
+    const saved = await this.setRawData((rawData) => ({
       ...rawData,
       homeDefaultTokenMap: merge
         ? { ...rawData?.homeDefaultTokenMap, ...homeDefaultTokenMap }
         : homeDefaultTokenMap,
     }));
+    notifyHomeDefaultTokensUpdated(saved);
   }
 
   @backgroundMethod()
@@ -221,7 +235,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     };
     merge?: boolean;
   }) {
-    await this.setRawData((rawData) => ({
+    const saved = await this.setRawData((rawData) => ({
       ...rawData,
       configSyncMeta: configSyncMeta ?? rawData?.configSyncMeta,
       aggregateTokenSymbolMap: merge
@@ -245,6 +259,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
         ? { ...rawData?.homeDefaultTokenMap, ...homeDefaultTokenMap }
         : homeDefaultTokenMap,
     }));
+    notifyHomeDefaultTokensUpdated(saved);
   }
 
   // Drops the sync marker so the next syncWalletConfigIfNeeded re-fetches the

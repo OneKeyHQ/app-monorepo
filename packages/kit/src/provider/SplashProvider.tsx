@@ -12,6 +12,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { hasPendingInstallTask } from '@onekeyhq/shared/src/utils/pendingTaskUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import {
+  ColdStartContext,
+  useNativeColdStart,
+} from '../routes/config/coldStartOnboardingState';
 
 const SPLASH_SAFETY_TIMEOUT = 5000;
 const jsEntryStart: number =
@@ -173,11 +177,22 @@ const useCanDismissSplashForOtherPlatforms =
  * │ Safety: 5s timeout guarantees splash dismissal if any path stalls. │
  * └─────────────────────────────────────────────────────────────────────┘
  */
+async function processPendingInstallTask() {
+  try {
+    logSplashProvider('processPendingInstallTask start');
+    await backgroundApiProxy.servicePendingInstallTask.processPendingInstallTask();
+    logSplashProvider('processPendingInstallTask resolved');
+  } catch (error) {
+    logSplashProvider(
+      `processPendingInstallTask failed: ${(error as Error)?.message ?? 'unknown'}`,
+    );
+  }
+}
+
 export const useCanDismissSplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
         const hasCachedStates = hasBalanceCacheInSnapshot();
-
         const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
 
@@ -266,18 +281,7 @@ export const useCanDismissSplash =
             dismiss();
           }
 
-          // Fire-and-forget: run pending task in background without blocking splash.
-          void (async () => {
-            try {
-              logSplashProvider('processPendingInstallTask start');
-              await backgroundApiProxy.servicePendingInstallTask.processPendingInstallTask();
-              logSplashProvider('processPendingInstallTask resolved');
-            } catch (error) {
-              logSplashProvider(
-                `processPendingInstallTask failed: ${(error as Error)?.message ?? 'unknown'}`,
-              );
-            }
-          })();
+          void processPendingInstallTask();
 
           return () => {
             logSplashProvider('effect cleanup');
@@ -300,7 +304,31 @@ export const useCanDismissSplash =
       }
     : useCanDismissSplashForOtherPlatforms;
 
-export function SplashProvider({ children }: PropsWithChildren<unknown>) {
+type ISplashProviderProps = PropsWithChildren<{
+  hasLaunchNotification?: boolean;
+}>;
+
+function NativeStartupSplash({
+  children,
+  hasLaunchNotification = false,
+}: ISplashProviderProps) {
+  useEffect(() => {
+    void processPendingInstallTask();
+  }, []);
+  const coldStart = useNativeColdStart(hasLaunchNotification);
+  const { state } = coldStart;
+  // Only GetStarted gates splash dismissal on page readiness. For other
+  // entries, choosing the startup flow is enough to dismiss the splash.
+  return (
+    <ColdStartContext.Provider value={coldStart}>
+      <Splash canDismissSplash={state.phase === 'ready'}>
+        {state.phase === 'resolving' ? null : children}
+      </Splash>
+    </ColdStartContext.Provider>
+  );
+}
+
+function DefaultSplashProvider({ children }: ISplashProviderProps) {
   const canDismissSplash = useCanDismissSplash();
   logSplashProvider(`render canDismissSplash=${canDismissSplash}`);
 
@@ -320,4 +348,12 @@ export function SplashProvider({ children }: PropsWithChildren<unknown>) {
   }
 
   return <Splash canDismissSplash={canDismissSplash}>{children}</Splash>;
+}
+
+export function SplashProvider(props: ISplashProviderProps) {
+  return platformEnv.isNative ? (
+    <NativeStartupSplash {...props} />
+  ) : (
+    <DefaultSplashProvider {...props} />
+  );
 }

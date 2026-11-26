@@ -2,8 +2,11 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
+import {
+  acquirePublicTradesHistory,
+  isLaterTrade,
+  watchHyperliquidPublicTrades,
+} from '../../../utils/watchHyperliquidPublicTrades';
 
 const LATEST_TRADE_INTERACTIVE_MAX_AGE_MS = 30_000;
 type ILatestTrade = IWsTrades[number];
@@ -12,13 +15,6 @@ type ILatestTradeSnapshot = {
   trade: ILatestTrade;
   isLive: boolean;
 };
-
-function isLaterTrade(candidate: ILatestTrade, current: ILatestTrade) {
-  return (
-    candidate.time > current.time ||
-    (candidate.time === current.time && candidate.tid > current.tid)
-  );
-}
 
 function selectLatestTrade(trades: IWsTrades, coin: string) {
   return trades.reduce<ILatestTrade | undefined>((latest, trade) => {
@@ -56,31 +52,51 @@ function createLatestTradeStore(coin: string) {
   const start = () => {
     let disposed = false;
     let connected = false;
-    let acceptedLiveTrade = false;
+    let needsReconnectBackfill = false;
     let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     const publish = (trades: IWsTrades, fromSocket: boolean) => {
-      if (disposed || (!fromSocket && acceptedLiveTrade)) return;
+      if (disposed) return;
       const candidate = selectLatestTrade(trades, coin);
-      if (!candidate || (snapshot && isLaterTrade(snapshot.trade, candidate))) {
+      if (
+        !candidate ||
+        (snapshot &&
+          (isLaterTrade(snapshot.trade, candidate) ||
+            (!fromSocket && !isLaterTrade(candidate, snapshot.trade))))
+      ) {
         return;
       }
       const remaining =
         LATEST_TRADE_INTERACTIVE_MAX_AGE_MS - (Date.now() - candidate.time);
       const isLive = fromSocket && connected && remaining > 0;
-      if (isLive) acceptedLiveTrade = true;
       snapshot = { coin, trade: candidate, isLive };
       clearTimeout(expiryTimer);
       if (isLive) expiryTimer = setTimeout(invalidate, remaining);
       notify();
     };
+    const history = acquirePublicTradesHistory(coin, (trades) =>
+      publish(trades, false),
+    );
+    const backfill = (reconnect = false) => {
+      void history.fetch(reconnect).catch(() => {
+        // The live subscription can still recover when the snapshot fails.
+      });
+    };
     const unwatch = watchHyperliquidPublicTrades({
       coin,
       limit: 1,
-      onTrades: (trades) => publish(trades, true),
+      onTrades: (trades, displayOnly) => publish(trades, !displayOnly),
       onStatus: (status) => {
         if (disposed) return;
+        const wasConnected = connected;
         connected = status === 'connected';
-        if (!connected) invalidate();
+        if (!connected) {
+          needsReconnectBackfill = true;
+          if (wasConnected) history.disconnect();
+          invalidate();
+        } else if (needsReconnectBackfill) {
+          needsReconnectBackfill = false;
+          backfill(true);
+        }
       },
     });
     if (
@@ -88,17 +104,12 @@ function createLatestTradeStore(coin: string) {
       (pausedAt !== undefined &&
         Date.now() - pausedAt >= LATEST_TRADE_INTERACTIVE_MAX_AGE_MS)
     ) {
-      // Backfill after a pause, without replacing an eligible live trade.
-      void backgroundApiProxy.serviceHyperliquid
-        .getPerpRecentTrades({ coin })
-        .then((trades) => publish(trades, false))
-        .catch(() => {
-          // The live subscription can still recover when the snapshot fails.
-        });
+      backfill();
     }
     return () => {
       disposed = true;
       clearTimeout(expiryTimer);
+      history.release();
       unwatch();
       pausedAt = Date.now();
       invalidate();
@@ -152,12 +163,13 @@ export function usePerpLatestTrade(coin: string, active: boolean) {
     if (
       !active ||
       !current?.isLive ||
+      current !== store.getSnapshot() ||
       Date.now() - current.trade.time >= LATEST_TRADE_INTERACTIVE_MAX_AGE_MS
     ) {
       return undefined;
     }
     return current.trade.px;
-  }, [active, current]);
+  }, [active, current, store]);
 
   return {
     trade: current?.trade,

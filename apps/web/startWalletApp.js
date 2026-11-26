@@ -25,11 +25,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
+import { initFirstLaunchForApp } from '@onekeyhq/shared/src/utils/freshInstallDetector';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import App from './App';
 import { createServiceWorkerVersionProtocol } from './src/serviceWorkerVersionProtocol';
+
+initFirstLaunchForApp();
 
 const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
 const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({

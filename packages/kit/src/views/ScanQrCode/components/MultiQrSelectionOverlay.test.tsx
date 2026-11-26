@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { createElement } from 'react';
 
+import { UR, UREncoder } from '@ngraveio/bc-ur';
 import { act, create } from 'react-test-renderer';
 
 import { Haptics, ImpactFeedbackStyle } from '@onekeyhq/components';
@@ -27,6 +28,15 @@ jest.mock('react-intl', () => ({
 
 jest.mock('react-native', () => ({
   Image: 'img',
+  Platform: {
+    select: ({
+      native,
+      default: fallback,
+    }: {
+      native: boolean;
+      default: boolean;
+    }) => (platformEnv.isNative ? native : fallback),
+  },
   Pressable: 'button',
 }));
 
@@ -70,6 +80,11 @@ function TestScannerModal({
 }) {
   useBackHandler(onBack, true, false);
   return children;
+}
+
+function fountainParts(value: number) {
+  const encoder = new UREncoder(UR.fromBuffer(Buffer.alloc(200, value)), 40);
+  return Array.from({ length: 4 }, () => encoder.nextPart());
 }
 
 describe('MultiQrSelectionOverlay', () => {
@@ -144,6 +159,90 @@ describe('MultiQrSelectionOverlay', () => {
       onBackdropPress();
     });
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('requests refocus at the tapped normalized point and keeps explicit cancel separate', () => {
+    (platformEnv as { isNative?: boolean }).isNative = true;
+    const onRefocus = jest.fn();
+    const onCancel = jest.fn();
+    let renderer: ReactTestRenderer;
+    act(() => {
+      renderer = create(
+        <MultiQrSelectionOverlay
+          symbols={symbols}
+          onSelect={jest.fn()}
+          onCancel={onCancel}
+          onRefocus={onRefocus}
+        />,
+      );
+    });
+    const overlay = renderer!.root.findByProps({
+      testID: 'multi-qr-selection-overlay',
+    });
+    act(() => {
+      (overlay.props.onLayout as (event: LayoutChangeEvent) => void)({
+        nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 800 } },
+      } as LayoutChangeEvent);
+    });
+    const backdrop = renderer!.root.findByProps({
+      testID: 'multi-qr-selection-backdrop',
+    });
+    act(() => {
+      (backdrop.props.onPress as (event: object) => void)({
+        nativeEvent: { locationX: 100, locationY: 600 },
+      });
+    });
+    expect(onRefocus).toHaveBeenCalledWith({ x: 0.25, y: 0.75 });
+    expect(onCancel).not.toHaveBeenCalled();
+    const cancel = renderer!.root.findByProps({
+      testID: 'multi-qr-selection-cancel',
+    });
+    act(() => (cancel.props.onPress as () => void)());
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    act(() => renderer!.unmount());
+  });
+
+  it('uses browser pointer coordinates and resumes without focusing on keyboard activation', () => {
+    (platformEnv as { isNative?: boolean }).isNative = false;
+    const onRefocus = jest.fn();
+    let renderer: ReactTestRenderer;
+    act(() => {
+      renderer = create(
+        <MultiQrSelectionOverlay
+          symbols={symbols}
+          onSelect={jest.fn()}
+          onCancel={jest.fn()}
+          onRefocus={onRefocus}
+        />,
+      );
+    });
+    const backdrop = renderer!.root.findByProps({
+      testID: 'multi-qr-selection-backdrop',
+    });
+    const currentTarget = document.createElement('button');
+    jest.spyOn(currentTarget, 'getBoundingClientRect').mockReturnValue({
+      left: 50,
+      top: 100,
+      width: 400,
+      height: 800,
+    } as DOMRect);
+    const press = backdrop.props.onPress as (event: object) => void;
+    act(() => {
+      press({
+        currentTarget,
+        nativeEvent: new MouseEvent('click', {
+          detail: 1,
+          clientX: 150,
+          clientY: 700,
+        }),
+      });
+      press({
+        currentTarget,
+        nativeEvent: new MouseEvent('click', { detail: 0 }),
+      });
+    });
+    expect(onRefocus.mock.calls).toEqual([[{ x: 0.25, y: 0.75 }], []]);
+    act(() => renderer!.unmount());
   });
 
   it('gives Escape to the photo picker above the live picker', () => {
@@ -266,16 +365,18 @@ test('a dismissed mixed scene stays live across advancing UR parts and can show 
     onCommitText: jest.fn(async () => 'progress' as const),
   });
   const address = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
-  const ur = { text: 'ur:bytes/1-2/abcd', centerX: 0.8, centerY: 0.5 };
+  const [firstPart, nextPart] = fountainParts(1);
+  const [foreignPart] = fountainParts(2);
+  const ur = { text: firstPart, centerX: 0.8, centerY: 0.5 };
   expect(coordinator.receiveFrame([address, ur])).toBe(true);
   coordinator.cancelSelection();
   expect(onFrozenChange).toHaveBeenLastCalledWith(false);
   expect(
-    coordinator.receiveFrame([address, { ...ur, text: 'ur:bytes/2-2/efgh' }]),
+    coordinator.receiveFrame([address, { ...ur, text: nextPart }]),
   ).toBeUndefined();
   expect(onFrozenChange).toHaveBeenLastCalledWith(false);
   expect(
-    coordinator.receiveFrame([{ ...address, text: 'ethereum:0x222' }, ur]),
+    coordinator.receiveFrame([address, { ...ur, text: foreignPart }]),
   ).toBe(true);
 });
 
@@ -298,7 +399,8 @@ test('a selected UR binds only after its first part is accepted, then resumes af
   });
   const address = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
   const badUr = { text: 'ur:bytes/1-3/bad', centerX: 0.7, centerY: 0.5 };
-  const goodUr = { text: 'ur:bytes/1-2/good', centerX: 0.8, centerY: 0.5 };
+  const [firstPart, nextPart] = fountainParts(3);
+  const goodUr = { text: firstPart, centerX: 0.8, centerY: 0.5 };
   coordinator.receiveFrame([address, badUr, goodUr]);
   await act(async () => {
     coordinator.selectSymbol(badUr);
@@ -310,10 +412,7 @@ test('a selected UR binds only after its first part is accepted, then resumes af
   expect(coordinator.phase).toBe('ur-streaming');
   expect(onFrozenChange).toHaveBeenLastCalledWith(false);
   await act(async () => {
-    coordinator.receiveFrame([
-      { ...goodUr, text: 'ur:bytes/2-2/next' },
-      address,
-    ]);
+    coordinator.receiveFrame([{ ...goodUr, text: nextPart }, address]);
   });
   expect(coordinator.phase).toBe('normal');
 });
@@ -421,12 +520,15 @@ test('preview verification cancels a pending static result and ignores fresh fra
   }
 });
 
-test('a rejected or duplicated UR does not starve the advancing part in the same frame', async () => {
+test('foreign, ignored and duplicated UR parts do not starve the advancing part', async () => {
   const address = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
-  const first = { text: 'ur:bytes/1-2/first', centerX: 0.8, centerY: 0.5 };
-  const foreign = { ...first, text: 'ur:bytes/2-2/foreign' };
-  const duplicate = { ...first, text: 'ur:bytes/1-2/dup' };
-  const next = { ...first, text: 'ur:bytes/2-2/next' };
+  const [firstPart, ignoredPart, duplicatePart, nextPart] = fountainParts(4);
+  const [foreignPart] = fountainParts(5);
+  const first = { text: firstPart, centerX: 0.8, centerY: 0.5 };
+  const foreign = { ...first, text: foreignPart };
+  const ignored = { ...first, text: ignoredPart };
+  const duplicate = { ...first, text: duplicatePart };
+  const next = { ...first, text: nextPart };
   const onCommitText = jest
     .fn<
       ReturnType<IMultiSymbolCoordinatorOptions['onCommitText']>,
@@ -447,13 +549,147 @@ test('a rejected or duplicated UR does not starve the advancing part in the same
     coordinator.selectSymbol(first);
   });
   await act(async () => {
-    coordinator.receiveFrame([foreign, duplicate, next]);
+    coordinator.receiveFrame([foreign, ignored, duplicate, next]);
   });
   expect(onCommitText.mock.calls.map(([text]) => text)).toEqual([
     first.text,
-    foreign.text,
+    ignored.text,
     duplicate.text,
     next.text,
   ]);
   expect(coordinator.phase).toBe('normal');
+});
+
+test('two refocus cycles reacquire old codes without submitting an old singleton', async () => {
+  jest.useFakeTimers();
+  try {
+    const onSelectingChange = jest.fn();
+    const onCommitText = jest.fn(async () => 'complete' as const);
+    const coordinator = createMultiSymbolCoordinator({
+      onFrozenChange: jest.fn(),
+      onMultiSymbolChange: jest.fn(),
+      onSelectingChange,
+      onCommitText,
+    });
+    const a = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+    const b = { text: 'ethereum:0x222', centerX: 0.8, centerY: 0.5 };
+    expect(coordinator.receiveFrame([a, b])).toBe(true);
+    coordinator.refocus();
+    for (let index = 0; index < 6; index += 1) {
+      jest.advanceTimersByTime(50);
+      expect(coordinator.receiveFrame([a])).toBeUndefined();
+      coordinator.refocus();
+    }
+    jest.advanceTimersByTime(50);
+    expect(coordinator.receiveFrame([a, b])).toBe(true);
+
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    expect(coordinator.receiveFrame([a])).toBe(true);
+    expect(onSelectingChange).toHaveBeenLastCalledWith([a]);
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    expect(coordinator.receiveFrame([b])).toBe(true);
+    expect(onSelectingChange).toHaveBeenLastCalledWith([b]);
+    jest.advanceTimersByTime(1000);
+    expect(onCommitText).not.toHaveBeenCalled();
+    await act(async () => coordinator.selectSymbol(b));
+    expect(onCommitText).toHaveBeenCalledWith(b.text, 'static');
+    coordinator.dispose();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('refocusing a different picker still requires confirmation of an earlier candidate', async () => {
+  jest.useFakeTimers();
+  try {
+    const onSelectingChange = jest.fn();
+    const onCommitText = jest.fn(async () => 'complete' as const);
+    const coordinator = createMultiSymbolCoordinator({
+      aggregationWindowMs: 140,
+      onFrozenChange: jest.fn(),
+      onMultiSymbolChange: jest.fn(),
+      onSelectingChange,
+      onCommitText,
+    });
+    const a = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+    const b = { text: 'ethereum:0x222', centerX: 0.8, centerY: 0.5 };
+    const c = { ...a, text: 'ethereum:0x333' };
+    const d = { ...b, text: 'ethereum:0x444' };
+
+    expect(coordinator.receiveFrame([a, b])).toBe(true);
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    coordinator.receiveFrame([c]);
+    expect(coordinator.receiveFrame([c, d])).toBe(true);
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    coordinator.receiveFrame([b]);
+    jest.advanceTimersByTime(140);
+
+    expect(onCommitText).not.toHaveBeenCalled();
+    expect(onSelectingChange).toHaveBeenLastCalledWith([b]);
+    await act(async () => coordinator.selectSymbol(b));
+    expect(onCommitText).toHaveBeenCalledWith(b.text, 'static');
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('explicit cancel suppresses only the candidates on the current picker', () => {
+  jest.useFakeTimers();
+  try {
+    const coordinator = createMultiSymbolCoordinator({
+      onFrozenChange: jest.fn(),
+      onMultiSymbolChange: jest.fn(),
+      onSelectingChange: jest.fn(),
+      onCommitText: jest.fn(async () => 'complete' as const),
+    });
+    const a = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+    const b = { text: 'ethereum:0x222', centerX: 0.5, centerY: 0.5 };
+    const c = { text: 'ethereum:0x333', centerX: 0.8, centerY: 0.5 };
+    expect(coordinator.receiveFrame([a, b])).toBe(true);
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    expect(coordinator.receiveFrame([a, c])).toBe(true);
+    coordinator.cancelSelection();
+    expect(coordinator.receiveFrame([a, c])).toBeUndefined();
+    expect(coordinator.receiveFrame([b, c])).toBe(true);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('cancel skips the old scene until a live tap, and retired preview verification cannot select', () => {
+  jest.useFakeTimers();
+  try {
+    const onSelectingChange = jest.fn();
+    const coordinator = createMultiSymbolCoordinator({
+      onFrozenChange: jest.fn(),
+      onMultiSymbolChange: jest.fn(),
+      onSelectingChange,
+      onCommitText: jest.fn(async () => 'complete' as const),
+    });
+    const a = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+    const b = { text: 'ethereum:0x222', centerX: 0.8, centerY: 0.5 };
+    coordinator.receiveFrame([a, b]);
+    coordinator.cancelSelection();
+    jest.advanceTimersByTime(1500);
+    expect(coordinator.needsSelection([a, b])).toBe(false);
+    expect(coordinator.receiveFrame([a])).toBeUndefined();
+    coordinator.refocus();
+    jest.advanceTimersByTime(350);
+    expect(coordinator.needsSelection([a])).toBe(true);
+    const stale = coordinator.beginPreviewVerification();
+    coordinator.refocus();
+    expect(stale([a])).toBeUndefined();
+    expect(onSelectingChange).toHaveBeenLastCalledWith([]);
+    const fresh = coordinator.beginPreviewVerification();
+    expect(fresh([a])).toBe(true);
+    expect(onSelectingChange).toHaveBeenLastCalledWith([a]);
+    coordinator.dispose();
+  } finally {
+    jest.useRealTimers();
+  }
 });

@@ -1,6 +1,6 @@
 {
-  "version": "44.0.2-alpha.2",
-  "sourceCommit": "3a0d39a462cfc312a1d8f89568c20dcdfcb06722",
-  "sourceRef": "refs/heads/main",
-  "inventorySha256": "8f27291fe579328f868965c2b14bfa544880c47ca19df9f12f3d88408a8b3612"
+  "version": "44.0.2-alpha.3",
+  "sourceCommit": "b13ecac4a865a5a51b6f55235f2966f57f3484b2",
+  "sourceRef": "refs/heads/fix/ok-68003-intel-preview-ci",
+  "inventorySha256": "cbc3b472cb56bf67145f1621af98c0e15126de1eda3907353bc355ff811843f6"
 }

@@ -2,8 +2,9 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList } from '@onekeyhq/components';
+import { ActionList, runAfterActionListClose } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -11,6 +12,7 @@ import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDis
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -45,6 +47,18 @@ export function WalletActionAddressList({ onClose }: { onClose: () => void }) {
       })
     ) {
       showBotWalletDisabledToast('receive');
+      return;
+    }
+    if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: wallet.id,
+        accountId: account.id,
+        presentDialog: (show) =>
+          runAfterActionListClose(onClose, show, {
+            waitForAnimation: platformEnv.isNative,
+          }),
+      })
+    ) {
       return;
     }
     if (

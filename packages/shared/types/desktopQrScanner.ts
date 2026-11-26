@@ -37,7 +37,10 @@ export type IDesktopQrDetectedSymbol = {
   bounds?: IDesktopQrSymbolBounds;
 };
 
-export type IDesktopQrEvent = { sessionId: string } & (
+export type IDesktopQrEvent = {
+  sessionId: string;
+  analysisRevision?: number;
+} & (
   | { type: 'ready'; cameraId?: string }
   | { type: 'text'; text: string }
   | {
@@ -63,7 +66,16 @@ export type IDesktopQrScanner = {
   stop(sessionId: string): Promise<void>;
   focus?(sessionId: string, x: number, y: number): Promise<boolean>;
   setMultiSymbol?(sessionId: string, enabled: boolean): Promise<void>;
-  setPaused?(sessionId: string, paused: boolean): Promise<void>;
-  setPreviewFrozen?(sessionId: string, frozen: boolean): void;
+  setPaused?(
+    sessionId: string,
+    paused: boolean,
+    analysisRevision?: number,
+  ): Promise<void>;
+  setPreviewFrozen?(
+    sessionId: string,
+    frozen: boolean,
+    analysisRevision?: number,
+  ): void;
+  hasFreshPreview?(sessionId: string, analysisRevision: number): boolean;
   onEvent(callback: (event: IDesktopQrEvent) => void): () => void;
 };

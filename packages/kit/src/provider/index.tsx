@@ -7,7 +7,7 @@
 //   Inter_600SemiBold,
 // } from '@expo-google-fonts/inter';
 // import { useFonts } from 'expo-font';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -93,9 +93,14 @@ function logKitProvider(message: string) {
 export function KitProvider(props: any = {}) {
   const {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
+    onekeyColdStartLocalNotification: localLaunchNotification,
   } = props;
 
-  ColdStartByNotification.launchNotification = launchNotification;
+  const hasLaunchNotification = useMemo(() => {
+    ColdStartByNotification.launchNotification = launchNotification;
+    ColdStartByNotification.localLaunchNotification = localLaunchNotification;
+    return Boolean(launchNotification || localLaunchNotification);
+  }, [launchNotification, localLaunchNotification]);
 
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('KitProvider render');
@@ -118,7 +123,7 @@ export function KitProvider(props: any = {}) {
             <GestureHandlerRootView style={flexStyle}>
               <ThemeProvider>
                 <NetworkReachabilityTracker />
-                <SplashProvider>
+                <SplashProvider hasLaunchNotification={hasLaunchNotification}>
                   <Container />
                 </SplashProvider>
                 <KitProviderLazyContentBeforeLocale />

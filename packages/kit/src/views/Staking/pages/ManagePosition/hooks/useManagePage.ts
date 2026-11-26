@@ -126,10 +126,12 @@ export const useManagePage = ({
           };
         }
 
+        // The protocol list needs the resolved account to include matured positions.
+        const networkAccountId = earnAccount.accountId;
         const [managePageData, protocolList, stakingConfig] = await Promise.all(
           [
             backgroundApiProxy.serviceStaking.getManagePage({
-              accountId,
+              accountId: networkAccountId,
               networkId,
               symbol,
               provider,
@@ -141,7 +143,7 @@ export const useManagePage = ({
             }),
             backgroundApiProxy.serviceStaking.getProtocolList({
               symbol,
-              accountId,
+              accountId: networkAccountId,
               networkId,
               filterNetworkId: networkId,
               includeWithdrawOnly: true,

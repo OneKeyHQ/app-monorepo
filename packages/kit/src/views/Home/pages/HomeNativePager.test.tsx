@@ -944,6 +944,17 @@ describe('HomePageView complete header authority', () => {
         '../../../components/TabPageHeader': {
           TabPageHeader: parentTabPageHeader,
         },
+        '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight':
+          {
+            getActiveWalletLocalSecretEnvelopeCredentialId: () => undefined,
+          },
+        '../../../components/AccountSelector/WalletLocalSecretEnvelopeStatus': {
+          WalletLocalSecretEnvelopeStatus: () => null,
+        },
+        '../../../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard':
+          {
+            useWalletLocalSecretEnvelopeIssue: () => undefined,
+          },
         './WalletContentWithAuth': {
           __esModule: true,
           default: ({ children }: { children?: React.ReactNode }) =>
@@ -973,7 +984,10 @@ describe('HomePageView complete header authority', () => {
         '@onekeyhq/shared/types/wallet',
         '../../../background/instance/backgroundApiProxy',
         '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger',
+        '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight',
+        '../../../components/AccountSelector/WalletLocalSecretEnvelopeStatus',
         '../../../components/Empty',
+        '../../../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard',
         '../../../components/NetworkAlert',
         '../../../components/NotificationEnableAlert',
         '../../../components/NotificationPermissionRecoveryAlert',

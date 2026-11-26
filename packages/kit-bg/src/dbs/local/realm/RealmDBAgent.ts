@@ -6,18 +6,20 @@ import {
   LocalDBRecordNotFoundError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { writeWalletPresenceHint } from '@onekeyhq/shared/src/utils/walletPresenceHintUtils';
 
 import { storeNameSupportCreatedAt } from '../consts';
 import indexedUtils from '../indexed/indexedDBUtils';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
+import { ELocalDBStoreNames } from '../localDBStoreNames';
 
 import { realmDBSchemasMap } from './schemas';
 
 import type { RealmObjectBase } from './base/RealmObjectBase';
-import type { ELocalDBStoreNames } from '../localDBStoreNames';
 import type {
   EIndexedDBBucketNames,
   ILocalDBAgent,
@@ -70,6 +72,32 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   }
 
   realm: Realm;
+
+  private walletPresenceBeforeWrite: boolean | undefined;
+
+  private readWalletPresence(): boolean | undefined {
+    try {
+      return (
+        this.realm.objects(ELocalDBStoreNames.Account).length > 0 ||
+        this.realm.objects(ELocalDBStoreNames.IndexedAccount).length > 0 ||
+        this.realm.objects(ELocalDBStoreNames.Wallet).length > 3
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
+  private trackWalletPresenceWrite(name: ELocalDBStoreNames) {
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      this.walletPresenceBeforeWrite === undefined &&
+      (name === ELocalDBStoreNames.Wallet ||
+        name === ELocalDBStoreNames.Account ||
+        name === ELocalDBStoreNames.IndexedAccount)
+    ) {
+      this.walletPresenceBeforeWrite = this.readWalletPresence();
+    }
+  }
 
   _getObjectRecordById<T extends ELocalDBStoreNames>(
     storeName: T,
@@ -129,7 +157,17 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         // await timerUtils.wait(2000);
         if (shouldUseTransaction) {
           options?.assertCanCommit?.(true);
+          const before = this.walletPresenceBeforeWrite;
+          const after =
+            before === undefined ? undefined : this.readWalletPresence();
+          if (after !== before) {
+            // A restart between the two commits must see an unknown hint.
+            writeWalletPresenceHint(undefined);
+          }
           this.realm.commitTransaction();
+          if (after !== before) {
+            writeWalletPresenceHint(after);
+          }
         }
         return result;
       } catch (error) {
@@ -138,6 +176,10 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           this.realm.cancelTransaction();
         }
         throw error;
+      } finally {
+        if (shouldUseTransaction) {
+          this.walletPresenceBeforeWrite = undefined;
+        }
       }
     };
     if (options?.readOnly) {
@@ -374,6 +416,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         }
       }
       if (shouldAdd) {
+        this.trackWalletPresenceWrite(name);
         this.realm.create(name, r as any);
         result.added += 1;
         result.addedIds.push(r.id);
@@ -391,6 +434,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     resetUtils.checkNotInResetting();
     const pairs = await this.buildRecordPairsFromIds(params);
 
+    if (pairs.length > 0) {
+      this.trackWalletPresenceWrite(params.name);
+    }
     this.realm.delete(pairs.map((pair) => pair[1]));
     return Promise.resolve(undefined);
   }
