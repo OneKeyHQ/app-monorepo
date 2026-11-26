@@ -733,7 +733,7 @@ describe('cached support answers', () => {
     ).toBeUndefined();
   });
 
-  it('never reuses an expired anonymous visitor and retires its answers when boot replaces it', async () => {
+  it('retires the client when boot replaces an expired visitor, before a pending reply is posted', async () => {
     const inbox: IIntercomInbox = { conversations: [], hasMore: false };
     const start = Date.now();
     const expiry = Math.floor(start / 1000) + 3600;
@@ -754,6 +754,7 @@ describe('cached support answers', () => {
       const retired = jest.fn();
       const unsubscribe = subject.subscribeToIntercomSessionGeneration(retired);
       let releaseInbox!: (response: Response) => void;
+      mockFetch.mockClear();
       mockFetch.mockImplementation(async (url) =>
         url.endsWith('/conversations')
           ? new Promise<Response>((done) => {
@@ -768,18 +769,41 @@ describe('cached support answers', () => {
               }),
             ),
       );
-      // Revalidation boots another visitor on the same client.
-      expect(await subject.createIntercomMessengerSession(null)).toBe(session);
+      // A reply composed for the expired visitor boots another one, which
+      // retires the client before the reply could be posted as the new visitor.
+      await expect(
+        session.reply('42', {
+          clientId: 'reply-1',
+          blocks: [{ type: 'paragraph', text: 'Hello support' }],
+        }),
+      ).rejects.toThrow('Support session changed');
+      expect(
+        mockFetch.mock.calls.map(([url]) => url.split('/messenger/web/')[1]),
+      ).toEqual(['ping']);
       expect(subject.getIntercomSessionGeneration()).toBe(generation + 1);
       expect(retired).toHaveBeenCalledTimes(1);
-      const pending = session.listConversations();
+      expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+      // The next session boots the saved visitor on a new client.
+      const next = await subject.createIntercomMessengerSession(null);
+      expect(next).not.toBe(session);
+      const ping = new URLSearchParams(
+        String(mockFetch.mock.calls.at(-1)?.[1]?.body),
+      );
+      expect(JSON.parse(ping.get('user_data') ?? '{}')).toMatchObject({
+        anonymous_id: 'next-visitor',
+      });
+      const pending = next.listConversations();
       await new Promise<void>((done) => setImmediate(done));
-      expect(subject.peekIntercomMessengerSession(null)).toBe(session);
+      expect(subject.peekIntercomMessengerSession(null)).toBe(next);
+      expect(
+        subject.getIntercomResponseCache(next, 'inbox')?.read(),
+      ).toBeUndefined();
       expect(
         subject.getIntercomResponseCache(session, 'inbox')?.read(),
       ).toBeUndefined();
       releaseInbox(new Response(JSON.stringify({ conversations: [] })));
       await pending;
+      expect(retired).toHaveBeenCalledTimes(1);
       unsubscribe();
     } finally {
       clock.mockRestore();

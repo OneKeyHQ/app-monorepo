@@ -58,10 +58,10 @@ type IIntercomResponses = {
   open: IIntercomOpen;
   home: IIntercomHome;
 };
-// The live session's last answers to the support screens' reads, memory only.
-// They belong to one session generation: the client and, for an anonymous
-// user, the visitor it booted. A new generation drops them and remounts every
-// support screen, so nothing rendered for the previous identity survives.
+// The live client's last answers to the support screens' reads, memory only.
+// A client talks as one identity: a OneKey user or one anonymous visitor.
+// Retiring it drops the answers and, through the session generation, remounts
+// every support screen, so nothing rendered for the previous identity survives.
 let responses: Partial<IIntercomResponses> = {};
 let sessionGeneration = 0;
 const sessionListeners = new Set<() => void>();
@@ -99,11 +99,6 @@ function setNotification(value: IIntercomNotification | undefined) {
   notificationListeners.forEach((listener) => listener());
 }
 
-function retireSessionAnswers() {
-  sessionGeneration += 1;
-  responses = {};
-  sessionListeners.forEach((listener) => listener());
-}
 // An anonymous session may serve answers only while its visitor stays valid.
 // Boot renews a visitor within a minute of expiry and replaces an expired one.
 function hasLiveVisitor(userId: string | null | undefined) {
@@ -119,12 +114,16 @@ function invalidate() {
   client?.dispose();
   client = undefined;
   liveVisitor = undefined;
-  // Only a live client has answers or screens to retire. Skipping repeats keeps
-  // a failing identity sync from remounting support screens on every retry.
-  if (retired) retireSessionAnswers();
   setUnread([]);
   setNotification(undefined);
   pushedConversationId = undefined;
+  // Only a live client has answers or screens to retire. Skipping repeats keeps
+  // a failing identity sync from remounting support screens on every retry.
+  if (retired) {
+    sessionGeneration += 1;
+    responses = {};
+    sessionListeners.forEach((listener) => listener());
+  }
 }
 export const getIntercomSessionGeneration = () => sessionGeneration;
 export const subscribeToIntercomSessionGeneration = (listener: () => void) => {
@@ -398,10 +397,14 @@ export async function createIntercomMessengerSession(
           await assertCurrent();
           await (await visitorBinding)?.set(JSON.stringify(visitor));
           if (generation !== revision) return;
-          // A boot that replaced an expired or foreign visitor starts another
-          // identity on the same client.
-          if (liveVisitor && liveVisitor.anonymousId !== visitor.anonymousId)
-            retireSessionAnswers();
+          // A boot that replaced an expired or foreign visitor talks as another
+          // identity. Retire the client like any identity change, so the call
+          // that triggered the boot fails before it is posted as the new
+          // visitor. The next session boots the visitor saved above.
+          if (liveVisitor && liveVisitor.anonymousId !== visitor.anonymousId) {
+            invalidate();
+            throw new OneKeyLocalError('Support session changed');
+          }
           liveVisitor = visitor;
         }),
       onRead: (id) => {
@@ -452,14 +455,10 @@ export function getIntercomResponseCache<K extends keyof IIntercomResponses>(
   key: K,
 ) {
   if (!session) return undefined;
-  const expectedGeneration = sessionGeneration;
-  // Only the generation that made this cache reads or stores answers, so a
-  // retired session or visitor never shows them, nor keeps a late one.
+  // A retired client never shows answers nor keeps a late one; an anonymous
+  // one serves them only while its visitor stays valid.
   const live = () =>
-    expectedGeneration === sessionGeneration &&
-    session === client?.api &&
-    !isLocked() &&
-    hasLiveVisitor(owner);
+    session === client?.api && !isLocked() && hasLiveVisitor(owner);
   return {
     read: () => (live() ? responses[key] : undefined),
     save: (data: IIntercomResponses[K]) => {

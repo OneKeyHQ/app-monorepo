@@ -1628,12 +1628,12 @@ it('drops the rendered rows of a reopened home when revalidation retires its ses
 
 it('reopens without the rows of an expired anonymous visitor while the new inbox is pending', async () => {
   await openSupportHomeOnce();
-  // An expired visitor is not reused, and its revalidation boots another one.
+  // An expired visitor is not reused. Its revalidation boots another visitor,
+  // which retires the client; the remounted screen opens a new session.
   mockLiveSession = undefined;
   mockCreateSession.mockImplementationOnce(async () => {
     mockRetireSession();
-    mockLiveSession = mockSession;
-    return mockSession;
+    throw new OneKeyLocalError('Support session changed');
   });
   const inbox = holdRequest('conversations');
   render(<SupportScreen />);
@@ -1641,7 +1641,9 @@ it('reopens without the rows of an expired anonymous visitor while the new inbox
   await waitFor(() =>
     expect(mockRequest).toHaveBeenCalledWith('conversations', { per_page: 20 }),
   );
+  expect(mockCreateSession).toHaveBeenCalledTimes(3);
   expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+  expect(screen.queryByTestId('support-retry')).toBeNull();
   expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
   await act(async () => inbox.resolve());
   await screen.findByTestId('support-conversation-42');
