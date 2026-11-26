@@ -35,14 +35,23 @@ export enum EModalSwapRoutes {
   DustSweep = 'DustSweep',
 }
 
+export type ISwapHistoryTradeAgainHandler = {
+  isAllowed: (params: ISwapInitParams) => boolean;
+  refreshEligibility?: (params: ISwapInitParams) => Promise<number | undefined>;
+  handle: (params: ISwapInitParams) => boolean;
+};
+
 export type IModalSwapParamList = {
   [EModalSwapRoutes.DustSweep]: IDustSweepRouteParams | undefined;
   [EModalSwapRoutes.SwapMainLand]: {
     marketSwapDirection?: 'from' | 'to';
+    marketStockTrade?: boolean;
+    marketNonStockTrade?: boolean;
     importFromToken?: ISwapToken;
     importToToken?: ISwapToken;
     importAccountKey?: string;
     fromAmount?: string;
+    clearInputAmounts?: boolean;
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
@@ -78,20 +87,20 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapHistoryList]: {
     type?: EProtocolOfExchange;
     storeName: EJotaiContextStoreNames;
-    onTradeAgain?: (params: ISwapInitParams) => boolean;
+    onTradeAgain?: ISwapHistoryTradeAgainHandler;
   };
   [EModalSwapRoutes.SwapHistoryDetail]: {
     liveActivityOrderKey?: string;
     txHistoryOrderId?: string;
     txHistoryList?: ISwapTxHistory[];
-    onTradeAgain?: (params: ISwapInitParams) => boolean;
+    onTradeAgain?: ISwapHistoryTradeAgainHandler;
     // storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.LimitOrderDetail]: {
     orderId?: string;
     orderItem?: IFetchLimitOrderRes;
     storeName: EJotaiContextStoreNames;
-    onTradeAgain?: (params: ISwapInitParams) => boolean;
+    onTradeAgain?: ISwapHistoryTradeAgainHandler;
   };
   [EModalSwapRoutes.SwapToAnotherAddress]: {
     storeName: EJotaiContextStoreNames;
