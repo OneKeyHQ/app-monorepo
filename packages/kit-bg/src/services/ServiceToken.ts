@@ -922,6 +922,21 @@ class ServiceToken extends ServiceBase {
       }
     }
     throwIfRequestAborted();
+    if (cacheRequest && (flag === 'home-token-list' || flag === 'dust-sweep')) {
+      // Capture public-only token groups before applying session-only private
+      // balance overlays so the shared snapshot cache never retains shielded data.
+      this.accountTokensSnapshotCache.set(cacheRequest, {
+        accountId,
+        networkId,
+        accountAddress,
+        xpub,
+        source: flag,
+        coverage: 'partial',
+        tokens: resp.data.data.tokens,
+        smallBalanceTokens: resp.data.data.smallBalanceTokens,
+        riskTokens: resp.data.data.riskTokens,
+      });
+    }
     if (vault.overlaySessionTokenListResponse && !params.withoutWalletToken) {
       // Clone persisted token groups before overlaying session-only private
       // balances so `localAccountTokensCache` / `simpleDb.localTokens` stay
@@ -956,22 +971,6 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.accountId = accountId;
     resp.data.data.networkId = networkId;
-
-    if (cacheRequest && (flag === 'home-token-list' || flag === 'dust-sweep')) {
-      // The persistence cap only slices its own lists. These normalized groups
-      // remain untruncated and have not entered Home's aggregate projection.
-      this.accountTokensSnapshotCache.set(cacheRequest, {
-        accountId,
-        networkId,
-        accountAddress,
-        xpub,
-        source: flag,
-        coverage: 'partial',
-        tokens: resp.data.data.tokens,
-        smallBalanceTokens: resp.data.data.smallBalanceTokens,
-        riskTokens: resp.data.data.riskTokens,
-      });
-    }
 
     if (homeRequest && isAllNetworks && homeContext) {
       const groups = aggregateHomeTokenGroups({

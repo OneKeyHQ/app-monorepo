@@ -243,10 +243,18 @@ export default class ClientStarknet {
         tag === BLOCK_TAG_PRE_CONFIRMED &&
         this.isRejectedPreConfirmedError(error)
       ) {
-        const result = await exec(BLOCK_TAG_PENDING);
-        this.preConfirmedBlockTagCache = Promise.resolve(BLOCK_TAG_PENDING);
-        this.preConfirmedProbeRetryAfter = 0;
-        return result;
+        try {
+          const result = await exec(BLOCK_TAG_PENDING);
+          this.preConfirmedBlockTagCache = Promise.resolve(BLOCK_TAG_PENDING);
+          this.preConfirmedProbeRetryAfter = 0;
+          return result;
+        } catch (retryError) {
+          if (!this.isRejectedPreConfirmedError(retryError)) {
+            this.preConfirmedBlockTagCache = Promise.resolve(BLOCK_TAG_PENDING);
+            this.preConfirmedProbeRetryAfter = 0;
+          }
+          throw retryError;
+        }
       }
       throw error;
     }

@@ -332,6 +332,33 @@ class ProviderApiStarknet extends ProviderApiBase {
       throw web3Errors.provider.unauthorized();
     }
 
+    const domain =
+      params.domain && typeof params.domain === 'object'
+        ? (params.domain as { chainId?: unknown })
+        : undefined;
+    const rawDomainChainId = domain?.chainId;
+    if (
+      typeof rawDomainChainId === 'string' ||
+      typeof rawDomainChainId === 'number' ||
+      typeof rawDomainChainId === 'bigint'
+    ) {
+      const normalizedDomainChainId = tryNormalizeStarknetChainId(
+        String(rawDomainChainId),
+      );
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId,
+      });
+      const expectedChainId = normalizeStarknetChainId(network.chainId);
+      if (
+        !normalizedDomainChainId ||
+        normalizedDomainChainId !== expectedChainId
+      ) {
+        throw web3Errors.rpc.invalidParams(
+          'TypedData domain chainId does not match the connected Starknet network',
+        );
+      }
+    }
+
     const signed = (await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
