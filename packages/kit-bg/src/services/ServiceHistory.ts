@@ -208,40 +208,77 @@ function restoreHistoryAmounts(
   tx: IAccountHistoryTx,
   data?: IOnChainHistoryTx,
   tokens?: Record<string, IOnChainHistoryTxToken>,
+  requestCurrency?: string,
 ) {
   if (
-    data?.tx !== tx.decodedTx.txid ||
+    !data ||
+    data.tx !== tx.decodedTx.txid ||
     (data.networkId && data.networkId !== tx.decodedTx.networkId) ||
     !tokens ||
     !hasIndexedTokenTransfers(tx, true)
-  )
+  ) {
     return tx;
-  return mapHistoryTransfers(tx, (asset, side, index) => {
-    const leg = data[side]?.[index];
+  }
+  // Untagged persisted rows may contain fiat values from any currency.
+  const adoptCurrency = !!requestCurrency && !tx.fiatCurrency;
+  let repaired = false;
+  const updated = mapHistoryTransfers(tx, (asset, side) => {
+    const unchanged =
+      adoptCurrency && asset.price !== undefined
+        ? { ...asset, price: undefined }
+        : asset;
     if (
-      !leg ||
       asset.balanceMultiplier !== undefined ||
       asset.isNFT ||
       asset.isNative ||
-      !asset.tokenIdOnNetwork ||
-      leg.token !== asset.tokenIdOnNetwork ||
-      leg.from !== asset.from ||
-      leg.to !== asset.to
-    )
-      return asset;
+      !asset.tokenIdOnNetwork
+    ) {
+      return unchanged;
+    }
+    // Legacy list amounts are raw. The detail endpoint need not order events
+    // like the list, and a token can move between the same addresses twice.
+    const amount = new BigNumber(asset.rawAmount ?? asset.amount);
+    const matches = data[side]?.filter(
+      (leg) =>
+        leg.token === asset.tokenIdOnNetwork &&
+        leg.from === asset.from &&
+        leg.to === asset.to &&
+        amount.isFinite() &&
+        amount.eq(leg.amount),
+    );
+    if (matches?.length !== 1) return unchanged;
+    const [leg] = matches;
     const token = tokens[leg.key] ?? tokens[leg.token];
-    if (!token?.info || !new BigNumber(leg.amount).isFinite()) return asset;
+    if (!token?.info) return unchanged;
     const balanceMultiplier = token.info.balanceMultiplier ?? '1';
+    repaired = true;
     return {
       ...asset,
       rawAmount: leg.amount,
       balanceMultiplier,
+      price: new BigNumber(token.price ?? NaN).isFinite()
+        ? token.price
+        : undefined,
       amount: tokenRebaseUtils.applyBalanceMultiplier({
         amount: leg.amount,
         balanceMultiplier,
       }),
     };
   });
+  if (!repaired) return tx;
+  if (!adoptCurrency) return updated;
+  return {
+    ...updated,
+    fiatCurrency: requestCurrency,
+    decodedTx: {
+      ...updated.decodedTx,
+      totalFeeFiatValue: scaleFeeFiatValueToNativeFee({
+        feeFiatValue: data.gasFeeFiatValue,
+        feeInNative: data.gasFee,
+        nextFeeInNative: updated.decodedTx.totalFeeInNative,
+      }),
+    },
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2472,7 +2509,7 @@ class ServiceHistory extends ServiceBase {
     const cached = this.historyBackfill.get(key);
     if (cached !== undefined || Date.now() < this.nextHistoryBackfillAt) {
       return cached
-        ? restoreHistoryAmounts(tx, cached.data, cached.tokens)
+        ? restoreHistoryAmounts(tx, cached.data, cached.tokens, requestCurrency)
         : tx;
     }
     this.nextHistoryBackfillAt = Infinity;

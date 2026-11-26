@@ -503,6 +503,7 @@ function HistoryDetails() {
         accountAddress,
         txid,
         privacyChainPoolId,
+        requestCurrency: settings.currencyInfo.id,
         fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
         // narrow vault extra params (btc find-address) to the addresses the
         // tapped tx involves; deep links have no tx context and fall back
@@ -561,6 +562,7 @@ function HistoryDetails() {
       txid,
       privacyChainPoolId,
       vaultSettings?.fixConfirmedTxEnabled,
+      settings.currencyInfo.id,
       historyTxParam,
       isInitialPrivateSendHistory,
       refreshTransfer,

@@ -38,6 +38,37 @@ function localTx(): IAccountHistoryTx {
   } as unknown as IAccountHistoryTx;
 }
 
+function legacyTransfer(id: string, amounts = ['2']) {
+  const legacy = tx(EDecodedTxStatus.Confirmed);
+  const transfer = {
+    from: 'sender',
+    to: 'addr',
+    amount: '2',
+    price: '80',
+    icon: '',
+    name: 'Stock',
+    symbol: 'SNDKB',
+    tokenIdOnNetwork: 'stock',
+  };
+  legacy.isLocalCreated = false;
+  Object.assign(legacy.decodedTx, {
+    networkId: 'evm--56',
+    txid: id,
+    isFinal: true,
+  });
+  legacy.id = id;
+  const assetTransfer = {
+    from: 'sender',
+    to: 'addr',
+    sends: [],
+    receives: amounts.map((amount) => ({ ...transfer, amount })),
+  };
+  legacy.decodedTx.actions = [
+    { type: EDecodedTxActionType.ASSET_TRANSFER, assetTransfer },
+  ];
+  return legacy;
+}
+
 describe('ServiceHistory local pending reconciliation', () => {
   function createService() {
     const batchUpdateLocalHistoryTxs = jest.fn(async () => undefined);
@@ -167,34 +198,22 @@ describe('ServiceHistory local pending reconciliation', () => {
   it('refreshes an older off-page token transfer from raw detail once and retries after a failed request', async () => {
     const { service, batchUpdateLocalHistoryTxs } = createService();
     const networkId = 'evm--56';
-    const legacy = tx(EDecodedTxStatus.Confirmed);
-    const transfer = {
-      from: 'sender',
-      to: 'addr',
-      amount: '2',
-      icon: '',
-      name: 'Stock',
-      symbol: 'SNDKB',
-      tokenIdOnNetwork: 'stock',
-    };
-    legacy.isLocalCreated = false;
-    Object.assign(legacy.decodedTx, { networkId, isFinal: true });
-    const assetTransfer = {
-      from: 'sender',
-      to: 'addr',
-      sends: [],
-      receives: [transfer],
-    };
-    legacy.decodedTx.actions = [
-      { type: EDecodedTxActionType.ASSET_TRANSFER, assetTransfer },
-    ];
+    const legacy = legacyTransfer('receipt', ['2', '3', '4']);
+    const transfer = legacy.decodedTx.actions[0].assetTransfer!.receives[0];
     const receipt = {
       data: {
         tx: legacy.decodedTx.txid,
-        receives: [{ ...transfer, token: 'stock', key: 'stock' }],
+        // The duplicate 4-unit legs are ambiguous. The other legs have the
+        // same endpoints but can be matched by their raw amounts.
+        receives: ['3', '4', '2.00', '4'].map((amount) => ({
+          ...transfer,
+          token: 'stock',
+          key: 'stock',
+          amount,
+        })),
         sends: [],
       },
-      tokens: { stock: { info: { balanceMultiplier: '8' } } },
+      tokens: { stock: { info: { balanceMultiplier: '8' }, price: '10' } },
       nfts: {},
     } as unknown as NonNullable<
       Awaited<ReturnType<typeof service.fetchHistoryTxDetails>>
@@ -239,14 +258,29 @@ describe('ServiceHistory local pending reconciliation', () => {
         setTimeout(resolve, 0);
       });
       const online = await refresh(legacy);
-      expect(
-        online.decodedTx.actions[0].assetTransfer?.receives[0].amount,
-      ).toBe('16');
+      const legs = online.decodedTx.actions[0].assetTransfer?.receives;
+      expect(legs).toMatchObject([
+        { amount: '16', rawAmount: '2.00', price: '10' },
+        { amount: '24', rawAmount: '3', price: '10' },
+        { amount: '4', price: undefined },
+      ]);
+      expect(online.fiatCurrency).toBe('usd');
       expect(await refresh(online)).toEqual(online);
       expect(details).toHaveBeenCalledTimes(2);
+      const displayed = await service.decodeOnChainHistoryTx({
+        accountId: 'acc',
+        networkId,
+        cachedTx: { ...legacy, fiatCurrency: 'eur' },
+        tx: receipt.data,
+        tokens: receipt.tokens,
+      });
       expect(
-        online.decodedTx.actions[0].assetTransfer?.receives[0].rawAmount,
-      ).toBe('2');
+        displayed?.decodedTx.actions[0].assetTransfer?.receives,
+      ).toMatchObject([
+        { amount: '16', price: '10' },
+        { amount: '24', price: '10' },
+        { amount: '4', price: '80' },
+      ]);
       expect(batchUpdateLocalHistoryTxs).toHaveBeenLastCalledWith([
         expect.objectContaining({ confirmedTxsToSave: [online] }),
       ]);
