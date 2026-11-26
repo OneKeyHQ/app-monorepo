@@ -1,4 +1,5 @@
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { createSwapReviewSigningFailure } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import {
   getBroadcastTxContext,
   withBroadcastTxContext,
@@ -24,6 +25,35 @@ import {
 } from './rpcProtocol';
 
 describe('background thread RPC protocol', () => {
+  it('only forwards a locally tagged signing failure from the send RPC', () => {
+    const error = createSwapReviewSigningFailure(new Error('Signing failed'));
+    const context = {
+      request: {
+        type: 'service-call' as const,
+        method: 'serviceSend.signAndSendTransaction',
+        params: [],
+        sync: false,
+      },
+      message: error.message,
+      error,
+    };
+    expect(buildSafeBackgroundThreadErrorData(error.data, context)).toEqual({
+      swapReviewSigningFailedBeforeBroadcast: true,
+    });
+    expect(
+      buildSafeBackgroundThreadErrorData(error.data, {
+        ...context,
+        error: { data: error.data },
+      }),
+    ).toBeUndefined();
+    expect(
+      buildSafeBackgroundThreadErrorData(error.data, {
+        ...context,
+        request: { ...context.request, method: 'serviceSend.signTransaction' },
+      }),
+    ).toBeUndefined();
+  });
+
   it('preserves Zcash runtime payloads across response serialization', () => {
     const error = Object.assign(new Error('INSUFFICIENT_FUNDS'), {
       code: 'INSUFFICIENT_FUNDS',
