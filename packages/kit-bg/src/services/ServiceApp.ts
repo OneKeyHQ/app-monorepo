@@ -227,6 +227,18 @@ class ServiceApp extends ServiceBase {
     // The old host records may be the only evidence of an unfinished wipe.
     await this.markPrivacyResetFailures(log, privacyChainDropFailed);
 
+    // The Binance deposit session key sits in secure storage, which no stage
+    // below clears. It is found through the session in simpleDb, so it goes
+    // before app storage. Wallet erasure must still continue if this fails:
+    // the key is unusable without that session.
+    try {
+      await this.runResetStage(log, 'binanceDeposit', () =>
+        this.backgroundApi.serviceBinanceDeposit.discardSession(),
+      );
+    } catch {
+      defaultLogger.app.error.log('Binance deposit session reset failed');
+    }
+
     if (platformEnv.isNative) {
       try {
         await this.runResetStage(

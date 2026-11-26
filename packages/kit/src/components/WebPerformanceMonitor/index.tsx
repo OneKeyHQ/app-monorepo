@@ -1,8 +1,14 @@
-import { memo } from 'react';
+import { Suspense, lazy, memo } from 'react';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 
-import { MonitorContainer } from './MonitorContainer';
+import { ErrorBoundarySimple } from '../ErrorBoundary';
+
+const MonitorContainer = lazy(() =>
+  import('./MonitorContainer').then((module) => ({
+    default: module.MonitorContainer,
+  })),
+);
 
 const BasePerformanceMonitor = () => {
   const [settings] = useDevSettingsPersistAtom();
@@ -11,7 +17,13 @@ const BasePerformanceMonitor = () => {
     return null;
   }
 
-  return <MonitorContainer />;
+  return (
+    <ErrorBoundarySimple fallback={null}>
+      <Suspense fallback={null}>
+        <MonitorContainer />
+      </Suspense>
+    </ErrorBoundarySimple>
+  );
 };
 
 export const WebPerformanceMonitor = memo(BasePerformanceMonitor);

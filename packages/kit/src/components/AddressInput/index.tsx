@@ -57,6 +57,7 @@ import {
 } from './utils';
 
 import type { IScanPluginProps } from './plugins/scan';
+import type { IAddressLookalikeCheck } from './types';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
 
 type IResolvedAddressProps = {
@@ -177,6 +178,9 @@ type IAddressInputProps = Omit<
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
   tokenAddress?: string;
+  // Such an address is not offered for the address book, the same as one
+  // the query flags as similar.
+  isLookalikeAddress?: IAddressLookalikeCheck;
 };
 
 export type IAddressQueryResult = {
@@ -189,6 +193,8 @@ export type IAddressQueryResult = {
   walletId?: string;
   addressBookId?: string;
   addressBookName?: string;
+  // The saved name alone; addressBookName puts the address book label first.
+  addressBookItemName?: string;
   resolveAddress?: string;
   validAddress?: string;
   resolveOptions?: string[];
@@ -351,6 +357,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableCheckSimilarAddressInAddressBook,
     hasQuickSelectMatches: _hasQuickSelectMatches,
     tokenAddress,
+    isLookalikeAddress,
     ...rest
   } = props;
   const intl = useIntl();
@@ -786,7 +793,11 @@ export function AddressInput(props: IAddressInputProps) {
         numberOfLines={screenWidth <= 768 ? 3 : 2}
         {...(screenWidth <= 768 && { minHeight: 64 })}
       />
-      <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
+      <AddressInputWarnings
+        queryResult={queryResult}
+        networkId={networkId}
+        isLookalikeAddress={isLookalikeAddress}
+      />
     </>
   );
 }
@@ -803,6 +814,7 @@ export function AddressInputField({
     name,
     hideNonBackedUpWallet,
     hasQuickSelectMatches,
+    isLookalikeAddress,
   } = props;
   const { trigger, watch } = useFormContext();
   const toValue = watch(name) as IAddressInputValue | undefined;
@@ -821,8 +833,9 @@ export function AddressInputField({
       networkId,
       accountId,
       hideNonBackedUpWallet,
+      isLookalikeAddress,
     }),
-    [accountId, hideNonBackedUpWallet, name, networkId],
+    [accountId, hideNonBackedUpWallet, isLookalikeAddress, name, networkId],
   );
 
   // Show hint when: has matches, has input, not resolved, not pending

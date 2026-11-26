@@ -1,0 +1,140 @@
+import { Toast } from '@onekeyhq/components';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/src/consts/binanceDepositConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPreSendActionContext } from '@onekeyhq/shared/src/routes';
+import { getBinanceDepositEventContext } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
+import type { IBinanceDepositSendContext } from '@onekeyhq/shared/types/binanceDeposit';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+
+import {
+  getBinanceDepositErrorCode,
+  getBinanceDepositErrorMinAmount,
+  getBinanceDepositVerifyFailure,
+} from './binanceDepositErrors';
+
+import type { IntlShape } from 'react-intl';
+
+export function buildBinanceDepositSendHooks({
+  intl,
+  context,
+  toAddress,
+  memo,
+  tokenSymbol,
+  accountId,
+  amount,
+  senderAddress,
+  onMinimumChange,
+  onSuccess,
+}: {
+  intl: IntlShape;
+  context: IBinanceDepositSendContext;
+  toAddress: string;
+  memo?: string;
+  // As the amount page names the token in its minimum hint.
+  tokenSymbol?: string;
+  // The account that signs, for reading the prepared transaction.
+  accountId?: string;
+  // The amount the amount page put in the transfer.
+  amount?: string;
+  senderAddress: string;
+  // Binance raised its minimum since this page read it.
+  onMinimumChange?: (minAmount: string) => void;
+  onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
+}) {
+  // Checks the deposit with the background; a throw stops the send.
+  const verify = async (prepared?: {
+    nativeMaxSendAmount?: string;
+    unsignedTxs?: IUnsignedTxPro[];
+  }) => {
+    try {
+      await backgroundApiProxy.serviceBinanceDeposit.verifyBeforeSign({
+        localId: context.localId,
+        toAddress,
+        memo,
+        accountId,
+        // The background reads what this transaction really sends: a vault
+        // may take the fee out of it on its own.
+        unsignedTx: prepared?.unsignedTxs?.[0],
+        amount,
+        // A native Max send has its fee taken out on the confirm page, after
+        // the amount page held the whole balance against the minimum. The
+        // background holds what is left against the minimum the server names
+        // now, not the one this page read.
+        nativeMaxSendAmount: prepared?.nativeMaxSendAmount,
+      });
+    } catch (error) {
+      const code = getBinanceDepositErrorCode(error);
+      if (code === EBinanceDepositLocalErrorCode.BelowMinimum) {
+        // Below Binance's minimum the deposit may never be credited. The
+        // refusal names the minimum the amount was held against, which may be
+        // higher than the one this page read: that value is shown, and handed
+        // back for the amount page to use.
+        const checkedMinAmount = getBinanceDepositErrorMinAmount(error);
+        if (checkedMinAmount) {
+          onMinimumChange?.(checkedMinAmount);
+        }
+        const title = intl.formatMessage(
+          { id: ETranslations.send_error_minimum_amount },
+          {
+            amount: checkedMinAmount ?? context.minAmount,
+            token: tokenSymbol ?? context.cryptoCurrency,
+          },
+        );
+        defaultLogger.transaction.send.binanceDepositVerifyFail({
+          ...getBinanceDepositEventContext(context),
+          type: 'below_minimum',
+          errorCode: code,
+        });
+        Toast.error({ title });
+        throw new OneKeyLocalError({ message: title, autoToast: false });
+      }
+      const failure = getBinanceDepositVerifyFailure(intl, code);
+      defaultLogger.transaction.send.binanceDepositVerifyFail({
+        ...getBinanceDepositEventContext(context),
+        type: failure.type,
+        errorCode: code,
+      });
+      Toast.error({ title: failure.title, message: failure.message });
+      throw new OneKeyLocalError({
+        message: failure.title,
+        autoToast: false,
+      });
+    }
+  };
+  return {
+    // Check before a TRON energy rental can charge for a deposit we would refuse.
+    onBeforePreActions: async (preSend?: IPreSendActionContext) => {
+      if (preSend?.mayPayForPreSend !== true) return;
+      await verify();
+    },
+    // Always check the prepared transaction right before signing.
+    onBeforeSend: (prepared?: {
+      nativeMaxSendAmount?: string;
+      unsignedTxs?: IUnsignedTxPro[];
+    }) => verify(prepared),
+    // Best effort after the broadcast. The confirm page treats a throwing
+    // success callback as a failed send, so nothing escapes from here.
+    onSuccess: (txs: ISendTxOnSuccessData[]) => {
+      try {
+        const tx = txs[0];
+        const txid = tx?.signedTx?.txid;
+        if (txid) {
+          void backgroundApiProxy.serviceBinanceDeposit
+            .reportDeposit({
+              localId: context.localId,
+              txid,
+              senderAddress: tx.decodedTx?.owner || senderAddress,
+            })
+            .catch(() => undefined);
+        }
+      } catch {
+        // Reporting never affects the send.
+      }
+      onSuccess?.(txs);
+    },
+  };
+}

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
@@ -7,7 +8,7 @@ import {
   ActionList,
   Divider,
   Empty,
-  MatchSizeableText,
+  Icon,
   SizableText,
   Spinner,
   Stack,
@@ -33,11 +34,19 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   QuickSelectListItemFrame,
   QuickSelectListSkeleton,
+  RecipientDetailLine,
 } from './QuickSelectListShared';
+import {
+  formatRecipientExtra,
+  getRecipientDetailText,
+  isLookalikeAddress,
+  shortenRecipientAddress,
+} from './recipientListAddressUtils';
 import {
   recipientBlockieVisual,
   recipientIdentityRow,
   recipientSnapshot,
+  recipientWalletAccountTitle,
   useRecipientNativeListTheme,
 } from './recipientNativeList';
 import {
@@ -47,6 +56,7 @@ import {
 import { useRecentRecipientsData } from './useRecentRecipientsData';
 import { useStableItemPress } from './useStableItemPress';
 
+import type { IEnrichedRecentRecipient } from './useRecentRecipientsData';
 import type { RowActionEvent } from '@onekeyfe/react-native-native-list';
 
 interface IRecentRecipientsProps {
@@ -63,6 +73,9 @@ interface IRecentRecipientsProps {
   nativeList?: boolean;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
   onLastUsedDeriveTypeChange?: (deriveType: string | undefined) => void;
+  // Lookalikes among every tab's addresses; those rows show the full address.
+  lookalikeAddresses?: ReadonlySet<string>;
+  onAddressesChange?: (addresses: string[]) => void;
   refreshKey?: number;
 }
 
@@ -76,18 +89,59 @@ type IQuickItem = {
   lastTransferNetworkName?: string;
   isAddressBook?: boolean;
   walletName?: string;
+  accountName?: string;
   walletId?: string;
   wallet?: IDBWallet;
+  // Native rows: whether the row menu offers the address book.
+  canAddToAddressBook?: boolean;
+  // Native rows: whether the wallet keeps its width over the account.
+  keepWalletName?: boolean;
 };
+
+// The address a row stands for, also what the lookalike check compares.
+function getRecipientAddress(recipient: IEnrichedRecentRecipient): string {
+  return recipient.validAddress ?? recipient.input ?? '';
+}
+
+// Offered for addresses worth saving: not saved yet, not an account the user
+// signs with, and not a lookalike, which a saved contact would let past the
+// similarity checks. Watch-only and connected accounts keep it: with the
+// transfer allowlist on they must be saved before a send. Lightning has no
+// address book.
+function canAddRecipientToAddressBook({
+  recipient,
+  isLookalike,
+  isLightningNetwork,
+}: {
+  recipient: IEnrichedRecentRecipient;
+  isLookalike: boolean;
+  isLightningNetwork: boolean;
+}): boolean {
+  return (
+    !recipient.isAddressBook &&
+    !isLightningNetwork &&
+    !isLookalike &&
+    !(
+      recipient.walletAccountId &&
+      accountUtils.isOwnAccount({ accountId: recipient.walletAccountId })
+    )
+  );
+}
 
 function QuickSelectListItemBase({
   item,
+  showFullAddress,
+  canAddToAddressBook,
+  keepWalletName,
   onPress,
   formatRelativeTime,
   intl,
   networkId,
 }: {
   item: IQuickItem;
+  showFullAddress: boolean;
+  canAddToAddressBook: boolean;
+  keepWalletName: boolean;
   onPress?: (item: IQuickItem) => void;
   formatRelativeTime?: (time: number) => string;
   intl: ReturnType<typeof useIntl>;
@@ -96,28 +150,22 @@ function QuickSelectListItemBase({
   const navigation = useAppNavigation();
   const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
 
-  // Determine display mode based on available info
   const hasName = !!item.name;
+  // The first line says who it is: the name, or the short address.
+  const primaryText = hasName
+    ? item.name
+    : shortenRecipientAddress(item.address);
 
-  // Build primary text: Name or shortened address as identifier
-  const primaryText = useMemo(() => {
-    if (hasName) {
-      return item.name;
-    }
-    return accountUtils.shortenAddress({ address: item.address });
-  }, [hasName, item.name, item.address]);
-
-  // Show network name badge only on EVM (where recipients may span multiple chains)
+  // On EVM one address serves every chain: an unnamed address shows where
+  // it was last paid, and an address book entry saved for every EVM chain
+  // says so.
   const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
-  const showNetworkBadge =
-    isEvmNetwork && !hasName && !!item.lastTransferNetworkName;
-
-  // Only show menu for items NOT already in address book
-  // Lightning Network doesn't support address book
-  const isLightningNetwork =
-    networkUtils.isLightningNetworkByNetworkId(networkId);
-  const showAddToAddressBook = !item.isAddressBook && !isLightningNetwork;
-
+  let networkText: string | undefined;
+  if (isEvmNetwork && item.isAddressBook) {
+    networkText = 'EVM';
+  } else if (isEvmNetwork && !hasName) {
+    networkText = item.lastTransferNetworkName;
+  }
   const addToAddressBookLabel = intl.formatMessage({
     id: ETranslations.add_to_address_book__action,
   });
@@ -133,7 +181,7 @@ function QuickSelectListItemBase({
   }, [navigation, item.address, networkId]);
 
   const handleLongPress = useCallback(() => {
-    if (!showAddToAddressBook) return;
+    if (!canAddToAddressBook) return;
     ActionList.show({
       title: primaryText,
       sections: [
@@ -149,11 +197,60 @@ function QuickSelectListItemBase({
       ],
     });
   }, [
-    showAddToAddressBook,
+    canAddToAddressBook,
     primaryText,
     addToAddressBookLabel,
     handleAddToAddressBook,
   ]);
+
+  let primary: ReactNode;
+  if (item.isAddressBook) {
+    primary = (
+      <XStack alignItems="center" gap="$1.5">
+        <Icon name="BookOpenOutline" size="$4" color="$iconSubdued" />
+        <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+          {item.name}
+        </SizableText>
+      </XStack>
+    );
+  } else if (item.walletName && item.accountName) {
+    // The account tells rows apart, so the wallet before it gives way first;
+    // the account's width cap leaves the wallet at least the rest of the
+    // line. The wallet stays whole when it is needed: two rows share the
+    // account name, or it says the keys are elsewhere (watch-only,
+    // connected). Then the cap moves to the wallet, so a long one still
+    // leaves the account on the line.
+    primary = (
+      <XStack alignItems="center">
+        <SizableText
+          size="$bodyLg"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={keepWalletName ? 0 : 1}
+          maxWidth={keepWalletName ? '70%' : undefined}
+        >
+          {item.walletName}
+        </SizableText>
+        <SizableText size="$bodyLg" color="$textSubdued" flexShrink={0}>
+          {' / '}
+        </SizableText>
+        <SizableText
+          size="$bodyLgMedium"
+          numberOfLines={1}
+          flexShrink={keepWalletName ? 1 : 0}
+          maxWidth={keepWalletName ? undefined : '70%'}
+        >
+          {item.accountName}
+        </SizableText>
+      </XStack>
+    );
+  } else {
+    primary = (
+      <SizableText size="$bodyLgMedium" numberOfLines={1}>
+        {primaryText}
+      </SizableText>
+    );
+  }
 
   return (
     <QuickSelectListItemFrame
@@ -163,67 +260,26 @@ function QuickSelectListItemBase({
       onPress={handlePress}
       onLongPress={platformEnv.isNative ? handleLongPress : undefined}
       testID={`recent-item-${item.address}`}
-      primary={
-        <XStack gap="$2" alignItems="center">
-          <SizableText
-            size="$bodyLgMedium"
-            numberOfLines={1}
-            flexShrink={1}
-            minWidth="$20"
-          >
-            {primaryText}
-          </SizableText>
-          {item.isAddressBook && isEvmNetwork ? (
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              flexShrink={0}
-              maxWidth="$32"
-              numberOfLines={1}
-            >
-              EVM
-            </SizableText>
-          ) : null}
-          {showNetworkBadge ? (
-            <SizableText
-              size="$bodySm"
-              color="$textDisabled"
-              flexShrink={0}
-              maxWidth="$24"
-              numberOfLines={1}
-            >
-              {item.lastTransferNetworkName}
-            </SizableText>
-          ) : null}
-          {item.lastTransferTime && formatRelativeTime ? (
-            <SizableText
-              size="$bodySm"
-              color="$textDisabled"
-              flexShrink={0}
-              numberOfLines={1}
-            >
-              {formatRelativeTime(item.lastTransferTime)}
-            </SizableText>
-          ) : null}
-        </XStack>
-      }
+      primary={primary}
       secondary={
-        <MatchSizeableText
-          size="$bodyMd"
-          color="$textSubdued"
-          wordWrap="break-word"
-        >
-          {item.memo || item.note
-            ? `${item.address} · ${accountUtils.shortenAddress({
-                address: item.memo || item.note,
-                leadingLength: 6,
-                trailingLength: 4,
-              })}`
-            : item.address}
-        </MatchSizeableText>
+        <RecipientDetailLine
+          address={item.address}
+          memo={item.memo}
+          note={item.note}
+          showFullAddress={showFullAddress}
+          before={[
+            hasName ? shortenRecipientAddress(item.address) : undefined,
+            networkText,
+          ]}
+          after={[
+            item.lastTransferTime && formatRelativeTime
+              ? formatRelativeTime(item.lastTransferTime)
+              : undefined,
+          ]}
+        />
       }
       trailing={
-        showAddToAddressBook ? (
+        canAddToAddressBook ? (
           <ActionList
             title={primaryText}
             items={[
@@ -253,6 +309,9 @@ const QuickSelectListItem = memo(
   QuickSelectListItemBase,
   (prevProps, nextProps) =>
     prevProps.onPress === nextProps.onPress &&
+    prevProps.showFullAddress === nextProps.showFullAddress &&
+    prevProps.canAddToAddressBook === nextProps.canAddToAddressBook &&
+    prevProps.keepWalletName === nextProps.keepWalletName &&
     prevProps.item.id === nextProps.item.id &&
     prevProps.item.address === nextProps.item.address &&
     prevProps.item.name === nextProps.item.name &&
@@ -263,6 +322,7 @@ const QuickSelectListItem = memo(
       nextProps.item.lastTransferNetworkName &&
     prevProps.item.isAddressBook === nextProps.item.isAddressBook &&
     prevProps.item.walletName === nextProps.item.walletName &&
+    prevProps.item.accountName === nextProps.item.accountName &&
     prevProps.item.walletId === nextProps.item.walletId &&
     prevProps.item.wallet?.id === nextProps.item.wallet?.id &&
     prevProps.networkId === nextProps.networkId &&
@@ -283,6 +343,8 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     nativeList = false,
     onMatchStatusChange,
     onLastUsedDeriveTypeChange,
+    lookalikeAddresses,
+    onAddressesChange,
     refreshKey,
   } = props;
 
@@ -333,6 +395,12 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     onLastUsedDeriveTypeChange?.(lastUsedDeriveType);
   }, [lastUsedDeriveType, onLastUsedDeriveTypeChange]);
 
+  useEffect(() => {
+    onAddressesChange?.(
+      recentRecipients.map(getRecipientAddress).filter(Boolean),
+    );
+  }, [recentRecipients, onAddressesChange]);
+
   const debouncedSearchKey = useDebounce(rawSearchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const isSearchActive = !!(isSearchMode && trimmedSearchKey);
@@ -350,7 +418,9 @@ function RecentRecipients(props: IRecentRecipientsProps) {
           ?.toLowerCase()
           .includes(trimmedSearchKey) ??
           false) ||
-        (recipient.addressBookName?.toLowerCase().includes(trimmedSearchKey) ??
+        (recipient.addressBookItemName
+          ?.toLowerCase()
+          .includes(trimmedSearchKey) ??
           false),
       isAddressMatch: (recipient) =>
         (recipient.input?.toLowerCase().includes(trimmedSearchKey) ?? false) ||
@@ -456,29 +526,76 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     });
   });
 
+  // Account names shown more than once ("Account #1" in two wallets) need
+  // the wallet name in full to tell the rows apart.
+  const accountNameCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredRecentRecipients.forEach((recipient) => {
+      if (
+        !recipient.isAddressBook &&
+        recipient.walletName &&
+        recipient.accountName
+      ) {
+        counts.set(
+          recipient.accountName,
+          (counts.get(recipient.accountName) ?? 0) + 1,
+        );
+      }
+    });
+    return counts;
+  }, [filteredRecentRecipients]);
+  // The wallet stays whole when it tells rows apart or says the keys are
+  // elsewhere (watch-only, connected).
+  const keepsWalletName = useCallback(
+    (recipient: IEnrichedRecentRecipient) =>
+      (accountNameCounts.get(recipient.accountName ?? '') ?? 0) > 1 ||
+      accountUtils.isWatchingWallet({ walletId: recipient.walletId }) ||
+      accountUtils.isExternalWallet({ walletId: recipient.walletId }),
+    [accountNameCounts],
+  );
+
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
+
   const nativeItems = useMemo(
     () =>
       nativeList
         ? filteredRecentRecipients.map((recipient) => {
-            const address = recipient.validAddress ?? recipient.input ?? '';
+            const address = getRecipientAddress(recipient);
             return {
               id: address,
               name:
-                recipient.addressBookName ?? recipient.walletAccountName ?? '',
+                recipient.addressBookItemName ??
+                recipient.walletAccountName ??
+                '',
               address,
               memo: recipient.recipientMemo,
               lastTransferTime: recipient.lastTransferTime,
               lastTransferNetworkName: recipient.lastTransferNetworkName,
               isAddressBook: recipient.isAddressBook,
               walletName: recipient.walletName,
+              accountName: recipient.accountName,
+              keepWalletName: keepsWalletName(recipient),
               walletId: recipient.walletId,
               wallet: recipient.walletId
                 ? recentWalletMap.get(recipient.walletId)
                 : undefined,
+              canAddToAddressBook: canAddRecipientToAddressBook({
+                recipient,
+                isLookalike: isLookalikeAddress(lookalikeAddresses, address),
+                isLightningNetwork,
+              }),
             } satisfies IQuickItem;
           })
         : [],
-    [nativeList, filteredRecentRecipients, recentWalletMap],
+    [
+      nativeList,
+      filteredRecentRecipients,
+      recentWalletMap,
+      lookalikeAddresses,
+      isLightningNetwork,
+      keepsWalletName,
+    ],
   );
   const nativeItemByKey = useMemo(
     () =>
@@ -493,40 +610,52 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         nativeItems.map((item, index) => {
           const hasName = !!item.name;
           const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
-          const isLightningNetwork =
-            networkUtils.isLightningNetworkByNetworkId(networkId);
-          const showMenu = !item.isAddressBook && !isLightningNetwork;
-          const titleSuffixes: NonNullable<
-            Parameters<typeof recipientIdentityRow>[0]['titleSuffixes']
-          >[number][] = [];
-          if (item.isAddressBook && isEvmNetwork) {
-            titleSuffixes.push({
-              text: 'EVM',
-              tone: 'secondary',
-              maxWidth: 128,
+          const showMenu = !!item.canAddToAddressBook;
+          // On EVM one address serves every chain: an unnamed address shows
+          // where it was last paid, and an address book entry saved for
+          // every EVM chain says so.
+          let networkText: string | undefined;
+          if (isEvmNetwork && item.isAddressBook) networkText = 'EVM';
+          else if (isEvmNetwork && !hasName)
+            networkText = item.lastTransferNetworkName;
+          const detail = getRecipientDetailText({
+            address: item.address,
+            extra: item.memo
+              ? formatRecipientExtra({
+                  memo: item.memo,
+                  tagLabel: intl.formatMessage({ id: ETranslations.send_tag }),
+                  noteLabel: intl.formatMessage({
+                    id: ETranslations.global_Note,
+                  }),
+                })
+              : undefined,
+            showFullAddress:
+              isSearchActive ||
+              isLookalikeAddress(lookalikeAddresses, item.address),
+            before: [
+              hasName ? shortenRecipientAddress(item.address) : undefined,
+              networkText,
+            ],
+            after: [
+              item.lastTransferTime
+                ? formatCompactTime(item.lastTransferTime)
+                : undefined,
+            ],
+          });
+          let title: Partial<Parameters<typeof recipientIdentityRow>[0]> = {
+            name: item.name,
+          };
+          if (item.isAddressBook)
+            title = {
+              name: item.name,
+              titleLeadingIcon: { name: 'BookOpenOutline' },
+            };
+          else if (item.walletName && item.accountName)
+            title = recipientWalletAccountTitle({
+              walletName: item.walletName,
+              accountName: item.accountName,
+              keepWalletName: !!item.keepWalletName,
             });
-          } else if (isEvmNetwork && !hasName) {
-            if (item.lastTransferNetworkName) {
-              titleSuffixes.push({
-                text: item.lastTransferNetworkName,
-                tone: 'disabled',
-                maxWidth: 96,
-              });
-            }
-          }
-          if (item.lastTransferTime) {
-            titleSuffixes.push({
-              text: formatCompactTime(item.lastTransferTime),
-              tone: 'disabled',
-            });
-          }
-          const note = item.memo
-            ? ` · ${accountUtils.shortenAddress({
-                address: item.memo,
-                leadingLength: 6,
-                trailingLength: 4,
-              })}`
-            : '';
           const blockie = recipientBlockieVisual(item.address);
           const walletVisual = item.wallet
             ? accountSelectorWalletVisualV2({
@@ -562,9 +691,9 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             testID: `recent-item-${item.address}`,
             address: item.address,
             leading,
-            name: item.name,
-            secondary: `${item.address}${note}`,
-            titleSuffixes: titleSuffixes.length ? titleSuffixes : undefined,
+            ...title,
+            secondary: detail.text,
+            isFullAddress: detail.isFullAddress,
             longPressActionKey: showMenu ? 'menu' : undefined,
             trailing: showMenu
               ? [{ kind: 'menu', actionKey: 'menu' }]
@@ -573,13 +702,19 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         }),
         nativeListTheme,
       ),
-    [nativeItems, networkId, formatCompactTime, nativeListTheme],
+    [
+      nativeItems,
+      networkId,
+      formatCompactTime,
+      nativeListTheme,
+      intl,
+      isSearchActive,
+      lookalikeAddresses,
+    ],
   );
   const showNativeMenu = useCallback(
     (item: IQuickItem, event: RowActionEvent) => {
-      const isLightningNetwork =
-        networkUtils.isLightningNetworkByNetworkId(networkId);
-      if (item.isAddressBook || isLightningNetwork) return;
+      if (!item.canAddToAddressBook) return;
       const primaryText =
         item.name || accountUtils.shortenAddress({ address: item.address });
       ActionList.show({
@@ -626,26 +761,39 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     }
     if (filteredRecentRecipients.length > 0) {
       return filteredRecentRecipients.map((recipient) => {
-        const canonicalAddress =
-          recipient.validAddress ?? recipient.input ?? '';
+        const canonicalAddress = getRecipientAddress(recipient);
+        const isLookalike = isLookalikeAddress(
+          lookalikeAddresses,
+          canonicalAddress,
+        );
         return (
           <QuickSelectListItem
             key={canonicalAddress}
             item={{
               id: canonicalAddress,
               name:
-                recipient.addressBookName ?? recipient.walletAccountName ?? '',
+                recipient.addressBookItemName ??
+                recipient.walletAccountName ??
+                '',
               address: canonicalAddress,
               memo: recipient.recipientMemo,
               lastTransferTime: recipient.lastTransferTime,
               lastTransferNetworkName: recipient.lastTransferNetworkName,
               isAddressBook: recipient.isAddressBook,
               walletName: recipient.walletName,
+              accountName: recipient.accountName,
               walletId: recipient.walletId,
               wallet: recipient.walletId
                 ? recentWalletMap.get(recipient.walletId)
                 : undefined,
             }}
+            showFullAddress={isSearchActive || isLookalike}
+            canAddToAddressBook={canAddRecipientToAddressBook({
+              recipient,
+              isLookalike,
+              isLightningNetwork,
+            })}
+            keepWalletName={keepsWalletName(recipient)}
             intl={intl}
             networkId={networkId}
             formatRelativeTime={formatCompactTime}
@@ -678,11 +826,14 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       />
     );
   }, [
+    keepsWalletName,
     filteredRecentRecipients,
     formatCompactTime,
     intl,
+    isLightningNetwork,
     isLoadingRecent,
     isSearchActive,
+    lookalikeAddresses,
     networkId,
     handleRecipientPress,
     recentWalletMap,

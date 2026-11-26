@@ -18,6 +18,18 @@ const initialInstalledStatus: IInstalledStatus = ALL_EXCHANGE_IDS.reduce(
   {} as IInstalledStatus,
 );
 
+// Whether the exchange's app is on this device; a failed check counts as no.
+export async function canOpenExchangeApp(id: EExchangeId): Promise<boolean> {
+  const config = EXCHANGE_CONFIGS[id];
+  try {
+    return await openUrlUtils.linkingCanOpenURL(
+      config.detectionUrl ?? config.appOpenUrl,
+    );
+  } catch (_e) {
+    return false;
+  }
+}
+
 export function useExchangeAppDetection() {
   const [installedStatus, setInstalledStatus] = useState<IInstalledStatus>(
     initialInstalledStatus,
@@ -36,15 +48,7 @@ export function useExchangeAppDetection() {
 
       await Promise.all(
         ALL_EXCHANGE_IDS.map(async (id) => {
-          const config = EXCHANGE_CONFIGS[id];
-          try {
-            const canOpen = await openUrlUtils.linkingCanOpenURL(
-              config.detectionUrl ?? config.appOpenUrl,
-            );
-            results[id] = canOpen;
-          } catch (_e) {
-            results[id] = false;
-          }
+          results[id] = await canOpenExchangeApp(id);
         }),
       );
 

@@ -12,6 +12,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { IBinanceDepositSendContext } from '../../types/binanceDeposit';
 import type { IAccountHistoryTx } from '../../types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { IStrk20TransferKind } from '../../types/starknetPrivacy';
@@ -68,6 +69,8 @@ export type IModalSendParamList = {
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
     localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
+    // Set when the recipient is the user's Binance deposit address.
+    binanceDeposit?: IBinanceDepositSendContext;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

@@ -15,6 +15,7 @@ import { createLazyServiceProxy } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type { ILazyServiceProxy } from './lazyServiceProxy';
+import type ServiceBinanceDeposit from '../services/ServiceBinanceDeposit';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
@@ -240,6 +241,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return this.buildLazyService(
       'serviceUnifoldDeposit',
       () => import('../services/ServiceUnifoldDeposit'),
+    );
+  }
+
+  get serviceBinanceDeposit(): ILazyServiceProxy<ServiceBinanceDeposit> {
+    return this.buildLazyService(
+      'serviceBinanceDeposit',
+      () => import('../services/ServiceBinanceDeposit'),
     );
   }
 

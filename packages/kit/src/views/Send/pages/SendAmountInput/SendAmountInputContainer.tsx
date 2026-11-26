@@ -187,6 +187,7 @@ import { useSupportToken } from '../../../FiatCrypto/hooks';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog/SimilarAddressDialog';
+import { buildBinanceDepositSendHooks } from '../../components/BinanceDeposit/binanceDepositSendHooks';
 import CoinControlBadge from '../../components/CoinControlBadge';
 import {
   type ISendAmountAutoSizeInputRef,
@@ -483,7 +484,7 @@ function getPrivateSendValueDropPercent(quote?: IFetchQuoteResult) {
   return Number.isFinite(valueDropPercent) ? valueDropPercent : undefined;
 }
 
-function getPositivePrivateSendAmount(amount?: string | number) {
+function getPositiveAmount(amount?: string | number) {
   const amountBN = new BigNumber(amount ?? 0);
   return amountBN.isFinite() && amountBN.isGreaterThan(0)
     ? amountBN.toFixed()
@@ -548,7 +549,7 @@ function getPrivateSendSendValue({
 }
 
 function isPositivePrivateSendAmount(amount?: string | number) {
-  return Boolean(getPositivePrivateSendAmount(amount));
+  return Boolean(getPositiveAmount(amount));
 }
 
 function isPrivateSendQuoteEventMatched({
@@ -947,6 +948,7 @@ function SendAmountInputContainer({
     amount: prefillAmount,
     isInvoiceAmountLocked,
     hasAcknowledgedCexDepositWarning,
+    binanceDeposit,
     localWalletSourcePool,
     starknetPrivacyKind,
   } = params;
@@ -1327,8 +1329,9 @@ function SendAmountInputContainer({
     { watchLoading: true, alwaysSetState: true },
   );
 
+  // A private send pays a swap provider, never the Binance deposit address.
   const showPrivateSendModeSwitch =
-    isPrivateSendSupported && !isNFT && !starknetPrivacyKind;
+    isPrivateSendSupported && !isNFT && !binanceDeposit && !starknetPrivacyKind;
 
   useEffect(() => {
     if (!showPrivateSendModeSwitch && sendMode === ESendMode.PRIVATE) {
@@ -2110,14 +2113,29 @@ function SendAmountInputContainer({
     return new BigNumber(1).shiftedBy(-decimals).toFixed();
   }, [tokenDetails?.info.decimals]);
 
+  // A Binance deposit below Binance's minimum may never be credited, so that
+  // minimum is shown and enforced like the chain's own.
+  // Binance can raise its minimum while the session lasts; the check before
+  // signing hands the latest one back.
+  const [binanceDepositLatestMinAmount, setBinanceDepositLatestMinAmount] =
+    useState<string>();
+  const binanceDepositMinAmount = isLightningNetwork
+    ? undefined
+    : getPositiveAmount(
+        binanceDepositLatestMinAmount ?? binanceDeposit?.minAmount,
+      );
   const tokenMinTransferAmount = useMemo(() => {
     const isNative = tokenDetails?.info.isNative;
-    return isNative
+    const chainMinTransferAmount = isNative
       ? (vaultSettings?.nativeMinTransferAmount ??
-          vaultSettings?.minTransferAmount ??
-          '0')
+        vaultSettings?.minTransferAmount ??
+        '0')
       : (vaultSettings?.minTransferAmount ?? '0');
+    return binanceDepositMinAmount
+      ? BigNumber.max(chainMinTransferAmount, binanceDepositMinAmount).toFixed()
+      : chainMinTransferAmount;
   }, [
+    binanceDepositMinAmount,
     tokenDetails?.info.isNative,
     vaultSettings?.minTransferAmount,
     vaultSettings?.nativeMinTransferAmount,
@@ -2125,7 +2143,7 @@ function SendAmountInputContainer({
 
   const privateSendProviderMinAmount = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return undefined;
-    return getPositivePrivateSendAmount(privateSendQuote?.limit?.min);
+    return getPositiveAmount(privateSendQuote?.limit?.min);
   }, [privateSendQuote?.limit?.min, sendMode]);
 
   const chainEffectiveMinAmount = useMemo(() => {
@@ -2315,11 +2333,13 @@ function SendAmountInputContainer({
           ? chainValueUtils.convertSatsToBtc(validationEffectiveMinAmount)
           : validationEffectiveMinAmount;
 
+      // A zero amount is left to the other checks, except for a Binance
+      // deposit, where it is below the deposit minimum like any small amount.
       if (
         !isUseFiat &&
         !new BigNumber(validationEffectiveMinAmount).isZero() &&
         amountBNForValidation.isLessThan(validationEffectiveMinAmount) &&
-        !amountBNForValidation.isZero()
+        (!amountBNForValidation.isZero() || !!binanceDepositMinAmount)
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
@@ -2332,7 +2352,7 @@ function SendAmountInputContainer({
         priceBN.isGreaterThan(0) &&
         !new BigNumber(validationEffectiveMinAmount).isZero() &&
         tokenAmountBN.isLessThan(validationEffectiveMinAmount) &&
-        !tokenAmountBN.isZero()
+        (!tokenAmountBN.isZero() || !!binanceDepositMinAmount)
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
@@ -2443,6 +2463,7 @@ function SendAmountInputContainer({
       recipientAddress,
       rebaseMultiplier,
       convertDisplayAmountToRawAmount,
+      binanceDepositMinAmount,
     ],
   );
 
@@ -2473,6 +2494,13 @@ function SendAmountInputContainer({
     if (!form.getValues('amount')) return;
     void form.trigger('amount');
   }, [form, maxBalance, tokenDetails?.balanceParsed]);
+
+  // The check before signing found a higher Binance minimum: the amount the
+  // user comes back to is held against it right away.
+  useEffect(() => {
+    if (!binanceDepositLatestMinAmount || !form.getValues('amount')) return;
+    void form.trigger('amount');
+  }, [binanceDepositLatestMinAmount, form]);
 
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
@@ -3887,11 +3915,33 @@ function SendAmountInputContainer({
               : tokenInfo?.address,
           });
 
+          const binanceDepositHooks = binanceDeposit
+            ? buildBinanceDepositSendHooks({
+                intl,
+                context: binanceDepositLatestMinAmount
+                  ? {
+                      ...binanceDeposit,
+                      minAmount: binanceDepositLatestMinAmount,
+                    }
+                  : binanceDeposit,
+                toAddress: submitRecipientAddress,
+                memo: recipientMemo,
+                tokenSymbol: tokenInfo?.symbol,
+                accountId: account.id,
+                amount: transferAmount,
+                senderAddress: account.address,
+                onMinimumChange: setBinanceDepositLatestMinAmount,
+                onSuccess,
+              })
+            : undefined;
+
           await signatureConfirm.navigationToTxConfirm({
             transfersInfo,
             sameModal: true,
             prerequisites: { isCurrent },
-            onSuccess,
+            onSuccess: binanceDepositHooks?.onSuccess ?? onSuccess,
+            onBeforePreActions: binanceDepositHooks?.onBeforePreActions,
+            onBeforeSend: binanceDepositHooks?.onBeforeSend,
             onFail,
             onCancel,
             transferPayload: {
@@ -3975,6 +4025,8 @@ function SendAmountInputContainer({
       intl,
       rebaseMultiplier,
       convertDisplayAmountToRawAmount,
+      binanceDeposit,
+      binanceDepositLatestMinAmount,
       hasLocalWallet,
       networkId,
       dismissAmountInputKeyboardBeforeOverlayOpen,

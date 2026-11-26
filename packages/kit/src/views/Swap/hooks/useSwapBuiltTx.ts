@@ -2607,7 +2607,7 @@ export function useSwapBuildTx({
             await navigationToTxConfirm({
               isInternalSwap: true,
               isNavigationCurrent: () => canExecuteSwapReview(reviewGuard),
-              onBeforePreActions: checkReviewQuoteBeforeSend,
+              onBeforePreActions: () => checkReviewQuoteBeforeSend(),
               onBeforeSend: checkReviewQuoteBeforeSend,
               reviewQuoteValidUntil:
                 reviewGuard?.execution?.isQuoteValid?.deadline,
@@ -3748,7 +3748,7 @@ export function useSwapBuildTx({
             await navigationToTxConfirm({
               isInternalSwap: true,
               isNavigationCurrent: () => canExecuteSwapReview(reviewGuard),
-              onBeforePreActions: checkReviewQuoteBeforeSend,
+              onBeforePreActions: () => checkReviewQuoteBeforeSend(),
               onBeforeSend: checkReviewQuoteBeforeSend,
               reviewQuoteValidUntil:
                 reviewGuard?.execution?.isQuoteValid?.deadline,

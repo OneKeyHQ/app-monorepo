@@ -1,3 +1,4 @@
+import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/src/consts/binanceDepositConsts';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import { createSwapReviewSigningFailure } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import {
@@ -253,6 +254,70 @@ describe('background thread RPC protocol', () => {
     expect(
       buildSafeBackgroundThreadErrorData({ reason: 'network' }),
     ).toBeUndefined();
+  });
+
+  describe('Binance deposit minimum error data', () => {
+    const context = {
+      request: {
+        type: 'service-call' as const,
+        method: 'serviceBinanceDeposit.verifyBeforeSign',
+        params: [],
+        sync: false,
+      },
+      message: 'Binance deposit request failed',
+      error: { code: EBinanceDepositLocalErrorCode.BelowMinimum },
+    };
+
+    it('round-trips only the checked minimum', () => {
+      const data = { minAmount: '8.25', detail: 'must-not-cross' };
+      const response = parseBackgroundThreadResponse(
+        serializeBackgroundThreadResponse({
+          ok: false,
+          error: {
+            name: 'OneKeyLocalError',
+            message: context.message,
+            code: context.error.code,
+            data: buildSafeBackgroundThreadErrorData(data, context),
+          },
+        }),
+      );
+
+      expect(response?.error?.data).toEqual({ minAmount: '8.25' });
+    });
+
+    it('requires the pre-sign service call and the BelowMinimum code', () => {
+      const data = { minAmount: '8' };
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          request: {
+            ...context.request,
+            method: 'serviceBinanceDeposit.getSnapshot',
+          },
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          request: { type: 'app-event', eventName: 'test', payload: {} },
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          error: { code: EBinanceDepositLocalErrorCode.VerifyFailed },
+        }),
+      ).toBeUndefined();
+    });
+
+    it.each(['', ' ', '1e2', '-1', '.', '1.2.3', '8'.repeat(513), 8])(
+      'drops an invalid minimum %p',
+      (minAmount) => {
+        expect(
+          buildSafeBackgroundThreadErrorData({ minAmount }, context),
+        ).toBeUndefined();
+      },
+    );
   });
 
   describe('isolated storage Home test error data', () => {

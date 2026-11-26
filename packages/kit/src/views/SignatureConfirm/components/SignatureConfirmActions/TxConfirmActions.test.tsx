@@ -44,6 +44,8 @@ let mockAfterSendEnabled = false;
 let mockPayer = 'gasAccount';
 let mockFeeOverflow = false;
 let mockAcceptFeeOverflow = true;
+let mockNativeAmountToUpdate: { isMaxSend?: boolean; amountToUpdate?: string } =
+  {};
 const mockEventListeners = new Map<string, Set<(payload: unknown) => void>>();
 const mockCurrentRoute = jest.fn(() => ({ name: 'Confirm' }));
 const mockNavigation = { pop: jest.fn(), popStack: jest.fn() };
@@ -178,7 +180,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm', () => ({
   useMegafuelEligibleAtom: () => [{}],
   useUnsignedTxsAtom: () => [mockUnsignedTxs],
   useNativeTokenInfoAtom: () => [{ isLoading: false }],
-  useNativeTokenTransferAmountToUpdateAtom: () => [{}],
+  useNativeTokenTransferAmountToUpdateAtom: () => [mockNativeAmountToUpdate],
   usePreCheckTxStatusAtom: () => [{}],
   useTxAdvancedSettingsAtom: () => [{}],
   useDecodedTxsAtom: () => [{ isBuildingDecodedTxs: false, decodedTxs: [] }],
@@ -312,6 +314,35 @@ describe('TxConfirmActions Gas Account failure exit', () => {
     expect(onAbort).toHaveBeenCalledTimes(1);
     expect(onFail).not.toHaveBeenCalled();
     expect(onSafePreSendFail).not.toHaveBeenCalled();
+  });
+
+  it('hands the Max amount left after the fee to the before-send hook', async () => {
+    mockNativeAmountToUpdate = { isMaxSend: true, amountToUpdate: '0.95' };
+    // The hook ends the attempt here, as a guard that refuses the send does.
+    const onAbort = jest.fn(() => true);
+    const onBeforeSend = jest.fn((_params?: unknown) => {
+      throw new BeforeSendAbortError('stop', onAbort);
+    });
+    try {
+      render(
+        <TxConfirmActions
+          accountId="hd-1--0"
+          networkId="evm--1"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          onBeforeSend={onBeforeSend}
+        />,
+      );
+      await act(async () => {
+        await getFooterActions().onConfirm?.();
+      });
+    } finally {
+      mockNativeAmountToUpdate = {};
+    }
+    expect(onBeforeSend).toHaveBeenCalledWith(
+      expect.objectContaining({ nativeMaxSendAmount: '0.95' }),
+    );
+    expect(mockBatchSend).not.toHaveBeenCalled();
   });
 
   it('stops before broadcasting when the review guard aborts', async () => {

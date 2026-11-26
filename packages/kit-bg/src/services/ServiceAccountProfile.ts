@@ -678,6 +678,7 @@ class ServiceAccountProfile extends ServiceBase {
           result.addressBookName = `${appLocale.intl.formatMessage({
             id: ETranslations.address_book_title,
           })} / ${addressBookItem?.name}`;
+          result.addressBookItemName = addressBookItem.name;
         }
       } catch (e) {
         console.error(e);

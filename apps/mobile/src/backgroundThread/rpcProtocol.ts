@@ -12,6 +12,7 @@ import {
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/types/binanceDeposit';
 
 import type {
   IInjectedProviderNamesStrings,
@@ -388,6 +389,26 @@ export function buildSafeBackgroundThreadErrorData(
       swapReviewQuoteExpiredBeforeBroadcast: true,
       definitelyNotSubmitted: data.definitelyNotSubmitted,
     };
+  }
+  if (
+    context?.request.type === 'service-call' &&
+    context.request.method === 'serviceBinanceDeposit.verifyBeforeSign' &&
+    (context.error as { code?: unknown } | undefined)?.code ===
+      EBinanceDepositLocalErrorCode.BelowMinimum &&
+    data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    'minAmount' in data
+  ) {
+    const { minAmount } = data;
+    // Leave room for toFixed() to expand the session minimum's exponent.
+    if (
+      typeof minAmount === 'string' &&
+      minAmount.length <= 512 &&
+      /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(minAmount)
+    ) {
+      return { minAmount };
+    }
   }
   const broadcastTxContext = getBroadcastTxContextFromData(data);
   // Lets bg tell a privacy runtime that is down from an ordinary failure.

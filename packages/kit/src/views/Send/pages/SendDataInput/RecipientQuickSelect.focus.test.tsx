@@ -291,7 +291,13 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
-  default: { shortenAddress: () => '' },
+  default: {
+    shortenAddress: () => '',
+    getAddressPrefix: () => '',
+    getComparableAddress: (address: string) => address,
+    findSimilarAddresses: () => new Set<string>(),
+    isInSimilarAddresses: () => false,
+  },
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
@@ -314,6 +320,7 @@ jest.mock('./RecentRecipients', () => ({
 jest.mock('./QuickSelectListShared', () => ({
   QuickSelectListItemFrame: () => null,
   QuickSelectListSkeleton: () => null,
+  RecipientDetailLine: () => null,
 }));
 jest.mock('./recipientNativeList', () => ({
   recipientIdentityRow: jest.fn((row: unknown) => row),

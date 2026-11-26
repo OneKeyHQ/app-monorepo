@@ -18,6 +18,7 @@ import type {
 } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { IBinanceDepositSendContext } from '../../types/binanceDeposit';
 import type { IGasAccountScenario } from '../../types/fee';
 import type { IAccountHistoryTx } from '../../types/history';
 import type {
@@ -62,6 +63,10 @@ export enum EModalSignatureConfirmRoutes {
   WeblnSendPayment = 'WeblnSendPayment',
 }
 
+export type IPreSendActionContext = {
+  mayPayForPreSend?: boolean;
+};
+
 export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxSelectToken]: ITokenSelectorParamList;
   [EModalSignatureConfirmRoutes.TxSelectAggregateToken]: IAggregateTokenSelectorParams;
@@ -102,6 +107,8 @@ export type IModalSignatureConfirmParamList = {
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
     localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
+    // Set when the recipient is the user's Binance deposit address.
+    binanceDeposit?: IBinanceDepositSendContext;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
@@ -124,8 +131,14 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     onBeforeSend?: (params?: {
       preSendTx?: { txid: string; orderId?: string };
+      // The native amount a Max send carries once its fee is taken out here.
+      nativeMaxSendAmount?: string;
+      // The transactions as they are about to be signed.
+      unsignedTxs?: IUnsignedTxPro[];
     }) => void | Promise<void>;
-    onBeforePreActions?: () => void | Promise<void>;
+    onBeforePreActions?: (
+      context?: IPreSendActionContext,
+    ) => void | Promise<void>;
     reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
@@ -187,8 +200,14 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     onBeforeSend?: (params?: {
       preSendTx?: { txid: string; orderId?: string };
+      // The native amount a Max send carries once its fee is taken out here.
+      nativeMaxSendAmount?: string;
+      // The transactions as they are about to be signed.
+      unsignedTxs?: IUnsignedTxPro[];
     }) => void | Promise<void>;
-    onBeforePreActions?: () => void | Promise<void>;
+    onBeforePreActions?: (
+      context?: IPreSendActionContext,
+    ) => void | Promise<void>;
     reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;

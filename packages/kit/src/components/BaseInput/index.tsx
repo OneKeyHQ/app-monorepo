@@ -142,6 +142,9 @@ function BaseInput(props: IBaseInputProps) {
                   bg: sharedStyles.backgroundColor,
                   borderTopWidth: 0,
                   borderColor: sharedStyles.borderColor,
+                  // Same corner curve as the TextArea above, so the joined
+                  // field reads as one shape.
+                  borderCurve: 'continuous',
                 })}
           >
             {extension}

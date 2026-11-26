@@ -1,12 +1,25 @@
 import { memo, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
-import { Skeleton, Stack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  MatchSizeableText,
+  SizableText,
+  Skeleton,
+  Stack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import {
+  formatRecipientExtra,
+  getRecipientDetailText,
+} from './recipientListAddressUtils';
 
 function AccountAvatarWithWallet({
   address,
@@ -32,7 +45,7 @@ function AccountAvatarWithWallet({
 
   return (
     <AccountAvatar
-      size="default"
+      size="medium"
       address={address}
       wallet={resolvedWallet}
       enableEnterAnimation
@@ -126,7 +139,7 @@ function QuickSelectListSkeleton({ count = 3 }: { count?: number }) {
           px="$5"
           py="$3"
           renderAvatar={() => (
-            <Skeleton width="$10" height="$10" borderRadius="$2" bg="$bgApp" />
+            <Skeleton width="$8" height="$8" borderRadius="$2" bg="$bgApp" />
           )}
         >
           <ListItem.Text
@@ -139,5 +152,56 @@ function QuickSelectListSkeleton({ count = 3 }: { count?: number }) {
   );
 }
 
+// Second line of a recipient row; getRecipientDetailText decides what it
+// says, so the native list says the same.
+function RecipientDetailLine({
+  address,
+  memo: memoValue,
+  note,
+  showFullAddress,
+  before,
+  after,
+}: {
+  address: string;
+  memo?: string;
+  note?: string;
+  showFullAddress: boolean;
+  before?: (string | undefined)[];
+  after?: (string | undefined)[];
+}) {
+  const intl = useIntl();
+  const extra =
+    memoValue || note
+      ? formatRecipientExtra({
+          memo: memoValue,
+          note,
+          tagLabel: intl.formatMessage({ id: ETranslations.send_tag }),
+          noteLabel: intl.formatMessage({ id: ETranslations.global_Note }),
+        })
+      : undefined;
+  const { text, isFullAddress } = getRecipientDetailText({
+    address,
+    extra,
+    showFullAddress,
+    before,
+    after,
+  });
+  if (!text) return null;
+  return isFullAddress ? (
+    <MatchSizeableText
+      size="$bodyMd"
+      color="$textSubdued"
+      wordWrap="break-word"
+    >
+      {text}
+    </MatchSizeableText>
+  ) : (
+    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+      {text}
+    </SizableText>
+  );
+}
+
 export { MemoizedQuickSelectListItemFrame as QuickSelectListItemFrame };
 export { QuickSelectListSkeleton };
+export { RecipientDetailLine };

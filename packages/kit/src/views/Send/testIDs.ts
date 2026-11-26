@@ -18,6 +18,17 @@ export const SendTestIDs = {
   pasteButton: 'send-paste-button',
   addressRiskCheckButton: 'send-address-risk-check-button',
 
+  // Binance deposit
+  binanceDepositEntry: 'send-binance-deposit-entry',
+  binanceDepositCard: (phase: string) => `send-binance-deposit-card-${phase}`,
+  binanceDepositAddress: 'send-binance-deposit-address',
+  binanceDepositExit: 'send-binance-deposit-exit',
+  binanceDepositOpen: 'send-binance-deposit-open',
+  binanceDepositEnterAddress: 'send-binance-deposit-enter-address',
+  binanceDepositFailure: 'send-binance-deposit-failure',
+  binanceDepositTryAgain: 'send-binance-deposit-try-again',
+  binanceDepositFailureExit: 'send-binance-deposit-failure-exit',
+
   // Send confirm
   confirmPage: 'tx-confirmation-body', // preserve existing (shared with SignatureConfirm)
   confirmButton: 'send-confirm-button',

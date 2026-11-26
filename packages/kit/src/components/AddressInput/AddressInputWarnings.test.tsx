@@ -2,7 +2,12 @@ import type { ReactNode } from 'react';
 
 import { render } from '@testing-library/react-native';
 
+import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
+
 import { AddressInputWarnings } from './AddressInputWarnings';
+
+import type { IAddressQueryResult } from '.';
+import type { IAddressLookalikeCheck } from './types';
 
 type IMockStackProps = {
   children?: ReactNode;
@@ -10,6 +15,7 @@ type IMockStackProps = {
 };
 
 let warningText: ReactNode;
+let mockRenderedButtons: string[] = [];
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -29,13 +35,25 @@ jest.mock('@onekeyhq/components', () => {
     return <>{props.children}</>;
   }
 
+  function Button(props: IMockStackProps) {
+    if (props.testID) {
+      mockRenderedButtons.push(props.testID);
+    }
+    return <>{props.children}</>;
+  }
+
   return {
-    Button: Stack,
+    Button,
     SizableText,
     Stack,
     XStack: Stack,
   };
 });
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
+}));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -64,9 +82,90 @@ function renderWarnings(depositEnable: boolean) {
   );
 }
 
+const ADD_TO_ADDRESS_BOOK = 'address-input-add-to-address-book-btn';
+const TRANSFERRED_ADDRESS = '0x96223d0b3f1e9a2c77d41e58b0c2f9e6a1384F4f';
+
+function renderTransferredAddress({
+  isLookalikeAddress,
+  ...queryResult
+}: Partial<IAddressQueryResult> & {
+  isLookalikeAddress?: IAddressLookalikeCheck;
+} = {}) {
+  return render(
+    <AddressInputWarnings
+      networkId="evm--1"
+      queryResult={{
+        input: TRANSFERRED_ADDRESS,
+        validAddress: TRANSFERRED_ADDRESS,
+        addressInteractionStatus: EAddressInteractionStatus.INTERACTED,
+        ...queryResult,
+      }}
+      isLookalikeAddress={isLookalikeAddress}
+    />,
+  );
+}
+
 describe('AddressInputWarnings', () => {
   beforeEach(() => {
     warningText = undefined;
+    mockRenderedButtons = [];
+  });
+
+  it('offers the address book for an address paid before', () => {
+    renderTransferredAddress();
+
+    expect(mockRenderedButtons).toContain(ADD_TO_ADDRESS_BOOK);
+  });
+
+  it('does not offer the address book for an address flagged as similar', () => {
+    renderTransferredAddress({
+      similarAddress: '0x96223d67518AAedcBed163098fA4BC3fa2384F4f',
+    });
+
+    expect(mockRenderedButtons).not.toContain(ADD_TO_ADDRESS_BOOK);
+  });
+
+  it('does not offer the address book for a lookalike the page lists', () => {
+    const isLookalikeAddress = jest.fn(() => true);
+    renderTransferredAddress({ isLookalikeAddress });
+
+    expect(isLookalikeAddress).toHaveBeenCalledWith(TRANSFERRED_ADDRESS);
+    expect(mockRenderedButtons).not.toContain(ADD_TO_ADDRESS_BOOK);
+  });
+
+  it('does not offer the address book under a similar-address warning', () => {
+    renderTransferredAddress({
+      similarAddress: '0x96223d67518AAedcBed163098fA4BC3fa2384F4f',
+      isLookalikeAddress: () => false,
+    });
+
+    expect(mockRenderedButtons).not.toContain(ADD_TO_ADDRESS_BOOK);
+  });
+
+  it('checks the address a name resolves to', () => {
+    const isLookalikeAddress = jest.fn(() => false);
+    renderTransferredAddress({
+      input: 'vitalik.eth',
+      validAddress: undefined,
+      resolveAddress: TRANSFERRED_ADDRESS,
+      isLookalikeAddress,
+    });
+
+    expect(isLookalikeAddress).toHaveBeenCalledWith(TRANSFERRED_ADDRESS);
+  });
+
+  it('does not offer the address book for an account the user signs with', () => {
+    renderTransferredAddress({ walletAccountId: "hd-1--m/44'/60'/0'/0/0" });
+
+    expect(mockRenderedButtons).not.toContain(ADD_TO_ADDRESS_BOOK);
+  });
+
+  it('offers the address book for a watch-only account', () => {
+    renderTransferredAddress({
+      walletAccountId: `watching--60--${TRANSFERRED_ADDRESS}`,
+    });
+
+    expect(mockRenderedButtons).toContain(ADD_TO_ADDRESS_BOOK);
   });
 
   it('shows a static warning when CEX deposits are explicitly disabled', () => {

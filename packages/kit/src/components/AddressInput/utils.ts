@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/shared/types/address';
 
 import type { IAddressQueryResult } from '.';
+import type { IAddressLookalikeCheck } from './types';
 
 export function getAddressValidateTranslationId(
   status?: Exclude<IAddressValidateStatus, 'valid'>,
@@ -25,6 +26,22 @@ export function getAddressValidateTranslationId(
   };
 
   return message[status];
+}
+
+// Saved contacts skip the similarity checks, so an address that looks like
+// another one is never one tap away from the address book: not under a
+// similar-address warning, nor when it looks like an address the page lists.
+// `address` is the resolved one, as getAddressQueryResolvedAddress gives it.
+export function looksLikeAnotherAddress({
+  similarAddress,
+  address,
+  isLookalikeAddress,
+}: {
+  similarAddress?: string;
+  address?: string;
+  isLookalikeAddress?: IAddressLookalikeCheck;
+}): boolean {
+  return !!similarAddress || (!!address && !!isLookalikeAddress?.(address));
 }
 
 export function getAddressQueryResolvedAddress(

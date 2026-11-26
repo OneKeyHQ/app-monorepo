@@ -21,6 +21,7 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IPreSendActionContext } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
@@ -68,8 +69,14 @@ type IBuildUnsignedTxParams = {
   onCancel?: () => void;
   onBeforeSend?: (params?: {
     preSendTx?: { txid: string; orderId?: string };
+    // The native amount a Max send carries once its fee is taken out here.
+    nativeMaxSendAmount?: string;
+    // The transactions as they are about to be signed.
+    unsignedTxs?: IUnsignedTxPro[];
   }) => void | Promise<void>;
-  onBeforePreActions?: () => void | Promise<void>;
+  onBeforePreActions?: (
+    context?: IPreSendActionContext,
+  ) => void | Promise<void>;
   reviewQuoteValidUntil?: number;
   isNavigationCurrent?: () => boolean;
   broadcastDeadline?: number;

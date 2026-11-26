@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isCexDepositExplicitlyDisabled } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
@@ -14,15 +15,22 @@ import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 import { AddressBadge } from '../AddressBadge';
 
 import { useIsEnableTransferAllowList } from './hooks';
+import {
+  getAddressQueryResolvedAddress,
+  looksLikeAnotherAddress,
+} from './utils';
 
 import type { IAddressQueryResult } from '.';
+import type { IAddressLookalikeCheck } from './types';
 
 export function AddressInputWarnings({
   queryResult,
   networkId,
+  isLookalikeAddress,
 }: {
   queryResult: IAddressQueryResult;
   networkId: string;
+  isLookalikeAddress?: IAddressLookalikeCheck;
 }) {
   const intl = useIntl();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
@@ -38,9 +46,24 @@ export function AddressInputWarnings({
     [queryResult?.addressBadges],
   );
 
+  const resolvedAddress = getAddressQueryResolvedAddress(queryResult);
   const showAddToAddressBook = useMemo(() => {
-    // Don't show if already in address book or wallet
-    if (queryResult?.addressBookId || queryResult?.walletAccountId)
+    // Don't show if already in the address book or an account the user signs
+    // with. Watch-only and connected accounts keep it: with the transfer
+    // allowlist on they must be saved before a send.
+    if (
+      queryResult?.addressBookId ||
+      (queryResult?.walletAccountId &&
+        accountUtils.isOwnAccount({ accountId: queryResult.walletAccountId }))
+    )
+      return false;
+    if (
+      looksLikeAnotherAddress({
+        similarAddress: queryResult?.similarAddress,
+        address: resolvedAddress,
+        isLookalikeAddress,
+      })
+    )
       return false;
     // Show for transferred addresses (add to address book guidance)
     if (
@@ -60,8 +83,11 @@ export function AddressInputWarnings({
   }, [
     queryResult?.addressBookId,
     queryResult?.walletAccountId,
+    queryResult?.similarAddress,
+    resolvedAddress,
     queryResult?.addressInteractionStatus,
     isEnableTransferAllowList,
+    isLookalikeAddress,
   ]);
 
   const onAddToAddressBook = useCallback(() => {

@@ -2,6 +2,9 @@ import type { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
 
+// Whether an address looks like another one the page lists.
+export type IAddressLookalikeCheck = (address: string) => boolean;
+
 export type IAddressPluginProps = {
   onChange?: ({
     text,
