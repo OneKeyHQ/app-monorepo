@@ -98,6 +98,24 @@ export function getWalletLocalSecretEnvelopeIssueFromStatus(
   return issues[getLocalSecretEnvelopeCredentialKey(sessionId, credentialId)];
 }
 
+export function getCurrentWalletLocalSecretEnvelopeIssue(
+  credentialId: string | undefined,
+): ILocalSecretEnvelopeCredentialIssue | undefined {
+  if (!credentialId) return undefined;
+  return getWalletLocalSecretEnvelopeIssueFromStatus(
+    jotaiDefaultStore.get(walletLocalSecretEnvelopeStatusAtom.atom()),
+    credentialId,
+  );
+}
+
+export function shouldRecheckWalletLocalSecretEnvelopeIssue(
+  issue: ILocalSecretEnvelopeCredentialIssue | undefined,
+): boolean {
+  return (
+    platformEnv.isNativeAndroid && issue?.reason === 'authentication-failed'
+  );
+}
+
 export function useWalletLocalSecretEnvelopeIssue({
   walletId,
   accountId,
@@ -134,17 +152,11 @@ export async function getWalletLocalSecretEnvelopeUnavailableIssue({
     return undefined;
   }
 
-  const status = jotaiDefaultStore.get(
-    walletLocalSecretEnvelopeStatusAtom.atom(),
-  );
-  const existingIssue = getWalletLocalSecretEnvelopeIssueFromStatus(
-    status,
-    credentialId,
-  );
-  const shouldReverifyExistingAndroidAuthFailure =
-    platformEnv.isNativeAndroid &&
-    existingIssue?.reason === 'authentication-failed';
-  if (existingIssue && !shouldReverifyExistingAndroidAuthFailure) {
+  const existingIssue = getCurrentWalletLocalSecretEnvelopeIssue(credentialId);
+  if (
+    existingIssue &&
+    !shouldRecheckWalletLocalSecretEnvelopeIssue(existingIssue)
+  ) {
     return existingIssue;
   }
 
@@ -174,7 +186,7 @@ export async function getWalletLocalSecretEnvelopeUnavailableIssue({
   } catch {
     // An interrupted or unavailable background runtime is inconclusive;
     // preserve a previously confirmed issue but never block healthy wallets.
-    return existingIssue;
+    return getCurrentWalletLocalSecretEnvelopeIssue(credentialId);
   }
 
   if (result) {
@@ -186,7 +198,7 @@ export async function getWalletLocalSecretEnvelopeUnavailableIssue({
     }
     return undefined;
   }
-  return existingIssue;
+  return getCurrentWalletLocalSecretEnvelopeIssue(credentialId);
 }
 
 export async function blockIfWalletLocalSecretEnvelopeUnavailable({

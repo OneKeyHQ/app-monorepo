@@ -28,6 +28,7 @@ import { WalletLocalSecretEnvelopeStatus } from '../../../components/AccountSele
 import {
   blockIfWalletLocalSecretEnvelopeUnavailable,
   clearWalletLocalSecretEnvelopeConfirmedReadableCache,
+  getWalletLocalSecretEnvelopeUnavailableIssue,
 } from '../../../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
@@ -421,4 +422,43 @@ it('opens the recovery dialog when receive or copy address is guarded for an aff
     title: 'Unable to access encrypted local data',
     onConfirmText: 'Import Wallet Again',
   });
+});
+
+it('uses a newly recorded issue when the on-demand preflight times out', async () => {
+  jest.useFakeTimers();
+  const credentialId = 'hd-5';
+  const credentialKey = getLocalSecretEnvelopeCredentialKey(
+    'test-session',
+    credentialId,
+  );
+  const currentIssue = { ...issue, credentialKey };
+  mockPreflight.mockReturnValueOnce(Promise.withResolvers<undefined>().promise);
+
+  const result = getWalletLocalSecretEnvelopeUnavailableIssue({
+    walletId: credentialId,
+  });
+  mockWalletIssues[credentialKey] = currentIssue;
+  await jest.advanceTimersByTimeAsync(1500);
+  expect(await result).toEqual(currentIssue);
+});
+
+it('shows recovery for a checked issue before foreground status catches up', () => {
+  const credentialId = 'hd-5';
+  const credentialKey = getLocalSecretEnvelopeCredentialKey(
+    'test-session',
+    credentialId,
+  );
+  const checkedIssue = { ...issue, credentialKey };
+  render(
+    <>
+      <LocalSecretEnvelopeErrorDialogContainer />
+      <WalletLocalSecretEnvelopeStatus
+        credentialId={credentialId}
+        issue={checkedIssue}
+      />
+    </>,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'Wallet unavailable' }));
+  expect(mockDialog).toHaveBeenCalledTimes(1);
 });

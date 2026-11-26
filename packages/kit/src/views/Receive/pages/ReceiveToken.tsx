@@ -82,8 +82,10 @@ import AddressTypeSelector from '../../../components/AddressTypeSelector/Address
 import { HighlightAddress } from '../../../components/HighlightAddress';
 import { FormatHyperlinkText } from '../../../components/HyperlinkText';
 import {
+  getCurrentWalletLocalSecretEnvelopeIssue,
   getWalletLocalSecretEnvelopeCredentialId,
   getWalletLocalSecretEnvelopeUnavailableIssue,
+  shouldRecheckWalletLocalSecretEnvelopeIssue,
   showWalletLocalSecretEnvelopeRecoveryDialog,
   useWalletLocalSecretEnvelopeIssue,
 } from '../../../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
@@ -670,47 +672,55 @@ function ReceiveToken() {
     walletId: effectiveWalletId,
     accountId: effectiveAccountId,
   });
-  const [checkedLseIssue, setCheckedLseIssue] = useState<
-    | {
-        credentialId: string;
-        issue: ILocalSecretEnvelopeCredentialIssue;
-      }
-    | undefined
-  >(undefined);
+  const [lseCheck, setLseCheck] = useState<{
+    credentialId: string;
+    issue: ILocalSecretEnvelopeCredentialIssue | undefined;
+  }>();
+  const shouldCheckLse =
+    !lseStatusIssue ||
+    shouldRecheckWalletLocalSecretEnvelopeIssue(lseStatusIssue);
 
   useEffect(() => {
-    if (!lseCredentialId || lseStatusIssue) {
-      setCheckedLseIssue(undefined);
-      return;
-    }
+    if (!lseCredentialId || !shouldCheckLse) return;
     let cancelled = false;
     void getWalletLocalSecretEnvelopeUnavailableIssue({
       walletId: effectiveWalletId,
       accountId: effectiveAccountId,
-    }).then((issue) => {
-      if (cancelled) return;
-      setCheckedLseIssue(
-        issue ? { credentialId: lseCredentialId, issue } : undefined,
-      );
-    });
+    })
+      .catch(() => getCurrentWalletLocalSecretEnvelopeIssue(lseCredentialId))
+      .then((issue) => {
+        if (!cancelled) setLseCheck({ credentialId: lseCredentialId, issue });
+      });
     return () => {
       cancelled = true;
     };
-  }, [effectiveAccountId, effectiveWalletId, lseCredentialId, lseStatusIssue]);
+  }, [effectiveAccountId, effectiveWalletId, lseCredentialId, shouldCheckLse]);
 
   const walletLocalSecretEnvelopeIssue =
     lseStatusIssue ??
-    (checkedLseIssue &&
+    (lseCheck?.credentialId === lseCredentialId ? lseCheck?.issue : undefined);
+  const isLseCheckPending = Boolean(
     lseCredentialId &&
-    checkedLseIssue.credentialId === lseCredentialId
-      ? checkedLseIssue.issue
-      : undefined);
-  const isWalletLocalSecretEnvelopeUnavailable = Boolean(
-    walletLocalSecretEnvelopeIssue,
+    lseCheck?.credentialId !== lseCredentialId &&
+    !walletLocalSecretEnvelopeIssue,
   );
+  const isAddressBlocked =
+    isLseCheckPending || !!walletLocalSecretEnvelopeIssue;
+  const latestReceiveLse = useRef({
+    accountId: effectiveAccountId,
+    credentialId: lseCredentialId,
+    issue: walletLocalSecretEnvelopeIssue,
+    pending: isLseCheckPending,
+  });
+  latestReceiveLse.current = {
+    accountId: effectiveAccountId,
+    credentialId: lseCredentialId,
+    issue: walletLocalSecretEnvelopeIssue,
+    pending: isLseCheckPending,
+  };
 
   const shouldShowQRCode = useMemo(() => {
-    if (isWalletLocalSecretEnvelopeUnavailable) return false;
+    if (isAddressBlocked) return false;
     if (!displayAddress) return false;
     if (!isHardwareWallet) {
       return true;
@@ -724,12 +734,7 @@ function ReceiveToken() {
     }
 
     return false;
-  }, [
-    addressState,
-    isHardwareWallet,
-    displayAddress,
-    isWalletLocalSecretEnvelopeUnavailable,
-  ]);
+  }, [addressState, isHardwareWallet, displayAddress, isAddressBlocked]);
 
   useEffect(() => {
     const url = network?.logoURI;
@@ -753,12 +758,14 @@ function ReceiveToken() {
   }, [network?.logoURI]);
 
   const handleCopyAddress = useCallback(() => {
-    if (walletLocalSecretEnvelopeIssue) {
-      showWalletLocalSecretEnvelopeRecoveryDialog(
-        walletLocalSecretEnvelopeIssue,
-      );
+    const issue =
+      getCurrentWalletLocalSecretEnvelopeIssue(lseCredentialId) ??
+      walletLocalSecretEnvelopeIssue;
+    if (issue) {
+      showWalletLocalSecretEnvelopeRecoveryDialog(issue);
       return;
     }
+    if (isLseCheckPending) return;
     if (!displayAddress) return;
     if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
       copyAddressWithDeriveType({
@@ -776,6 +783,8 @@ function ReceiveToken() {
     copyAddressWithDeriveType,
     currentDeriveInfo,
     displayAddress,
+    isLseCheckPending,
+    lseCredentialId,
     network?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
     walletLocalSecretEnvelopeIssue,
@@ -1363,7 +1372,7 @@ function ReceiveToken() {
   );
 
   const shareData = useMemo<IReceiveShareData | null>(() => {
-    if (isWalletLocalSecretEnvelopeUnavailable) return null;
+    if (isAddressBlocked) return null;
     if (!network || !displayAddress) return null;
     return {
       title: pageTitleText,
@@ -1376,7 +1385,7 @@ function ReceiveToken() {
       address: displayAddress,
     };
   }, [
-    isWalletLocalSecretEnvelopeUnavailable,
+    isAddressBlocked,
     network,
     displayAddress,
     pageTitleText,
@@ -1386,10 +1395,7 @@ function ReceiveToken() {
   ]);
 
   const canShowShareEntry =
-    !isWalletLocalSecretEnvelopeUnavailable &&
-    shouldShowQRCode &&
-    !!displayAddress &&
-    !!shareData;
+    !isAddressBlocked && shouldShowQRCode && !!displayAddress && !!shareData;
 
   // pre-generate the share image before opening the dialog so the preview
   // shows instantly and the dialog doesn't jump while the image loads
@@ -1397,12 +1403,7 @@ function ReceiveToken() {
   const [isPreparingShare, setIsPreparingShare] = useState(false);
 
   const handleSharePress = useCallback(async () => {
-    if (walletLocalSecretEnvelopeIssue) {
-      showWalletLocalSecretEnvelopeRecoveryDialog(
-        walletLocalSecretEnvelopeIssue,
-      );
-      return;
-    }
+    if (isAddressBlocked) return;
     if (!shareData || isPreparingShare) return;
     setIsPreparingShare(true);
     let presetImage = '';
@@ -1411,16 +1412,35 @@ function ReceiveToken() {
     } finally {
       setIsPreparingShare(false);
     }
+    const currentLse = latestReceiveLse.current;
     if (
+      currentLse.accountId !== effectiveAccountId ||
+      currentLse.credentialId !== lseCredentialId ||
       shownAddressRef.current.networkId !== networkId ||
       shownAddressRef.current.address !== shareData.address
     )
       return;
+
+    const issue =
+      getCurrentWalletLocalSecretEnvelopeIssue(lseCredentialId) ??
+      currentLse.issue;
+    if (issue) {
+      showWalletLocalSecretEnvelopeRecoveryDialog(issue);
+      return;
+    }
+    if (currentLse.pending) return;
     // fall back to in-dialog generation if pre-generation failed
     showReceiveShareDialog(shareData, {
       presetImage: presetImage || undefined,
     });
-  }, [networkId, shareData, isPreparingShare, walletLocalSecretEnvelopeIssue]);
+  }, [
+    effectiveAccountId,
+    isAddressBlocked,
+    isPreparingShare,
+    lseCredentialId,
+    networkId,
+    shareData,
+  ]);
 
   const handleDonePress = useCallback(() => {
     navigation.popStack();
@@ -2419,11 +2439,12 @@ function ReceiveToken() {
               >
                 <WalletLocalSecretEnvelopeStatus
                   credentialId={lseCredentialId}
+                  issue={walletLocalSecretEnvelopeIssue}
                 />
               </ReceiveCardCell>
             </ReceiveCard>
           ) : null}
-          {!isWalletLocalSecretEnvelopeUnavailable &&
+          {!isAddressBlocked &&
           currentAccount &&
           network &&
           wallet &&
@@ -2527,8 +2548,9 @@ function ReceiveToken() {
               />
             </ReceiveCard>
           ) : null}
-          {(isSwitchPending || isPrivateAddressLoading) &&
-          !(currentAccount && displayAddress)
+          {isLseCheckPending ||
+          ((isSwitchPending || isPrivateAddressLoading) &&
+            !(currentAccount && displayAddress))
             ? renderPlaceholderCard(cardHeaderRight)
             : null}
           {canShowShareEntry && shareData ? (

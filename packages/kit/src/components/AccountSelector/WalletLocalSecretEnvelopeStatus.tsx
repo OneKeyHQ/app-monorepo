@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IBadgeProps } from '@onekeyhq/components';
 import { Badge, Button, Icon } from '@onekeyhq/components';
 import { useWalletLocalSecretEnvelopeStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/walletLocalSecretEnvelopeStatus';
+import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -25,12 +26,14 @@ export function formatWalletLocalSecretEnvelopeStatus(intl: IntlShape) {
 
 export function WalletLocalSecretEnvelopeStatus({
   credentialId,
+  issue: checkedIssue,
   compact,
   fallback = null,
   ml = '$1.5',
   testID = 'wallet-lse-unavailable-details',
 }: {
   credentialId?: string;
+  issue?: ILocalSecretEnvelopeCredentialIssue;
   compact?: boolean;
   fallback?: ReactNode;
   ml?: IBadgeProps['ml'];
@@ -38,10 +41,9 @@ export function WalletLocalSecretEnvelopeStatus({
 }) {
   const intl = useIntl();
   const [status] = useWalletLocalSecretEnvelopeStatusAtom();
-  const issue = getWalletLocalSecretEnvelopeIssueFromStatus(
-    status,
-    credentialId,
-  );
+  const issue =
+    checkedIssue ??
+    getWalletLocalSecretEnvelopeIssueFromStatus(status, credentialId);
   if (!issue) {
     return fallback;
   }
