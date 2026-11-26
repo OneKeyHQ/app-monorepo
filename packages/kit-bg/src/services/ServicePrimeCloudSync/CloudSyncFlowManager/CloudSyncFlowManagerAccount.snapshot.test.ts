@@ -10,7 +10,6 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import { ELocalDBStoreNames } from '../../../dbs/local/localDBStoreNames';
-
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import { withPublicAccountCreationContext } from '../publicAccountCreationContext';
 import {
