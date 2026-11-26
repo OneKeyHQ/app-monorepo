@@ -69,10 +69,13 @@ import { TradingModeBadge } from './PerpTokenSelectorRow';
 import type { IPerpTokenSelection } from './PerpTokenSelector';
 import type { IPerpsChartInstrumentDisplay } from '../../hooks/usePerpsChartInstrument';
 
-// The trigger's height: the search row opens right over it.
+// The trigger's height. The search field, 2px taller with its border, opens
+// over it, with its top this far below the trigger's.
 const TRIGGER_HEIGHT = 28;
-// Above the list: the search field with its border, and the divider.
-const SEARCH_ROW_HEIGHT = TRIGGER_HEIGHT + 2 + 1;
+const SEARCH_FIELD_HEIGHT = TRIGGER_HEIGHT + 2;
+const SEARCH_FIELD_TOP = 4;
+// Next to the list: the search field and the divider.
+const SEARCH_ROW_HEIGHT = SEARCH_FIELD_HEIGHT + 1;
 // Wide enough for a sub-DEX pair with its dex and mode badges.
 const PANEL_WIDTH = 240;
 const ROW_HEIGHT = 32;
@@ -489,9 +492,10 @@ export const PerpChartTokenSelector = memo(
         // few rows and above has more; it gets the room of that side.
         const trigger = triggerRef.current as unknown as Element | null;
         const rect = trigger?.getBoundingClientRect();
+        const fieldTop = (rect?.top ?? 0) + SEARCH_FIELD_TOP;
         const chrome = SEARCH_ROW_HEIGHT + VIEWPORT_PADDING;
-        const below = window.innerHeight - (rect?.top ?? 0) - chrome;
-        const above = (rect?.bottom ?? 0) - chrome;
+        const below = window.innerHeight - fieldTop - chrome;
+        const above = fieldTop + SEARCH_FIELD_HEIGHT - chrome;
         const openUp = below < MIN_LIST_HEIGHT && above > below;
         setLayout({
           openUp,
@@ -529,7 +533,13 @@ export const PerpChartTokenSelector = memo(
         open={isOpen}
         onOpenChange={handleOpenChange}
         placement={layout.openUp ? 'top-start' : 'bottom-start'}
-        offset={-TRIGGER_HEIGHT}
+        // From the trigger's bottom when opening down, its top when opening
+        // up; either way the field lands at the same place over the trigger.
+        offset={
+          layout.openUp
+            ? -(SEARCH_FIELD_TOP + SEARCH_FIELD_HEIGHT)
+            : SEARCH_FIELD_TOP - TRIGGER_HEIGHT
+        }
         allowFlip={false}
         renderTrigger={
           <XStack
