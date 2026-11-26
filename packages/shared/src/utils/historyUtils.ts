@@ -77,6 +77,7 @@ export function getOnChainHistoryTxAssetInfo({
   let isNative = false;
   let price = '0';
   let decimals = 0;
+  let balanceMultiplier: string | undefined;
   nft = nfts[key] ?? nfts[tokenAddress];
   if (tokenAddress === '') {
     token = tokens[key] ?? tokens[tokenAddress] ?? tokens.native;
@@ -101,6 +102,7 @@ export function getOnChainHistoryTxAssetInfo({
     isNative = !!info.isNative;
     price = token.price ?? '0';
     decimals = info.decimals;
+    balanceMultiplier = info.balanceMultiplier;
   }
   return {
     name,
@@ -111,6 +113,7 @@ export function getOnChainHistoryTxAssetInfo({
     isNative,
     price,
     decimals,
+    balanceMultiplier,
   };
 }
 

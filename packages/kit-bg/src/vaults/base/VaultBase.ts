@@ -1147,7 +1147,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
   }) {
-    const { icon, symbol, name, isNFT, isNative, price } =
+    const { icon, symbol, name, isNFT, isNative, price, balanceMultiplier } =
       getOnChainHistoryTxAssetInfo({
         key: transfer.key,
         tokenAddress: transfer.token,
@@ -1159,7 +1159,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       from: transfer.from,
       to: transfer.to,
       tokenIdOnNetwork: transfer.token,
-      amount: transfer.amount,
+      amount: tokenRebaseUtils.applyBalanceMultiplier({
+        amount: transfer.amount,
+        balanceMultiplier,
+      }),
       label: transfer.label,
       isOwn: transfer.isOwn,
       icon,

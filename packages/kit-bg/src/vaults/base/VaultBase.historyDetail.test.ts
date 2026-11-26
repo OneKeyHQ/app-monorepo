@@ -1,6 +1,7 @@
 /* eslint-disable import/first */
 jest.mock('../../dbs/local/localDbInstance');
 
+import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
 import {
   EProtocolOfExchange,
   ESwapQuoteSource,
@@ -23,6 +24,47 @@ function createVault() {
   });
   return { vault, post };
 }
+
+it.each([
+  ['SNDKB', '0.015607533161959945', '8', '0.12486026529567956'],
+  ['USDT', '11', undefined, '11'],
+  ['USDT', '11.00', '1', '11.00'],
+  ['USDT', '11.00', '--', '11.00'],
+] as const)(
+  'decodes %s history with balance multiplier %s × %s',
+  (symbol, rawAmount, balanceMultiplier, expectedAmount) => {
+    const { vault } = createVault();
+    const address = '0xtoken';
+    const transfer = vault.buildHistoryTransfer({
+      transfer: {
+        type: EOnChainHistoryTransferType.Transfer,
+        token: address,
+        key: address,
+        amount: rawAmount,
+        from: 'sender',
+        to: 'receiver',
+        label: '',
+      },
+      tokens: {
+        [address]: {
+          info: {
+            address,
+            symbol,
+            name: symbol,
+            decimals: 18,
+            isNative: false,
+            balanceMultiplier,
+          },
+          price: '75.5',
+        },
+      },
+      nfts: {},
+    });
+
+    expect(transfer.amount).toBe(expectedAmount);
+    expect(transfer.price).toBe('75.5');
+  },
+);
 
 it.each([
   {
