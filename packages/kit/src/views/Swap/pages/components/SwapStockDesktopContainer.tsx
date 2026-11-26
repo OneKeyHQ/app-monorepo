@@ -862,6 +862,7 @@ function StockAmountInput({
   const [, setInAppNotification] = useInAppNotificationAtom();
   const {
     amountFiatValue,
+    balanceAccountLookupFailed,
     balanceActionsReady,
     balanceLoading,
     balanceRefreshing,
@@ -943,6 +944,7 @@ function StockAmountInput({
   // refresh control existed.
   const balanceActionProps = getSwapBalanceActionProps({
     isLoadedZero: !contentLoading && isBalanceLoadedZero,
+    isUnavailable: !contentLoading && balanceAccountLookupFailed,
     refreshing: balanceRefreshing,
     onRefresh: onBalanceRefreshPress,
     onMax:
@@ -1004,7 +1006,8 @@ function StockAmountInput({
         }}
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
-          loading: contentLoading || balanceLoading,
+          loading:
+            contentLoading || (balanceLoading && !balanceAccountLookupFailed),
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
           ...balanceActionProps,

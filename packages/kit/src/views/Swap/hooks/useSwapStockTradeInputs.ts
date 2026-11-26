@@ -193,57 +193,58 @@ function useStockInputTokenBalance({
   }:${tokenNetworkId}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
   }`;
-  const { result: networkAccountState, isLoading: networkAccountLoading } =
-    usePromiseResult(
-      async () => {
-        if (!shouldFetchNetworkAccount || !tokenNetworkId) {
-          return {
-            scope: networkAccountScope,
-            account: null,
-          };
-        }
-        try {
-          const defaultDeriveType =
-            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-              {
-                networkId: tokenNetworkId,
-              },
-            );
-          const account =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              accountId: activeAccount?.indexedAccount?.id
-                ? undefined
-                : activeAccount?.account?.id,
-              indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
-              networkId: tokenNetworkId,
-              deriveType: defaultDeriveType ?? 'default',
-            });
-          return {
-            scope: networkAccountScope,
-            account,
-          };
-        } catch {
-          return {
-            scope: networkAccountScope,
-            account: null,
-          };
-        }
-      },
-      [
-        activeAccount?.account?.id,
-        activeAccount?.indexedAccount?.id,
-        networkAccountScope,
-        shouldFetchNetworkAccount,
-        tokenNetworkId,
-      ],
-      {
-        initResult: {
-          scope: '',
+  const {
+    result: networkAccountState,
+    isLoading: networkAccountLoading,
+    run: runNetworkAccount,
+  } = usePromiseResult(
+    async () => {
+      if (!shouldFetchNetworkAccount || !tokenNetworkId) {
+        return {
+          scope: networkAccountScope,
           account: null,
-        },
-        watchLoading: shouldFetchNetworkAccount,
+        };
+      }
+      try {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: tokenNetworkId,
+          });
+        const account =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            accountId: activeAccount?.indexedAccount?.id
+              ? undefined
+              : activeAccount?.account?.id,
+            indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
+            networkId: tokenNetworkId,
+            deriveType: defaultDeriveType ?? 'default',
+          });
+        return {
+          scope: networkAccountScope,
+          account,
+        };
+      } catch {
+        return {
+          scope: networkAccountScope,
+          account: null,
+        };
+      }
+    },
+    [
+      activeAccount?.account?.id,
+      activeAccount?.indexedAccount?.id,
+      networkAccountScope,
+      shouldFetchNetworkAccount,
+      tokenNetworkId,
+    ],
+    {
+      initResult: {
+        scope: '',
+        account: null,
       },
-    );
+      watchLoading: true,
+    },
+  );
   const networkAccountReady =
     !shouldFetchNetworkAccount ||
     networkAccountState.scope === networkAccountScope;
@@ -251,6 +252,8 @@ function useStockInputTokenBalance({
     shouldFetchNetworkAccount && networkAccountReady
       ? networkAccountState.account
       : null;
+  const accountLookupFailed =
+    shouldFetchNetworkAccount && networkAccountReady && !networkAccount;
   const seededBalance = resolveStockBalanceSeed({
     hasActiveAccount,
     networkAccountAddress: networkAccount?.address,
@@ -268,19 +271,6 @@ function useStockInputTokenBalance({
   const { result: detailState, isLoading: detailLoading } = usePromiseResult(
     async () => {
       const requestScope = balanceScope;
-      // An explicit refresh (manual, or a settled swap on the sell side)
-      // always revalidates, even where pay-token details own the refreshes.
-      const shouldExplicitlyRevalidate =
-        explicitRevalidationOwnerScopeRef.current === balanceOwnerScope;
-      if (shouldExplicitlyRevalidate) {
-        explicitRevalidationOwnerScopeRef.current = '';
-      }
-      const requestMode =
-        shouldExplicitlyRevalidate ||
-        (!refreshOwnedByPayTokenDetails &&
-          completedBalanceScopeRef.current === requestScope)
-          ? 'revalidate'
-          : 'dedupe';
       const completeRequestScope = <T>(result: T) => {
         if (currentBalanceScopeRef.current === requestScope) {
           completedBalanceScopeRef.current = requestScope;
@@ -303,6 +293,19 @@ function useStockInputTokenBalance({
           tokenDetail: token,
         });
       }
+      // A refresh may need to recover the network account first. Consume the
+      // explicit revalidation only when the balance request can run.
+      const shouldExplicitlyRevalidate =
+        explicitRevalidationOwnerScopeRef.current === balanceOwnerScope;
+      if (shouldExplicitlyRevalidate) {
+        explicitRevalidationOwnerScopeRef.current = '';
+      }
+      const requestMode =
+        shouldExplicitlyRevalidate ||
+        (!refreshOwnedByPayTokenDetails &&
+          completedBalanceScopeRef.current === requestScope)
+          ? 'revalidate'
+          : 'dedupe';
       try {
         const details = await runStockPayTokenDetailsRequest({
           mode: requestMode,
@@ -374,8 +377,19 @@ function useStockInputTokenBalance({
   // screen until the new one lands.
   const refresh = useCallback(() => {
     explicitRevalidationOwnerScopeRef.current = balanceOwnerScope;
+    if (accountLookupFailed) {
+      if (!networkAccountLoading) {
+        void runNetworkAccount();
+      }
+      return;
+    }
     setRefreshKey((value) => value + 1);
-  }, [balanceOwnerScope]);
+  }, [
+    accountLookupFailed,
+    balanceOwnerScope,
+    networkAccountLoading,
+    runNetworkAccount,
+  ]);
 
   useEffect(() => {
     if (!enabled || !token?.networkId || refreshOwnedByPayTokenDetails) {
@@ -420,7 +434,7 @@ function useStockInputTokenBalance({
     enabled &&
     token &&
     (!detailResolved ||
-      networkAccountLoading ||
+      (shouldFetchNetworkAccount && networkAccountLoading) ||
       shouldWaitForNetworkAccount ||
       detailLoading),
   );
@@ -479,6 +493,7 @@ function useStockInputTokenBalance({
   ]);
 
   return {
+    accountLookupFailed,
     authoritativeTokenDetail,
     accountAddress: networkAccount?.address,
     accountId: networkAccount?.id,
@@ -1003,6 +1018,7 @@ export function useSwapStockAmountInputState({
         ? { ...amountInputToken, ...inputTokenPrice }
         : undefined,
     balanceActionsReady,
+    balanceAccountLookupFailed: stockInputTokenBalance.accountLookupFailed,
     balanceLoading: stockInputTokenBalance.loading,
     balanceRefreshing,
     currencySymbol,
