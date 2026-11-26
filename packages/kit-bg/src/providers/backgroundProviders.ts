@@ -47,12 +47,8 @@ export const providerApiLoaders: Partial<
   [IInjectedProviderNames.btc]: () => import('./ProviderApiBtc'),
   [IInjectedProviderNames.neo]: () => import('./ProviderApiNeoN3'),
   [IInjectedProviderNames.stellar]: () => import('./ProviderApiStellar'),
+  [IInjectedProviderNames.starknet]: () => import('./ProviderApiStarknet'),
 };
-
-// Registered dynamically until @onekeyfe/cross-inpage-provider-types publishes `starknet`.
-(
-  providerApiLoaders as Record<string, () => Promise<IProviderApiModule>>
-).starknet = () => import('./ProviderApiStarknet');
 
 // $private stays EAGER: it is accessed SYNCHRONOUSLY by name in several places
 // (ProviderApiNear, ServiceDApp, ServiceContextMenu, ServiceSetting), so it must

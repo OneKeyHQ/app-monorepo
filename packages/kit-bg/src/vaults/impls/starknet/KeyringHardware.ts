@@ -111,8 +111,7 @@ function verifyHardwareSignature({
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.starknet.hd;
 
-  // Cast until @onekeyfe/hd-core publishes the `starknet` INetwork union update.
-  override hwSdkNetwork: IHwSdkNetwork = 'starknet' as IHwSdkNetwork;
+  override hwSdkNetwork: IHwSdkNetwork = 'starknet';
 
   override async buildHwAllNetworkPrepareAccountsParams(
     params: IBuildHwAllNetworkPrepareAccountsParams,

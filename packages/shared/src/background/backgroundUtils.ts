@@ -310,15 +310,11 @@ export const scopeNetworks: Record<
   'nostr': [IMPL_NOSTR],
   'neo': [IMPL_NEO],
   'stellar': [IMPL_STELLAR],
+  'starknet': [IMPL_STARKNET],
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$walletConnect': undefined,
 };
-
-// Registered dynamically until @onekeyfe/cross-inpage-provider-types publishes `starknet`.
-(scopeNetworks as Record<string, string[] | undefined>).starknet = [
-  IMPL_STARKNET,
-];
 
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.btc,
@@ -339,7 +335,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.webln,
   IInjectedProviderNames.bfc,
   IInjectedProviderNames.neo,
-  'starknet' as IInjectedProviderNamesStrings,
+  IInjectedProviderNames.starknet,
 ];
 
 export function getNetworkImplsFromDappScope(
