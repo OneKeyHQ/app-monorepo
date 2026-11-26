@@ -5488,6 +5488,32 @@ export function useSwapBuildTx({
       const updateExecutionState = (
         updater: (prev: ISwapReviewState) => ISwapReviewState,
       ) => updateSwapReviewState(updater, reviewGuard);
+      if (
+        fromAccountId &&
+        accountUtils.isWatchingAccount({ accountId: fromAccountId })
+      ) {
+        const resultIndex = swapStepsValuesFinal.length - 1;
+        const resultStep = swapStepsValuesFinal[resultIndex];
+        if (
+          resultStep?.status === ESwapStepStatus.READY ||
+          (resultStep?.status === ESwapStepStatus.FAILED && resultStep.canRetry)
+        ) {
+          updateExecutionState((reviewState) =>
+            updateSwapReviewStep({
+              reviewState,
+              stepIndex: resultIndex,
+              partialStep: {
+                status: ESwapStepStatus.FAILED,
+                canRetry: false,
+                errorMessage: intl.formatMessage({
+                  id: ETranslations.wallet_error_trade_with_watched_account,
+                }),
+              },
+            }),
+          );
+        }
+        return;
+      }
       if (swapStepsValuesFinal.length > 0) {
         for (let i = 0; i < swapStepsValuesFinal.length; i += 1) {
           if (!canExecuteSwapReview(reviewGuard)) {

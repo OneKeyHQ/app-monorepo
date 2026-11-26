@@ -435,6 +435,7 @@ const SwapHeaderContainer = ({
     !platformEnv.isExtensionUiSidePanel;
   const hideStockModalKLine = Boolean(
     (platformEnv.isDesktop ||
+      platformEnv.isExtensionUiExpandTab ||
       (platformEnv.isNative && enterFrom === ESwapSource.MARKET)) &&
     pageType === 'modal' &&
     swapTypeSwitch === ESwapTabSwitchType.STOCK,
