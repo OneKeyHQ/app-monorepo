@@ -1,21 +1,53 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { orderBy, uniqBy } from 'lodash';
 
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 
+// Callbacks live in the UI runtime and are registered only by active feeds.
+const refreshers = new Set<{
+  refresh: () => Promise<void>;
+  pending?: Promise<void>;
+}>();
+
+function registerPerpPublicTradesRefresh(refresh: () => Promise<void>) {
+  let release = () => {};
+  const disposed = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const entry = { refresh: () => Promise.race([refresh(), disposed]) };
+  refreshers.add(entry);
+  return () => {
+    refreshers.delete(entry);
+    release();
+  };
+}
+
+export async function refreshPerpPublicTrades() {
+  await Promise.all(
+    [...refreshers].map((entry) => {
+      entry.pending ??= entry.refresh().finally(() => {
+        entry.pending = undefined;
+      });
+      return entry.pending;
+    }),
+  );
+}
+
 interface ITradesState {
+  coin: string;
   trades: IRecentTrade[];
   isLoading: boolean;
   isError: boolean;
   isDisconnected: boolean;
 }
 
-const initialState: ITradesState = {
+const initialState: Omit<ITradesState, 'coin'> = {
   trades: [],
   isLoading: true,
   isError: false,
@@ -25,12 +57,21 @@ const initialState: ITradesState = {
 const SNAPSHOT_FALLBACK_DELAY_MS = 1000;
 const INITIAL_BATCH_ROWS = 20;
 const INITIAL_BATCH_WAIT_MS = 600;
+const recentTradesCache = new LRUCache<string, IRecentTrade[]>({
+  max: 20,
+  ttl: 5 * 60_000,
+});
+
+function getInitialState(coin: string): ITradesState {
+  return { ...initialState, coin, trades: recentTradesCache.get(coin) ?? [] };
+}
 
 function tradeKey(trade: IRecentTrade) {
   return `${trade.time}:${trade.tid}`;
 }
 
 function latestTrades(incoming: IRecentTrade[], previous: IRecentTrade[]) {
+  if (incoming.length === 0) return previous;
   const unique = uniqBy([...incoming, ...previous], tradeKey);
   return orderBy(unique, ['time', 'tid'], ['desc', 'desc']).slice(
     0,
@@ -39,24 +80,38 @@ function latestTrades(incoming: IRecentTrade[], previous: IRecentTrade[]) {
 }
 
 export function usePerpPublicTrades(coin: string, active: boolean) {
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState(initialState);
-  const [releasedSmallBatch, setReleasedSmallBatch] = useState(false);
-  const retry = useCallback(() => {
-    setState((previous) => ({ ...previous, isLoading: true }));
-    setAttempt((previous) => previous + 1);
-  }, []);
-
+  const [state, setState] = useState(() => getInitialState(coin));
+  const [releasedSmallBatch, setReleasedSmallBatch] = useState(
+    state.trades.length > 0,
+  );
+  if (state.coin !== coin) {
+    const nextState = getInitialState(coin);
+    setState(nextState);
+    setReleasedSmallBatch(nextState.trades.length > 0);
+  }
+  useEffect(() => {
+    if (state.trades.length > 0) {
+      const cached = recentTradesCache.get(state.coin);
+      if (cached !== state.trades) {
+        recentTradesCache.set(
+          state.coin,
+          latestTrades(state.trades, cached ?? []),
+        );
+      }
+    }
+  }, [state.coin, state.trades]);
   useEffect(() => {
     if (!active) return;
     let disposed = false;
     let connected = false;
-    let snapshotId = 0;
+    let snapshotPending: Promise<void> | undefined;
+    let snapshotQueued = false;
+    let snapshotRetryAttempt = 0;
+    let snapshotRetryTimer: ReturnType<typeof setTimeout> | undefined;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
-    const fetchSnapshot = async () => {
-      snapshotId += 1;
-      const id = snapshotId;
+    const fetchSnapshotOnce = async () => {
+      clearTimeout(snapshotRetryTimer);
       setState((previous) => ({
         ...previous,
         isLoading: liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT,
@@ -67,24 +122,48 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
             coin,
           });
         if (disposed) return;
+        snapshotRetryAttempt = 0;
         const incoming = snapshot.filter((trade) => trade.coin === coin);
         setState((previous) => ({
           ...previous,
           trades: latestTrades(incoming, previous.trades),
-          // An earlier fallback can still supply trades while a newer backfill owns the status.
-          isLoading: id === snapshotId ? false : previous.isLoading,
-          isError: id === snapshotId ? false : previous.isError,
+          isLoading: false,
+          isError: false,
         }));
       } catch {
-        if (disposed || id !== snapshotId) return;
+        if (disposed) return;
         const isError = liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT;
         setState((previous) => ({
           ...previous,
           isLoading: false,
           isError,
         }));
+        if (isError) {
+          snapshotRetryTimer = setTimeout(
+            () => void fetchSnapshot(),
+            Math.min(1000 * 2 ** snapshotRetryAttempt, 30_000),
+          );
+          snapshotRetryAttempt += 1;
+        }
       }
     };
+
+    function fetchSnapshot(queueIfPending = false): Promise<void> {
+      if (snapshotPending) {
+        snapshotQueued ||= queueIfPending;
+        return snapshotPending;
+      }
+      snapshotPending = (async () => {
+        do {
+          snapshotQueued = false;
+          await fetchSnapshotOnce();
+          if (disposed) break;
+        } while (snapshotQueued);
+      })().finally(() => {
+        snapshotPending = undefined;
+      });
+      return snapshotPending;
+    }
 
     // After the subscription is acknowledged, the snapshot and live feed overlap.
     // A slow or unavailable socket can still display an initial HTTP snapshot.
@@ -92,43 +171,85 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
       () => void fetchSnapshot(),
       SNAPSHOT_FALLBACK_DELAY_MS,
     );
-    const unwatch = watchHyperliquidPublicTrades({
-      coin,
-      limit: PERPS_RECENT_TRADES_LIMIT,
-      onTrades: (incoming) => {
-        for (const trade of incoming) {
-          if (liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT) break;
-          liveTradeKeys.add(tradeKey(trade));
-        }
-        const fullLiveWindow = liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
-        setState((previous) => ({
-          ...previous,
-          trades: latestTrades(incoming, previous.trades),
-          ...(fullLiveWindow && { isError: false, isLoading: false }),
-        }));
-      },
-      onStatus: (status) => {
-        const isDisconnected = status !== 'connected';
-        setState((previous) =>
-          previous.isDisconnected === isDisconnected
-            ? previous
-            : { ...previous, isDisconnected },
-        );
-        if (isDisconnected) {
-          liveTradeKeys.clear();
-        } else if (!connected) {
-          clearTimeout(fallbackTimer);
-          void fetchSnapshot();
-        }
-        connected = !isDisconnected;
-      },
+    const subscribe = () =>
+      watchHyperliquidPublicTrades({
+        coin,
+        limit: PERPS_RECENT_TRADES_LIMIT,
+        onTrades: (incoming) => {
+          if (disposed) return;
+          const matchingTrades = incoming.filter(
+            (trade) => trade.coin === coin,
+          );
+          for (const trade of matchingTrades) {
+            if (liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT) break;
+            liveTradeKeys.add(tradeKey(trade));
+          }
+          const fullLiveWindow =
+            liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
+          if (fullLiveWindow) clearTimeout(snapshotRetryTimer);
+          setState((previous) => ({
+            ...previous,
+            trades: latestTrades(matchingTrades, previous.trades),
+            ...(fullLiveWindow && { isError: false, isLoading: false }),
+          }));
+        },
+        onStatus: (status) => {
+          if (disposed) return;
+          const isDisconnected = status !== 'connected';
+          setState((previous) =>
+            previous.isDisconnected === isDisconnected
+              ? previous
+              : { ...previous, isDisconnected },
+          );
+          if (isDisconnected) {
+            liveTradeKeys.clear();
+          } else if (!connected) {
+            clearTimeout(fallbackTimer);
+            void fetchSnapshot(true);
+            void backgroundApiProxy.serviceHyperliquidSubscription
+              .getRetainedPublicTrades({ coin })
+              .then((trades) => {
+                if (disposed || !trades.length) return;
+                setState((previous) => {
+                  const merged = latestTrades(trades, previous.trades);
+                  // An unchanged retained window must not renew the UI cache TTL.
+                  if (
+                    merged.length === previous.trades.length &&
+                    merged.every(
+                      (trade, index) =>
+                        tradeKey(trade) === tradeKey(previous.trades[index]),
+                    )
+                  ) {
+                    return previous;
+                  }
+                  return { ...previous, trades: merged };
+                });
+              })
+              .catch(() => {
+                // The HTTP snapshot and live feed can still populate the tape.
+              });
+          }
+          connected = !isDisconnected;
+        },
+      });
+    let unwatch = subscribe();
+    const unregisterRefresh = registerPerpPublicTradesRefresh(async () => {
+      clearTimeout(fallbackTimer);
+      snapshotRetryAttempt = 0;
+      if (!connected) {
+        unwatch();
+        unwatch = subscribe();
+      }
+      await fetchSnapshot(true);
     });
     return () => {
       disposed = true;
+      unregisterRefresh();
       clearTimeout(fallbackTimer);
+      clearTimeout(snapshotRetryTimer);
       unwatch();
     };
-  }, [coin, active, attempt]);
+  }, [coin, active]);
 
   const smallBatch =
     state.trades.length > 0 && state.trades.length < INITIAL_BATCH_ROWS;
@@ -152,6 +273,5 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     ...state,
     trades: holdFirstBatch ? initialState.trades : state.trades,
     isLoading: state.isLoading || holdFirstBatch,
-    retry,
   };
 }

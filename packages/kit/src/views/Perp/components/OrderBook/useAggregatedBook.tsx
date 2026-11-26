@@ -82,20 +82,14 @@ export function aggregateLevels(
 
   let cumSize = 0;
   let maxSize = 0;
-  let currLevel: IOBLevel = {
-    price: '0',
-    size: '0',
-    cumSize: '0',
-  };
-  const aggregatedLevels: IOBLevel[] = [currLevel];
+  let currLevel: IOBLevel | undefined;
+  const aggregatedLevels: IOBLevel[] = [];
 
   const tickSizeBN = new BigNumber(tickSize);
   const invTickSizeBN = new BigNumber(1).dividedBy(tickSizeBN);
 
   for (let i = 0; i < levels.length; i += 1) {
     const level = levels[i];
-    const levelSize = parseFloat(level.size);
-    cumSize += levelSize;
     const roundedPrice =
       roundingMode === 'floor'
         ? floorToTickFast(
@@ -109,9 +103,16 @@ export function aggregateLevels(
             priceDecimals,
           );
 
-    if (currLevel.price === '0' || roundedPrice === currLevel.price) {
-      // Add to current level.
-      currLevel.price = roundedPrice;
+    if (
+      roundedPrice !== currLevel?.price &&
+      aggregatedLevels.length >= maxLevelsPerSide
+    ) {
+      break;
+    }
+
+    const levelSize = parseFloat(level.size);
+    cumSize += levelSize;
+    if (currLevel && roundedPrice === currLevel.price) {
       currLevel.size = (parseFloat(currLevel.size) + levelSize).toFixed(
         sizeDecimals,
       );
@@ -128,11 +129,6 @@ export function aggregateLevels(
 
     if (levelSize > maxSize) {
       maxSize = levelSize;
-    }
-
-    // Exit if reached max levels.
-    if (maxLevelsPerSide === aggregatedLevels.length) {
-      break;
     }
   }
 
@@ -239,7 +235,6 @@ export function useAggregatedBook(
       };
     }
 
-    // Check if aggregation is needed
     const needsAggregation =
       activeTickOption.exact === false ||
       activeTickOption.targetTick !== activeTickOption.apiTick;

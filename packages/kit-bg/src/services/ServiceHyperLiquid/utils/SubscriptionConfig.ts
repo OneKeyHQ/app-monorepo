@@ -215,7 +215,7 @@ function buildSubscriptionSpec<T extends ESubscriptionType>({
   };
 }
 
-function buildFastL2Params(
+export function buildFastL2Params(
   coin: string,
   l2BookParams: IEventL2BookParameters,
 ): IEventFastL2Parameters {

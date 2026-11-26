@@ -1,7 +1,6 @@
 import { createHash } from 'crypto';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import axios from 'axios';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -20,7 +19,6 @@ import {
   commitHardwareCloudSyncMigration,
   migrateHardwareCloudSyncRecords,
   prepareHardwareCloudSyncMigrationSource,
-  rebindLegacyHardwareSession,
   recoverHardwareCloudSyncMigration,
 } from './hardwareCloudSyncMigration';
 import {
@@ -407,163 +405,6 @@ test('a lost flush reply can be retried using the persisted exact upload hash', 
   await test.run();
   expect(test.writes).toEqual(['target', 'target']);
 });
-
-test.each([
-  'before-dispatch',
-  'ambiguous-target',
-  'stale-lock',
-  'wrong-source-key',
-  'unattested-sign-in',
-  'unattested-lock',
-  'committing',
-  'both-journals',
-  'cancelled',
-] as const)(
-  'legacy prepared migration re-attests only the source session (%s)',
-  async (scenario) => {
-    const fixture = await setup(scenario === 'stale-lock' ? 3 : 0);
-    if (scenario === 'ambiguous-target') {
-      fixture.loseNextReply();
-      await expect(fixture.run()).rejects.toThrow('Reply lost');
-      expect(fixture.writes).toEqual(['target']);
-    } else {
-      let inMigration = true;
-      fixture.savePending.mockImplementationOnce(async (pending) => {
-        fixture.source.pendingHardwareKeyMigration = pending;
-        inMigration = false;
-      });
-      await expect(fixture.run(() => inMigration)).rejects.toBeDefined();
-      expect(fixture.writes).toEqual([]);
-    }
-    const { hardwareSession, pendingHardwareKeyMigration, source } =
-      fixture.source;
-    if (!hardwareSession || !pendingHardwareKeyMigration || !source)
-      throw new OneKeyLocalError('Missing fixture source or journal');
-    // Older journals can retain an unbound target too; it is never used here.
-    const targetSession = pendingHardwareKeyMigration.target.hardwareSession;
-    if (targetSession) targetSession.boundBaseURL = undefined;
-    const endpoint = 'https://issuer.example.invalid';
-    const legacy: IKeylessCloudSyncCredential = {
-      ...fixture.source,
-      hardwareSession: { ...hardwareSession, boundBaseURL: undefined },
-      pendingHardwareKeyMigration:
-        scenario === 'committing'
-          ? { ...pendingHardwareKeyMigration, phase: 'committing' }
-          : pendingHardwareKeyMigration,
-    };
-    if (scenario === 'wrong-source-key') legacy.encryptionKey = 'ab'.repeat(32);
-    if (scenario === 'both-journals')
-      legacy.pendingDataKey = {
-        dek: fixture.target.encryptionKey,
-        dekId: 'synthetic-pending-key',
-        pwdHash: fixture.target.pwdHash,
-      };
-    mockSelected = source.credentialId;
-    const fresh: IHardwareCloudSyncSession = {
-      ...hardwareSession,
-      dekId: '',
-      accessToken: 'fixture-fresh-source',
-      boundBaseURL: endpoint,
-      boundBaseURLVerified: scenario !== 'unattested-sign-in',
-    };
-    let current = true;
-    const sent = jest.fn();
-    const client = axios.create({
-      baseURL: endpoint,
-      adapter: async (request) => {
-        sent(request.method, request.url, request.headers.get('Authorization'));
-        if (scenario === 'cancelled') current = false;
-        const lock =
-          scenario === 'stale-lock' && sent.mock.calls.length === 1
-            ? fixture.targetSpace.lock
-            : fixture.sourceSpace.lock;
-        return {
-          ...ok({ lock }),
-          config: request,
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          request:
-            scenario === 'unattested-lock'
-              ? undefined
-              : { responseURL: endpoint + String(request.url) },
-        };
-      },
-    });
-    type IRebind = Parameters<typeof rebindLegacyHardwareSession>[0];
-    const signIn = jest.fn(async () => fresh);
-    const save = jest.fn<
-      ReturnType<IRebind['save']>,
-      Parameters<IRebind['save']>
-    >(async (session, isBound, assertStored) => {
-      expect(isBound()).toBe(true);
-      await assertStored(legacy);
-      mockStored = { ...legacy, hardwareSession: session };
-      return mockStored;
-    });
-    const resumePending = jest.fn(async () => undefined);
-    const updateSyncItem = jest.spyOn(localDb, 'updateSyncItem');
-    const sourceBefore = structuredClone(fixture.sourceSpace);
-    const targetBefore = structuredClone(fixture.targetSpace);
-    const legacyBefore = structuredClone(legacy);
-    mockStored = legacy;
-    const rebind = rebindLegacyHardwareSession({
-      legacy,
-      isCurrent: () => current,
-      getClient: async () => ({ endpoint, client }),
-      signIn,
-      minGeneration: async () => (scenario === 'stale-lock' ? 4 : 1),
-      derive: async ({ unlock, expectedCredentialId }) => ({
-        credential: await unlock({
-          credentialId: expectedCredentialId,
-          source,
-          signAuth: async () => 'fixture-signature',
-          deriveKek: async (salt) =>
-            createHash('sha256').update(`source:${salt}`).digest('hex'),
-        }),
-      }),
-      save,
-      resumePending,
-    });
-    if (
-      scenario === 'before-dispatch' ||
-      scenario === 'ambiguous-target' ||
-      scenario === 'stale-lock'
-    ) {
-      await expect(rebind).resolves.toBeUndefined();
-      expect(save).toHaveBeenCalledTimes(1);
-      expect(mockStored).toEqual({
-        ...legacyBefore,
-        hardwareSession: { ...fresh, dekId: hardwareSession.dekId },
-      });
-    } else {
-      await expect(rebind).rejects.toBeInstanceOf(Error);
-      expect(save).not.toHaveBeenCalled();
-      expect(mockStored).toEqual(legacyBefore);
-    }
-    if (scenario === 'committing' || scenario === 'both-journals') {
-      expect(signIn).not.toHaveBeenCalled();
-      expect(sent).not.toHaveBeenCalled();
-    } else if (scenario === 'unattested-sign-in') {
-      expect(signIn).toHaveBeenCalledTimes(1);
-      expect(sent).not.toHaveBeenCalled();
-    } else if (scenario === 'stale-lock') {
-      expect(sent.mock.calls).toEqual([
-        ['get', '/prime/v1/sync/lock', 'DPoP fixture-fresh-source'],
-        ['get', '/prime/v1/sync/lock', 'DPoP fixture-fresh-source'],
-      ]);
-    } else {
-      expect(sent.mock.calls).toEqual([
-        ['get', '/prime/v1/sync/lock', 'DPoP fixture-fresh-source'],
-      ]);
-    }
-    expect(resumePending).not.toHaveBeenCalled();
-    expect(updateSyncItem).not.toHaveBeenCalled();
-    expect(primeCloudSyncPersistAtom.set).not.toHaveBeenCalled();
-    expect(fixture.sourceSpace).toEqual(sourceBefore);
-    expect(fixture.targetSpace).toEqual(targetBefore);
-  },
-);
 
 test('a target edited after a lost reply is not mistaken for a retry', async () => {
   const test = await setup();

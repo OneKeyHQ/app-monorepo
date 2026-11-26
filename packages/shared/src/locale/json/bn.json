@@ -4032,6 +4032,8 @@
   "perp_deposit_estimate_route_refresh__desc": "চূড়ান্ত প্রাপ্তির পরিমাণ সর্বশেষ রুট ও ফি অনুযায়ী আপডেট হতে পারে।",
   "perp_deposit_eta_one_minute__desc": "আনুমানিক ১ মিনিটে পৌঁছাবে",
   "perp_deposit_more_tokens_coming_soon__desc": "শিগগির আরও জমা টোকেন আসছে",
+  "perp_depth_chart__title": "ডেপথ চার্ট",
+  "perp_depth_range__title": "পরিসর",
   "perp_direction__title": "দিকনির্দেশ",
   "perp_distance_from_mid__title": "মধ্যমূল্য থেকে দূরত্ব",
   "perp_enable_trading_steps_abstraction__desc": "একীভূত ট্রেডিং অ্যাকাউন্ট সক্ষম করুন",

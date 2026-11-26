@@ -308,6 +308,8 @@ const MarketWidgetEditorForm = ({
   const showFooter = isReady && !isPickingAsset;
   let title = kind === 'single' ? copy.singleCoin : copy.marketList;
   if (isPickingAsset) title = copy.coin;
+  else if (settings?.instanceNumber)
+    title = `${title} #${settings.instanceNumber}`;
   return (
     <Page scrollEnabled={false}>
       <Page.Header

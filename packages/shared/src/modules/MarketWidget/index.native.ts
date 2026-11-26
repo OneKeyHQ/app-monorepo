@@ -7,6 +7,7 @@ import { createMarketWidgetConfigurationWriter } from '../../utils/marketWidgetU
 
 import type {
   IMarketWidgetEditorState,
+  IMarketWidgetInstalledInstance,
   IMarketWidgetKind,
   IMarketWidgetModule,
   IMarketWidgetProfile,
@@ -21,6 +22,7 @@ type IOneKeyMarketWidgetNativeModule = {
     kind: IMarketWidgetKind,
   ) => Promise<string>;
   beginWidgetEditing?: () => Promise<string>;
+  getInstalledWidgetInstances?: () => Promise<string>;
   setWidgetEditorDraft?: (session: string, assets: string) => Promise<string>;
   syncQuote?: (update: string) => Promise<boolean>;
   setChartMode?: IMarketWidgetModule['setChartMode'];
@@ -114,6 +116,21 @@ const marketWidget: IMarketWidgetModule = {
   async maskForTravelMode() {
     getConfigurationModule();
     await configurationWriter.mask();
+  },
+  async getInstalledInstances() {
+    const nativeModule = getNativeModule();
+    if (
+      !platformEnv.isNativeIOS ||
+      !nativeModule?.getInstalledWidgetInstances
+    ) {
+      return [];
+    }
+    await travelModeManager.ready;
+    if (travelModeManager.isMaskingDataSync()) return [];
+    const json = await nativeModule.getInstalledWidgetInstances();
+    return travelModeManager.isMaskingDataSync()
+      ? []
+      : (JSON.parse(json) as IMarketWidgetInstalledInstance[]);
   },
   async beginEditing(instance) {
     const nativeModule = getNativeModule();
