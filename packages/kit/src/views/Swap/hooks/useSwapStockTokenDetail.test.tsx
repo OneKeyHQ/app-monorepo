@@ -5,7 +5,9 @@ import { useRef } from 'react';
 
 import { act, render, renderHook } from '@testing-library/react-native';
 
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -27,6 +29,10 @@ if (!isReactActivity(activity)) {
 const Activity = activity;
 
 const mockFetchMarketTokenDetail = jest.fn();
+let mockIsRouteFocused = true;
+let mockAppIsLocked = false;
+let mockRootRoute: { name: string; params?: object } | undefined;
+const mockNavigationListeners = new Set<() => void>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -39,8 +45,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
-  useRouteIsFocusedWhenEnabled: () => true,
+  useRouteIsFocused: () => mockIsRouteFocused && !mockAppIsLocked,
+  useRouteIsFocusedWhenEnabled: () => mockIsRouteFocused && !mockAppIsLocked,
+}));
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
+  useAppIsLockedAtom: () => [mockAppIsLocked],
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
@@ -53,6 +63,15 @@ jest.mock('@onekeyhq/components', () => {
   return {
     getCurrentVisibilityState: () => true,
     onVisibilityStateChange: () => () => {},
+    rootNavigationRef: {
+      current: {
+        getCurrentRoute: () => mockRootRoute,
+        addListener: (_event: string, listener: () => void) => {
+          mockNavigationListeners.add(listener);
+          return () => mockNavigationListeners.delete(listener);
+        },
+      },
+    },
     useDeferredPromise: deferredPromiseModule.useDeferredPromise,
     useNetInfo: () => ({
       isRawInternetReachable: null,
@@ -80,6 +99,9 @@ const tick = async (ms = 0) => {
 describe('useSwapStockTokenDetail', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    mockIsRouteFocused = true;
+    mockAppIsLocked = false;
+    mockRootRoute = undefined;
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
     mockFetchMarketTokenDetail.mockReset();
@@ -104,6 +126,52 @@ describe('useSwapStockTokenDetail', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('keeps market detail fresh only in the live provider picker for its store', async () => {
+    const storeName = EJotaiContextStoreNames.swap;
+    const { result, rerender } = renderHook(() =>
+      useSwapStockTokenDetail({
+        token: stockToken,
+        providerSelectStoreName: storeName,
+      }),
+    );
+    await tick();
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(1);
+
+    mockIsRouteFocused = false;
+    rerender(undefined);
+    const openProviderPicker = (params: object) => {
+      act(() => {
+        mockRootRoute = { name: EModalSwapRoutes.SwapProviderSelect, params };
+        mockNavigationListeners.forEach((listener) => listener());
+      });
+    };
+    openProviderPicker({ storeName });
+    for (let i = 0; i < 7; i += 1) {
+      await tick(10_000);
+    }
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(8);
+    expect(result.current.tokenDetail?.stock?.isOpen).toBe(false);
+
+    openProviderPicker({ storeName: EJotaiContextStoreNames.marketSwap });
+    await tick(10_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(8);
+
+    openProviderPicker({ storeName, providerSelect: { quotes: [] } });
+    await tick(10_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(8);
+
+    mockAppIsLocked = true;
+    rerender(undefined);
+    openProviderPicker({ storeName });
+    await tick(10_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(8);
+
+    mockAppIsLocked = false;
+    rerender(undefined);
+    await tick();
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(9);
   });
 
   it('starts immediately when enabled and stops without issuing inactive requests', async () => {
