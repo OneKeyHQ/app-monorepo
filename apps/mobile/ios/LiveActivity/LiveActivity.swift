@@ -161,20 +161,20 @@ private struct SwapActivityETA: View {
 private struct SwapActivityProgress: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
   private let height: CGFloat = 10
-  private let pendingLimit: CGFloat = 0.95
 
   private var frozenProgress: Double {
     let order = context.attributes.order
     let durationMs = order.estimatedEndAtMs - order.startedAtMs
     if let stoppedAtMs = context.state.progressStoppedAtMs ?? context.state.updatedAtMs,
        durationMs > 0 {
-      return min(Double(pendingLimit), max(0, (stoppedAtMs - order.startedAtMs) / durationMs))
+      return min(1, max(0, (stoppedAtMs - order.startedAtMs) / durationMs))
     }
-    return min(Double(pendingLimit), max(0, context.state.remoteProgress ?? 0))
+    return min(1, max(0, context.state.remoteProgress ?? 0))
   }
 
-  private func timerTrack(_ interval: ClosedRange<Date>, width: CGFloat) -> some View {
-    ProgressView(timerInterval: interval, countsDown: false) {
+  private func pendingTrack(width: CGFloat) -> some View {
+    let order = context.attributes.order
+    return ProgressView(timerInterval: order.startedAt...order.estimatedEndAt, countsDown: false) {
       EmptyView()
     } currentValueLabel: {
       EmptyView()
@@ -182,24 +182,6 @@ private struct SwapActivityProgress: View {
     .tint(swapGreen)
     .scaleEffect(x: 1, y: 2.5, anchor: .center)
     .frame(width: width, height: height)
-  }
-
-  private func pendingTrack(width: CGFloat) -> some View {
-    let order = context.attributes.order
-    let fillWidth = width * pendingLimit
-    let emptyInterval = Date.distantFuture.addingTimeInterval(-60)...Date.distantFuture
-
-    // Crop two full-width system tracks so their grey rails meet without a seam.
-    // The leading track keeps updating through WidgetKit while the app is suspended.
-    return HStack(spacing: 0) {
-      timerTrack(order.startedAt...order.estimatedEndAt, width: width)
-        .frame(width: fillWidth, height: height, alignment: .leading)
-        .clipped()
-      timerTrack(emptyInterval, width: width)
-        .frame(width: width - fillWidth, height: height, alignment: .trailing)
-        .clipped()
-        .accessibilityHidden(true)
-    }
   }
 
   var body: some View {
