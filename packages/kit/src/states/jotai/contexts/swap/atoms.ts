@@ -676,6 +676,10 @@ export const {
   to: false,
 });
 
+export const { use: useSwapStockFromAccountRefreshAtom } = contextAtom<
+  { scopeKey: string; revision: number } | undefined
+>(undefined);
+
 export const { atom: swapTokenMultiplierLookupFailureAtom } = contextAtom<
   Partial<Record<ESwapDirectionType, ISwapToken>>
 >({});

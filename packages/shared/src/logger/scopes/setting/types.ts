@@ -37,6 +37,8 @@ export interface ISettingValueChangedParams {
   itemId: string;
   from: string;
   to: string;
+  // Set for settings that can also be changed outside the settings page.
+  entry?: 'settingsPage' | 'sidebarContextMenu';
 }
 
 export interface ISettingsSearchedParams {

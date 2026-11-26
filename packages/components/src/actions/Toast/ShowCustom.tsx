@@ -12,7 +12,7 @@ import {
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { isNil } from 'lodash';
-import { Animated, PanResponder, Platform, StyleSheet } from 'react-native';
+import { Animated, PanResponder, StyleSheet } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -25,39 +25,16 @@ import { Trigger } from '../Trigger';
 import type {
   IOverlayAnimation,
   IOverlayBackdrop,
-  IOverlayMotion,
 } from '@onekeyfe/react-native-native-overlay';
 
-const CUSTOM_TOAST_SPRING = { mass: 1, stiffness: 460, damping: 36 };
-
-// Match the message toast spring and exit curve in the new UI.
+// The former Tamagui toast: scale 0.8 + fade, 20pt above, `quick` spring.
 const CUSTOM_TOAST_ANIMATION: IOverlayAnimation = {
   enter: {
     type: 'scale',
-    scale: 0.96,
-    offsetY: -24,
+    scale: 0.8,
+    offsetY: -20,
     fade: true,
-    // Older Chromium and Safari releases reject CSS linear() spring easing.
-    motion: Platform.select<IOverlayMotion>({
-      native: { type: 'spring', spring: CUSTOM_TOAST_SPRING },
-      default: {
-        type: 'timing',
-        timing: { durationMs: 250, easing: [0.32, 0.72, 0, 1] },
-      },
-    }),
-  },
-  exit: {
-    type: 'scale',
-    scale: 0.96,
-    offsetY: -24,
-    fade: true,
-    motion: {
-      type: 'timing',
-      timing: {
-        durationMs: 200,
-        easing: [0.32, 0.72, 0, 1],
-      },
-    },
+    motion: 'quick',
   },
 };
 // Tamagui's default swipe threshold.
@@ -118,14 +95,12 @@ function useSwipeUpToClose(onClose: () => void, enabled: boolean) {
           }
           Animated.spring(translateY, {
             toValue: 0,
-            ...CUSTOM_TOAST_SPRING,
             useNativeDriver: false,
           }).start();
         },
         onPanResponderTerminate: () => {
           Animated.spring(translateY, {
             toValue: 0,
-            ...CUSTOM_TOAST_SPRING,
             useNativeDriver: false,
           }).start();
         },
@@ -251,11 +226,11 @@ function BasicShowToaster({
           <CustomToasterContext.Provider value={value}>
             <Stack
               testID="confirm-on-device-toast-container"
-              borderRadius="$5"
+              borderRadius="$2.5"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
             >
-              <ThemeableStack bg="$bg" borderRadius="$5" elevation={44}>
+              <ThemeableStack bg="$bg" borderRadius="$2.5" elevation={44}>
                 {children}
               </ThemeableStack>
             </Stack>

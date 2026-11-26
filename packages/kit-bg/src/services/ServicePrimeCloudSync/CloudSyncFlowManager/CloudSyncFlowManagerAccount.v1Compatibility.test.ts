@@ -61,6 +61,14 @@ test('frozen 5e352660 reader retains v2 records and tombstones and cannot echo v
         vendor: 'onekey',
       })),
       getAllWallets: jest.fn(async () => ({ wallets: [wallet] })),
+      getAllIndexedAccounts: jest.fn(async () => ({
+        indexedAccounts: [0, 1].map((index) => ({
+          id: publicAccountSnapshotToAccount(
+            publicAccountTestSnapshot(index),
+            wallet.id,
+          ).indexedAccountId,
+        })),
+      })),
       getSyncItemSafe: jest.fn(async ({ id }: { id: string }) => {
         const item = pool.get(id);
         return item ? { ...item } : undefined;

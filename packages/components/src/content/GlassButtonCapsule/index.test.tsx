@@ -8,6 +8,7 @@ import { GlassButtonCapsule as FallbackCapsule } from '.';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import { NavCloseButton } from '../../layouts/Navigation/Header/HeaderBackButton';
 import {
   GlassHeaderProvider,
   useInGlassHeader,
@@ -36,7 +37,14 @@ jest.mock('../GlassView', () => ({
     </div>
   ),
 }));
+jest.mock('../../utils/getFontSize', () => ({}));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: { ui: { button: { click: jest.fn() } } },
+}));
 jest.mock('../../primitives', () => ({
+  ButtonFrame: MockButtonFrame,
+  Icon: () => null,
+  getSharedButtonStyles: () => ({}),
   XStack: ({
     children,
     px,
@@ -58,10 +66,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {},
 }));
 
-function CloseControl({ onClose }: { onClose: () => void }) {
+function MockButtonFrame({ onPress }: { onPress: () => void }) {
   const inGlass = useInGlassHeader();
   return (
-    <button type="button" data-in-glass={inGlass} onClick={onClose}>
+    <button type="button" data-in-glass={inGlass} onClick={onPress}>
       Close
     </button>
   );
@@ -71,13 +79,20 @@ beforeEach(() => {
   mockGlassAvailable = true;
 });
 
-it('gives a single close control symmetric glass padding and preserves clicks', () => {
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+it('closes immediately and ignores repeated presses inside the glass capsule', () => {
+  jest.useFakeTimers();
   const onClose = jest.fn();
-  render(
+  const nextClose = jest.fn();
+  const capsule = (close: () => void) => (
     <GlassButtonCapsule circular>
-      <CloseControl onClose={onClose} />
-    </GlassButtonCapsule>,
+      <NavCloseButton onPress={close} />
+    </GlassButtonCapsule>
   );
+  const { rerender } = render(capsule(onClose));
   expect(screen.getByTestId('glass-surface').dataset).toMatchObject({
     interactive: 'true',
     effect: 'regular',
@@ -86,9 +101,18 @@ it('gives a single close control symmetric glass padding and preserves clicks', 
     px: '$1',
     py: '$1',
   });
-  expect(screen.getByRole('button').dataset.inGlass).toBe('true');
-  fireEvent.click(screen.getByRole('button'));
+  const button = screen.getByRole('button');
+  expect(button.dataset.inGlass).toBe('true');
+  fireEvent.click(button);
   expect(onClose).toHaveBeenCalledTimes(1);
+  jest.advanceTimersByTime(200);
+  rerender(capsule(nextClose));
+  fireEvent.click(button);
+  jest.advanceTimersByTime(300);
+  expect(nextClose).not.toHaveBeenCalled();
+  expect(onClose).toHaveBeenCalledTimes(1);
+  fireEvent.click(button);
+  expect(nextClose).toHaveBeenCalledTimes(1);
 });
 
 it('keeps the existing grouped-header capsule spacing', () => {
@@ -101,7 +125,7 @@ it('keeps the original close control and context when glass is unavailable', () 
   const onClose = jest.fn();
   render(
     <GlassButtonCapsule circular>
-      <CloseControl onClose={onClose} />
+      <NavCloseButton onPress={onClose} />
     </GlassButtonCapsule>,
   );
   expect(screen.queryByTestId('glass-surface')).toBeNull();
@@ -115,7 +139,7 @@ it('keeps other platforms as a passthrough without changing ancestor context', (
   render(
     <GlassHeaderProvider>
       <FallbackCapsule circular>
-        <CloseControl onClose={jest.fn()} />
+        <NavCloseButton onPress={jest.fn()} />
       </FallbackCapsule>
     </GlassHeaderProvider>,
   );

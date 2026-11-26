@@ -6,7 +6,7 @@ import {
   getPerpsDepthChartStatus,
   getPerpsL2BookColdCacheGlobalSnapshot,
   getPerpsL2BookInteractiveRefreshDelayMs,
-  hasL2BookLevels,
+  hasL2BookSides,
   hasL2BookSnapshot,
   isL2BookForTarget,
   isPerpsL2BookInteractive,
@@ -24,14 +24,12 @@ afterEach(() => {
 });
 
 describe('depth chart snapshots', () => {
-  it('recognizes genuine empty and one-sided snapshots without relaxing the order book gate', () => {
+  it('recognizes genuine empty and one-sided depth snapshots', () => {
     const empty = buildBook({});
     const bidOnly = buildBook({ bidLevels: [{ px: '1', sz: '1', n: 1 }] });
     expect(hasL2BookSnapshot(empty)).toBe(true);
     expect(hasL2BookSnapshot(bidOnly)).toBe(true);
     expect(hasL2BookSnapshot(undefined)).toBe(false);
-    expect(hasL2BookLevels(empty)).toBe(false);
-    expect(hasL2BookLevels(bidOnly)).toBe(false);
   });
 
   it.each([
@@ -102,10 +100,10 @@ function buildBook({
   };
 }
 
-describe('hasL2BookLevels', () => {
-  it('requires both sides to have renderable levels', () => {
+describe('hasL2BookSides', () => {
+  it('accepts two side arrays even when either or both are empty', () => {
     expect(
-      hasL2BookLevels(
+      hasL2BookSides(
         buildBook({
           bidLevels: [{ px: '1', sz: '1', n: 1 }],
           askLevels: [{ px: '2', sz: '1', n: 1 }],
@@ -114,20 +112,21 @@ describe('hasL2BookLevels', () => {
     ).toBe(true);
 
     expect(
-      hasL2BookLevels(
+      hasL2BookSides(
         buildBook({
           bidLevels: [{ px: '1', sz: '1', n: 1 }],
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
-      hasL2BookLevels(
+      hasL2BookSides(
         buildBook({
           askLevels: [{ px: '2', sz: '1', n: 1 }],
         }),
       ),
-    ).toBe(false);
-    expect(hasL2BookLevels(undefined)).toBe(false);
+    ).toBe(true);
+    expect(hasL2BookSides(buildBook({}))).toBe(true);
+    expect(hasL2BookSides(undefined)).toBe(false);
   });
 });
 

@@ -1,12 +1,137 @@
+import { orderBy, uniqBy } from 'lodash';
+
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type {
+  IRecentTrade,
+  IWsTrades,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+
+export interface IPublicTradesEvidence {
+  recovered: boolean;
+  tip?: IRecentTrade;
+}
+type IHistoryListener = (
+  trades: IRecentTrade[],
+  evidence: IPublicTradesEvidence,
+  observedAtJoin?: IRecentTrade,
+) => void;
+type IRecoveryGeneration = {
+  request?: Promise<boolean>;
+  status?: 'pending' | 'fulfilled' | 'rejected';
+  snapshot?: IRecentTrade[];
+};
+type IPublicTradesHistory = {
+  generation: IRecoveryGeneration;
+  listeners: Set<(trades: IRecentTrade[]) => void>;
+  latestObservedTrade?: IRecentTrade;
+};
+
+const histories = new Map<string, IPublicTradesHistory>();
+
+export function isLaterTrade(candidate: IRecentTrade, current: IRecentTrade) {
+  return (
+    candidate.time > current.time ||
+    (candidate.time === current.time && candidate.tid > current.tid)
+  );
+}
+
+export function mergePublicTrades(
+  incoming: IRecentTrade[],
+  previous: IRecentTrade[],
+) {
+  if (!incoming.length) return previous;
+  const unique = uniqBy(
+    [...incoming, ...previous],
+    (trade) => `${trade.time}:${trade.tid}`,
+  );
+  return orderBy(unique, ['time', 'tid'], ['desc', 'desc']).slice(
+    0,
+    PERPS_RECENT_TRADES_LIMIT,
+  );
+}
+
+export function acquirePublicTradesHistory(
+  coin: string,
+  listener: IHistoryListener,
+) {
+  const history: IPublicTradesHistory = histories.get(coin) ?? {
+    generation: {},
+    listeners: new Set(),
+  };
+  histories.set(coin, history);
+  let observedGeneration = history.generation;
+  const evidence = (): IPublicTradesEvidence => ({
+    recovered: history.generation.status === 'fulfilled',
+    tip: history.generation.snapshot?.[0],
+  });
+  const notify = (rows: IRecentTrade[]) => listener(rows, evidence());
+  history.listeners.add(notify);
+  listener(
+    history.generation.snapshot ?? [],
+    evidence(),
+    history.latestObservedTrade,
+  );
+  return {
+    evidence,
+    disconnect() {
+      if (observedGeneration === history.generation) history.generation = {};
+    },
+    hasRecovery: () => !!history.generation.request,
+    discardCompletedRecovery() {
+      const generation = history.generation;
+      if (!generation.request || generation.status === 'pending') return false;
+      generation.request = undefined;
+      generation.status = undefined;
+      return true;
+    },
+    fetch(reconnect = false) {
+      const generation = history.generation;
+      observedGeneration = generation;
+      if (reconnect && generation.request) return generation.request;
+      const isObsolete = (expected: Promise<boolean>) =>
+        reconnect &&
+        (history.generation !== generation || generation.request !== expected);
+      const request: Promise<boolean> = backgroundApiProxy.serviceHyperliquid
+        .getPerpRecentTrades({ coin })
+        .then(
+          (trades) => {
+            if (isObsolete(request)) return false;
+            const incoming = trades.filter((trade) => trade.coin === coin);
+            history.generation.snapshot = mergePublicTrades(
+              incoming,
+              history.generation.snapshot ?? [],
+            );
+            if (reconnect) generation.status = 'fulfilled';
+            history.listeners.forEach((receive) => receive(incoming));
+            return true;
+          },
+          (error: unknown) => {
+            if (isObsolete(request)) return false;
+            if (reconnect) generation.status = 'rejected';
+            throw error;
+          },
+        );
+      // Each watcher can acknowledge the same reconnect on a different turn.
+      if (reconnect) {
+        generation.request = request;
+        generation.status = 'pending';
+      }
+      return request;
+    },
+    release() {
+      history.listeners.delete(notify);
+      if (!history.listeners.size) histories.delete(coin);
+    },
+  };
+}
 
 export function watchHyperliquidPublicTrades({
   coin,
@@ -16,7 +141,7 @@ export function watchHyperliquidPublicTrades({
 }: {
   coin: string;
   limit?: number;
-  onTrades: (trades: IWsTrades) => void;
+  onTrades: (trades: IWsTrades, displayOnly?: boolean) => void;
   onStatus?: (status: 'connected' | 'disconnected' | 'failed') => void;
 }) {
   const service = backgroundApiProxy.serviceHyperliquidSubscription;
@@ -101,7 +226,20 @@ export function watchHyperliquidPublicTrades({
       const trades = (payload.data as IWsTrades).filter(
         (trade) => trade.coin === coin,
       );
-      if (trades.length) onTrades(trades);
+      const history = histories.get(coin);
+      if (history) {
+        for (const trade of trades) {
+          if (
+            Number.isFinite(trade.time) &&
+            Number.isFinite(trade.tid) &&
+            (!history.latestObservedTrade ||
+              isLaterTrade(trade, history.latestObservedTrade))
+          ) {
+            history.latestObservedTrade = trade;
+          }
+        }
+      }
+      if (trades.length) onTrades(trades, payload.displayOnly);
     }
   };
 

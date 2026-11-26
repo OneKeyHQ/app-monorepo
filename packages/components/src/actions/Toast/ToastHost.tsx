@@ -138,13 +138,10 @@ function BasicToastHost() {
   }, [context]);
 
   useEffect(() => {
-    const config = {
+    overlayToastStore.configure({
       position: landsAtTop ? 'top-center' : 'bottom-right',
       theme: isDark ? 'dark' : 'light',
       cardColor: context.colors.bg,
-      cardBorderColor: isDark
-        ? 'rgba(255, 255, 255, 0.09)'
-        : 'rgba(0, 0, 0, 0.06)',
       contentWidth:
         Math.min(pageWidth, NATIVE_CONTENT_MAX_PAGE_WIDTH) -
         NATIVE_CONTENT_MARGIN,
@@ -154,8 +151,7 @@ function BasicToastHost() {
       topObstructionGap: TOAST_UNDER_OBSTRUCTION_GAP,
       topObstructionRoom: TOAST_ROOM,
       testID: 'onekey-toast-messages',
-    } as Parameters<typeof overlayToastStore.configure>[0];
-    overlayToastStore.configure(config);
+    });
   }, [context.colors.bg, height, isDark, landsAtTop, obstruction, pageWidth]);
 
   return <OverlayToastHost />;
