@@ -2113,4 +2113,59 @@ describe('in-memory pending private history & public-only localHistory redaction
     expect(merged.txs[0].decodedTx.protocolFeeInNative).toBe('0.5');
     expect(merged.txs[0].decodedTx.nonce).toBe(9);
   });
+
+  it('resolves a single decrypted private transfer by txid for HistoryDetails and caches it in memory', async () => {
+    const { service } = build();
+    await service.buildRegisterTx(key);
+    const txHash =
+      '0x07a05aee3df9732da878e1c3e69edcbc43d364584cf5fc93a87de44f60c43425';
+    jest.mocked(fetchStrk20HistoryPage).mockResolvedValueOnce({
+      transactions: [
+        {
+          transactionHash: BigInt(txHash),
+          blockNumber: 18_511_946,
+          notes: [],
+          deposits: [],
+          withdrawals: [],
+          openNoteDeposits: [],
+        },
+      ],
+      cursor: { subchannels: [], historyComplete: true },
+    });
+    jest.mocked(getStrk20HistoryTransfers).mockResolvedValue([
+      {
+        kind: 'transfer',
+        from: BigInt(ACCOUNT_ADDRESS),
+        to: 0x7bn,
+        token: BigInt(STRK),
+        amount: 2_000_000_000_000_000_000n,
+      },
+    ]);
+
+    const resolved = await service.resolvePrivateHistoryTx({
+      ...key,
+      txid: txHash,
+    });
+    expect(resolved?.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '2',
+    );
+    expect(
+      BigInt(resolved?.decodedTx.actions[0].assetTransfer?.to ?? '0x0'),
+    ).toBe(0x7bn);
+
+    const callsAfterFirst = jest.mocked(fetchStrk20HistoryPage).mock.calls
+      .length;
+    const cached = await service.resolvePrivateHistoryTx({
+      ...key,
+      txid: txHash,
+    });
+    expect(cached).toBe(resolved);
+    expect(jest.mocked(fetchStrk20HistoryPage).mock.calls.length).toBe(
+      callsAfterFirst,
+    );
+
+    expect(
+      await service.resolvePrivateHistoryTx({ ...key, txid: 'not-a-felt' }),
+    ).toBeUndefined();
+  });
 });

@@ -42,6 +42,7 @@ import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Bro
 import {
   formatMockMessage,
   getStarknetHistoryOperationTitle,
+  readStarknetPrivacyBlock,
 } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import {
   isPrivateSendHistoryTx,
@@ -540,6 +541,35 @@ function HistoryDetails() {
           });
       }
 
+      const starknetPrivacy = readStarknetPrivacyBlock(
+        decodedOnChainTx?.decodedTx.extraInfo,
+      );
+      if (
+        decodedOnChainTx &&
+        starknetPrivacy?.kind === 'transfer' &&
+        !decodedOnChainTx.decodedTx.actions[0]?.assetTransfer
+      ) {
+        const decryptedTx = await backgroundApiProxy.serviceStarknetPrivacy
+          .resolvePrivateHistoryTx({
+            networkId,
+            accountId,
+            txid,
+          })
+          .catch(() => undefined);
+        const decryptedAction = decryptedTx?.decodedTx.actions[0];
+        if (decryptedTx && decryptedAction?.assetTransfer) {
+          decodedOnChainTx = {
+            ...decodedOnChainTx,
+            decodedTx: {
+              ...decodedOnChainTx.decodedTx,
+              signer: decryptedTx.decodedTx.signer,
+              to: decryptedAction.assetTransfer.to,
+              actions: decryptedTx.decodedTx.actions,
+            },
+          };
+        }
+      }
+
       if (decodedOnChainTx && isPrivateSendHistoryTx(decodedOnChainTx)) {
         await openPrivateSendHistoryDetailOnce(decodedOnChainTx);
         return {
@@ -579,7 +609,9 @@ function HistoryDetails() {
       swrKey: txid
         ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
         : undefined,
-      swrShouldPersist: () => !isLocalWalletHistory,
+      swrShouldPersist: () =>
+        !isLocalWalletHistory &&
+        !readStarknetPrivacyBlock(historyTxParam?.decodedTx.extraInfo),
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
@@ -591,7 +623,7 @@ function HistoryDetails() {
   );
 
   const { txDetails, decodedOnChainTx, addressMap } = result || {};
-  const historyTx = historyTxParam ?? decodedOnChainTx;
+  const historyTx = decodedOnChainTx ?? historyTxParam;
 
   // Prefer the detail response's KYT block, falling back to the one carried from
   // the history list so the section renders before the detail request resolves.
