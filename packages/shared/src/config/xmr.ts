@@ -28,6 +28,8 @@ export const XMR_TIP_LAG_WARNING_BLOCKS = 30;
  */
 export const XMR_SEND_MAX_BLOCKS_LEFT = 100;
 
+export const XMR_NOT_SYNCED_ERROR_CODE = 'XMR_NOT_SYNCED';
+
 /**
  * Ring size, including the real spend; current consensus value, pinned in
  * the runtime too (`spend::RING_LEN`) since asking the node would let a

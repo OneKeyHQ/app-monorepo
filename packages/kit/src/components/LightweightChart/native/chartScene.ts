@@ -40,6 +40,10 @@ export type INativeChartScene = {
     color: string;
   })[];
   axisWidth: number;
+  // Set with `secondaryLineBlankSlots` when the time scale runs on past the
+  // last priced point (a window still filling in): the x a finger over the
+  // blank slots is held to.
+  pricedEndX?: number;
   secondarySegments: IPoint[][];
   lastPoint?: IPoint;
   fontSize: number;
@@ -304,6 +308,13 @@ function buildSeriesGeometry(
     time: Number(point.time),
     price: point.value,
   }));
+  const lastPriced = hoverPoints[hoverPoints.length - 1];
+  const pricedEndX =
+    config.secondaryLineBlankSlots &&
+    lastPriced &&
+    timeline[timeline.length - 1] > lastPriced.time
+      ? lastPriced.x
+      : undefined;
   return {
     firstX,
     lastX,
@@ -312,6 +323,7 @@ function buildSeriesGeometry(
     xAtIndex,
     hoverPoints,
     points,
+    pricedEndX,
   };
 }
 
@@ -921,8 +933,25 @@ function drawPriceAxis(
 function buildTimeLabels(context: IChartDrawingContext) {
   const {
     config,
-    layout: { points },
+    layout: { points: seriesPoints, secondary, indexByTime, xAtIndex },
   } = context;
+  // With `secondaryLineBlankSlots`, the overlay carries times the series has
+  // no value for yet (a window that is still filling in). They are on the
+  // time scale, so they are labelled like any other slot. Other overlays'
+  // gaps are not time slots of their own and stay unlabelled.
+  const seriesTimes = new Set(seriesPoints.map((point) => point.time));
+  const blankSlots = (config.secondaryLineBlankSlots ? secondary : []).flatMap(
+    (point) => {
+      const time = Number(point.time);
+      const index = indexByTime.get(time);
+      return 'value' in point || seriesTimes.has(time) || index === undefined
+        ? []
+        : [{ time, x: xAtIndex(index), isBlankSlot: true }];
+    },
+  );
+  const points = blankSlots.length
+    ? [...seriesPoints, ...blankSlots].toSorted((a, b) => a.time - b.time)
+    : seriesPoints;
   // Resolve the default once, only when labels actually use the timezone.
   const timeScaleConfig =
     config.timeZone !== undefined || config.useTimeScaleTickMarkWithoutUnit
@@ -943,10 +972,17 @@ function buildTimeLabels(context: IChartDrawingContext) {
       type = 1;
     else if (!previous || day !== timeLabel(previous.time, 2, timeScaleConfig))
       type = 2;
+    // Blank slots have no trade to mark, so the ones on the hour, then the
+    // half hour, are labelled ahead of the rest and the axis reads as a clock.
+    let clockMarkBonus = 0;
+    if ('isBlankSlot' in point && type === 3) {
+      if (point.time % 3600 === 0) clockMarkBonus = 0.5;
+      else if (point.time % 1800 === 0) clockMarkBonus = 0.25;
+    }
     return {
       ...point,
       text: timeLabel(point.time, type, timeScaleConfig),
-      priority: 4 - type,
+      priority: 4 - type + clockMarkBonus,
     };
   });
   return candidates;
@@ -1014,13 +1050,22 @@ export function buildNativeChartScene({
   const layout = buildChartLayout(config, width, height, measureText);
   const painter = createScenePainter();
   painter.style('axis', config.theme.textSubduedColor);
-  const { plot, points, hoverPoints, axisWidth, fontSize, axisOnLeft } = layout;
+  const {
+    plot,
+    points,
+    hoverPoints,
+    axisWidth,
+    fontSize,
+    axisOnLeft,
+    pricedEndX,
+  } = layout;
   const scene: INativeChartScene = {
     commands: painter.commands,
     customPaintStyles: painter.customPaintStyles,
     plot,
     points,
     hoverPoints,
+    pricedEndX,
     axisWidth,
     fontSize,
     axisOnLeft,
@@ -1040,6 +1085,18 @@ export function buildNativeChartScene({
   scene.showCrosshairPrice =
     !config.hideCrosshairPriceLabel && !!config.showPriceScale;
   return scene;
+}
+
+// Declared before the worklets that call it: the Reanimated plugin turns each
+// worklet into a value that captures its closure where it is defined, so a
+// helper declared later is undefined on the UI thread.
+// Blank time slots past the last point (a window still filling in) carry no
+// price. A finger over them reads the last point, so the guide stays on it
+// rather than following the finger into time that has not happened yet. Charts
+// without such slots keep the finger's x.
+function clampToPricedEnd(scene: INativeChartScene, x: number) {
+  'worklet';
+  return scene.pricedEndX === undefined ? x : Math.min(x, scene.pricedEndX);
 }
 
 export function getNativeChartHover(
@@ -1071,7 +1128,7 @@ export function getNativeChartHover(
     time: point.time,
     price: point.price,
     secondaryPrice: point.secondaryPrice,
-    x: x - scene.plot.x,
+    x: clampToPricedEnd(scene, x) - scene.plot.x,
     y,
   };
 }
@@ -1285,15 +1342,16 @@ export function buildNativeChartCrosshair(
     customPaintStyles: buildCrosshairStyles(scene, point, scrub),
   };
   if (!point) return overlay;
+  const guideX = clampToPricedEnd(scene, x);
   drawCrosshairPlot(
     scene,
     point,
     overlay.commands,
-    scrub ? x : point.x,
+    scrub ? guideX : point.x,
     scrub,
     hideHoverDot,
   );
   drawCrosshairPrice(scene, point, overlay.commands);
-  drawScrubTooltip(scene, point, x, y, overlay, scrub);
+  drawScrubTooltip(scene, point, guideX, y, overlay, scrub);
   return overlay;
 }

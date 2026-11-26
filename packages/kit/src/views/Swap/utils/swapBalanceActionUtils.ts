@@ -15,16 +15,18 @@ export interface ISwapBalanceActionProps {
 // test ids and loading rule stay identical.
 export function getSwapBalanceActionProps({
   isLoadedZero,
+  isUnavailable = false,
   refreshing,
   onRefresh,
   onMax,
 }: {
   isLoadedZero: boolean;
+  isUnavailable?: boolean;
   refreshing: boolean;
   onRefresh: () => void;
   onMax?: () => void;
 }): ISwapBalanceActionProps {
-  if (isLoadedZero) {
+  if (isLoadedZero || isUnavailable) {
     return {
       onPress: onRefresh,
       actionIconName: 'RefreshCcwOutline',

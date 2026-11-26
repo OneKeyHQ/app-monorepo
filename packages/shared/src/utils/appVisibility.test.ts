@@ -172,3 +172,41 @@ describe('getCurrentVisibilityState in browser runtimes', () => {
     expect(getCurrentVisibilityState()).toBe(false);
   });
 });
+
+describe('onVisibilityStateChange in the desktop renderer', () => {
+  const originalDesktopApi = globalThis.desktopApi;
+  afterEach(() => {
+    globalThis.desktopApi = originalDesktopApi;
+  });
+
+  function installDesktopAppState() {
+    mockPlatformEnv.isDesktop = true;
+    let emit: (state: unknown) => void = () => undefined;
+    globalThis.desktopApi = {
+      onAppState: (cb: (state: unknown) => void) => {
+        emit = cb;
+        return () => undefined;
+      },
+    } as unknown as typeof globalThis.desktopApi;
+    return { emit: (state: unknown) => emit(state) };
+  }
+
+  it('reports an unknown app state as hidden by default', () => {
+    const { emit } = installDesktopAppState();
+    const callback = jest.fn();
+    onVisibilityStateChange(callback);
+    emit(undefined);
+    expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it('skips an unknown app state when asked to', () => {
+    const { emit } = installDesktopAppState();
+    const callback = jest.fn();
+    onVisibilityStateChange(callback, { ignoreUnknownDesktopState: true });
+    emit(undefined);
+    expect(callback).not.toHaveBeenCalled();
+    emit('blur');
+    emit('active');
+    expect(callback.mock.calls).toEqual([[false], [true]]);
+  });
+});

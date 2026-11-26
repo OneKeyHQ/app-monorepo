@@ -47,6 +47,7 @@ import {
   TradingViewIndicatorQuickBar,
 } from '../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
 import { resolveTradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
+import { TradingViewNativeIntervalDropdown } from '../TradingViewChartControls/intervalSelector/NativeIntervalDropdown';
 import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import {
@@ -299,6 +300,7 @@ const TradingViewNativeContent = memo(
     onChartSwitch,
     onDataStateChange,
     onIntervalChange,
+    onIntervalSelect,
     onNativeChartClose,
     onNativeSubIndicatorCountChange,
     onNativeIndicatorQuickBarChange,
@@ -777,6 +779,7 @@ const TradingViewNativeContent = memo(
       ) => {
         const appliedInterval = applyChartInterval(interval, options);
         if (appliedInterval) publishSyncedInterval(appliedInterval);
+        return appliedInterval;
       },
       [applyChartInterval, publishSyncedInterval],
     );
@@ -784,9 +787,10 @@ const TradingViewNativeContent = memo(
     const handleChartIntervalChange = useCallback(
       (interval: string) => {
         pendingCalendarViewportTargetRef.current = null;
-        changeChartInterval(interval);
+        const appliedInterval = changeChartInterval(interval);
+        if (appliedInterval) onIntervalSelect?.(appliedInterval);
       },
-      [changeChartInterval],
+      [changeChartInterval, onIntervalSelect],
     );
 
     const handleChartTypeChange = useCallback(
@@ -1441,6 +1445,16 @@ const TradingViewNativeContent = memo(
       >
         <Stack flex={1} w="100%" h="100%" bg="$transparent">
           {controlsSlot ? controlsSlot.renderControls(controls) : controls}
+          {/* A split view shows every panel's interval, e.g. in its header,
+              where a pick is this chart's own, as in its controls row. */}
+          {controlsSlot
+            ? controlsSlot.renderIntervalControl(
+                <TradingViewNativeIntervalDropdown
+                  intervalConfig={intervalConfig}
+                  onIntervalChange={handleChartIntervalChange}
+                />,
+              )
+            : null}
           {showFullscreenIndicatorRail ? (
             <XStack flex={1} minHeight={0}>
               {chartArea}

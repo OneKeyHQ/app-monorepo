@@ -158,12 +158,13 @@ function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
 function useOrderBookEpoch(
   coin: string | undefined,
   tickKey: string | undefined,
-  isEmpty: boolean,
+  hasBids: boolean,
+  hasAsks: boolean,
   layoutKey = '',
 ): number {
   const epochRef = useRef(0);
   const keyRef = useRef<string | null>(null);
-  const key = `${coin ?? ''}|${tickKey ?? ''}|${isEmpty ? 1 : 0}|${layoutKey}`;
+  const key = `${coin ?? ''}|${tickKey ?? ''}|${Number(hasBids)}${Number(hasAsks)}|${layoutKey}`;
   if (keyRef.current !== key) {
     keyRef.current = key;
     epochRef.current += 1;
@@ -261,6 +262,12 @@ interface IOrderBookProps {
   variant: IOrderBookVariant;
 }
 
+const VERTICAL_COLUMN_WIDTHS = {
+  price: '33%',
+  size: '30%',
+  total: '37%',
+} as const;
+
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
@@ -341,34 +348,22 @@ const styles = StyleSheet.create({
   },
   verticalHeaderPrice: {
     paddingLeft: 8,
-    width: '33%',
+    width: VERTICAL_COLUMN_WIDTHS.price,
     alignItems: 'flex-start',
   },
   verticalHeaderSize: {
-    width: '30%',
+    width: VERTICAL_COLUMN_WIDTHS.size,
     alignItems: 'flex-end',
   },
-  desktopVerticalHeaderPrice: {
-    width: 'auto',
-    flexShrink: 0,
-  },
-  // Share unused price-label space according to the two headers' text widths.
   desktopVerticalHeaderSize: {
-    width: 'auto',
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 0,
     paddingLeft: 8,
   },
   verticalHeaderTotal: {
     paddingRight: 8,
-    width: '37%',
+    width: VERTICAL_COLUMN_WIDTHS.total,
     alignItems: 'flex-end',
   },
   desktopVerticalHeaderTotal: {
-    width: 'auto',
-    minWidth: '37%',
-    flexShrink: 1,
     paddingLeft: 8,
   },
   desktopVerticalHeaderText: {
@@ -387,16 +382,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  desktopVerticalRowContainer: {
+    paddingHorizontal: 0,
+  },
+  desktopVerticalRowCellPrice: {
+    paddingLeft: 8,
+  },
+  desktopVerticalRowCellTotal: {
+    paddingRight: 8,
+  },
   verticalRowCellPrice: {
-    width: '33%',
+    width: VERTICAL_COLUMN_WIDTHS.price,
     alignItems: 'flex-start',
   },
   verticalRowCellSize: {
-    width: '30%',
+    width: VERTICAL_COLUMN_WIDTHS.size,
     alignItems: 'flex-end',
   },
   verticalRowCellTotal: {
-    width: '37%',
+    width: VERTICAL_COLUMN_WIDTHS.total,
     alignItems: 'flex-end',
   },
   bodySm: {
@@ -576,15 +580,27 @@ const OrderBookVerticalRow = memo(
     item,
     priceColor,
     sizeColor,
+    desktop,
   }: {
     item: IFormattedOBLevel;
     priceColor: string;
     sizeColor: string;
+    desktop: boolean;
   }) => {
     return (
       <DebugRenderTracker name="OrderBookVerticalRow" position="right-center">
-        <View style={styles.verticalRowContainer}>
-          <View style={styles.verticalRowCellPrice}>
+        <View
+          style={[
+            styles.verticalRowContainer,
+            desktop && styles.desktopVerticalRowContainer,
+          ]}
+        >
+          <View
+            style={[
+              styles.verticalRowCellPrice,
+              desktop && styles.desktopVerticalRowCellPrice,
+            ]}
+          >
             <PerpBookText
               style={[styles.tabularText, { color: priceColor }]}
               numberOfLines={1}
@@ -600,7 +616,12 @@ const OrderBookVerticalRow = memo(
               {item.displaySize}
             </PerpBookText>
           </View>
-          <View style={styles.verticalRowCellTotal}>
+          <View
+            style={[
+              styles.verticalRowCellTotal,
+              desktop && styles.desktopVerticalRowCellTotal,
+            ]}
+          >
             <PerpBookText
               numberOfLines={1}
               style={[styles.tabularText, { color: sizeColor }]}
@@ -612,7 +633,8 @@ const OrderBookVerticalRow = memo(
       </DebugRenderTracker>
     );
   },
-  areLevelRowPropsEqual,
+  (prev, next) =>
+    prev.desktop === next.desktop && areLevelRowPropsEqual(prev, next),
 );
 OrderBookVerticalRow.displayName = 'OrderBookVerticalRow';
 
@@ -1215,7 +1237,8 @@ export function OrderBook({
   const depthEpoch = useOrderBookEpoch(
     _symbol,
     selectedTickOption?.value,
-    isEmpty,
+    !!aggregatedData.bids.length,
+    !!aggregatedData.asks.length,
     isDesktopVertical
       ? `${effectiveDisplayMode}:${resolvedMaxLevelsPerSide}`
       : undefined,
@@ -1547,6 +1570,11 @@ export function OrderBook({
     [onSelectLevel],
   );
 
+  let tickLabel = selectedTickOption?.label || '-';
+  if (!isDesktopVertical && selectedTickOption?.label) {
+    tickLabel = new BigNumber(selectedTickOption.label).toFixed(priceDecimals);
+  }
+
   const tickSelector = showTickSelector ? (
     <Select
       testID="perp-select"
@@ -1562,9 +1590,22 @@ export function OrderBook({
       renderTrigger={({ onPress }) => (
         <TouchableOpacity
           activeOpacity={isDesktopVertical ? 0.8 : undefined}
+          accessibilityRole={isDesktopVertical ? 'button' : undefined}
+          accessibilityLabel={
+            isDesktopVertical
+              ? [
+                  intl.formatMessage({
+                    id: ETranslations.perp_orderbook_spread,
+                  }),
+                  selectedTickOption?.label,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              : undefined
+          }
           style={{
             minWidth: 56,
-            maxWidth: 150,
+            maxWidth: isDesktopVertical ? 200 : 150,
             height: isDesktopVertical ? 24 : verticalSpreadControlHeight,
             borderRadius: 4,
             flexDirection: 'row',
@@ -1577,17 +1618,6 @@ export function OrderBook({
           }}
           onPress={onPress}
         >
-          {isDesktopVertical ? (
-            <PerpBookText
-              numberOfLines={1}
-              style={[
-                styles.desktopTickSelectorText,
-                { color: textColor.textSubdued, marginRight: 4 },
-              ]}
-            >
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_spread })}
-            </PerpBookText>
-          ) : null}
           <PerpBookText
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -1598,9 +1628,7 @@ export function OrderBook({
               { color: textColor.text },
             ]}
           >
-            {selectedTickOption?.label
-              ? new BigNumber(selectedTickOption.label).toFixed(priceDecimals)
-              : '-'}
+            {tickLabel}
           </PerpBookText>
           <Icon
             name="ChevronDownSmallOutline"
@@ -1855,12 +1883,7 @@ export function OrderBook({
         position="right-center"
       >
         <View style={{ flexDirection: 'row' }}>
-          <View
-            style={[
-              styles.verticalHeaderPrice,
-              isDesktopVertical && styles.desktopVerticalHeaderPrice,
-            ]}
-          >
+          <View style={styles.verticalHeaderPrice}>
             <PerpBookText
               numberOfLines={isDesktopVertical ? 1 : undefined}
               style={[
@@ -2026,6 +2049,7 @@ export function OrderBook({
                       ]}
                     >
                       <OrderBookVerticalRow
+                        desktop={isDesktopVertical}
                         item={itemData}
                         priceColor={textColor.red}
                         sizeColor={
@@ -2122,6 +2146,7 @@ export function OrderBook({
                       ]}
                     >
                       <OrderBookVerticalRow
+                        desktop={isDesktopVertical}
                         item={itemData}
                         priceColor={textColor.green}
                         sizeColor={
@@ -2661,11 +2686,11 @@ export function OrderBookMobile({
     }),
     [aggregatedBook, visibleLevelsPerSide],
   );
-  const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
   const depthEpoch = useOrderBookEpoch(
     _symbol ?? activeTradeInstrument.coin,
     selectedTickOption?.value,
-    isEmpty,
+    !!aggregatedData.bids.length,
+    !!aggregatedData.asks.length,
     `${displayMode}|${visibleLevelsPerSide}`,
   );
   const bidDepth = useMemo(() => {

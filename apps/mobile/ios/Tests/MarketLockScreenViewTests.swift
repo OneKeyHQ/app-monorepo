@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 // Compile with the shared widget sources, MarketWidgetProvider, and MarketLockScreenView.
 @main
@@ -10,7 +10,7 @@ struct MarketLockScreenViewTests {
     precondition(condition(), message)
   }
 
-  static func main() {
+  @MainActor static func main() {
     let locale = Locale(identifier: "en-US")
     let now = Date()
     let asset = MarketWidgetAsset.defaults[0]
@@ -134,6 +134,31 @@ struct MarketLockScreenViewTests {
     let zeroSize = MarketLockScreenChartGeometry(points: points).coordinates(in: .zero)
     expect(zeroSize.count == 3 && zeroSize.allSatisfy { $0 == .zero },
            "A zero-sized layout keeps coordinates finite")
+    for style in [MarketLockScreenStyle.watchlist, .compact, .price, .chart] {
+      let cached = renderCachedPrice("123.45", age: 86400, at: now, style: style)
+      expect(cached == renderCachedPrice("123.45", age: 3 * 86400, at: now, style: style),
+             "\(style) renders the same layout regardless of the cache date")
+      expect(cached != renderCachedPrice("456.78", age: 86400, at: now, style: style),
+             "\(style) still renders the cached price")
+    }
     print("MarketLockScreenViewTests: \(checks) checks passed")
+  }
+
+  @MainActor private static func renderCachedPrice(_ price: String, age: TimeInterval, at now: Date,
+                                                   style: MarketLockScreenStyle) -> Data {
+    let asset = MarketWidgetAsset.defaults[0]
+    let quote = MarketWidgetQuote(asset: asset, price: price, change24h: "2.5",
+      fetchedAt: now.addingTimeInterval(-age))
+    let row = MarketWidgetRow(asset: asset, quote: quote, failed: true)
+    let entry = MarketWidgetEntry(date: now, configuration: .initial, rows: [row],
+      isWatchlist: style == .watchlist, selectionUnavailable: false, isGalleryPreview: true)
+    let renderer = ImageRenderer(content: MarketLockScreenView(entry: entry, style: style)
+      .frame(width: style == .compact ? 64 : 160, height: 64)
+      .environment(\.colorScheme, .light))
+    renderer.scale = 2
+    guard let data = renderer.cgImage?.dataProvider?.data else {
+      preconditionFailure("Unable to render \(style)")
+    }
+    return data as Data
   }
 }

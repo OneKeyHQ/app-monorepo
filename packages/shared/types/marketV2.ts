@@ -950,6 +950,9 @@ export interface IMarketStockPublicDetail extends IMarketStockPublicItem {
 
 export type IMarketStockPublicChartPeriod =
   | '1h'
+  // The 24 hours that end on the latest data point, across trading days.
+  | '24h'
+  // The latest trading day, pre-market through post-market.
   | '1d'
   | '1w'
   | '1m'
@@ -967,15 +970,27 @@ export type IMarketStockPublicChartInterval =
   | '1week'
   | '1month';
 
+// One slice of the latest trading day. `fullHours` is what the endpoint
+// already serves for `1d` when no session is named.
+export type IMarketStockPublicChartSession =
+  | 'preMarket'
+  | 'regular'
+  | 'postMarket'
+  | 'fullHours';
+
 export type IMarketStockPublicChartRequest = { stockId: string } & (
   | {
       period?: IMarketStockPublicChartPeriod;
+      // Overrides `period`: the endpoint answers with that session of the
+      // latest trading day whatever period accompanies it.
+      session?: IMarketStockPublicChartSession;
       interval?: undefined;
       from?: undefined;
       to?: undefined;
     }
   | {
       period?: undefined;
+      session?: undefined;
       interval: IMarketStockPublicChartInterval;
       from: number;
       to: number;
@@ -995,6 +1010,9 @@ export interface IMarketStockPublicChartResponse {
   stockId: string;
   period?: IMarketStockPublicChartPeriod;
   interval?: IMarketStockPublicChartInterval;
+  // Only present when the request named a session.
+  session?: IMarketStockPublicChartSession;
+  tradingDate?: string;
   currency: 'USD';
   points: IMarketStockPublicChartPoint[];
 }

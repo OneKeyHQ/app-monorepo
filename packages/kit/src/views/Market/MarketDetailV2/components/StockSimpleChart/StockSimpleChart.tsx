@@ -33,19 +33,26 @@ import { resolveMarketKlineLivePriceEnabled } from '../../utils/marketKlineLiveP
 import {
   type IStockSimpleChartRange,
   type IStockSimpleChartRangeChange,
+  type IStockSimpleChartSession,
   STOCK_SIMPLE_CHART_POLLING_MS,
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
-  isStockSimpleChartRangeUp,
+  hasStockSimpleChartSessions,
+  isStockSimpleChartSessionFromPreviousDay,
+  isStockSimpleChartSessionRunning,
+  isStockSimpleChartSessionSeriesCurrent,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
+  resolveStockSimpleChartHeadlinePreviousClose,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRequestScope,
+  resolveStockSimpleChartSessionEnd,
+  resolveStockSimpleChartTrend,
   shouldMergeStockSimpleChartLivePrice,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
@@ -63,6 +70,10 @@ type IStockSimpleChartState = {
   scopeKey: string;
   assetKey: string;
   range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
+  // Whether the series was requested for a listing with sessions; a retained
+  // series keeps the rules it was loaded under until its replacement lands.
+  sessionsSupported: boolean;
 };
 
 type IStockSimpleChartSeries = {
@@ -94,6 +105,9 @@ type IStockSimpleChartProps = {
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
+  // Share price only: a slice of the latest trading day, drawn instead of
+  // `range`.
+  session?: IStockSimpleChartSession;
   priceMode: IMarketPriceSource;
   priceScaleFormat?: 'stock' | 'full';
   onPriceUpdate?: (price: number | undefined) => void;
@@ -128,6 +142,7 @@ export function StockSimpleChartContent({
   coinGeckoId,
   marketAssetId,
   range,
+  session,
   priceMode,
   priceScaleFormat,
   onPriceUpdate,
@@ -164,6 +179,8 @@ export function StockSimpleChartContent({
     networkId: requestNetworkId,
     priceMode: requestPriceMode,
     range: requestRange,
+    session: requestSession,
+    sessionsSupported: requestSessionsSupported = true,
     stockId: requestStockId,
     tokenAddress: requestTokenAddress,
   } = resolveStockSimpleChartRequestScope({
@@ -173,6 +190,8 @@ export function StockSimpleChartContent({
     networkId,
     priceMode,
     range,
+    session,
+    sessionsSupported: hasStockSimpleChartSessions(stockDetail),
     stockId,
     tokenAddress,
   });
@@ -214,6 +233,8 @@ export function StockSimpleChartContent({
     networkId: requestNetworkId,
     priceMode: requestPriceMode,
     range: requestRange,
+    session: requestSession,
+    sessionsSupported: requestSessionsSupported,
     stockId: requestStockId,
     tokenAddress: requestTokenAddress,
   });
@@ -255,7 +276,13 @@ export function StockSimpleChartContent({
     run: retry,
   } = usePromiseResult<IStockSimpleChartState>(
     async () => {
-      const stateScope = { scopeKey, assetKey, range: requestRange };
+      const stateScope = {
+        scopeKey,
+        assetKey,
+        range: requestRange,
+        session: requestSession,
+        sessionsSupported: requestSessionsSupported,
+      };
       let retained = lastLoadedRef.current;
       if (retained?.key !== scopeKey) {
         retained = retainOnRemount
@@ -317,6 +344,8 @@ export function StockSimpleChartContent({
           networkId: requestNetworkId,
           priceMode: requestPriceMode,
           range: requestRange,
+          session: requestSession,
+          sessionsSupported: requestSessionsSupported,
           stockId: requestStockId,
           tokenAddress: requestTokenAddress,
         });
@@ -378,6 +407,8 @@ export function StockSimpleChartContent({
       requestNetworkId,
       requestPriceMode,
       requestRange,
+      requestSession,
+      requestSessionsSupported,
       requestStockId,
       requestTokenAddress,
       minRefreshMs,
@@ -394,6 +425,8 @@ export function StockSimpleChartContent({
         scopeKey: initialSeries ? scopeKey : '',
         assetKey: initialSeries ? assetKey : '',
         range: requestRange,
+        session: requestSession,
+        sessionsSupported: requestSessionsSupported,
         status: initialSeries ? 'success' : 'pending',
       },
       watchLoading: true,
@@ -420,6 +453,8 @@ export function StockSimpleChartContent({
           scopeKey,
           assetKey,
           range: requestRange,
+          session: requestSession,
+          sessionsSupported: requestSessionsSupported,
           status: 'success' as const,
         }
       : chartState;
@@ -434,24 +469,74 @@ export function StockSimpleChartContent({
   const displayedRange = isRetainingRange
     ? displayedChartState.range
     : requestRange;
+  const displayedSession = isRetainingRange
+    ? displayedChartState.session
+    : requestSession;
+  const displayedSessionsSupported = isRetainingRange
+    ? (displayedChartState.sessionsSupported ?? requestSessionsSupported)
+    : requestSessionsSupported;
   const intervalSeconds = resolveStockSimpleChartBucketSeconds({
     coinGeckoId: requestCoinGeckoId,
     marketAssetId: requestMarketAssetId,
     priceMode: requestPriceMode,
     range: displayedRange,
   });
+  const marketSession = stockDetail?.marketStatus?.session;
+  const isSessionRunning =
+    requestPriceMode === 'share' &&
+    isStockSimpleChartSessionRunning({
+      marketSession,
+      session: displayedSession,
+    });
+  const isSessionSeriesCurrent = isStockSimpleChartSessionSeriesCurrent({
+    nowSeconds: Math.floor(Date.now() / 1000),
+    points: displayedChartState.data,
+    session: displayedSession,
+  });
+  // The market is in the session and the series is today's run of it.
+  const isSessionLive = isSessionRunning && isSessionSeriesCurrent;
+  // Yesterday's run: a later session before it has begun today, or the run
+  // still on screen right after the open until the chart refreshes.
+  const isPreviousDaySession =
+    requestPriceMode === 'share' &&
+    (isStockSimpleChartSessionFromPreviousDay({
+      marketSession,
+      session: displayedSession,
+    }) ||
+      (isSessionRunning && !isSessionSeriesCurrent));
+  // 1D of a listing without sessions keeps reporting the trading day.
+  const isTradingDay =
+    requestPriceMode === 'share' &&
+    !displayedSessionsSupported &&
+    displayedRange === '1D';
   const previousClose = resolveStockSimpleChartPreviousClose({
+    isPreviousDaySession,
+    marketSession,
     priceMode: requestPriceMode,
     range: displayedRange,
+    session: displayedSession,
+    sessionsSupported: displayedSessionsSupported,
+    stockDetail,
+  });
+  const headlinePreviousClose = resolveStockSimpleChartHeadlinePreviousClose({
+    isTradingDay,
+    priceMode: requestPriceMode,
+    session: displayedSession,
     stockDetail,
   });
   const shouldMergeLivePrice = shouldMergeStockSimpleChartLivePrice({
+    isSessionSeriesCurrent,
+    marketSession,
     points: displayedChartState.data,
     priceMode: requestPriceMode,
     priceUpdatedAt: stockDetail?.priceUpdatedAt,
+    session: displayedSession,
   });
+  // The quote can trail the newest bucket by a minute or two, which holds the
+  // live tail back. Today's run of a session the market is in is live on its
+  // own buckets, so its last point keeps pulsing through those gaps.
   const pulseLastPoint =
-    shouldMergeLivePrice &&
+    (shouldMergeLivePrice || isSessionLive) &&
     resolveStockSimpleChartPulseLastPoint({
       stockDetail,
       stockId,
@@ -471,6 +556,17 @@ export function StockSimpleChartContent({
       livePrice,
       shouldMergeLivePrice,
     ],
+  );
+
+  // A session still running leaves the hours ahead of it empty.
+  const timeSpanEnd = useMemo(
+    () =>
+      resolveStockSimpleChartSessionEnd({
+        isSessionLive,
+        points: chartData,
+        session: displayedSession,
+      }),
+    [chartData, displayedSession, isSessionLive],
   );
 
   const renderChartError = () => (
@@ -548,17 +644,22 @@ export function StockSimpleChartContent({
       hasChartPlaceholder
         ? undefined
         : resolveStockSimpleChartRangeChange({
+            isTradingDay,
             points: chartData,
-            previousClose,
+            // Today's move, even while the chart draws an earlier run.
+            previousClose: headlinePreviousClose,
             priceMode: requestPriceMode,
             range: displayedRange,
+            session: displayedSession,
             sharePrice: stockDetail?.price,
           }),
     [
       chartData,
       displayedRange,
+      displayedSession,
       hasChartPlaceholder,
-      previousClose,
+      headlinePreviousClose,
+      isTradingDay,
       requestPriceMode,
       stockDetail?.price,
     ],
@@ -646,11 +747,13 @@ export function StockSimpleChartContent({
           height={chartHeight}
           pulseLastPoint={pulseLastPoint}
           previousClose={chartPlaceholder ? undefined : previousClose}
-          trend={
-            rangeChange && !isStockSimpleChartRangeUp(rangeChange)
-              ? 'down'
-              : 'up'
-          }
+          timeSpanEnd={chartPlaceholder ? undefined : timeSpanEnd}
+          trend={resolveStockSimpleChartTrend({
+            isPreviousDaySession,
+            points: chartData,
+            previousClose,
+            rangeChange,
+          })}
           showCurrentPriceLabel
           priceScaleFormat={priceScaleFormat}
           hoverLabelLargePrice

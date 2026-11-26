@@ -49,7 +49,6 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
-import { connectWalletConnectToDapp } from '../../../components/WalletConnect/connectWalletConnectToDapp';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
@@ -709,7 +708,17 @@ async function processDeepLinkWalletConnect({
       wcUri &&
       wcUri.toLowerCase().startsWith(`${WALLET_CONNECT_DEEP_LINK_NAME}:`)
     ) {
-      await connectWalletConnectToDapp(wcUri);
+      // Loaded on demand, like the pay entry above. If the helper fails to
+      // load, pairing still starts, only without its progress dialog.
+      const helper =
+        await import('../../../components/WalletConnect/connectWalletConnectToDapp').catch(
+          () => undefined,
+        );
+      if (helper) {
+        await helper.connectWalletConnectToDapp(wcUri);
+      } else {
+        await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
+      }
       return {
         type: 'walletConnect',
         url,

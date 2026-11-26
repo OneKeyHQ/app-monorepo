@@ -16,6 +16,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isSameServiceBaseURL } from '@onekeyhq/shared/src/request/helpers/serviceRequestUrl';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -4371,15 +4372,20 @@ class ServicePrivacyChain extends ServiceBase {
         : undefined,
       capability.getSyncEndpoint?.().catch(() => undefined),
     ]);
-    const defaultUrl =
-      await this.backgroundApi.serviceCustomRpc.resolveDefaultRpcUrl({
-        networkId,
-      });
+    const rpc = this.backgroundApi.serviceCustomRpc;
+    const [defaultUrl, custom] = await Promise.all([
+      rpc.resolveDefaultRpcUrl({ networkId }),
+      rpc.getCustomRpcForNetwork(networkId),
+    ]);
     return {
       storageBytes: storage?.bytes,
       endpointUrl: endpoint?.url,
       endpointDefaultUrl: defaultUrl,
-      endpointIsCustom: !!endpoint && endpoint.url !== defaultUrl,
+      endpointIsCustom:
+        !!endpoint &&
+        !!custom?.enabled &&
+        !!custom.rpc &&
+        isSameServiceBaseURL(endpoint.url, custom.rpc),
       // Only meaningful while it describes the node now in use: after a switch
       // the last sample still belongs to the previous one.
       endpointHealth:
@@ -4583,6 +4589,23 @@ class ServicePrivacyChain extends ServiceBase {
   }): Promise<ILocalWalletAccountBalance | null> {
     const capability = await this.requireAccountCapability(networkId);
     return capability.getAccountBalance({ accountId });
+  }
+
+  @backgroundMethod()
+  async getLocalWalletHasPendingSend({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<boolean> {
+    const capability = await this.requireAccountCapability(networkId);
+    if (!capability.hasPendingSend) {
+      throw new OneKeyLocalError(
+        localWalletText(ETranslations.global_not_available),
+      );
+    }
+    return capability.hasPendingSend({ accountId });
   }
 
   // Persist the stopped intent before handing cleanup to the background.

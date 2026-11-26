@@ -54,6 +54,23 @@ const PRIVATE_SEND_FAILED_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>(
 
 export const SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS = 90 * 60 * 1000;
 
+export function getSwapProviderOrderIdFromContext(
+  provider: string,
+  ctx: unknown,
+) {
+  if (!ctx || typeof ctx !== 'object') return undefined;
+  let orderId: unknown;
+  if (provider === 'SwapChangelly' && 'changellyOrderId' in ctx) {
+    orderId = ctx.changellyOrderId;
+  } else if (
+    (provider === 'SwapRocketX' || provider === privateSendProvider) &&
+    'rocketXOrderId' in ctx
+  ) {
+    orderId = ctx.rocketXOrderId;
+  }
+  return typeof orderId === 'string' && orderId.trim() ? orderId : undefined;
+}
+
 export function getSwapHistoryDisplayFromAmount(
   item: ISwapTxHistory,
   amount = item.baseInfo.fromAmount,

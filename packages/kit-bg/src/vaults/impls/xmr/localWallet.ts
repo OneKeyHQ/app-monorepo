@@ -615,6 +615,7 @@ export function buildXmrLocalWalletCapability(
         fee: tx.feeAtomic,
       };
     },
+    hasPendingSend: ({ accountId }) => vault.xmrHasPendingSend(accountId),
     async getAccountState({ accountId }): Promise<ILocalWalletAccountState> {
       const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
       const [state, freshMnemonic, createdAt] = await Promise.all([

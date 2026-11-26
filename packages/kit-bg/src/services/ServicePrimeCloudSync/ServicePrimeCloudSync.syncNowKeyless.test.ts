@@ -1679,6 +1679,46 @@ describe('Cloud sync records from opaque server storage', () => {
     },
   );
 
+  test('legacy flush preserves applied foreign cross-space deletion tombstones with empty rawData', async () => {
+    const service = build();
+    const active = { ...valid, pwdHash: 'synthetic-active-key' };
+    const foreignDeletion: IDBCloudSyncItem = {
+      ...active,
+      id: 'synthetic-foreign-custom-rpc-tombstone',
+      dataType: EPrimeCloudSyncDataType.CustomRpc,
+      pwdHash: 'previous-key',
+      isDeleted: true,
+      localSceneUpdated: true,
+      rawData: '',
+    };
+    const selected = { ...credential, masterPasswordUUID: active.pwdHash };
+    db.getAllSyncItems.mockResolvedValue({
+      syncItems: [active, foreignDeletion],
+    });
+    jest.spyOn(service, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+    jest
+      .spyOn(service, 'ensureCloudSyncIsAvailable')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'getActiveSyncMode')
+      .mockResolvedValue(ECloudSyncMode.OnekeyId);
+    jest
+      .spyOn(service, 'fillingSyncItemsMissingDataFromRawData')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'getSyncCredentialSafe').mockResolvedValue(selected);
+    jest.spyOn(service, 'syncPendingItemsToScene').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'startServerSyncFlowForItems')
+      .mockResolvedValue(undefined);
+
+    await service.startServerSyncFlowSilently({
+      isFlush: true,
+      throwError: true,
+    });
+
+    expect(db.pruneWrongKeyCloudSyncPoolItems).not.toHaveBeenCalled();
+  });
+
   test.each(['off', 'legacy-active', 'keyless', 'hardware'] as const)(
     'legacy activation helpers leave credentials and the shared pool untouched (%s)',
     async (selection) => {

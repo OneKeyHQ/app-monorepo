@@ -18,6 +18,7 @@ type IFetchSwapTokenDetailsParams = {
   contractAddress: string;
   accountAddress?: string;
   accountId?: string;
+  accountNetworkId?: string;
   currency?: string;
   throwOnError?: boolean;
 };
@@ -27,7 +28,7 @@ type IGetNativeTokenAddressParams = {
 };
 
 const mockFetchSwapTokenDetails: jest.MockedFunction<
-  (params: IFetchSwapTokenDetailsParams) => Promise<{ balanceParsed: string }[]>
+  (params: IFetchSwapTokenDetailsParams) => Promise<Partial<ISwapToken>[]>
 > = jest.fn();
 const mockGetNativeTokenAddress: jest.MockedFunction<
   (params: IGetNativeTokenAddressParams) => Promise<string>
@@ -61,6 +62,14 @@ const usdcToken = {
   symbol: 'USDC',
   decimals: 6,
 } as ISwapToken;
+
+const xmrToken: ISwapToken = {
+  networkId: 'xmr--0',
+  contractAddress: '',
+  symbol: 'XMR',
+  decimals: 12,
+  isNative: true,
+};
 
 const evmGasInfo = {
   common: {
@@ -173,6 +182,51 @@ describe('checkSwapLatestBalanceSufficient', () => {
         accountAddress: '0xabc',
       }),
     ).resolves.toEqual({ isSufficient: true });
+  });
+
+  it('blocks XMR when local spendable balance is unavailable', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([xmrToken]);
+
+    await expect(
+      checkSwapLatestBalanceSufficient({
+        token: xmrToken,
+        amount: '0.1',
+        accountId: 'xmr-account',
+        accountAddress: 'XmrAddress',
+      }),
+    ).rejects.toThrow('XMR spendable balance is unavailable');
+  });
+
+  it('uses verified zero XMR balance and does not route it to another network', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([
+      { ...xmrToken, balanceParsed: '0' },
+    ]);
+    const account = {
+      accountId: 'xmr-account',
+      accountAddress: 'XmrAddress',
+      accountNetworkId: 'xmr--0',
+    };
+
+    await expect(
+      checkSwapLatestBalanceSufficient({
+        ...account,
+        token: xmrToken,
+        amount: '0.1',
+      }),
+    ).resolves.toEqual({
+      isSufficient: false,
+      balance: '0',
+      requiredAmount: '0.1',
+      tokenSymbol: 'XMR',
+    });
+    await expect(
+      checkSwapLatestBalanceSufficient({
+        ...account,
+        token: ethToken,
+        amount: '0.1',
+      }),
+    ).rejects.toThrow('XMR spendable balance is unavailable');
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(1);
   });
 
   it('preserves the original request error when a fresh balance is required', async () => {

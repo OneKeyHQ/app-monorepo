@@ -6,8 +6,21 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
-import { TradingViewChartControls } from './TradingViewChartControls';
+import {
+  TradingViewChartControls,
+  TradingViewChartModeSelect,
+  TradingViewChartModeSelectContext,
+} from './TradingViewChartControls';
 
+const mockWorkspaceSelect = {
+  value: 'depth',
+  items: [
+    { value: 'native', label: 'Original' },
+    { value: 'tradingView', label: 'TradingView' },
+    { value: 'depth', label: 'Depth' },
+  ],
+  onChange: jest.fn(),
+};
 const mockSelectTriggerPress = jest.fn();
 const mockTradingViewNativeIntervalSelector = jest.fn<null, [unknown]>(
   () => null,
@@ -91,6 +104,7 @@ jest.mock('@onekeyhq/components', () => ({
     h,
     justifyContent,
     minHeight,
+    mr,
     pb,
     pt,
     py,
@@ -105,6 +119,7 @@ jest.mock('@onekeyhq/components', () => ({
     h?: number | string;
     justifyContent?: string;
     minHeight?: number;
+    mr?: number;
     pb?: string;
     pt?: string;
     py?: string;
@@ -113,6 +128,7 @@ jest.mock('@onekeyhq/components', () => ({
   }) => (
     <div
       data-bg={bg}
+      data-mr={mr}
       data-border-bottom-color={borderBottomColor}
       data-border-bottom-width={borderBottomWidth}
       data-flex-shrink={flexShrink}
@@ -326,6 +342,35 @@ describe('TradingView chart controls', () => {
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
   });
 
+  it('selects workspace views and returns to the current candle engine', () => {
+    const onChange = mockWorkspaceSelect.onChange;
+    const onChartSwitch = jest.fn();
+    const { rerender } = render(
+      <TradingViewChartModeSelectContext.Provider value={mockWorkspaceSelect}>
+        <TradingViewChartModeSelect
+          chartMode="native"
+          onChartSwitch={onChartSwitch}
+        />
+      </TradingViewChartModeSelectContext.Provider>,
+    );
+    expect(
+      screen.getByTestId('trading-view-chart-switch-trigger').textContent,
+    ).toBe('Depth');
+    fireEvent.click(screen.getByTestId('chart-mode-option-depth'));
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('chart-mode-option-native'));
+    expect(onChange).toHaveBeenCalledWith('native');
+    expect(onChartSwitch).not.toHaveBeenCalled();
+
+    rerender(
+      <TradingViewChartModeSelect
+        chartMode="native"
+        onChartSwitch={onChartSwitch}
+      />,
+    );
+    expect(screen.queryByTestId('chart-mode-option-depth')).toBeNull();
+  });
+
   it('disables switching to TradingView until its parameters are ready', () => {
     const handleChartSwitch = jest.fn();
 
@@ -415,6 +460,30 @@ describe('TradingView chart controls', () => {
     expect(
       screen.queryByTestId('trading-view-mobile-fullscreen-toolbar'),
     ).toBeNull();
+  });
+
+  it('extends only the mobile fullscreen row into a clear trailing inset', () => {
+    const { rerender } = render(
+      <TradingViewChartControls
+        {...BASE_PROPS}
+        fullscreenHeader={<span>Token</span>}
+        isFullscreen
+        clearTrailingInset={62}
+        onFullscreenToggle={jest.fn()}
+      />,
+    );
+    const row = () => screen.getByTestId('trading-view-chart-controls');
+    // The exit control at the row's end moves with the indicator rail.
+    expect(row().getAttribute('data-mr')).toBe('-62');
+
+    rerender(
+      <TradingViewChartControls
+        {...BASE_PROPS}
+        clearTrailingInset={62}
+        onFullscreenToggle={jest.fn()}
+      />,
+    );
+    expect(row().hasAttribute('data-mr')).toBe(false);
   });
 
   it('widens regular mobile interval preferences once the interval area fits six', () => {

@@ -41,18 +41,15 @@ type IPerpMarketWorkspaceView =
 
 const MARKET_BOOK_TABS = [
   { key: 'orderBook', translationId: ETranslations.perps_order_book },
-  { key: 'trades', translationId: ETranslations.swap_page_recent_trade },
+  { key: 'trades', translationId: ETranslations.perps_trades__title },
 ] as const;
 
-const WORKSPACE_VIEW_ITEMS: Array<{
-  key: IPerpMarketWorkspaceView;
-  translationId: ETranslations;
-}> = [
+const WORKSPACE_VIEW_ITEMS = [
   { key: 'chart', translationId: ETranslations.market_chart },
   ...MARKET_BOOK_TABS,
   { key: 'info', translationId: ETranslations.global_info },
   { key: 'funding', translationId: ETranslations.settings_data },
-];
+] as const;
 
 function useWorkspaceTabList(
   selected: IPerpMarketWorkspaceView,
@@ -134,7 +131,12 @@ function WorkspaceTabButton({
       testID={testID}
       render={
         platformEnv.isNative ? undefined : (
-          <button type="button" aria-label={label} {...buttonProps} />
+          <button
+            type="button"
+            aria-label={label}
+            title={fullWidth ? label : undefined}
+            {...buttonProps}
+          />
         )
       }
       role="tab"
@@ -145,7 +147,7 @@ function WorkspaceTabButton({
       flexShrink={fullWidth ? 1 : 0}
       h="100%"
       p="$0"
-      px={fullWidth ? '$2' : '$0'}
+      px={fullWidth ? '$1' : '$0'}
       bg="transparent"
       alignItems="center"
       justifyContent="center"
@@ -179,7 +181,7 @@ function WorkspaceTabButton({
 
 const TRADES_TAB_GRACE_MS = 30_000;
 
-function supportsDesktopRecentTrades(mode: 'perp' | 'spot') {
+function supportsDesktopMarketBookTabs(mode: 'perp' | 'spot') {
   return mode === 'perp' && !!(platformEnv.isWeb || platformEnv.isDesktop);
 }
 
@@ -219,10 +221,10 @@ export function PerpDesktopOrderBookPanel({
   const { mode, coin } = useActiveTradeDisplay();
   const [activeTab, setActiveTab] =
     useState<(typeof MARKET_BOOK_TABS)[number]['key']>('orderBook');
-  const showTabs = supportsDesktopRecentTrades(mode);
-  const showTrades = showTabs && activeTab === 'trades';
+  const showTabs = supportsDesktopMarketBookTabs(mode);
+  const selectedTab = showTabs ? activeTab : 'orderBook';
   const tabList = useWorkspaceTabList(
-    activeTab,
+    selectedTab,
     showTabs ? MARKET_BOOK_TABS : [],
   );
   return (
@@ -236,14 +238,15 @@ export function PerpDesktopOrderBookPanel({
         px={showTabs ? '$0' : '$2'}
       >
         {showTabs ? (
-          MARKET_BOOK_TABS.map(({ key, translationId }) => (
+          MARKET_BOOK_TABS.map((item) => (
             <WorkspaceTabButton
-              key={key}
+              key={item.key}
               fullWidth
-              active={activeTab === key}
-              buttonProps={tabList.getButtonProps(key)}
-              label={intl.formatMessage({ id: translationId })}
-              onPress={() => setActiveTab(key)}
+              testID={`perp-desktop-book-tab-${item.key}`}
+              active={selectedTab === item.key}
+              buttonProps={tabList.getButtonProps(item.key)}
+              label={intl.formatMessage({ id: item.translationId })}
+              onPress={() => setActiveTab(item.key)}
             />
           ))
         ) : (
@@ -256,10 +259,10 @@ export function PerpDesktopOrderBookPanel({
         flex={1}
         minHeight={0}
         overflow="hidden"
-        display={showTrades ? 'none' : 'flex'}
+        display={selectedTab === 'orderBook' ? 'flex' : 'none'}
         {...(showTabs && tabList.getPanelProps('orderBook'))}
       >
-        {!showTrades ? (
+        {selectedTab === 'orderBook' ? (
           <PerpOrderBook initialOrderBookHeight={initialOrderBookHeight} />
         ) : null}
       </YStack>
@@ -268,10 +271,10 @@ export function PerpDesktopOrderBookPanel({
           flex={1}
           minHeight={0}
           overflow="hidden"
-          display={showTrades ? 'flex' : 'none'}
+          display={selectedTab === 'trades' ? 'flex' : 'none'}
           {...tabList.getPanelProps('trades')}
         >
-          <DesktopRecentTrades key={coin} selected={showTrades} />
+          <DesktopRecentTrades key={coin} selected={selectedTab === 'trades'} />
         </YStack>
       ) : null}
     </>
@@ -290,10 +293,11 @@ export function PerpMarketWorkspacePanel({
     useState<IPerpMarketWorkspaceView>('chart');
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
-  const showTradesTab = showOrderBookTab && supportsDesktopRecentTrades(mode);
+  const showPerpsBookTabs =
+    showOrderBookTab && supportsDesktopMarketBookTabs(mode);
   const visibleActiveView =
     (mode !== 'perp' && activeView === 'funding') ||
-    (!showTradesTab && activeView === 'trades') ||
+    (!showPerpsBookTabs && activeView === 'trades') ||
     (!showOrderBookTab && activeView === 'orderBook')
       ? 'chart'
       : activeView;
@@ -302,10 +306,10 @@ export function PerpMarketWorkspacePanel({
       WORKSPACE_VIEW_ITEMS.filter(
         (item) =>
           (item.key !== 'funding' || mode === 'perp') &&
-          (item.key !== 'trades' || showTradesTab) &&
+          (item.key !== 'trades' || showPerpsBookTabs) &&
           (item.key !== 'orderBook' || showOrderBookTab),
       ),
-    [mode, showOrderBookTab, showTradesTab],
+    [mode, showOrderBookTab, showPerpsBookTabs],
   );
   const tabList = useWorkspaceTabList(visibleActiveView, workspaceViewItems);
   const marketKey = useMemo(
@@ -431,7 +435,7 @@ export function PerpMarketWorkspacePanel({
           </YStack>
         ) : null}
 
-        {showTradesTab ? (
+        {showPerpsBookTabs ? (
           <YStack
             flex={1}
             minHeight={0}
@@ -444,7 +448,6 @@ export function PerpMarketWorkspacePanel({
             />
           </YStack>
         ) : null}
-
         {mode === 'perp' && (!platformEnv.isNative || shouldRenderFunding) ? (
           <YStack
             {...tabList.getPanelProps('funding')}
