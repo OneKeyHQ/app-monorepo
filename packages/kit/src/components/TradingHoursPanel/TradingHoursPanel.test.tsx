@@ -4,7 +4,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 import { TradingHoursTrigger } from '.';
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFetchUSMarketStatusResult } from '@onekeyhq/shared/types/swap/types';
@@ -42,8 +42,11 @@ jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
   useWindowDimensions: () => ({ width: 1280, height: 800 }),
 }));
+let mockIntervalTick: (() => void) | undefined;
 jest.mock('@onekeyhq/kit/src/hooks/useInterval', () => ({
-  useInterval: () => undefined,
+  useInterval: (tick: () => void) => {
+    mockIntervalTick = tick;
+  },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useUSMarketStatus', () => ({
   useUSMarketStatus: () => mockStatus,
@@ -504,6 +507,26 @@ describe('closed timeline', () => {
       ETranslations.trading_hours_overnight,
     ]);
     expect(nowLinePercent()).toBeCloseTo((elapsedMinutes / 2885) * 100, 6);
+  });
+
+  it('keeps the closure start across the 04:01 cycle rollover', () => {
+    // Fri 03:59 EST, closed until the Fri 09:31 EST regular open: 23h58m
+    // into the closure that started Thu 04:01 (29h30m long)
+    jest.setSystemTime(new Date('2026-11-27T08:59:00Z'));
+    renderClosedUSListing('2026-11-27T14:31:00Z');
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      'Regular',
+    ]);
+    expect(nowLinePercent()).toBeCloseTo((1438 / 1770) * 100, 6);
+
+    // Fri 04:02 EST: the clock's cycle now starts Fri 04:01, but the marker
+    // keeps measuring from Thu 04:01 instead of dropping back to the start.
+    act(() => {
+      jest.setSystemTime(new Date('2026-11-27T09:02:00Z'));
+      mockIntervalTick?.();
+    });
+    expect(nowLinePercent()).toBeCloseTo((1441 / 1770) * 100, 6);
   });
 });
 

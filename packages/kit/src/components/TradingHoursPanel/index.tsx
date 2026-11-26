@@ -227,21 +227,31 @@ interface IClosedTimelineModel {
   nextSessionKey?: EUSMarketSessionKey;
 }
 
+interface IClosureSpan {
+  startInstant: number;
+  reopenInstant: number;
+}
+
 /**
  * While the market is closed the track shows how far the closure has run and
  * which session ends it. The backend only reports when the market reopens,
  * so the closure's start comes from the clock: the weekend closure's own
- * start, else the start of today's cycle (a holiday).
+ * start, else the start of today's cycle (a holiday). Those clock anchors
+ * move as the cycle rolls over or the weekend ends, so a caller that has
+ * already seen an earlier start for the same reopen passes it back as
+ * `pinned` and the marker never moves backward.
  */
 function getClosedTimelineModel({
   tradingHours,
   countdown,
   nowMs,
+  pinned,
 }: {
   tradingHours: IUSMarketTradingHours;
   countdown?: IUSTradingHoursCountdown;
   nowMs: number;
-}): IClosedTimelineModel {
+  pinned?: IClosureSpan;
+}): IClosedTimelineModel & { span?: IClosureSpan } {
   const reopen =
     countdown?.kind === 'sessionStarts' && countdown.segment
       ? { instant: countdown.targetInstant, key: countdown.segment.key }
@@ -253,15 +263,19 @@ function getClosedTimelineModel({
   const isInWeekend =
     nowMs >= tradingHours.weekendStartInstant &&
     nowMs < tradingHours.weekendEndInstant;
-  const closureStart = Math.min(
+  let startInstant = Math.min(
     isInWeekend
       ? tradingHours.weekendStartInstant
       : tradingHours.cycleStartInstant,
     nowMs,
   );
+  if (pinned?.reopenInstant === reopen.instant) {
+    startInstant = Math.min(startInstant, pinned.startInstant);
+  }
   return {
-    progress: (nowMs - closureStart) / (reopen.instant - closureStart),
+    progress: (nowMs - startInstant) / (reopen.instant - startInstant),
     nextSessionKey: reopen.key,
+    span: { startInstant, reopenInstant: reopen.instant },
   };
 }
 
@@ -311,6 +325,8 @@ function TradingHoursClosedTimeline({
           </Stack>
         ))}
       </XStack>
+      {/* Long localized session names (Spanish, Russian overnight) wrap
+          rather than clip in the narrow next-session column. */}
       <XStack gap={TIMELINE_GAP} testID="trading-hours-timeline-labels">
         {parts.map((part) => (
           <SizableText
@@ -318,7 +334,7 @@ function TradingHoursClosedTimeline({
             flexGrow={part.ratio}
             flexBasis={0}
             textAlign="center"
-            numberOfLines={1}
+            numberOfLines={2}
             size="$bodySm"
             color="$textSubdued"
           >
@@ -741,11 +757,24 @@ function TradingHoursContent({
     }
   }
 
+  // The closure start the marker has already used for this reopen; see
+  // `getClosedTimelineModel`.
+  const [pinnedClosure, setPinnedClosure] = useState<IClosureSpan>();
   const closedTimeline = getClosedTimelineModel({
     tradingHours,
     countdown,
     nowMs,
+    pinned: pinnedClosure,
   });
+  const closureSpan = closedTimeline.span;
+  if (
+    closureSpan &&
+    (closureSpan.reopenInstant !== pinnedClosure?.reopenInstant ||
+      closureSpan.startInstant !== pinnedClosure.startInstant)
+  ) {
+    // Adjusting state while rendering: settles after one extra pass.
+    setPinnedClosure(closureSpan);
+  }
 
   // Collapsed row: the running session, or the one that opens next.
   const isUpcomingRow = activeRow === 'closed' || isAwaitingOpen;
