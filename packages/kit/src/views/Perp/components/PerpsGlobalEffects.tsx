@@ -299,6 +299,22 @@ const HIGH_FREQ_CHANNEL_THROTTLE_MS = 50;
 // ALL_DEXS_ASSET_CTXS fires ~every 500ms; 1s coalesces token-selector row re-renders.
 const ASSET_CTXS_THROTTLE_MS = 1000;
 
+function armThrottledDispatchTimer<T>(
+  dirtyRef: { current: T | null },
+  timerRef: { current: ReturnType<typeof setTimeout> | null },
+  intervalMs: number,
+  dispatch: (data: T) => void,
+): void {
+  timerRef.current = setTimeout(() => {
+    timerRef.current = null;
+    if (dirtyRef.current) {
+      const trailing = dirtyRef.current;
+      dirtyRef.current = null;
+      startTransition(() => dispatch(trailing));
+    }
+  }, intervalMs);
+}
+
 function scheduleThrottledDispatch<T>(
   dirtyRef: { current: T | null },
   timerRef: { current: ReturnType<typeof setTimeout> | null },
@@ -311,14 +327,7 @@ function scheduleThrottledDispatch<T>(
   const pending = dirtyRef.current;
   dirtyRef.current = null;
   startTransition(() => dispatch(pending));
-  timerRef.current = setTimeout(() => {
-    timerRef.current = null;
-    if (dirtyRef.current) {
-      const trailing = dirtyRef.current;
-      dirtyRef.current = null;
-      startTransition(() => dispatch(trailing));
-    }
-  }, intervalMs);
+  armThrottledDispatchTimer(dirtyRef, timerRef, intervalMs, dispatch);
 }
 
 function useHydrateFavoritesBarMarketCache() {
@@ -346,6 +355,8 @@ function useHyperliquidEventBusListener() {
   const allMidsDirtyRef = useRef<IWsAllMids | null>(null);
 
   useEffect(() => {
+    const dispatchL2Book = (book: IBook) =>
+      void actions.current.updateL2Book(book);
     const handleDataUpdate = (payload: unknown) => {
       const eventPayload = payload as {
         type: EPerpsSubscriptionCategory;
@@ -434,14 +445,20 @@ function useHyperliquidEventBusListener() {
               if (l2BookTimerRef.current) clearTimeout(l2BookTimerRef.current);
               l2BookTimerRef.current = null;
               l2BookDirtyRef.current = null;
-              void actions.current.updateL2Book(book);
+              dispatchL2Book(book);
+              armThrottledDispatchTimer(
+                l2BookDirtyRef,
+                l2BookTimerRef,
+                HIGH_FREQ_CHANNEL_THROTTLE_MS,
+                dispatchL2Book,
+              );
               break;
             }
             scheduleThrottledDispatch(
               l2BookDirtyRef,
               l2BookTimerRef,
               HIGH_FREQ_CHANNEL_THROTTLE_MS,
-              (nextBook) => void actions.current.updateL2Book(nextBook),
+              dispatchL2Book,
               book,
             );
             break;
