@@ -20,6 +20,7 @@ import type {
   ICloudPublicAccountSnapshotResult,
 } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
+import { ELocalDBStoreNames } from '../../../dbs/local/localDBStoreNames';
 import { logHardwareCloudSyncDiagnostic } from '../../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import { isPublicAccountCreationContext } from '../publicAccountCreationContext';
@@ -456,12 +457,14 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     initDataTime,
     syncCredential,
     isCurrent = () => true,
+    lookupIndexedAccountsById = false,
   }: {
     dbRecords: ICloudSyncDBRecords;
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
     isCurrent?: () => boolean;
+    lookupIndexedAccountsById?: boolean;
   }) {
     if (!isCurrent()) return [];
     const { wallets } = await this.backgroundApi.localDb.getAllWallets();
@@ -473,9 +476,29 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     const existing = new Map(items.map((item) => [item.id, item]));
     const built: IDBCloudSyncItem[] = [];
     const accounts = dbRecords as IDBAccount[];
-    const { indexedAccounts } =
-      await this.backgroundApi.localDb.getAllIndexedAccounts();
-    const indexedAccountIds = new Set(indexedAccounts.map(({ id }) => id));
+    const localDb = this.backgroundApi.localDb;
+    let indexedAccountIds: Set<string>;
+    if (lookupIndexedAccountsById) {
+      const ids = [
+        ...new Set(
+          accounts
+            .map(({ indexedAccountId }) => indexedAccountId)
+            .filter(Boolean),
+        ),
+      ];
+      const records = ids.length
+        ? (
+            await localDb.getRecordsByIds({
+              name: ELocalDBStoreNames.IndexedAccount,
+              ids,
+            })
+          ).records
+        : [];
+      indexedAccountIds = new Set(records.filter(Boolean).map(({ id }) => id));
+    } else {
+      const { indexedAccounts } = await localDb.getAllIndexedAccounts();
+      indexedAccountIds = new Set(indexedAccounts.map(({ id }) => id));
+    }
     const buildEach = async (account: IDBAccount) => {
       // Legacy account removal leaves the network records until cleanup.
       if (
