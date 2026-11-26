@@ -13,12 +13,12 @@ import {
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
 import { RootTabLoadingFallback } from '../../../routes/Tab/RootTabLoadingFallback';
+import { MobilePerpMarketRoute } from '../pages/MobilePerpMarketRoute';
 import {
   getLoadedPerpsDepositSelectTokenModal,
   loadPerpsDepositSelectTokenModal,
 } from '../utils/preloadPerpsDepositSelectTokenModal';
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
-import { loadPerpsMobileMarketPage } from '../utils/preloadPerpsMobileMarketPage';
 import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
@@ -36,7 +36,6 @@ const PagePerp = LazyLoadRootTabPage(
   () => import('../pages/Perp'),
   createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
 );
-const MobilePerpMarketPage = LazyLoadPage(loadPerpsMobileMarketPage);
 
 const MobileTokenSelectorLazyPage = LazyLoadPage(
   loadPerpsMobileTokenSelectorPage,
@@ -98,7 +97,7 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   },
   {
     name: EModalPerpRoutes.MobilePerpMarket,
-    component: MobilePerpMarketPage,
+    component: MobilePerpMarketRoute,
   },
   {
     name: EModalPerpRoutes.MobileTokenSelector,
@@ -152,7 +151,7 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   },
   {
     name: EModalPerpRoutes.MobilePerpMarket,
-    component: MobilePerpMarketPage,
+    component: MobilePerpMarketRoute,
   },
   {
     name: EModalPerpRoutes.MobileTokenSelector,
