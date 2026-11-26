@@ -8,6 +8,7 @@ import { isValidElement } from 'react';
 
 import { DashText } from '.';
 
+import { normalizeStyle } from '@tamagui/web';
 import { act, render, screen } from '@testing-library/react';
 import { I18nManager } from 'react-native';
 
@@ -26,11 +27,28 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 jest.mock('react-native', () => ({
   I18nManager: { isRTL: false },
+  StyleSheet: { flatten: (style: unknown) => style },
   processColor: (color: string) =>
     color === 'transparent' ? 0 : 0xff_88_88_88,
 }));
 jest.mock('../../hooks/useStyle', () => ({ useMedia: () => ({ gtMd: true }) }));
 jest.mock('../../shared/tamagui', () => ({
+  useStyle: ({
+    padding,
+    paddingVertical,
+    paddingBottom,
+    p,
+    py,
+    pb,
+  }: ISizableTextProps) =>
+    normalizeStyle(
+      {
+        padding: padding ?? p,
+        paddingVertical: paddingVertical ?? py,
+        paddingBottom: paddingBottom ?? pb,
+      },
+      true,
+    ),
   useTheme: () => ({ borderStrong: { val: '#888888' } }),
 }));
 jest.mock('../../primitives/Stack', () => {
@@ -183,9 +201,9 @@ it.each([false, true])(
     const view = render(
       <DashText
         multiline={multiline}
+        dashLength={3}
+        dashGap={2}
         dashColor="$textSubdued"
-        dashThickness={2}
-        dashSpacing={3}
         onTextLayout={onTextLayout}
       >
         Wrapped label
@@ -196,22 +214,24 @@ it.each([false, true])(
       textDecorationLine: 'underline',
       textDecorationStyle: 'dashed',
       textDecorationColor: '$textSubdued',
-      onTextLayout,
+      onekeyDashText: multiline ? '0.5,1,multiline' : '0.5,0,single',
     });
-    // No measured dash views: the wrapper only reserves the old rule height.
     expect(view.container.querySelectorAll('[data-layout]')).toHaveLength(1);
-    expect(wrapperLayout(view.container).paddingBottom).toBe(multiline ? 5 : 2);
+    expect(wrapperLayout(view.container).paddingBottom).toBe(0);
+    expect(lastTextProps().paddingBottom).toBe(multiline ? 1.5 : 0.5);
+    layoutText([{ x: 0, y: 0, width: 60, height: 14 }]);
+    expect(onTextLayout).toHaveBeenCalledTimes(1);
   },
 );
 
 it('drops native decoration and reserved height for overlay and zero length', () => {
   platformEnv.isNative = true;
-  const view = render(
-    <DashText dashOverlay dashThickness={2}>
-      Label
-    </DashText>,
-  );
-  expect(lastTextProps().textDecorationStyle).toBe('dashed');
+  const view = render(<DashText dashOverlay>Label</DashText>);
+  expect(lastTextProps()).toMatchObject({
+    textDecorationStyle: 'dashed',
+    onekeyDashText: '0.5,0,overlay',
+    paddingBottom: 0,
+  });
   expect(wrapperLayout(view.container).paddingBottom).toBe(0);
   view.rerender(
     <DashText multiline length={0}>
@@ -222,7 +242,24 @@ it('drops native decoration and reserved height for overlay and zero length', ()
   expect(wrapperLayout(view.container).paddingBottom).toBe(0);
   view.rerender(<DashText dashThickness={0}>Label</DashText>);
   expect(lastTextProps().textDecorationLine).toBeUndefined();
+  expect(lastTextProps()).not.toHaveProperty('onekeyDashText');
 });
+
+it.each([0.3, 1, 2])(
+  'uses the requested native thickness on the first render (%s)',
+  (dashThickness) => {
+    platformEnv.isNative = true;
+    const view = render(
+      <DashText dashThickness={dashThickness}>Cost</DashText>,
+    );
+    expect(lastTextProps()).toMatchObject({
+      onekeyDashText: `${dashThickness},0,single`,
+      paddingBottom: dashThickness,
+    });
+    expect(lastTextProps().onTextLayout).toBeUndefined();
+    expect(view.container.querySelectorAll('[data-layout]')).toHaveLength(1);
+  },
+);
 
 it('keeps an explicit native dash count on each wrapped line', () => {
   platformEnv.isNative = true;
@@ -255,7 +292,7 @@ it('keeps an explicit native strike-through and draws the dash separately', () =
   expect(underlines(view.container)).toHaveLength(1);
 });
 
-it('uses both physical line widths for wrapped Android RTL labels', () => {
+it('keeps wrapped Android RTL labels on the native decoration path', () => {
   platformEnv.isNative = true;
   platformEnv.isNativeAndroid = true;
   I18nManager.isRTL = true;
@@ -267,30 +304,150 @@ it('uses both physical line widths for wrapped Android RTL labels', () => {
   );
 
   expect(lastTextProps().textDecorationLine).toBe('underline');
-  expect(underlines(view.container)).toHaveLength(0);
-  layoutText([{ x: 27, y: 0, width: 40, height: 15 }]);
-  expect(lastTextProps().textDecorationLine).toBe('underline');
-  expect(underlines(view.container)).toHaveLength(0);
 
   layoutText([
     { x: 27, y: 0, width: 40, height: 15 },
     { x: 32, y: 15, width: 35, height: 15 },
   ]);
 
-  expect(lastTextProps().textDecorationLine).toBeUndefined();
-  expect(
-    underlines(view.container).map(
-      (line) => JSON.parse(line.dataset.layout ?? '{}') as unknown,
-    ),
-  ).toEqual([
-    expect.objectContaining({ end: 27, width: 40 }),
-    expect.objectContaining({ end: 32, width: 35 }),
-  ]);
-  layoutText([{ x: 0, y: 0, width: 60, height: 15 }]);
   expect(lastTextProps().textDecorationLine).toBe('underline');
   expect(underlines(view.container)).toHaveLength(0);
-  expect(onTextLayout).toHaveBeenCalledTimes(3);
+  expect(onTextLayout).toHaveBeenCalledTimes(1);
 });
+
+it('reuses native overlay lines when the caller changes the dash pattern', () => {
+  platformEnv.isNative = true;
+  const onTextLayout = jest.fn();
+  const view = render(
+    <DashText multiline dashOverlay onTextLayout={onTextLayout}>
+      Label
+    </DashText>,
+  );
+  const lines = [{ x: 12, y: 0, width: 24, height: 15 }];
+  layoutText(lines);
+  expect(underlines(view.container)).toHaveLength(0);
+
+  view.rerender(
+    <DashText multiline dashOverlay dashGap={3} onTextLayout={onTextLayout}>
+      Label
+    </DashText>,
+  );
+
+  const draws = underlines(view.container);
+  expect(draws).toHaveLength(1);
+  expect(JSON.parse(draws[0].dataset.layout ?? '{}')).toMatchObject({
+    gap: 3,
+    start: 12,
+    top: 14.5,
+    width: 24,
+  });
+  expect(onTextLayout).toHaveBeenCalledTimes(1);
+  expect(onTextLayout).toHaveBeenCalledWith({ nativeEvent: { lines } });
+});
+
+it.each([
+  [{ paddingBottom: 4 }, 0, 0],
+  [{ paddingVertical: 4 }, 0, 4],
+  [{ padding: 4 }, 4, 4],
+  [{ pb: 4 }, 0, 0],
+  [{ py: 4 }, 0, 4],
+  [{ p: 4 }, 4, 4],
+  [{ padding: 4, style: { paddingVertical: 6 } }, 4, 6],
+] as const)(
+  'positions multiline dashes inside the caller padding (%j)',
+  (padding, left, top) => {
+    platformEnv.isNative = true;
+    const view = render(
+      <DashText multiline {...padding}>
+        Label
+      </DashText>,
+    );
+
+    expect(lastTextProps()).toMatchObject(padding);
+    expect(lastTextProps().textDecorationLine).toBeUndefined();
+    expect(wrapperLayout(view.container).paddingBottom).toBe(1.5);
+    layoutText([
+      { x: 3, y: 0, width: 40, height: 15 },
+      { x: 5, y: 15, width: 35, height: 15 },
+    ]);
+    expect(
+      underlines(view.container).map(
+        (line) =>
+          JSON.parse(line.dataset.layout ?? '{}') as Record<string, unknown>,
+      ),
+    ).toMatchObject([
+      { start: 3 + left, top: 16 + top, width: 40 },
+      { start: 5 + left, top: 31 + top, width: 35 },
+    ]);
+  },
+);
+
+const percentagePaddingStyle = { padding: '10%' } as const;
+
+it.each([
+  [false, 'start'],
+  [true, 'end'],
+] as const)(
+  'uses the padded text frame for measured dashes in RTL=%s',
+  (rtl, horizontalProp) => {
+    platformEnv.isNative = true;
+    I18nManager.isRTL = rtl;
+    const view = render(
+      <DashText
+        multiline
+        dashOverlay
+        dashGap={3}
+        style={percentagePaddingStyle}
+      >
+        Label
+      </DashText>,
+    );
+    const wrapperOnLayout = jest.mocked(YStack).mock.lastCall?.[0].onLayout;
+    const textOnLayout = lastTextProps().onLayout;
+    if (typeof wrapperOnLayout !== 'function' || !textOnLayout) {
+      throw new OneKeyLocalError('Missing measured layout handlers');
+    }
+    void act(() => {
+      wrapperOnLayout({
+        nativeEvent: { layout: { x: 0, y: 0, width: 100, height: 40 } },
+      } as LayoutChangeEvent);
+      textOnLayout({
+        nativeEvent: { layout: { x: 2, y: 3, width: 80, height: 35 } },
+      } as LayoutChangeEvent);
+    });
+    layoutText([{ x: 5, y: 0, width: 40, height: 15 }]);
+    expect(
+      JSON.parse(underlines(view.container)[0].dataset.layout ?? '{}'),
+    ).toMatchObject({
+      [horizontalProp]: 17,
+      top: 27.5,
+      width: 40,
+    });
+  },
+);
+
+it.each([{ dashLength: 4 }, { dashGap: 3 }])(
+  'measures native dashes when only one pattern dimension changes (%j)',
+  (pattern) => {
+    platformEnv.isNative = true;
+    const view = render(
+      <DashText multiline {...pattern}>
+        Label
+      </DashText>,
+    );
+    expect(lastTextProps().textDecorationLine).toBeUndefined();
+    layoutText([{ x: 0, y: 0, width: 12, height: 15 }]);
+
+    const [line] = underlines(view.container);
+    expect(line.children).toHaveLength(2);
+    expect(JSON.parse(line.dataset.layout ?? '{}')).toMatchObject({
+      gap: pattern.dashGap ?? 2,
+    });
+    expect(
+      JSON.parse(line.firstElementChild?.getAttribute('data-layout') ?? '{}'),
+    ).toMatchObject({ width: pattern.dashLength ?? 3 });
+  },
+);
 
 it.each([false, true])(
   'fills a native label with fractional-period dashes (multiline=%s)',
@@ -302,7 +459,6 @@ it.each([false, true])(
         dashOverlay
         dashLength={0.5}
         dashGap={0.25}
-        length={200}
       >
         Label
       </DashText>,
@@ -328,13 +484,7 @@ it.each([false, true])(
     expect(underlines(view.container)[0].children).toHaveLength(160);
 
     view.rerender(
-      <DashText
-        multiline={multiline}
-        dashOverlay
-        dashLength={0}
-        dashGap={0}
-        length={200}
-      >
+      <DashText multiline={multiline} dashOverlay dashLength={0} dashGap={0}>
         Label
       </DashText>,
     );
