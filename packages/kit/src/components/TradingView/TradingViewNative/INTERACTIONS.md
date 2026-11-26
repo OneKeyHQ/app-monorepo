@@ -109,8 +109,27 @@ under separate owners:
   own token, interval, indicator settings and pane heights; chart appearance
   stays shared with the namespace and drawings stay with the token. Presets are grids of cells (`1`, `2h`, `2v`,
   `3`, `4`); track sizes are saved per preset and a divider only spans the cells
-  it separates. iOS and Android resolve the `.native` pass-through and keep a
-  single chart.
+  it separates. In a split a panel can fill the grid: the button in its chart's
+  bottom right corner, where the price axis meets the time axis, or a double
+  click on its plot maximizes it, selecting it as a press would, and the same
+  again brings the split back. A double click counts only when both of its
+  presses were on the plot: one on an axis, a drawing, an order or position
+  line or its label (also one that takes no press, e.g. a PnL label or a
+  pending order) or a pane's legend, or one whose first press drew, keeps its
+  own meaning. Alt+Enter (Option+Enter) with focus in a panel's chart does the
+  same from the keyboard; an editable field, e.g. a drawing's name, keeps the
+  key. None of them toggles while a primary press in the chart or an order
+  line gesture lasts, so a gesture under way, e.g. on an order's cancel
+  control, ends on the geometry it started with. A chart without a price axis
+  has no empty corner and offers
+  the double click and the shortcut only, and a single chart has none of them.
+  The maximized panel is a view of the grid, never
+  saved: a reload, another preset or a selection that goes back elsewhere,
+  e.g. from a switch the host turned down, ends it. The other panels stay
+  mounted at their size behind it, unseen and taking no press, so the split
+  comes back without a chart resizing; the dividers and the selection outline
+  are gone meanwhile. iOS and Android resolve the `.native` pass-through and
+  keep a single chart.
 - The split view's layout picker also holds its sync options (`sync` in the
   saved layout): symbol, interval, crosshair, time and date range. All are
   off until the user turns them on. Every panel gets a
@@ -249,7 +268,8 @@ Cover persistence ordering/failure, restored editing, hidden/locked objects,
 freehand previews, resized pane geometry, namespace-specific settings, fullscreen
 ownership, split-view panel state (token, interval, indicators, sizes,
 selection) across preset changes and reloads, selecting a panel without a chart
-remount, drawing in every split-view panel with live sync
+remount, maximizing every panel and back by its corner button and by a double
+click anywhere on its plot, drawing in every split-view panel with live sync
 between panels showing one token, every sync option on and off across a
 reload (symbol and interval changed from the first and from another panel; the
 crosshair between panels of different tokens and intervals, with its price
