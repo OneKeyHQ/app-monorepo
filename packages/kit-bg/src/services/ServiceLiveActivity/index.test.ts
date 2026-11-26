@@ -326,6 +326,44 @@ describe('Live Activity subscription lifecycle', () => {
     });
   });
 
+  it('backs off missing thumbnails even when native prefetch resolves, then stops once the files exist', async () => {
+    const history = createHistory();
+    history.baseInfo.fromToken.logoURI = 'https://uni.onekey-asset.com/btc.png';
+    history.baseInfo.toToken.logoURI = 'https://uni.onekey-asset.com/token.png';
+    const readHistory = jest.fn().mockResolvedValue([history]);
+    const service = new ServiceLiveActivity({
+      backgroundApi: {
+        simpleDb: { swapHistory: { getSwapHistoryList: readHistory } },
+      },
+    });
+    const download = deferred<void>();
+    const prefetch = jest
+      .spyOn(liveActivity, 'prefetchIcons')
+      .mockImplementationOnce(() => download.promise)
+      .mockResolvedValue(undefined);
+    await service.onSwapBroadcast(history);
+    status.activities[0].needsIconUrls = true;
+    await service.resumeRemoteSubscriptions();
+    await jest.advanceTimersByTimeAsync(120_000);
+    expect(prefetch).toHaveBeenCalledTimes(1);
+
+    download.resolve();
+    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(59_999);
+    expect(prefetch).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(prefetch).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(119_999);
+    expect(prefetch).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(prefetch).toHaveBeenCalledTimes(3);
+
+    status.activities[0].needsIconUrls = false;
+    await jest.advanceTimersByTimeAsync(600_000);
+    expect(prefetch).toHaveBeenCalledTimes(3);
+    expect(readHistory).toHaveBeenCalledTimes(3);
+  });
+
   it.each([
     [80_007, true],
     [80_010, false],
@@ -506,7 +544,7 @@ describe('Live Activity subscription lifecycle', () => {
     },
   );
 
-  it('checks for a later refund at reconciliation cadence only on an expired fallback card', async () => {
+  function setupExpiredFallbackAndPendingCard() {
     const history = createHistory();
     const snapshot = buildSwapLiveActivitySnapshot(history);
     if (!snapshot) throw new OneKeyLocalError('Missing snapshot');
@@ -530,7 +568,7 @@ describe('Live Activity subscription lifecycle', () => {
         pushRegistration: 'pending',
       },
     ];
-    const fetch = jest.fn().mockResolvedValue(undefined);
+    const fetch = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
     const service = new ServiceLiveActivity({
       backgroundApi: {
         simpleDb: {
@@ -541,16 +579,14 @@ describe('Live Activity subscription lifecycle', () => {
         serviceSwap: { swapHistoryStatusRunFetch: fetch },
       },
     });
+    return { history, fetch, service };
+  }
+
+  it('accepts a direct refund result after expiry and stops checking', async () => {
+    const { history, fetch, service } = setupExpiredFallbackAndPendingCard();
     await service.resumeRemoteSubscriptions();
-    expect(status.activities[0].content.failureDetail).toBe('expired');
-    await jest.advanceTimersByTimeAsync(59_999);
-    expect(fetch).not.toHaveBeenCalled();
-    await jest.advanceTimersByTimeAsync(1);
+    await jest.advanceTimersByTimeAsync(60_000);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch).toHaveBeenCalledWith(history, {
-      shouldScheduleNextFetch: false,
-      shouldShowToast: false,
-    });
     await service.onSwapStatus({
       history,
       status: { state: ESwapTxHistoryStatus.REFUNDED },
@@ -563,6 +599,79 @@ describe('Live Activity subscription lifecycle', () => {
     );
     await jest.advanceTimersByTimeAsync(60_000);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [ESwapCrossChainStatus.REFUNDED, 'refunded'],
+    [ESwapCrossChainStatus.REFUND_FAILED, 'failed'],
+  ] as const)(
+    'follows an expired fallback through refunding to %s without a Swap polling owner',
+    async (finalStatus, expectedStatus) => {
+      const { history, fetch, service } = setupExpiredFallbackAndPendingCard();
+      const publish = async (crossChainStatus: ESwapCrossChainStatus) => {
+        history.crossChainStatus = crossChainStatus;
+        await service.onSwapStatus({
+          history,
+          status: { state: history.status, crossChainStatus },
+        });
+      };
+      fetch
+        .mockImplementationOnce(() => publish(ESwapCrossChainStatus.REFUNDING))
+        .mockImplementationOnce(() => publish(finalStatus));
+
+      await service.resumeRemoteSubscriptions();
+      expect(status.activities[0].content.failureDetail).toBe('expired');
+      await jest.advanceTimersByTimeAsync(59_999);
+      expect(fetch).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      expect(status.activities[0].content.status).toBe('refunding');
+      expect(fetch).toHaveBeenCalledWith(history, {
+        shouldScheduleNextFetch: false,
+        shouldShowToast: false,
+      });
+      await service.resumeRemoteSubscriptions();
+      await jest.advanceTimersByTimeAsync(59_999);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(status.activities[0].content.status).toBe(expectedStatus);
+      if (finalStatus === ESwapCrossChainStatus.REFUND_FAILED) {
+        expect(status.activities[0].content.failureDetail).toBe('refundFailed');
+      }
+      await jest.advanceTimersByTimeAsync(120_000);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('subscribes a second card before suspension while the first refund lookup is pending', async () => {
+    const { fetch, service } = setupExpiredFallbackAndPendingCard();
+    const refund = deferred<void>();
+    fetch.mockReturnValue(refund.promise);
+    await service.resumeRemoteSubscriptions();
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    // A slow provider spans another reconciliation while JPush is still pending.
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
+    status.activities[1].pushRegistration = 'registered';
+    await jest.advanceTimersByTimeAsync(3000);
+    // From this point a suspended JS runtime cannot run another timer.
+    jest.clearAllTimers();
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+    expect(serverTransport.subscribe).toHaveBeenCalledWith(
+      expect.objectContaining({ activityId: 'two' }),
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+    refund.resolve();
+  });
+
+  it('stops refund recovery when the fallback activity expires', async () => {
+    const { fetch, service } = setupExpiredFallbackAndPendingCard();
+    status.activities[0].order.expiresAtMs = Date.now() + 10_000;
+    await service.resumeRemoteSubscriptions();
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('recovers a terminal order from history after JPush fails and the JS service restarts', async () => {

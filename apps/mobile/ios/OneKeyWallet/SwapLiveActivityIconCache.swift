@@ -13,6 +13,11 @@ private final class SwapLiveActivityIconRedirects: NSObject, URLSessionTaskDeleg
 }
 
 actor SwapLiveActivityIconCache {
+  struct Thumbnail {
+    let name: String
+    var downloaded = false
+  }
+
   static let shared = SwapLiveActivityIconCache()
   private static let maximumBytes = 256 * 1024
   private static let maximumFiles = 256
@@ -43,16 +48,17 @@ actor SwapLiveActivityIconCache {
     return digest.map { String(format: "%02x", $0) }.joined() + ".png"
   }
 
-  func cache(_ rawURL: String?) async -> String {
-    guard let directory, let url = MarketWidgetService.validIconURL(rawURL) else { return "" }
+  func cache(_ rawURL: String?) async -> Thumbnail {
+    guard let directory, let url = MarketWidgetService.validIconURL(rawURL) else { return Thumbnail(name: "") }
     let name = Self.filename(for: url)
     let destination = directory.appendingPathComponent(name)
     if FileManager.default.fileExists(atPath: destination.path) {
       try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: destination.path)
-      return name
+      return Thumbnail(name: name)
     }
     if let existing = inFlight[url] {
-      return await existing.value ? name : ""
+      let stored = await existing.value
+      return Thumbnail(name: stored ? name : "", downloaded: stored)
     }
     let task = Task {
       do {
@@ -77,7 +83,7 @@ actor SwapLiveActivityIconCache {
     inFlight[url] = task
     let stored = await task.value
     inFlight.removeValue(forKey: url)
-    return stored ? name : ""
+    return Thumbnail(name: stored ? name : "", downloaded: stored)
   }
 
   private static func thumbnail(from data: Data) -> Data? {

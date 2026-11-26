@@ -62,6 +62,7 @@ import {
 const REGISTRATION_POLL_MS = 3000;
 const RETRY_POLL_MS = 15_000;
 const RECONCILE_POLL_MS = 60_000;
+const MAX_ICON_RETRY_MS = 15 * RECONCILE_POLL_MS;
 
 function hasFinalContent(content: ILiveActivityInstance['content']) {
   return (
@@ -150,9 +151,12 @@ class ServiceLiveActivity extends ServiceBase {
 
   private unsubscribing = new Map<string, Promise<void>>();
 
-  private checkedFailedActivities = new Set<string>();
+  private fallbackChecks = new Map<string, { nextRefundCheckAtMs: number }>();
 
-  private checkedActivityIcons = new Set<string>();
+  private iconRetries = new Map<
+    string,
+    { retryAtMs: number; delayMs: number }
+  >();
 
   private remoteSyncTimer?: {
     handle: ReturnType<typeof setTimeout>;
@@ -396,11 +400,11 @@ class ServiceLiveActivity extends ServiceBase {
 
   private async reconcile(status: ILiveActivitySystemStatus) {
     const activeIds = new Set(status.activities.map((item) => item.activityId));
-    for (const id of this.checkedFailedActivities) {
-      if (!activeIds.has(id)) this.checkedFailedActivities.delete(id);
+    for (const id of this.fallbackChecks.keys()) {
+      if (!activeIds.has(id)) this.fallbackChecks.delete(id);
     }
-    for (const id of this.checkedActivityIcons) {
-      if (!activeIds.has(id)) this.checkedActivityIcons.delete(id);
+    for (const id of this.iconRetries.keys()) {
+      if (!activeIds.has(id)) this.iconRetries.delete(id);
     }
     const activeSubscriptions = new Map(
       status.activities.map((item) => [item.activityId, item]),
@@ -666,55 +670,58 @@ class ServiceLiveActivity extends ServiceBase {
 
   private async recoverIconUrls(activities: ILiveActivityInstance[]) {
     const generation = this.testEndpointGeneration;
+    const now = Date.now();
     const pending = activities.filter(
       ({ activityId, order, content, needsIconUrls }) =>
         needsIconUrls &&
         !order.isMock &&
-        order.expiresAtMs > Date.now() &&
+        order.expiresAtMs > now &&
         !hasFinalContent(content) &&
-        !this.checkedActivityIcons.has(activityId),
+        (this.iconRetries.get(activityId)?.retryAtMs ?? 0) <= now,
     );
     if (!pending.length || this.activityHalted) return;
-    pending.forEach(({ activityId }) =>
-      this.checkedActivityIcons.add(activityId),
-    );
     try {
       const histories =
-        await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList({
+        this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList({
           includePendingWrites: true,
         });
       await Promise.all(
         pending.map(async ({ activityId, order }) => {
-          if (
-            this.activityHalted ||
-            generation !== this.testEndpointGeneration ||
-            isBlockedOrder(order.orderKey)
-          )
-            return;
-          const history = findActivityHistory(histories, order);
-          if (!history) return;
-          const { fromToken, toToken } = history.baseInfo;
-          const [from, to] = await Promise.all([
-            this.resolveTokenIconUrl(fromToken),
-            this.resolveTokenIconUrl(toToken),
-          ]);
-          if (
-            (from || to) &&
+          const previous = this.iconRetries.get(activityId);
+          const attempt = {
+            retryAtMs: Infinity,
+            delayMs: previous
+              ? Math.min(previous.delayMs * 2, MAX_ICON_RETRY_MS)
+              : RECONCILE_POLL_MS,
+          };
+          this.iconRetries.set(activityId, attempt);
+          const canRecover = () =>
             !this.activityHalted &&
             generation === this.testEndpointGeneration &&
-            !isBlockedOrder(order.orderKey)
-          ) {
-            await liveActivity.prefetchIcons({
-              activityId,
-              urls: { from, to },
-            });
+            this.iconRetries.get(activityId) === attempt &&
+            order.expiresAtMs > Date.now() &&
+            !isBlockedOrder(order.orderKey);
+          try {
+            const history = findActivityHistory(await histories, order);
+            if (!history || !canRecover()) return;
+            const { fromToken, toToken } = history.baseInfo;
+            const [from, to] = await Promise.all([
+              this.resolveTokenIconUrl(fromToken),
+              this.resolveTokenIconUrl(toToken),
+            ]);
+            if ((from || to) && canRecover()) {
+              await liveActivity.prefetchIcons({
+                activityId,
+                urls: { from, to },
+              });
+            }
+          } finally {
+            // Native reports disk readiness on the next status snapshot.
+            attempt.retryAtMs = Date.now() + attempt.delayMs;
           }
         }),
       );
     } catch (error) {
-      pending.forEach(({ activityId }) =>
-        this.checkedActivityIcons.delete(activityId),
-      );
       defaultLogger.notification.jpush.consoleError(
         'Live Activity icon recovery failed',
         {
@@ -887,7 +894,7 @@ class ServiceLiveActivity extends ServiceBase {
   ) {
     const { activityId, order } = instance;
     const generation = this.testEndpointGeneration;
-    if (!reconcileNow && this.checkedFailedActivities.has(activityId)) return;
+    if (!reconcileNow && this.fallbackChecks.has(activityId)) return;
     if (!(await this.getPushFailureFallback(instance))) return;
     // Swap stops polling after its terminal result. Recover it from history if
     // the result arrived before push setup failed, including after a JS restart.
@@ -896,10 +903,14 @@ class ServiceLiveActivity extends ServiceBase {
     if (
       this.activityHalted ||
       generation !== this.testEndpointGeneration ||
+      order.expiresAtMs <= Date.now() ||
       isBlockedOrder(order.orderKey)
     )
       return;
-    this.checkedFailedActivities.add(activityId);
+    const check = this.fallbackChecks.get(activityId) ?? {
+      nextRefundCheckAtMs: 0,
+    };
+    this.fallbackChecks.set(activityId, check);
     const history = findActivityHistory(histories, order);
     if (!history) return;
     const snapshot = buildSwapLiveActivitySnapshot(history);
@@ -908,17 +919,30 @@ class ServiceLiveActivity extends ServiceBase {
     if (
       reconcileNow &&
       instance.content.revision !== undefined &&
-      instance.content.status === 'failed' &&
-      snapshot.content.status === 'failed' &&
+      (snapshot.content.status === 'failed' ||
+        snapshot.content.status === 'refunding') &&
+      instance.content.status === snapshot.content.status &&
       instance.content.failureDetail === snapshot.content.failureDetail &&
       !hasFinalContent(snapshot.content)
     ) {
-      // The ordinary history loop has stopped. Reuse its deduplicated fetch only
-      // for this visible card, at the existing foreground reconciliation cadence.
-      await this.backgroundApi.serviceSwap.swapHistoryStatusRunFetch(history, {
-        shouldScheduleNextFetch: false,
-        shouldShowToast: false,
-      });
+      const startedAtMs = Date.now();
+      if (startedAtMs < check.nextRefundCheckAtMs) return;
+      // A slow provider must not hold up JPush registration for another card.
+      check.nextRefundCheckAtMs = Infinity;
+      void this.backgroundApi.serviceSwap
+        .swapHistoryStatusRunFetch(history, {
+          shouldScheduleNextFetch: false,
+          shouldShowToast: false,
+        })
+        .catch((error: unknown) => {
+          defaultLogger.notification.jpush.consoleError(
+            'Live Activity refund status refresh failed',
+            { errorType: error instanceof Error ? error.name : 'UnknownError' },
+          );
+        })
+        .finally(() => {
+          check.nextRefundCheckAtMs = startedAtMs + RECONCILE_POLL_MS;
+        });
     } else {
       await this.present(snapshot, false);
     }

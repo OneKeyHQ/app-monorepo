@@ -250,6 +250,7 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
   let toIconName: String
   let remoteUpdatesEnabled: Bool?
   var strings: SwapLiveActivityStrings? = nil
+  var requestedAt: Date? = nil
 
   var usesRemoteUpdates: Bool {
     if let remoteUpdatesEnabled { return remoteUpdatesEnabled }
@@ -315,6 +316,10 @@ enum SwapLiveActivityIconFiles {
   struct Names: Codable, Equatable {
     let from: String
     let to: String
+
+    func fillingMissing(with other: Names) -> Names {
+      Names(from: from.isEmpty ? other.from : from, to: to.isEmpty ? other.to : to)
+    }
   }
 
   private static let assignedNamesKey = "swapLiveActivity.assignedIconNames"
@@ -324,28 +329,35 @@ enum SwapLiveActivityIconFiles {
       .appendingPathComponent("LiveActivityIcons", isDirectory: true)
   }
 
+  static func available(_ name: String) -> String {
+    guard !name.isEmpty, let directory,
+          FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path) else { return "" }
+    return name
+  }
+
   private static func assignments() -> [String: Names] {
     guard let data = swapLiveActivityDefaults?.data(forKey: assignedNamesKey) else { return [:] }
     return (try? JSONDecoder().decode([String: Names].self, from: data)) ?? [:]
   }
 
   static func names(for activityId: String, attributes: SwapLiveActivityAttributes) -> Names {
-    if !attributes.fromIconName.isEmpty && !attributes.toIconName.isEmpty {
-      return Names(from: attributes.fromIconName, to: attributes.toIconName)
-    }
-    let assigned = assignments()[activityId]
-    return Names(
-      from: attributes.fromIconName.isEmpty ? (assigned?.from ?? "") : attributes.fromIconName,
-      to: attributes.toIconName.isEmpty ? (assigned?.to ?? "") : attributes.toIconName
-    )
+    let initial = Names(from: attributes.fromIconName, to: attributes.toIconName)
+    return assignments()[activityId]?.fillingMissing(with: initial) ?? initial
   }
 
-  static func assign(_ names: Names, to activityId: String, keeping activityIds: Set<String>) {
+  static func assign(_ names: Names, to activityId: String, attributes: SwapLiveActivityAttributes,
+                     keeping activityIds: Set<String>) -> Bool {
     let previous = assignments()
+    let initial = Names(from: attributes.fromIconName, to: attributes.toIconName)
+    let displayed = previous[activityId]?.fillingMissing(with: initial) ?? initial
+    let next = names.fillingMissing(with: displayed)
+    guard next != displayed else { return false }
     var updated = previous.filter { activityIds.contains($0.key) }
-    updated[activityId] = names
-    guard updated != previous, let data = try? JSONEncoder().encode(updated) else { return }
-    swapLiveActivityDefaults?.set(data, forKey: assignedNamesKey)
+    updated[activityId] = next
+    guard let defaults = swapLiveActivityDefaults,
+          let data = try? JSONEncoder().encode(updated) else { return false }
+    defaults.set(data, forKey: assignedNamesKey)
+    return true
   }
 
   static func clearAssignments() {

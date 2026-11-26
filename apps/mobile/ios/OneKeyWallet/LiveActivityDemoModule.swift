@@ -29,6 +29,8 @@ private final class SwapLiveActivityManager {
   private var acceptedRevisions: [String: Int64] = [:]
   private var acceptedStates: [String: SwapLiveActivityAttributes.ContentState] = [:]
   private var presentationGenerations: [String: Int] = [:]
+  private var iconChecks: [String: (needsURLs: Bool, until: Date)] = [:]
+  private var iconPrefetches = Set<String>()
 
   private init() {
     for activity in activities {
@@ -104,10 +106,10 @@ private final class SwapLiveActivityManager {
     // Older JS bundles never subscribe a BTC-receiving card.
     let usesRemoteUpdates = order.isPushTest == true ||
       (!order.isMock && (fromNativeBitcoin || request.supportsBtcReceivingPush == true))
-    let attributes = SwapLiveActivityAttributes(
+    var attributes = SwapLiveActivityAttributes(
       order: order,
-      fromIconName: SwapLiveActivityIconCache.filename(for: request.iconUrls?.from),
-      toIconName: SwapLiveActivityIconCache.filename(for: request.iconUrls?.to),
+      fromIconName: SwapLiveActivityIconFiles.available(SwapLiveActivityIconCache.filename(for: request.iconUrls?.from)),
+      toIconName: SwapLiveActivityIconFiles.available(SwapLiveActivityIconCache.filename(for: request.iconUrls?.to)),
       remoteUpdatesEnabled: usesRemoteUpdates,
       strings: usesRemoteUpdates ? request.content.strings : nil
     )
@@ -116,8 +118,10 @@ private final class SwapLiveActivityManager {
       revision: request.content.revision, updatedAtMs: request.content.updatedAtMs,
       strings: usesRemoteUpdates ? nil : request.content.strings
     )
+    let initialContent = content(state, order: order)
+    attributes.requestedAt = Date()
     let activity = try Activity.request(
-      attributes: attributes, content: content(state, order: order),
+      attributes: attributes, content: initialContent,
       pushType: usesRemoteUpdates ? .token : nil
     )
     var attempted = defaults.dictionary(forKey: attemptedKey) as? [String: Double] ?? [:]
@@ -127,23 +131,45 @@ private final class SwapLiveActivityManager {
     if !usesRemoteUpdates { acceptedStates[activity.id] = state }
     observe(activity)
     schedulePresentation(activity, state: state)
-    if let urls = request.iconUrls {
-      Task { await prefetchIcons(.init(urls: urls, activityId: nil)) }
+    if let urls = request.iconUrls, attributes.fromIconName.isEmpty || attributes.toIconName.isEmpty {
+      Task { await prefetchIcons(.init(urls: urls, activityId: activity.id)) }
     }
   }
 
   func prefetchIcons(_ request: SwapLiveActivityIconPrefetchRequest) async {
     guard !OneKeyIsTravelModeMaskingData(), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    if let id = request.activityId, !iconPrefetches.insert(id).inserted { return }
+    defer { if let id = request.activityId { iconPrefetches.remove(id) } }
     async let from = SwapLiveActivityIconCache.shared.cache(request.urls.from)
     async let to = SwapLiveActivityIconCache.shared.cache(request.urls.to)
-    let names = await SwapLiveActivityIconFiles.Names(from: from, to: to)
+    let (fromIcon, toIcon) = await (from, to)
+    let names = SwapLiveActivityIconFiles.Names(from: fromIcon.name, to: toIcon.name)
     guard let activityId = request.activityId,
-          activities.contains(where: { $0.id == activityId }),
+          let activity = activities.first(where: { $0.id == activityId }),
           !OneKeyIsTravelModeMaskingData(),
           !names.from.isEmpty || !names.to.isEmpty else { return }
-    SwapLiveActivityIconFiles.assign(
-      names, to: activityId, keeping: Set(Activity<SwapLiveActivityAttributes>.activities.map(\.id))
+    let changed = SwapLiveActivityIconFiles.assign(
+      names, to: activityId, attributes: activity.attributes,
+      keeping: Set(Activity<SwapLiveActivityAttributes>.activities.map(\.id))
     )
+    iconChecks.removeValue(forKey: activityId)
+    guard changed || fromIcon.downloaded || toIcon.downloaded else { return }
+    await mutate(activity) {
+      guard !OneKeyIsTravelModeMaskingData() else { return }
+      let current = activity.content
+      var state = self.currentState(activity)
+      state.imageRevision = (state.imageRevision ?? 0) + 1
+      let refreshed = ActivityContent(state: state, staleDate: current.staleDate, relevanceScore: current.relevanceScore)
+      if !activity.attributes.usesRemoteUpdates {
+        self.acceptedStates[activityId] = state
+        await activity.update(refreshed)
+      } else if #available(iOS 17.2, *), state.remoteProgress == nil, let requestedAt = activity.attributes.requestedAt {
+        // APNs timestamps are whole seconds. Never outrank a push newer than the initial card.
+        // Once APNs owns the state, its next update will render the cached files.
+        let creationSecondEnd = Date(timeIntervalSince1970: (floor(requestedAt.timeIntervalSince1970) + 1).nextDown)
+        await activity.update(refreshed, timestamp: min(Date(), creationSecondEnd))
+      }
+    }
   }
 
   func update(_ request: SwapLiveActivityRequest) async {
@@ -277,6 +303,7 @@ private final class SwapLiveActivityManager {
           self.acceptedRevisions.removeValue(forKey: activity.id)
           self.acceptedStates.removeValue(forKey: activity.id)
           self.presentationGenerations.removeValue(forKey: activity.id)
+          self.iconChecks.removeValue(forKey: activity.id)
           return
         }
       }
@@ -447,20 +474,29 @@ private final class SwapLiveActivityManager {
     return LocalizedStringResource(stringLiteral: text)
   }
 
+  private func needsIconUrls(_ activity: Activity<SwapLiveActivityAttributes>) -> Bool {
+    if let check = iconChecks[activity.id], check.until > Date() { return check.needsURLs }
+    let names = SwapLiveActivityIconFiles.names(for: activity.id, attributes: activity.attributes)
+    let missing = SwapLiveActivityIconFiles.available(names.from).isEmpty ||
+      SwapLiveActivityIconFiles.available(names.to).isEmpty
+    // JPush registration polls more frequently than thumbnail recovery.
+    iconChecks[activity.id] = (missing, Date().addingTimeInterval(60))
+    return missing
+  }
+
   func snapshot() -> [String: Any] {
     let items: [[String: Any]] = activities.compactMap { activity in
       guard let orderData = try? JSONEncoder().encode(activity.attributes.order),
             let order = try? JSONSerialization.jsonObject(with: orderData),
             let contentData = try? JSONEncoder().encode(currentState(activity)),
             let state = try? JSONSerialization.jsonObject(with: contentData) else { return nil }
-      let names = SwapLiveActivityIconFiles.names(for: activity.id, attributes: activity.attributes)
       return [
         "activityId": activity.id,
         "activityState": String(describing: activity.activityState),
         "order": order,
         "content": state,
         "pushRegistration": pushRegistration(activity),
-        "needsIconUrls": names.from.isEmpty || names.to.isEmpty,
+        "needsIconUrls": needsIconUrls(activity),
       ]
     }
     return ["supported": true, "enabled": ActivityAuthorizationInfo().areActivitiesEnabled,
