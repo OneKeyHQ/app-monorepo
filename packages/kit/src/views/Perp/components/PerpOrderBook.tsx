@@ -495,10 +495,6 @@ const EMPTY_BOOK_LEVELS: IBookLevel[] = [];
 const PerpDepthChartMemo = memo(PerpDepthChart);
 type IDepthBook = ReturnType<typeof usePerpDepthBook>;
 
-function getDepthBookTimestamp(book: IDepthBook['book']) {
-  return book?.localReceivedAt ?? book?.time ?? 0;
-}
-
 function PerpDepthChartView({
   instrument,
   entry,
@@ -633,49 +629,62 @@ function PerpWorkspaceDepthChart({
 }) {
   const [display, setDisplay] = useState<{
     snapshot: IDepthBook;
-    awaitingFreshBook: boolean;
+    pausedAt?: number;
+    recoveryFailed?: boolean;
   }>();
   useLayoutEffect(() => {
     if (!active) {
+      const pausedAt = Date.now();
       setDisplay((previous) =>
-        previous?.snapshot.book && !previous.awaitingFreshBook
-          ? { ...previous, awaitingFreshBook: true }
+        previous?.snapshot.book
+          ? { snapshot: previous.snapshot, pausedAt }
           : previous,
       );
     }
   }, [active]);
   const handleDisplay = useCallback((snapshot: IDepthBook) => {
     setDisplay((previous) => {
-      if (previous?.awaitingFreshBook) {
-        // Reattaching to the shared book can replay the frame from before blur.
+      if (previous?.pausedAt !== undefined) {
+        if (snapshot.status === 'error') {
+          return previous.recoveryFailed
+            ? previous
+            : { ...previous, recoveryFailed: true };
+        }
+        // Even an unrendered shared book can have arrived before this pause.
         const isFresh =
           snapshot.status === 'ready' || snapshot.status === 'empty';
+        const receivedAt = snapshot.book?.localReceivedAt;
         if (
           !isFresh ||
-          getDepthBookTimestamp(snapshot.book) <=
-            getDepthBookTimestamp(previous.snapshot.book)
+          receivedAt === undefined ||
+          !Number.isFinite(receivedAt) ||
+          receivedAt <= previous.pausedAt
         ) {
           return previous;
         }
       }
-      return previous?.snapshot === snapshot && !previous.awaitingFreshBook
+      return previous?.snapshot === snapshot && previous.pausedAt === undefined
         ? previous
-        : { snapshot, awaitingFreshBook: false };
+        : { snapshot };
     });
   }, []);
 
+  const snapshot = display?.snapshot;
+  const awaitingFreshBook = display?.pausedAt !== undefined;
+  const recoveryStatus = display?.recoveryFailed ? 'error' : 'stale';
+  const depthBook: IDepthBook | undefined =
+    snapshot && active && awaitingFreshBook
+      ? { ...snapshot, status: recoveryStatus }
+      : snapshot;
+
   return (
     <>
-      {visible && display ? (
+      {visible && depthBook ? (
         <PerpDepthChartView
           instrument={instrument}
-          depthBook={
-            active && display.awaitingFreshBook
-              ? { ...display.snapshot, status: 'stale' }
-              : display.snapshot
-          }
+          depthBook={depthBook}
           showHeader={showHeader}
-          interactionEnabled={active}
+          interactionEnabled={active && !awaitingFreshBook}
         />
       ) : null}
       {active ? (

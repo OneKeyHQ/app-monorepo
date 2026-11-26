@@ -4,8 +4,8 @@ import type { ReactNode } from 'react';
 
 import { act, render } from '@testing-library/react';
 
+import type { IPerpsL2BookWithLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS } from '../utils/orderBookVisualScheduler';
 
@@ -19,7 +19,7 @@ const mockInstrument = {
 let mockModal = false;
 let mockTab = ETabRoutes.Perp;
 let mockForeground = true;
-const mockReadBook = jest.fn<IBook | null, []>();
+const mockReadBook = jest.fn<IPerpsL2BookWithLocalReceivedAt | null, []>();
 const mockBookListeners = new Set<() => void>();
 const mockListenToBook = (callback: () => void) => {
   mockBookListeners.add(callback);
@@ -114,6 +114,7 @@ jest.mock('./OrderBook/PerpDepthChart', () => ({
   }) => (
     <div
       data-testid="depth"
+      data-interaction-enabled={interactionEnabled}
       data-interactive={interactionEnabled && status === 'ready'}
       data-status={status}
     >
@@ -122,12 +123,14 @@ jest.mock('./OrderBook/PerpDepthChart', () => ({
   ),
 }));
 
-function createBook(bid: number, time = Date.now()): IBook {
+function createBook(bid: number): IPerpsL2BookWithLocalReceivedAt {
+  const now = Date.now();
   return {
     coin: mockInstrument.coin,
     nSigFigs: null,
     mantissa: null,
-    time,
+    time: now,
+    localReceivedAt: now,
     levels: [
       [{ px: String(bid), sz: '1', n: 1 }],
       [{ px: String(bid + 2), sz: '1', n: 1 }],
@@ -135,61 +138,141 @@ function createBook(bid: number, time = Date.now()): IBook {
   };
 }
 
-beforeEach(() => jest.useFakeTimers());
+function updateSharedBook(book: IPerpsL2BookWithLocalReceivedAt | null) {
+  mockReadBook.mockReturnValue(book);
+  act(() => mockBookListeners.forEach((callback) => callback()));
+}
+
+function workspaceDepthChart() {
+  return <PerpOrderBook depthChart entry="perpTab" />;
+}
+
+function setModalOpen(open: boolean) {
+  mockModal = open;
+  mockForeground = !open;
+}
+
+async function advanceTime(ms: number) {
+  await act(async () => jest.advanceTimersByTimeAsync(ms));
+}
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  setModalOpen(false);
+  mockTab = ETabRoutes.Perp;
+  mockSubscribe.mockClear();
+  mockUnsubscribe.mockClear();
+});
 afterEach(() => jest.useRealTimers());
 
 it('pauses the workspace depth feed under a modal and keeps the committed frame until fresh data returns', async () => {
   const initialBook = createBook(59_999);
   mockReadBook.mockReturnValue(initialBook);
-  const chart = <PerpOrderBook depthChart entry="perpTab" />;
-  const { getByTestId, queryByTestId, rerender } = render(chart);
+  const { getByTestId, queryByTestId, rerender } = render(
+    workspaceDepthChart(),
+  );
   const depth = getByTestId('depth');
   expect(depth.textContent).toBe('60000');
   expect(depth.dataset.interactive).toBe('true');
 
-  mockReadBook.mockReturnValue(createBook(60_099));
-  act(() => mockBookListeners.forEach((callback) => callback()));
+  await advanceTime(1);
+  updateSharedBook(createBook(60_099));
   expect(depth.textContent).toBe('60000');
-  mockModal = true;
-  mockForeground = false;
-  rerender(<PerpOrderBook depthChart entry="perpTab" />);
-  await act(async () =>
-    jest.advanceTimersByTimeAsync(PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS),
-  );
+  await advanceTime(1);
+  setModalOpen(true);
+  rerender(workspaceDepthChart());
+  await advanceTime(PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS);
   expect(getByTestId('depth')).toBe(depth);
   expect(depth.textContent).toBe('60000');
   expect(depth.dataset.interactive).toBe('false');
   expect(depth.dataset.status).toBe('ready');
   const readsWhilePaused = mockReadBook.mock.calls.length;
   expect(mockBookListeners.size).toBe(0);
-  mockReadBook.mockReturnValue(initialBook);
-  rerender(<PerpOrderBook depthChart entry="perpTab" />);
+  rerender(workspaceDepthChart());
   expect(mockReadBook).toHaveBeenCalledTimes(readsWhilePaused);
 
-  mockModal = false;
-  mockForeground = true;
-  rerender(<PerpOrderBook depthChart entry="perpTab" />);
+  setModalOpen(false);
+  rerender(workspaceDepthChart());
   expect(getByTestId('depth')).toBe(depth);
   expect(depth.textContent).toBe('60000');
   expect(depth.dataset.interactive).toBe('false');
+  expect(depth.dataset.interactionEnabled).toBe('false');
   expect(depth.dataset.status).toBe('stale');
   expect(mockSubscribe).not.toHaveBeenCalled();
 
-  mockReadBook.mockReturnValue(null);
-  act(() => mockBookListeners.forEach((callback) => callback()));
+  updateSharedBook({
+    ...createBook(60_145),
+    time: Date.now() + 10_000,
+    localReceivedAt: undefined,
+  });
+  await advanceTime(PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS);
+  expect(depth.textContent).toBe('60000');
+  expect(depth.dataset.status).toBe('stale');
+
+  updateSharedBook(null);
   expect(mockSubscribe).toHaveBeenCalledTimes(1);
   await act(async () => undefined);
 
-  mockReadBook.mockReturnValue(createBook(60_199, initialBook.time + 1));
-  act(() => mockBookListeners.forEach((callback) => callback()));
+  updateSharedBook(createBook(60_199));
   expect(depth.textContent).toBe('60200');
   expect(depth.dataset.interactive).toBe('true');
 
-  mockModal = true;
-  mockForeground = false;
-  rerender(<PerpOrderBook depthChart entry="perpTab" />);
+  setModalOpen(true);
+  rerender(workspaceDepthChart());
   expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
   mockTab = ETabRoutes.Home;
-  rerender(<PerpOrderBook depthChart entry="perpTab" />);
+  rerender(workspaceDepthChart());
   expect(queryByTestId('depth')).toBeNull();
+});
+
+it('requires a receipt after the latest pause when a second modal interrupts recovery', async () => {
+  mockReadBook.mockReturnValue(createBook(59_999));
+  const { getByTestId, rerender } = render(workspaceDepthChart());
+  const depth = getByTestId('depth');
+
+  setModalOpen(true);
+  rerender(workspaceDepthChart());
+  await advanceTime(1);
+  setModalOpen(false);
+  rerender(workspaceDepthChart());
+  expect(depth.dataset.status).toBe('stale');
+
+  await advanceTime(1);
+  updateSharedBook(createBook(60_099));
+  expect(depth.dataset.status).toBe('stale');
+  await advanceTime(1);
+  setModalOpen(true);
+  rerender(workspaceDepthChart());
+  await advanceTime(1);
+  setModalOpen(false);
+  rerender(workspaceDepthChart());
+  expect(depth.dataset.status).toBe('stale');
+  expect(depth.textContent).toBe('60000');
+
+  updateSharedBook(createBook(60_199));
+  await advanceTime(PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS);
+  expect(depth.textContent).toBe('60200');
+  expect(depth.dataset.interactive).toBe('true');
+});
+
+it('keeps the retained frame on a recovery error and clears it for a fresh empty book', async () => {
+  mockReadBook.mockReturnValue(createBook(59_999));
+  const { getByTestId, rerender } = render(workspaceDepthChart());
+  const depth = getByTestId('depth');
+
+  setModalOpen(true);
+  rerender(workspaceDepthChart());
+  await advanceTime(1);
+  mockReadBook.mockReturnValue(null);
+  mockSubscribe.mockRejectedValueOnce(new Error('Depth subscription failed'));
+  setModalOpen(false);
+  rerender(workspaceDepthChart());
+  await act(async () => undefined);
+  expect(depth.dataset.status).toBe('error');
+  expect(depth.dataset.interactionEnabled).toBe('false');
+  expect(depth.textContent).toBe('60000');
+
+  updateSharedBook({ ...createBook(60_199), levels: [[], []] });
+  expect(depth.dataset.status).toBe('empty');
+  expect(depth.textContent).toBe('');
 });

@@ -118,7 +118,7 @@ jest.mock('react-native-svg', () => ({
   G: 'G',
   Line: 'Line',
   LinearGradient: 'LinearGradient',
-  Path: 'Path',
+  Path: 'path',
   Rect: 'Rect',
   Stop: 'Stop',
   Text: 'Text',
@@ -190,7 +190,10 @@ describe.each([true, false])(
         } as LayoutChangeEvent);
       });
     });
-    afterEach(() => act(() => view.unmount()));
+    afterEach(() => {
+      act(() => view.unmount());
+      jest.useRealTimers();
+    });
 
     const input = () =>
       view.root.findByProps({ testID: 'perp-depth-plot-input' })
@@ -264,6 +267,14 @@ describe.each([true, false])(
       };
       return native ? props.accessibilityLabel : props['aria-label'];
     };
+    const getPlot = () => ({
+      curves: view.root
+        .findAllByType('path')
+        .map((node) => (node.props as { d: string }).d),
+      sizeLabels: view.root
+        .findAllByProps({ textAnchor: 'end' })
+        .map((node) => (node.props as { children: string }).children),
+    });
 
     it('exposes the visible midpoint when the chart header is hidden', () => {
       expect(getDescription()).toContain('perp.order_mid_price_title 100');
@@ -300,6 +311,88 @@ describe.each([true, false])(
       expect(getDescription()).toBe(readyDescription);
       updateChart({ status: 'loading' });
       expect(getDescription()).toBe('perp.order_book_depth');
+    });
+
+    it('keeps the retained curves and size ticks until a fresh book completes a new shrink delay', () => {
+      jest.useFakeTimers();
+      const smallerBook = {
+        bids: [
+          { price: '99.9', cumSize: '1' },
+          { price: '99.7', cumSize: '3' },
+        ],
+        asks: [
+          { price: '100.1', cumSize: '1' },
+          { price: '100.3', cumSize: '3' },
+        ],
+      };
+      updateChart(smallerBook);
+      const retained = getPlot();
+      expect(retained.curves).toHaveLength(4);
+
+      updateChart({ interactionEnabled: false });
+      act(() => jest.advanceTimersByTime(1500));
+      expect(getPlot()).toEqual(retained);
+      updateChart({ status: 'stale' });
+      act(() => jest.advanceTimersByTime(1500));
+      expect(getPlot()).toEqual(retained);
+      updateChart({ status: 'error' });
+      act(() => jest.advanceTimersByTime(1500));
+      expect(getPlot()).toEqual(retained);
+
+      updateChart({ status: 'ready', interactionEnabled: true });
+      act(() => jest.advanceTimersByTime(1499));
+      expect(getPlot()).toEqual(retained);
+      act(() => jest.advanceTimersByTime(1));
+      const live = getPlot();
+      expect(live.curves).not.toEqual(retained.curves);
+      expect(live.sizeLabels).not.toEqual(retained.sizeLabels);
+    });
+
+    it('shows the network error on the retained plot with interaction disabled', () => {
+      const readyDescription =
+        'perp.order_book_depth, perp.order_mid_price_title 100';
+      const retained = getPlot();
+      const errorLabel = { children: 'global.network_error' };
+      expect(retained.curves).toHaveLength(4);
+      touch('start');
+      expect(tooltip('bid')).toHaveLength(1);
+
+      updateChart({ status: 'error', interactionEnabled: false });
+      expect(getPlot()).toEqual(retained);
+      expect(view.root.findAllByProps(errorLabel)).toHaveLength(1);
+      expect(
+        view.root.findAllByProps({ testID: 'perp-depth-plot-input' }),
+      ).toHaveLength(0);
+      expect(tooltip('bid')).toHaveLength(0);
+      expect(getDescription()).toBe(
+        native ? `${readyDescription}, global.network_error` : readyDescription,
+      );
+
+      updateChart({ status: 'ready', interactionEnabled: true });
+      expect(view.root.findAllByProps(errorLabel)).toHaveLength(0);
+      expect(getDescription()).toBe(readyDescription);
+      expect(input()).toBeDefined();
+    });
+
+    it('uses the new target viewport when the target changes while paused', () => {
+      const retained = getPlot();
+      updateChart({ interactionEnabled: false });
+      updateChart({
+        targetKey: 'ETH',
+        bids: [
+          { price: '199.9', cumSize: '1' },
+          { price: '199.8', cumSize: '2' },
+        ],
+        asks: [
+          { price: '200.1', cumSize: '1' },
+          { price: '200.2', cumSize: '2' },
+        ],
+        referenceMidPrice: 200,
+      });
+      const next = getPlot();
+      expect(next.curves).toHaveLength(4);
+      expect(next.sizeLabels).not.toEqual(retained.sizeLabels);
+      expect(getDescription()).toContain('perp.order_mid_price_title 200');
     });
 
     it('keeps nonzero compact distances visible and leaves zero unsigned', () => {
