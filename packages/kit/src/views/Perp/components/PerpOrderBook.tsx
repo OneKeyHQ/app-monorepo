@@ -41,6 +41,7 @@ import type {
   IActiveTradeInstrument,
   ITradingFormData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { getPerpsL2BookReceiptSequence } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import {
   usePerpsCommonConfigPersistAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
@@ -607,11 +608,13 @@ function PerpDepthChartContent({
 const PerpDepthBookBridge = memo(function PerpDepthBookBridge({
   instrument,
   onDisplay,
+  pausedReceiptSequence,
 }: {
   instrument: IActiveTradeInstrument;
   onDisplay: (snapshot: IDepthBook) => void;
+  pausedReceiptSequence?: number;
 }) {
-  const depthBook = usePerpDepthBook(instrument, true);
+  const depthBook = usePerpDepthBook(instrument, true, pausedReceiptSequence);
   useLayoutEffect(() => onDisplay(depthBook), [depthBook, onDisplay]);
   return null;
 });
@@ -629,48 +632,45 @@ function PerpWorkspaceDepthChart({
 }) {
   const [display, setDisplay] = useState<{
     snapshot: IDepthBook;
-    pausedAt?: number;
+    pausedReceiptSequence?: number;
+    awaitingFreshBook?: boolean;
     recoveryFailed?: boolean;
   }>();
   useLayoutEffect(() => {
     if (!active) {
-      const pausedAt = Date.now();
+      const pausedReceiptSequence = getPerpsL2BookReceiptSequence();
       setDisplay((previous) =>
         previous?.snapshot.book
-          ? { snapshot: previous.snapshot, pausedAt }
+          ? {
+              snapshot: previous.snapshot,
+              pausedReceiptSequence,
+              awaitingFreshBook: true,
+            }
           : previous,
       );
     }
   }, [active]);
   const handleDisplay = useCallback((snapshot: IDepthBook) => {
     setDisplay((previous) => {
-      if (previous?.pausedAt !== undefined) {
-        if (snapshot.status === 'error') {
-          return previous.recoveryFailed
-            ? previous
-            : { ...previous, recoveryFailed: true };
-        }
-        // Even an unrendered shared book can have arrived before this pause.
-        const isFresh =
-          snapshot.status === 'ready' || snapshot.status === 'empty';
-        const receivedAt = snapshot.book?.localReceivedAt;
-        if (
-          !isFresh ||
-          receivedAt === undefined ||
-          !Number.isFinite(receivedAt) ||
-          receivedAt <= previous.pausedAt
-        ) {
+      if (previous?.awaitingFreshBook) {
+        if (snapshot.status !== 'ready' && snapshot.status !== 'empty') {
+          if (
+            !previous.recoveryFailed &&
+            (snapshot.independentFailed || snapshot.status === 'error')
+          ) {
+            return { ...previous, recoveryFailed: true };
+          }
           return previous;
         }
       }
-      return previous?.snapshot === snapshot && previous.pausedAt === undefined
+      return previous?.snapshot === snapshot && !previous.awaitingFreshBook
         ? previous
-        : { snapshot };
+        : { snapshot, pausedReceiptSequence: previous?.pausedReceiptSequence };
     });
   }, []);
 
   const snapshot = display?.snapshot;
-  const awaitingFreshBook = display?.pausedAt !== undefined;
+  const awaitingFreshBook = display?.awaitingFreshBook;
   const recoveryStatus = display?.recoveryFailed ? 'error' : 'stale';
   const depthBook: IDepthBook | undefined =
     snapshot && active && awaitingFreshBook
@@ -691,6 +691,7 @@ function PerpWorkspaceDepthChart({
         <PerpDepthBookBridge
           instrument={instrument}
           onDisplay={handleDisplay}
+          pausedReceiptSequence={display?.pausedReceiptSequence}
         />
       ) : null}
     </>

@@ -80,6 +80,7 @@ import {
   usePerpsActiveAssetCtxColdCacheAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { markPerpsL2BookReceived } from '../../../states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { upsertPerpsActiveAssetCtxColdCacheEntry } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { usePrewarmPerpsTokenSelectorImages } from '../hooks/usePrewarmPerpsTokenSelectorImages';
 import {
@@ -419,7 +420,7 @@ function useHyperliquidEventBusListener() {
               l2BookTimerRef,
               HIGH_FREQ_CHANNEL_THROTTLE_MS,
               (book) => void actions.current.updateL2Book(book),
-              data as IBook,
+              markPerpsL2BookReceived(data as IBook),
             );
             break;
 

@@ -6,6 +6,8 @@ import { throttle } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useL2BookAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IActiveTradeInstrument } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { markPerpsL2BookReceived } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
+import type { IPerpsL2BookWithLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { usePerpsWebSocketConnectedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import {
@@ -30,10 +32,7 @@ import {
   getTrueDepthMidPrice,
 } from '../utils/perpDepthBook';
 
-type IDepthSnapshot = IBook & {
-  localReceivedAt?: number;
-  isCachedSnapshot?: boolean;
-};
+type IDepthSnapshot = IPerpsL2BookWithLocalReceivedAt;
 
 const DEPTH_TAB_GRACE_MS = 60_000;
 
@@ -107,7 +106,7 @@ function usePublicDepthBook(coin: string, options?: IL2BookOptions) {
         return;
       sawUpdate = true;
       if (event.status === 'ready') {
-        publishBook(event.book, event.receivedAt);
+        publishBook(markPerpsL2BookReceived(event.book), event.receivedAt);
       } else {
         setState((previous) => ({
           key: targetKey,
@@ -145,9 +144,20 @@ function usePublicDepthBook(coin: string, options?: IL2BookOptions) {
   return state?.key === targetKey ? state : undefined;
 }
 
+function isReceivedAfterPause(
+  book: IDepthSnapshot | undefined,
+  pausedReceiptSequence: number | undefined,
+) {
+  return (
+    pausedReceiptSequence === undefined ||
+    (book?.receiptSequence ?? 0) > pausedReceiptSequence
+  );
+}
+
 export function usePerpDepthBook(
   instrument: IActiveTradeInstrument,
   active: boolean,
+  pausedReceiptSequence?: number,
 ) {
   const { coin, mode } = instrument;
   const [sharedBook] = useL2BookAtom();
@@ -193,10 +203,16 @@ export function usePerpDepthBook(
     });
   let liveSource: 'independent' | 'shared' | undefined;
   let book: IDepthSnapshot | undefined;
-  if (independentFresh) {
+  if (
+    independentFresh &&
+    isReceivedAfterPause(independent.book, pausedReceiptSequence)
+  ) {
     liveSource = 'independent';
     book = independent.book;
-  } else if (sharedFresh) {
+  } else if (
+    sharedFresh &&
+    isReceivedAfterPause(shared, pausedReceiptSequence)
+  ) {
     liveSource = 'shared';
     book = shared;
   } else {
@@ -237,10 +253,11 @@ export function usePerpDepthBook(
     return () => clearTimeout(timer);
   }, [active, coin, hasBook, targetKey, usesSharedSubscription]);
 
+  const independentFailed = independent?.status === 'error';
   const status = getPerpsDepthChartStatus({
     book: book ?? null,
     isConnectionReady: liveSource !== undefined,
-    hasLoadFailed: timedOutKey === targetKey || independent?.status === 'error',
+    hasLoadFailed: timedOutKey === targetKey || independentFailed,
   });
   // Keep the visual midpoint and levels on the same snapshot. BBO updates
   // independently and can otherwise move the center outside the plotted spread.
@@ -267,6 +284,7 @@ export function usePerpDepthBook(
       value: {
         book,
         status,
+        independentFailed,
         targetKey,
         referenceMidPrice: visualMidPrice,
         referencePriceDecimals,
@@ -276,6 +294,7 @@ export function usePerpDepthBook(
     [
       active,
       book,
+      independentFailed,
       liveSource,
       mode,
       priceStep,
@@ -296,6 +315,7 @@ export function usePerpDepthBook(
     visualSnapshot.liveSource !== liveSource ||
     visualSnapshot.value.targetKey !== targetKey ||
     visualSnapshot.value.status !== status ||
+    visualSnapshot.value.independentFailed !== independentFailed ||
     (visualSnapshot.value.referenceMidPrice === undefined) !==
       (visualMidPrice === undefined) ||
     (visualSnapshot.value.priceStep === undefined) !==

@@ -4,8 +4,15 @@ import type { ReactNode } from 'react';
 
 import { act, render } from '@testing-library/react';
 
+import { markPerpsL2BookReceived } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import type { IPerpsL2BookWithLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
+import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
+import type {
+  EAppEventBusNames,
+  IAppEventBusPayload,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS } from '../utils/orderBookVisualScheduler';
 
@@ -25,8 +32,17 @@ const mockListenToBook = (callback: () => void) => {
   mockBookListeners.add(callback);
   return () => mockBookListeners.delete(callback);
 };
-const mockSubscribe = jest.fn<Promise<undefined>, []>(async () => undefined);
+const mockSubscribe = jest.fn<
+  Promise<{ book: IBook; receivedAt: number } | undefined>,
+  []
+>(async () => undefined);
 const mockUnsubscribe = jest.fn<Promise<undefined>, []>(async () => undefined);
+type IDepthBookEvent =
+  IAppEventBusPayload[EAppEventBusNames.HyperliquidPublicDepthBook];
+const mockDepthBookListen = jest.fn<
+  void,
+  [string, (event: IDepthBookEvent) => void]
+>();
 
 jest.mock('react-native', () => ({
   StyleSheet: { create: (styles: unknown) => styles },
@@ -81,7 +97,11 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     HyperliquidPublicDepthBook: 'HyperliquidPublicDepthBook',
   },
-  appEventBus: { on: jest.fn(), off: jest.fn() },
+  appEventBus: {
+    on: (type: string, listener: (event: IDepthBookEvent) => void) =>
+      mockDepthBookListen(type, listener),
+    off: jest.fn(),
+  },
 }));
 jest.mock('@onekeyhq/shared/src/locale', () => ({}));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({}));
@@ -123,18 +143,23 @@ jest.mock('./OrderBook/PerpDepthChart', () => ({
   ),
 }));
 
-function createBook(bid: number): IPerpsL2BookWithLocalReceivedAt {
-  const now = Date.now();
+function createRawBook(bid: number): IBook {
   return {
     coin: mockInstrument.coin,
     nSigFigs: null,
     mantissa: null,
-    time: now,
-    localReceivedAt: now,
+    time: Date.now(),
     levels: [
       [{ px: String(bid), sz: '1', n: 1 }],
       [{ px: String(bid + 2), sz: '1', n: 1 }],
     ],
+  };
+}
+
+function createBook(bid: number): IPerpsL2BookWithLocalReceivedAt {
+  return {
+    ...markPerpsL2BookReceived(createRawBook(bid)),
+    localReceivedAt: Date.now(),
   };
 }
 
@@ -162,6 +187,7 @@ beforeEach(() => {
   mockTab = ETabRoutes.Perp;
   mockSubscribe.mockClear();
   mockUnsubscribe.mockClear();
+  mockDepthBookListen.mockClear();
 });
 afterEach(() => jest.useRealTimers());
 
@@ -203,7 +229,7 @@ it('pauses the workspace depth feed under a modal and keeps the committed frame 
   updateSharedBook({
     ...createBook(60_145),
     time: Date.now() + 10_000,
-    localReceivedAt: undefined,
+    receiptSequence: undefined,
   });
   await advanceTime(PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS);
   expect(depth.textContent).toBe('60000');
@@ -225,7 +251,7 @@ it('pauses the workspace depth feed under a modal and keeps the committed frame 
   expect(queryByTestId('depth')).toBeNull();
 });
 
-it('requires a receipt after the latest pause when a second modal interrupts recovery', async () => {
+it('rejects a shared book queued before the latest pause even if the atom receives it later', async () => {
   mockReadBook.mockReturnValue(createBook(59_999));
   const { getByTestId, rerender } = render(workspaceDepthChart());
   const depth = getByTestId('depth');
@@ -238,12 +264,12 @@ it('requires a receipt after the latest pause when a second modal interrupts rec
   expect(depth.dataset.status).toBe('stale');
 
   await advanceTime(1);
-  updateSharedBook(createBook(60_099));
-  expect(depth.dataset.status).toBe('stale');
+  const queuedBook = createBook(60_099);
   await advanceTime(1);
   setModalOpen(true);
   rerender(workspaceDepthChart());
   await advanceTime(1);
+  updateSharedBook({ ...queuedBook, localReceivedAt: Date.now() });
   setModalOpen(false);
   rerender(workspaceDepthChart());
   expect(depth.dataset.status).toBe('stale');
@@ -255,19 +281,19 @@ it('requires a receipt after the latest pause when a second modal interrupts rec
   expect(depth.dataset.interactive).toBe('true');
 });
 
-it('keeps the retained frame on a recovery error and clears it for a fresh empty book', async () => {
+it('reports recovery failure despite a stale matching shared book and recovers to a fresh empty book', async () => {
   mockReadBook.mockReturnValue(createBook(59_999));
   const { getByTestId, rerender } = render(workspaceDepthChart());
   const depth = getByTestId('depth');
 
   setModalOpen(true);
   rerender(workspaceDepthChart());
-  await advanceTime(1);
-  mockReadBook.mockReturnValue(null);
+  await advanceTime(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
   mockSubscribe.mockRejectedValueOnce(new Error('Depth subscription failed'));
   setModalOpen(false);
   rerender(workspaceDepthChart());
   await act(async () => undefined);
+  expect(mockSubscribe).toHaveBeenCalledTimes(1);
   expect(depth.dataset.status).toBe('error');
   expect(depth.dataset.interactionEnabled).toBe('false');
   expect(depth.textContent).toBe('60000');
@@ -276,3 +302,45 @@ it('keeps the retained frame on a recovery error and clears it for a fresh empty
   expect(depth.dataset.status).toBe('empty');
   expect(depth.textContent).toBe('');
 });
+
+it.each([0, 60_000])(
+  'rejects warm independent replay and accepts live receipts with a %ims wall clock rollback',
+  async (rollbackMs) => {
+    mockReadBook.mockReturnValue(createBook(59_999));
+    const { getByTestId, rerender } = render(workspaceDepthChart());
+    const depth = getByTestId('depth');
+    const warmBook = createRawBook(60_099);
+    mockSubscribe.mockResolvedValueOnce({
+      book: warmBook,
+      receivedAt: Date.now(),
+    });
+
+    setModalOpen(true);
+    rerender(workspaceDepthChart());
+    mockReadBook.mockReturnValue(null);
+    jest.setSystemTime(Date.now() - rollbackMs);
+    setModalOpen(false);
+    rerender(workspaceDepthChart());
+    await act(async () => undefined);
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    expect(depth.dataset.status).toBe('stale');
+    expect(depth.textContent).toBe('60000');
+
+    updateSharedBook(createBook(60_199));
+    expect(depth.dataset.interactive).toBe('true');
+    expect(depth.textContent).toBe('60200');
+
+    const onLiveDepthBook = mockDepthBookListen.mock.lastCall?.[1];
+    await act(async () =>
+      onLiveDepthBook?.({
+        status: 'ready',
+        coin: mockInstrument.coin,
+        options: { nSigFigs: null, mantissa: null },
+        book: createRawBook(60_299),
+        receivedAt: Date.now(),
+      }),
+    );
+    expect(depth.dataset.interactive).toBe('true');
+    expect(depth.textContent).toBe('60300');
+  },
+);
