@@ -23,6 +23,7 @@ import type { ITradingViewNativeMultiChartLayout } from '@onekeyhq/shared/types/
 import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
 import { PerpTestIDs } from '../testIDs';
 
+import { CtxPriceDisplay } from './FavoritesBar/FavoriteTokenItem';
 import {
   PerpDesktopOrderBookPanel,
   PerpMarketWorkspacePanel,
@@ -80,6 +81,10 @@ const mockQuote = jest.fn<
 >(() => null);
 // Panel quotes currently mounted.
 let mockMountedQuotes = 0;
+// Stands in for where the grid has a panel's chart show its interval picker.
+function MockPanelInterval(_: { panelId: string }) {
+  return null;
+}
 const mockSwitchTradeInstrument = jest.fn<
   Promise<boolean>,
   [{ mode: 'perp' | 'spot'; coin: string }]
@@ -258,6 +263,7 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
             isSymbolSynced,
             source,
             layoutControl: null,
+            intervalControl: <MockPanelInterval panelId={id} />,
             selectSource: (picked: ITradingViewNativeSource) =>
               mockSelectSource(id, picked),
           })}
@@ -615,12 +621,59 @@ describe('split view', () => {
     );
   });
 
+  it('puts each panel interval picker after its token quote', async () => {
+    const view = renderTradingViewCandles();
+    await waitFor(() =>
+      expect(mockQuote).toHaveBeenCalledWith(
+        expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
+      ),
+    );
+
+    // In tree order: each header ends with its own panel's picker.
+    const headerItems = view.UNSAFE_root.findAll(
+      (node) =>
+        node.type === CtxPriceDisplay || node.type === MockPanelInterval,
+    ).map((node) =>
+      node.type === CtxPriceDisplay
+        ? `quote:${(node.props as { coinName: string }).coinName}`
+        : `interval:${(node.props as { panelId: string }).panelId}`,
+    );
+    expect(headerItems).toEqual([
+      'quote:BTC',
+      'interval:main',
+      'quote:ETH',
+      'interval:panel-2',
+    ]);
+  });
+
+  it('shows the panel interval pickers only while the chart is on screen', async () => {
+    const view = render(<PerpCandles isVisible={false} />);
+    // Behind another workspace view, a picker left open would stay over it.
+    expect(view.UNSAFE_queryAllByType(MockPanelInterval)).toEqual([]);
+
+    view.rerender(<PerpCandles isVisible />);
+    expect(
+      view
+        .UNSAFE_queryAllByType(MockPanelInterval)
+        .map((node) => (node.props as { panelId: string }).panelId),
+    ).toEqual(['main', 'panel-2']);
+
+    view.rerender(<PerpCandles isVisible={false} />);
+    expect(view.UNSAFE_queryAllByType(MockPanelInterval)).toEqual([]);
+    // The second panel's own metadata lands inside the test.
+    await waitFor(() =>
+      expect(getChartProps('ETH')?.priceDecimalPlaces).toBe(3),
+    );
+  });
+
   it('leaves a single chart to the page header', () => {
     mockMultiChartLayout = { preset: '1', panels: {} };
-    renderTradingViewCandles();
+    const view = renderTradingViewCandles();
 
     expect(mockTokenSelector).not.toHaveBeenCalled();
     expect(mockQuote).not.toHaveBeenCalled();
+    // Its interval stays in its controls row.
+    expect(view.UNSAFE_queryAllByType(MockPanelInterval)).toEqual([]);
   });
 
   it('streams spot quotes while a chart that is not trading shows spot', () => {
@@ -973,7 +1026,7 @@ it.each(['web', 'desktop'] as const)(
     };
     try {
       expect(mockRecentTrades).not.toHaveBeenCalled();
-      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_trades__title);
       expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
         active: true,
         visible: true,
@@ -993,7 +1046,7 @@ it.each(['web', 'desktop'] as const)(
         active: false,
         visible: false,
       });
-      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_trades__title);
       select(ETranslations.perps_order_book);
       mockRecentTradesForeground = false;
       view.rerender(<PerpDesktopOrderBookPanel initialOrderBookHeight={400} />);
@@ -1003,7 +1056,7 @@ it.each(['web', 'desktop'] as const)(
         active: false,
         visible: false,
       });
-      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_trades__title);
       select(ETranslations.perps_order_book);
       mockRecentTrades.mockClear();
       mockCoin = 'BTC';
@@ -1032,7 +1085,7 @@ it.each(['web', 'desktop'] as const)(
     try {
       expect(mockRecentTrades).not.toHaveBeenCalled();
       act(
-        view.UNSAFE_getByProps({ label: ETranslations.swap_page_recent_trade })
+        view.UNSAFE_getByProps({ label: ETranslations.perps_trades__title })
           .props.onPress as () => void,
       );
       expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
@@ -1091,7 +1144,7 @@ it('keeps the original extension order book without recent trades or depth tabs'
   try {
     expect(
       view.UNSAFE_queryAllByProps({
-        label: ETranslations.swap_page_recent_trade,
+        label: ETranslations.perps_trades__title,
       }),
     ).toHaveLength(0);
     expect(

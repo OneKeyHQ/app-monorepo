@@ -3748,6 +3748,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!isCurrent()) return;
     const items = await this.syncManagers.account.buildInitSyncDBItems({
       dbRecords: hardwareAccounts,
+      lookupIndexedAccountsById: true,
       allDevices: devices,
       // A snapshot rebuilt from local data must lose to an existing Cloud edit.
       initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
