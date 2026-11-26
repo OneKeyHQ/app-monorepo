@@ -1,4 +1,7 @@
-import { isLocallyCreatedSwapReviewQuoteExpiredError } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
+import {
+  isLocallyCreatedSwapReviewQuoteExpiredError,
+  isLocallyCreatedSwapReviewSigningFailure,
+} from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import {
   BROADCAST_TX_CONTEXT_DATA_FIELD,
   getBroadcastTxContextFromData,
@@ -361,6 +364,13 @@ export function buildSafeBackgroundThreadErrorData(
     error?: unknown;
   },
 ) {
+  if (
+    context?.request.type === 'service-call' &&
+    context.request.method === 'serviceSend.signAndSendTransaction' &&
+    isLocallyCreatedSwapReviewSigningFailure(context.error)
+  ) {
+    return { swapReviewSigningFailedBeforeBroadcast: true };
+  }
   if (
     context?.request.type === 'service-call' &&
     (context.request.method === 'serviceSend.signAndSendTransaction' ||

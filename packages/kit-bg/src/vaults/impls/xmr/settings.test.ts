@@ -21,13 +21,12 @@ describe('xmr vault settings', () => {
     expect(localWallet?.addressForms.privateLabel).toBeTruthy();
   });
 
-  // As in mainstream Monero wallets, the address is only offered on Receive.
   it('shows no address on the token page', () => {
     expect(localWallet?.hideAddressOnTokenDetails).toBe(true);
   });
 
-  it('turns the swap entry off', () => {
-    expect(settings.disabledSwapAction).toBe(true);
+  it('allows the swap entry', () => {
+    expect(settings.disabledSwapAction).toBeUndefined();
   });
 
   // Otherwise max-send confirms balance-minus-fee, not the amount signed.
