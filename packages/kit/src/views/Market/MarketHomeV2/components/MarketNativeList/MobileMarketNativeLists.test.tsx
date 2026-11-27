@@ -241,6 +241,24 @@ jest.mock('react-native', () => ({
     </div>
   ),
 }));
+jest.mock('react-native-pager-view', () => ({
+  NativeScroller: ({
+    children,
+    testID,
+    contentContainerStyle,
+  }: PropsWithChildren<{
+    testID?: string;
+    contentContainerStyle?: CSSProperties;
+  }>) => (
+    <div
+      data-testid={testID}
+      data-native-scroller
+      style={contentContainerStyle}
+    >
+      {children}
+    </div>
+  ),
+}));
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: PropsWithChildren) => <div>{children}</div>,
   useTheme: () => mockTheme,
@@ -709,8 +727,10 @@ it.each([false, true])(
         />,
       );
       const content = getByTestId('market-favorites-empty-scroll');
+      expect(content.hasAttribute('data-native-scroller')).toBe(isAndroid);
       expect(content.style.flexGrow).toBe(isAndroid ? '' : '1');
       expect(content.style.paddingTop).toBe('20px');
+      expect(content.style.paddingBottom).toBe(isAndroid ? '20px' : '');
       expect(content.style.minHeight).toBe('400px');
     } finally {
       mockEmptyWatchlist = false;

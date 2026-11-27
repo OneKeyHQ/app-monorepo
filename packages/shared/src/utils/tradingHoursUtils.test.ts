@@ -904,6 +904,23 @@ describe('getUSTradingHoursCountdown', () => {
     expect(countdown?.targetInstant).toBe(Date.parse('2026-01-16T01:05:00Z'));
   });
 
+  it('resolves a reopen in the cycle-edge gap to the next cycle', () => {
+    // Fri 2026-11-27 03:08 EST, the day after Thanksgiving; the backend
+    // reopens pre-market at 04:00 EST, a minute before the 04:01 anchor.
+    const countdown = countdownAt(
+      '2026-11-27T08:08:00Z',
+      'closed',
+      '2026-11-27T09:00:00Z',
+    );
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.PreMarket);
+    // Friday's pre-market, not Thursday's.
+    expect(countdown?.segment?.startInstant).toBe(
+      Date.parse('2026-11-27T09:01:00Z'),
+    );
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-11-27T09:00:00Z'));
+  });
+
   it('has no countdown for a weekday closure without a reopen time', () => {
     expect(countdownAt('2026-01-15T15:00:00Z', 'closed')).toBeUndefined();
   });

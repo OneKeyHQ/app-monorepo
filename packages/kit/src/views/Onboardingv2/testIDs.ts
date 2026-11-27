@@ -98,6 +98,8 @@ export const OnboardingTestIDs = {
   iCloudBackupDetailsSettingsBtn:
     'onboarding-icloud-backup-details-settings-btn',
   iCloudBackupDetailsImportBtn: 'onboarding-icloud-backup-details-import-btn',
+  iCloudBackupDetailsImportFromCloudBtn:
+    'onboarding-icloud-backup-details-import-from-cloud-btn',
   iCloudBackupDetailsDeleteBtn: 'onboarding-icloud-backup-details-delete-btn',
   iCloudBackupDetailsDevShowBackupDataBtn:
     'onboarding-icloud-backup-details-dev-show-backup-data-btn',
