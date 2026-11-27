@@ -3,9 +3,11 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -22,6 +24,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -38,6 +41,7 @@ import type {
   IActiveTradeInstrument,
   ITradingFormData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { getPerpsL2BookReceiptSequence } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import {
   usePerpsCommonConfigPersistAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
@@ -46,6 +50,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
@@ -489,17 +494,20 @@ const MobileHeaderMemo = memo(MobileHeader);
 const MOBILE_SPOT_MAX_LEVELS_PER_SIDE = 4;
 const EMPTY_BOOK_LEVELS: IBookLevel[] = [];
 const PerpDepthChartMemo = memo(PerpDepthChart);
+type IDepthBook = ReturnType<typeof usePerpDepthBook>;
 
 function PerpDepthChartView({
   instrument,
   entry,
   depthBook,
   showHeader,
+  interactionEnabled,
 }: {
   instrument: IActiveTradeInstrument;
   entry?: IPerpOrderBookProps['entry'];
-  depthBook: ReturnType<typeof usePerpDepthBook>;
+  depthBook: IDepthBook;
   showHeader?: boolean;
+  interactionEnabled?: boolean;
 }) {
   const {
     book,
@@ -558,6 +566,7 @@ function PerpDepthChartView({
     >
       <PerpDepthChartMemo
         showHeader={showHeader}
+        interactionEnabled={interactionEnabled}
         bids={bids}
         asks={asks}
         quoteSymbol={isSpot ? (universe?.quoteName ?? 'USDC') : 'USDC'}
@@ -596,6 +605,121 @@ function PerpDepthChartContent({
   ) : null;
 }
 
+const PerpDepthBookBridge = memo(function PerpDepthBookBridge({
+  instrument,
+  onDisplay,
+  pausedReceiptSequence,
+}: {
+  instrument: IActiveTradeInstrument;
+  onDisplay: (snapshot: IDepthBook) => void;
+  pausedReceiptSequence?: number;
+}) {
+  const depthBook = usePerpDepthBook(instrument, true, pausedReceiptSequence);
+  useLayoutEffect(() => onDisplay(depthBook), [depthBook, onDisplay]);
+  return null;
+});
+
+function PerpWorkspaceDepthChart({
+  active,
+  instrument,
+  visible,
+  showHeader,
+}: {
+  active: boolean;
+  instrument: IActiveTradeInstrument;
+  visible: boolean;
+  showHeader?: boolean;
+}) {
+  const [display, setDisplay] = useState<{
+    snapshot: IDepthBook;
+    pausedReceiptSequence?: number;
+    awaitingFreshBook?: boolean;
+    recoveryFailed?: boolean;
+  }>();
+  useLayoutEffect(() => {
+    if (!active) {
+      const pausedReceiptSequence = getPerpsL2BookReceiptSequence();
+      setDisplay((previous) =>
+        previous?.snapshot.book
+          ? {
+              snapshot: previous.snapshot,
+              pausedReceiptSequence,
+              awaitingFreshBook: true,
+            }
+          : previous,
+      );
+    }
+  }, [active]);
+  const handleDisplay = useCallback((snapshot: IDepthBook) => {
+    setDisplay((previous) => {
+      if (previous?.awaitingFreshBook) {
+        if (snapshot.status !== 'ready' && snapshot.status !== 'empty') {
+          if (
+            !previous.recoveryFailed &&
+            (snapshot.independentFailed || snapshot.status === 'error')
+          ) {
+            return { ...previous, recoveryFailed: true };
+          }
+          return previous;
+        }
+      }
+      return previous?.snapshot === snapshot && !previous.awaitingFreshBook
+        ? previous
+        : { snapshot, pausedReceiptSequence: previous?.pausedReceiptSequence };
+    });
+  }, []);
+
+  const snapshot = display?.snapshot;
+  const awaitingFreshBook = display?.awaitingFreshBook;
+  const recoveryStatus = display?.recoveryFailed ? 'error' : 'stale';
+  const depthBook: IDepthBook | undefined =
+    snapshot && active && awaitingFreshBook
+      ? { ...snapshot, status: recoveryStatus }
+      : snapshot;
+
+  return (
+    <>
+      {visible && depthBook ? (
+        <PerpDepthChartView
+          instrument={instrument}
+          depthBook={depthBook}
+          showHeader={showHeader}
+          interactionEnabled={active && !awaitingFreshBook}
+        />
+      ) : null}
+      {active ? (
+        <PerpDepthBookBridge
+          instrument={instrument}
+          onDisplay={handleDisplay}
+          pausedReceiptSequence={display?.pausedReceiptSequence}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function isPerpWorkspaceCoveredByModal() {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) return false;
+  const mainIndex = state.routes.findIndex(
+    ({ name }) => name === ERootRoutes.Main,
+  );
+  if (mainIndex < 0 || mainIndex >= state.index) return false;
+  const tabState = state.routes[mainIndex]?.state;
+  const tab = tabState?.routes[tabState.index ?? 0];
+  const perpStack = tab?.state;
+  return (
+    tab?.name === ETabRoutes.Perp &&
+    perpStack?.routes[perpStack.index ?? 0]?.name === ETabRoutes.Perp &&
+    state.routes
+      .slice(mainIndex + 1, state.index + 1)
+      .every(
+        ({ name }) =>
+          name === ERootRoutes.Modal || name === ERootRoutes.iOSFullScreen,
+      )
+  );
+}
+
 function PerpDepthChartForActiveInstrument({
   entry,
   visible,
@@ -606,8 +730,42 @@ function PerpDepthChartForActiveInstrument({
 }) {
   const [instrument] = useActiveTradeInstrumentAtom();
   const foreground = usePerpMarketForeground();
+  const isWorkspace = entry === 'perpTab' && !platformEnv.isNative;
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const unsubscribe = isWorkspace
+        ? rootNavigationRef.current?.addListener('state', onChange)
+        : undefined;
+      return () => unsubscribe?.();
+    },
+    [isWorkspace],
+  );
+  const getCoveredByModal = useCallback(
+    () => isWorkspace && isPerpWorkspaceCoveredByModal(),
+    [isWorkspace],
+  );
+  const coveredByModal = useSyncExternalStore(
+    subscribe,
+    getCoveredByModal,
+    getCoveredByModal,
+  );
   const marketKey = `${instrument.mode}:${instrument.coin}`;
-  const active = usePerpDepthSubscriptionActive(marketKey, visible, foreground);
+  const active = usePerpDepthSubscriptionActive(
+    marketKey,
+    visible,
+    foreground && !coveredByModal,
+  );
+  if (isWorkspace) {
+    return active || (visible && coveredByModal) ? (
+      <PerpWorkspaceDepthChart
+        active={active}
+        instrument={instrument}
+        visible={visible}
+        showHeader={showHeader}
+        key={marketKey}
+      />
+    ) : null;
+  }
   return active ? (
     <PerpDepthChartContent
       entry={entry}

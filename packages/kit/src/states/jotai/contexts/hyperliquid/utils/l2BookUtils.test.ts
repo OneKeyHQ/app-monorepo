@@ -2,6 +2,8 @@ import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/const
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
+  getPerpsL2BookReceiptSequence,
+  markPerpsL2BookReceived,
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
   shouldUpdatePerpsL2Book,
@@ -240,6 +242,24 @@ describe('shouldUpdatePerpsL2Book', () => {
 });
 
 describe('perps market data local receive helpers', () => {
+  it('keeps the live receipt order when an earlier frame is dispatched later', () => {
+    const payload = buildBook({ time: 1000 });
+    const queued = markPerpsL2BookReceived(payload);
+    const pausedAt = getPerpsL2BookReceiptSequence();
+    const flushed = withPerpsL2BookLocalReceivedAt({ ...queued }, 1050);
+    const nextLive = markPerpsL2BookReceived(payload);
+
+    expect(flushed).toMatchObject({
+      receiptSequence: pausedAt,
+      localReceivedAt: 1050,
+    });
+    expect(nextLive.receiptSequence).toBe(pausedAt + 1);
+    expect(payload).not.toHaveProperty('receiptSequence');
+    expect(
+      withPerpsL2BookLocalReceivedAt(payload, 1050, true),
+    ).not.toHaveProperty('receiptSequence');
+  });
+
   it('allows a new target into the cold cache while another target is throttled', () => {
     const cache = {
       eth: {

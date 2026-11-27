@@ -136,14 +136,16 @@ describe('StockIsOpenBadge last update segment', () => {
       await import('@onekeyhq/kit/src/components/TradingHoursPanel');
     });
     expect(mockShowTradingHoursDialog).toHaveBeenCalledTimes(1);
-    expect(mockShowTradingHoursDialog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        renderContent: expect.objectContaining({
-          props: expect.objectContaining({
-            stock: expect.objectContaining({ title: stock.title }),
-          }),
-        }),
-      }),
+    // The sheet reads the stock through a live store fed by its trigger.
+    const [{ renderContent }] = mockShowTradingHoursDialog.mock.calls[0] as [
+      {
+        renderContent: {
+          props: { liveStock: { get: () => IMarketStockInfo } };
+        };
+      },
+    ];
+    expect(renderContent.props.liveStock.get()).toEqual(
+      expect.objectContaining({ title: stock.title }),
     );
 
     rerender(badges(undefined, replacement));

@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -43,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type {
   IUSMarketSessionSegment,
+  IUSMarketTradingHours,
   IUSTradingHoursCountdown,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -199,14 +201,180 @@ const NOW_LINE_WIDTH = 4;
 const NOW_TAG_SPACE = 28;
 const NOW_LINE_OVERHANG = 4;
 
+/** Vertical marker line; 1px surface-colored edges keep it legible where it
+ * crosses a segment. */
+function TimelineMarkerLine({ color }: { color: IColorTokens }) {
+  return (
+    <Stack
+      w={NOW_LINE_WIDTH}
+      h="$4"
+      px={1}
+      bg="$bg"
+      testID="trading-hours-now-line"
+    >
+      <Stack flex={1} bg={color} />
+    </Stack>
+  );
+}
+
+// Share of the track kept for the session that follows the closure. It is
+// illustrative only: the closure itself can last from minutes to days.
+const CLOSED_TIMELINE_NEXT_RATIO = 0.25;
+
+interface IClosedTimelineModel {
+  /** Position of `now` inside the closure, 0..1. */
+  progress: number;
+  /** The session that ends the closure, when the reopen time is known. */
+  nextSessionKey?: EUSMarketSessionKey;
+}
+
+interface IClosureSpan {
+  startInstant: number;
+  reopenInstant: number;
+}
+
+/**
+ * While the market is closed the track shows how far the closure has run and
+ * which session ends it. The backend only reports when the market reopens,
+ * so the closure's start comes from the clock: the weekend closure's own
+ * start, else the start of today's cycle (a holiday). Those clock anchors
+ * move as the cycle rolls over or the weekend ends, so a caller that has
+ * already seen an earlier start for the same reopen passes it back as
+ * `pinned` and the marker never moves backward.
+ */
+function getClosedTimelineModel({
+  tradingHours,
+  countdown,
+  nowMs,
+  pinned,
+}: {
+  tradingHours: IUSMarketTradingHours;
+  countdown?: IUSTradingHoursCountdown;
+  nowMs: number;
+  pinned?: IClosureSpan;
+}): IClosedTimelineModel & { span?: IClosureSpan } {
+  const reopen =
+    countdown?.kind === 'sessionStarts' && countdown.segment
+      ? { instant: countdown.targetInstant, key: countdown.segment.key }
+      : undefined;
+  if (!reopen || reopen.instant <= nowMs) {
+    // Unknown reopen: no next session to name, so fall back to the cycle.
+    return { progress: tradingHours.nowRatio };
+  }
+  const isInWeekend =
+    nowMs >= tradingHours.weekendStartInstant &&
+    nowMs < tradingHours.weekendEndInstant;
+  let startInstant = Math.min(
+    isInWeekend
+      ? tradingHours.weekendStartInstant
+      : tradingHours.cycleStartInstant,
+    nowMs,
+  );
+  if (pinned?.reopenInstant === reopen.instant) {
+    startInstant = Math.min(startInstant, pinned.startInstant);
+  }
+  return {
+    progress: (nowMs - startInstant) / (reopen.instant - startInstant),
+    nextSessionKey: reopen.key,
+    span: { startInstant, reopenInstant: reopen.instant },
+  };
+}
+
+function TradingHoursClosedTimeline({
+  progress,
+  nextSessionKey,
+}: IClosedTimelineModel) {
+  const intl = useIntl();
+  const clampedProgress = Math.min(Math.max(progress, 0), 1);
+  const closedRatio = nextSessionKey ? 1 - CLOSED_TIMELINE_NEXT_RATIO : 1;
+  const parts: Array<{ key: string; ratio: number; label: string }> = [
+    {
+      key: 'closed',
+      ratio: closedRatio,
+      label: intl.formatMessage({ id: ETranslations.market_status_closed }),
+    },
+  ];
+  if (nextSessionKey) {
+    parts.push({
+      key: nextSessionKey,
+      ratio: CLOSED_TIMELINE_NEXT_RATIO,
+      label: intl.formatMessage({ id: TIMELINE_LABEL_ID[nextSessionKey] }),
+    });
+  }
+  return (
+    <YStack gap="$2" pt={NOW_LINE_OVERHANG} testID="trading-hours-timeline">
+      <XStack gap={TIMELINE_GAP}>
+        {parts.map((part) => (
+          <Stack
+            key={part.key}
+            flexGrow={part.ratio}
+            flexBasis={0}
+            h="$2"
+            borderRadius="$1"
+            bg="$bgStrong"
+            // The closure part carries the marker, so it is what a screen
+            // reader announces as the progress through the closure. Without a
+            // reopen time the marker sits on the daily cycle instead, which is
+            // no closure progress, so the bar stays indeterminate. `accessible`
+            // makes the native view a VoiceOver/TalkBack stop.
+            {...(part.key === 'closed'
+              ? {
+                  accessible: true,
+                  role: 'progressbar' as const,
+                  'aria-label': part.label,
+                  'aria-valuemin': 0,
+                  'aria-valuemax': 100,
+                  // Capped at 99: the market is still closed until the
+                  // reopen, however close rounding gets.
+                  'aria-valuenow': nextSessionKey
+                    ? Math.min(Math.round(clampedProgress * 100), 99)
+                    : undefined,
+                  testID: 'trading-hours-closure-progress',
+                }
+              : null)}
+          >
+            {part.key === 'closed' ? (
+              <Stack
+                position="absolute"
+                left={`${clampedProgress * 100}%`}
+                top={-NOW_LINE_OVERHANG}
+                w={0}
+                alignItems="center"
+              >
+                <TimelineMarkerLine color="$textSubdued" />
+              </Stack>
+            ) : null}
+          </Stack>
+        ))}
+      </XStack>
+      {/* Long localized session names (Spanish, Russian overnight) wrap
+          rather than clip in the narrow next-session column. */}
+      <XStack gap={TIMELINE_GAP} testID="trading-hours-timeline-labels">
+        {parts.map((part) => (
+          <SizableText
+            key={part.key}
+            flexGrow={part.ratio}
+            flexBasis={0}
+            textAlign="center"
+            numberOfLines={2}
+            size="$bodySm"
+            color="$textSubdued"
+          >
+            {part.label}
+          </SizableText>
+        ))}
+      </XStack>
+    </YStack>
+  );
+}
+
 function TradingHoursTimeline({
   segments,
   activeSessionKey,
   marker,
 }: {
   segments: IUSMarketSessionSegment[];
-  /** Colored segment; none while the market is closed. */
-  activeSessionKey?: EUSMarketSessionKey;
+  activeSessionKey: EUSMarketSessionKey;
   marker?: ITimelineMarker;
 }) {
   const intl = useIntl();
@@ -281,20 +449,9 @@ function TradingHoursTimeline({
                   w={0}
                   alignItems="center"
                 >
-                  {/* 1px surface-colored edges keep the line legible where
-                      it crosses the segment. */}
-                  <Stack
-                    w={NOW_LINE_WIDTH}
-                    h="$4"
-                    px={1}
-                    bg="$bg"
-                    testID="trading-hours-now-line"
-                  >
-                    <Stack
-                      flex={1}
-                      bg={segmentMarker.type === 'now' ? meta.accent : '$text'}
-                    />
-                  </Stack>
+                  <TimelineMarkerLine
+                    color={segmentMarker.type === 'now' ? meta.accent : '$text'}
+                  />
                   {segmentMarker.type === 'now' ? (
                     <Stack
                       position="absolute"
@@ -622,6 +779,25 @@ function TradingHoursContent({
     }
   }
 
+  // The closure start the marker has already used for this reopen; see
+  // `getClosedTimelineModel`.
+  const [pinnedClosure, setPinnedClosure] = useState<IClosureSpan>();
+  const closedTimeline = getClosedTimelineModel({
+    tradingHours,
+    countdown,
+    nowMs,
+    pinned: pinnedClosure,
+  });
+  const closureSpan = closedTimeline.span;
+  if (
+    closureSpan &&
+    (closureSpan.reopenInstant !== pinnedClosure?.reopenInstant ||
+      closureSpan.startInstant !== pinnedClosure.startInstant)
+  ) {
+    // Adjusting state while rendering: settles after one extra pass.
+    setPinnedClosure(closureSpan);
+  }
+
   // Collapsed row: the running session, or the one that opens next.
   const isUpcomingRow = activeRow === 'closed' || isAwaitingOpen;
   // An upcoming row follows the countdown's segment: past the overnight
@@ -723,11 +899,18 @@ function TradingHoursContent({
       </YStack>
 
       <YStack gap="$3.5">
-        <TradingHoursTimeline
-          segments={tradingHours.segments}
-          activeSessionKey={sessionKey}
-          marker={marker}
-        />
+        {sessionKey ? (
+          <TradingHoursTimeline
+            segments={tradingHours.segments}
+            activeSessionKey={sessionKey}
+            marker={marker}
+          />
+        ) : (
+          <TradingHoursClosedTimeline
+            progress={closedTimeline.progress}
+            nextSessionKey={closedTimeline.nextSessionKey}
+          />
+        )}
         <YStack>
           <Accordion
             type="single"
@@ -924,7 +1107,41 @@ const DIALOG_CLOSE_BUTTON_HEIGHT = 32;
  * let it scroll; when the content fits, the ScrollView collapses to content
  * height.
  */
-function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
+/**
+ * The latest stock the trigger has rendered with. `Dialog.show` mounts its
+ * content once, so the sheet subscribes to this instead of keeping the
+ * stock it opened with — a refresh that brings a reopen time then updates
+ * the countdown and the timeline while the sheet stays open.
+ */
+interface ILiveStock {
+  get: () => IMarketStockInfo;
+  set: (stock: IMarketStockInfo) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+
+function createLiveStock(initial: IMarketStockInfo): ILiveStock {
+  let current = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (stock) => {
+      if (stock === current) {
+        return;
+      }
+      current = stock;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+function TradingHoursDialogBody({ liveStock }: { liveStock: ILiveStock }) {
+  const stock = useSyncExternalStore(liveStock.subscribe, liveStock.get);
   const { height: windowHeight } = useWindowDimensions();
   // Window resizes only move the ScrollView bound — keep the panel subtree
   // from re-reconciling on every resize tick.
@@ -959,11 +1176,11 @@ function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
   );
 }
 
-function showTradingHoursDialog(stock: IMarketStockInfo) {
+function showTradingHoursDialog(liveStock: ILiveStock) {
   Dialog.show({
     showFooter: false,
     contentContainerProps: { px: '$0', pb: '$0' },
-    renderContent: <TradingHoursDialogBody stock={stock} />,
+    renderContent: <TradingHoursDialogBody liveStock={liveStock} />,
   });
 }
 
@@ -1145,16 +1362,20 @@ export function TradingHoursTrigger({
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
+  const [liveStock] = useState(() => createLiveStock(stock));
+  useEffect(() => {
+    liveStock.set(stock);
+  }, [liveStock, stock]);
   const openOnLoad = useRef(defaultOpen);
   useEffect(() => {
     if (openOnLoad.current) {
       openOnLoad.current = false;
       if (useSheetDialog && stock.isUSListing !== false) {
-        showTradingHoursDialog(stock);
+        showTradingHoursDialog(liveStock);
       }
       onDefaultOpenConsumed?.();
     }
-  }, [onDefaultOpenConsumed, stock, useSheetDialog]);
+  }, [liveStock, onDefaultOpenConsumed, stock, useSheetDialog]);
 
   // US trading hours describe nothing about a non-US listing.
   if (stock.isUSListing === false) {
@@ -1169,7 +1390,7 @@ export function TradingHoursTrigger({
           // The chip often sits inside a pressable header row (which opens the
           // token selector) — keep this tap to ourselves.
           e.stopPropagation();
-          showTradingHoursDialog(stock);
+          showTradingHoursDialog(liveStock);
         }}
       >
         {renderTrigger}
