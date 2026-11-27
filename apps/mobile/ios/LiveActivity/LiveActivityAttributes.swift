@@ -76,6 +76,7 @@ struct SwapLiveActivityOrder: Codable, Hashable {
   var isRealOrderOrPushTest: Bool { !isMock || isPushTest == true }
   var startedAt: Date { Date(timeIntervalSince1970: startedAtMs / 1000) }
   var estimatedEndAt: Date { Date(timeIntervalSince1970: estimatedEndAtMs / 1000) }
+  var nearCompletionDate: Date { estimatedEndAt.addingTimeInterval(-10) }
   var expiresAt: Date { Date(timeIntervalSince1970: expiresAtMs / 1000) }
   var detailURL: URL? {
     var url = URLComponents()
