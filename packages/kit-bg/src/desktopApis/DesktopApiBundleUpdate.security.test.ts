@@ -1026,3 +1026,25 @@ test('setCurrentUpdateBundleData rejects missing signature, mismatched appVersio
   expect(mockStore.setNativeVersion).toHaveBeenCalledWith('6.6.0');
   expect(restartSpy).toHaveBeenCalledTimes(1);
 });
+
+test('verifyExtractedBundle fails closed when GPG verification is required and no signature is available', async () => {
+  const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  try {
+    prepareValidExtractedBundle('6.6.0', '300');
+    await expectUpdateError(api.verifyExtractedBundle('6.6.0', '300'), {
+      code: EUpdateErrorCode.integrityFailed,
+      step: 'verifyPackage',
+    });
+    // Succeeds when a valid GPG signature is supplied explicitly
+    await expect(
+      api.verifyExtractedBundle('6.6.0', '300', 'signature'),
+    ).resolves.toBeUndefined();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    } else {
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = previous;
+    }
+  }
+});

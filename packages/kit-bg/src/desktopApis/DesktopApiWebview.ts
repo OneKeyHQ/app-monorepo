@@ -1,4 +1,5 @@
 import path from 'path';
+import { pathToFileURL } from 'url';
 
 import { app, session } from 'electron';
 import electronIsDev from 'electron-is-dev';
@@ -117,9 +118,8 @@ class DesktopApiNetwork {
     logger.info('getPreloadJsContent', preloadJsPath);
     // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47
     // Add timestamp to prevent Node.js require cache from loading the same file only once
-    return isDev
-      ? `file://${preloadJsPath}?t=${Date.now()}`
-      : `file://${preloadJsPath}`;
+    const preloadUrl = pathToFileURL(preloadJsPath).href;
+    return isDev ? `${preloadUrl}?t=${Date.now()}` : preloadUrl;
   }
 
   async getInjectedJsContent(): Promise<string> {

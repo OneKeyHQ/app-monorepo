@@ -69,7 +69,11 @@ export function createRecoveryWindow(): BrowserWindow {
   // asar-aware fs layer. The main window's interceptor (app.ts:1050) is
   // registered inside did-finish-load — which never runs when the recovery
   // path is taken — so there is no conflict.
-  clearProtocolHandlerIfNeeded(session.defaultSession.protocol, PROTOCOL);
+  try {
+    clearProtocolHandlerIfNeeded(session.defaultSession.protocol, PROTOCOL);
+  } catch (e) {
+    logger.warn('[recoveryWindow] clearProtocolHandlerIfNeeded failed', e);
+  }
   session.defaultSession.protocol.interceptFileProtocol(
     PROTOCOL,
     (request, callback) => {

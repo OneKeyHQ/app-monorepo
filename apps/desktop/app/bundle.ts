@@ -91,15 +91,19 @@ export const readMetadataFileSha256 = async (
     throw new OneKeyLocalError('Invalid signed metadata appType');
   }
   if (
-    expected?.appVersion &&
-    (json.appVersion === undefined ||
+    expected !== undefined &&
+    'appVersion' in expected &&
+    (!expected.appVersion ||
+      json.appVersion === undefined ||
       String(json.appVersion) !== String(expected.appVersion))
   ) {
     throw new OneKeyLocalError('Signed metadata appVersion mismatch');
   }
   if (
-    expected?.bundleVersion &&
-    (json.bundleVersion === undefined ||
+    expected !== undefined &&
+    'bundleVersion' in expected &&
+    (!expected.bundleVersion ||
+      json.bundleVersion === undefined ||
       String(json.bundleVersion) !== String(expected.bundleVersion))
   ) {
     throw new OneKeyLocalError('Signed metadata bundleVersion mismatch');
@@ -312,12 +316,38 @@ export const getBundleIndexHtmlPath = ({
   return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
 };
 
+const readRegularFileBuffer = (filePath: string): Buffer => {
+  const linkStat = fs.lstatSync(filePath);
+  if (linkStat.isSymbolicLink() || !linkStat.isFile()) {
+    throw new OneKeyLocalError(
+      `Refusing to read non-regular file: ${filePath}`,
+    );
+  }
+  const openFlags =
+    typeof fs.constants.O_NOFOLLOW === 'number'
+      ? // eslint-disable-next-line no-bitwise
+        fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW
+      : fs.constants.O_RDONLY;
+  const fd = fs.openSync(filePath, openFlags);
+  try {
+    const fdStat = fs.fstatSync(fd);
+    if (!fdStat.isFile()) {
+      throw new OneKeyLocalError(
+        `Refusing to read non-regular file: ${filePath}`,
+      );
+    }
+    return fs.readFileSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+};
+
 export const readVerifiedFileSha512 = (
   filePath: string,
   sha512: string,
 ): Buffer | undefined => {
   try {
-    const file = fs.readFileSync(filePath);
+    const file = readRegularFileBuffer(filePath);
     const hash = crypto.createHash('sha512').update(file).digest('hex');
     return hash === sha512 ? file : undefined;
   } catch {
@@ -342,7 +372,9 @@ const getMetadataFilePath = ({
   return path.join(bundleDir, 'metadata.json');
 };
 
-const parseMetadataBuffer = (fileBuffer: Buffer): Record<string, string> => {
+export const parseMetadataBuffer = (
+  fileBuffer: Buffer,
+): Record<string, string> => {
   const parsed = JSON.parse(fileBuffer.toString('utf8')) as unknown;
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new OneKeyLocalError('Invalid metadata.json format');
@@ -352,13 +384,15 @@ const parseMetadataBuffer = (fileBuffer: Buffer): Record<string, string> => {
     parsed as Record<string, unknown>,
   )) {
     if (
-      key !== '__proto__' &&
-      key !== 'constructor' &&
-      key !== 'prototype' &&
-      typeof value === 'string'
+      key === '__proto__' ||
+      key === 'constructor' ||
+      key === 'prototype' ||
+      typeof value !== 'string' ||
+      !value
     ) {
-      metadata[key] = value;
+      throw new OneKeyLocalError('Invalid metadata.json format');
     }
+    metadata[key] = value;
   }
   return Object.freeze(metadata);
 };
@@ -392,16 +426,15 @@ const readAndVerifyMetadataBuffer = async ({
     stampSHA256Failure('EMPTY_EXPECTED_HASH');
     throw new OneKeyLocalError('Invalid asc file');
   }
-  // Read metadata.json once into memory and verify SHA-256 on the exact
-  // buffer that will be parsed, eliminating TOCTOU double-read.
+  // Read metadata.json once via a single regular-file fd and verify SHA-256
+  // on the exact buffer that will be parsed, eliminating TOCTOU double-read.
   let fileBuffer: Buffer;
   try {
-    const stat = fs.statSync(metadataFilePath);
-    if (stat.size === 0) {
+    fileBuffer = readRegularFileBuffer(metadataFilePath);
+    if (fileBuffer.length === 0) {
       stampSHA256Failure('FILE_EMPTY');
       throw new OneKeyLocalError('Invalid asc file');
     }
-    fileBuffer = fs.readFileSync(metadataFilePath);
   } catch (error) {
     if (error instanceof OneKeyLocalError) {
       throw error;
@@ -604,7 +637,10 @@ export const verifyBundleDirectoryStructure = (
       }
       if (entry.isDirectory()) {
         walk(fullPath);
-      } else if (entry.name !== 'metadata.json' && entry.name !== '.DS_Store') {
+      } else if (
+        !(dirPath === resolvedExtractDir && entry.name === 'metadata.json') &&
+        entry.name !== '.DS_Store'
+      ) {
         const relativePath = path
           .relative(buildDir, fullPath)
           .split(path.sep)

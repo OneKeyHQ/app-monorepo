@@ -152,6 +152,7 @@ import {
   stripFrameBlockingHeaders,
 } from './libs/wcPayFrameEmbedding';
 import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
+import { createWillAttachWebviewHandler } from './libs/webviewAttachGuard';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
@@ -783,30 +784,11 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
   browserWindow.webContents.on(
     'will-attach-webview',
-    (_event, webPreferences) => {
-      // Enforce sandboxed webview defaults and restrict preload to the
-      // code-signed built-in preload.js in app resources.
-      webPreferences.nodeIntegration = false;
-      webPreferences.nodeIntegrationInWorker = false;
-      webPreferences.contextIsolation = true;
-      webPreferences.sandbox = true;
-      if (webPreferences.preload) {
-        const trustedPreloadPath = path.resolve(
-          getAppStaticPath(),
-          'preload.js',
-        );
-        const requestedPreloadPath = path.resolve(
-          webPreferences.preload.replace(/^file:\/\//i, '').split(/[?#]/, 1)[0],
-        );
-        if (requestedPreloadPath !== trustedPreloadPath) {
-          logger.warn(
-            '[will-attach-webview] Overriding untrusted preload path:',
-            webPreferences.preload,
-          );
-        }
-        webPreferences.preload = trustedPreloadPath;
-      }
-    },
+    createWillAttachWebviewHandler({
+      getTrustedPreloadPath: () =>
+        path.resolve(getAppStaticPath(), 'preload.js'),
+      logger,
+    }),
   );
   setMainWindow(browserWindow);
 
@@ -1702,7 +1684,7 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
               store.clearUpdateBundleData();
               throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
             }
-            return createBufferResponse(buffer, filePath);
+            return createBufferResponse(buffer, filePath, request);
           }
           const builtinIframePath = path.join(
             __dirname,
@@ -1715,6 +1697,7 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
           return createBufferResponse(
             fs.readFileSync(builtinIframePath),
             builtinIframePath,
+            request,
           );
         }
 
@@ -1728,18 +1711,25 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
           }
           const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
           const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
-          const targetUrl = normalizedDecodedUrl.includes(
-            normalizedBundleDirPath,
-          )
-            ? normalizedDecodedUrl.replace(normalizedBundleDirPath, '')
-            : decodedUrl;
+          const matchIndex = isWin
+            ? normalizedDecodedUrl
+                .toLowerCase()
+                .indexOf(normalizedBundleDirPath.toLowerCase())
+            : normalizedDecodedUrl.indexOf(normalizedBundleDirPath);
+          const targetUrl =
+            matchIndex >= 0
+              ? normalizedDecodedUrl.slice(0, matchIndex) +
+                normalizedDecodedUrl.slice(
+                  matchIndex + normalizedBundleDirPath.length,
+                )
+              : decodedUrl;
           const { filePath, buffer } = readVerifiedBundleFile({
             bundleDirPath,
             metadata,
             driveLetter,
             url: targetUrl,
           });
-          return createBufferResponse(buffer, filePath);
+          return createBufferResponse(buffer, filePath, request);
         }
 
         const buildDir = path.resolve(__dirname, '..', 'build');
@@ -1755,15 +1745,23 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
           .replace(/^[:/\\]+/, '')
           .replace(/^[A-Za-z]:[\\/]/, '')
           .replace(/^[:/\\]+/, '');
+        if (!relativeUrl) {
+          return Response.error();
+        }
         const resolved = path.resolve(buildDir, relativeUrl);
-        if (
-          !resolved.startsWith(buildDir + path.sep) &&
-          resolved !== buildDir
-        ) {
+        if (!resolved.startsWith(buildDir + path.sep)) {
           logger.warn('Blocked file access outside build dir:', resolved);
           return Response.error();
         }
-        return createBufferResponse(fs.readFileSync(resolved), resolved);
+        const resolvedStat = fs.statSync(resolved, { throwIfNoEntry: false });
+        if (!resolvedStat || !resolvedStat.isFile()) {
+          return Response.error();
+        }
+        return createBufferResponse(
+          fs.readFileSync(resolved),
+          resolved,
+          request,
+        );
       } catch (error) {
         logger.error('protocol.handle(file) error:', error);
         return Response.error();

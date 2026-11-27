@@ -55,6 +55,7 @@ import {
   getBundleIndexHtmlPath,
   getMetadata,
   lastSHA256FailureReason,
+  parseMetadataBuffer,
   readMetadataFileSha256,
   readVerifiedBundleFile,
   testExtractedSha256FromVerifyAscFile,
@@ -541,6 +542,7 @@ test('getMetadata enforces GPG verification unless both build env and devSetting
 test('getMetadata reads metadata.json once and parses the verified buffer without TOCTOU re-read', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-meta-once-'));
   const readSpy = jest.spyOn(openpgp, 'readCleartextMessage');
+  const fsOpenSpy = jest.spyOn(fs, 'openSync');
   const fsReadSpy = jest.spyOn(fs, 'readFileSync');
   try {
     const buildDir = path.join(tmpDir, 'build');
@@ -565,6 +567,7 @@ test('getMetadata reads metadata.json once and parses the verified buffer withou
         }),
     } as unknown as openpgp.CleartextMessage);
 
+    fsOpenSpy.mockClear();
     fsReadSpy.mockClear();
     const metadata = await getMetadata({
       bundleDir: buildDir,
@@ -575,11 +578,13 @@ test('getMetadata reads metadata.json once and parses the verified buffer withou
 
     expect(metadata).toEqual({ 'index.html': 'verified_sha512' });
     expect(Object.isFrozen(metadata)).toBe(true);
-    const metadataReads = fsReadSpy.mock.calls.filter(
+    const metadataOpens = fsOpenSpy.mock.calls.filter(
       ([target]) => target === metadataPath,
     );
-    expect(metadataReads).toHaveLength(1);
+    expect(metadataOpens).toHaveLength(1);
+    expect(fsReadSpy).toHaveBeenCalledTimes(1);
   } finally {
+    fsOpenSpy.mockRestore();
     fsReadSpy.mockRestore();
     readSpy.mockRestore();
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -588,6 +593,7 @@ test('getMetadata reads metadata.json once and parses the verified buffer withou
 
 test('readVerifiedBundleFile reads file once and returns the verified buffer', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-read-once-'));
+  const fsOpenSpy = jest.spyOn(fs, 'openSync');
   const fsReadSpy = jest.spyOn(fs, 'readFileSync');
   try {
     const content = Buffer.from('console.log("trusted");', 'utf8');
@@ -595,6 +601,7 @@ test('readVerifiedBundleFile reads file once and returns the verified buffer', (
     fs.writeFileSync(filePath, content);
     const sha512 = crypto.createHash('sha512').update(content).digest('hex');
 
+    fsOpenSpy.mockClear();
     fsReadSpy.mockClear();
     const result = readVerifiedBundleFile({
       bundleDirPath: tmpDir,
@@ -605,17 +612,19 @@ test('readVerifiedBundleFile reads file once and returns the verified buffer', (
 
     expect(result.filePath).toBe(path.resolve(tmpDir, 'index.js'));
     expect(result.buffer.equals(content)).toBe(true);
-    const fileReads = fsReadSpy.mock.calls.filter(
+    const fileOpens = fsOpenSpy.mock.calls.filter(
       ([target]) => target === result.filePath,
     );
-    expect(fileReads).toHaveLength(1);
+    expect(fileOpens).toHaveLength(1);
+    expect(fsReadSpy).toHaveBeenCalledTimes(1);
   } finally {
+    fsOpenSpy.mockRestore();
     fsReadSpy.mockRestore();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('verifyBundleDirectoryStructure rejects injected files and accepts clean bundles', () => {
+test('verifyBundleDirectoryStructure rejects injected files including nested build/metadata.json', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-dir-scan-'));
   try {
     const buildDir = path.join(tmpDir, 'build');
@@ -627,6 +636,13 @@ test('verifyBundleDirectoryStructure rejects injected files and accepts clean bu
       verifyBundleDirectoryStructure(tmpDir, { 'index.html': 'hash' }),
     ).not.toThrow();
 
+    // Nested build/metadata.json must NOT be silently skipped
+    fs.writeFileSync(path.join(buildDir, 'metadata.json'), '{}');
+    expect(() =>
+      verifyBundleDirectoryStructure(tmpDir, { 'index.html': 'hash' }),
+    ).toThrow('Unexpected file detected in bundle directory');
+    fs.unlinkSync(path.join(buildDir, 'metadata.json'));
+
     // Inject an unexpected file into build/
     fs.writeFileSync(path.join(buildDir, 'injected.js'), 'alert(1)');
     expect(() =>
@@ -635,6 +651,33 @@ test('verifyBundleDirectoryStructure rejects injected files and accepts clean bu
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('parseMetadataBuffer rejects prototype keys and non-string values', () => {
+  expect(() =>
+    parseMetadataBuffer(Buffer.from('{"constructor":"bad"}', 'utf8')),
+  ).toThrow('Invalid metadata.json format');
+  expect(() =>
+    parseMetadataBuffer(Buffer.from('{"index.html":123}', 'utf8')),
+  ).toThrow('Invalid metadata.json format');
+  expect(() =>
+    parseMetadataBuffer(Buffer.from('{"index.html":""}', 'utf8')),
+  ).toThrow('Invalid metadata.json format');
+});
+
+test('readMetadataFileSha256 rejects empty expected appVersion or bundleVersion', async () => {
+  await expect(
+    readMetadataFileSha256(TEST_SIGNATURE, {
+      appVersion: '',
+      bundleVersion: '7701116',
+    }),
+  ).rejects.toThrow('Signed metadata appVersion mismatch');
+  await expect(
+    readMetadataFileSha256(TEST_SIGNATURE, {
+      appVersion: '6.1.0',
+      bundleVersion: '',
+    }),
+  ).rejects.toThrow('Signed metadata bundleVersion mismatch');
 });
 
 test.each(['../outside', 'bad/version', 'a..b'])(

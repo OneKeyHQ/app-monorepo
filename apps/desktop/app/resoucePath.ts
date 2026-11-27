@@ -26,7 +26,7 @@ export const getAppStaticResourcesPath = () => {
 };
 
 export const getAppStaticPath = () => {
-  return isDev
+  return !app?.isPackaged
     ? path.join(__dirname, '../../public/static')
     : path.join(process.resourcesPath, 'static');
 };

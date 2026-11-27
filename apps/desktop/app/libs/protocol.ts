@@ -25,6 +25,8 @@ const MIME_TYPES: Record<string, string> = {
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
   '.webp': 'image/webp',
+  '.avif': 'image/avif',
+  '.bmp': 'image/bmp',
   '.ico': 'image/x-icon',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
@@ -32,6 +34,10 @@ const MIME_TYPES: Record<string, string> = {
   '.otf': 'font/otf',
   '.eot': 'application/vnd.ms-fontobject',
   '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
+  '.aac': 'audio/aac',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.txt': 'text/plain; charset=utf-8',
@@ -44,16 +50,86 @@ export function getMimeTypeForPath(filePath: string): string {
   return MIME_TYPES[ext] || 'application/octet-stream';
 }
 
+function parseSingleByteRange(
+  rangeHeader: string,
+  totalLength: number,
+): { start: number; end: number } | 'unsatisfiable' | null {
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+  if (!match) return null;
+  const [, startStr, endStr] = match;
+  if (!startStr && !endStr) return null;
+  if (totalLength === 0) return 'unsatisfiable';
+
+  if (!startStr) {
+    // Suffix byte range: bytes=-N
+    const suffixLength = Number(endStr);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) {
+      return 'unsatisfiable';
+    }
+    const start = Math.max(0, totalLength - suffixLength);
+    return { start, end: totalLength - 1 };
+  }
+
+  const start = Number(startStr);
+  const end = endStr
+    ? Math.min(Number(endStr), totalLength - 1)
+    : totalLength - 1;
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start < 0 ||
+    start >= totalLength ||
+    end < start
+  ) {
+    return 'unsatisfiable';
+  }
+  return { start, end };
+}
+
+function toArrayBufferUint8Array(slice: Buffer): Uint8Array<ArrayBuffer> {
+  const body = new Uint8Array(slice.byteLength);
+  body.set(slice);
+  return body;
+}
+
 export function createBufferResponse(
   buffer: Buffer,
   filePath: string,
+  request?: Pick<Request, 'headers'>,
 ): Response {
-  const body = new Uint8Array(buffer.byteLength);
-  body.set(buffer);
-  return new Response(body, {
+  const contentType = getMimeTypeForPath(filePath);
+  const rangeHeader = request?.headers?.get('range');
+  if (rangeHeader) {
+    const parsedRange = parseSingleByteRange(rangeHeader, buffer.byteLength);
+    if (parsedRange === 'unsatisfiable') {
+      return new Response(null, {
+        status: 416,
+        headers: {
+          'Content-Range': `bytes */${buffer.byteLength}`,
+          'Accept-Ranges': 'bytes',
+        },
+      });
+    }
+    if (parsedRange) {
+      const slice = buffer.subarray(parsedRange.start, parsedRange.end + 1);
+      return new Response(toArrayBufferUint8Array(slice), {
+        status: 206,
+        headers: {
+          'Content-Type': contentType,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': String(slice.byteLength),
+          'Content-Range': `bytes ${parsedRange.start}-${parsedRange.end}/${buffer.byteLength}`,
+        },
+      });
+    }
+  }
+
+  return new Response(toArrayBufferUint8Array(buffer), {
     status: 200,
     headers: {
-      'Content-Type': getMimeTypeForPath(filePath),
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': String(buffer.byteLength),
     },
   });
 }
