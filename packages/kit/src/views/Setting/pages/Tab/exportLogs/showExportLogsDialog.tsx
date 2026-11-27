@@ -182,17 +182,19 @@ function UploadLogsDialogContent({
         }),
       });
       void dialog.close();
-    } catch (_error) {
+    } catch (error) {
       setDialogStage('idle');
+      const detail = resolveError(error).message;
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.settings_export_logs_failed_title,
         }),
+        message: detail || undefined,
       });
     } finally {
       isActiveRef.current = false;
     }
-  }, [generateFileBaseName, intl, dialog, exportScope]);
+  }, [generateFileBaseName, intl, dialog, exportScope, resolveError]);
 
   const handleUpload = useCallback(
     async ({ preventClose }: { preventClose: () => void }) => {

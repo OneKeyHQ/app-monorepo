@@ -292,6 +292,10 @@ export class IndexedDBPromised<
         trigger,
       });
     }
+    // Drop the cached Storage Bucket factory too: when a bucket is deleted or
+    // evicted, reusing its old IDBFactory fails every later open() with
+    // UnknownError instead of opening a fresh bucket.
+    this.nativeDBFactory = null;
   }
 
   /**
