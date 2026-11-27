@@ -666,6 +666,58 @@ export class IndexedDBPromised<
     return bucket.indexedDB;
   }
 
+  // Clear data without a version change. Deleting a database waits for
+  // every open connection, including other windows and third-party SDKs.
+  static async clearDatabaseForReset(
+    factory: IDBFactory,
+    name: string,
+    onBlocked?: () => void,
+  ): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const request = factory.open(name);
+      if (onBlocked) request.addEventListener('blocked', onBlocked);
+      let missing = false;
+      request.onupgradeneeded = () => {
+        // The database may have disappeared since it was listed.
+        missing = true;
+        request.transaction?.abort();
+      };
+      request.onerror = () => {
+        if (missing && request.error?.name === 'AbortError') {
+          resolve();
+        } else {
+          reject(request.error);
+        }
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        try {
+          const stores = Array.from(db.objectStoreNames);
+          if (stores.length === 0) {
+            resolve();
+            return;
+          }
+          const tx = db.transaction(stores, 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onabort = () =>
+            reject(tx.error ?? new OneKeyLocalError(`${name} clear aborted`));
+          try {
+            for (const store of stores) {
+              tx.objectStore(store).clear();
+            }
+          } catch (error) {
+            tx.abort();
+            reject(error);
+          }
+        } catch (error) {
+          reject(error);
+        } finally {
+          db.close();
+        }
+      };
+    });
+  }
+
   static async deleteDatabase({
     bucketName,
     name,

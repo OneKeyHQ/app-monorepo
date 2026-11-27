@@ -774,7 +774,7 @@ describe('ServiceApp.resetApp', () => {
     }
   });
 
-  test('deletes renderer-owned IndexedDBs only after Desktop reload releases the old connections', async () => {
+  test('clears renderer-owned IndexedDBs after Desktop reload even with a held connection', async () => {
     const globals = {
       indexedDB: new IDBFactory(),
       IDBRequest,
@@ -788,8 +788,12 @@ describe('ServiceApp.resetApp', () => {
     const wasDesktop = platformEnv.isDesktop;
     Object.assign(globalThis, globals);
     platformEnv.isDesktop = true;
-    const databaseName = 'WALLET_CONNECT_V2_INDEXED_DB';
+    const databaseName = 'desktop-held-third-party';
+    const store = 'records';
     const openRequest = indexedDB.open(databaseName);
+    openRequest.onupgradeneeded = () => {
+      openRequest.result.createObjectStore(store).put('before-reset', 'key');
+    };
     const heldConnection = await new Promise<IDBDatabase>((resolve, reject) => {
       openRequest.onsuccess = () => resolve(openRequest.result);
       openRequest.onerror = () => reject(openRequest.error);
@@ -821,7 +825,7 @@ describe('ServiceApp.resetApp', () => {
         databaseName,
       );
 
-      heldConnection.close();
+      // A sibling renderer might still hold the database after reload.
       resetUtils.endResetting();
       const fresh = new ServiceApp({ backgroundApi });
       const restartFresh = jest
@@ -832,9 +836,16 @@ describe('ServiceApp.resetApp', () => {
       expect(
         backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset,
       ).toHaveBeenCalledTimes(1);
-      expect(
-        (await indexedDB.databases()).map(({ name }) => name),
-      ).not.toContain(databaseName);
+      const count = heldConnection
+        .transaction(store)
+        .objectStore(store)
+        .count();
+      await expect(
+        new Promise<number>((resolve, reject) => {
+          count.onsuccess = () => resolve(count.result);
+          count.onerror = () => reject(count.error);
+        }),
+      ).resolves.toBe(0);
       await expect(readAppResetMarker()).resolves.toBeUndefined();
     } finally {
       heldConnection.close();
@@ -849,104 +860,83 @@ describe('ServiceApp.resetApp', () => {
     }
   });
 
-  test('clears WalletConnect records without waiting for its open connection to close', async () => {
-    const indexedDB = new IDBFactory();
-    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
-    const wasDesktop = platformEnv.isDesktop;
-    const name = 'WALLET_CONNECT_V2_INDEXED_DB';
-    const store = 'keyvaluestorage';
-    const open = indexedDB.open(name);
-    open.onupgradeneeded = () => {
-      open.result.createObjectStore(store).put('test-session', 'session');
-    };
-    const held = await new Promise<IDBDatabase>((resolve, reject) => {
-      open.onsuccess = () => resolve(open.result);
-      open.onerror = () => reject(open.error);
-    });
-    Object.assign(globalThis, { indexedDB });
-    platformEnv.isDesktop = false;
-
-    try {
-      const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
-      const log = jest.fn();
-      const service = new ServiceApp({ backgroundApi: {} });
-      await (
-        service as unknown as {
-          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
-        }
-      ).deleteOtherIndexedDBs(log);
-
-      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'cleared');
-      expect(deletion).toHaveBeenCalledWith(name);
-      const request = deletion.mock.results[0].value as ReturnType<
-        IDBFactory['deleteDatabase']
-      >;
-      const deleted = new Promise<void>((resolve) => {
-        request.addEventListener('success', () => resolve());
-      });
-      await new Promise<void>((resolve) => {
-        request.addEventListener('blocked', () => resolve());
-      });
-      const count = held.transaction(store).objectStore(store).count();
-      await expect(
-        new Promise<number>((resolve, reject) => {
-          count.onsuccess = () => resolve(count.result);
-          count.onerror = () => reject(count.error);
-        }),
-      ).resolves.toBe(0);
-      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'blocked');
-      await (
-        service as unknown as {
-          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
-        }
-      ).deleteOtherIndexedDBs(log);
-      expect(deletion).toHaveBeenCalledTimes(1);
-
-      held.close();
-      await deleted;
-      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'deleted');
-
-      const reopened = indexedDB.open(name);
-      reopened.onupgradeneeded = () => {
-        reopened.result.createObjectStore(store).put('test-session', 'session');
+  test.each(['WALLET_CONNECT_V2_INDEXED_DB', 'sentry-offline', 'future-sdk'])(
+    'clears %s without waiting for a held connection or blocking new opens',
+    async (name) => {
+      const indexedDB = new IDBFactory();
+      const descriptor = Object.getOwnPropertyDescriptor(
+        globalThis,
+        'indexedDB',
+      );
+      const wasDesktop = platformEnv.isDesktop;
+      const store = 'keyvaluestorage';
+      const open = indexedDB.open(name);
+      open.onupgradeneeded = () => {
+        open.result.createObjectStore(store).put('test-session', 'session');
       };
-      const heldForFailure = await new Promise<IDBDatabase>(
-        (resolve, reject) => {
+      const held = await new Promise<IDBDatabase>((resolve, reject) => {
+        open.onsuccess = () => resolve(open.result);
+        open.onerror = () => reject(open.error);
+      });
+      Object.assign(globalThis, { indexedDB });
+      platformEnv.isDesktop = false;
+
+      try {
+        const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
+        const log = jest.fn();
+        const makeService = () =>
+          new ServiceApp({ backgroundApi: {} }) as unknown as {
+            clearOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+          };
+        await makeService().clearOtherIndexedDBs(log);
+
+        expect(log).toHaveBeenCalledWith(expect.any(String), 'cleared', {
+          detail: name,
+        });
+        expect(deletion).not.toHaveBeenCalled();
+        const reopened = indexedDB.open(name);
+        const second = await new Promise<IDBDatabase>((resolve, reject) => {
           reopened.onsuccess = () => resolve(reopened.result);
           reopened.onerror = () => reject(reopened.error);
-        },
-      );
-      const clearStore = IDBObjectStore.prototype.clear;
-      const clear = jest.spyOn(IDBObjectStore.prototype, 'clear');
-      clear.mockImplementationOnce(function (this: IDBObjectStore) {
-        const clearRequest = clearStore.call(this);
-        this.transaction.abort();
-        return clearRequest;
-      });
-      try {
-        const failingService = new ServiceApp({ backgroundApi: {} });
-        await expect(
-          (
-            failingService as unknown as {
-              deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
-            }
-          ).deleteOtherIndexedDBs(log),
-        ).rejects.toThrow('WalletConnect clear aborted');
-        expect(deletion).toHaveBeenCalledTimes(1);
+        });
+        try {
+          const count = second.transaction(store).objectStore(store).count();
+          await expect(
+            new Promise<number>((resolve, reject) => {
+              count.onsuccess = () => resolve(count.result);
+              count.onerror = () => reject(count.error);
+            }),
+          ).resolves.toBe(0);
+        } finally {
+          second.close();
+        }
+
+        const clearStore = IDBObjectStore.prototype.clear;
+        const clear = jest.spyOn(IDBObjectStore.prototype, 'clear');
+        clear.mockImplementationOnce(function (this: IDBObjectStore) {
+          const clearRequest = clearStore.call(this);
+          this.transaction.abort();
+          return clearRequest;
+        });
+        try {
+          await expect(makeService().clearOtherIndexedDBs(log)).rejects.toThrow(
+            `${name} clear aborted`,
+          );
+          expect(deletion).not.toHaveBeenCalled();
+        } finally {
+          clear.mockRestore();
+        }
       } finally {
-        clear.mockRestore();
-        heldForFailure.close();
+        held.close();
+        platformEnv.isDesktop = wasDesktop;
+        if (descriptor) {
+          Object.defineProperty(globalThis, 'indexedDB', descriptor);
+        } else {
+          Reflect.deleteProperty(globalThis, 'indexedDB');
+        }
       }
-    } finally {
-      held.close();
-      platformEnv.isDesktop = wasDesktop;
-      if (descriptor) {
-        Object.defineProperty(globalThis, 'indexedDB', descriptor);
-      } else {
-        Reflect.deleteProperty(globalThis, 'indexedDB');
-      }
-    }
-  });
+    },
+  );
 
   test('does not restart after a storage reset failure', async () => {
     const service = new ServiceApp({
@@ -1480,13 +1470,19 @@ describe('ServiceApp privacy database reset ordering', () => {
       const service = new ServiceApp({ backgroundApi: {} });
       await (
         service as unknown as {
-          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+          clearOtherIndexedDBs: (logger: typeof log) => Promise<void>;
         }
-      ).deleteOtherIndexedDBs(log);
+      ).clearOtherIndexedDBs(log);
 
       expect(deleteCache).toHaveBeenCalledWith('static-assets');
-      expect(log).toHaveBeenCalledWith('workboxExpirationIndexedDB', 'cleared');
-      expect(deletion).toHaveBeenCalledWith(name);
+      expect(log).toHaveBeenCalledWith(
+        'workboxExpirationIndexedDB',
+        'cleared',
+        {
+          detail: name,
+        },
+      );
+      expect(deletion).not.toHaveBeenCalled();
       const count = held.transaction(store).objectStore(store).count();
       await expect(
         new Promise<number>((resolve, reject) => {

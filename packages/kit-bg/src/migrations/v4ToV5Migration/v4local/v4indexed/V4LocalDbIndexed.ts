@@ -1,4 +1,4 @@
-import { deleteDB, openDB } from 'idb';
+import { openDB } from 'idb';
 import { difference, isNil } from 'lodash';
 
 import {
@@ -9,6 +9,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -230,8 +231,9 @@ export class V4LocalDbIndexed extends V4LocalDbBase {
   }
 
   private async deleteIndexedDb() {
-    const db = await this.getRealDb();
-    db.indexed.close();
-    return deleteDB(V4_INDEXED_DB_NAME);
+    await IndexedDBPromised.clearDatabaseForReset(
+      globalThis.indexedDB,
+      V4_INDEXED_DB_NAME,
+    );
   }
 }

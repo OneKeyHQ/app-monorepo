@@ -15,6 +15,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
@@ -307,13 +308,23 @@ class ServiceApp extends ServiceBase {
       ) {
         await runCleanup('storageBuckets', async () => {
           const buckets = (globalThis.navigator as INavigator)?.storageBuckets;
-          for (const name of (await buckets?.keys()) ?? []) {
-            await buckets?.delete(name);
+          if (!buckets) return;
+          const names = await buckets.keys();
+          const results = await Promise.allSettled(
+            names.map((name) => buckets.delete(name)),
+          );
+          const failed = results.findIndex(
+            (result) => result.status === 'rejected',
+          );
+          if (failed >= 0) {
+            throw new OneKeyLocalError(
+              `Unable to erase storage bucket ${names[failed]}`,
+            );
           }
         });
         if (!platformEnv.isDesktop) {
           await runCleanup('otherIndexedDBs', () =>
-            this.deleteOtherIndexedDBs(log),
+            this.clearOtherIndexedDBs(log),
           );
         }
       }
@@ -362,126 +373,39 @@ class ServiceApp extends ServiceBase {
     }
   }
 
-  private async deleteOtherIndexedDBs(log: IResetStageLogger) {
+  private async clearOtherIndexedDBs(log: IResetStageLogger) {
     const indexedDB = globalThis.indexedDB;
     const databases = (await indexedDB?.databases?.()) ?? [];
     const results = await Promise.allSettled(
       databases.map(async ({ name }) => {
-        if (name === WALLET_CONNECT_INDEXED_DB_NAME && !platformEnv.isDesktop) {
-          await this.clearAndDeleteHeldIndexedDB(
-            indexedDB,
-            name,
-            'walletConnectIndexedDB',
-            log,
+        if (!name || name === APP_RESET_CONTROL_NAME) return;
+        const stage =
+          name === WALLET_CONNECT_INDEXED_DB_NAME
+            ? 'walletConnectIndexedDB'
+            : name === WORKBOX_EXPIRATION_INDEXED_DB_NAME
+              ? 'workboxExpirationIndexedDB'
+              : 'otherIndexedDBs';
+        try {
+          if (name === WORKBOX_EXPIRATION_INDEXED_DB_NAME) {
+            // Clear cached assets together with their expiration metadata.
+            await globalThis.caches?.delete(WORKBOX_STATIC_ASSETS_CACHE_NAME);
+          }
+          // Keep the empty schema. An uncancellable delete queued behind a
+          // live handle would block new opens after reset.
+          await IndexedDBPromised.clearDatabaseForReset(indexedDB, name, () =>
+            log(stage, 'blocked', { detail: name }),
           );
-        } else if (
-          name === WORKBOX_EXPIRATION_INDEXED_DB_NAME &&
-          !platformEnv.isDesktop
-        ) {
-          // Delete the Workbox Cache Storage entries together with their
-          // expiration metadata so cached assets are not orphaned outside TTL/maxEntries.
-          await globalThis.caches
-            ?.delete(WORKBOX_STATIC_ASSETS_CACHE_NAME)
-            .catch(() => {});
-          // Service Worker holds workbox-expiration open for static asset TTLs;
-          // clear its records and queue deletion without blocking app reset.
-          await this.clearAndDeleteHeldIndexedDB(
-            indexedDB,
-            name,
-            'workboxExpirationIndexedDB',
-            log,
-          );
-        } else if (name && name !== APP_RESET_CONTROL_NAME) {
-          await new Promise<void>((resolve, reject) => {
-            const request = indexedDB.deleteDatabase(name);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-            request.onblocked = () =>
-              log('otherIndexedDBs', 'blocked', { detail: name });
+          log(stage, 'cleared', { detail: name });
+        } catch (error) {
+          log(stage, 'clear_failed', {
+            detail: `${name}: ${this.formatResetErrorDetail(error)}`,
           });
+          throw error;
         }
       }),
     );
     const failure = results.find((result) => result.status === 'rejected');
     if (failure) throw failure.reason;
-  }
-
-  private async clearAndDeleteHeldIndexedDB(
-    indexedDB: IDBFactory,
-    databaseName: string,
-    stage: string,
-    log: IResetStageLogger,
-  ) {
-    if (this.completedResetCleanups.has(stage)) return;
-    await new Promise<void>((resolve, reject) => {
-      let missing = false;
-      const open = indexedDB.open(databaseName);
-      open.onupgradeneeded = () => {
-        missing = true;
-        open.transaction?.abort();
-      };
-      open.onerror = () => {
-        if (missing && open.error?.name === 'AbortError') {
-          resolve();
-          return;
-        }
-        log(stage, 'clear_failed', {
-          detail: this.formatResetErrorDetail(open.error) || databaseName,
-        });
-        reject(open.error);
-      };
-      open.onsuccess = () => {
-        const db = open.result;
-        try {
-          const names = Array.from(db.objectStoreNames);
-          if (!names.length) {
-            resolve();
-            return;
-          }
-          const tx = db.transaction(names, 'readwrite');
-          tx.oncomplete = () => {
-            log(stage, 'cleared');
-            resolve();
-          };
-          tx.onabort = () => {
-            log(stage, 'clear_failed', {
-              detail: this.formatResetErrorDetail(tx.error) || databaseName,
-            });
-            reject(
-              tx.error ??
-                new OneKeyLocalError(
-                  `${databaseName === WALLET_CONNECT_INDEXED_DB_NAME ? 'WalletConnect' : databaseName} clear aborted`,
-                ),
-            );
-          };
-          try {
-            for (const name of names) {
-              tx.objectStore(name).clear();
-            }
-          } catch (error) {
-            tx.abort();
-            throw error;
-          }
-        } catch (error) {
-          log(stage, 'clear_failed', {
-            detail: this.formatResetErrorDetail(error) || databaseName,
-          });
-          reject(error);
-        } finally {
-          db.close();
-        }
-      };
-    });
-    this.completedResetCleanups.add(stage);
-    // The records are gone even if an existing connection still blocks deletion.
-    try {
-      const deletion = indexedDB.deleteDatabase(databaseName);
-      deletion.onblocked = () => log(stage, 'blocked');
-      deletion.onerror = () => log(stage, 'delete_failed');
-      deletion.onsuccess = () => log(stage, 'deleted');
-    } catch {
-      log(stage, 'delete_failed');
-    }
   }
 
   private async markPrivacyResetFailures(
@@ -687,7 +611,7 @@ class ServiceApp extends ServiceBase {
         resetUtils.startResetting();
         const log = this.buildResetLogger(marker);
         await this.runResetStage(log, 'otherIndexedDBs', () =>
-          this.deleteOtherIndexedDBs(log),
+          this.clearOtherIndexedDBs(log),
         );
         await this.finishAppReset(log);
         resetUtils.endResetting();
@@ -827,8 +751,8 @@ class ServiceApp extends ServiceBase {
     await this.resetData(log, failedStages);
     if (recoveryErasureFailed) throw new RecoveryCacheErasureError();
     if (platformEnv.isDesktop) {
-      // WalletConnect and other renderer-owned connections can keep origin
-      // database deletes blocked until Electron reloads this renderer.
+      // Reload to stop renderer-owned writers before sweeping remaining
+      // IndexedDB data. This phase uses the same clear as Web and extension.
       const nextMarker: IAppResetMarker = {
         ...marker,
         desktopIndexedDBCleanup: true,
