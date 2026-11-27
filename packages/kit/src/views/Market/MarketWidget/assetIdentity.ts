@@ -75,6 +75,20 @@ export function getMarketWidgetDisplayAsset({
     : display;
 }
 
+export function getMarketWidgetAssetLogoUrls(
+  params: Parameters<typeof getMarketWidgetDisplayAsset>[0],
+): string[] {
+  const display = getMarketWidgetDisplayAsset(params);
+  if (!display) return [];
+  return [
+    ...new Set(
+      [params.asset?.logoURL, display.logoURL]
+        .map((uri) => uri?.trim())
+        .filter((uri): uri is string => !!uri),
+    ),
+  ];
+}
+
 export function isMarketWidgetManualAssetAvailable({
   state,
   asset,

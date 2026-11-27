@@ -35,6 +35,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getMarketWidgetAddressCollisions,
   getMarketWidgetAssetKey,
+  getMarketWidgetAssetLogoUrls,
   getMarketWidgetAssetSections,
   getMarketWidgetAssetSubtitle,
   getMarketWidgetAssetTitle,
@@ -358,17 +359,12 @@ const MarketWidgetEditorForm = ({
                   renderAvatar={
                     <Token
                       size="lg"
-                      tokenImageUris={[
-                        ...new Set([
-                          item.logoURL,
-                          getMarketWidgetDisplayAsset({
-                            asset: item,
-                            state: editor.state,
-                            source,
-                            kind,
-                          })?.logoURL,
-                        ]),
-                      ].filter((uri): uri is string => !!uri)}
+                      tokenImageUris={getMarketWidgetAssetLogoUrls({
+                        asset: item,
+                        state: editor.state,
+                        source,
+                        kind,
+                      })}
                       networkId={
                         item.kind === 'token' ? item.chainId : undefined
                       }

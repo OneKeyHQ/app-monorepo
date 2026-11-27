@@ -10,6 +10,7 @@ import type {
 import {
   getMarketWidgetAddressCollisions,
   getMarketWidgetAssetKey,
+  getMarketWidgetAssetLogoUrls,
   getMarketWidgetAssetSections,
   getMarketWidgetAssetSubtitle,
   getMarketWidgetAssetTitle,
@@ -68,6 +69,36 @@ it('uses the same identity for a contract token with false or missing isNative',
 
 describe('widget draft display enrichment', () => {
   const enriched = { ...bitcoin, logoURL: 'https://example.com/btc.png' };
+
+  it.each([
+    {
+      row: '   ',
+      catalog: enriched.logoURL,
+      expected: [enriched.logoURL],
+    },
+    {
+      row: ' https://example.com/search.png ',
+      catalog: enriched.logoURL,
+      expected: ['https://example.com/search.png', enriched.logoURL],
+    },
+    {
+      row: enriched.logoURL,
+      catalog: ` ${enriched.logoURL} `,
+      expected: [enriched.logoURL],
+    },
+  ])(
+    'cleans picker logos while preserving row priority: $row',
+    ({ row, catalog, expected }) => {
+      expect(
+        getMarketWidgetAssetLogoUrls({
+          asset: { ...bitcoin, logoURL: row },
+          state: { ...state, hot: [{ ...bitcoin, logoURL: catalog }] },
+          source: 'hot',
+          kind: 'single',
+        }),
+      ).toEqual(expected);
+    },
+  );
 
   it('shows the public SOL logo before the native catalog resolves its identity', () => {
     const draft: IMarketWidgetAsset = {
