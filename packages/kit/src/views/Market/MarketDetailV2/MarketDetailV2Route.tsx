@@ -13,7 +13,9 @@ import {
   LazyLoadPage,
   LazyLoadPageBackdrop,
 } from '../../../components/LazyLoadPage';
+import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
 
+import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import {
   getPreloadedMarketDetailV2Shell,
   loadMarketDetailV2Shell,
@@ -36,6 +38,11 @@ export function createMarketDetailV2Route(
 
   function MarketDetailV2Route(props: IMarketDetailV2RouteProps) {
     const { params } = props.route;
+    const tabBarVisibilityManagedByRoute = Boolean(platformEnv.isNativeAndroid);
+    useMarketDetailTabBarVisibility(
+      tabBarVisibilityManagedByRoute,
+      finishMarketDetailTabBarTransition,
+    );
     const preloadedShell = getPreloadedMarketDetailV2Shell()?.default;
     const lastRenderedShell = useRef(preloadedShell);
     const hasRenderedAssetPreview = useRef(false);
@@ -64,8 +71,9 @@ export function createMarketDetailV2Route(
       }
     }, [PreloadedMarketDetailV2, isPendingAsset]);
 
+    const detailProps = { ...props, tabBarVisibilityManagedByRoute };
     if (PreloadedMarketDetailV2) {
-      const content = <PreloadedMarketDetailV2 {...props} />;
+      const content = <PreloadedMarketDetailV2 {...detailProps} />;
       // Rendering the preloaded shell directly also skips LazyLoadPage's
       // backdrop. Without it, the square stack card background shows around
       // the rounded corners of the desktop-mode BasicPage card.
@@ -76,7 +84,7 @@ export function createMarketDetailV2Route(
       );
     }
 
-    return <LazyMarketDetailV2Route {...props} />;
+    return <LazyMarketDetailV2Route {...detailProps} />;
   }
 
   return memo(MarketDetailV2Route) as ComponentType<IMarketDetailV2RouteProps>;

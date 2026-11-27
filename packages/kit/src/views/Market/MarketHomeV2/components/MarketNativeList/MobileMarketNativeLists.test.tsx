@@ -730,6 +730,7 @@ it.each([false, true])(
       expect(content.hasAttribute('data-native-scroller')).toBe(isAndroid);
       expect(content.style.flexGrow).toBe(isAndroid ? '' : '1');
       expect(content.style.paddingTop).toBe('20px');
+      expect(content.style.paddingBottom).toBe(isAndroid ? '20px' : '');
       expect(content.style.minHeight).toBe('400px');
     } finally {
       mockEmptyWatchlist = false;

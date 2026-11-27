@@ -1244,6 +1244,7 @@ function MobileMarketNativeWatchlistImpl({
           testID="market-favorites-empty-scroll"
           contentContainerStyle={{
             paddingTop,
+            paddingBottom: listContainerProps.paddingBottom,
             minHeight: listContainerProps.emptyScrollContentMinHeight,
           }}
         >
