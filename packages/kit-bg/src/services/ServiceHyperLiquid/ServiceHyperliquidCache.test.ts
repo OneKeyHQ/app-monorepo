@@ -25,6 +25,7 @@ import ServiceHyperliquidCache, {
 
 import type {
   IPerpsAccountDisplayCacheSpotBalances,
+  IPerpsAccountDisplayCacheSummary,
   IPerpsL2BookSnapshotCacheEntry,
 } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 
@@ -548,4 +549,77 @@ describe('ServiceHyperliquidCache account display hydration', () => {
       });
     },
   );
+
+  it('persists and hydrates usdcWithdrawable for separate-DEX accounts while preserving legacy fallback', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(2_000_000);
+    let storedSummary: IPerpsAccountDisplayCacheSummary | undefined;
+    const service = new ServiceHyperliquidCache({
+      backgroundApi: {
+        simpleDb: {
+          perp: {
+            setPerpsAccountDisplaySummary: jest.fn(
+              async ({ data }: { data: IPerpsAccountDisplayCacheSummary }) => {
+                storedSummary = data;
+              },
+            ),
+            getUserAbstractionMode: jest
+              .fn()
+              .mockResolvedValue(EHyperLiquidAbstractionMode.DISABLED),
+            getPerpsAccountDisplayCache: jest.fn(async () => ({
+              summary: { data: storedSummary, updatedAt: Date.now() },
+              spotBalances: {
+                data: {
+                  accountAddress: '0xabc',
+                  balances: [],
+                  spotTotalUsd: '50',
+                },
+                updatedAt: Date.now(),
+              },
+            })),
+          },
+        },
+      },
+    });
+    await perpsActiveAccountAtom.set({
+      accountAddress: '0xabc',
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+    });
+    await perpsActiveAccountStatusInfoAtom.set(undefined);
+    await service.writePerpsAccountDisplaySummary({
+      accountAddress: '0xabc',
+      accountValue: '400',
+      totalMarginUsed: '20',
+      crossAccountValue: '400',
+      crossMaintenanceMarginUsed: '5',
+      isolatedMarginUsed: '0',
+      totalNtlPos: '100',
+      totalRawUsd: '400',
+      withdrawable: '330',
+      usdcWithdrawable: '30',
+      totalUnrealizedPnl: '10',
+    });
+    expect(storedSummary?.usdcWithdrawable).toBe('30');
+
+    await perpsActiveAccountSummaryAtom.set(undefined);
+    await perpsSpotBalancesAtom.set(undefined);
+    await service.hydratePerpsAccountDisplayCache('0xabc');
+    await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+      accountValue: '450',
+      withdrawable: '330',
+      availableUsdc: '30',
+      isLoading: false,
+    });
+
+    // Legacy cached entries without usdcWithdrawable continue to fall back to undefined.
+    const { usdcWithdrawable: _omitted, ...legacySummary } = storedSummary!;
+    storedSummary = legacySummary;
+    await perpsActiveAccountSummaryAtom.set(undefined);
+    await service.hydratePerpsAccountDisplayCache('0xabc');
+    await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+      withdrawable: '330',
+      availableUsdc: undefined,
+    });
+  });
 });

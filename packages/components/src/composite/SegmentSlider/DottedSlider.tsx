@@ -363,12 +363,12 @@ function DottedSliderComponent({
 
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (disabled) return;
+      if (disabled || draggingRef.current) return;
       const target = e.currentTarget;
       let captured = false;
       try {
         target.setPointerCapture(e.pointerId);
-        pointerIdRef.current = e.pointerId;
+        pointerIdRef.current = e.pointerId ?? null;
         captured = true;
       } catch {
         /* setPointerCapture can throw on some browsers; ignore */
@@ -383,14 +383,20 @@ function DottedSliderComponent({
       setBubbleVisible(true);
       // Mark-originated pointerdown: use the exact step value so a tap on a
       // mark always lands precisely (no off-by-one from clientX rounding).
-      // Drag continues to work because we still set pointer capture above.
+      // When snapTapToSegment is enabled, apply the same radius to both track
+      // and mark-originated taps so the 24px mark box cannot override the
+      // narrower native hit zone.
       const markIdx = markOriginRef.current;
       markOriginRef.current = null;
-      if (markIdx !== null && hasSegments) {
+      const width = trackRef.current?.getBoundingClientRect().width ?? 0;
+      if (
+        markIdx !== null &&
+        hasSegments &&
+        (!snapTapToSegment || width <= 0)
+      ) {
         snapToStep(markIdx);
       } else {
         const next = valueFromClientX(e.clientX);
-        const width = trackRef.current?.getBoundingClientRect().width ?? 0;
         const nearestIndex = Math.round((next - min) / stepValue);
         const distance =
           (Math.abs(next - (min + nearestIndex * stepValue)) / safeRange) *
@@ -436,12 +442,19 @@ function DottedSliderComponent({
   );
 
   const reportMarkPointerDown = useCallback((idx: number) => {
+    if (draggingRef.current) return;
     markOriginRef.current = idx;
   }, []);
 
   const handlePointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!draggingRef.current) return;
+      if (
+        pointerIdRef.current !== null &&
+        e.pointerId !== pointerIdRef.current
+      ) {
+        return;
+      }
       const start = pointerStartRef.current;
       if (snapTapToSegment && !start.dragged) {
         if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return;
@@ -455,6 +468,12 @@ function DottedSliderComponent({
   const finishDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!draggingRef.current) return;
+      if (
+        pointerIdRef.current !== null &&
+        e.pointerId !== pointerIdRef.current
+      ) {
+        return;
+      }
       draggingRef.current = false;
       if (e.type !== 'pointerup' && onSlideCancel) {
         lastEmittedRef.current = pointerStartRef.current.value;

@@ -176,3 +176,42 @@ it('refreshes metadata and retries a failed switch only on request', async () =>
   );
   expect(result.current.failed).toBe(false);
 });
+
+it('keeps Retry available when recovery proof acquisition fails on a focused page', async () => {
+  mockActions.switchTradeInstrument.mockResolvedValueOnce(false);
+  const { result } = renderHook(() => useSimpleMarketFocus('BTC', true));
+  await act(async () => {});
+  expect(result.current.failed).toBe(true);
+
+  mockDisabledCount.mockRejectedValueOnce(new Error('bg unavailable'));
+  await act(async () => result.current.retry());
+  expect(result.current.failed).toBe(true);
+  expect(mockRefreshTradingMeta).not.toHaveBeenCalled();
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(1);
+});
+
+it('refreshes metadata only for the explicit retry and not later focus restorations', async () => {
+  mockActions.switchTradeInstrument.mockResolvedValueOnce(false);
+  const { result, rerender } = renderHook(
+    ({ enabled }: { enabled: boolean }) => useSimpleMarketFocus('BTC', enabled),
+    { initialProps: { enabled: true } },
+  );
+  await act(async () => {});
+  expect(result.current.failed).toBe(true);
+
+  await act(async () => result.current.retry());
+  expect(mockRefreshTradingMeta).toHaveBeenCalledTimes(1);
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(2);
+  expect(result.current.failed).toBe(false);
+
+  // Screen blurs, another instrument becomes active, then screen regains focus.
+  rerender({ enabled: false });
+  mockInstrument.coin = 'SOL';
+  mockRefreshTradingMeta.mockRejectedValueOnce(new Error('network error'));
+  await act(async () => {
+    rerender({ enabled: true });
+  });
+  expect(mockRefreshTradingMeta).toHaveBeenCalledTimes(1);
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(3);
+  expect(result.current.failed).toBe(false);
+});

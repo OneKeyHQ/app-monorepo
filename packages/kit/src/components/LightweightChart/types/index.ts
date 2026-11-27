@@ -211,6 +211,9 @@ export interface ILightweightChartProps {
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  // Web only: maps shifted/synthetic local chart timestamps back to their
+  // source UTC timestamps before formatting unit-less axis ticks.
+  resolveTimeScaleTimestamp?: (time: number) => number;
   // Blank space between the last point and the price scale, in pixels.
   timeScaleRightOffsetPixels?: number;
   timeZone?: string;

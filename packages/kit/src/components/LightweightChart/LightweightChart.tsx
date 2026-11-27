@@ -159,6 +159,7 @@ export function LightweightChart({
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  resolveTimeScaleTimestamp,
   timeScaleRightOffsetPixels,
   timeZone,
   locale,
@@ -178,6 +179,8 @@ export function LightweightChart({
   secondaryLineEndTimeRef.current = secondaryLineEndTime;
   const secondaryLineBlankSlotsRef = useRef(secondaryLineBlankSlots);
   secondaryLineBlankSlotsRef.current = secondaryLineBlankSlots;
+  const resolveTimeScaleTimestampRef = useRef(resolveTimeScaleTimestamp);
+  resolveTimeScaleTimestampRef.current = resolveTimeScaleTimestamp;
   const secondaryPointSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
@@ -309,6 +312,7 @@ export function LightweightChart({
             style: currentChartConfig.crosshairVertLineStyle,
           },
           currentChartConfig.timeScaleRightOffsetPixels,
+          (time) => resolveTimeScaleTimestampRef.current?.(time),
         );
         const gridOptions = {
           vertLines: { visible: false },

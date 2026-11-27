@@ -1936,9 +1936,14 @@ export default class ServiceHyperliquid extends ServiceBase {
     markPerpsColdStartPerf('service_refresh_trading_meta_response', {
       dexCount: allPerpMetas?.length ?? 0,
     });
-    allPerpMetas.forEach((meta, index) => {
+    allPerpMetas?.forEach((meta, index) => {
+      if (!meta) {
+        return;
+      }
       const dex =
-        index === 0 ? '' : parseDexCoin(meta.universe[0]?.name ?? '').dexLabel;
+        index === 0
+          ? ''
+          : parseDexCoin(meta.universe?.[0]?.name ?? '').dexLabel;
       if (dex !== undefined && meta.collateralToken !== undefined) {
         this.collateralTokensByDex.set(dex, meta.collateralToken);
       }

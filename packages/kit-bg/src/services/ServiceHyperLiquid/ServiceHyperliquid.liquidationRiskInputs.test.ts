@@ -14,6 +14,7 @@ import {
 } from '../../states/jotai/atoms/perps';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
+import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import { invalidatePerpsLiquidationRiskInputs } from './liquidationRiskInputs';
 import ServiceHyperliquid from './ServiceHyperliquid';
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
@@ -163,6 +164,52 @@ describe('liquidation risk snapshot lifecycle', () => {
     expect(
       (await perpsActiveAccountSummaryAtom.get())?.usdcWithdrawable,
     ).toBeUndefined();
+  });
+
+  it('guards null and universe-less allPerpMetas slots during refreshTradingMeta', async () => {
+    const setTradingUniverse = jest.fn().mockResolvedValue(undefined);
+    const getTradingUniverse = jest.fn().mockResolvedValue({
+      universesByDex: [[{ name: 'BTC' }], [{ name: 'xyz:NVDA' }]],
+      marginTablesMapByDex: [],
+    });
+    (
+      backgroundApi.simpleDb.perp as unknown as {
+        setTradingUniverse: typeof setTradingUniverse;
+        getTradingUniverse: typeof getTradingUniverse;
+      }
+    ).setTradingUniverse = setTradingUniverse;
+    (
+      backgroundApi.simpleDb.perp as unknown as {
+        setTradingUniverse: typeof setTradingUniverse;
+        getTradingUniverse: typeof getTradingUniverse;
+      }
+    ).getTradingUniverse = getTradingUniverse;
+    jest.spyOn(service, 'getTradingUniverse').mockResolvedValue({
+      universesByDex: [[{ name: 'BTC' }], [{ name: 'xyz:NVDA' }]],
+      marginTablesMapByDex: [],
+    } as never);
+    jest.spyOn(hyperLiquidApiClients, 'infoClient', 'get').mockReturnValue({
+      allPerpMetas: jest
+        .fn()
+        .mockResolvedValue([
+          { universe: [{ name: 'BTC' }], collateralToken: 0, marginTables: [] },
+          null,
+          { collateralToken: 2 },
+        ]),
+    } as never);
+
+    await service.refreshTradingMeta();
+
+    const internals = service as unknown as {
+      collateralTokensByDex: Map<string, number>;
+    };
+    expect(internals.collateralTokensByDex.get('')).toBe(0);
+    expect(setTradingUniverse).toHaveBeenCalledTimes(1);
+    const persisted = setTradingUniverse.mock.calls[0][0] as {
+      universes: { name: string }[][];
+    };
+    expect(persisted.universes[0][0].name).toBe('BTC');
+    expect(persisted.universes[1][0].name).toBe('xyz:NVDA');
   });
 
   function closeSocket() {

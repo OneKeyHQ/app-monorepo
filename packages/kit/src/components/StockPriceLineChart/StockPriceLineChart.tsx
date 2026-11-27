@@ -297,16 +297,20 @@ export function StockPriceLineChart({
   const chartData = localTimeScale?.data ?? data;
   // The overlay line carries the blank slots: a null value is a gap on both
   // renderers, and its times join the time scale without drawing anything.
-  const overlayData = useMemo<ILightweightSecondaryLineChart>(() => {
+  const { overlayData, toUtcTimestamp } = useMemo(() => {
     const extension = buildStockPriceLineChartTimeExtension({
       data,
       timeSpanEnd,
     });
     if (extension.length === 0) {
-      return chartData;
+      return {
+        overlayData: chartData as ILightweightSecondaryLineChart,
+        toUtcTimestamp: localTimeScale?.toUtcTimestamp,
+      };
     }
+    const extensionUtcByLocalTime = new Map<number, number>();
     let previousTime = chartData.at(-1)?.[0] ?? -Infinity;
-    return [
+    const extendedOverlay: ILightweightSecondaryLineChart = [
       ...chartData,
       ...extension.map((time): [number, null] => {
         // Same shift, and the same strictly increasing guard, as the series.
@@ -315,13 +319,24 @@ export function StockPriceLineChart({
           previousTime + 1,
         );
         previousTime = chartTime;
+        if (localTimeScale) {
+          extensionUtcByLocalTime.set(chartTime, time);
+        }
         return [chartTime, null];
       }),
     ];
+    return {
+      overlayData: extendedOverlay,
+      toUtcTimestamp: localTimeScale
+        ? (localTimeSeconds: number) =>
+            extensionUtcByLocalTime.get(localTimeSeconds) ??
+            localTimeScale.toUtcTimestamp(localTimeSeconds)
+        : undefined,
+    };
   }, [chartData, data, localTimeScale, timeSpanEnd]);
   // Read through a ref: a new `onHover` would rebuild the chart instance.
-  const toUtcTimestampRef = useRef(localTimeScale?.toUtcTimestamp);
-  toUtcTimestampRef.current = localTimeScale?.toUtcTimestamp;
+  const toUtcTimestampRef = useRef(toUtcTimestamp);
+  toUtcTimestampRef.current = toUtcTimestamp;
   const priceFormatter = useCallback(
     (price: number) => {
       if (priceScaleFormat === 'full') return formatChartPriceFull(price);
@@ -383,10 +398,17 @@ export function StockPriceLineChart({
   useEffect(() => {
     setHoverData((current) => {
       if ((!useNativeScrub && !clearHoverOnTouchEnd) || !current) return null;
-      const point = data.find(([time]) => time === current.time);
-      return point ? { ...current, price: point[1] } : null;
+      const pointIndex = data.findIndex(([time]) => time === current.time);
+      if (pointIndex < 0) return null;
+      const point = data[pointIndex];
+      const chartTime = chartData[pointIndex]?.[0] ?? point[0];
+      return {
+        ...current,
+        chartTime,
+        price: point[1],
+      };
     });
-  }, [data, useNativeScrub, clearHoverOnTouchEnd]);
+  }, [chartData, data, useNativeScrub, clearHoverOnTouchEnd]);
 
   const hoverPoint = useMemo<IStockPriceLineChartHoverPoint | undefined>(() => {
     if (!hoverData) {
@@ -657,6 +679,9 @@ export function StockPriceLineChart({
         priceScaleFormat={priceScaleFormat}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
+        resolveTimeScaleTimestamp={
+          platformEnv.isNative ? undefined : toUtcTimestamp
+        }
         nativeScrubOptions={nativeScrubOptions}
         onHover={
           platformEnv.isNativeAndroid && !onHoverChange

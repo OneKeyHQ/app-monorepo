@@ -367,3 +367,122 @@ it.each([
   );
   expect(onChange).toHaveBeenLastCalledWith(48);
 });
+
+it('applies the same hit-zone radius to mark-originated taps when snapTapToSegment is enabled', () => {
+  const onChange = jest.fn();
+  const { getByRole } = render(
+    <SegmentSlider
+      appearance="dotted"
+      value={0}
+      segments={4}
+      onChange={onChange}
+      snapTapToSegment
+    />,
+  );
+  const slider = getByRole('slider');
+  const track = slider.firstElementChild as HTMLDivElement;
+  jest.spyOn(track, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: 100,
+    bottom: 20,
+    width: 100,
+    height: 20,
+    toJSON: () => ({}),
+  });
+  slider.setPointerCapture = jest.fn();
+  slider.releasePointerCapture = jest.fn();
+  const quarterMark = Array.from(track.children).find(
+    (child) => (child as HTMLElement).style.left === '25%',
+  ) as HTMLElement;
+  expect(quarterMark).toBeDefined();
+
+  // 33% is inside the 24px mark hit box around 25%, but outside the 5px radius.
+  fireEvent(
+    quarterMark,
+    new MouseEvent('pointerdown', { bubbles: true, clientX: 33 }),
+  );
+  fireEvent(
+    slider,
+    new MouseEvent('pointerup', { bubbles: true, clientX: 33 }),
+  );
+  expect(onChange).toHaveBeenLastCalledWith(33);
+
+  // 29% is within the 5px hit radius of the 25% mark and snaps to 25%.
+  fireEvent(
+    quarterMark,
+    new MouseEvent('pointerdown', { bubbles: true, clientX: 29 }),
+  );
+  fireEvent(
+    slider,
+    new MouseEvent('pointerup', { bubbles: true, clientX: 29 }),
+  );
+  expect(onChange).toHaveBeenLastCalledWith(25);
+});
+
+it('tracks one owning pointer and ignores events from secondary pointers', () => {
+  const onChange = jest.fn();
+  const onSlideStart = jest.fn();
+  const onSlideCancel = jest.fn();
+  const onSlideComplete = jest.fn();
+  const { getByRole } = render(
+    <SegmentSlider
+      appearance="dotted"
+      value={20}
+      segments={4}
+      onChange={onChange}
+      onSlideStart={onSlideStart}
+      onSlideCancel={onSlideCancel}
+      onSlideComplete={onSlideComplete}
+      snapTapToSegment
+    />,
+  );
+  const slider = getByRole('slider');
+  const track = slider.firstElementChild as HTMLDivElement;
+  jest.spyOn(track, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: 100,
+    bottom: 20,
+    width: 100,
+    height: 20,
+    toJSON: () => ({}),
+  });
+  slider.setPointerCapture = jest.fn();
+  slider.releasePointerCapture = jest.fn();
+
+  const pointerEvent = (type: string, pointerId: number, clientX?: number) => {
+    const evt = new MouseEvent(type, { bubbles: true, clientX });
+    Object.defineProperty(evt, 'pointerId', { value: pointerId });
+    return evt;
+  };
+
+  fireEvent(slider, pointerEvent('pointerdown', 1, 35));
+  expect(onSlideStart).toHaveBeenCalledTimes(1);
+  expect(onChange).toHaveBeenLastCalledWith(35);
+
+  const halfMark = Array.from(track.children).find(
+    (child) => (child as HTMLElement).style.left === '50%',
+  ) as HTMLElement;
+  fireEvent(halfMark, pointerEvent('pointerdown', 2, 50));
+  fireEvent(slider, pointerEvent('pointermove', 2, 80));
+  fireEvent(slider, pointerEvent('pointercancel', 2, 80));
+  fireEvent(slider, pointerEvent('lostpointercapture', 2));
+  fireEvent(slider, pointerEvent('pointerup', 2, 80));
+
+  expect(onSlideStart).toHaveBeenCalledTimes(1);
+  expect(onSlideCancel).not.toHaveBeenCalled();
+  expect(onSlideComplete).not.toHaveBeenCalled();
+  expect(onChange).toHaveBeenLastCalledWith(35);
+
+  fireEvent(slider, pointerEvent('pointermove', 1, 60));
+  expect(onChange).toHaveBeenLastCalledWith(60);
+
+  fireEvent(slider, pointerEvent('pointercancel', 1, 60));
+  expect(onSlideCancel).toHaveBeenCalledTimes(1);
+  expect(onSlideComplete).toHaveBeenCalledTimes(1);
+});

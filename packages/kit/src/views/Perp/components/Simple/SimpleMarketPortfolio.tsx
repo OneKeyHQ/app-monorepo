@@ -54,20 +54,25 @@ export function SimpleMarketPortfolio({
       const markPrice = new BigNumber(
         quote?.coin === currentPosition.coin ? (quote.ctx.markPrice ?? '') : '',
       );
-      showPositionShare({
-        side: new BigNumber(currentPosition.szi).gt(0) ? 'long' : 'short',
-        token: currentPosition.coin,
-        tokenDisplayName: parseDexCoin(currentPosition.coin).displayName,
-        pnl: currentPosition.unrealizedPnl,
-        pnlPercent: new BigNumber(currentPosition.returnOnEquity)
-          .times(100)
-          .toFixed(1),
-        leverage: currentPosition.leverage.value,
-        entryPrice: currentPosition.entryPx,
-        markPrice:
-          markPrice.isFinite() && markPrice.gt(0) ? markPrice.toFixed() : '--',
-        priceType: 'mark',
-      });
+      showPositionShare(
+        {
+          side: new BigNumber(currentPosition.szi).gt(0) ? 'long' : 'short',
+          token: currentPosition.coin,
+          tokenDisplayName: parseDexCoin(currentPosition.coin).displayName,
+          pnl: currentPosition.unrealizedPnl,
+          pnlPercent: new BigNumber(currentPosition.returnOnEquity)
+            .times(100)
+            .toFixed(1),
+          leverage: currentPosition.leverage.value,
+          entryPrice: currentPosition.entryPx,
+          markPrice:
+            markPrice.isFinite() && markPrice.gt(0)
+              ? markPrice.toFixed()
+              : '--',
+          priceType: 'mark',
+        },
+        'position',
+      );
     } catch (error) {
       errorToastUtils.toastIfError(error);
     }

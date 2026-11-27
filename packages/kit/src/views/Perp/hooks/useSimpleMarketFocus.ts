@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -25,18 +25,22 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
   const [isLocked] = useAppIsLockedAtom();
   const [isVisible, setIsVisible] = useState(getCurrentVisibilityState);
   const [retryCount, setRetryCount] = useState(0);
+  const pendingRefreshRetryRef = useRef(false);
   const [failedCoin, setFailedCoin] = useState<string>();
   const [isSwitching, setIsSwitching] = useState(false);
-  const retry = useCallback(() => setRetryCount((count) => count + 1), []);
+  const retry = useCallback(() => {
+    pendingRefreshRetryRef.current = true;
+    setRetryCount((count) => count + 1);
+  }, []);
   useEffect(() => onVisibilityStateChange(setIsVisible), []);
   useEffect(() => {
-    if (
-      !enabled ||
-      !isVisible ||
-      isLocked ||
-      (instrument.mode === 'perp' && instrument.coin === coin)
-    )
+    if (instrument.mode === 'perp' && instrument.coin === coin) {
+      pendingRefreshRetryRef.current = false;
       return;
+    }
+    if (!enabled || !isVisible || isLocked) return;
+    const shouldRefreshMeta = pendingRefreshRetryRef.current;
+    pendingRefreshRetryRef.current = false;
     const controller = new AbortController();
     setIsSwitching(true);
     setFailedCoin(undefined);
@@ -53,13 +57,25 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
         backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
     })
       .then(async (subscriptionRecoveryProof) => {
-        if (
-          controller.signal.aborted ||
-          !navigation.isFocused() ||
-          !subscriptionRecoveryProof
-        )
+        if (controller.signal.aborted || !navigation.isFocused()) return;
+        if (!subscriptionRecoveryProof) {
+          let locked = false;
+          try {
+            locked = await appIsLocked.get();
+          } catch {
+            // Keep the route retryable if lock status cannot be verified.
+          }
+          if (
+            !controller.signal.aborted &&
+            navigation.isFocused() &&
+            getCurrentVisibilityState() &&
+            !locked
+          ) {
+            setFailedCoin(coin);
+          }
           return;
-        if (retryCount > 0) {
+        }
+        if (shouldRefreshMeta) {
           await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
           if (controller.signal.aborted || !navigation.isFocused()) return;
         }
