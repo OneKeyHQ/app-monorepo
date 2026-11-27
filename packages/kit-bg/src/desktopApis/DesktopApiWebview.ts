@@ -1,11 +1,10 @@
-import path from 'path';
 import { pathToFileURL } from 'url';
 
 import { app, session } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import { getAppStaticPath } from '@onekeyhq/desktop/app/resoucePath';
+import { getWebviewPreloadPath } from '@onekeyhq/desktop/app/resoucePath';
 
 // @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
 import injectedDesktopCode from './injectedDesktopCode.text-js';
@@ -111,10 +110,9 @@ class DesktopApiNetwork {
   }
 
   async getPreloadJsContent(): Promise<string> {
-    // Always load webview preload.js from the code-signed read-only app
-    // resources directory rather than the user-writable OTA bundle directory
-    // to eliminate long-lived preload path caching and disk TOCTOU risks.
-    const preloadJsPath = path.join(getAppStaticPath(), 'preload.js');
+    // Always load webview preload.js from inside the integrity-checked
+    // app.asar archive rather than user-writable OTA or loose resources.
+    const preloadJsPath = getWebviewPreloadPath();
     logger.info('getPreloadJsContent', preloadJsPath);
     // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47
     // Add timestamp to prevent Node.js require cache from loading the same file only once

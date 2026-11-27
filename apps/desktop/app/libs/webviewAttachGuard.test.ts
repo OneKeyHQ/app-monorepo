@@ -16,22 +16,40 @@ describe('webviewAttachGuard', () => {
     ).toBe(false);
   });
 
-  test('normalizePreloadPath decodes file URLs on Windows and POSIX', () => {
+  test('normalizePreloadPath decodes file URLs and preserves literal # in native paths', () => {
     if (process.platform === 'win32') {
       expect(
         normalizePreloadPath(
-          'file:///C:/Program%20Files/OneKey/resources/static/preload.js?t=123',
+          'file:///C:/Program%20Files/OneKey/resources/app.asar/build/static/preload.js?t=123',
           'win32',
         ),
-      ).toBe('C:\\Program Files\\OneKey\\resources\\static\\preload.js');
+      ).toBe(
+        'C:\\Program Files\\OneKey\\resources\\app.asar\\build\\static\\preload.js',
+      );
+      expect(
+        normalizePreloadPath(
+          'C:\\Apps\\OneKey#1\\resources\\app.asar\\build\\static\\preload.js',
+          'win32',
+        ),
+      ).toBe(
+        'C:\\Apps\\OneKey#1\\resources\\app.asar\\build\\static\\preload.js',
+      );
     } else {
       expect(
         normalizePreloadPath(
-          'file:///Applications/OneKey%20Wallet.app/Contents/Resources/static/preload.js?t=123',
+          'file:///Applications/OneKey%20Wallet.app/Contents/Resources/app.asar/build/static/preload.js?t=123',
           'darwin',
         ),
       ).toBe(
-        '/Applications/OneKey Wallet.app/Contents/Resources/static/preload.js',
+        '/Applications/OneKey Wallet.app/Contents/Resources/app.asar/build/static/preload.js',
+      );
+      expect(
+        normalizePreloadPath(
+          '/Applications/OneKey#1.app/Contents/Resources/app.asar/build/static/preload.js',
+          'darwin',
+        ),
+      ).toBe(
+        '/Applications/OneKey#1.app/Contents/Resources/app.asar/build/static/preload.js',
       );
     }
   });

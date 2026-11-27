@@ -34,18 +34,21 @@ export function normalizePreloadPath(
   platform: NodeJS.Platform = process.platform,
 ): string | undefined {
   const pathImpl = platform === 'win32' ? path.win32 : path.posix;
-  const withoutQueryOrHash = rawPreload.split(/[?#]/, 1)[0].trim();
-  if (!withoutQueryOrHash) {
+  const trimmed = rawPreload.trim();
+  if (!trimmed) {
     return undefined;
   }
-  if (/^file:/i.test(withoutQueryOrHash)) {
+  if (/^file:/i.test(trimmed)) {
     try {
-      return pathImpl.normalize(fileURLToPath(withoutQueryOrHash));
+      const parsed = new URL(trimmed);
+      parsed.search = '';
+      parsed.hash = '';
+      return pathImpl.normalize(fileURLToPath(parsed));
     } catch {
       return undefined;
     }
   }
-  return pathImpl.resolve(withoutQueryOrHash);
+  return pathImpl.resolve(trimmed);
 }
 
 export function isSameFsPath(

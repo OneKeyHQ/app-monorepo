@@ -637,22 +637,29 @@ export const verifyBundleDirectoryStructure = (
       }
       if (entry.isDirectory()) {
         walk(fullPath);
-      } else if (
-        !(dirPath === resolvedExtractDir && entry.name === 'metadata.json') &&
-        entry.name !== '.DS_Store'
-      ) {
-        const relativePath = path
-          .relative(buildDir, fullPath)
-          .split(path.sep)
-          .join('/');
-        if (
-          relativePath.startsWith('../') ||
-          relativePath === '..' ||
-          !getOwnMetadataHash(metadata, relativePath)
-        ) {
+      } else {
+        if (!entry.isFile()) {
           throw new OneKeyLocalError(
-            `Unexpected file detected in bundle directory: ${relativePath}`,
+            `Non-regular file detected in bundle directory: ${entry.name}`,
           );
+        }
+        if (
+          !(dirPath === resolvedExtractDir && entry.name === 'metadata.json') &&
+          entry.name !== '.DS_Store'
+        ) {
+          const relativePath = path
+            .relative(buildDir, fullPath)
+            .split(path.sep)
+            .join('/');
+          if (
+            relativePath.startsWith('../') ||
+            relativePath === '..' ||
+            !getOwnMetadataHash(metadata, relativePath)
+          ) {
+            throw new OneKeyLocalError(
+              `Unexpected file detected in bundle directory: ${relativePath}`,
+            );
+          }
         }
       }
     }

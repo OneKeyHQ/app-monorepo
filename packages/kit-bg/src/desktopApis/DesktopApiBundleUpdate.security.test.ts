@@ -1048,3 +1048,30 @@ test('verifyExtractedBundle fails closed when GPG verification is required and n
     }
   }
 });
+
+test('verifyExtractedBundle classifies malformed unsigned metadata.json as INTEGRITY_FAILED when skipGPG is enabled', async () => {
+  const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+  mockStore.getDevSettingsEnabled.mockReturnValue(true);
+  mockStore.getSkipGPGVerification.mockReturnValue(true);
+  try {
+    const { extractDir } = prepareValidExtractedBundle('6.6.0', '301');
+    fs.writeFileSync(
+      path.join(extractDir, 'metadata.json'),
+      JSON.stringify({ 'index.html': null }),
+      'utf8',
+    );
+    await expectUpdateError(api.verifyExtractedBundle('6.6.0', '301'), {
+      code: EUpdateErrorCode.integrityFailed,
+      step: 'verifyPackage',
+    });
+  } finally {
+    mockStore.getDevSettingsEnabled.mockReturnValue(false);
+    mockStore.getSkipGPGVerification.mockReturnValue(false);
+    if (previous === undefined) {
+      delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    } else {
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = previous;
+    }
+  }
+});

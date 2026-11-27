@@ -160,10 +160,10 @@ import { setMainWindowForHttpServer } from './process/HttpServer';
 import { createWindowsBlePairingOptions } from './process/windowsBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
-  getAppStaticPath,
   getAppStaticResourcesPath,
   getResourcesPath,
   getStaticPath,
+  getWebviewPreloadPath,
 } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
@@ -785,8 +785,7 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   browserWindow.webContents.on(
     'will-attach-webview',
     createWillAttachWebviewHandler({
-      getTrustedPreloadPath: () =>
-        path.resolve(getAppStaticPath(), 'preload.js'),
+      getTrustedPreloadPath: () => path.resolve(getWebviewPreloadPath()),
       logger,
     }),
   );
