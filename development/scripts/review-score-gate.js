@@ -188,7 +188,10 @@ const A11Y_OR_MOTION_RE =
   /\b(voiceover|talkback|screen\s*readers?|assistive\s+technolog|accessibilitylabel|accessibilityrole|aria-[a-z]+|contentdescription|spoken\s+(?:value|text)|reduce[d]?\s+motion|keyboard\s+(?:navigation|focus|operable|accessible)|focus\s+(?:ring|indicator|frame)|tab\s*order|tabindex|separating\s+hinge|accessible\s+name)\b|(旁白|读屏|屏幕阅读器|无障碍|辅助功能|减弱动态效果|减少动态效果|键盘导航|焦点框|折叠屏铰链)/i;
 
 const SPECULATIVE_TITLE_RE =
-  /^\s*(?:P[0-2]\s*:\s*)?\[?\s*(?:(?:confirm|verify|check\s+whether|check\s+if|ensure\s+that|double[- ]check)\b|确认是否|验证是否|检查是否|请确认|核实)/i;
+  /^\s*(?:P[0-2]\s*:\s*)?\[?\s*(?:(?:confirm|verify|check)\s+(?:whether|if|that)\b|double[- ]check\b|确认是否|验证是否|检查是否|请确认|核实)/i;
+
+const IMPERATIVE_CHECK_TITLE_RE =
+  /^\s*(?:P[0-2]\s*:\s*)?\[?\s*(?:confirm|verify|ensure\s+that)\b/i;
 
 const DEPS_OR_CI_FILE_RE =
   /(^|\/)(package\.json|yarn\.lock|Podfile\.lock|Gemfile\.lock|Cargo\.lock|renovate\.json|Dockerfile|\.yarnrc\.yml|\.github\/workflows\/|\.github\/actions\/)|\.podspec$/i;
@@ -365,15 +368,17 @@ function parseUnifiedDiffHunks(diffText) {
   }
   let currentFile = null;
   let expectingPlusHeader = false;
+  let inHunk = false;
   const lines = diffText.split(/\r?\n/);
 
   for (const line of lines) {
     if (line.startsWith('diff --git ')) {
       currentFile = null;
       expectingPlusHeader = false;
-    } else if (line.startsWith('--- ')) {
+      inHunk = false;
+    } else if (!inHunk && line.startsWith('--- ')) {
       expectingPlusHeader = true;
-    } else if (expectingPlusHeader && line.startsWith('+++ ')) {
+    } else if (!inHunk && expectingPlusHeader && line.startsWith('+++ ')) {
       expectingPlusHeader = false;
       const candidate = line.slice(4).trim();
       if (candidate === '/dev/null') {
@@ -385,6 +390,7 @@ function parseUnifiedDiffHunks(diffText) {
         }
       }
     } else if (currentFile && line.startsWith('@@ ')) {
+      inHunk = true;
       const hunkMatch = line.match(
         /^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/,
       );
@@ -602,7 +608,10 @@ function verifyCharacterization(claimed, observed) {
     effectiveType = 'revert';
   } else if (observed.isDepsOrCi) {
     effectiveType = 'deps_or_ci';
-  } else if (PR_TYPES.includes(claimed.type)) {
+  } else if (
+    PR_TYPES.includes(claimed.type) &&
+    observed.expectedTypes.includes(claimed.type)
+  ) {
     effectiveType = claimed.type;
   }
 
@@ -702,11 +711,13 @@ function scoreFinding(finding, options = {}) {
   const hasValidInlineAnchor =
     Boolean(anchorFile) && hasAnchorLine && inDiffVerified;
 
-  const isSpeculative = SPECULATIVE_TITLE_RE.test(title);
-  const hasConcreteProof =
-    !isSpeculative &&
-    (Boolean(String(evidence.executionPath || '').trim()) ||
-      Boolean(String(evidence.reproduction || '').trim()));
+  const hasRawProof =
+    Boolean(String(evidence.executionPath || '').trim()) ||
+    Boolean(String(evidence.reproduction || '').trim());
+  const isSpeculative =
+    SPECULATIVE_TITLE_RE.test(title) ||
+    (IMPERATIVE_CHECK_TITLE_RE.test(title) && !hasRawProof);
+  const hasConcreteProof = !isSpeculative && hasRawProof;
 
   // Verify referenced repository files (codeReferences or existingReuseTargets) strictly inside repoRoot
   const verifiedCodeRefs = [];
@@ -775,21 +786,21 @@ function scoreFinding(finding, options = {}) {
   const normTitle = normalizeTitleForDedup(title);
   const minDedupLen = /[\u4e00-\u9fff]/.test(normTitle) ? 4 : 8;
   const matchedThread = existingThreads.find((th) => {
-    if (th.isResolved) return false;
+    if (th.isResolved || !th.id) return false;
     if (finding.existingThreadId && th.id === finding.existingThreadId) {
       return true;
     }
     const sameFile = normalizePath(th.path) === file;
     const thTitle = normalizeTitleForDedup(th.title || th.body || '');
+    const thMinLen = /[\u4e00-\u9fff]/.test(thTitle) ? 4 : 8;
     return (
       sameFile &&
       normTitle.length >= minDedupLen &&
+      thTitle.length >= thMinLen &&
       (thTitle.includes(normTitle) || normTitle.includes(thTitle))
     );
   });
-  const duplicateOfThreadId = matchedThread
-    ? matchedThread.id || 'matched'
-    : null;
+  const duplicateOfThreadId = matchedThread ? matchedThread.id : null;
 
   const weightedImpact = Number((baseImpact * typeAlignment).toFixed(2));
   const rawScore = weightedImpact + evidenceScore - noisePenalty;
@@ -891,20 +902,22 @@ function evaluateReview(draft, prContext = {}, options = {}) {
   const safeDraft = isPlainObject(draft) ? draft : {};
 
   // Independently collected prContext is the source of truth for PR identity
-  const resolvedPrNumber = prContext.prNumber ?? safeDraft.prNumber ?? null;
-  const resolvedHeadSha =
-    prContext.headSha ?? prContext.headRefOid ?? safeDraft.headSha ?? null;
+  const contextPrNumber = prContext.prNumber ?? prContext.number;
+  const resolvedPrNumber = contextPrNumber ?? safeDraft.prNumber ?? null;
+  const contextSha = prContext.headSha ?? prContext.headRefOid;
+  const resolvedHeadSha = contextSha ?? safeDraft.headSha ?? null;
   if (
-    prContext.prNumber !== undefined &&
+    contextPrNumber !== undefined &&
+    contextPrNumber !== null &&
     safeDraft.prNumber !== undefined &&
-    Number(prContext.prNumber) !== Number(safeDraft.prNumber)
+    safeDraft.prNumber !== null &&
+    Number(contextPrNumber) !== Number(safeDraft.prNumber)
   ) {
     inputErrors.push({
       code: 'E_CONTEXT_MISMATCH',
-      message: `Draft prNumber (${safeDraft.prNumber}) does not match independently collected context (${prContext.prNumber}).`,
+      message: `Draft prNumber (${safeDraft.prNumber}) does not match independently collected context (${contextPrNumber}).`,
     });
   }
-  const contextSha = prContext.headSha ?? prContext.headRefOid;
   if (
     contextSha &&
     safeDraft.headSha &&
@@ -1078,7 +1091,7 @@ function buildPublishPayload(result) {
       (Boolean(f.anchorFile) &&
         typeof f.anchorLine === 'number' &&
         f.anchorLine >= 1 &&
-        (result.mode === 'shadow' || f.scoreBreakdown.hasValidInlineAnchor));
+        f.scoreBreakdown.hasValidInlineAnchor);
 
     const entry = {
       action: f.publishAction || 'NEW_THREAD',

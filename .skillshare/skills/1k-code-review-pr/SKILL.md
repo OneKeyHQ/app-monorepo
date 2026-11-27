@@ -185,43 +185,10 @@ NEVER report or post comments about any of the following **unless the PR's expli
 
 ## Script-Verified Characterization & Quantitative Score Gate
 
-Do not rely solely on prose discipline to enforce PR characterization, noise filtering, or publication thresholds. Emit structured findings and run the deterministic gate script `development/scripts/review-score-gate.js` to validate characterization, compute each finding's `SignalScore (0–100)`, and produce the publishable inline payload plus a scoring appendix:
+Do not rely solely on prose discipline to enforce PR characterization, noise filtering, or publication thresholds. Emit structured findings and run `development/scripts/review-score-gate.js` to verify PR characterization against independent `--context` (`gh pr view --json number,title,body,headRefOid,labels,files`), compute each finding's `SignalScore (0–100)`, and output score-driven `publishPayload` + a `### 量化门禁评分附录` appendix.
 
-```bash
-node development/scripts/review-score-gate.js evaluate \
-  --input /tmp/pr-<N>-review-draft.json \
-  --context /tmp/pr-<N>-context.json \
-  --mode soft \
-  --diff /tmp/pr-<N>.diff \
-  --repo . \
-  --out-json /tmp/pr-<N>-review-validated.json \
-  --out-md /tmp/pr-<N>-score-appendix.md
-```
-
-- **Progressive rollout modes (`--mode`)**:
-  - `shadow` (pilot week 1–2): fail-open (`exit 0`), passes all candidates through while recording side-by-side gate scores.
-  - `soft` (default): fail-open (`exit 0`), auto-corrects mismatched PR characterization using observed signals, preserves high-risk P0s via safety valve, and folds filtered findings into a collapsible `<details>` block so zero findings are silently lost.
-  - `strict`: requires independently collected `--context` and an explicit `findings` array; exits with code `2` before writing any output on invalid JSON, context mismatch, or characterization mismatch.
-
-### Input Schemas (`--context` & `--input`)
-- **`--context` (`pr-context.json`, collected independently via `gh pr view --json number,title,body,headRefOid,labels,files`)**:
-  - `prNumber`, `headSha` (or `headRefOid`), `title`, `body`, `labels` (`string[]` or `{name}[]`), `files` (`string[]` or `{path}[]`), `existingAutoThreadCount`, `reviewRound`, `existingThreads` (`[{ id, isResolved, path, title }]`).
-- **`--input` (`review-draft.json`, produced by the reviewer)**:
-  - `characterization`: `{ type: "revert" | "deps_or_ci" | "cross_platform_migration" | "core_feature" | "targeted_bugfix" | "general", summary: string, focusAreas: string[] }`
-  - `findings`: array of `{ severity: "P0"|"P1"|"P2", confidence: "🔵 High"|"🟠 Medium"|"⚪ Low" (or "high"|"medium"|"low"), category, file, line, anchorFile?, anchorLine?, isPreExisting?, title, problem, impact?, suggestedFix?, autoFix?, evidence: { inDiff?, executionPath?, reproduction?, existingReuseTargets?, codeReferences? } }`
-  - Valid `category` values: `security`, `funds_loss`, `crash`, `build_registry`, `cross_platform_divergence`, `half_migration`, `code_duplication`, `concurrency_race`, `data_corruption`, `runtime_boundary`, `memory_leak`, `error_handling`, `performance`, `edge_case`, `a11y_or_motion`, `ui_polish`, `style_nit`.
-
-### How the Gate Works
-1. **Verifiable PR Characterization**: Independently extracts an observed profile from PR title, files, diff hunks, and review round (`isRevert`, `isDepsOrCi`, `hasCrossPlatformSignals`, `hasSecurityCriticalSignals`, `isA11yTarget`, `isFollowUpRound`). Independently collected `--context` is the source of truth for `prNumber` and `headSha`.
-2. **Quantitative Signal Scoring (`SignalScore = clamp(BaseImpact × TypeAlignment + EvidenceScore − NoisePenalty, 0, 100)`)**:
-   - **`BaseImpact × TypeAlignment`**: Looks up `PR type × finding category` alignment. On non-a11y PRs, English/Chinese `a11y_or_motion` nitpicks (VoiceOver/TalkBack/屏幕阅读器/Reduce Motion/focus ring/折叠屏铰链) are automatically reclassified and down-weighted (`8 × 0.2`), naturally scoring below threshold; on explicit `a11y` PRs they are elevated (`32 × 1.5`).
-   - **`EvidenceScore` (0–40)**: Verifies exact `file:line` (or `anchorFile:anchorLine`) falls inside real `git diff` hunks (`+15`), explicit `executionPath`/`reproduction` (`+15`), and verified repo file references inside `repoRoot` (`+10`).
-   - **`NoisePenalty`**: Penalizes speculative English/Chinese `Confirm/Verify/Check/确认是否` titles (`-25`), pre-existing issues (`-30`), and follow-up round P2 spirals (`-35`). Matching unresolved existing threads are routed to `REPLY_THREAD` (`duplicateOfThreadId`) rather than penalized or dropped.
-3. **Score-Driven Output & Publishing (No Arbitrary Comment Cap)**:
-   - Inline `PUBLISH` requires **both** eligibility (`P0` any confidence, or `P1` with `high` confidence), a valid diff line anchor (or `REPLY_THREAD` match), **and** `SignalScore >= 70` (or `P0 >= 55`). Every finding that clears this bar is published — no arbitrary fixed cap.
-   - `50 <= SignalScore < 70` (or eligible findings without a valid inline diff anchor, or `P2`s) → `SUMMARY_ONLY`.
-   - `SignalScore < 50` (or speculative findings) → `DROP` (folded in the `<details>` audit drawer).
-   - The generated Markdown (`--out-md`) is a **scoring appendix** (`### 量化门禁评分附录`) complementing the Unified Report Format below.
+- Supports progressive rollout modes `--mode shadow | soft | strict` (default `soft`: fail-open `exit 0`, high-risk non-speculative P0 safety valve, and collapsible `<details>` audit drawer).
+- See [references/score-gate.md](references/score-gate.md) for the exact CLI flags, `--context`/`--input` JSON schemas, `SignalScore` formula, and publishing thresholds.
 
 ## Triage: Which Checks to Run
 
@@ -512,3 +479,4 @@ Historical PR threads may still use the legacy 5-tier scale; when analyzing them
 - [references/code-quality-patterns.md](references/code-quality-patterns.md) — Hooks, race conditions, null safety, concurrent requests, error handling
 - [references/onekey-platform-patterns.md](references/onekey-platform-patterns.md) — Android/iOS crashes, Fabric, BigNumber, build/CI
 - [references/quick-commands.md](references/quick-commands.md) — Bash one-liners for automated checking
+- [references/score-gate.md](references/score-gate.md) — Quantitative review score gate CLI, JSON schemas, and rollout modes

@@ -23,6 +23,7 @@ test('parseUnifiedDiffHunks handles normal hunks, ignores added ++ lines, skips 
     '--- "a/packages/kit/src/my file.ts"',
     '+++ "b/packages/kit/src/my file.ts"',
     '@@ -10,2 +10,5 @@',
+    '--- old sql comment',
     '+line10',
     '+++ not a file header',
     '+line12',
@@ -428,10 +429,69 @@ test('pilot safeguards: multi-fence JSON recovery, null rejection, non-speculati
   const md = renderMarkdownReport(softResult);
   assert.match(md, /<details>/);
 
-  // Shadow mode separates unanchored comments so GitHub API will not 422
+  // Shadow mode separates out-of-diff unanchored comments so GitHub API will not 422
   const shadowResult = evaluateReview(draft, prContext, { mode: 'shadow' });
   const shadowPayload = buildPublishPayload(shadowResult);
-  assert.equal(shadowPayload.comments.length, 2);
+  assert.equal(shadowPayload.comments.length, 0);
+  assert.equal(shadowPayload.unanchoredComments.length, 2);
+  assert.equal(shadowPayload.mode, 'shadow');
+});
+
+test('handles gh pr view number field, auto-corrects mismatched feature characterization, preserves proven Verify P0s, and ignores empty thread titles', () => {
+  const prContext = {
+    number: 15_004,
+    headRefOid: 'sha_current',
+    title: 'feat: add EIP-712 typed data signing',
+    files: ['packages/kit-bg/src/vaults/signing.ts'],
+    existingThreads: [
+      {
+        id: 'PRRT_empty_title',
+        isResolved: false,
+        path: 'packages/kit-bg/src/vaults/signing.ts',
+        title: '',
+      },
+    ],
+  };
+
+  const result = evaluateReview(
+    {
+      prNumber: 99_999, // conflicts with prContext.number
+      headSha: 'sha_current',
+      characterization: {
+        type: 'revert', // mismatched on a feat: PR -> must auto-correct to core_feature
+        summary: 'Add EIP-712 signing',
+        focusAreas: ['security'],
+      },
+      findings: [
+        {
+          severity: 'P0',
+          confidence: '🔵 High',
+          category: 'security',
+          file: 'packages/kit-bg/src/vaults/signing.ts',
+          line: 42,
+          title: 'Verify EIP-712 domain chainId before signing typed data',
+          problem: 'Missing chainId check allows cross-chain signature replay.',
+          evidence: {
+            inDiff: true,
+            executionPath:
+              'signTypedData() signs payload without comparing domain.chainId',
+          },
+        },
+      ],
+    },
+    prContext,
+  );
+
+  // 1. prContext.number wins and mismatch is recorded
+  assert.equal(result.prNumber, 15_004);
+  assert.ok(result.gateErrors.some((e) => e.code === 'E_CONTEXT_MISMATCH'));
+  // 2. Characterization auto-corrects from 'revert' to 'core_feature'
+  assert.equal(result.characterizationCheck.effectiveType, 'core_feature');
+  // 3. Proven imperative 'Verify ...' P0 is NOT dropped as speculative and NOT hijacked by empty existing thread
+  assert.equal(result.counts.published, 1);
+  assert.equal(result.published[0].publishAction, 'NEW_THREAD');
+  assert.equal(result.published[0].duplicateOfThreadId, null);
+  assert.equal(result.verdict, 'REQUEST_CHANGES');
 });
 
 test('mixed deps+app PR is not locked to deps_or_ci, missing anchor stays in summary, and context identity wins', () => {
