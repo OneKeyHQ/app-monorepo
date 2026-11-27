@@ -156,7 +156,9 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
       // Refund and cancellation pushes can carry a generic failure message.
       if status == .refunded || status == .canceled { return nil }
       if status == .refunding && remote?.status != .refunding { return nil }
-      return remote?.msg.flatMap { $0.isEmpty ? nil : $0 }
+      guard let message = remote?.msg?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !message.isEmpty else { return nil }
+      return message
     }
     var remoteProgress: Double? { remote?.progress }
 

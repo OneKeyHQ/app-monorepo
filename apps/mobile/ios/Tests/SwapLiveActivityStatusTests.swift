@@ -48,6 +48,9 @@ struct SwapLiveActivityStatusTests {
       "A matching refunding message must remain available")
     let messageCases: [(String, String?)] = [
       (#"{"status":"failed","progress":0.3,"msg":"Insufficient liquidity"}"#, "Insufficient liquidity"),
+      (#"{"status":"failed","progress":0.3,"msg":"   "}"#, nil),
+      (#"{"status":"success","progress":1,"msg":"\n\t"}"#, nil),
+      (#"{"status":"failed","progress":0.3,"msg":" Insufficient liquidity\n"}"#, "Insufficient liquidity"),
       (#"{"status":"success","progress":1,"msg":"Swap completed"}"#, "Swap completed"),
       (#"{"status":"success","progress":1,"extraStatus":"REFUNDED","msg":"Swap completed"}"#, nil),
       (#"{"status":"refunded","progress":1,"msg":"Swap failed"}"#, nil),
