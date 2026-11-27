@@ -64,12 +64,13 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
 import {
-  checkFileHash,
-  checkFileSha512,
   getBundleDirPath,
   getBundleIndexHtmlPath,
   getDriveLetter,
   getMetadata,
+  readVerifiedBundleFile,
+  readVerifiedFileSha512,
+  verifyBundleDirectoryStructure,
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
@@ -127,7 +128,11 @@ import {
 } from './libs/networkThrottle';
 import { openExternalUrl } from './libs/openExternalUrl';
 import { createPrimeStripeRequestMonitor } from './libs/primeStripeRequestMonitor';
-import { PROTOCOL } from './libs/protocol';
+import {
+  PROTOCOL,
+  clearProtocolHandlerIfNeeded,
+  createBufferResponse,
+} from './libs/protocol';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
@@ -154,6 +159,7 @@ import { setMainWindowForHttpServer } from './process/HttpServer';
 import { createWindowsBlePairingOptions } from './process/windowsBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
+  getAppStaticPath,
   getAppStaticResourcesPath,
   getResourcesPath,
   getStaticPath,
@@ -775,6 +781,33 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     ...savedWinBounds,
   });
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
+  browserWindow.webContents.on(
+    'will-attach-webview',
+    (_event, webPreferences) => {
+      // Enforce sandboxed webview defaults and restrict preload to the
+      // code-signed built-in preload.js in app resources.
+      webPreferences.nodeIntegration = false;
+      webPreferences.nodeIntegrationInWorker = false;
+      webPreferences.contextIsolation = true;
+      webPreferences.sandbox = true;
+      if (webPreferences.preload) {
+        const trustedPreloadPath = path.resolve(
+          getAppStaticPath(),
+          'preload.js',
+        );
+        const requestedPreloadPath = path.resolve(
+          webPreferences.preload.replace(/^file:\/\//i, '').split(/[?#]/, 1)[0],
+        );
+        if (requestedPreloadPath !== trustedPreloadPath) {
+          logger.warn(
+            '[will-attach-webview] Overriding untrusted preload path:',
+            webPreferences.preload,
+          );
+        }
+        webPreferences.preload = trustedPreloadPath;
+      }
+    },
+  );
   setMainWindow(browserWindow);
 
   const getSafelyBrowserWindow = createSafelyBrowserWindowGetter(
@@ -820,9 +853,7 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   // createMainWindow() installs a fresh handler bound to the new bundle data.
   const uninterceptFileProtocolIfNeeded = () => {
     try {
-      if (session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL)) {
-        session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
-      }
+      clearProtocolHandlerIfNeeded(session.defaultSession.protocol, PROTOCOL);
     } catch (e) {
       logger.warn('uninterceptProtocol failed', e);
     }
@@ -1606,11 +1637,18 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
           bundleVersion: bundleData.bundleVersion,
           signature: bundleData.signature,
         });
+        verifyBundleDirectoryStructure(
+          path.resolve(bundleDirPath, '..'),
+          metadata,
+        );
       } catch (e) {
-        // GPG verification failed or metadata unreadable — clear broken OTA
-        // bundle pointer and disable JS bundle so the interceptor falls back
-        // to the builtin bundle in the asar.
-        logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        // GPG verification failed, unexpected files/symlinks detected, or
+        // metadata unreadable — clear broken OTA bundle pointer and disable
+        // JS bundle so the handler falls back to the builtin bundle in asar.
+        logger.error(
+          'OTA bundle verification failed, falling back to builtin bundle:',
+          e,
+        );
         store.clearUpdateBundleData();
         bundleIndexHtmlPath = undefined;
         useJsBundle = false;
@@ -1634,111 +1672,103 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
       }
     }
     uninterceptFileProtocolIfNeeded();
-    session.defaultSession.protocol.interceptFileProtocol(
-      PROTOCOL,
-      (request, callback) => {
-        try {
-          const cleanUrl = request.url.split(/[?#]/, 1)[0];
-          const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
-          const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
+    session.defaultSession.protocol.handle(PROTOCOL, (request) => {
+      try {
+        const cleanUrl = request.url.split(/[?#]/, 1)[0];
+        const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
+        const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
 
-          // resolve iframe path
-          if (isJsSdkFile && isIFrameHtml) {
-            if (useJsBundle && indexHtmlPath && bundleDirPath) {
-              let key = path.join('static', 'js-sdk', 'iframe.html');
-              const filePath = path.join(bundleDirPath, key);
-              if (isWin) {
-                key = key.replace(/\\/g, '/');
-              }
-              const sha512 =
-                Object.prototype.hasOwnProperty.call(metadata, key) &&
-                typeof metadata[key] === 'string'
-                  ? metadata[key]
-                  : undefined;
-              if (!sha512 || !checkFileSha512(filePath, sha512)) {
-                logger.info(
-                  'checkFileHash error in js-sdk:',
-                  `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
-                );
-                store.clearUpdateBundleData();
-                throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
-              }
-              callback(filePath);
-              return;
-            }
-            callback({
-              path: path.join(
-                __dirname,
-                '..',
-                'build',
-                'static',
-                'js-sdk',
-                'iframe.html',
-              ),
-            });
-            return;
-          }
-
-          const url = cleanUrl.substring(PROTOCOL.length + 1);
+        // resolve iframe path
+        if (isJsSdkFile && isIFrameHtml) {
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let decodedUrl: string;
-            try {
-              decodedUrl = decodeURIComponent(url);
-            } catch {
-              callback({ error: -6 } as any);
-              return;
+            let key = path.join('static', 'js-sdk', 'iframe.html');
+            const filePath = path.join(bundleDirPath, key);
+            if (isWin) {
+              key = key.replace(/\\/g, '/');
             }
-            const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
-            const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
-            if (normalizedDecodedUrl.includes(normalizedBundleDirPath)) {
-              const filePath = checkFileHash({
-                bundleDirPath,
-                metadata,
-                driveLetter,
-                url: normalizedDecodedUrl.replace(normalizedBundleDirPath, ''),
-              });
-              callback(filePath);
-            } else {
-              const filePath = checkFileHash({
-                bundleDirPath,
-                metadata,
-                driveLetter,
-                url: decodedUrl,
-              });
-              callback(filePath);
+            const sha512 =
+              Object.prototype.hasOwnProperty.call(metadata, key) &&
+              typeof metadata[key] === 'string'
+                ? metadata[key]
+                : undefined;
+            const buffer = sha512
+              ? readVerifiedFileSha512(filePath, sha512)
+              : undefined;
+            if (!buffer) {
+              logger.info(
+                'checkFileHash error in js-sdk:',
+                `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
+              );
+              store.clearUpdateBundleData();
+              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
             }
-          } else {
-            const buildDir = path.resolve(__dirname, '..', 'build');
-            let decodedUrl: string;
-            try {
-              decodedUrl = decodeURIComponent(url);
-            } catch {
-              callback({ error: -6 } as any);
-              return;
-            }
-            // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-            // and Windows drive prefix so path.resolve treats the segment as relative.
-            const relativeUrl = decodedUrl
-              .replace(/^[:/\\]+/, '')
-              .replace(/^[A-Za-z]:[\\/]/, '')
-              .replace(/^[:/\\]+/, '');
-            const resolved = path.resolve(buildDir, relativeUrl);
-            if (
-              !resolved.startsWith(buildDir + path.sep) &&
-              resolved !== buildDir
-            ) {
-              logger.warn('Blocked file access outside build dir:', resolved);
-              callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-              return;
-            }
-            callback(resolved);
+            return createBufferResponse(buffer, filePath);
           }
-        } catch (error) {
-          logger.error('interceptFileProtocol error:', error);
-          callback({ error: -6 } as any);
+          const builtinIframePath = path.join(
+            __dirname,
+            '..',
+            'build',
+            'static',
+            'js-sdk',
+            'iframe.html',
+          );
+          return createBufferResponse(
+            fs.readFileSync(builtinIframePath),
+            builtinIframePath,
+          );
         }
-      },
-    );
+
+        const url = cleanUrl.substring(PROTOCOL.length + 1);
+        if (useJsBundle && indexHtmlPath && bundleDirPath) {
+          let decodedUrl: string;
+          try {
+            decodedUrl = decodeURIComponent(url);
+          } catch {
+            return Response.error();
+          }
+          const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
+          const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
+          const targetUrl = normalizedDecodedUrl.includes(
+            normalizedBundleDirPath,
+          )
+            ? normalizedDecodedUrl.replace(normalizedBundleDirPath, '')
+            : decodedUrl;
+          const { filePath, buffer } = readVerifiedBundleFile({
+            bundleDirPath,
+            metadata,
+            driveLetter,
+            url: targetUrl,
+          });
+          return createBufferResponse(buffer, filePath);
+        }
+
+        const buildDir = path.resolve(__dirname, '..', 'build');
+        let decodedUrl: string;
+        try {
+          decodedUrl = decodeURIComponent(url);
+        } catch {
+          return Response.error();
+        }
+        // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+        // and Windows drive prefix so path.resolve treats the segment as relative.
+        const relativeUrl = decodedUrl
+          .replace(/^[:/\\]+/, '')
+          .replace(/^[A-Za-z]:[\\/]/, '')
+          .replace(/^[:/\\]+/, '');
+        const resolved = path.resolve(buildDir, relativeUrl);
+        if (
+          !resolved.startsWith(buildDir + path.sep) &&
+          resolved !== buildDir
+        ) {
+          logger.warn('Blocked file access outside build dir:', resolved);
+          return Response.error();
+        }
+        return createBufferResponse(fs.readFileSync(resolved), resolved);
+      } catch (error) {
+        logger.error('protocol.handle(file) error:', error);
+        return Response.error();
+      }
+    });
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',

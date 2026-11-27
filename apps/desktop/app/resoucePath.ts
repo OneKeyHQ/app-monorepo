@@ -15,7 +15,6 @@ const getJsBundleStaticPath = () => {
     if (fs.existsSync(staticPath)) {
       return staticPath;
     }
-    fs.mkdirSync(staticPath, { recursive: true });
   }
   return undefined;
 };
@@ -24,6 +23,12 @@ export const getAppStaticResourcesPath = () => {
   return isDev
     ? path.join(__dirname, '../../public/static')
     : process.resourcesPath;
+};
+
+export const getAppStaticPath = () => {
+  return isDev
+    ? path.join(__dirname, '../../public/static')
+    : path.join(process.resourcesPath, 'static');
 };
 
 export const getResourcesPath = () => {

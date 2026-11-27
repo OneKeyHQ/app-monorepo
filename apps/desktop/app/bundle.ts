@@ -312,15 +312,21 @@ export const getBundleIndexHtmlPath = ({
   return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
 };
 
-export const checkFileSha512 = (filePath: string, sha512: string) => {
+export const readVerifiedFileSha512 = (
+  filePath: string,
+  sha512: string,
+): Buffer | undefined => {
   try {
     const file = fs.readFileSync(filePath);
     const hash = crypto.createHash('sha512').update(file).digest('hex');
-    return hash === sha512;
+    return hash === sha512 ? file : undefined;
   } catch {
-    return false;
+    return undefined;
   }
 };
+
+export const checkFileSha512 = (filePath: string, sha512: string) =>
+  Boolean(readVerifiedFileSha512(filePath, sha512));
 
 const getMetadataFilePath = ({
   appVersion,
@@ -336,6 +342,86 @@ const getMetadataFilePath = ({
   return path.join(bundleDir, 'metadata.json');
 };
 
+const parseMetadataBuffer = (fileBuffer: Buffer): Record<string, string> => {
+  const parsed = JSON.parse(fileBuffer.toString('utf8')) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new OneKeyLocalError('Invalid metadata.json format');
+  }
+  const metadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(
+    parsed as Record<string, unknown>,
+  )) {
+    if (
+      key !== '__proto__' &&
+      key !== 'constructor' &&
+      key !== 'prototype' &&
+      typeof value === 'string'
+    ) {
+      metadata[key] = value;
+    }
+  }
+  return Object.freeze(metadata);
+};
+
+const readAndVerifyMetadataBuffer = async ({
+  appVersion,
+  expectedAppVersion,
+  bundleVersion,
+  signature,
+  metadataPath,
+}: {
+  appVersion: string;
+  expectedAppVersion?: string;
+  bundleVersion: string;
+  signature: string;
+  metadataPath?: string;
+}): Promise<Buffer> => {
+  const metadataFilePath =
+    metadataPath ??
+    getMetadataFilePath({
+      appVersion,
+      bundleVersion,
+    });
+  logger.info('bundle-verifyBundleASC', metadataFilePath);
+  const targetAppVersion = expectedAppVersion ?? appVersion;
+  const metadataFilesSha256 = await readMetadataFileSha256(signature, {
+    appVersion: targetAppVersion,
+    bundleVersion,
+  });
+  if (!metadataFilesSha256) {
+    stampSHA256Failure('EMPTY_EXPECTED_HASH');
+    throw new OneKeyLocalError('Invalid asc file');
+  }
+  // Read metadata.json once into memory and verify SHA-256 on the exact
+  // buffer that will be parsed, eliminating TOCTOU double-read.
+  let fileBuffer: Buffer;
+  try {
+    const stat = fs.statSync(metadataFilePath);
+    if (stat.size === 0) {
+      stampSHA256Failure('FILE_EMPTY');
+      throw new OneKeyLocalError('Invalid asc file');
+    }
+    fileBuffer = fs.readFileSync(metadataFilePath);
+  } catch (error) {
+    if (error instanceof OneKeyLocalError) {
+      throw error;
+    }
+    stampSHA256Failure(classifySHA256Error(error));
+    throw new OneKeyLocalError('Invalid asc file');
+  }
+  const fileSha256 = crypto
+    .createHash('sha256')
+    .update(fileBuffer)
+    .digest('hex');
+  logger.info('bundle-download-verifySha256', metadataFilesSha256, fileSha256);
+  if (fileSha256 !== metadataFilesSha256) {
+    stampSHA256Failure('MISMATCH');
+    throw new OneKeyLocalError('Invalid asc file');
+  }
+  stampSHA256Failure(undefined);
+  return fileBuffer;
+};
+
 export const verifyMetadataFileSha256 = async ({
   appVersion,
   expectedAppVersion,
@@ -347,21 +433,36 @@ export const verifyMetadataFileSha256 = async ({
   bundleVersion: string;
   signature: string;
 }) => {
-  const metadataFilePath = getMetadataFilePath({
+  await readAndVerifyMetadataBuffer({
     appVersion,
+    expectedAppVersion,
     bundleVersion,
+    signature,
   });
-  logger.info('bundle-verifyBundleASC', metadataFilePath);
-  const targetAppVersion = expectedAppVersion ?? appVersion;
-  const metadataFilesSha256 = await readMetadataFileSha256(signature, {
-    appVersion: targetAppVersion,
-    bundleVersion,
-  });
-  const isVerified = verifySha256(metadataFilePath, metadataFilesSha256);
-  if (!isVerified) {
-    throw new OneKeyLocalError('Invalid asc file');
-  }
   return true;
+};
+
+export const readVerifiedMetadataFile = async ({
+  appVersion,
+  expectedAppVersion,
+  bundleVersion,
+  signature,
+  metadataPath,
+}: {
+  appVersion: string;
+  expectedAppVersion?: string;
+  bundleVersion: string;
+  signature: string;
+  metadataPath?: string;
+}): Promise<Record<string, string>> => {
+  const fileBuffer = await readAndVerifyMetadataBuffer({
+    appVersion,
+    expectedAppVersion,
+    bundleVersion,
+    signature,
+    metadataPath,
+  });
+  return parseMetadataBuffer(fileBuffer);
 };
 
 export const getMetadata = async ({
@@ -380,18 +481,15 @@ export const getMetadata = async ({
     String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true' &&
     Boolean(getDevSettingsEnabled?.() && getSkipGPGVerification?.());
   if (!allowSkipGPG) {
-    await verifyMetadataFileSha256({
+    return readVerifiedMetadataFile({
       appVersion,
       expectedAppVersion: app.getVersion(),
       bundleVersion,
       signature,
+      metadataPath,
     });
   }
-  const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
-    string,
-    string
-  >;
-  return metadata;
+  return parseMetadataBuffer(fs.readFileSync(metadataPath));
 };
 
 export const TEST_SIGNATURE = `
@@ -485,7 +583,48 @@ function getOwnMetadataHash(
     : undefined;
 }
 
-export const checkFileHash = ({
+export const verifyBundleDirectoryStructure = (
+  extractDir: string,
+  metadata: Record<string, string>,
+): void => {
+  const resolvedExtractDir = path.resolve(extractDir);
+  const rootStat = fs.lstatSync(resolvedExtractDir, { throwIfNoEntry: false });
+  if (!rootStat || rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new OneKeyLocalError('Bundle directory is invalid or a symlink');
+  }
+  const buildDir = path.join(resolvedExtractDir, 'build');
+  const walk = (dirPath: string) => {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isSymbolicLink()) {
+        throw new OneKeyLocalError(
+          `Symbolic link detected in bundle directory: ${entry.name}`,
+        );
+      }
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.name !== 'metadata.json' && entry.name !== '.DS_Store') {
+        const relativePath = path
+          .relative(buildDir, fullPath)
+          .split(path.sep)
+          .join('/');
+        if (
+          relativePath.startsWith('../') ||
+          relativePath === '..' ||
+          !getOwnMetadataHash(metadata, relativePath)
+        ) {
+          throw new OneKeyLocalError(
+            `Unexpected file detected in bundle directory: ${relativePath}`,
+          );
+        }
+      }
+    }
+  };
+  walk(resolvedExtractDir);
+};
+
+export const readVerifiedBundleFile = ({
   bundleDirPath,
   metadata,
   driveLetter,
@@ -495,7 +634,7 @@ export const checkFileHash = ({
   metadata: Record<string, string>;
   driveLetter: string;
   url: string;
-}) => {
+}): { filePath: string; buffer: Buffer } => {
   if (!bundleDirPath) {
     throw new OneKeyLocalError('Bundle directory path not found');
   }
@@ -533,7 +672,8 @@ export const checkFileHash = ({
       `File ${url}, sha512 not found in metadata.json`,
     );
   }
-  if (!checkFileSha512(filePath, sha512)) {
+  const buffer = readVerifiedFileSha512(filePath, sha512);
+  if (!buffer) {
     logger.info(
       'checkFileHash error:',
       `${key}:  ${url} not matched ${filePath}: ${sha512}`,
@@ -541,5 +681,9 @@ export const checkFileHash = ({
     unmatchedFileDialog();
     throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
   }
-  return filePath;
+  return { filePath, buffer };
 };
+
+export const checkFileHash = (
+  params: Parameters<typeof readVerifiedBundleFile>[0],
+) => readVerifiedBundleFile(params).filePath;

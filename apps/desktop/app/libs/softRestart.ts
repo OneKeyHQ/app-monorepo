@@ -3,7 +3,7 @@ import {
   setMainWindow,
   showMainWindow,
 } from './mainWindowAccess';
-import { PROTOCOL } from './protocol';
+import { PROTOCOL, clearProtocolHandlerIfNeeded } from './protocol';
 
 import type { BrowserWindow, Session } from 'electron';
 
@@ -112,11 +112,10 @@ export function createSoftRestartRenderer(
       // lets Chromium's default file handler serve the real new index.html (same
       // as a cold boot), and createMainWindow then installs a fresh interceptor.
       try {
-        const wasIntercepted =
-          deps.session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL);
-        if (wasIntercepted) {
-          deps.session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
-        }
+        const wasIntercepted = clearProtocolHandlerIfNeeded(
+          deps.session.defaultSession.protocol,
+          PROTOCOL,
+        );
         deps.logger.info('[softRestart] stale file interceptor cleared', {
           wasIntercepted,
         });
