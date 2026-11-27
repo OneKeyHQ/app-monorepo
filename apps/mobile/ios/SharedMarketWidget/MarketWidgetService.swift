@@ -29,6 +29,7 @@ actor MarketWidgetService {
              force: Bool = false) async throws -> MarketWidgetQuote {
     guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
     var quote = try await price(for: asset, locale: locale, force: force)
+    await fetchCachedIcon(for: quote.asset.logoURL == nil ? asset : quote.asset)
     if asset.kind != .stock && (includingChart || store.chartMode() == .simple) {
       quote = await withChart(quote, asset: asset, locale: locale)
     }
@@ -41,7 +42,6 @@ actor MarketWidgetService {
     if let cached = store.quote(for: asset),
        Date().timeIntervalSince(cached.fetchedAt) < (force ? 15 : 300) {
       MarketWidgetDiagnostics.event("quote.cache_hit", ["ageSeconds": Int(Date().timeIntervalSince(cached.fetchedAt))])
-      await fetchCachedIcon(for: asset)
       return cached
     }
     if let request = requests[asset.id] {
@@ -388,7 +388,6 @@ actor MarketWidgetService {
     let quote = try decode(try await response(for: request(for: asset, locale: locale), session: session), asset: asset, fetchedAt: startedAt)
     // A detail request can finish after the host masks widgets or removes this asset.
     guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
-    await fetchIcon(asset: quote.asset, store: store, session: session)
     return quote.merging(store.quote(for: asset))
   }
 

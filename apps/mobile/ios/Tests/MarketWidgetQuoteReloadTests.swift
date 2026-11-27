@@ -87,8 +87,17 @@ struct MarketWidgetQuoteReloadTests {
     let remaining = try store.storedInstanceSettings()
     precondition(Set(remaining.map(\.id)) == installed && store.quote(for: otherBTC) == nil,
       "Prune only removed configurations and exclusively owned cached quotes")
+    try store.rememberLockScreenAssets([otherBTC])
     try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
     precondition(kinds([btc, eth, sol, otherBTC], widgets).isEmpty, "A masked widget displays no quote")
+    let masked = try MarketWidgetQuoteReloader.assetsForForegroundRefresh(configurations: widgets, store: store)
+    precondition(masked.isEmpty && !store.permitsRequests(for: otherBTC),
+      "Foreground preparation cannot restore Lock Screen permissions while privacy is masked")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":false}"#)
+    precondition(!store.permitsRequests(for: otherBTC), "Unmasking alone does not restore a Lock Screen permission")
+    let foreground = try MarketWidgetQuoteReloader.assetsForForegroundRefresh(configurations: widgets, store: store)
+    precondition(Set(foreground.map(\.id)) == selected && store.permitsRequests(for: otherBTC),
+      "Installed Lock Screen intents restore their evicted permissions before foreground prices are fetched")
   }
 
   @MainActor

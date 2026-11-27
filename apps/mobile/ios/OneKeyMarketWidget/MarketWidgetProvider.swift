@@ -7,10 +7,11 @@ struct MarketWidgetRow: Identifiable {
   let quote: MarketWidgetQuote?
   let failed: Bool
   var id: String { asset.id }
+  var priceDate: Date? { quote.map { $0.priceUpdatedAt ?? $0.fetchedAt } }
 
   func cacheDate(at date: Date) -> Date? {
     guard let quote, failed || date.timeIntervalSince(quote.fetchedAt) >= Self.lockScreenFreshnessInterval else { return nil }
-    return quote.priceUpdatedAt ?? quote.fetchedAt
+    return priceDate
   }
 
   func lockScreenCacheDate(at date: Date) -> Date? { cacheDate(at: date) }
@@ -46,12 +47,13 @@ struct MarketWidgetTimelineQuotes {
     }
   }
 
-  func entry(at date: Date) -> MarketWidgetEntry {
+  func entry(at date: Date, preservingRefreshFailure: Bool = false) -> MarketWidgetEntry {
     var entry = base
     entry.date = date
     entry.rows = zip(base.rows, quotes).map { row, snapshot in
       let quote = snapshot.quote(at: date)
-      return MarketWidgetRow(asset: row.asset, quote: quote, failed: row.failed && quote?.chartMode == nil)
+      return MarketWidgetRow(asset: row.asset, quote: quote,
+        failed: row.failed && (preservingRefreshFailure || quote?.chartMode == nil))
     }
     return entry
   }
@@ -136,18 +138,28 @@ struct MarketWidgetEntry: TimelineEntry {
                              service: MarketWidgetService = .shared) async -> MarketWidgetEntry {
     let initial = snapshot(isWatchlist: isWatchlist, instanceID: instanceID, store: store)
     guard initial.rows.contains(where: { $0.quote == nil }) else { return initial }
-    // The first real snapshot needs prices, but must not wait for ranking or chart requests.
-    await withTaskGroup(of: Void.self) { group in
+    // The first real snapshot needs prices, but must not wait for ranking, chart or icon requests.
+    let fetched = await withTaskGroup(of: MarketWidgetQuote?.self) { group in
       for row in initial.rows where row.quote == nil {
         group.addTask {
-          do { _ = try await service.price(for: row.asset, locale: initial.configuration?.locale ?? "en-US") }
-          catch { MarketWidgetDiagnostics.event("snapshot.quote_failed", error: error) }
+          do { return try await service.price(for: row.asset, locale: initial.configuration?.locale ?? "en-US") }
+          catch { MarketWidgetDiagnostics.event("snapshot.quote_failed", error: error); return nil }
         }
       }
+      var quotes: [String: MarketWidgetQuote] = [:]
+      for await quote in group {
+        if let quote { quotes[quote.asset.id] = quote.merging(quotes[quote.asset.id]) }
+      }
+      return quotes
     }
-    var result = snapshot(isWatchlist: isWatchlist, instanceID: instanceID, store: store)
-    result.rows = result.rows.map { MarketWidgetRow(asset: $0.asset, quote: $0.quote, failed: $0.quote == nil) }
-    return result
+    var result = entry(selection: store.selection(kind: isWatchlist ? .list : .single, instanceID: instanceID),
+      isWatchlist: isWatchlist, store: store)
+    result.rows = result.rows.map { row in
+      let quote = store.permitsRequests(for: row.asset)
+        ? fetched[row.id]?.merging(row.quote, at: result.date) ?? row.quote : nil
+      return MarketWidgetRow(asset: row.asset, quote: quote, failed: quote == nil)
+    }
+    return result.usingChartMode(in: store)
   }
 
   static func homeTimeline(_ base: MarketWidgetEntry, store: MarketWidgetStore) -> Timeline<MarketWidgetEntry> {
@@ -160,7 +172,7 @@ struct MarketWidgetEntry: TimelineEntry {
       }
     }
     let retryInterval: TimeInterval = base.rows.contains { $0.failed || $0.quote == nil } ? 60 : 15 * 60
-    return Timeline(entries: dates.sorted().map { quotes.entry(at: $0) },
+    return Timeline(entries: dates.sorted().map { quotes.entry(at: $0, preservingRefreshFailure: true) },
       policy: .after(base.date.addingTimeInterval(retryInterval)))
   }
 

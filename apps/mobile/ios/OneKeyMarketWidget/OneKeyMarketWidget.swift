@@ -332,7 +332,7 @@ struct MarketWidgetView: View {
   }
 
   @ViewBuilder private func quoteStatus(_ row: MarketWidgetRow, size: CGFloat) -> some View {
-    if let date = row.cacheDate(at: entry.date) ?? row.quote?.fetchedAt {
+    if let date = row.priceDate {
       HStack(spacing: 3) {
         Image(systemName: row.cacheDate(at: entry.date) != nil ? "exclamationmark.circle" : "clock")
         Text(date, format: .dateTime.month().day().hour().minute())

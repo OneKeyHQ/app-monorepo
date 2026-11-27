@@ -129,6 +129,17 @@ final class MarketWidgetQuoteReloader {
     }
   }
 
+  nonisolated static func assetsForForegroundRefresh<C: MarketWidgetQuoteConfiguration>(configurations: [C],
+    store: MarketWidgetStore) throws -> [MarketWidgetAsset] {
+    try configurations.flatMap { info in
+      let assets = selectedAssets(for: info, store: store)
+      if info.kind.hasPrefix("OneKeyMarketLockScreen"), !assets.isEmpty {
+        try store.rememberLockScreenAssets(assets)
+      }
+      return assets
+    }
+  }
+
   nonisolated static func selectedAssets<C: MarketWidgetQuoteConfiguration>(for info: C,
     store: MarketWidgetStore) -> [MarketWidgetAsset] {
     guard store.configuration().configuration.map({ $0.privacyMasked != true }) == true else { return [] }
