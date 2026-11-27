@@ -29,6 +29,10 @@ private struct SwapLocalizedContent<Content: View>: View {
 }
 
 private extension ActivityViewContext where Attributes == SwapLiveActivityAttributes {
+  var isNearCompletion: Bool {
+    state.almostDone == true || attributes.order.estimatedEndAt.timeIntervalSinceNow < 10
+  }
+
   func remoteStatusLabel(strings: SwapLiveActivityStrings?) -> String? {
     if state.isRefundFailed { return strings?.refundFailed ?? "Refund failed" }
     if state.isPartiallyFilled { return strings?.partiallyFilled ?? "Partially filled" }
@@ -134,11 +138,25 @@ private struct SwapActivityETA: View {
 
   @ViewBuilder
   private var pendingETA: some View {
-    if order.estimatedEndAt.timeIntervalSinceNow < 10 || context.state.almostDone == true {
-      Text(strings?.almostDone ?? "~Almost done")
+    if context.isNearCompletion {
+      nearCompletionLabel
     } else {
       let duration = order.estimatedEndAt.timeIntervalSince(order.startedAt)
       minuteETA(Int(ceil(duration / 60)))
+    }
+  }
+
+  @ViewBuilder
+  private var nearCompletionLabel: some View {
+    let label = strings?.almostDone ?? "~Almost done"
+    if compact {
+      ViewThatFits(in: .horizontal) {
+        Text(label).fixedSize(horizontal: true, vertical: false)
+        Image(systemName: "hourglass.bottomhalf.filled")
+      }
+      .accessibilityLabel(Text(label))
+    } else {
+      Text(label)
     }
   }
 
@@ -364,14 +382,13 @@ private struct SwapCompactStatus: View {
     if context.attributes.usesRemoteUpdates, !context.state.status.isError {
       return true
     }
-    return (!context.state.status.isError && context.state.almostDone == true)
+    return (!context.state.status.isError && context.isNearCompletion)
       || context.state.displayPhase == "eta"
   }
 
   private var statusLabel: String {
     if let label = context.remoteStatusLabel(strings: strings) { return label }
-    if sharedLabels == nil, !context.state.isTerminal, context.state.status != .failed,
-       let message = context.state.remoteMessage { return message }
+    if sharedLabels == nil, let message = context.state.remoteMessage { return message }
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"

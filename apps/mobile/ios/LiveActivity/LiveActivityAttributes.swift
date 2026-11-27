@@ -152,6 +152,8 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
     var isPartiallyFilled: Bool { status == .done && remote?.status == .partiallyFilled }
     var isExpired: Bool { status == .failed && (failureDetail == .expired || remote?.status == .expired) }
     var remoteMessage: String? {
+      // Refund and cancellation pushes can carry a generic failure message.
+      if status == .refunded || status == .canceled { return nil }
       if status == .refunding && remote?.status != .refunding { return nil }
       return remote?.msg.flatMap { $0.isEmpty ? nil : $0 }
     }

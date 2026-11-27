@@ -46,6 +46,18 @@ struct SwapLiveActivityStatusTests {
       from: Data(#"{"status":"refunding","progress":0.5,"msg":"Refund initiated"}"#.utf8))
     precondition(normalRefunding.remoteMessage == "Refund initiated",
       "A matching refunding message must remain available")
+    let messageCases: [(String, String?)] = [
+      (#"{"status":"failed","progress":0.3,"msg":"Insufficient liquidity"}"#, "Insufficient liquidity"),
+      (#"{"status":"success","progress":1,"msg":"Swap completed"}"#, "Swap completed"),
+      (#"{"status":"success","progress":1,"extraStatus":"REFUNDED","msg":"Swap completed"}"#, nil),
+      (#"{"status":"refunded","progress":1,"msg":"Swap failed"}"#, nil),
+      (#"{"status":"canceled","progress":0,"msg":"Swap failed"}"#, nil),
+    ]
+    for (payload, expectedMessage) in messageCases {
+      let state = try JSONDecoder().decode(SwapLiveActivityAttributes.ContentState.self,
+        from: Data(payload.utf8))
+      precondition(state.remoteMessage == expectedMessage, "Unexpected display message for \(payload)")
+    }
     let completedRefund = try JSONDecoder().decode(SwapLiveActivityAttributes.ContentState.self,
       from: Data(#"{"status":"success","progress":1,"extraStatus":"REFUNDED","crossChainStatus":"REFUND_FAILED"}"#.utf8))
     precondition(completedRefund.status == .refunded && !completedRefund.isRefundFailed,
