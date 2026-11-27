@@ -9,6 +9,8 @@ import {
   KEM_DHKEM_X25519_HKDF_SHA256,
 } from 'hpke';
 
+import type { HttpClientContext } from 'ohttp-ts';
+
 /** DHKEM(X25519, HKDF-SHA256) / HKDF-SHA256 / AES-128-GCM, via WebCrypto. */
 export function createPlatformHpkeSuite(): CipherSuite {
   return new CipherSuite(
@@ -16,4 +18,11 @@ export function createPlatformHpkeSuite(): CipherSuite {
     KDF_HKDF_SHA256,
     AEAD_AES_128_GCM,
   );
+}
+
+export function decapsulateOhttpResponse(
+  context: HttpClientContext,
+  response: Response,
+): Promise<Response> {
+  return context.decapsulateResponse(response);
 }
