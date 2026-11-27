@@ -2,6 +2,7 @@ import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabHomeRoutes,
+  PRIME_DASHBOARD_LANDING_PATH,
   PRIME_PURCHASE_COMPLETE_PATH,
   PRIME_REDEEM_LANDING_PATH,
   PRIME_SUBSCRIPTION_LANDING_PATH,
@@ -42,6 +43,12 @@ const PrimeSubscriptionLanding = LazyLoadPage(async () => {
   const { PrimeSubscriptionLandingPage } =
     await import('../pages/primeSubscription/PrimeSubscriptionLandingPage');
   return { default: PrimeSubscriptionLandingPage };
+});
+
+const PrimeDashboardLanding = LazyLoadPage(async () => {
+  const { PrimeDashboardLandingPage } =
+    await import('../pages/primeSubscription/PrimeDashboardLandingPage');
+  return { default: PrimeDashboardLandingPage };
 });
 
 const PrimePurchaseCompleteLanding = LazyLoadPage(async () => {
@@ -91,6 +98,7 @@ export const referralLandingRewriteWithoutPage = '/r/:code/app';
 export const referralLandingRewriteCodeOnly = '/r/:code';
 export const redeemBitcoinVoucherLandingRewrite = '/redeem-bitcoin-voucher';
 export const primeSubscriptionLandingRewrite = PRIME_SUBSCRIPTION_LANDING_PATH;
+export const primeDashboardLandingRewrite = PRIME_DASHBOARD_LANDING_PATH;
 export const primePurchaseCompleteLandingRewrite = PRIME_PURCHASE_COMPLETE_PATH;
 export const primeRedeemLandingRewrite = PRIME_REDEEM_LANDING_PATH;
 
@@ -152,6 +160,13 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomePrimeSubscription,
     component: PrimeSubscriptionLanding,
     rewrite: primeSubscriptionLandingRewrite,
+    exact: true,
+    headerShown: false,
+  },
+  {
+    name: ETabHomeRoutes.TabHomePrimeDashboard,
+    component: PrimeDashboardLanding,
+    rewrite: primeDashboardLandingRewrite,
     exact: true,
     headerShown: false,
   },
