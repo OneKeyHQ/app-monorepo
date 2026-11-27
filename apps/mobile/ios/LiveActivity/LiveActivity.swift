@@ -134,40 +134,11 @@ private struct SwapActivityETA: View {
 
   @ViewBuilder
   private var pendingETA: some View {
-    if context.attributes.usesRemoteUpdates {
-      if #available(iOSApplicationExtension 18.0, *) {
-        remoteETA
-      }
-    } else if context.state.almostDone == true {
+    if order.estimatedEndAt.timeIntervalSinceNow < 10 || context.state.almostDone == true {
       Text(strings?.almostDone ?? "~Almost done")
-    } else if let minutes = context.state.etaMinutes {
-      minuteETA(minutes)
-    }
-  }
-
-  @available(iOSApplicationExtension 18.0, *)
-  @ViewBuilder
-  private var remoteETA: some View {
-    let now = Date()
-    let end = order.estimatedEndAt
-    if end.timeIntervalSince(now) < 10 {
-      Text(strings?.almostDone ?? "Almost done")
     } else {
-      let format = SystemFormatStyle.Timer(
-        countingDownIn: now..<end,
-        showsHours: false,
-        maxFieldCount: 1,
-        maxPrecision: .seconds(60)
-      ).locale(etaLocale)
-      let timer = Text(.currentDate, format: format)
-      Group {
-        if compact {
-          timer
-        } else {
-          Text("≈\(timer)")
-        }
-      }
-      .environment(\.locale, etaLocale)
+      let duration = order.estimatedEndAt.timeIntervalSince(order.startedAt)
+      minuteETA(Int(ceil(duration / 60)))
     }
   }
 
@@ -175,18 +146,37 @@ private struct SwapActivityETA: View {
   private func minuteETA(_ minutes: Int) -> some View {
     let number = minutes.formatted(.number.locale(etaLocale))
     if let template = strings?.etaTemplate {
-      let localizedTemplate = template.replacingOccurrences(of: "~", with: compact ? "" : "≈", options: .anchored)
-      Text(localizedTemplate.replacingOccurrences(of: "{number}", with: number))
+      let localizedTemplate = compact ? template.replacingOccurrences(of: "~", with: "", options: .anchored) : template
+      if compact, let range = localizedTemplate.range(of: "{number}") {
+        let prefix = String(localizedTemplate[..<range.lowerBound])
+        let suffix = String(localizedTemplate[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        let value = Text(number).font(.system(size: 13, weight: .heavy))
+        let before = Text(suffix.isEmpty ? prefix.trimmingCharacters(in: .whitespaces) : prefix)
+          .font(.system(size: 11, weight: .regular))
+        let after = Text(suffix).font(.system(size: 11, weight: .regular))
+        Group {
+          if suffix.isEmpty {
+            before + Text("\n") + value
+          } else {
+            before + value + Text("\n") + after
+          }
+        }
+        .lineLimit(2)
+        .multilineTextAlignment(.center)
+        .frame(height: 25)
+      } else {
+        Text(localizedTemplate.replacingOccurrences(of: "{number}", with: number))
+      }
     } else if compact {
       VStack(spacing: -4) {
         Text(number)
           .font(.system(size: 13, weight: .heavy))
         Text("min")
-          .font(.system(size: 9, weight: .regular))
+          .font(.system(size: 11, weight: .regular))
       }
       .frame(height: 25)
     } else {
-      Text("≈\(number) min")
+      Text("~\(number) min")
     }
   }
 }
@@ -370,10 +360,10 @@ private struct SwapCompactStatus: View {
   private var showsETA: Bool {
     guard !context.isStale else { return false }
     if context.attributes.usesRemoteUpdates, !context.state.status.isError {
-      if #available(iOSApplicationExtension 18.0, *) { return true }
-      return false
+      return true
     }
-    return context.state.displayPhase == "eta"
+    return (!context.state.status.isError && context.state.almostDone == true)
+      || context.state.displayPhase == "eta"
   }
 
   private var statusLabel: String {
