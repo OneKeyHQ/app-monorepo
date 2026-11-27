@@ -74,11 +74,19 @@ const shouldHandOffUpload = () =>
 async function handOffToExpandTab(handoff: Omit<ISupportHandoff, 'expiresAt'>) {
   // Session storage stays inside trusted extension pages and clears with
   // the browser session.
-  await globalThis.chrome.storage.session.set({
-    [HANDOFF_KEY]: { ...handoff, expiresAt: Date.now() + HANDOFF_TTL_MS },
-  });
-  await backgroundApiProxy.serviceApp.openExtensionExpandTab({});
-  closeExtensionPopupAfterExpandTabOpen();
+  try {
+    await globalThis.chrome.storage.session.set({
+      [HANDOFF_KEY]: { ...handoff, expiresAt: Date.now() + HANDOFF_TTL_MS },
+    });
+    await backgroundApiProxy.serviceApp.openExtensionExpandTab({});
+    closeExtensionPopupAfterExpandTabOpen();
+  } catch (error) {
+    // A stored request with no expanded tab would upload on a later open.
+    await globalThis.chrome?.storage?.session
+      ?.remove(HANDOFF_KEY)
+      .catch(() => undefined);
+    notifyIntercomOpenFailed(error);
+  }
 }
 
 // Asks before a new conversation. Resolves the compose id to open it with,
@@ -120,19 +128,22 @@ export async function attachSupportLogs({
   ownerUserId,
   conversationId,
   requestId,
+  errorContext,
 }: {
   intl: IntlShape;
   ownerUserId: string | null;
   conversationId?: string;
   requestId?: string;
+  errorContext?: ISupportErrorContext;
 }) {
   const choice = await showSupportLogConsentDialog({
     variant: 'conversation',
     intl,
   });
   if (choice !== 'upload') return undefined;
-  if (shouldHandOffUpload() && conversationId) {
-    await handOffToExpandTab({ conversationId, requestId });
+  // The popup closes on blur, including before the first message exists.
+  if (shouldHandOffUpload()) {
+    await handOffToExpandTab({ conversationId, requestId, errorContext });
     return undefined;
   }
   return startUpload(intl, ownerUserId, { conversationId, requestId });
