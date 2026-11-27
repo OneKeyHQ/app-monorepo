@@ -80,11 +80,29 @@ struct MarketWidgetEntry: TimelineEntry {
   }
 
   var editorURL: URL? {
+    guard !isGalleryPreview else { return nil }
     let kind: MarketWidgetKind = isWatchlist ? .list : .single
     if let profileID, let id = UUID(uuidString: profileID) {
       return MarketWidgetEditorLink.url(instance: MarketWidgetInstanceBinding(id: id, kind: kind))
     }
-    return URL(string: "onekey-wallet://market_widget_config?setup=1")
+    return MarketWidgetEditorLink.url(profileID: nil, kind: kind)
+  }
+
+  static func preview(isWatchlist: Bool) -> MarketWidgetEntry {
+    let date = Date()
+    let prices = ["77447.70", "2214.59", "95.73"]
+    let values = [1.0, 0.99, 1.0, 1.02, 1.01, 1.01, 1.08, 1.04, 1.02, 1.03, 0.91, 0.93, 0.90, 0.84, 0.87, 0.87]
+    let rows = MarketWidgetAsset.defaults.prefix(isWatchlist ? 3 : 1).enumerated().map { index, asset in
+      let chart = values.enumerated().map { offset, value in
+        MarketWidgetChartPoint(timestamp: date.timeIntervalSince1970 - 86400 + Double(offset) / Double(values.count - 1) * 86400,
+          value: value * (Double(prices[index]) ?? 1))
+      }
+      let quote = MarketWidgetQuote(asset: asset, price: prices[index], change24h: "-3.11", fetchedAt: date,
+        chart: chart, chartFetchedAt: date)
+      return MarketWidgetRow(asset: asset, quote: quote, failed: false)
+    }
+    return MarketWidgetEntry(date: date, configuration: .initial, rows: rows,
+      isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot, isGalleryPreview: true)
   }
 
   static func placeholder(isWatchlist: Bool) -> MarketWidgetEntry {
@@ -163,9 +181,9 @@ struct MarketWidgetEntry: TimelineEntry {
 
 struct MarketWidgetProvider: TimelineProvider {
   let isWatchlist: Bool
-  func placeholder(in context: Context) -> MarketWidgetEntry { .placeholder(isWatchlist: isWatchlist) }
+  func placeholder(in context: Context) -> MarketWidgetEntry { .preview(isWatchlist: isWatchlist) }
   func getSnapshot(in context: Context, completion: @escaping (MarketWidgetEntry) -> Void) {
-    completion(.snapshot(isWatchlist: isWatchlist))
+    completion(context.isPreview ? .preview(isWatchlist: isWatchlist) : .snapshot(isWatchlist: isWatchlist))
   }
   func getTimeline(in context: Context, completion: @escaping (Timeline<MarketWidgetEntry>) -> Void) {
     Task { completion(await MarketWidgetEntry.timeline(isWatchlist: isWatchlist)) }
