@@ -337,14 +337,25 @@ class ProviderApiStarknet extends ProviderApiBase {
         ? (params.domain as { chainId?: unknown })
         : undefined;
     const rawDomainChainId = domain?.chainId;
-    if (
-      typeof rawDomainChainId === 'string' ||
-      typeof rawDomainChainId === 'number' ||
-      typeof rawDomainChainId === 'bigint'
-    ) {
-      const normalizedDomainChainId = tryNormalizeStarknetChainId(
-        String(rawDomainChainId),
-      );
+    if (rawDomainChainId !== undefined) {
+      let normalizedDomainChainId: string | undefined;
+      if (
+        typeof rawDomainChainId === 'string' ||
+        typeof rawDomainChainId === 'number' ||
+        typeof rawDomainChainId === 'bigint'
+      ) {
+        const str = String(rawDomainChainId);
+        normalizedDomainChainId = tryNormalizeStarknetChainId(str);
+        if (!normalizedDomainChainId) {
+          try {
+            normalizedDomainChainId = tryNormalizeStarknetChainId(
+              toHexFelt(str),
+            );
+          } catch {
+            normalizedDomainChainId = undefined;
+          }
+        }
+      }
       const network = await this.backgroundApi.serviceNetwork.getNetwork({
         networkId,
       });

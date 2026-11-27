@@ -922,21 +922,14 @@ class ServiceToken extends ServiceBase {
       }
     }
     throwIfRequestAborted();
-    if (cacheRequest && (flag === 'home-token-list' || flag === 'dust-sweep')) {
-      // Capture public-only token groups before applying session-only private
-      // balance overlays so the shared snapshot cache never retains shielded data.
-      this.accountTokensSnapshotCache.set(cacheRequest, {
-        accountId,
-        networkId,
-        accountAddress,
-        xpub,
-        source: flag,
-        coverage: 'partial',
-        tokens: resp.data.data.tokens,
-        smallBalanceTokens: resp.data.data.smallBalanceTokens,
-        riskTokens: resp.data.data.riskTokens,
-      });
-    }
+    const publicSnapshot =
+      cacheRequest && (flag === 'home-token-list' || flag === 'dust-sweep')
+        ? {
+            tokens: resp.data.data.tokens,
+            smallBalanceTokens: resp.data.data.smallBalanceTokens,
+            riskTokens: resp.data.data.riskTokens,
+          }
+        : undefined;
     if (vault.overlaySessionTokenListResponse && !params.withoutWalletToken) {
       // Clone persisted token groups before overlaying session-only private
       // balances so `localAccountTokensCache` / `simpleDb.localTokens` stay
@@ -961,6 +954,23 @@ class ServiceToken extends ServiceBase {
       };
       await vault.overlaySessionTokenListResponse(resp, fetchTokenListParams);
       throwIfRequestAborted();
+    }
+    if (
+      cacheRequest &&
+      publicSnapshot &&
+      (flag === 'home-token-list' || flag === 'dust-sweep')
+    ) {
+      // Commit the public-only snapshot only after the post-overlay cancellation
+      // check so neither shielded data nor canceled requests enter the cache.
+      this.accountTokensSnapshotCache.set(cacheRequest, {
+        accountId,
+        networkId,
+        accountAddress,
+        xpub,
+        source: flag,
+        coverage: 'partial',
+        ...publicSnapshot,
+      });
     }
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
