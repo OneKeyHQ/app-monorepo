@@ -357,16 +357,17 @@ function parseReviewDraftSafely(rawText) {
 }
 
 /**
- * Parse unified diff text into a map of changed right-side line ranges per file.
- * Tracks diff header state so added lines starting with '++ ' are never parsed as file headers,
- * and skips pure-deletion hunks (count === 0).
+ * Internal unified diff parser returning both right-side changed hunks (for inline RIGHT anchors)
+ * and left-side deletion hunks (for deleted files / pure-deletion hunks so diff evidence still counts).
  */
-function parseUnifiedDiffHunks(diffText) {
-  const fileHunks = {};
+function parseUnifiedDiffIndex(diffText) {
+  const rightHunks = {};
+  const deletionHunks = {};
   if (!diffText || typeof diffText !== 'string') {
-    return fileHunks;
+    return { rightHunks, deletionHunks };
   }
   let currentFile = null;
+  let currentLeftFile = null;
   let expectingPlusHeader = false;
   let inHunk = false;
   const lines = diffText.split(/\r?\n/);
@@ -374,10 +375,14 @@ function parseUnifiedDiffHunks(diffText) {
   for (const line of lines) {
     if (line.startsWith('diff --git ')) {
       currentFile = null;
+      currentLeftFile = null;
       expectingPlusHeader = false;
       inHunk = false;
     } else if (!inHunk && line.startsWith('--- ')) {
       expectingPlusHeader = true;
+      const leftCandidate = line.slice(4).trim();
+      currentLeftFile =
+        leftCandidate === '/dev/null' ? null : normalizePath(leftCandidate);
     } else if (!inHunk && expectingPlusHeader && line.startsWith('+++ ')) {
       expectingPlusHeader = false;
       const candidate = line.slice(4).trim();
@@ -385,25 +390,48 @@ function parseUnifiedDiffHunks(diffText) {
         currentFile = null;
       } else {
         currentFile = normalizePath(candidate);
-        if (!fileHunks[currentFile]) {
-          fileHunks[currentFile] = [];
+        if (!rightHunks[currentFile]) {
+          rightHunks[currentFile] = [];
         }
       }
-    } else if (currentFile && line.startsWith('@@ ')) {
+    } else if (line.startsWith('@@ ')) {
       inHunk = true;
       const hunkMatch = line.match(
-        /^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/,
+        /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/,
       );
       if (hunkMatch) {
-        const start = Number(hunkMatch[1]);
-        const count = hunkMatch[2] === undefined ? 1 : Number(hunkMatch[2]);
-        if (count > 0) {
-          fileHunks[currentFile].push({ start, end: start + count - 1 });
+        const leftStart = Number(hunkMatch[1]);
+        const leftCount = hunkMatch[2] === undefined ? 1 : Number(hunkMatch[2]);
+        const rightStart = Number(hunkMatch[3]);
+        const rightCount =
+          hunkMatch[4] === undefined ? 1 : Number(hunkMatch[4]);
+        if (currentFile && rightCount > 0) {
+          rightHunks[currentFile].push({
+            start: rightStart,
+            end: rightStart + rightCount - 1,
+          });
+        }
+        const delFile = currentFile || currentLeftFile;
+        if (delFile && leftCount > 0 && (!currentFile || rightCount === 0)) {
+          if (!deletionHunks[delFile]) {
+            deletionHunks[delFile] = [];
+          }
+          deletionHunks[delFile].push({
+            start: leftStart,
+            end: leftStart + leftCount - 1,
+          });
         }
       }
     }
   }
-  return fileHunks;
+  return { rightHunks, deletionHunks };
+}
+
+/**
+ * Parse unified diff text into a map of changed right-side line ranges per file.
+ */
+function parseUnifiedDiffHunks(diffText) {
+  return parseUnifiedDiffIndex(diffText).rightHunks;
 }
 
 function isLineInDiffHunks(fileHunks, filePath, lineNumber) {
@@ -631,6 +659,7 @@ function scoreFinding(finding, options = {}) {
     effectiveType = 'core_feature',
     observed = {},
     fileHunks = {},
+    deletionHunks = {},
     hasDiff = false,
     repoRoot = null,
     existingThreads = [],
@@ -705,11 +734,16 @@ function scoreFinding(finding, options = {}) {
     Number.isFinite(anchorLine) &&
     anchorLine >= 1;
   let inDiffVerified = Boolean(evidence.inDiff) && hasAnchorLine;
+  let inDeletionHunk = false;
   if (hasDiff) {
     inDiffVerified = isLineInDiffHunks(fileHunks, anchorFile, anchorLine);
+    inDeletionHunk =
+      isLineInDiffHunks(deletionHunks, file, line) ||
+      isLineInDiffHunks(deletionHunks, anchorFile, anchorLine);
   }
   const hasValidInlineAnchor =
     Boolean(anchorFile) && hasAnchorLine && inDiffVerified;
+  const inDiffEvidence = inDiffVerified || inDeletionHunk;
 
   const hasRawProof =
     Boolean(String(evidence.executionPath || '').trim()) ||
@@ -738,9 +772,11 @@ function scoreFinding(finding, options = {}) {
 
   let evidenceScore = 0;
   const evidenceNotes = [];
-  if (inDiffVerified) {
+  if (inDiffEvidence) {
     evidenceScore += 15;
-    evidenceNotes.push('in_diff(+15)');
+    evidenceNotes.push(
+      inDiffVerified ? 'in_diff(+15)' : 'in_deletion_diff(+15)',
+    );
   }
   if (hasConcreteProof) {
     evidenceScore += 15;
@@ -765,7 +801,7 @@ function scoreFinding(finding, options = {}) {
     finding.isPreExisting === true ||
     (finding.isPreExisting !== false &&
       hasDiff &&
-      !inDiffVerified &&
+      !inDiffEvidence &&
       !hasConcreteProof);
   if (isPreExisting) {
     noisePenalty += 30;
@@ -786,7 +822,7 @@ function scoreFinding(finding, options = {}) {
   const normTitle = normalizeTitleForDedup(title);
   const minDedupLen = /[\u4e00-\u9fff]/.test(normTitle) ? 4 : 8;
   const matchedThread = existingThreads.find((th) => {
-    if (th.isResolved || !th.id) return false;
+    if (!isPlainObject(th) || th.isResolved || !th.id) return false;
     if (finding.existingThreadId && th.id === finding.existingThreadId) {
       return true;
     }
@@ -900,11 +936,12 @@ function evaluateReview(draft, prContext = {}, options = {}) {
     });
   }
   const safeDraft = isPlainObject(draft) ? draft : {};
+  const safeContext = isPlainObject(prContext) ? prContext : {};
 
   // Independently collected prContext is the source of truth for PR identity
-  const contextPrNumber = prContext.prNumber ?? prContext.number;
+  const contextPrNumber = safeContext.prNumber ?? safeContext.number;
   const resolvedPrNumber = contextPrNumber ?? safeDraft.prNumber ?? null;
-  const contextSha = prContext.headSha ?? prContext.headRefOid;
+  const contextSha = safeContext.headSha ?? safeContext.headRefOid;
   const resolvedHeadSha = contextSha ?? safeDraft.headSha ?? null;
   if (
     contextPrNumber !== undefined &&
@@ -935,27 +972,42 @@ function evaluateReview(draft, prContext = {}, options = {}) {
     });
   }
 
-  const observed = extractObservedProfile(prContext);
+  const observed = extractObservedProfile(safeContext);
   const characterizationCheck = verifyCharacterization(
     safeDraft.characterization,
     observed,
   );
-  const diffText = String(prContext.diffText || '');
+  const diffText = String(safeContext.diffText || '');
   const hasDiff = diffText.trim().length > 0;
-  const fileHunks = hasDiff ? parseUnifiedDiffHunks(diffText) : {};
+  const { rightHunks: fileHunks, deletionHunks } = hasDiff
+    ? parseUnifiedDiffIndex(diffText)
+    : { rightHunks: {}, deletionHunks: {} };
 
   const rawFindings = Array.isArray(safeDraft.findings)
     ? safeDraft.findings
     : [];
-  const scored = rawFindings.map((f) =>
+  const validFindings = [];
+  for (let i = 0; i < rawFindings.length; i += 1) {
+    if (isPlainObject(rawFindings[i])) {
+      validFindings.push(rawFindings[i]);
+    } else {
+      inputErrors.push({
+        code: 'E_INVALID_FINDING_ENTRY',
+        message: `findings[${i}] must be a plain JSON object.`,
+      });
+    }
+  }
+
+  const scored = validFindings.map((f) =>
     scoreFinding(f, {
       effectiveType: characterizationCheck.effectiveType,
       observed,
       fileHunks,
+      deletionHunks,
       hasDiff,
       repoRoot: options.repoRoot || null,
-      existingThreads: Array.isArray(prContext.existingThreads)
-        ? prContext.existingThreads
+      existingThreads: Array.isArray(safeContext.existingThreads)
+        ? safeContext.existingThreads
         : [],
       mode,
     }),
@@ -1307,10 +1359,19 @@ function runCli(argv) {
     process.exit(2);
   }
 
-  let prContext = draft.prContext || {};
+  let prContext = isPlainObject(draft.prContext) ? draft.prContext : {};
   if (typeof args.context === 'string' && args.context) {
     try {
-      prContext = JSON.parse(fs.readFileSync(args.context, 'utf8'));
+      const parsedCtx = JSON.parse(fs.readFileSync(args.context, 'utf8'));
+      if (!isPlainObject(parsedCtx)) {
+        if (mode === 'strict') {
+          process.stderr.write('Context JSON must be a plain object.\n');
+          process.exit(2);
+        }
+        prContext = {};
+      } else {
+        prContext = parsedCtx;
+      }
     } catch (ctxErr) {
       if (mode === 'strict') {
         process.stderr.write(`Context JSON parse failed: ${ctxErr.message}\n`);

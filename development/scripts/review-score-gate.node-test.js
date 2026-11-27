@@ -559,3 +559,70 @@ test('mixed deps+app PR is not locked to deps_or_ci, missing anchor stays in sum
   assert.equal(result.verdict, 'COMMENT');
   assert.match(renderMarkdownReport(result), /E_CONTEXT_MISMATCH/);
 });
+
+test('scores deleted-file and pure-deletion-hunk findings without pre_existing penalty, and fails open on null entries in soft mode', () => {
+  const diff = [
+    'diff --git a/packages/kit/src/boot/init.ts b/packages/kit/src/boot/init.ts',
+    '--- a/packages/kit/src/boot/init.ts',
+    '+++ /dev/null',
+    '@@ -1,10 +0,0 @@',
+    '--- removed comment',
+    '-export const initBridge = () => {};',
+  ].join('\n');
+
+  const result = evaluateReview(
+    {
+      prNumber: 15_005,
+      characterization: {
+        type: 'revert',
+        summary: 'Revert bridge boot module',
+        focusAreas: ['startup'],
+      },
+      findings: [
+        null, // malformed entry must not crash soft mode
+        {
+          severity: 'P0',
+          confidence: 'high',
+          category: 'runtime_boundary',
+          file: 'packages/kit/src/boot/init.ts',
+          line: 2,
+          title: 'Startup still imports deleted bridge init module',
+          problem: 'App entry point crashes on boot after init.ts deletion.',
+          evidence: {
+            inDiff: true,
+            executionPath: 'App startup invokes missing bridge module',
+          },
+        },
+      ],
+    },
+    {
+      number: 15_005,
+      title: 'revert: remove bridge init',
+      files: ['packages/kit/src/boot/init.ts'],
+      diffText: diff,
+      existingThreads: [null], // malformed thread must not crash
+    },
+    { mode: 'soft' },
+  );
+
+  // Malformed entry recorded as gateError instead of throwing TypeError
+  assert.ok(
+    result.gateErrors.some((e) => e.code === 'E_INVALID_FINDING_ENTRY'),
+  );
+  // Deleted-file P0 receives in_deletion_diff(+15), stays in summaryOnly (cannot attach RIGHT anchor), and drives REQUEST_CHANGES
+  assert.equal(result.counts.published, 0);
+  assert.equal(result.counts.summaryOnly, 1);
+  assert.ok(result.summaryOnly[0].signalScore >= 60);
+  assert.equal(result.verdict, 'REQUEST_CHANGES');
+
+  // Passing null as prContext in soft mode does not crash
+  const nullCtxResult = evaluateReview(
+    {
+      characterization: { type: 'general', summary: 'ok', focusAreas: ['x'] },
+      findings: [],
+    },
+    null,
+    { mode: 'soft' },
+  );
+  assert.equal(nullCtxResult.counts.published, 0);
+});
