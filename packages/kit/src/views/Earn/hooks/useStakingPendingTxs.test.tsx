@@ -213,8 +213,11 @@ describe('useStakingPendingTxsByInfo history verification', () => {
       }),
     );
 
+    // Loading drops for one render while the account lookups hand over to the
+    // history query; only a verified result reflects the pending history.
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
+      expect(result.current.isPendingHistoryVerified).toBe(true);
     });
 
     expect(result.current.filteredTxs).toEqual([activeTx]);
