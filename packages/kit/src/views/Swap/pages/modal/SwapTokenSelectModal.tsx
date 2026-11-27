@@ -56,6 +56,7 @@ import {
   useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { StockSourceLogo } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
@@ -73,7 +74,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
@@ -189,14 +189,12 @@ function createOpenContractAction({
 }: Pick<ISwapToken, 'networkId' | 'contractAddress'>): NonNullable<
   IActionListItemProps['onPress']
 > {
-  const openContract = async () => {
-    const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+  const openContract = () =>
+    openTokenDetailsUrl({
       networkId,
-      type: 'token',
-      param: contractAddress,
+      tokenAddress: contractAddress,
+      openInExternal: true,
     });
-    openUrlExternal(url);
-  };
 
   if (platformEnv.isNative) {
     return (close) =>

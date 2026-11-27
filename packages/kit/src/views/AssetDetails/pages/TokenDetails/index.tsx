@@ -141,12 +141,13 @@ function AggregateTokenExplorerButton({
   networkId,
   tokenAddress,
   iconSize,
+  title,
 }: {
   networkId?: string;
   tokenAddress: string;
   iconSize: '$4' | '$5';
+  title: string;
 }) {
-  const intl = useIntl();
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
     // On iOS the popover is a native sheet and the explorer opens in
@@ -162,9 +163,7 @@ function AggregateTokenExplorerButton({
   return (
     <IconButton
       testID={AssetDetailsTestIDs.openExplorerBtn}
-      title={intl.formatMessage({
-        id: ETranslations.global_view_in_blockchain_explorer,
-      })}
+      title={title}
       iconSize={iconSize}
       variant="tertiary"
       icon="OpenOutline"
@@ -408,6 +407,9 @@ function TokenDetailsView() {
     );
 
   const renderAggregateTokens = useCallback(() => {
+    const explorerTitle = intl.formatMessage({
+      id: ETranslations.global_view_in_blockchain_explorer,
+    });
     return (
       <ScrollView
         contentContainerStyle={{
@@ -497,6 +499,7 @@ function TokenDetailsView() {
                   networkId={token.networkId}
                   tokenAddress={token.address}
                   iconSize={gtMd ? '$4' : '$5'}
+                  title={explorerTitle}
                 />
               </XStack>
             )}

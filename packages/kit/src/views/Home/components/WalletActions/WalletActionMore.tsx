@@ -401,9 +401,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const renderItemsAsync = useCallback(
     async ({
       handleActionListClose,
-    }: {
-      handleActionListClose: () => void | Promise<void>;
-    }) => {
+    }: Pick<IRenderMoreItemsParams, 'handleActionListClose'>) => {
       const walletId = activeAccount?.wallet?.id;
       const [resolvedVaultSettings, resolvedIsBotWalletDeactivated] =
         await Promise.all([
