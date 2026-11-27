@@ -86,7 +86,14 @@ under separate owners:
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,
-  and the layout picker sits in that row. The same context gives the selected
+  and the layout picker sits in that row. Every panel still shows its own
+  interval, selected or not: the grid gives the host `intervalControl` to
+  place, e.g. after the token's quote in a panel header, and the chart puts a
+  compact interval picker there through the same context
+  (`renderIntervalControl`). A pick there is the chart's own, as one in its
+  controls row, so it moves every panel while the intervals are synced, and a
+  press on it selects the panel like any press in it. A host that places none,
+  e.g. for a single chart, shows none. The same context gives the selected
   chart one drawing tools column at the left of the grid (`drawingTools`).
   The chart keeps the properties of its selected drawing, its hints and its
   object panels on itself, and the column's menus reach over the panels. The
@@ -102,8 +109,27 @@ under separate owners:
   own token, interval, indicator settings and pane heights; chart appearance
   stays shared with the namespace and drawings stay with the token. Presets are grids of cells (`1`, `2h`, `2v`,
   `3`, `4`); track sizes are saved per preset and a divider only spans the cells
-  it separates. iOS and Android resolve the `.native` pass-through and keep a
-  single chart.
+  it separates. In a split a panel can fill the grid: the button in its chart's
+  bottom right corner, where the price axis meets the time axis, or a double
+  click on its plot maximizes it, selecting it as a press would, and the same
+  again brings the split back. A double click counts only when both of its
+  presses were on the plot: one on an axis, a drawing, an order or position
+  line or its label (also one that takes no press, e.g. a PnL label or a
+  pending order) or a pane's legend, or one whose first press drew, keeps its
+  own meaning. Alt+Enter (Option+Enter) with focus in a panel's chart does the
+  same from the keyboard; an editable field, e.g. a drawing's name, keeps the
+  key. None of them toggles while a primary press in the chart or an order
+  line gesture lasts, so a gesture under way, e.g. on an order's cancel
+  control, ends on the geometry it started with. A chart without a price axis
+  has no empty corner and offers
+  the double click and the shortcut only, and a single chart has none of them.
+  The maximized panel is a view of the grid, never
+  saved: a reload, another preset or a selection that goes back elsewhere,
+  e.g. from a switch the host turned down, ends it. The other panels stay
+  mounted at their size behind it, unseen and taking no press, so the split
+  comes back without a chart resizing; the dividers and the selection outline
+  are gone meanwhile. iOS and Android resolve the `.native` pass-through and
+  keep a single chart.
 - The split view's layout picker also holds its sync options (`sync` in the
   saved layout): symbol, interval, crosshair, time and date range. All are
   off until the user turns them on. Every panel gets a
@@ -118,12 +144,31 @@ under separate owners:
     option on saves the selected panel's, which it showed without storing,
     and a selection still on its way then keeps no older token for that
     panel to write back.
-  - Interval: `multiChart/intervalSync` holds the shared interval. The first
-    panel sets it when syncing starts, a pick in any panel changes it, and
+  - Interval: `multiChart/intervalSync` holds the shared interval. Turned on in
+    a split view, the option syncs to the selected panel's chart, whose
+    controls hold it: the grid reads that chart's interval at the press and
+    saves it with the option as `intervalSyncStart`, and every page showing the
+    layout starts from it when the option arrives, whichever panel it has
+    selected by then. The page the option is turned on or off in does not wait
+    for the saved layout: its panels follow the option at the press and its
+    switch shows it, so a pick or a selection made before the layout is back
+    meets charts that are synced as the switch shows. Until the saved layout
+    has all the page wrote, the option is what the page asked for last, not
+    what an earlier write of the page says on its way back, e.g. on and then
+    off again. A write of the option that fails is taken back, so the next edit
+    starts from the write before it, and the option is as that edit finds it:
+    in an earlier write of the page still on its way, or in the saved layout,
+    which another page may have changed meanwhile. Panels synced again that way
+    start from the selected chart, as at a press, not from `intervalSyncStart`,
+    which they may have left since. The panels also follow the saved layout
+    once a write of another page is saved over the page's.
+    A split view that opens with the option already on (preset change from one
+    chart, page load) starts from the first panel instead, the one chart on
+    screen until then. A pick in any panel changes the shared interval, and
     every other chart takes it through `useMultiChartIntervalSync`; a chart
-    that cannot show the interval keeps its own. The chart that made the pick
-    is not told about it, so whatever came with the pick, such as a calendar
-    jump, goes on undisturbed.
+    that cannot show the interval keeps its own, and selecting a panel never
+    applies it again. The chart that made the pick is not told about it, so
+    whatever came with the pick, such as a calendar jump, goes on undisturbed.
   - Crosshair: `multiChart/crosshairSync` carries one crosshair. A chart
     publishes the time and price under its own crosshair after each draw, and
     withdraws them when the pointer leaves, a drag starts or it unmounts. The
@@ -223,7 +268,8 @@ Cover persistence ordering/failure, restored editing, hidden/locked objects,
 freehand previews, resized pane geometry, namespace-specific settings, fullscreen
 ownership, split-view panel state (token, interval, indicators, sizes,
 selection) across preset changes and reloads, selecting a panel without a chart
-remount, drawing in every split-view panel with live sync
+remount, maximizing every panel and back by its corner button and by a double
+click anywhere on its plot, drawing in every split-view panel with live sync
 between panels showing one token, every sync option on and off across a
 reload (symbol and interval changed from the first and from another panel; the
 crosshair between panels of different tokens and intervals, with its price

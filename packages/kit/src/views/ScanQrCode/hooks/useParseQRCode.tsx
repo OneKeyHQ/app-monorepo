@@ -74,6 +74,8 @@ export type IParseQRCodeRuntimeDeps = {
   intl: ReturnType<typeof useIntl>;
   scanRequestId?: string;
   scanRouteKey?: string;
+  isCaptureCurrent?: () => boolean;
+  onResultDismiss?: () => boolean;
 };
 
 export async function parseQRCodeWithDeps(
@@ -85,6 +87,8 @@ export async function parseQRCodeWithDeps(
     intl,
     scanRequestId,
     scanRouteKey,
+    isCaptureCurrent,
+    onResultDismiss,
   }: IParseQRCodeRuntimeDeps,
 ) {
   const showCopyDialog = (content: string) => {
@@ -124,6 +128,9 @@ export async function parseQRCodeWithDeps(
     !scannerKey ||
     rootNavigationRef.current?.getCurrentRoute()?.key === scannerKey;
 
+  const beginResultDismiss = () =>
+    !onResultDismiss || (isScannerCurrent() && onResultDismiss());
+
   const closeScanPage = async (checkDestination = false) => {
     const mainState =
       popNavigation && checkDestination
@@ -133,6 +140,7 @@ export async function parseQRCodeWithDeps(
         : undefined;
     const destinationKey = mainState && findFocusedRoute(mainState)?.key;
     if (popNavigation) {
+      if (!beginResultDismiss()) throw new OneKeyErrorScanQrCodeCancel();
       if (options?.autoExecuteParsedAction) {
         // Atomically remove all overlay routes (scan modal, ActionCenter,
         // FullScreenPush, etc.) via CommonActions.reset instead of
@@ -182,9 +190,11 @@ export async function parseQRCodeWithDeps(
   }
 
   if (
-    (result.type === EQRCodeHandlerType.LIGHTNING_NETWORK ||
+    isCaptureCurrent?.() === false ||
+    ((onResultDismiss ||
+      result.type === EQRCodeHandlerType.LIGHTNING_NETWORK ||
       hasLightningUriScheme(value)) &&
-    !isScannerCurrent()
+      !isScannerCurrent())
   ) {
     throw new OneKeyErrorScanQrCodeCancel();
   }
@@ -194,7 +204,7 @@ export async function parseQRCodeWithDeps(
     if (
       result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
       (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
-        (result.data as IAnimationValue).progress === 1)
+        Boolean((result.data as IAnimationValue).fullData))
     ) {
       await closeScanPage();
     }
@@ -222,10 +232,15 @@ export async function parseQRCodeWithDeps(
         // ActionCenter) via reset, then switches tab and pushes
         // UrlAccountPage directly. This avoids the native
         // UITabBarController window-nil race.
-        void urlAccountNavigation.pushUrlAccountPage(navigation, {
-          networkId: urlAccountData.networkId,
-          address: urlAccountData.address,
-        });
+        const accepted = await urlAccountNavigation.pushUrlAccountPage(
+          navigation,
+          {
+            networkId: urlAccountData.networkId,
+            address: urlAccountData.address,
+          },
+          beginResultDismiss,
+        );
+        if (!accepted) throw new OneKeyErrorScanQrCodeCancel();
       } else {
         void urlAccountNavigation.pushUrlAccountPageLanding(navigation, {
           networkId: urlAccountData.networkId,
@@ -239,6 +254,7 @@ export async function parseQRCodeWithDeps(
         const { coinGeckoId } = result.data as IMarketDetailValue;
         if (coinGeckoId) {
           if (popNavigation) {
+            if (!beginResultDismiss()) throw new OneKeyErrorScanQrCodeCancel();
             void marketNavigation.pushDetailPageFromOverlay(navigation, {
               coinGeckoId,
             });

@@ -19,6 +19,7 @@ import { NativeScroller } from 'react-native-pager-view';
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
   Button,
+  GlassButtonCapsule,
   Icon,
   Page,
   ScrollView,
@@ -83,6 +84,7 @@ import {
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
+import type { IMobilePerpMarketPageProps } from './MobilePerpMarketRoute';
 import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
 
 // Android can reserve more space for system gestures than for the navigation bar.
@@ -119,6 +121,13 @@ const MOBILE_PERP_MARKET_TAB_INDEX_MAP: Record<IMobilePerpMarketTab, number> = {
   info: 1,
   funding: 2,
 };
+
+// RNW disables all touch panning when scrollEnabled is false. Hide horizontal
+// overflow so the pager can still page programmatically and pass vertical pans up.
+const WEB_PAGER_GESTURE_PROPS = {
+  overflowX: 'hidden',
+  touchAction: 'pan-y',
+} as const;
 
 function MobilePerpMarketTabBarItem({
   tab,
@@ -219,14 +228,19 @@ function MobilePerpMarketPageContent({
 
 const MOBILE_MARKET_BOOK_TABS = [
   {
+    key: 'orderBook',
     testID: 'perp-market-order-book-tab',
     title: ETranslations.perps_order_book,
-    showTrades: false,
   },
   {
+    key: 'trades',
     testID: 'perp-market-recent-trades-tab',
     title: ETranslations.swap_page_recent_trade,
-    showTrades: true,
+  },
+  {
+    key: 'depth',
+    testID: 'perp-market-depth-tab',
+    title: ETranslations.perp_depth_chart__title,
   },
 ] as const;
 
@@ -238,13 +252,11 @@ function MobilePerpMarketBookPanel({
   isChartActive: boolean;
 }) {
   const intl = useIntl();
-  const [showRecentTrades, setShowRecentTrades] = useState(false);
+  const [activeTab, setActiveTab] =
+    useState<(typeof MOBILE_MARKET_BOOK_TABS)[number]['key']>('orderBook');
   const [openedTradesCoin, setOpenedTradesCoin] = useState<string>();
-  const tradesVisible = showRecentTrades && isChartActive;
-  const tabList = usePerpMarketTabList(
-    showRecentTrades ? 'trades' : 'orderBook',
-    [{ key: 'orderBook' }, { key: 'trades' }],
-  );
+  const tradesVisible = activeTab === 'trades' && isChartActive;
+  const tabList = usePerpMarketTabList(activeTab, MOBILE_MARKET_BOOK_TABS);
   useEffect(() => {
     setOpenedTradesCoin((opened) =>
       tradesVisible || opened === coin ? coin : undefined,
@@ -258,39 +270,46 @@ function MobilePerpMarketBookPanel({
   return (
     <YStack
       bg="$bgApp"
+      aria-hidden={!isChartActive}
+      accessibilityElementsHidden={!isChartActive}
+      importantForAccessibility={isChartActive ? 'auto' : 'no-hide-descendants'}
       {...(platformEnv.isNative ? {} : { inert: !isChartActive })}
     >
       <XStack role="tablist" px="$4" py="$1.5" gap="$1">
-        {MOBILE_MARKET_BOOK_TABS.map(({ testID, title, showTrades }) => {
-          const selected = showRecentTrades === showTrades;
+        {MOBILE_MARKET_BOOK_TABS.map((item) => {
+          const { key, testID } = item;
+          const selected = activeTab === key;
+          const label = intl.formatMessage({ id: item.title });
           return (
             <Button
-              key={testID}
+              key={key}
               testID={testID}
               role="tab"
-              {...(platformEnv.isNative
-                ? {}
-                : tabList.getButtonProps(showTrades ? 'trades' : 'orderBook'))}
+              {...(platformEnv.isNative ? {} : tabList.getButtonProps(key))}
+              aria-label={label}
               aria-selected={selected}
               size="small"
               variant="tertiary"
               h={28}
+              minWidth={0}
+              flexShrink={1}
               mx="$0"
               my="$0"
               px="$2.5"
               py="$0"
+              textEllipsis
               bg={selected ? '$bgActive' : '$transparent'}
               color={selected ? '$text' : '$textSubdued'}
-              onPress={() => setShowRecentTrades(showTrades)}
+              onPress={() => setActiveTab(key)}
             >
-              {intl.formatMessage({ id: title })}
+              {label}
             </Button>
           );
         })}
       </XStack>
       <YStack
         {...tabList.getPanelProps('trades')}
-        display={showRecentTrades ? 'flex' : 'none'}
+        display={activeTab === 'trades' ? 'flex' : 'none'}
       >
         {tradesVisible || openedTradesCoin === coin ? (
           <PerpRecentTrades
@@ -304,13 +323,24 @@ function MobilePerpMarketBookPanel({
       </YStack>
       <YStack
         {...tabList.getPanelProps('orderBook')}
-        display={showRecentTrades ? 'none' : 'flex'}
+        display={activeTab === 'orderBook' ? 'flex' : 'none'}
       >
-        {!showRecentTrades ? (
+        {activeTab === 'orderBook' ? (
           <YStack onLayout={handleOrderBookLayout}>
             <PerpOrderBook entry="perpMobileMarket" />
           </YStack>
         ) : null}
+      </YStack>
+      <YStack
+        {...tabList.getPanelProps('depth')}
+        display={activeTab === 'depth' ? 'flex' : 'none'}
+      >
+        <PerpOrderBook
+          depthChart
+          depthChartShowHeader={false}
+          depthChartVisible={activeTab === 'depth' && isChartActive}
+          entry="perpMobileMarket"
+        />
       </YStack>
     </YStack>
   );
@@ -406,7 +436,9 @@ function MobilePerpCandlesStatic({
   );
 }
 
-function MobilePerpMarket() {
+function MobilePerpMarket({
+  inPageHeaderGeometry,
+}: IMobilePerpMarketPageProps) {
   const route = useAppRoute<
     IModalPerpParamList,
     EModalPerpRoutes.MobilePerpMarket
@@ -436,24 +468,6 @@ function MobilePerpMarket() {
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
-  // react-native-web styles scrollEnabled={false} ScrollViews with
-  // `touch-action: none`, which swallows vertical pans over everything inside
-  // the pager (chart header, order book) so the page cannot scroll on mobile
-  // web. The pager only ever scrolls programmatically, so let vertical pans
-  // chain up to the page scroller instead.
-  useEffect(() => {
-    if (platformEnv.isNative) {
-      return;
-    }
-    const node = (
-      scrollViewRef.current as unknown as {
-        getScrollableNode?: () => unknown;
-      } | null
-    )?.getScrollableNode?.() as { style?: { touchAction?: string } } | null;
-    if (node?.style) {
-      node.style.touchAction = 'pan-y';
-    }
-  }, []);
   const effectivePageWidth = useMemo(() => {
     if (containerWidth > 0) {
       return containerWidth;
@@ -480,10 +494,8 @@ function MobilePerpMarket() {
     displayName: marketDetailDisplayName,
   });
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
-  // iOS 26's HeaderScreenOptions sets headerTransparent: true so the
-  // page content extends under the navigation bar. Page.Body has p="$0"
-  // here, which lets the chart and order book slide up behind the bar.
-  // Use the header height to push them back into view.
+  // The native iOS 26 header is transparent; reserve its height only when
+  // the page is not rendering its own header.
   const headerHeight = useHeaderHeight();
 
   const onPressTokenSelector = useCallback(() => {
@@ -500,6 +512,9 @@ function MobilePerpMarket() {
 
   const isSplitDetailActive = useIsSplitDetailActive();
   const { height: windowHeight } = useWindowDimensions();
+  const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
+  const isTitleInLeftItem = isFoldableIPhone();
+  const usesInPageHeader = Boolean(inPageHeaderGeometry);
   // Android native tabs measure the inline SUB page by intrinsic content, so
   // its flex-only chart needs an explicit viewport bound to avoid collapsing.
   const splitDetailPageMinHeight =
@@ -541,23 +556,23 @@ function MobilePerpMarket() {
     } else {
       pairLabel = '--';
     }
-    // Match the MarketDetailV2 layout: Symbol + badges + dropdown sit
-    // in the native headerTitle slot. The system back chevron renders
-    // separately on the left via HeaderScreenOptions
-    // (headerBackButtonDisplayMode: 'minimal'), so we no longer wrap
-    // a NavBackButton inside this XStack — that's what was forcing
-    // UIKit to draw the whole thing as a single pill-shaped glass
-    // container on iOS 26.
+    // Keep the title separate from the back button's glass capsule.
     return (
       <XStack
         alignItems="center"
         gap="$2"
+        {...(usesInPageHeader ? { minWidth: 0, flexShrink: 1 } : {})}
         onPress={isSplitDetailActive ? undefined : onPressTokenSelector}
         hoverStyle={isSplitDetailActive ? undefined : { opacity: 0.8 }}
         pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
         cursor="default"
       >
-        <SizableText size="$headingMd">{pairLabel}</SizableText>
+        <SizableText
+          size="$headingMd"
+          {...(usesInPageHeader ? { numberOfLines: 1, flexShrink: 1 } : {})}
+        >
+          {pairLabel}
+        </SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
         <PerpDexBadge dexLabel={dexLabel} interactive={isSplitDetailActive} />
         {isSplitDetailActive ? null : (
@@ -565,7 +580,14 @@ function MobilePerpMarket() {
         )}
       </XStack>
     );
-  }, [dexLabel, displayName, isSplitDetailActive, mode, onPressTokenSelector]);
+  }, [
+    dexLabel,
+    displayName,
+    isSplitDetailActive,
+    mode,
+    onPressTokenSelector,
+    usesInPageHeader,
+  ]);
   useEffect(() => {
     const ownerId = createHideTabBarOwnerId('perp-market');
     requestHideTabBar(ownerId);
@@ -692,8 +714,6 @@ function MobilePerpMarket() {
     [activeTradeInstrument.coin, mode],
   );
 
-  const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
-  const isTitleInLeftItem = isFoldableIPhone();
   const buildHeaderLeftItems = useCallback(
     (): NativeStackHeaderItem[] => [
       {
@@ -719,38 +739,32 @@ function MobilePerpMarket() {
     [intl, navigation, renderHeaderTitle],
   );
 
-  // In split-view detail (SUB) pane the page is rendered inline rather than
-  // as a navigator screen, so `Page.Header` (which goes through
-  // navigation.setOptions) is a no-op and the user loses the pair selector +
-  // favorite button. Render those controls as an inline XStack at the top of
-  // Page.Body in that mode, and keep `Page.Header` for the modal route case.
-  const pageHeader = useMemo(
-    () =>
-      isSplitDetailActive ? (
-        // Inline render in the SUB pane: explicitly suppress the navigator's
-        // default header so it doesn't reserve top-of-pane space on top of
-        // our `inlineHeader` XStack inside Page.Body.
-        <Page.Header headerShown={false} />
-      ) : (
-        <Page.Header
-          headerShown
-          headerRight={renderHeaderRight}
-          {...(isTitleInLeftItem
-            ? {
-                headerTitle: '',
-                unstable_headerLeftItems: buildHeaderLeftItems,
-              }
-            : { headerTitle: renderHeaderTitle })}
-        />
-      ),
-    [
-      buildHeaderLeftItems,
-      isSplitDetailActive,
-      isTitleInLeftItem,
-      renderHeaderTitle,
-      renderHeaderRight,
-    ],
-  );
+  // Page-owned headers replace the native bar. Split-view detail (SUB) keeps
+  // its inline controls because it is not rendered as a navigator screen.
+  const pageHeader = useMemo(() => {
+    if (usesInPageHeader) return null;
+    return isSplitDetailActive ? (
+      <Page.Header headerShown={false} />
+    ) : (
+      <Page.Header
+        headerShown
+        headerRight={renderHeaderRight}
+        {...(isTitleInLeftItem
+          ? {
+              headerTitle: '',
+              unstable_headerLeftItems: buildHeaderLeftItems,
+            }
+          : { headerTitle: renderHeaderTitle })}
+      />
+    );
+  }, [
+    buildHeaderLeftItems,
+    isSplitDetailActive,
+    isTitleInLeftItem,
+    renderHeaderTitle,
+    renderHeaderRight,
+    usesInPageHeader,
+  ]);
   const inlineHeader = useMemo(
     () =>
       isSplitDetailActive ? (
@@ -783,13 +797,13 @@ function MobilePerpMarket() {
   );
 
   const isChartActive = activeTab === 'orderbook';
-  const showRecentTradesTab =
+  const showMarketBookTabs =
     mode === 'perp' &&
     (platformEnv.isNative || platformEnv.isWeb) &&
     !shouldRedirectOnboardingToTravelMode();
   const orderBookContent = useMemo(
     () =>
-      showRecentTradesTab ? (
+      showMarketBookTabs ? (
         <MobilePerpMarketBookPanel
           coin={activeTradeInstrument.coin}
           isChartActive={isChartActive}
@@ -799,7 +813,7 @@ function MobilePerpMarket() {
           <PerpOrderBook entry="perpMobileMarket" />
         </YStack>
       ),
-    [activeTradeInstrument.coin, isChartActive, showRecentTradesTab],
+    [activeTradeInstrument.coin, isChartActive, showMarketBookTabs],
   );
   const infoContent = useMemo(
     () => (
@@ -850,6 +864,28 @@ function MobilePerpMarket() {
       scrollProps={pageScrollProps}
     >
       {pageHeader}
+      {inPageHeaderGeometry ? (
+        <XStack
+          testID="perp-market-in-page-header"
+          alignItems="center"
+          width={inPageHeaderGeometry.width}
+          px="$4"
+          pt={inPageHeaderGeometry.top}
+          pb={10}
+          gap="$3"
+        >
+          {/* The route owns the back button, including while this module loads. */}
+          <XStack w="$11" h="$11" />
+          <XStack flex={1} minWidth={0} justifyContent="center">
+            {renderHeaderTitle()}
+          </XStack>
+          <GlassButtonCapsule circular>
+            <XStack w="$9" h="$9" alignItems="center" justifyContent="center">
+              {renderHeaderRight()}
+            </XStack>
+          </GlassButtonCapsule>
+        </XStack>
+      ) : null}
       <Page.Body p="$0" minHeight={splitDetailPageMinHeight}>
         {inlineHeader}
         <YStack
@@ -857,7 +893,9 @@ function MobilePerpMarket() {
           bg="$bgApp"
           onLayout={handleContainerLayout}
           pt={
-            !isSplitDetailActive && platformEnv.isNativeIOS26Plus
+            !isSplitDetailActive &&
+            !usesInPageHeader &&
+            platformEnv.isNativeIOS26Plus
               ? headerHeight
               : 0
           }
@@ -874,7 +912,8 @@ function MobilePerpMarket() {
             flex={useIntrinsicPagerHeight ? undefined : 1}
             height={activePagerHeight}
             minHeight={useIntrinsicPagerHeight ? undefined : 0}
-            scrollEnabled={false}
+            scrollEnabled={!platformEnv.isNative}
+            {...(platformEnv.isNative ? {} : WEB_PAGER_GESTURE_PROPS)}
             showsHorizontalScrollIndicator={false}
             bounces={false}
             contentContainerStyle={
@@ -976,11 +1015,11 @@ function MobilePerpMarket() {
   );
 }
 
-function MobilePerpMarketWithProvider() {
+function MobilePerpMarketWithProvider(props: IMobilePerpMarketPageProps) {
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>
-        <MobilePerpMarket />
+        <MobilePerpMarket {...props} />
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>
   );

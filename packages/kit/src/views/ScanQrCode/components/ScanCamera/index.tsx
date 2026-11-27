@@ -1,15 +1,51 @@
-import { forwardRef, useEffect, useState } from 'react';
+import {
+  createElement,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+} from 'react';
+import type { MouseEvent } from 'react';
 
-import { CameraView } from 'expo-camera';
-import { View } from 'react-native';
+import {
+  QrScannerError,
+  createWebQrScanner,
+} from '@onekeyfe/react-native-qr-scanner/web';
+import { StyleSheet, View } from 'react-native';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  mapDomFocusPoint,
+  readDomFocusPoint,
+  useDomFocusBox,
+} from './FocusBox';
+import { ensureWebQrScannerConfigured } from './webQrScanner';
 
-import { isZXingReaderPrepared, prepareZXingReader } from './zxingReader';
+import type {
+  IScanCameraInfo,
+  IScanCameraProps,
+  IScanCameraRef,
+} from './types';
+import type { IMultiQrRgbaFrame } from '../../utils/multiQrSymbols';
+import type { WebQrScanner } from '@onekeyfe/react-native-qr-scanner/web';
 
-import type { IScanCameraProps, IScanCameraRef } from './types';
+export type { IScanCameraInfo, IScanCameraProps, IScanCameraRef };
 
-export type { IScanCameraProps, IScanCameraRef };
+const videoStyle = {
+  position: 'absolute',
+  inset: 0,
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+} as const;
+
+const styles = StyleSheet.create({
+  container: {
+    overflow: 'hidden',
+    backgroundColor: 'black',
+  },
+});
 
 export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
   function ScanCamera(
@@ -17,56 +53,202 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       style,
       children,
       handleScanResult,
-      // Native-only concern; stripped so it never reaches CameraView.
+      onFrameSymbols,
+      multiSymbol,
+      frozen,
+      focusRequest,
+      onPreviewTap,
+      onCameraError,
+      onCameraReady,
+      cameraId,
+      cameraActive,
+      // Screen activity is a native concern; the web camera runs while mounted.
       disableNavigationGuard,
+      useWebCamera,
+      onWebCameraFallback,
       ...rest
     },
-    _ref,
+    ref,
   ) {
-    const [readerPrepared, setReaderPrepared] = useState(isZXingReaderPrepared);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const frozenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const selectedFrameRef = useRef<IMultiQrRgbaFrame | undefined>(undefined);
+    const scannerRef = useRef<WebQrScanner | null>(null);
+    const { requestFocus, resetFocusBox, focusBoxElement } = useDomFocusBox();
+    const handlers = useRef({
+      handleScanResult,
+      onFrameSymbols,
+      onCameraError,
+      onCameraReady,
+    });
+    handlers.current = {
+      handleScanResult,
+      onFrameSymbols,
+      onCameraError,
+      onCameraReady,
+    };
+    // The camera at mount; later changes go through switchCamera().
+    const startedCameraId = useRef(cameraId);
+    const initialMultiSymbol = useRef(Boolean(multiSymbol));
+    const observesSymbols = Boolean(onFrameSymbols);
+
+    const onVideoClick = useCallback(
+      (event: MouseEvent<HTMLVideoElement>) => {
+        const scanner = scannerRef.current;
+        if (frozen || !scanner) return;
+        onPreviewTap?.();
+        const { videoWidth, videoHeight } = event.currentTarget;
+        const point = readDomFocusPoint(event, {
+          width: videoWidth,
+          height: videoHeight,
+        });
+        requestFocus(point, () =>
+          scanner.focus({ x: point.normalizedX, y: point.normalizedY }),
+        );
+      },
+      [frozen, onPreviewTap, requestFocus],
+    );
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        dispose: () => {
+          resetFocusBox();
+          scannerRef.current?.dispose();
+        },
+      }),
+      [resetFocusBox],
+    );
 
     useEffect(() => {
-      if (readerPrepared) {
-        return;
-      }
-      let active = true;
-      prepareZXingReader()
-        .then(() => {
-          if (active) {
-            setReaderPrepared(true);
+      const video = videoRef.current;
+      if (!video) return;
+      ensureWebQrScannerConfigured();
+      const scanner = createWebQrScanner({
+        video,
+        source: { kind: 'camera', deviceId: startedCameraId.current },
+        onReady: () => {
+          resetFocusBox();
+          const stream = video.srcObject;
+          const track =
+            typeof MediaStream !== 'undefined' && stream instanceof MediaStream
+              ? stream.getVideoTracks()[0]
+              : undefined;
+          handlers.current.onCameraReady?.(track?.getSettings().deviceId);
+        },
+        // The app assembles UR parts itself; it reads every frame's text.
+        mode: 'static',
+        multiSymbol: initialMultiSymbol.current,
+        ...(observesSymbols
+          ? {
+              onFrameSymbols: (event) => {
+                if (handlers.current.onFrameSymbols?.(event)) {
+                  selectedFrameRef.current = event.frame;
+                }
+              },
+            }
+          : {
+              onFrameText: (text) => handlers.current.handleScanResult?.(text),
+            }),
+        onError: (error) => {
+          // Static mode never ends a session with a UR error.
+          if (error instanceof QrScannerError) {
+            console.error('[ScanCamera] camera error', error.code);
+            handlers.current.onCameraError?.(error.code);
           }
-        })
-        .catch((error: unknown) => {
-          console.error(
-            '[ScanCamera] Failed to prepare barcode scanning',
-            error,
-          );
-        });
+        },
+      });
+      scannerRef.current = scanner;
+      void scanner.start();
       return () => {
-        active = false;
+        selectedFrameRef.current = undefined;
+        scanner.dispose();
+        scannerRef.current = null;
       };
-    }, [readerPrepared]);
+    }, [observesSymbols, resetFocusBox]);
 
-    if (!readerPrepared) {
-      return (
-        <View style={style} {...rest}>
-          {children}
-        </View>
+    useEffect(() => {
+      scannerRef.current?.setMultiSymbol(Boolean(multiSymbol));
+    }, [multiSymbol]);
+
+    useEffect(() => {
+      const nextFrozen = Boolean(frozen);
+      if (nextFrozen) resetFocusBox();
+      scannerRef.current?.setFrozen(nextFrozen);
+    }, [frozen, observesSymbols, resetFocusBox]);
+
+    const appliedFocusRequest = useRef<number | undefined>(undefined);
+    useEffect(() => {
+      if (
+        frozen ||
+        !focusRequest ||
+        appliedFocusRequest.current === focusRequest.id
+      )
+        return;
+      appliedFocusRequest.current = focusRequest.id;
+      const scanner = scannerRef.current;
+      const video = videoRef.current;
+      if (!scanner || !video) return;
+      const point = mapDomFocusPoint(
+        video,
+        { width: video.videoWidth, height: video.videoHeight },
+        focusRequest,
       );
-    }
+      requestFocus(point, () =>
+        scanner.focus({ x: point.normalizedX, y: point.normalizedY }),
+      );
+    }, [focusRequest, frozen, requestFocus]);
+
+    useLayoutEffect(() => {
+      const canvas = frozenCanvasRef.current;
+      if (!canvas) return;
+      const frame = selectedFrameRef.current;
+      if (frozen && frame) {
+        canvas.width = frame.width;
+        canvas.height = frame.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx && typeof ImageData === 'function') {
+          const copy = new Uint8ClampedArray(frame.data.length);
+          copy.set(frame.data);
+          ctx.putImageData(
+            new ImageData(copy, frame.width, frame.height),
+            0,
+            0,
+          );
+        }
+        canvas.style.display = 'block';
+      } else {
+        canvas.style.display = 'none';
+        selectedFrameRef.current = undefined;
+      }
+    }, [frozen]);
+
+    useEffect(() => {
+      const scanner = scannerRef.current;
+      if (!scanner || cameraId === startedCameraId.current) return;
+      resetFocusBox();
+      startedCameraId.current = cameraId;
+      void scanner.switchCamera(cameraId);
+    }, [cameraId, resetFocusBox]);
 
     return (
-      <CameraView
-        style={style}
-        onBarcodeScanned={({ data }) => handleScanResult?.(data)}
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
-        responsiveOrientationWhenOrientationLocked={platformEnv.isNativeIOSPad}
-        {...rest}
-      >
+      <View style={[styles.container, style]} {...rest}>
+        {createElement('video', {
+          ref: videoRef,
+          style: videoStyle,
+          muted: true,
+          playsInline: true,
+          autoPlay: true,
+          onClick: onVideoClick,
+        })}
+        {createElement('canvas', {
+          ref: frozenCanvasRef,
+          'data-testid': 'scan-camera-frozen-preview',
+          style: { ...videoStyle, display: 'none', pointerEvents: 'none' },
+        })}
+        {focusBoxElement}
         {children}
-      </CameraView>
+      </View>
     );
   },
 );

@@ -1,6 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { buildLocalSecretEnvelopeAesGcmLayerAdapter } from './aesGcmLayerAdapter';
 import {
@@ -38,10 +41,13 @@ const SECURE_STORAGE_LSE_PROBE_PLAINTEXT =
 type ISecureStorageLocalSecretEnvelopeStorage = Pick<
   ISecureStorage,
   | 'getSecureItem'
+  | 'hasStoredSecureItem'
+  | 'isPersistenceAvailable'
   | 'removeSecureItem'
   | 'setSecureItem'
   | 'supportSecureStorage'
   | 'supportSecureStorageWithoutInteraction'
+  | 'verifySecureStorageOperational'
 >;
 
 type IBuildSecureStorageLocalSecretEnvelopeLayerAdapterParams = {
@@ -65,6 +71,34 @@ const secureStorageKeyCreationLocks = new WeakMap<
   ISecureStorageLocalSecretEnvelopeStorage,
   Map<string, Promise<string>>
 >();
+const secureStorageOperationalCheckInFlight = new WeakMap<
+  ISecureStorageLocalSecretEnvelopeStorage,
+  Promise<boolean>
+>();
+
+async function isAndroidSecureStorageOperational(
+  secureStorage: ISecureStorageLocalSecretEnvelopeStorage,
+): Promise<boolean> {
+  const verify = secureStorage.verifySecureStorageOperational;
+  if (!verify) {
+    return false;
+  }
+  const existing = secureStorageOperationalCheckInFlight.get(secureStorage);
+  if (existing) {
+    return existing;
+  }
+  const promise = verify()
+    .catch(() => false)
+    .finally(() => {
+      if (
+        secureStorageOperationalCheckInFlight.get(secureStorage) === promise
+      ) {
+        secureStorageOperationalCheckInFlight.delete(secureStorage);
+      }
+    });
+  secureStorageOperationalCheckInFlight.set(secureStorage, promise);
+  return promise;
+}
 
 function getSecureStorageKeyCreationLocks(
   secureStorage: ISecureStorageLocalSecretEnvelopeStorage,
@@ -155,13 +189,64 @@ export function buildSecureStorageLocalSecretEnvelopeLayerAdapter({
           keyRef: storageKeyRef,
           secureStorage,
         }),
-      getItem: (storageKeyRef) => secureStorage.getSecureItem(storageKeyRef),
+      getItem: async (storageKeyRef) => {
+        if (secureStorage.isPersistenceAvailable?.() === false) {
+          throw new OneKeyLocalError(
+            'Local secret envelope storage is blocked',
+          );
+        }
+        const item = await secureStorage.getSecureItem(storageKeyRef);
+        if (item === null && platformEnv.isNativeAndroid) {
+          const stored =
+            await secureStorage.hasStoredSecureItem?.(storageKeyRef);
+          // An existing entry may be unreadable either during transient
+          // Keystore warmup OR after OEM phone migration (which copies
+          // SharedPreferences + MMKV without the hardware-bound KeyStore key).
+          // Require confirmed entry presence (`stored === true`) and verify
+          // KeyStore health in an isolated namespace before treating the
+          // failure as permanent, without deleting the stored entry.
+          if (stored === true) {
+            if (await isAndroidSecureStorageOperational(secureStorage)) {
+              const retried = await secureStorage.getSecureItem(storageKeyRef);
+              if (retried !== null) {
+                return retried;
+              }
+              const permanentError = new Error(
+                'Secure storage key cannot be decrypted on this device',
+              );
+              permanentError.name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
+              throw permanentError;
+            }
+            throw new OneKeyLocalError(
+              'Secure storage key status is unavailable',
+            );
+          }
+          if (stored !== false) {
+            throw new OneKeyLocalError(
+              'Secure storage key status is unavailable',
+            );
+          }
+        }
+        return item;
+      },
       setItem: (storageKeyRef, keyHex) =>
         secureStorage.setSecureItem(storageKeyRef, keyHex),
       supportStorage: () =>
         isSecureStorageSupportedWithoutInteraction(secureStorage),
     },
   });
+}
+
+export function buildWalletRecoverySecureStorageLayerAdapter(): ILocalSecretEnvelopeLayerAdapter {
+  const keyRef = `${DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF}_recovery_${generateUUID()}`;
+  return {
+    ...buildSecureStorageLocalSecretEnvelopeLayerAdapter({ keyRef }),
+    deleteLayerKey: async ({ layer }) => {
+      if (layer.keyRef === keyRef) {
+        await secureStorageInstance.removeSecureItem(keyRef);
+      }
+    },
+  };
 }
 
 function getSecureStorageProbeCacheEntry({

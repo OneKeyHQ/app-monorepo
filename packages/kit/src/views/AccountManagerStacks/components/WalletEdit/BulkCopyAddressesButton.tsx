@@ -1,7 +1,14 @@
 import { useIntl } from 'react-intl';
 
-import { ActionList, Badge, Dialog, Toast } from '@onekeyhq/components';
+import {
+  ActionList,
+  Badge,
+  Dialog,
+  Toast,
+  runAfterActionListClose,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
@@ -10,6 +17,7 @@ import { usePrimeFeatureAccess } from '@onekeyhq/kit/src/views/Prime/hooks/usePr
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
@@ -58,6 +66,17 @@ export function BulkCopyAddressesButton({
           // silent dead-click; close the action sheet after toasting.
           showBotWalletDisabledToast('bulkCopy');
           close?.();
+          return;
+        }
+        if (
+          await blockIfWalletLocalSecretEnvelopeUnavailable({
+            walletId: wallet?.id,
+            presentDialog: (show) =>
+              runAfterActionListClose(close ?? onClose, show, {
+                waitForAnimation: platformEnv.isNative,
+              }),
+          })
+        ) {
           return;
         }
         close?.();

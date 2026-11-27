@@ -1,3 +1,5 @@
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+
 /*
 yarn jest packages/kit-bg/src/services/ServiceSend.gasAccountAuth.test.ts
 
@@ -174,5 +176,46 @@ describe('ServiceSend gas account request auth headers', () => {
     const { url, config } = postConfigOf(post);
     expect(url).toBe('/wallet/v1/account/pre-send-transaction');
     expect(config.headers).toEqual({ 'X-Onekey-Request-Token': 'token-a' });
+  });
+
+  it('keeps Starknet private intent and identity out of fee checks and preserves the overflow alert', async () => {
+    const { service, post } = createService();
+    const privateTx = {
+      privacy: { kind: 'withdraw', amount: '42', recipient: '0x2' },
+    } as IEncodedTx;
+    const params = {
+      encodedTx: privateTx,
+      feeTokenSymbol: 'STRK',
+      feeAmount: '2',
+      networkId: 'starknet--mainnet',
+      accountAddress,
+    };
+    const feeRequest = {
+      networkId: params.networkId,
+      feeAmount: params.feeAmount,
+      feeTokenSymbol: params.feeTokenSymbol,
+      accountAddress: '0x0',
+      encodedTx: {},
+    };
+    await expect(service.preCheckIsFeeInfoOverflow(params)).resolves.toBe(
+      false,
+    );
+    expect(post).toHaveBeenCalledWith(
+      '/wallet/v1/account/pre-send-transaction',
+      feeRequest,
+      undefined,
+    );
+    post.mockResolvedValueOnce({
+      data: { data: { result: '', success: false } },
+      status: 200,
+    });
+    await expect(service.preCheckIsFeeInfoOverflow(params)).resolves.toBe(true);
+    post.mockRejectedValueOnce(new Error('precheck unavailable'));
+    await expect(service.preCheckIsFeeInfoOverflow(params)).resolves.toBe(true);
+    expect(mockGetOneKeyIdAuthHeaders).not.toHaveBeenCalled();
+    await expect(
+      service.parseTransaction({ ...params, accountId }),
+    ).rejects.toThrow('Privacy transactions must be reviewed locally');
+    expect(post).toHaveBeenCalledTimes(3);
   });
 });

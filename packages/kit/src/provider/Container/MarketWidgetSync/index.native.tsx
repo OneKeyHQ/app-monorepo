@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
+import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -27,12 +28,24 @@ const configurationSync = createMarketWidgetConfigurationSync({
       configuration,
     );
     logMarketWidgetEvent('configuration.sync_succeeded');
+    appEventBus.emitToSelf({
+      type: EAppEventBusNames.MarketWidgetConfigurationSynced,
+      payload: undefined,
+      isRemote: false,
+    });
   },
   onError: () => logMarketWidgetEvent('configuration.sync_failed'),
 });
 
 export function MarketWidgetSync() {
   const { locale } = useIntl();
+  const [{ mode }] = useMarketDetailChartDisplayModePersistAtom();
+
+  useEffect(() => {
+    void marketWidget.setChartMode?.(mode).catch((error: unknown) => {
+      logMarketWidgetEvent('chart_mode.sync_failed', {}, undefined, error);
+    });
+  }, [mode]);
 
   useEffect(() => {
     if (!marketWidget.isSupported()) return undefined;
@@ -46,6 +59,9 @@ export function MarketWidgetSync() {
               .data;
         const assets = buildMarketWidgetAssets(watchlist, {
           includeStocks: marketWidget.supportsStockAssets(),
+          maxAssets: marketWidget.supportsAssetSearch?.()
+            ? Number.POSITIVE_INFINITY
+            : undefined,
         });
         await Promise.all(
           assets.map(async (asset) => {

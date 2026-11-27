@@ -128,6 +128,11 @@ describe('market widget configuration', () => {
     }));
     const result = buildMarketWidgetAssets(input);
     expect(result).toHaveLength(20);
+    expect(
+      buildMarketWidgetAssets(input, {
+        maxAssets: Number.POSITIVE_INFINITY,
+      }).at(-1),
+    ).toMatchObject({ assetId: 'asset-24' });
     expect(result[19]).toEqual({
       kind: 'asset',
       assetId: 'asset-19',
@@ -327,13 +332,36 @@ describe('market widget deep link identity', () => {
     });
   });
 
+  it('opens binding instructions for an unconfigured placement', () => {
+    expect(
+      parseMarketWidgetLinkUrl('onekey-wallet://market_widget_config?setup=1')
+        .target,
+    ).toEqual({ kind: 'editor', needsBinding: true });
+  });
+
+  it('opens the editor for the list identified by the tapped gear', () => {
+    const id = '4BDFEB88-A55D-4A91-BEDB-DF13ACFAEA39';
+    expect(
+      parseMarketWidgetLinkUrl(
+        `onekey-wallet://market_widget_config?kind=list&profileId=${id}`,
+      ).target,
+    ).toEqual({
+      kind: 'editor',
+      widgetKind: 'list',
+      profileId: id.toLowerCase(),
+    });
+  });
+
   it.each([
+    '?setup=0',
+    '?setup=1&kind=list',
     '?editorSession=',
     '?editorSession=123',
     '?editorSession=4bdfeb88-a55d-4a91-bedb-df13acfaea39&kind=list',
     '?profileId=',
     '?profileId=bitcoin',
-    '?profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39&kind=single',
+    '?profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39&kind=large',
+    '?profileId=bad&kind=list',
     '?kind=single&kind=list',
     '?profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39&profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39',
     '?kind=large',

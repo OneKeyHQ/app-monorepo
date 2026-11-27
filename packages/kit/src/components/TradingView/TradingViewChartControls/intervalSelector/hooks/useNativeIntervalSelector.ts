@@ -170,18 +170,19 @@ export function useNativeIntervalSelector({
     [allPreferredIntervalValues, dialogOptions, visiblePreferredIntervalCount],
   );
 
+  const activeLabel = activeOption
+    ? formatIntervalOptionDisplayLabel(intl, activeOption.label)
+    : '';
   const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
   const isMoreTriggerActive =
     Boolean(activeOption) && !visibleSegmentValueSet.has(activeInterval);
-  const moreTriggerLabel =
-    isMoreTriggerActive && activeOption
-      ? formatIntervalOptionDisplayLabel(intl, activeOption.label)
-      : moreLabel;
+  const moreTriggerLabel = isMoreTriggerActive ? activeLabel : moreLabel;
 
   useEffect(() => closeIntervalsDialog, [closeIntervalsDialog]);
 
   return {
     activeInterval,
+    activeLabel,
     closeIntervalsDialog,
     closeIntervalsPopover,
     defaultPreferredIntervalValues,

@@ -15,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AppPagerContent } from '@onekeyhq/kit/src/components/AppPager/AppPagerContent';
 import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -327,6 +328,14 @@ function TokenDetailsOverview(props: IProps) {
   const handleReceivePress = useCallback(async () => {
     if (isBotWalletReceiveBlocked) {
       showBotWalletDisabledToast('receive');
+      return;
+    }
+    if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: wallet?.id ?? walletId,
+        accountId,
+      })
+    ) {
       return;
     }
     if (

@@ -5,10 +5,12 @@ import { useIntl } from 'react-intl';
 
 import type { IAlertType } from '@onekeyhq/components';
 import { Alert } from '@onekeyhq/components';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useCustomRpcStatusAtom,
+  useDecodedTxsAtom,
   useNativeTokenInfoAtom,
   usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
@@ -20,8 +22,13 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { showCustomRpcFallbackDialog } from '@onekeyhq/kit/src/views/Send/components/CustomRpcFallbackDialog';
 import { useGasAccountAnalyticsContext } from '@onekeyhq/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext';
+import {
+  formatMockMessage,
+  readStarknetPrivacyBlock,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_STARKNET } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -33,6 +40,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
+import { EStrk20WarningCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 interface IProps {
@@ -40,6 +48,26 @@ interface IProps {
   networkId: string;
   transferPayload?: ITransferPayload;
   gasAccountScenario?: IGasAccountScenario;
+}
+
+function StarknetPrivacyWarnings() {
+  const intl = useIntl();
+  const [{ decodedTxs }] = useDecodedTxsAtom();
+  const privacy = readStarknetPrivacyBlock(decodedTxs?.[0]?.extraInfo);
+  return privacy?.warnings?.map((warning, index) => (
+    <Alert
+      key={index}
+      type="warning"
+      title={
+        warning.code === EStrk20WarningCode.UserLinkage
+          ? formatMockMessage(
+              intl,
+              ETranslations.starknet_privacy_warning_user_linkage__msg,
+            )
+          : warning.message
+      }
+    />
+  ));
 }
 
 function TxConfirmAlert(props: IProps) {
@@ -177,23 +205,34 @@ function TxConfirmAlert(props: IProps) {
                     id: ETranslations.global_top_up,
                   }),
                   onPrimaryPress() {
-                    navigation.pushModal(EModalRoutes.ReceiveModal, {
-                      screen: EModalReceiveRoutes.ReceiveSelector,
-                      params: {
-                        networkId,
+                    void (async () => {
+                      const walletId = accountUtils.getWalletIdFromAccountId({
                         accountId,
-                        walletId: accountUtils.getWalletIdFromAccountId({
+                      });
+                      if (
+                        await blockIfWalletLocalSecretEnvelopeUnavailable({
+                          walletId,
                           accountId,
-                        }),
-                        token: payToken,
-                        onClose: () => {
-                          appEventBus.emit(
-                            EAppEventBusNames.RefreshNativeTokenInfo,
-                            undefined,
-                          );
+                        })
+                      ) {
+                        return;
+                      }
+                      navigation.pushModal(EModalRoutes.ReceiveModal, {
+                        screen: EModalReceiveRoutes.ReceiveSelector,
+                        params: {
+                          networkId,
+                          accountId,
+                          walletId,
+                          token: payToken,
+                          onClose: () => {
+                            appEventBus.emit(
+                              EAppEventBusNames.RefreshNativeTokenInfo,
+                              undefined,
+                            );
+                          },
                         },
-                      },
-                    });
+                      });
+                    })();
                   },
                 }
               : undefined
@@ -232,21 +271,34 @@ function TxConfirmAlert(props: IProps) {
             id: ETranslations.global_top_up,
           }),
           onPrimaryPress() {
-            navigation.pushModal(EModalRoutes.ReceiveModal, {
-              screen: EModalReceiveRoutes.ReceiveSelector,
-              params: {
-                networkId,
+            void (async () => {
+              const walletId = accountUtils.getWalletIdFromAccountId({
                 accountId,
-                walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
-                token: nativeTokenInfo.info,
-                onClose: () => {
-                  appEventBus.emit(
-                    EAppEventBusNames.RefreshNativeTokenInfo,
-                    undefined,
-                  );
+              });
+              if (
+                await blockIfWalletLocalSecretEnvelopeUnavailable({
+                  walletId,
+                  accountId,
+                })
+              ) {
+                return;
+              }
+              navigation.pushModal(EModalRoutes.ReceiveModal, {
+                screen: EModalReceiveRoutes.ReceiveSelector,
+                params: {
+                  networkId,
+                  accountId,
+                  walletId,
+                  token: nativeTokenInfo.info,
+                  onClose: () => {
+                    appEventBus.emit(
+                      EAppEventBusNames.RefreshNativeTokenInfo,
+                      undefined,
+                    );
+                  },
                 },
-              },
-            });
+              });
+            })();
           },
         }}
       />
@@ -370,6 +422,10 @@ function TxConfirmAlert(props: IProps) {
           })}
         />
       );
+    }
+
+    if (networkUtils.getNetworkImpl({ networkId }) === IMPL_STARKNET) {
+      return <StarknetPrivacyWarnings />;
     }
 
     if (networkUtils.isTronNetworkByNetworkId(networkId)) {

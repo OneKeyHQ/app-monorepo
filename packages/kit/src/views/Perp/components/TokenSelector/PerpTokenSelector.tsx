@@ -147,14 +147,9 @@ import {
 import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
-export const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
-export const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
+const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
+const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
 const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
-// What the body holds above its first result: the category tabs and the
-// column header. With one result below, the least a body shows a token in.
-const TOKEN_SELECTOR_DESKTOP_LIST_CHROME_HEIGHT = 84;
-export const DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT =
-  TOKEN_SELECTOR_DESKTOP_LIST_CHROME_HEIGHT + TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT;
 const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS = 600;
 
@@ -392,18 +387,7 @@ export interface IPerpTokenSelection {
   coin: string;
 }
 
-function BasePerpTokenSelectorContent({
-  bodyHeight = DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
-  onSelectToken,
-}: {
-  /** Height of the tabs and list below the search, e.g. to fit a popover. */
-  bodyHeight?: number;
-  /**
-   * Takes the pick instead of switching the trade instrument, e.g. for a
-   * split-view chart, whose selection decides the switch.
-   */
-  onSelectToken?: (selection: IPerpTokenSelection) => void;
-}) {
+function BasePerpTokenSelectorContent() {
   const tradingUiMode = usePerpsTradingUiMode();
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
@@ -633,9 +617,7 @@ function BasePerpTokenSelectorContent({
         if (isSpotToken && !spotUniverse) {
           return;
         }
-        if (onSelectToken) {
-          onSelectToken({ mode: isSpotToken ? 'spot' : 'perp', coin: symbol });
-        } else if (spotUniverse) {
+        if (spotUniverse) {
           await actions.current.switchTradeInstrument({
             mode: 'spot',
             coin: symbol,
@@ -658,7 +640,6 @@ function BasePerpTokenSelectorContent({
       closePopover,
       actions,
       displayActiveTab,
-      onSelectToken,
       selectorConfig,
       spotUniverses,
     ],
@@ -1723,7 +1704,7 @@ function BasePerpTokenSelectorContent({
             </XStack>
           </ScrollView>
         </XStack>
-        <YStack height={bodyHeight} gap="$1">
+        <YStack height={DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT} gap="$1">
           {showCategoryTabs ? (
             <XStack bg="$bg" flexShrink={0}>
               <ScrollView
@@ -1885,7 +1866,7 @@ function BasePerpTokenSelectorContent({
   );
 }
 
-export const PerpTokenSelectorContent = memo(BasePerpTokenSelectorContent);
+const PerpTokenSelectorContent = memo(BasePerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
   const tradingUiMode = usePerpsTradingUiMode();
@@ -1996,6 +1977,13 @@ function BasePerpTokenSelector() {
           <Badge
             testID={PerpTestIDs.TokenSelector}
             gap="$3"
+            onHoverIn={
+              platformEnv.isWeb && !isOpen
+                ? () => {
+                    void prewarmTokenSelectorImages();
+                  }
+                : undefined
+            }
             bg="$bgApp"
             px="$2"
             py="$1.5"
@@ -2071,6 +2059,7 @@ function BasePerpTokenSelector() {
       builderFeeRate,
       intl,
       handleOpenChange,
+      prewarmTokenSelectorImages,
     ],
   );
   return (

@@ -317,8 +317,8 @@ module.exports = ({ platform, basePath, configName }) => {
               type: 'asset/resource',
               generator: { filename: 'static/canvaskit/[name][ext]' },
             },
-            // zxing reader wasm for the barcode-detector polyfill; mirrors the
-            // rule in rspack.base.config.ts.
+            // zxing reader wasm for the QR scanner SDK's fallback; mirrors
+            // the rule in rspack.base.config.ts.
             {
               test: ZXING_READER_WASM_TEST,
               type: 'asset/resource',

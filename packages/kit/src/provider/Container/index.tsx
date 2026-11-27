@@ -10,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
+import { useColdStart } from '../../routes/config/coldStartOnboardingState';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { Bootstrap } from '../Bootstrap';
 
@@ -73,8 +74,13 @@ function GlobalRootAppNavigationUpdate() {
 }
 
 function DetailRouter() {
+  const coldStart = useColdStart();
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      seedColdStartOnboarding={
+        coldStart?.state.phase === 'waiting-for-onboarding'
+      }
+    >
       <InAppNotification />
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />

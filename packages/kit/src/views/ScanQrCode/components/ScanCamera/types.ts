@@ -1,7 +1,32 @@
+import type { IMultiQrFrameEvent, IPoint2D } from '../../utils/multiQrSymbols';
+import type {
+  QrCameraInfo,
+  QrScannerErrorCode,
+} from '@onekeyfe/react-native-qr-scanner/web';
 import type { ViewProps } from 'react-native';
+
+export type IScanFocusRequest = IPoint2D & { id: number };
 
 export type IScanCameraProps = ViewProps & {
   handleScanResult?: (value: string) => void;
+  /** Return true when this detection is the frame selected for the overlay. */
+  onFrameSymbols?: (event: IMultiQrFrameEvent) => boolean | void;
+  /** Enable whole-frame multi-symbol detection without restarting capture. */
+  multiSymbol?: boolean;
+  /** Freeze the current preview frame and pause detection without releasing the camera. */
+  frozen?: boolean;
+  /** Point relative to the visible viewfinder, independent of the camera raster. */
+  focusRequest?: IScanFocusRequest;
+  onPreviewTap?: () => void;
+  /** Camera failures: `permission-denied`, `no-camera`, `camera-busy`, ... */
+  onCameraError?: (code: QrScannerErrorCode) => void;
+  /** The camera started delivering frames (again, after a switch). */
+  onCameraReady?: (activeCameraId?: string) => void;
+  /** `IScanCameraInfo.id`; unset or disconnected uses the default camera. */
+  cameraId?: string;
+  cameraActive?: boolean;
+  useWebCamera?: boolean;
+  onWebCameraFallback?: () => void;
   /**
    * Keep the camera active without a screen route. Required by the DeviceStage
    * overlay, whose viewfinder has no navigation context. Screen-hosted scanners
@@ -13,3 +38,5 @@ export type IScanCameraProps = ViewProps & {
 export type IScanCameraRef = {
   dispose: () => void;
 };
+
+export type IScanCameraInfo = QrCameraInfo;

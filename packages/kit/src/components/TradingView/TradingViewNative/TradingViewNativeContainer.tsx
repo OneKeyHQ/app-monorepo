@@ -47,6 +47,7 @@ import {
   TradingViewIndicatorQuickBar,
 } from '../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
 import { resolveTradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
+import { TradingViewNativeIntervalDropdown } from '../TradingViewChartControls/intervalSelector/NativeIntervalDropdown';
 import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import {
@@ -317,6 +318,7 @@ const TradingViewNativeContent = memo(
     onChartSwitch,
     onDataStateChange,
     onIntervalChange,
+    onIntervalSelect,
     onNativeChartClose,
     onNativeSubIndicatorCountChange,
     onNativeIndicatorQuickBarChange,
@@ -798,6 +800,7 @@ const TradingViewNativeContent = memo(
       ) => {
         const appliedInterval = applyChartInterval(interval, options);
         if (appliedInterval) publishSyncedInterval(appliedInterval);
+        return appliedInterval;
       },
       [applyChartInterval, publishSyncedInterval],
     );
@@ -805,9 +808,10 @@ const TradingViewNativeContent = memo(
     const handleChartIntervalChange = useCallback(
       (interval: string) => {
         pendingCalendarViewportTargetRef.current = null;
-        changeChartInterval(interval);
+        const appliedInterval = changeChartInterval(interval);
+        if (appliedInterval) onIntervalSelect?.(appliedInterval);
       },
-      [changeChartInterval],
+      [changeChartInterval, onIntervalSelect],
     );
 
     const handleChartTypeChange = useCallback(
@@ -1253,6 +1257,20 @@ const TradingViewNativeContent = memo(
       platformEnv.isNative && storageNamespace === 'perps'
         ? dataProviderKey
         : `${dataProviderKey}:${candleIntervalSeconds}`;
+    const [chartAvailability, setChartAvailability] = useState({
+      key: chartSessionKey,
+      unavailable: false,
+    });
+    if (chartAvailability.key !== chartSessionKey) {
+      setChartAvailability({ key: chartSessionKey, unavailable: false });
+    }
+    const isChartUnavailable =
+      chartAvailability.key === chartSessionKey &&
+      chartAvailability.unavailable;
+    const handleChartUnavailable = useCallback(
+      () => setChartAvailability({ key: chartSessionKey, unavailable: true }),
+      [chartSessionKey],
+    );
     const chartRuntimeRef = useMemo<ITradingViewNativeChartProps['runtimeRef']>(
       () => ({ current: null }),
       // Native interval changes reset the viewport without remounting the canvas.
@@ -1343,6 +1361,7 @@ const TradingViewNativeContent = memo(
           timeAxisHeight={timeAxisHeight}
           timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
           onChartWidthChange={setChartWidth}
+          onChartUnavailable={handleChartUnavailable}
           onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
           onViewportRequestApplied={handleViewportRequestApplied}
           onVisiblePointRangeChange={handleVisiblePointRangeChange}
@@ -1352,13 +1371,15 @@ const TradingViewNativeContent = memo(
           testID={testID}
           viewportRequest={viewportRequest}
         />
-        {showChartLoadingMask ? (
+        {!isChartUnavailable && showChartLoadingMask ? (
           <TradingViewChartLoadingMask
             backgroundColor={defaultBackgroundColor}
             testID={testID ? `${testID}-loading` : undefined}
           />
         ) : null}
-        {dataState.status === 'error' && points.length === 0 ? (
+        {!isChartUnavailable &&
+        dataState.status === 'error' &&
+        points.length === 0 ? (
           <YStack
             position="absolute"
             top={0}
@@ -1384,7 +1405,8 @@ const TradingViewNativeContent = memo(
             </Button>
           </YStack>
         ) : null}
-        {isMobileControlsLayout &&
+        {!isChartUnavailable &&
+        isMobileControlsLayout &&
         enableNativeChartSettings &&
         !nativeChartSettingsInToolbar &&
         !isNativeChartFullscreen ? (
@@ -1397,7 +1419,8 @@ const TradingViewNativeContent = memo(
             onChartSwitch={onChartSwitch}
           />
         ) : null}
-        {!showChartLoadingMask &&
+        {!isChartUnavailable &&
+        !showChartLoadingMask &&
         isMobileControlsLayout &&
         !isNativeChartFullscreen &&
         onNativeChartFullscreenChange ? (
@@ -1472,6 +1495,16 @@ const TradingViewNativeContent = memo(
       >
         <Stack flex={1} w="100%" h="100%" bg="$transparent">
           {controlsSlot ? controlsSlot.renderControls(controls) : controls}
+          {/* A split view shows every panel's interval, e.g. in its header,
+              where a pick is this chart's own, as in its controls row. */}
+          {controlsSlot
+            ? controlsSlot.renderIntervalControl(
+                <TradingViewNativeIntervalDropdown
+                  intervalConfig={intervalConfig}
+                  onIntervalChange={handleChartIntervalChange}
+                />,
+              )
+            : null}
           {showFullscreenIndicatorRail ? (
             <XStack flex={1} minHeight={0}>
               {chartArea}

@@ -4,14 +4,21 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@onekeyfe/react-native-sni-connect": "6.8.0-48",
+    "@panva/hpke-noble": "1.0.6",
+    "@starknet-io/starknet-types-0101": "npm:@starknet-io/types-js@0.10.2",
     "@zip.js/zip.js": "2.10.0",
     "eth-url-parser": "^1.0.4",
     "fflate": "0.8.2",
+    "hpke": "1.0.6",
     "idb": "^7.1.1",
     "ipaddr.js": "^2.3.0",
     "miscreant": "^0.3.2",
+    "ohttp-ts": "0.3.0",
+    "starknet": "10.8.0",
     "web-streams-polyfill": "4.2.0",
-    "yauzl": "2.10.0"
+    "yauzl": "2.10.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/yauzl": "2.10.3"

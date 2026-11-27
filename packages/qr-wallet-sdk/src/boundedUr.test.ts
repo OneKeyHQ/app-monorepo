@@ -2,12 +2,13 @@ import { UR, UREncoder } from '@ngraveio/bc-ur';
 import urWords from '@ngraveio/bc-ur/dist/bytewords';
 import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 
-import airGapUrUtils from './airGapUrUtils';
 import {
   MAX_UR_MESSAGE_BYTES,
   assertBoundedCbor,
   checkUrPart,
-} from './boundedUr';
+} from '@onekeyhq/shared/src/utils/boundedUr';
+
+import airGapUrUtils from './airGapUrUtils';
 
 const bytes = (hex: string) => Buffer.from(hex, 'hex');
 const singlePart = (cborHex: string) =>

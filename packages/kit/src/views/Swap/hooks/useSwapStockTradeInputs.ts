@@ -12,6 +12,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapNativeTokenReserveGasAtom,
   useSwapStockBalanceDisplayCacheAtom,
+  useSwapStockFromAccountRefreshAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -48,7 +49,10 @@ import {
   updateSwapBalanceDisplayCache,
 } from '../utils/swapBalanceDisplayCacheUtils';
 import { isSwapBalanceLoadedZero } from '../utils/swapDepositActionUtils';
-import { calcSwapProSliderAvailableBalance } from '../utils/swapProAmountSliderUtils';
+import {
+  calcSwapPercentageStageAmount,
+  calcSwapProSliderAvailableBalance,
+} from '../utils/swapProAmountSliderUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
 import {
@@ -84,6 +88,8 @@ import {
 } from './useSwapStockChannel';
 import { useSwapStockSelectedBalanceSync } from './useSwapStockSelectedBalanceSync';
 
+import type { useSwapAddressInfo } from './useSwapAccount';
+
 function getNetworkLogoURI(networkId?: string) {
   if (!networkId) {
     return undefined;
@@ -118,6 +124,38 @@ export function calcSwapStockPercentageAmount({
     isNative,
     reserveGas,
   }).multipliedBy(stage / 100);
+}
+
+// The amount a stage below 100% fills, in the units the user reads and at the
+// precision of the balance they read. 100% goes through the max path instead:
+// it must fill the exact balance.
+export function calcSwapStockPercentageDisplayAmount({
+  balanceParsed,
+  isNative,
+  reserveGas,
+  stage,
+  decimals,
+  balanceMultiplier,
+}: {
+  balanceParsed?: string;
+  isNative?: boolean;
+  reserveGas?: string | number;
+  stage: number;
+  decimals?: number;
+  balanceMultiplier: string | undefined;
+}): string | undefined {
+  return calcSwapPercentageStageAmount({
+    percent: stage,
+    availableBalance: calcSwapProSliderAvailableBalance({
+      balanceParsed,
+      isNative,
+      reserveGas,
+    }),
+    // The balance row shows the full balance, before the gas reserve.
+    precisionBalance: new BigNumber(balanceParsed ?? ''),
+    decimals,
+    balanceMultiplier,
+  });
 }
 
 function useStockInputTokenBalance({
@@ -158,57 +196,58 @@ function useStockInputTokenBalance({
   }:${tokenNetworkId}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
   }`;
-  const { result: networkAccountState, isLoading: networkAccountLoading } =
-    usePromiseResult(
-      async () => {
-        if (!shouldFetchNetworkAccount || !tokenNetworkId) {
-          return {
-            scope: networkAccountScope,
-            account: null,
-          };
-        }
-        try {
-          const defaultDeriveType =
-            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-              {
-                networkId: tokenNetworkId,
-              },
-            );
-          const account =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              accountId: activeAccount?.indexedAccount?.id
-                ? undefined
-                : activeAccount?.account?.id,
-              indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
-              networkId: tokenNetworkId,
-              deriveType: defaultDeriveType ?? 'default',
-            });
-          return {
-            scope: networkAccountScope,
-            account,
-          };
-        } catch {
-          return {
-            scope: networkAccountScope,
-            account: null,
-          };
-        }
-      },
-      [
-        activeAccount?.account?.id,
-        activeAccount?.indexedAccount?.id,
-        networkAccountScope,
-        shouldFetchNetworkAccount,
-        tokenNetworkId,
-      ],
-      {
-        initResult: {
-          scope: '',
+  const {
+    result: networkAccountState,
+    isLoading: networkAccountLoading,
+    run: runNetworkAccount,
+  } = usePromiseResult(
+    async () => {
+      if (!shouldFetchNetworkAccount || !tokenNetworkId) {
+        return {
+          scope: networkAccountScope,
           account: null,
-        },
-        watchLoading: shouldFetchNetworkAccount,
+        };
+      }
+      try {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: tokenNetworkId,
+          });
+        const account =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            accountId: activeAccount?.indexedAccount?.id
+              ? undefined
+              : activeAccount?.account?.id,
+            indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
+            networkId: tokenNetworkId,
+            deriveType: defaultDeriveType ?? 'default',
+          });
+        return {
+          scope: networkAccountScope,
+          account,
+        };
+      } catch {
+        return {
+          scope: networkAccountScope,
+          account: null,
+        };
+      }
+    },
+    [
+      activeAccount?.account?.id,
+      activeAccount?.indexedAccount?.id,
+      networkAccountScope,
+      shouldFetchNetworkAccount,
+      tokenNetworkId,
+    ],
+    {
+      initResult: {
+        scope: '',
+        account: null,
       },
-    );
+      watchLoading: true,
+    },
+  );
   const networkAccountReady =
     !shouldFetchNetworkAccount ||
     networkAccountState.scope === networkAccountScope;
@@ -216,6 +255,8 @@ function useStockInputTokenBalance({
     shouldFetchNetworkAccount && networkAccountReady
       ? networkAccountState.account
       : null;
+  const accountLookupFailed =
+    shouldFetchNetworkAccount && networkAccountReady && !networkAccount;
   const seededBalance = resolveStockBalanceSeed({
     hasActiveAccount,
     networkAccountAddress: networkAccount?.address,
@@ -233,24 +274,17 @@ function useStockInputTokenBalance({
   const { result: detailState, isLoading: detailLoading } = usePromiseResult(
     async () => {
       const requestScope = balanceScope;
-      // An explicit refresh (manual, or a settled swap on the sell side)
-      // always revalidates, even where pay-token details own the refreshes.
-      const shouldExplicitlyRevalidate =
-        explicitRevalidationOwnerScopeRef.current === balanceOwnerScope;
-      if (shouldExplicitlyRevalidate) {
-        explicitRevalidationOwnerScopeRef.current = '';
-      }
-      const requestMode =
-        shouldExplicitlyRevalidate ||
-        (!refreshOwnedByPayTokenDetails &&
-          completedBalanceScopeRef.current === requestScope)
-          ? 'revalidate'
-          : 'dedupe';
       const completeRequestScope = <T>(result: T) => {
         if (currentBalanceScopeRef.current === requestScope) {
           completedBalanceScopeRef.current = requestScope;
         }
-        return result;
+        return {
+          ...result,
+          ownerScope:
+            shouldFetchNetworkAccount && !shouldWaitForNetworkAccount
+              ? balanceOwnerScope
+              : undefined,
+        };
       };
       if (!enabled || !token || shouldWaitForNetworkAccount) {
         return completeRequestScope({
@@ -268,6 +302,19 @@ function useStockInputTokenBalance({
           tokenDetail: token,
         });
       }
+      // A refresh may need to recover the network account first. Consume the
+      // explicit revalidation only when the balance request can run.
+      const shouldExplicitlyRevalidate =
+        explicitRevalidationOwnerScopeRef.current === balanceOwnerScope;
+      if (shouldExplicitlyRevalidate) {
+        explicitRevalidationOwnerScopeRef.current = '';
+      }
+      const requestMode =
+        shouldExplicitlyRevalidate ||
+        (!refreshOwnedByPayTokenDetails &&
+          completedBalanceScopeRef.current === requestScope)
+          ? 'revalidate'
+          : 'dedupe';
       try {
         const details = await runStockPayTokenDetailsRequest({
           mode: requestMode,
@@ -319,12 +366,14 @@ function useStockInputTokenBalance({
       enabled,
       networkAccount,
       refreshOwnedByPayTokenDetails,
+      shouldFetchNetworkAccount,
       shouldWaitForNetworkAccount,
       token,
     ],
     {
       initResult: {
         scope: '',
+        ownerScope: undefined as string | undefined,
         balance: undefined as string | undefined,
         hasAuthoritativeBalance: false,
         tokenDetail: undefined as ISwapToken | undefined,
@@ -339,8 +388,19 @@ function useStockInputTokenBalance({
   // screen until the new one lands.
   const refresh = useCallback(() => {
     explicitRevalidationOwnerScopeRef.current = balanceOwnerScope;
+    if (accountLookupFailed) {
+      if (!networkAccountLoading) {
+        void runNetworkAccount();
+      }
+      return;
+    }
     setRefreshKey((value) => value + 1);
-  }, [balanceOwnerScope]);
+  }, [
+    accountLookupFailed,
+    balanceOwnerScope,
+    networkAccountLoading,
+    runNetworkAccount,
+  ]);
 
   useEffect(() => {
     if (!enabled || !token?.networkId || refreshOwnedByPayTokenDetails) {
@@ -385,7 +445,7 @@ function useStockInputTokenBalance({
     enabled &&
     token &&
     (!detailResolved ||
-      networkAccountLoading ||
+      (shouldFetchNetworkAccount && networkAccountLoading) ||
       shouldWaitForNetworkAccount ||
       detailLoading),
   );
@@ -444,6 +504,12 @@ function useStockInputTokenBalance({
   ]);
 
   return {
+    retryAvailable:
+      accountLookupFailed ||
+      (shouldFetchNetworkAccount &&
+        networkAccountReady &&
+        detailState.ownerScope === balanceOwnerScope &&
+        !detailState.hasAuthoritativeBalance),
     authoritativeTokenDetail,
     accountAddress: networkAccount?.address,
     accountId: networkAccount?.id,
@@ -635,13 +701,23 @@ export function useSwapStockEstimatedReceiveState({
 
 export function useSwapStockAmountInputState({
   stockChannel,
+  fromAddressInfo,
 }: {
   stockChannel: IUseSwapStockChannelReturn;
+  fromAddressInfo: Pick<
+    ReturnType<typeof useSwapAddressInfo>,
+    | 'address'
+    | 'isRecipientValidationReady'
+    | 'networkId'
+    | 'targetNetworkAccountResolveKey'
+  >;
 }) {
   const intl = useIntl();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapAlerts] = useSwapAlertsAtom();
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
+  const [stockFromAccountRefresh, setStockFromAccountRefresh] =
+    useSwapStockFromAccountRefreshAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const {
@@ -704,8 +780,34 @@ export function useSwapStockAmountInputState({
   const isBalanceLoadedZero =
     Boolean(inputToken) &&
     isSwapBalanceLoadedZero(stockInputTokenBalance.settledBalance);
-  const balanceRefreshing = stockInputTokenBalance.refreshing;
-  const onBalanceRefreshPress = stockInputTokenBalance.refresh;
+  const senderRetryScope =
+    inputTokenReady &&
+    !fromAddressInfo.address &&
+    fromAddressInfo.networkId === inputToken?.networkId
+      ? fromAddressInfo.targetNetworkAccountResolveKey
+      : undefined;
+  const senderRetryRequested = Boolean(
+    senderRetryScope && stockFromAccountRefresh?.scopeKey === senderRetryScope,
+  );
+  const balanceRetryAvailable =
+    stockInputTokenBalance.retryAvailable ||
+    Boolean(
+      senderRetryScope &&
+      (fromAddressInfo.isRecipientValidationReady || senderRetryRequested),
+    );
+  const balanceRefreshing =
+    stockInputTokenBalance.refreshing ||
+    (senderRetryRequested && !fromAddressInfo.isRecipientValidationReady);
+  const { refresh: refreshBalance } = stockInputTokenBalance;
+  const onBalanceRefreshPress = useCallback(() => {
+    if (senderRetryScope) {
+      setStockFromAccountRefresh((previous) => ({
+        scopeKey: senderRetryScope,
+        revision: (previous?.revision ?? 0) + 1,
+      }));
+    }
+    refreshBalance();
+  }, [refreshBalance, senderRetryScope, setStockFromAccountRefresh]);
   const shouldReserveInputGas = shouldReserveSwapGas(inputToken);
   const reserveGas = useMemo(() => {
     if (!inputToken?.networkId || !shouldReserveInputGas) {
@@ -875,21 +977,51 @@ export function useSwapStockAmountInputState({
       if (authoritativeStockInputToken) {
         syncStockTokenDetail(authoritativeStockInputToken);
       }
-      const amount = calcSwapStockPercentageAmount({
+      if (stage === 100) {
+        setInputAmount(
+          calcSwapStockPercentageAmount({
+            balanceParsed: resolvedInputTokenBalance,
+            isNative: shouldReserveInputGas,
+            reserveGas,
+            stage,
+          }),
+          true,
+        );
+        return;
+      }
+      if (!amountInputToken) {
+        return;
+      }
+      const displayAmount = calcSwapStockPercentageDisplayAmount({
         balanceParsed: resolvedInputTokenBalance,
         isNative: shouldReserveInputGas,
         reserveGas,
         stage,
+        decimals: amountInputToken.decimals,
+        balanceMultiplier: amountInputToken.balanceMultiplier,
       });
-      setInputAmount(amount, stage === 100);
+      if (displayAmount === undefined) {
+        return;
+      }
+      setSwapAlerts({
+        quoteId: '',
+        states: [],
+      });
+      setFromTokenAmount({
+        value: displayAmount,
+        isInput: true,
+      });
     },
     [
+      amountInputToken,
       authoritativeStockInputToken,
       balanceActionsReady,
       shouldReserveInputGas,
       reserveGas,
       resolvedInputTokenBalance,
+      setFromTokenAmount,
       setInputAmount,
+      setSwapAlerts,
       syncStockTokenDetail,
     ],
   );
@@ -938,6 +1070,7 @@ export function useSwapStockAmountInputState({
         ? { ...amountInputToken, ...inputTokenPrice }
         : undefined,
     balanceActionsReady,
+    balanceRetryAvailable,
     balanceLoading: stockInputTokenBalance.loading,
     balanceRefreshing,
     currencySymbol,

@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 
-import { resetToRoute } from '@onekeyhq/components';
+import { CommonActions } from '@react-navigation/native';
+
+import { resetToRoute, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { enterOnboardingOrTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
@@ -16,6 +18,7 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
+  ONBOARDING_ROUTE_DISABLE_ANIMATION_PARAM,
 } from '@onekeyhq/shared/src/routes';
 
 export const isOnboardingFromExtensionUrl = () => {
@@ -26,10 +29,26 @@ export const isOnboardingFromExtensionUrl = () => {
   return false;
 };
 
+function clearOnboardingDisableAnimationParam() {
+  const rootState = rootNavigationRef.current?.getRootState();
+  const onboardingRoute = rootState?.routes.find(
+    (route) => route.name === ERootRoutes.Onboarding,
+  );
+  if (!onboardingRoute?.key) {
+    return;
+  }
+  rootNavigationRef.current?.dispatch({
+    ...CommonActions.setParams({
+      [ONBOARDING_ROUTE_DISABLE_ANIMATION_PARAM]: undefined,
+    }),
+    source: onboardingRoute.key,
+  });
+}
+
 export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
   return useMemo(
-    () => () =>
+    () => (options?: { disableAnimation?: boolean }) =>
       enterOnboardingOrTravelMode({
         enterOnboarding: async () => {
           if (platformEnv.isWebDappMode) {
@@ -60,7 +79,18 @@ export const useToOnBoardingPage = () => {
               params: {
                 screen: EOnboardingPagesV2.GetStarted,
               },
+              // Read by the native onboarding screen options. `=== true`
+              // keeps an onPress event passed as `options` from counting.
+              ...(options?.disableAnimation === true
+                ? { [ONBOARDING_ROUTE_DISABLE_ANIMATION_PARAM]: true }
+                : undefined),
             });
+            if (options?.disableAnimation === true) {
+              // Only the entry skips the animation; leaving onboarding later
+              // should still slide out. Wait until native has presented the
+              // screen, or the option change could land in the same commit.
+              setTimeout(clearOnboardingDisableAnimationParam, 600);
+            }
           }
         },
         openTravelModeSettings: ({ admissionId }) => {

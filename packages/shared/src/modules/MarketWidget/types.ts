@@ -32,13 +32,19 @@ export type IMarketWidgetConfiguration = {
   privacyMasked?: boolean;
 };
 
+export type IMarketWidgetChartMode = 'simple' | 'pro';
+
 export type IMarketWidgetQuoteUpdate = {
   currency: 'usd';
   quote: {
     asset: IMarketWidgetAsset;
     price: string;
     change24h?: string;
-    // Request start (or live tick receipt), never the time a cached value is read.
+    isDetailQuote?: true;
+    chartMode?: IMarketWidgetChartMode;
+    detailFetchedAt?: number;
+    proFallbackAt?: number;
+    // Source observation time, never the time a cached value is read.
     fetchedAt: number;
     stockSparkline?: number[];
     priceUpdatedAt?: number;
@@ -56,9 +62,13 @@ export type IMarketWidgetProfile = {
   source: IMarketWidgetSource;
   asset?: IMarketWidgetAsset;
   assets?: IMarketWidgetAsset[];
+  instanceNumber?: number;
 };
 
-export type IMarketWidgetProfileInput = Omit<IMarketWidgetProfile, 'id'> & {
+export type IMarketWidgetProfileInput = Omit<
+  IMarketWidgetProfile,
+  'id' | 'instanceNumber'
+> & {
   id?: string;
 };
 
@@ -68,7 +78,16 @@ export type IMarketWidgetEditorState = {
   watchlist: IMarketWidgetAsset[];
   hot: IMarketWidgetAsset[];
   searchAssets?: IMarketWidgetAsset[];
+  searchResults?: IMarketWidgetAsset[];
+  searchIncomplete?: boolean;
   privacyMasked: boolean;
+};
+
+export type IMarketWidgetInstalledInstance = {
+  id: string;
+  kind: IMarketWidgetKind;
+  instanceNumber: number;
+  symbols: string[];
 };
 
 export type IMarketWidgetModule = {
@@ -77,12 +96,19 @@ export type IMarketWidgetModule = {
   supportsProfileEditing: () => boolean;
   supportsSettingsEditing: () => boolean;
   supportsQuoteSync: () => boolean;
+  supportsChartModeQuotes?: () => boolean;
+  supportsAssetSearch?: () => boolean;
   syncQuote: (update: IMarketWidgetQuoteUpdate) => Promise<boolean>;
+  setChartMode?: (mode: IMarketWidgetChartMode) => Promise<void>;
   setConfiguration: (
     configuration: IMarketWidgetConfiguration,
   ) => Promise<void>;
   maskForTravelMode: () => Promise<void>;
-  beginEditing?: () => Promise<string | undefined>;
+  getInstalledInstances?: () => Promise<IMarketWidgetInstalledInstance[]>;
+  beginEditing?: (instance?: {
+    id: string;
+    kind: IMarketWidgetKind;
+  }) => Promise<string | undefined>;
   setEditorDraft?: (
     assets: IMarketWidgetAsset[],
     editorSession: string,
@@ -92,7 +118,7 @@ export type IMarketWidgetModule = {
   refreshEditorState?: (
     editorSession?: string,
   ) => Promise<IMarketWidgetEditorState>;
-  searchStocks?: (
+  searchAssets?: (
     query: string,
     editorSession?: string,
   ) => Promise<IMarketWidgetEditorState>;

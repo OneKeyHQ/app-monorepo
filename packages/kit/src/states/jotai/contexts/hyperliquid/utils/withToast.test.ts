@@ -31,6 +31,7 @@ import { waitFor } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 
 import { getPerpsTradingNotEnabledMessage } from './config';
@@ -49,6 +50,116 @@ describe('withToast', () => {
   it('localizes the trading-not-enabled guard message', () => {
     expect(getPerpsTradingNotEnabledMessage()).toBe('perp.error_enable');
   });
+
+  it('closes the loading card and shows a separate order result', async () => {
+    jest.useFakeTimers();
+    const success = jest.spyOn(Toast, 'success');
+    try {
+      const close = jest.fn();
+      jest.mocked(Toast.loading).mockReturnValueOnce({ close });
+      const task = withToast({
+        actionType: EActionType.PLACE_ORDER,
+        asyncFn: async () =>
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 500);
+          }),
+      });
+
+      await jest.advanceTimersByTimeAsync(500);
+      await task;
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(success).toHaveBeenCalledWith(
+        expect.objectContaining({ title: expect.any(String) }),
+      );
+    } finally {
+      success.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  it('closes the loading card and shows an order error while the locale lookup is pending', async () => {
+    jest.useFakeTimers();
+    const locale = Promise.withResolvers<{
+      localizedMessage: string;
+      rawMessage: string;
+    }>();
+    const lookup = jest
+      .spyOn(hyperLiquidErrorResolver, 'resolveAsync')
+      .mockReturnValue(locale.promise);
+    try {
+      const close = jest.fn();
+      jest.mocked(Toast.loading).mockReturnValueOnce({ close });
+      const operation = Promise.withResolvers<void>();
+      const error = new Error('Price too far from oracle');
+      const result = withToast({
+        actionType: EActionType.PLACE_ORDER,
+        asyncFn: () => operation.promise,
+      });
+
+      await jest.advanceTimersByTimeAsync(300);
+      operation.reject(error);
+      await expect(result).rejects.toBe(error);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(toastErrorSpy).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(300);
+      expect(toastErrorSpy).toHaveBeenCalledWith({ title: error.message });
+
+      locale.resolve({
+        rawMessage: error.message,
+        localizedMessage: 'Too far',
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(toastErrorSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      lookup.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  it.each([false, true])(
+    'closes the loading toast and preserves the rejection if error extraction throws (getter throws=%s)',
+    async (getterThrows) => {
+      jest.useFakeTimers();
+      const diagnostic = jest
+        .spyOn(defaultLogger.perp.agentLifeCycle, 'trackReason')
+        .mockImplementation((params) => params);
+      try {
+        const close = jest.fn();
+        jest.mocked(Toast.loading).mockReturnValueOnce({ close });
+        const operation = Promise.withResolvers<void>();
+        const unprintable = Object.create(null) as object;
+        const error = getterThrows
+          ? {
+              get response(): never {
+                throw unprintable;
+              },
+            }
+          : { message: unprintable };
+        const result = withToast({
+          actionType: EActionType.PLACE_ORDER,
+          asyncFn: () => operation.promise,
+        });
+
+        await jest.advanceTimersByTimeAsync(300);
+        operation.reject(error);
+        await expect(result).rejects.toBe(error);
+        await jest.advanceTimersByTimeAsync(0);
+        expect(close).toHaveBeenCalledTimes(1);
+        expect(toastErrorSpy).not.toHaveBeenCalled();
+        expect(diagnostic).toHaveBeenCalledWith({
+          reason: 'runtime_handle_error_failed',
+          statusDetails: {
+            errorMessage: getterThrows
+              ? 'Unable to format error'
+              : expect.any(String),
+          },
+        });
+      } finally {
+        diagnostic.mockRestore();
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it('localizes wrapped HyperLiquid order errors from server config', async () => {
     const wrappedMessage =

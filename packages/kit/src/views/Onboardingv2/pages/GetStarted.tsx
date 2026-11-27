@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -21,6 +22,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useColdStart } from '../../../routes/config/coldStartOnboardingState';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { HeroAtmosphere } from '../components/HeroAtmosphere';
 import { OnboardingPage } from '../components/Layout';
@@ -389,6 +391,15 @@ function GetStarted() {
       ? '$heading4xl'
       : '$heading5xl';
 
+  const isFocused = useIsFocused();
+  const coldStart = useColdStart();
+  const dispatchColdStart = coldStart?.dispatch;
+  const onLayout = useCallback(() => {
+    if (isFocused) {
+      dispatchColdStart?.({ type: 'onboarding-ready' });
+    }
+  }, [dispatchColdStart, isFocused]);
+
   // The notice sits right above these options, so choosing any of them is the
   // new user's acceptance of the current terms.
   const acceptTerms = () => {
@@ -469,7 +480,7 @@ function GetStarted() {
       backgroundLayer={<HeroAtmosphere />}
       contentContainerProps={
         platformEnv.isNative
-          ? undefined
+          ? { onLayout }
           : { enterStyle: { opacity: 0, scale: 0.9 } }
       }
     >

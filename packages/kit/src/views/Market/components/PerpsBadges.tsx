@@ -430,8 +430,11 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   [EUSMarketStatusVariant.PreMarket]: {
     icon: 'SunriseOutline',
     titleId: ETranslations.trading_hours_pre_market,
-    bg: '$bgCaution',
-    color: '$textCaution',
+    // Each extended session gets its own hue, following TradingView's
+    // pre / regular / post / overnight palette (orange, green, blue, purple);
+    // the trading-hours panel mirrors it.
+    bg: '$orange3',
+    color: '$orange11',
   },
   [EUSMarketStatusVariant.Open]: {
     icon: 'SunOutline',
@@ -442,14 +445,14 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   [EUSMarketStatusVariant.PostMarket]: {
     icon: 'SunDownOutline',
     titleId: ETranslations.trading_hours_post_market,
-    bg: '$bgCaution',
-    color: '$textCaution',
+    bg: '$bgInfo',
+    color: '$textInfo',
   },
   [EUSMarketStatusVariant.Overnight]: {
     icon: 'MoonOutline',
     titleId: ETranslations.trading_hours_overnight,
-    bg: '$bgInfo',
-    color: '$textInfo',
+    bg: '$purple3',
+    color: '$purple11',
   },
   [EUSMarketStatusVariant.Closed]: {
     icon: 'ClockSnoozeOutline',
@@ -986,7 +989,7 @@ const StockMarketStatusBadge = memo(
       <Suspense
         fallback={
           <Stack
-            cursor="pointer"
+            cursor="default"
             onPress={(event) => {
               event.stopPropagation();
               setPendingStockKey(stockKey);

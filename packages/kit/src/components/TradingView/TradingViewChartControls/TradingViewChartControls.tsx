@@ -1,6 +1,7 @@
 import {
   type ComponentProps,
   type ReactNode,
+  createContext,
   memo,
   useCallback,
   useContext,
@@ -50,6 +51,13 @@ type IPriceMarketCapConfig =
   ITradingViewNativeChartControlsConfigData['priceMarketCap'];
 export type ITradingViewChartMode = 'native' | 'tradingView';
 
+// A workspace can offer additional views without persisting them as a candle engine.
+export const TradingViewChartModeSelectContext = createContext<{
+  value: string;
+  items: { label: string; value: string }[];
+  onChange: (value: string) => void;
+} | null>(null);
+
 export function TradingViewChartModeSelect({
   chartMode,
   isDisabled = false,
@@ -62,7 +70,9 @@ export function TradingViewChartModeSelect({
   onControlInteraction?: () => void;
 }) {
   const intl = useIntl();
-  const chartModeItems = [
+  const workspaceSelect = useContext(TradingViewChartModeSelectContext);
+  const selectedValue = workspaceSelect?.value ?? chartMode;
+  const chartModeItems = workspaceSelect?.items ?? [
     {
       label: intl.formatMessage({ id: ETranslations.market_chart_original }),
       value: 'native' as const,
@@ -73,7 +83,7 @@ export function TradingViewChartModeSelect({
     },
   ];
   const selectedChartModeLabel = chartModeItems.find(
-    (item) => item.value === chartMode,
+    (item) => item.value === selectedValue,
   )?.label;
 
   return (
@@ -81,9 +91,16 @@ export function TradingViewChartModeSelect({
       testID="trading-view-chart-switch"
       title={intl.formatMessage({ id: ETranslations.market_chart })}
       items={chartModeItems}
-      value={chartMode}
+      value={selectedValue}
       disabled={isDisabled}
       onChange={(nextChartMode) => {
+        if (isDisabled || nextChartMode === selectedValue) return;
+        if (workspaceSelect) {
+          if (chartModeItems.some((item) => item.value === nextChartMode)) {
+            workspaceSelect.onChange(nextChartMode);
+          }
+          return;
+        }
         if (
           !isDisabled &&
           (nextChartMode === 'native' || nextChartMode === 'tradingView') &&
@@ -169,6 +186,9 @@ export interface ITradingViewChartControlsProps {
   calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
+  // Mobile fullscreen row only: how far the row extends beyond its trailing
+  // edge, so the exit control moves with the indicator rail.
+  clearTrailingInset?: number;
   rightControl?: ReactNode;
   rightControlLabel?: string;
   /** Desktop row only: shown before the intervals. */
@@ -251,6 +271,7 @@ export const TradingViewChartControls = memo(
     calendarAvailableTimeRange,
     isFullscreen,
     fullscreenHeader,
+    clearTrailingInset = 0,
     rightControl,
     rightControlLabel,
     leadingControl,
@@ -712,6 +733,9 @@ export const TradingViewChartControls = memo(
         testID="trading-view-chart-controls"
         bg={backgroundColor}
         px={mobileControlsPaddingHorizontal}
+        mr={
+          isFullscreen && clearTrailingInset ? -clearTrailingInset : undefined
+        }
         py={compactMobileLayout ? undefined : '$2'}
         pt={shouldUseTightCompactPadding ? '$1.5' : undefined}
         pb={shouldUseTightCompactPadding ? '$0.5' : undefined}

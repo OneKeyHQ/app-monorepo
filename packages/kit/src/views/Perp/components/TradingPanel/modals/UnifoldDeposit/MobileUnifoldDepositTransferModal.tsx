@@ -1,5 +1,5 @@
 // cspell: words unifold Unifold
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -46,6 +46,26 @@ export default function MobileUnifoldDepositTransferModal() {
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const transferContentRef = useRef<IUnifoldTransferContentRef>(null);
   const [pendingExecutionCount, setPendingExecutionCount] = useState(0);
+  // The tracker's Deposit action returns here with goBack(), so a session that
+  // ended in a veto (for example the account mode changed) would greet the
+  // user with the same error again. Remount the transfer content on that
+  // return instead: the new instance runs a fresh session, and the old one
+  // hands its tracking back to the background loop as it unmounts.
+  const [sessionKey, setSessionKey] = useState(0);
+  const sessionEndedRef = useRef(false);
+  const handleSessionEnded = useCallback(() => {
+    sessionEndedRef.current = true;
+  }, []);
+  useEffect(
+    () =>
+      navigation.addListener('focus', () => {
+        if (sessionEndedRef.current) {
+          sessionEndedRef.current = false;
+          setSessionKey((key) => key + 1);
+        }
+      }),
+    [navigation],
+  );
   const route =
     useRoute<
       RouteProp<
@@ -215,9 +235,11 @@ export default function MobileUnifoldDepositTransferModal() {
       >
         <Stack px="$4">
           <UnifoldTransferContent
+            key={sessionKey}
             ref={transferContentRef}
             expectedRecipient={expectedRecipient}
             onOpenTracker={openTracker}
+            onSessionEnded={handleSessionEnded}
             onPendingExecutionCountChange={setPendingExecutionCount}
             historyCardPlacement="hidden"
             analyticsEntrySource={route.params?.analyticsEntrySource}

@@ -16,26 +16,40 @@ jest.mock('../../dbs/local/realm/base/RealmObjectBase', () => ({
   RealmObjectBase: jest.fn(),
 }));
 
-test.each(['absent', 'new timestamp', 'new cipher'] as const)(
+test.each([
+  'absent',
+  'null data and rawData',
+  'new timestamp',
+  'new cipher',
+  'new rawData',
+] as const)(
   'rekey compares the live Realm row against its read projection (%s)',
   async (change) => {
     const live: unknown = Reflect.construct(RealmSchemaCloudSyncItem, []);
     if (!(live instanceof RealmSchemaCloudSyncItem))
       throw new OneKeyLocalError('Missing Realm fixture');
+    const nullPayload =
+      change === 'null data and rawData' || change === 'new rawData';
     Object.assign(live, {
       id: 'realm-item',
       rawKey: 'realm-source',
-      rawData: '',
+      rawData: nullPayload ? null : '',
       dataType: EPrimeCloudSyncDataType.Wallet,
-      data: 'old-box',
+      data: nullPayload ? null : 'old-box',
       dataTime: null,
       isDeleted: false,
       pwdHash: 'old-hash',
       localSceneUpdated: true,
       serverUploaded: false,
+      pendingPublicAccountDeletionAt: null,
+      pendingPublicAccountDeletionHash: null,
     });
     const original = live.record;
     expect(original.dataTime).toBeUndefined();
+    if (nullPayload) {
+      expect(original.data).toBeUndefined();
+      expect(original.rawData).toBeUndefined();
+    }
     const conflict = new OneKeyLocalError('Conflicting Realm version');
     const { updater } = preparePoolRekey(
       [original],
@@ -46,7 +60,8 @@ test.each(['absent', 'new timestamp', 'new cipher'] as const)(
     );
     if (change === 'new timestamp') Object.assign(live, { dataTime: 1 });
     if (change === 'new cipher') Object.assign(live, { data: 'other-box' });
-    if (change === 'absent') {
+    if (change === 'new rawData') Object.assign(live, { rawData: 'later-raw' });
+    if (change === 'absent' || change === 'null data and rawData') {
       expect(await updater(live)).toBe(live);
       expect(live).toMatchObject({
         data: 'new-box',

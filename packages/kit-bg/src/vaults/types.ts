@@ -50,6 +50,7 @@ import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
+import type { IStrk20TransferKind } from '@onekeyhq/shared/types/starknetPrivacy';
 import type {
   ESwapTabSwitchType,
   EWrappedType,
@@ -75,6 +76,10 @@ import type {
   IAccountDeriveInfoMapKaspa,
   IAccountDeriveTypesKaspa,
 } from './impls/kaspa/settings';
+import type {
+  IAccountDeriveInfoMapStarknet,
+  IAccountDeriveTypesStarknet,
+} from './impls/starknet/settings';
 import type {
   IAccountDeriveInfoMapXmr,
   IAccountDeriveTypesXmr,
@@ -178,13 +183,15 @@ export type IAccountDeriveInfoMap =
   | IAccountDeriveInfoMapBtc
   | IAccountDeriveInfoMapCosmos
   | IAccountDeriveInfoMapKaspa
-  | IAccountDeriveInfoMapXmr;
+  | IAccountDeriveInfoMapXmr
+  | IAccountDeriveInfoMapStarknet;
 export type IAccountDeriveTypes =
   | 'default'
   | IAccountDeriveTypesEvm
   | IAccountDeriveTypesBtc
   | IAccountDeriveTypesKaspa
-  | IAccountDeriveTypesXmr;
+  | IAccountDeriveTypesXmr
+  | IAccountDeriveTypesStarknet;
 
 export type INetworkDeriveInfo = {
   deriveType: IAccountDeriveTypes;
@@ -198,6 +205,12 @@ export type IVaultSettingsNetworkInfo = {
   nativeTokenAddress?: string;
   genesisHash?: string;
 };
+
+export type IVaultSettingsPrivacyPool = {
+  /** Blocks a private tx must wait behind any tx its proof will read. */
+  sequencingCooldownBlocks: number;
+};
+
 export type IVaultSettings = {
   impl: string;
   coinTypeDefault: string;
@@ -254,6 +267,8 @@ export type IVaultSettings = {
   utxoDustAmount?: string;
 
   accountType: EDBAccountType;
+  /** Account options select a wallet contract and may share a derivation path. */
+  accountDeriveMode?: 'walletContract';
   accountDeriveInfo: IAccountDeriveInfoMap;
   networkInfo: {
     default: IVaultSettingsNetworkInfo;
@@ -318,6 +333,11 @@ export type IVaultSettings = {
     // Address-scoped backend endpoints never receive this chain's addresses.
     withholdAddressFromBackend?: boolean;
   };
+  /**
+   * Descriptor for a shielded-pool feature. UI reads these fields and never
+   * branches on a chain name. Absent means the chain has no privacy pool.
+   */
+  privacyPool?: IVaultSettingsPrivacyPool;
   saveConfirmedTxsEnabled?: boolean;
 
   cannotSendToSelf?: boolean;
@@ -398,7 +418,10 @@ export type IVaultSettings = {
 
   fixConfirmedTxEnabled?: boolean;
 
-  supportBatchEstimateFee?: Record<string, boolean>;
+  prepareSendConfirmation?: boolean;
+
+  // true uses the server batch endpoint; 'local' uses the chain vault's estimator.
+  supportBatchEstimateFee?: Record<string, boolean | 'local'>;
 
   afterSendTxActionEnabled?: boolean;
 
@@ -443,8 +466,11 @@ export type IGetDefaultPrivateKeyResult = {
 export type IGetPrivateKeysParams = {
   password: string;
   relPaths?: string[] | undefined;
+  // chains whose derive types share a template resolve the key per encoding
+  addressEncoding?: EAddressEncodings;
 };
 export type IGetPrivateKeysResult = ICoreApiPrivateKeysMap;
+
 export type IPrepareExternalAccountsParams = {
   name: string;
   networks?: string[];
@@ -677,6 +703,7 @@ export type ITransferInfo = {
   useCustomAddressesBalance?: boolean;
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
+  starknetPrivacyKind?: IStrk20TransferKind;
   zcashMemoHex?: string; // Canonical ZIP 302 field; never EVM call data.
   memo?: string; // Ripple chain destination tag, Cosmos chain memo
   keepAlive?: boolean; // Polkadot chain keep alive
@@ -812,6 +839,15 @@ export interface IBuildDecodedTxParams {
   isToContract?: boolean;
   sourceInfo?: IDappSourceInfo;
 }
+export type ISendConfirmationPreparation = {
+  unsignedTxs: IUnsignedTxPro[];
+  prerequisite?: {
+    transfersInfo: ITransferInfo[];
+    unsignedTx?: IUnsignedTxPro;
+    pendingTxid?: string;
+  };
+};
+
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
   encodedTx?: IEncodedTx;
@@ -866,6 +902,7 @@ export interface IBroadcastTransactionParams {
   gasAccountUiState?: IGasAccountUiState;
   isPrivateSend?: boolean;
   useDefaultRpc?: boolean;
+  reviewQuoteValidUntil?: number;
 }
 
 export interface IBroadcastTransactionByCustomRpcParams extends IBroadcastTransactionParams {

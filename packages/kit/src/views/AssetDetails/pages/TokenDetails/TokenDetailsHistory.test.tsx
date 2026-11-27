@@ -28,6 +28,13 @@ const mockLoadMore = jest.fn();
 const mockResetLoadMore = jest.fn();
 const mockUpdateAddressesInfo = jest.fn();
 const mockRun = jest.fn();
+const mockPrivateHistory = jest.fn<null, [IProps]>(() => null);
+jest.mock(
+  '@onekeyhq/kit/src/views/StarknetPrivacy/components/StarknetPrivateHistory',
+  () => ({
+    StarknetPrivateHistory: (params: IProps) => mockPrivateHistory(params),
+  }),
+);
 const mockPushModal = jest.fn();
 const mockPush = jest.fn();
 const mockMaybeOpenPrivateSendHistoryDetail = jest.fn<
@@ -162,6 +169,7 @@ const props = {
 } as IProps;
 
 beforeEach(() => {
+  mockPrivateHistory.mockClear();
   mockIsNative = false;
   mockPageFocused = true;
   mockRouteFocused = true;
@@ -262,4 +270,11 @@ it('drops a delayed private-detail navigation after the tab loses focus', async 
     await action;
   });
   expect(mockPush).not.toHaveBeenCalled();
+});
+
+it('uses the independent private history stream for the private tab', () => {
+  render(<TokenDetailsHistory {...props} starknetPrivacyMode="private" />);
+  expect(mockPrivateHistory).toHaveBeenCalledWith(
+    expect.objectContaining({ starknetPrivacyMode: 'private' }),
+  );
 });

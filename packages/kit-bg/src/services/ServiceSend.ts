@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import {
   createSwapReviewQuoteExpiredError,
+  createSwapReviewSigningFailure,
   isLocallyCreatedSwapReviewQuoteExpiredError,
   sanitizeSwapReviewQuoteExpiredError,
 } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
@@ -80,6 +81,7 @@ import {
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { hasUnconfirmedPrimeInfiniPaymentWarnings } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -108,7 +110,10 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
-import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  isLocalWalletNetwork,
+  isStarknetPrivateTransaction,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 import {
   EEarlierBroadcastAttempt,
   ESignedTxBroadcastStatus,
@@ -163,14 +168,57 @@ const withSignedTxPayload = (
   if (!encodedTx) {
     return unsignedTx;
   }
+  // Preserve in-memory clear privacy intent (`amount`, `recipient`, `tokenAddress`)
+  // when replaying a persisted broadcast record whose `encodedTx.privacy` was
+  // redacted before writing to disk.
+  let mergedEncodedTx = encodedTx;
+  if (
+    typeof encodedTx === 'object' &&
+    encodedTx !== null &&
+    !Array.isArray(encodedTx) &&
+    typeof unsignedTx.encodedTx === 'object' &&
+    unsignedTx.encodedTx !== null &&
+    !Array.isArray(unsignedTx.encodedTx)
+  ) {
+    const storedPrivacy = (encodedTx as { privacy?: Record<string, unknown> })
+      .privacy;
+    const memoryPrivacy = (
+      unsignedTx.encodedTx as { privacy?: Record<string, unknown> }
+    ).privacy;
+    if (
+      storedPrivacy &&
+      memoryPrivacy &&
+      storedPrivacy.kind === memoryPrivacy.kind &&
+      storedPrivacy.poolAddress === memoryPrivacy.poolAddress
+    ) {
+      mergedEncodedTx = {
+        ...encodedTx,
+        privacy: {
+          ...storedPrivacy,
+          ...(storedPrivacy.tokenAddress === undefined &&
+          memoryPrivacy.tokenAddress !== undefined
+            ? { tokenAddress: memoryPrivacy.tokenAddress }
+            : {}),
+          ...(storedPrivacy.amount === undefined &&
+          memoryPrivacy.amount !== undefined
+            ? { amount: memoryPrivacy.amount }
+            : {}),
+          ...(storedPrivacy.recipient === undefined &&
+          memoryPrivacy.recipient !== undefined
+            ? { recipient: memoryPrivacy.recipient }
+            : {}),
+        },
+      } as IEncodedTx;
+    }
+  }
   const nonce = new BigNumber(
-    (typeof encodedTx === 'object'
-      ? (encodedTx as { nonce?: number | string }).nonce
+    (typeof mergedEncodedTx === 'object'
+      ? (mergedEncodedTx as { nonce?: number | string }).nonce
       : undefined) ?? NaN,
   );
   return {
     ...unsignedTx,
-    encodedTx,
+    encodedTx: mergedEncodedTx,
     ...(nonce.isInteger() ? { nonce: nonce.toNumber() } : {}),
   };
 };
@@ -565,6 +613,38 @@ class ServiceSend extends ServiceBase {
     }
   }
 
+  private redactSignedTxForBroadcastStore(
+    signedTx: ISignedTxPro,
+  ): ISignedTxPro {
+    const rawEncodedTx = signedTx.encodedTx;
+    if (
+      !rawEncodedTx ||
+      typeof rawEncodedTx !== 'object' ||
+      Array.isArray(rawEncodedTx)
+    ) {
+      return signedTx;
+    }
+    const encodedTx = rawEncodedTx as Record<string, unknown> & {
+      privacy?: Record<string, unknown>;
+    };
+    if (!encodedTx.privacy) {
+      return signedTx;
+    }
+    const {
+      amount: _amount,
+      recipient: _recipient,
+      tokenAddress: _tokenAddress,
+      ...publicPrivacy
+    } = encodedTx.privacy;
+    return {
+      ...signedTx,
+      encodedTx: {
+        ...encodedTx,
+        privacy: publicPrivacy,
+      } as IEncodedTx,
+    };
+  }
+
   private async rememberBroadcastAttempt({
     unsignedTx,
     signedTx,
@@ -579,6 +659,7 @@ class ServiceSend extends ServiceBase {
     if (!unsignedTx.uuid) {
       return;
     }
+    const sanitizedSignedTx = this.redactSignedTxForBroadcastStore(signedTx);
     // A payload signed earlier under this uuid stays on record until the
     // chain settles it. Replacing it here would forget a tx that may still
     // land: the chain taking at most one of the two does not say which.
@@ -588,12 +669,12 @@ class ServiceSend extends ServiceBase {
         ? [...(previous.supersededSignedTxs ?? []), previous.signedTx]
         : [],
       (tx) => tx.rawTx,
-    ).filter((tx) => tx.rawTx !== signedTx.rawTx);
+    ).filter((tx) => tx.rawTx !== sanitizedSignedTx.rawTx);
     await this.broadcastRecords.upsertRecord({
       uuid: unsignedTx.uuid,
       networkId,
       accountId,
-      signedTx,
+      signedTx: sanitizedSignedTx,
       attemptedAt: Date.now(),
       isBroadcast: false,
       isSettled: false,
@@ -617,8 +698,9 @@ class ServiceSend extends ServiceBase {
     if (!unsignedTx.uuid) {
       return;
     }
+    const sanitizedSignedTx = this.redactSignedTxForBroadcastStore(signedTx);
     await this.broadcastRecords.updateRecord(unsignedTx.uuid, {
-      signedTx,
+      signedTx: sanitizedSignedTx,
       isBroadcast: true,
       ...(isSettled ? { isSettled: true } : {}),
     });
@@ -1125,15 +1207,28 @@ class ServiceSend extends ServiceBase {
       if (isLightningNetwork) {
         return false;
       }
+      const { networkId, feeAmount, feeTokenSymbol, encodedTx } = params;
+      const privateTx = isStarknetPrivateTransaction(networkId, encodedTx);
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      // Redact address/payload for Starknet privacy txs while supplying the
+      // required schema placeholders so the backend's real fee check runs.
       const resp = await client.post<{
         data: { success: boolean };
-      }>('/wallet/v1/account/pre-send-transaction', params, {
-        // Preventive (OK-64746): the pre-check has no Gas Account member
-        // logic today, but carry the OneKey ID token so a future member path
-        // on this endpoint does not silently run anonymous.
-        headers: await this.getOneKeyIdAuthHeaders(),
-      });
+      }>(
+        '/wallet/v1/account/pre-send-transaction',
+        privateTx
+          ? {
+              networkId,
+              feeTokenSymbol,
+              feeAmount,
+              accountAddress: '0x0',
+              encodedTx: {},
+            }
+          : params,
+        privateTx
+          ? undefined
+          : { headers: await this.getOneKeyIdAuthHeaders() },
+      );
 
       return !resp.data.data.success;
     } catch {
@@ -1869,6 +1964,16 @@ class ServiceSend extends ServiceBase {
         signOnly, // external account should send tx here
         stageFeeInfo,
         ...(diagnostic ? { diagnosticSendState: diagnosticState } : {}),
+      }).catch((error: unknown) => {
+        if (
+          isXmrSwapNetwork(networkId) &&
+          unsignedTx.swapInfo &&
+          !isExternalAccount &&
+          !hasEarlierAmbiguousAttempt
+        ) {
+          throw createSwapReviewSigningFailure(error);
+        }
+        throw error;
       }));
 
     diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
@@ -2095,6 +2200,7 @@ class ServiceSend extends ServiceBase {
             gasAccountUiState,
             isPrivateSend,
             useDefaultRpc,
+            reviewQuoteValidUntil,
           });
           logSolanaTxDiagnostic(diagnosticState.context, {
             stage: 'broadcast',
@@ -2104,6 +2210,11 @@ class ServiceSend extends ServiceBase {
           });
           return result;
         } catch (error) {
+          if (isLocallyCreatedSwapReviewQuoteExpiredError(error)) {
+            throw createSwapReviewQuoteExpiredError(
+              !hadAmbiguousBroadcastAttempt,
+            );
+          }
           if (preserveBroadcastTxIdOnError) {
             const serverError = error as
               | {
@@ -3265,6 +3376,31 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSendPrerequisiteProgress({
+    accountId,
+    networkId,
+    txid,
+  }: ISendTxBaseParams & { txid: string }) {
+    const vault = await vaultFactory.getVault({ accountId, networkId });
+    return vault.getSendPrerequisiteProgress(txid);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async prepareSendConfirmation({
+    accountId,
+    networkId,
+    unsignedTxs,
+    confirmPrerequisites = false,
+  }: ISendTxBaseParams & {
+    unsignedTxs: IUnsignedTxPro[];
+    confirmPrerequisites?: boolean;
+  }) {
+    const vault = await vaultFactory.getVault({ accountId, networkId });
+    return vault.prepareSendConfirmation(unsignedTxs, confirmPrerequisites);
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async prepareSendConfirmUnsignedTx(
     params: ISendTxBaseParams &
@@ -3632,9 +3768,8 @@ class ServiceSend extends ServiceBase {
   }) {
     const { networkId, accountId, encodedTx } = params;
     if (
-      await isLocalWalletNetwork({
-        networkId,
-      })
+      isStarknetPrivateTransaction(networkId, encodedTx) ||
+      (await isLocalWalletNetwork({ networkId }))
     ) {
       throw new OneKeyLocalError(
         'Privacy transactions must be reviewed locally',

@@ -41,6 +41,10 @@ export type INativeChartScene = {
     color: string;
   })[];
   axisWidth: number;
+  // Set with `secondaryLineBlankSlots` when the time scale runs on past the
+  // last priced point (a window still filling in): the x a finger over the
+  // blank slots is held to.
+  pricedEndX?: number;
   secondarySegments: IPoint[][];
   lastPoint?: IPoint;
   fontSize: number;
@@ -243,11 +247,24 @@ function buildSeriesGeometry(
   plot: INativeChartScene['plot'],
 ) {
   const { data, secondary, yAtValue } = scale;
-  const lastX = Math.max(
+  const rightEdge = Math.max(
     plot.x,
-    plot.x + plot.width - (config.timeScaleRightOffsetPixels ?? 0) - 2,
+    plot.x + plot.width - (config.timeScaleRightOffsetPixels ?? 0),
   );
-  const firstX = plot.x + 2;
+  const histogramBarWidth =
+    config.seriesType === 'histogram'
+      ? Math.max(
+          1,
+          Math.min(
+            config.histogramOptions?.maxBarWidth ?? 4,
+            (Math.max(0, rightEdge - plot.x - 4) / Math.max(1, data.length)) *
+              (config.histogramOptions?.barWidthRatio ?? 0.5),
+          ),
+        )
+      : 0;
+  const inset = Math.max(2, histogramBarWidth / 2);
+  const firstX = plot.x + inset;
+  const lastX = Math.max(plot.x, rightEdge - inset);
   // lightweight-charts uses logical spacing across the union of series times.
   const timeline = [
     ...new Set([
@@ -292,7 +309,23 @@ function buildSeriesGeometry(
     time: Number(point.time),
     price: point.value,
   }));
-  return { firstX, lastX, indexByTime, xAtIndex, hoverPoints, points };
+  const lastPriced = hoverPoints[hoverPoints.length - 1];
+  const pricedEndX =
+    config.secondaryLineBlankSlots &&
+    lastPriced &&
+    timeline[timeline.length - 1] > lastPriced.time
+      ? lastPriced.x
+      : undefined;
+  return {
+    firstX,
+    lastX,
+    histogramBarWidth,
+    indexByTime,
+    xAtIndex,
+    hoverPoints,
+    points,
+    pricedEndX,
+  };
 }
 
 function buildChartLayout(
@@ -476,36 +509,62 @@ function drawSeriesFill(context: IChartDrawingContext) {
 function drawPrimarySeries(context: IChartDrawingContext) {
   const {
     config,
-    layout: { points, lastX, firstX, base, yAtValue, plotHeight, plot },
+    layout: {
+      points,
+      histogramBarWidth: barWidth,
+      base,
+      yAtValue,
+      plotHeight,
+      plot,
+    },
     painter: { commands, style },
   } = context;
   if (config.seriesType === 'histogram') {
     const options = config.histogramOptions;
-    const barWidth = Math.max(
-      1,
-      Math.min(
-        options?.maxBarWidth ?? 4,
-        ((lastX - firstX) / Math.max(1, points.length)) *
-          (options?.barWidthRatio ?? 0.5),
-      ),
-    );
     points.forEach((point) => {
       if (point.price === base) return;
       const color =
         point.price >= base
           ? (options?.positiveColor ?? config.theme.lineColor)
           : (options?.negativeColor ?? config.theme.lineColor);
+      const top = Math.min(point.y, yAtValue(base));
+      const height = Math.abs(point.y - yAtValue(base));
+      const radius = Math.min(
+        Math.max(0, options?.borderRadius ?? 0),
+        barWidth / 2,
+        height,
+      );
+      const customPaintId = style(
+        point.price >= base ? 'positive' : 'negative',
+        color,
+      );
+      if (radius > 0) {
+        // Clip the extra radius at the baseline so only the value end is round.
+        commands.push({
+          kind: 'clip',
+          rect: { x: point.x - barWidth / 2, y: top, width: barWidth, height },
+        });
+        commands.push({
+          kind: 'roundRect',
+          paint: 'line',
+          customPaintId,
+          x: point.x - barWidth / 2,
+          y: point.price < base ? top - radius : top,
+          width: barWidth,
+          height: height + radius,
+          radius,
+        });
+        commands.push({ kind: 'restore' });
+        return;
+      }
       commands.push({
         kind: 'rect',
         paint: 'line',
-        customPaintId: style(
-          point.price >= base ? 'positive' : 'negative',
-          color,
-        ),
+        customPaintId,
         x: point.x - barWidth / 2,
-        y: Math.min(point.y, yAtValue(base)),
+        y: top,
         width: barWidth,
-        height: Math.abs(point.y - yAtValue(base)),
+        height,
       });
     });
   } else if (config.seriesType === 'baseline') {
@@ -712,6 +771,7 @@ type IPriceAxisLabels = ReturnType<typeof getPriceAxisLabels>;
 function drawPriceTicks(
   context: IChartDrawingContext,
   labels: IPriceAxisLabels,
+  measureText: IMeasureText,
 ) {
   const {
     config,
@@ -722,6 +782,7 @@ function drawPriceTicks(
       plotHeight,
       yAtValue,
       axisOnLeft,
+      axisWidth,
       plot,
     },
     painter: { commands },
@@ -748,7 +809,12 @@ function drawPriceTicks(
       customPaintId: 'axis',
       font: 'priceAxis',
       text: tickLabels[i],
-      x: axisX,
+      x:
+        config.priceScaleLabelAlign === 'right'
+          ? (axisOnLeft ? axisWidth : plot.x + plot.width + axisWidth) -
+            2 -
+            measureText(tickLabels[i], 'priceAxis')
+          : axisX,
       y: y + fontSize * 0.35,
     });
   });
@@ -841,7 +907,7 @@ function drawPriceAxis(
   } = context;
   if (!config.showPriceScale) return;
   const labels = getPriceAxisLabels(context);
-  drawPriceTicks(context, labels);
+  drawPriceTicks(context, labels, measureText);
   const axisLabel = createPriceAxisLabelPainter(context, labels.labelHeight);
   const ref = config.referenceLine;
   if (ref?.axisLabelVisible) {
@@ -868,8 +934,25 @@ function drawPriceAxis(
 function buildTimeLabels(context: IChartDrawingContext) {
   const {
     config,
-    layout: { points },
+    layout: { points: seriesPoints, secondary, indexByTime, xAtIndex },
   } = context;
+  // With `secondaryLineBlankSlots`, the overlay carries times the series has
+  // no value for yet (a window that is still filling in). They are on the
+  // time scale, so they are labelled like any other slot. Other overlays'
+  // gaps are not time slots of their own and stay unlabelled.
+  const seriesTimes = new Set(seriesPoints.map((point) => point.time));
+  const blankSlots = (config.secondaryLineBlankSlots ? secondary : []).flatMap(
+    (point) => {
+      const time = Number(point.time);
+      const index = indexByTime.get(time);
+      return 'value' in point || seriesTimes.has(time) || index === undefined
+        ? []
+        : [{ time, x: xAtIndex(index), isBlankSlot: true }];
+    },
+  );
+  const points = blankSlots.length
+    ? [...seriesPoints, ...blankSlots].toSorted((a, b) => a.time - b.time)
+    : seriesPoints;
   // Resolve the default once, only when labels actually use the timezone.
   const timeScaleConfig =
     config.timeZone !== undefined || config.useTimeScaleTickMarkWithoutUnit
@@ -890,10 +973,17 @@ function buildTimeLabels(context: IChartDrawingContext) {
       type = 1;
     else if (!previous || day !== timeLabel(previous.time, 2, timeScaleConfig))
       type = 2;
+    // Blank slots have no trade to mark, so the ones on the hour, then the
+    // half hour, are labelled ahead of the rest and the axis reads as a clock.
+    let clockMarkBonus = 0;
+    if ('isBlankSlot' in point && type === 3) {
+      if (point.time % 3600 === 0) clockMarkBonus = 0.5;
+      else if (point.time % 1800 === 0) clockMarkBonus = 0.25;
+    }
     return {
       ...point,
       text: timeLabel(point.time, type, timeScaleConfig),
-      priority: 4 - type,
+      priority: 4 - type + clockMarkBonus,
     };
   });
   return candidates;
@@ -961,13 +1051,22 @@ export function buildNativeChartScene({
   const layout = buildChartLayout(config, width, height, measureText);
   const painter = createScenePainter();
   painter.style('axis', config.theme.textSubduedColor);
-  const { plot, points, hoverPoints, axisWidth, fontSize, axisOnLeft } = layout;
+  const {
+    plot,
+    points,
+    hoverPoints,
+    axisWidth,
+    fontSize,
+    axisOnLeft,
+    pricedEndX,
+  } = layout;
   const scene: INativeChartScene = {
     commands: painter.commands,
     customPaintStyles: painter.customPaintStyles,
     plot,
     points,
     hoverPoints,
+    pricedEndX,
     axisWidth,
     fontSize,
     axisOnLeft,
@@ -987,6 +1086,18 @@ export function buildNativeChartScene({
   scene.showCrosshairPrice =
     !config.hideCrosshairPriceLabel && !!config.showPriceScale;
   return scene;
+}
+
+// Declared before the worklets that call it: the Reanimated plugin turns each
+// worklet into a value that captures its closure where it is defined, so a
+// helper declared later is undefined on the UI thread.
+// Blank time slots past the last point (a window still filling in) carry no
+// price. A finger over them reads the last point, so the guide stays on it
+// rather than following the finger into time that has not happened yet. Charts
+// without such slots keep the finger's x.
+function clampToPricedEnd(scene: INativeChartScene, x: number) {
+  'worklet';
+  return scene.pricedEndX === undefined ? x : Math.min(x, scene.pricedEndX);
 }
 
 export function getNativeChartHover(
@@ -1018,7 +1129,7 @@ export function getNativeChartHover(
     time: point.time,
     price: point.price,
     secondaryPrice: point.secondaryPrice,
-    x: x - scene.plot.x,
+    x: clampToPricedEnd(scene, x) - scene.plot.x,
     y,
   };
 }
@@ -1260,15 +1371,16 @@ export function buildNativeChartCrosshair(
     customPaintStyles: buildCrosshairStyles(scene, point, scrub),
   };
   if (!point) return overlay;
+  const guideX = clampToPricedEnd(scene, x);
   drawCrosshairPlot(
     scene,
     point,
     overlay.commands,
-    scrub ? x : point.x,
+    scrub ? guideX : point.x,
     scrub,
     hideHoverDot,
   );
   drawCrosshairPrice(scene, point, overlay.commands);
-  drawScrubTooltip(scene, point, x, y, overlay, scrub);
+  drawScrubTooltip(scene, point, guideX, y, overlay, scrub);
   return overlay;
 }

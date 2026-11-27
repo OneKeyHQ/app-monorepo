@@ -16,9 +16,14 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { XMR_DECIMALS } from '@onekeyhq/shared/src/config/xmr';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidAddress,
+  OneKeyError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -39,6 +44,10 @@ import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
+import {
+  buildSwapLiveActivitySnapshot,
+  getSwapLiveActivityOrderKey,
+} from '@onekeyhq/shared/src/utils/liveActivityUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -54,6 +63,7 @@ import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHi
 import {
   getSwapHistoryDisplayFromAmount,
   getSwapHistoryDisplayToAmount,
+  getSwapProviderOrderIdFromContext,
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryTerminalStatus,
@@ -67,6 +77,11 @@ import {
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import { buildSwapTokenSearchRequests } from '@onekeyhq/shared/src/utils/swapTokenSearchRequestUtils';
+import {
+  hasXmrMainnetPrimaryAddressShape,
+  isXmrSwapNetwork,
+  isXmrSwapProvider,
+} from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
@@ -96,7 +111,6 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapExtraStatus,
-  ESwapQuoteKind,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
@@ -131,6 +145,7 @@ import {
   ESwapFetchCancelCause,
   ESwapLimitOrderStatus,
   ESwapLimitOrderUpdateInterval,
+  ESwapQuoteKind,
   ESwapQuoteSource,
   ESwapTabSwitchType,
   ESwapTradeSource,
@@ -149,6 +164,12 @@ import { vaultFactory } from '../vaults/factory';
 import { isAddressWithheldFromBackend } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
+import {
+  isReplacedDeposit,
+  markBlockedOrder,
+  markReplacedDeposit,
+} from './ServiceLiveActivity/replacementGuard';
+import { liveActivityRemoteTracking } from './ServiceLiveActivity/subscriptionTransport';
 import {
   buildPerpDepositOrderStatusRequestParams,
   buildSwapReferralBuildTxParams,
@@ -404,14 +425,6 @@ function getProtocolOfExchangeFromSwapTab(
   return EProtocolOfExchange.SWAP;
 }
 
-function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
-  const rocketXOrderId = (ctx as { rocketXOrderId?: unknown } | undefined)
-    ?.rocketXOrderId;
-  return typeof rocketXOrderId === 'string' && rocketXOrderId
-    ? rocketXOrderId
-    : undefined;
-}
-
 function getPrivateSendPayinAddressFromCtx(ctx: unknown) {
   const payinAddress = (ctx as { payinAddress?: unknown } | undefined)
     ?.payinAddress;
@@ -432,6 +445,13 @@ function getSwapHistoryStateReceivedAddress({
   isPrivateSendHistory: boolean;
 }) {
   if (!isPrivateSendHistory) {
+    if (
+      isXmrSwapNetwork(swapTxHistory.baseInfo.toToken.networkId) &&
+      !isXmrSwapNetwork(swapTxHistory.baseInfo.fromToken.networkId) &&
+      isXmrSwapProvider(swapTxHistory.swapInfo.provider.provider)
+    ) {
+      return undefined;
+    }
     return swapTxHistory.txInfo.receiver || undefined;
   }
   return (
@@ -439,6 +459,45 @@ function getSwapHistoryStateReceivedAddress({
     swapTxHistory.txInfo.receiver ||
     undefined
   );
+}
+
+function getXmrSwapRequestAddress({
+  fromToken,
+  toToken,
+  userAddress,
+  receivingAddress,
+  protocol,
+  kind,
+}: {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  userAddress?: string;
+  receivingAddress?: string;
+  protocol: EProtocolOfExchange;
+  kind?: ESwapQuoteKind;
+}) {
+  const isSource = isXmrSwapNetwork(fromToken.networkId);
+  const isDestination = isXmrSwapNetwork(toToken.networkId);
+  if (
+    (!isSource && hasXmrMainnetPrimaryAddressShape(userAddress)) ||
+    (!isDestination && hasXmrMainnetPrimaryAddressShape(receivingAddress))
+  ) {
+    throw new InvalidAddress();
+  }
+  if (!isSource && !isDestination) return undefined;
+  const token = isSource ? fromToken : toToken;
+  if (
+    platformEnv.isWeb ||
+    protocol !== EProtocolOfExchange.SWAP ||
+    kind === ESwapQuoteKind.BUY ||
+    (isSource && isDestination) ||
+    !token.isNative
+  ) {
+    throw new OneKeyLocalError('Unsupported XMR swap route');
+  }
+  const address = isSource ? userAddress : receivingAddress;
+  if (!hasXmrMainnetPrimaryAddressShape(address)) throw new InvalidAddress();
+  return { address, isSource, networkId: token.networkId };
 }
 
 function getSwapHistoryStateOrderId({
@@ -454,7 +513,10 @@ function getSwapHistoryStateOrderId({
   if (!isPrivateSendHistory) {
     return orderId;
   }
-  const rocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(swapTxHistory.ctx);
+  const rocketXOrderId = getSwapProviderOrderIdFromContext(
+    privateSendProvider,
+    swapTxHistory.ctx,
+  );
   return orderId &&
     orderId !== rocketXOrderId &&
     !isPrivateSendFallbackOrderId(orderId)
@@ -584,6 +646,18 @@ export default class ServiceSwap extends ServiceBase {
   private perpDepositOrderFetchLoopIntervalTimeout = 1000;
 
   private historyCurrentStateIntervalIds: string[] = [];
+
+  private pendingSwapHistoryDeletes = new Map<string, number>();
+
+  private liveActivityStatusRequests = new Map<
+    string,
+    {
+      promise: Promise<void>;
+      shouldScheduleNextFetch: boolean;
+      shouldShowToast: boolean;
+      close: () => void;
+    }
+  >();
 
   private historyStateIntervalCountMap: Record<string, number> = {};
 
@@ -764,6 +838,13 @@ export default class ServiceSwap extends ServiceBase {
         });
       const swapNetworks = data?.data
         ?.map((network) => {
+          const isXmr = isXmrSwapNetwork(network.networkId);
+          if (
+            isXmr &&
+            (platformEnv.isWeb || network.supportCrossChainSwap !== true)
+          ) {
+            return null;
+          }
           const clientNetwork = allClientSupportNetworks.networks.find(
             (n) => n.id === network.networkId,
           );
@@ -790,10 +871,10 @@ export default class ServiceSwap extends ServiceBase {
               defaultSelectToken: network.defaultSelectToken,
               defaultSelectTokenDetail: network.defaultSelectTokenDetail,
               supportCrossChainSwap: network.supportCrossChainSwap,
-              supportSingleSwap: network.supportSingleSwap,
-              supportLimit: network.supportLimit,
-              supportPrivateSend: network.supportPrivateSend,
-              supportStock: network.supportStock,
+              supportSingleSwap: !isXmr && network.supportSingleSwap,
+              supportLimit: !isXmr && network.supportLimit,
+              supportPrivateSend: !isXmr && network.supportPrivateSend,
+              supportStock: !isXmr && network.supportStock,
             };
           }
           return null;
@@ -897,6 +978,95 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  private async getXmrSwapSpendableBalance({
+    networkId,
+    accountId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountId?: string;
+    accountAddress?: string;
+  }): Promise<string | undefined> {
+    if (!accountId || !accountAddress) return undefined;
+
+    try {
+      const address =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId,
+          accountId,
+        });
+      if (address !== accountAddress) return undefined;
+
+      const balance =
+        await this.backgroundApi.servicePrivacyChain.getLocalWalletAccountBalance(
+          { networkId, accountId },
+        );
+      if (
+        typeof balance?.spendable !== 'string' ||
+        !/^\d+$/.test(balance.spendable)
+      ) {
+        return undefined;
+      }
+      return new BigNumber(balance.spendable)
+        .shiftedBy(-XMR_DECIMALS)
+        .toFixed();
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async applyLocalXmrSwapBalance({
+    tokens,
+    protocol,
+    accountId,
+    accountAddress,
+  }: {
+    tokens: ISwapToken[];
+    protocol: EProtocolOfExchange;
+    accountId?: string;
+    accountAddress?: string;
+  }): Promise<ISwapToken[]> {
+    const xmrToken = tokens.find((token) => isXmrSwapNetwork(token.networkId));
+    if (!xmrToken) return tokens;
+
+    const xmrAvailable =
+      !platformEnv.isWeb && protocol === EProtocolOfExchange.SWAP;
+    const balanceParsed = xmrAvailable
+      ? await this.getXmrSwapSpendableBalance({
+          networkId: xmrToken.networkId,
+          accountId,
+          accountAddress,
+        })
+      : undefined;
+
+    return tokens.flatMap((token) => {
+      if (token.networkId !== xmrToken.networkId) return [token];
+      if (
+        !xmrAvailable ||
+        token.contractAddress !== '' ||
+        token.isNative !== true ||
+        token.decimals !== XMR_DECIMALS
+      ) {
+        return [];
+      }
+      const price = new BigNumber(token.price ?? '');
+      return [
+        {
+          ...token,
+          accountAddress:
+            balanceParsed === undefined ? undefined : accountAddress,
+          balanceParsed,
+          balanceMultiplier: undefined,
+          reservationValue: undefined,
+          fiatValue:
+            balanceParsed !== undefined && price.isFinite() && price.gt(0)
+              ? price.times(balanceParsed).toFixed()
+              : undefined,
+        },
+      ];
+    });
+  }
+
   private async fetchSwapTokensInternal(
     {
       networkId,
@@ -930,12 +1100,26 @@ export default class ServiceSwap extends ServiceBase {
       isTravelMode: await travelModeManager.isActive(),
       onlyAccountTokens,
     });
-    const requestAccountAddress = accountContext.accountAddress;
-    const requestAccountId = accountContext.accountId;
-    const requestAccountNetworkId = accountContext.accountNetworkId;
-    const requestOnlyAccountTokens = accountContext.onlyAccountTokens;
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
     const requestProtocol = getProtocolOfExchangeFromSwapTab(protocol);
+    const isXmrTarget = isXmrSwapNetwork(targetNetworkId);
+    const isXmrAccount = isXmrSwapNetwork(accountContext.accountNetworkId);
+    if (
+      isXmrTarget &&
+      (platformEnv.isWeb || requestProtocol !== EProtocolOfExchange.SWAP)
+    ) {
+      return [];
+    }
+    const withholdAccountContext =
+      isXmrTarget ||
+      isXmrAccount ||
+      hasXmrMainnetPrimaryAddressShape(accountContext.accountAddress?.trim());
+    const {
+      accountAddress: requestAccountAddress,
+      accountId: requestAccountId,
+      accountNetworkId: requestAccountNetworkId,
+      onlyAccountTokens: requestOnlyAccountTokens,
+    } = withholdAccountContext ? {} : accountContext;
     const params: IFetchTokenListParams = {
       protocol: requestProtocol,
       networkId: targetNetworkId,
@@ -1063,8 +1247,28 @@ export default class ServiceSwap extends ServiceBase {
       if (failedResponse && tokens.length === 0) {
         throw failedResponse.reason;
       }
-      return normalizeSwapTokenListCurrency({
+      const localXmrAccount = isXmrTarget
+        ? !accountContext.accountNetworkId || isXmrAccount
+        : isXmrAccount &&
+          networkUtils.isAllNetwork({ networkId: targetNetworkId });
+      const tokensWithLocalBalance = await this.applyLocalXmrSwapBalance({
         tokens,
+        protocol: requestProtocol,
+        accountId: localXmrAccount ? accountContext.accountId : undefined,
+        accountAddress: localXmrAccount
+          ? accountContext.accountAddress
+          : undefined,
+      });
+      throwIfCanceled();
+      return normalizeSwapTokenListCurrency({
+        tokens:
+          withholdAccountContext && accountContext.onlyAccountTokens
+            ? tokensWithLocalBalance.filter(
+                (token) =>
+                  isXmrSwapNetwork(token.networkId) &&
+                  new BigNumber(token.balanceParsed ?? '').gt(0),
+              )
+            : tokensWithLocalBalance,
         currency: requestCurrency,
       });
     } catch (e) {
@@ -1179,6 +1383,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapTokenDetails({
     networkId,
     accountAddress,
+    accountNetworkId,
     accountId,
     contractAddress,
     direction,
@@ -1190,6 +1395,7 @@ export default class ServiceSwap extends ServiceBase {
   }: {
     networkId: string;
     accountAddress?: string;
+    accountNetworkId?: string;
     accountId?: string;
     contractAddress: string;
     direction?: ESwapDirectionType;
@@ -1199,15 +1405,42 @@ export default class ServiceSwap extends ServiceBase {
     balanceMultiplier?: string;
     requireFreshBalanceMultiplier?: boolean;
   }): Promise<ISwapToken[] | undefined> {
+    // Capture this request's controller before any asynchronous preparation.
+    // A successor can cancel it even while local balance or headers are pending.
+    let fetchSignal: AbortSignal | undefined;
+    if (
+      direction === ESwapDirectionType.FROM ||
+      direction === ESwapDirectionType.TO
+    ) {
+      const controller = new AbortController();
+      this._tokenDetailAbortControllerMap[direction]?.abort();
+      this._tokenDetailAbortControllerMap[direction] = controller;
+      fetchSignal = controller.signal;
+    }
     try {
-      await this.cancelFetchTokenDetail(direction);
       const accountContext = resolveSwapRequestAccountContext({
         accountAddress,
+        accountNetworkId,
         accountId,
         isTravelMode: await travelModeManager.isActive(),
       });
-      const requestAccountAddress = accountContext.accountAddress;
-      const requestAccountId = accountContext.accountId;
+      const isXmr = isXmrSwapNetwork(networkId);
+      if (
+        isXmr &&
+        (platformEnv.isWeb ||
+          protocol !== EProtocolOfExchange.SWAP ||
+          contractAddress !== '')
+      ) {
+        return [];
+      }
+      const withholdAccountContext =
+        isXmr ||
+        isXmrSwapNetwork(accountContext.accountNetworkId) ||
+        hasXmrMainnetPrimaryAddressShape(accountContext.accountAddress?.trim());
+      const {
+        accountAddress: requestAccountAddress,
+        accountId: requestAccountId,
+      } = withholdAccountContext ? {} : accountContext;
       const params: IFetchTokenDetailParams = {
         protocol,
         networkId,
@@ -1215,13 +1448,6 @@ export default class ServiceSwap extends ServiceBase {
         contractAddress,
         currency,
       };
-      if (direction) {
-        if (direction === ESwapDirectionType.FROM) {
-          this._tokenDetailAbortControllerMap.from = new AbortController();
-        } else if (direction === ESwapDirectionType.TO) {
-          this._tokenDetailAbortControllerMap.to = new AbortController();
-        }
-      }
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       if (requestAccountId && requestAccountAddress && networkId) {
         try {
@@ -1249,12 +1475,6 @@ export default class ServiceSwap extends ServiceBase {
           );
         params.withCheckInscription = withCheckInscription;
       }
-      let fetchSignal: AbortSignal | undefined;
-      if (direction === ESwapDirectionType.FROM) {
-        fetchSignal = this._tokenDetailAbortControllerMap.from?.signal;
-      } else if (direction === ESwapDirectionType.TO) {
-        fetchSignal = this._tokenDetailAbortControllerMap.to?.signal;
-      }
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/token/detail',
         {
@@ -1271,6 +1491,26 @@ export default class ServiceSwap extends ServiceBase {
         },
       );
       const tokens = data?.data;
+      if (isXmr && tokens) {
+        if (fetchSignal?.aborted) {
+          throw new axios.CanceledError('Token detail canceled');
+        }
+        const localXmrAccount =
+          !accountContext.accountNetworkId ||
+          isXmrSwapNetwork(accountContext.accountNetworkId);
+        const tokensWithLocalBalance = await this.applyLocalXmrSwapBalance({
+          tokens: tokens.filter((token) => token.networkId === networkId),
+          protocol,
+          accountId: localXmrAccount ? accountContext.accountId : undefined,
+          accountAddress: localXmrAccount
+            ? accountContext.accountAddress
+            : undefined,
+        });
+        if (fetchSignal?.aborted) {
+          throw new axios.CanceledError('Token detail canceled');
+        }
+        return tokensWithLocalBalance;
+      }
       if (
         protocol === EProtocolOfExchange.PRIVATE_SEND ||
         !contractAddress ||
@@ -1384,7 +1624,7 @@ export default class ServiceSwap extends ServiceBase {
       );
     } catch (e) {
       if (throwOnError) throw e;
-      console.error(e);
+      if (!axios.isCancel(e)) console.error(e);
       return [];
     }
   }
@@ -1475,6 +1715,16 @@ export default class ServiceSwap extends ServiceBase {
     userMarketPriceRate,
     quoteRequestId: inputQuoteRequestId,
   }: IFetchSwapQuoteParams) {
+    const quoteProtocol = getProtocolOfExchangeFromSwapTab(protocol);
+    const xmrRequest = getXmrSwapRequestAddress({
+      fromToken,
+      toToken,
+      userAddress,
+      receivingAddress,
+      protocol: quoteProtocol,
+      kind,
+    });
+    if (xmrRequest?.isSource && !accountId) throw new InvalidAddress();
     const quoteRequestId =
       inputQuoteRequestId ??
       `service-quote-${Date.now()}-${(this._quoteEventRequestSequence += 1)}`;
@@ -1507,7 +1757,7 @@ export default class ServiceSwap extends ServiceBase {
       ...(fromTokenAmount ? { fromTokenAmount } : {}),
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
+      protocol: quoteProtocol,
       userAddress,
       slippagePercentage,
       autoSlippage,
@@ -1628,7 +1878,7 @@ export default class ServiceSwap extends ServiceBase {
             type: 'error',
             event: {
               type: 'error',
-              message: errorEvent.error,
+              message: xmrRequest ? '' : errorEvent.error,
               xhrState: quoteEventSourcePolyfill.readyState,
               xhrStatus: quoteEventSourcePolyfill.readyState,
             },
@@ -1718,9 +1968,18 @@ export default class ServiceSwap extends ServiceBase {
           type === 'timeout' ? 'timeout' : 'error',
           xhrStatus,
         );
+        // Native SSE events can include the complete request URL.
+        const errorEvent = xmrRequest
+          ? {
+              type: 'error' as const,
+              message: '',
+              xhrState: 0,
+              xhrStatus: xhrStatus ?? 0,
+            }
+          : event;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'error',
-          event,
+          event: errorEvent,
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
@@ -1801,6 +2060,39 @@ export default class ServiceSwap extends ServiceBase {
     preparedContext?: ISwapBuildTxContext;
     reviewQuoteValidUntil?: number;
   }): Promise<IFetchBuildTxResponse | undefined> {
+    const xmrRequest = getXmrSwapRequestAddress({
+      fromToken,
+      toToken,
+      userAddress,
+      receivingAddress,
+      protocol,
+      kind,
+    });
+    if (xmrRequest) {
+      if (!isXmrSwapProvider(provider)) {
+        throw new OneKeyLocalError('Unsupported XMR swap provider');
+      }
+      const { address, networkId, isSource } = xmrRequest;
+      if (isSource) {
+        if (
+          !accountId ||
+          address !==
+            (await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              accountId,
+              networkId,
+            }))
+        ) {
+          throw new InvalidAddress();
+        }
+      } else {
+        const validation =
+          await this.backgroundApi.serviceValidator.localValidateAddress({
+            networkId,
+            address,
+          });
+        if (!validation.isValid) throw new InvalidAddress();
+      }
+    }
     const contextPromise =
       preparedContext &&
       preparedContext.accountId === accountId &&
@@ -1854,6 +2146,12 @@ export default class ServiceSwap extends ServiceBase {
         },
       };
     }
+    if (platformEnv.isNativeIOS) {
+      // Start warming the icons before signing without holding up the swap.
+      void this.backgroundApi.serviceLiveActivity
+        ?.prefetchSwapIcons?.({ protocol, fromToken, toToken })
+        ?.catch(() => undefined);
+    }
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
@@ -1861,12 +2159,49 @@ export default class ServiceSwap extends ServiceBase {
         headers: context.walletTypeHeader,
       },
     );
-    if (data?.data?.reviewQuoteExpiredBeforeSubmit) {
-      const result = { ...data.data };
-      delete result.reviewQuoteExpiredBeforeSubmit;
-      return result;
+    const build = data?.data?.reviewQuoteExpiredBeforeSubmit
+      ? omit(data.data, 'reviewQuoteExpiredBeforeSubmit')
+      : data?.data;
+    if (xmrRequest) {
+      const providerOrderId = getSwapProviderOrderIdFromContext(
+        provider,
+        build?.ctx,
+      );
+      const depositAmount = new BigNumber(
+        build?.changellyOrder?.amountExpectedFrom ?? '',
+      );
+      if (
+        typeof build?.orderId !== 'string' ||
+        !build.orderId.trim() ||
+        build.swftOrder ||
+        build.result?.info?.provider !== provider ||
+        !equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: build.result.fromTokenInfo,
+        }) ||
+        !equalTokenNoCaseSensitive({
+          token1: toToken,
+          token2: build.result.toTokenInfo,
+        }) ||
+        Boolean(build.result.fromTokenInfo.isNative) !==
+          Boolean(fromToken.isNative) ||
+        build.result.fromTokenInfo.decimals !== fromToken.decimals ||
+        Boolean(build.result.toTokenInfo.isNative) !==
+          Boolean(toToken.isNative) ||
+        build.result.toTokenInfo.decimals !== toToken.decimals ||
+        !providerOrderId ||
+        build.changellyOrder?.orderId !== providerOrderId ||
+        typeof build.changellyOrder.payinAddress !== 'string' ||
+        !build.changellyOrder.payinAddress.trim() ||
+        !depositAmount.isFinite() ||
+        !depositAmount.gt(0) ||
+        !depositAmount.eq(fromTokenAmount) ||
+        !depositAmount.eq(build.result.fromAmount ?? '')
+      ) {
+        throw new OneKeyLocalError('XMR swap order could not be verified');
+      }
     }
-    return data?.data;
+    return build;
   }
 
   @backgroundMethod()
@@ -1881,6 +2216,7 @@ export default class ServiceSwap extends ServiceBase {
     orderId,
     ctx,
     requestCurrency,
+    requireValidStatus = false,
   }: {
     txId?: string;
     toTokenAddress?: string;
@@ -1891,6 +2227,7 @@ export default class ServiceSwap extends ServiceBase {
     orderId?: string;
     ctx?: any;
     requestCurrency?: string;
+    requireValidStatus?: boolean;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {
       txId,
@@ -1911,7 +2248,14 @@ export default class ServiceSwap extends ServiceBase {
         ? { 'x-onekey-request-currency': requestCurrency }
         : undefined,
     });
-    return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
+    const result = data?.data;
+    if (
+      requireValidStatus &&
+      (!result || !Object.values(ESwapTxHistoryStatus).includes(result.state))
+    ) {
+      throw new OneKeyLocalError('Swap status response is missing or invalid');
+    }
+    return result ?? { state: ESwapTxHistoryStatus.PENDING };
   }
 
   private async fetchSwapOrderDetail({
@@ -2530,6 +2874,39 @@ export default class ServiceSwap extends ServiceBase {
     );
   }
 
+  private isReplacedLiveActivityDeposit(
+    history: ISwapTxHistory,
+    remoteTrackingEnabled: boolean,
+  ) {
+    return (
+      remoteTrackingEnabled &&
+      this.isReplacedLiveActivityDepositTxId(
+        history.baseInfo.fromToken.networkId,
+        history.txInfo.txId,
+      ) &&
+      !!buildSwapLiveActivitySnapshot(history)
+    );
+  }
+
+  private isReplacedLiveActivityDepositTxId(
+    networkId: string,
+    txId: string | undefined,
+  ) {
+    return isReplacedDeposit(networkId, txId);
+  }
+
+  private shouldContinueLiveActivityRefundPolling(
+    history: ISwapTxHistory,
+    remoteTrackingEnabled: boolean,
+  ) {
+    if (!remoteTrackingEnabled) return false;
+    const snapshot = buildSwapLiveActivitySnapshot(history);
+    return (
+      snapshot?.content.status === 'refunding' &&
+      snapshot.order.expiresAtMs > Date.now()
+    );
+  }
+
   private isSameSwapHistoryItem(a: ISwapTxHistory, b: ISwapTxHistory) {
     const bPrimaryId = b.txInfo.useOrderId ? b.txInfo.orderId : b.txInfo.txId;
     const aPrimaryId = b.txInfo.useOrderId ? a.txInfo.orderId : a.txInfo.txId;
@@ -2616,6 +2993,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async refreshSwapHistoryPendingStatusOnce() {
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
     await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = await this.swapHistoryMutationMutex.runExclusive(
       async () => {
@@ -2630,7 +3008,14 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList:
             filterSwapHistoryPendingList(nextPendingHistories),
         }));
-        return nextPendingHistories;
+        return histories.filter(
+          (history) =>
+            this.isSwapHistoryPendingStatus(history) ||
+            this.shouldContinueLiveActivityRefundPolling(
+              history,
+              remoteTrackingEnabled,
+            ),
+        );
       },
     );
 
@@ -2660,7 +3045,7 @@ export default class ServiceSwap extends ServiceBase {
    * spaced to be worth making at all. Same shape as the Earn order retry in
    * ServiceStaking; p-retry is ESM-only and would not load under jest here.
    */
-  private async retrySwapHistoryPersistence(operation: () => Promise<void>) {
+  private async retrySwapHistoryPersistence(operation: () => Promise<boolean>) {
     let lastError = new Error('Persist swap history failed');
     for (
       let attempt = 0;
@@ -2668,8 +3053,7 @@ export default class ServiceSwap extends ServiceBase {
       attempt += 1
     ) {
       try {
-        await operation();
-        return;
+        return await operation();
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         if (attempt < SWAP_HISTORY_PERSIST_MAX_ATTEMPTS - 1) {
@@ -2777,9 +3161,14 @@ export default class ServiceSwap extends ServiceBase {
     // writer, so a snapshot would only risk acting on a stale payload.
     for (const [key, item] of this.swapHistoryDurableRetryQueue) {
       try {
-        await this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
-          item,
-        );
+        const staged =
+          await this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
+            item,
+          );
+        if (!staged) {
+          this.syncSwapHistoryDurableRetrySchedule();
+          return;
+        }
       } catch (error) {
         this.logSwapHistoryPersistError(error);
         // Every queued item targets the same store, so one rejection settles
@@ -2797,8 +3186,20 @@ export default class ServiceSwap extends ServiceBase {
       } catch (error) {
         this.logSwapHistoryPersistError(error);
       }
+      this.publishSwapHistoryLiveActivity(item);
     }
     this.syncSwapHistoryDurableRetrySchedule();
+  }
+
+  private publishSwapHistoryLiveActivity(item: ISwapTxHistory) {
+    if (
+      item.swapInfo.liveActivityOrderKey &&
+      this.isSwapHistoryPendingStatus(item)
+    ) {
+      void this.backgroundApi.serviceLiveActivity
+        .onSwapBroadcast(item)
+        .catch(() => undefined);
+    }
   }
 
   /**
@@ -2815,6 +3216,10 @@ export default class ServiceSwap extends ServiceBase {
   async addSwapHistoryItem(
     item: ISwapTxHistory,
   ): Promise<{ durable: boolean }> {
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
+    if (remoteTrackingEnabled && buildSwapLiveActivitySnapshot(item)) {
+      item.swapInfo.liveActivityOrderKey = getSwapLiveActivityOrderKey(item);
+    }
     const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
     const isPending = this.isSwapHistoryPendingStatus(enrichedItem);
     let durable = true;
@@ -2826,17 +3231,16 @@ export default class ServiceSwap extends ServiceBase {
       let pendingWriteStaged = false;
       if (isPending) {
         try {
-          await this.retrySwapHistoryPersistence(() =>
+          pendingWriteStaged = await this.retrySwapHistoryPersistence(() =>
             this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
               enrichedItem,
             ),
           );
-          pendingWriteStaged = true;
         } catch (error) {
           this.logSwapHistoryPersistError(error);
         }
       } else {
-        await persistHistoryItem();
+        durable = await persistHistoryItem();
       }
       await inAppNotificationAtom.set((pre) => {
         const filteredList = filterSwapHistoryPendingList(
@@ -2869,13 +3273,14 @@ export default class ServiceSwap extends ServiceBase {
       });
       if (isPending) {
         try {
-          await this.retrySwapHistoryPersistence(() =>
+          const committed = await this.retrySwapHistoryPersistence(() =>
             pendingWriteStaged
               ? this.backgroundApi.simpleDb.swapHistory.commitPendingSwapHistoryItem(
                   enrichedItem,
                 )
               : persistHistoryItem(),
           );
+          durable = committed || pendingWriteStaged;
         } catch (error) {
           this.logSwapHistoryPersistError(error);
           // A staged write is already durable: recoverPendingSwapHistoryItems
@@ -2889,10 +3294,11 @@ export default class ServiceSwap extends ServiceBase {
           this.getSwapHistoryIntervalKey(enrichedItem),
         );
         this.syncSwapHistoryDurableRetrySchedule();
-      } else {
+      } else if (isPending) {
         this.enqueueSwapHistoryDurableRetry(enrichedItem);
       }
     });
+    if (durable) this.publishSwapHistoryLiveActivity(enrichedItem);
     if (isPrivateSendSwapHistoryItem(enrichedItem) && !isPending) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
@@ -2907,24 +3313,55 @@ export default class ServiceSwap extends ServiceBase {
     item: ISwapTxHistory,
     oldTxId?: string,
     feeUpdate?: ISwapHistoryFeeUpdate,
+    shouldCommit?: () => boolean,
+    requirePersisted?: boolean,
+    sourceTxId?: string,
   ) {
-    const persistedItem = feeUpdate
-      ? await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+    let persistedItem: ISwapTxHistory | undefined;
+    if (shouldCommit) {
+      persistedItem =
+        await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItemIfCurrent(
+          item,
+          shouldCommit,
+          feeUpdate,
+          sourceTxId,
+        );
+    } else if (feeUpdate) {
+      persistedItem =
+        await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
           item,
           oldTxId,
           feeUpdate,
-        )
-      : await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+        );
+    } else {
+      persistedItem =
+        await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
           item,
           oldTxId,
         );
-    const updatedItem = persistedItem ?? item;
+    }
     // The durable write for a queued item never landed, so this update had
     // nothing to change. Re-queue under the current identity instead, or the
     // retry would eventually persist a status the swap has already left.
     const key = this.getSwapHistoryIntervalKey(item);
+    const previousTxId = oldTxId ?? sourceTxId;
     const queuedKey =
-      oldTxId && this.swapHistoryDurableRetryQueue.has(oldTxId) ? oldTxId : key;
+      previousTxId && this.swapHistoryDurableRetryQueue.has(previousTxId)
+        ? previousTxId
+        : key;
+    if (shouldCommit && !shouldCommit()) {
+      throw new OneKeyLocalError(
+        'Swap history status was superseded during refresh',
+      );
+    }
+    if (
+      (shouldCommit || requirePersisted) &&
+      !persistedItem &&
+      !this.swapHistoryDurableRetryQueue.has(queuedKey)
+    ) {
+      return undefined;
+    }
+    const updatedItem = persistedItem ?? item;
     if (this.swapHistoryDurableRetryQueue.has(queuedKey)) {
       this.swapHistoryDurableRetryQueue.delete(queuedKey);
       this.enqueueSwapHistoryDurableRetry(updatedItem);
@@ -2934,28 +3371,102 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async updateSwapHistoryTx({
+    networkId,
     oldTxId,
     newTxId,
     status,
   }: {
+    networkId: string;
     oldTxId: string;
     newTxId: string;
     status: ESwapTxHistoryStatus;
   }) {
-    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
-    const oldHistoryItem = filterSwapHistoryPendingList(
-      swapHistoryPendingList,
-    ).find((item) => item.txInfo.txId === oldTxId);
-    if (oldHistoryItem) {
-      const updated = Date.now();
-      const newHistoryItem = await this.enrichSwapHistoryItemNetworkInfo({
-        ...oldHistoryItem,
-        date: { ...oldHistoryItem.date, updated },
-        txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
-        status,
-      });
-      await this.swapHistoryMutationMutex.runExclusive(async () => {
-        await this.persistSwapHistoryUpdate(newHistoryItem, oldTxId);
+    const closeActivity = status !== ESwapTxHistoryStatus.PENDING;
+    if (platformEnv.isNativeIOS) {
+      const now = Date.now();
+      markReplacedDeposit(networkId, oldTxId, now + 8 * 60 * 60 * 1000);
+      if (closeActivity) {
+        void this.backgroundApi.serviceLiveActivity
+          ?.onSwapDepositReplaced?.({ networkId, oldTxId })
+          ?.catch((error: unknown) => {
+            defaultLogger.notification.jpush.consoleError(
+              'Live Activity replacement notification failed',
+              {
+                errorType: error instanceof Error ? error.name : 'UnknownError',
+              },
+            );
+          });
+      }
+    }
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
+    const foundHistory = await this.swapHistoryMutationMutex.runExclusive(
+      async () => {
+        const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+        const oldHistoryItem = filterSwapHistoryPendingList(
+          swapHistoryPendingList,
+        ).find(
+          (item) =>
+            item.baseInfo.fromToken.networkId === networkId &&
+            item.txInfo.txId === oldTxId,
+        );
+        if (!oldHistoryItem) return false;
+        const liveActivitySnapshot = platformEnv.isNativeIOS
+          ? buildSwapLiveActivitySnapshot(oldHistoryItem)
+          : undefined;
+        if (liveActivitySnapshot && closeActivity) {
+          markBlockedOrder(
+            liveActivitySnapshot.order.orderKey,
+            Math.max(
+              liveActivitySnapshot.order.expiresAtMs,
+              Date.now() + 8 * 60 * 60 * 1000,
+            ),
+          );
+          void this.backgroundApi.serviceLiveActivity
+            ?.onSwapDepositReplaced?.({
+              networkId,
+              oldTxId,
+              orderKey: liveActivitySnapshot.order.orderKey,
+              expiresAtMs: liveActivitySnapshot.order.expiresAtMs,
+            })
+            ?.catch((error: unknown) => {
+              defaultLogger.notification.jpush.consoleError(
+                'Live Activity replacement notification failed',
+                {
+                  errorType:
+                    error instanceof Error ? error.name : 'UnknownError',
+                },
+              );
+            });
+        }
+        const updated = Date.now();
+        const newHistoryItem = await this.enrichSwapHistoryItemNetworkInfo({
+          ...oldHistoryItem,
+          date: { ...oldHistoryItem.date, updated },
+          txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
+          swapInfo: {
+            ...oldHistoryItem.swapInfo,
+            ...(liveActivitySnapshot && remoteTrackingEnabled
+              ? {
+                  liveActivityOrderKey:
+                    getSwapLiveActivityOrderKey(oldHistoryItem),
+                }
+              : undefined),
+          },
+          status,
+        });
+        const persisted = await this.persistSwapHistoryUpdate(
+          newHistoryItem,
+          oldTxId,
+          undefined,
+          undefined,
+          true,
+        );
+        if (!persisted) return true;
+        if (liveActivitySnapshot) {
+          await this.cleanHistoryStateIntervals(
+            this.getSwapHistoryIntervalKey(oldHistoryItem),
+          );
+        }
         await inAppNotificationAtom.set((pre) => {
           const newPendingList = filterSwapHistoryPendingList(
             pre.swapHistoryPendingList,
@@ -2967,9 +3478,10 @@ export default class ServiceSwap extends ServiceBase {
             swapHistoryPendingList: newPendingList,
           };
         });
-      });
-      return;
-    }
+        return true;
+      },
+    );
+    if (foundHistory) return;
     const approvingTransaction = await this.getApprovingTransaction();
     if (
       approvingTransaction &&
@@ -2987,16 +3499,23 @@ export default class ServiceSwap extends ServiceBase {
     options?: {
       shouldShowToast?: boolean;
       privateSendFeeUpdate?: ISwapHistoryFeeUpdate;
+      rejectReplacedLiveActivityDeposit?: string;
     },
   ) {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const shouldShowToast = options?.shouldShowToast ?? true;
     const filteredList = filterSwapHistoryPendingList(swapHistoryPendingList);
-    const matchFn = (i: ISwapTxHistory) => this.isSameSwapHistoryItem(i, item);
-    const oldItem = filteredList.find(matchFn);
+    const sourceTxId = options?.rejectReplacedLiveActivityDeposit;
+    const matchFn = (i: ISwapTxHistory) =>
+      sourceTxId
+        ? i.txInfo.txId === sourceTxId &&
+          (!item.txInfo.useOrderId || i.txInfo.orderId === item.txInfo.orderId)
+        : this.isSameSwapHistoryItem(i, item);
+    let oldItem = filteredList.find(matchFn);
     const updated = Date.now();
     item.date = { ...item.date, updated };
     if (
+      !sourceTxId &&
       oldItem?.status === ESwapTxHistoryStatus.CANCELING &&
       item.status === ESwapTxHistoryStatus.SUCCESS
     ) {
@@ -3005,70 +3524,128 @@ export default class ServiceSwap extends ServiceBase {
       item.status = ESwapTxHistoryStatus.CANCELED;
     }
     let enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
-    if (oldItem) {
-      if (
-        enrichedItem.txInfo.receiverTransactionId &&
-        !this._crossChainReceiveTxBlockNotificationMap[
-          enrichedItem.txInfo.receiverTransactionId
-        ]
-      ) {
-        void this.backgroundApi.serviceNotification.blockNotificationForTxId({
-          networkId: enrichedItem.baseInfo.toToken.networkId,
-          tx: enrichedItem.txInfo.receiverTransactionId,
-        });
-        this._crossChainReceiveTxBlockNotificationMap[
-          enrichedItem.txInfo.receiverTransactionId
-        ] = true;
-      }
-      const isPrivateSendHistory = isPrivateSendSwapHistoryItem(enrichedItem);
-      const isSuccessStatus =
-        enrichedItem.status === ESwapTxHistoryStatus.SUCCESS ||
-        enrichedItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
-      if (
-        shouldShowToast &&
-        enrichedItem.status !== ESwapTxHistoryStatus.PENDING &&
-        (!isPrivateSendHistory || isSuccessStatus)
-      ) {
-        let toastTitleId = ETranslations.swap_page_toast_swap_failed;
-        if (isSuccessStatus) {
-          toastTitleId = isPrivateSendHistory
-            ? ETranslations.private_send_success
-            : ETranslations.swap_page_toast_swap_successful;
+    const publishHistorySideEffects = () => {
+      if (oldItem) {
+        if (
+          enrichedItem.txInfo.receiverTransactionId &&
+          !this._crossChainReceiveTxBlockNotificationMap[
+            enrichedItem.txInfo.receiverTransactionId
+          ]
+        ) {
+          void this.backgroundApi.serviceNotification.blockNotificationForTxId({
+            networkId: enrichedItem.baseInfo.toToken.networkId,
+            tx: enrichedItem.txInfo.receiverTransactionId,
+          });
+          this._crossChainReceiveTxBlockNotificationMap[
+            enrichedItem.txInfo.receiverTransactionId
+          ] = true;
         }
-        let fromAmountFinal = enrichedItem.baseInfo.fromAmount;
-        if (enrichedItem.swapInfo.otherFeeInfos?.length) {
-          enrichedItem.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
-            if (
-              equalTokenNoCaseSensitive({
-                token1: extraFeeInfo.token,
-                token2: enrichedItem.baseInfo.fromToken,
-              })
-            ) {
-              fromAmountFinal = new BigNumber(fromAmountFinal)
-                .plus(extraFeeInfo.amount ?? 0)
-                .toFixed();
-            }
+        const isPrivateSendHistory = isPrivateSendSwapHistoryItem(enrichedItem);
+        const isSuccessStatus =
+          enrichedItem.status === ESwapTxHistoryStatus.SUCCESS ||
+          enrichedItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
+        if (
+          shouldShowToast &&
+          enrichedItem.status !== ESwapTxHistoryStatus.PENDING &&
+          (!isPrivateSendHistory || isSuccessStatus)
+        ) {
+          let toastTitleId = ETranslations.swap_page_toast_swap_failed;
+          if (isSuccessStatus) {
+            toastTitleId = isPrivateSendHistory
+              ? ETranslations.private_send_success
+              : ETranslations.swap_page_toast_swap_successful;
+          }
+          let fromAmountFinal = enrichedItem.baseInfo.fromAmount;
+          if (enrichedItem.swapInfo.otherFeeInfos?.length) {
+            enrichedItem.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
+              if (
+                equalTokenNoCaseSensitive({
+                  token1: extraFeeInfo.token,
+                  token2: enrichedItem.baseInfo.fromToken,
+                })
+              ) {
+                fromAmountFinal = new BigNumber(fromAmountFinal)
+                  .plus(extraFeeInfo.amount ?? 0)
+                  .toFixed();
+              }
+            });
+          }
+          void this.backgroundApi.serviceApp.showToast({
+            method: isSuccessStatus ? 'success' : 'error',
+            title: appLocale.intl.formatMessage({
+              id: toastTitleId,
+            }),
+            message: `${numberFormat(getSwapHistoryDisplayFromAmount(enrichedItem, fromAmountFinal), formatter)} ${
+              enrichedItem.baseInfo.fromToken.symbol
+            } → ${numberFormat(getSwapHistoryDisplayToAmount(enrichedItem), formatter)} ${
+              enrichedItem.baseInfo.toToken.symbol
+            }`,
           });
         }
-        void this.backgroundApi.serviceApp.showToast({
-          method: isSuccessStatus ? 'success' : 'error',
-          title: appLocale.intl.formatMessage({
-            id: toastTitleId,
-          }),
-          message: `${numberFormat(getSwapHistoryDisplayFromAmount(enrichedItem, fromAmountFinal), formatter)} ${
-            enrichedItem.baseInfo.fromToken.symbol
-          } → ${numberFormat(getSwapHistoryDisplayToAmount(enrichedItem), formatter)} ${
-            enrichedItem.baseInfo.toToken.symbol
-          }`,
-        });
       }
+    };
+    if (!options?.rejectReplacedLiveActivityDeposit) {
+      publishHistorySideEffects();
     }
     await this.swapHistoryMutationMutex.runExclusive(async () => {
-      enrichedItem = await this.persistSwapHistoryUpdate(
+      if (
+        options?.rejectReplacedLiveActivityDeposit &&
+        this.isReplacedLiveActivityDepositTxId(
+          item.baseInfo.fromToken.networkId,
+          options.rejectReplacedLiveActivityDeposit,
+        )
+      ) {
+        throw new OneKeyLocalError(
+          'Swap deposit was replaced during status refresh',
+        );
+      }
+      if (sourceTxId) {
+        const current = await inAppNotificationAtom.get();
+        oldItem = filterSwapHistoryPendingList(
+          current.swapHistoryPendingList,
+        ).find(matchFn);
+        if (
+          oldItem?.status === ESwapTxHistoryStatus.CANCELING &&
+          item.status === ESwapTxHistoryStatus.SUCCESS
+        ) {
+          item.status = ESwapTxHistoryStatus.CANCELED;
+          enrichedItem.status = ESwapTxHistoryStatus.CANCELED;
+        }
+      }
+      const persisted = await this.persistSwapHistoryUpdate(
         enrichedItem,
         undefined,
         options?.privateSendFeeUpdate,
+        options?.rejectReplacedLiveActivityDeposit
+          ? () =>
+              !this.isReplacedLiveActivityDepositTxId(
+                item.baseInfo.fromToken.networkId,
+                options.rejectReplacedLiveActivityDeposit,
+              ) &&
+              !this.pendingSwapHistoryDeletes.has(
+                options.rejectReplacedLiveActivityDeposit ?? '',
+              )
+          : undefined,
+        undefined,
+        options?.rejectReplacedLiveActivityDeposit,
       );
+      if (!persisted) {
+        throw new OneKeyLocalError(
+          'Swap history status update was not committed',
+        );
+      }
+      enrichedItem = persisted;
+      if (
+        options?.rejectReplacedLiveActivityDeposit &&
+        this.isReplacedLiveActivityDepositTxId(
+          item.baseInfo.fromToken.networkId,
+          options.rejectReplacedLiveActivityDeposit,
+        )
+      ) {
+        throw new OneKeyLocalError(
+          'Swap deposit was replaced during status refresh',
+        );
+      }
       if (oldItem) {
         await inAppNotificationAtom.set((pre) => {
           const newPendingList = filterSwapHistoryPendingList(
@@ -3079,6 +3656,15 @@ export default class ServiceSwap extends ServiceBase {
             swapHistoryPendingList: newPendingList,
           };
         });
+      }
+      if (
+        options?.rejectReplacedLiveActivityDeposit &&
+        !this.isReplacedLiveActivityDepositTxId(
+          item.baseInfo.fromToken.networkId,
+          options.rejectReplacedLiveActivityDeposit,
+        )
+      ) {
+        publishHistorySideEffects();
       }
     });
     if (isPrivateSendSwapHistoryItem(enrichedItem)) {
@@ -3095,35 +3681,38 @@ export default class ServiceSwap extends ServiceBase {
     const shouldDeleteHistory = (item: ISwapTxHistory) =>
       shouldDeleteSwapHistoryItem(item, statuses, options);
     await this.swapHistoryMutationMutex.runExclusive(async () => {
-      await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
-        statuses,
-        options,
+      const deleted =
+        await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
+          statuses,
+          options,
+        );
+      const deletedIds = new Set(
+        (deleted ?? []).map((item) => this.getSwapHistoryIntervalKey(item)),
       );
       // Reconciliation can evict a queued item from the pending atom, so
       // apply the clear scope to the queue entries directly.
       for (const [key, item] of this.swapHistoryDurableRetryQueue) {
         if (shouldDeleteHistory(item)) {
           this.swapHistoryDurableRetryQueue.delete(key);
+          deletedIds.add(key);
         }
       }
       this.syncSwapHistoryDurableRetrySchedule();
       const inAppNotification = await inAppNotificationAtom.get();
-      const deleteHistoryIds = filterSwapHistoryPendingList(
+      for (const item of filterSwapHistoryPendingList(
         inAppNotification.swapHistoryPendingList,
-      )
-        .filter(shouldDeleteHistory)
-        .map((item) =>
-          item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
-        );
+      ).filter(shouldDeleteHistory)) {
+        deletedIds.add(this.getSwapHistoryIntervalKey(item));
+      }
       await inAppNotificationAtom.set((pre) => ({
         ...pre,
         swapHistoryPendingList: filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
         ).filter((item) => !shouldDeleteHistory(item)),
       }));
-      await Promise.all(
-        deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
-      );
+      for (const id of deletedIds) {
+        if (id) await this.cleanHistoryStateIntervals(id);
+      }
     });
     // The history list refreshes off the pending-status key, which does not
     // change when only finished orders are removed. Signal list views to
@@ -3137,30 +3726,45 @@ export default class ServiceSwap extends ServiceBase {
     useOrderId?: boolean;
     orderId?: string;
   }) {
-    await this.swapHistoryMutationMutex.runExclusive(async () => {
-      await this.backgroundApi.simpleDb.swapHistory.deleteOneSwapHistory(
-        txInfo,
+    const txId = txInfo.txId;
+    if (txId) {
+      this.pendingSwapHistoryDeletes.set(
+        txId,
+        (this.pendingSwapHistoryDeletes.get(txId) ?? 0) + 1,
       );
-      const deleteHistoryId = txInfo.useOrderId
-        ? (txInfo.orderId ?? '')
-        : (txInfo.txId ?? '');
-      // Same identity the retry queue is keyed by, so a pending durable retry
-      // cannot write this history back after the user removed it.
-      this.swapHistoryDurableRetryQueue.delete(deleteHistoryId);
-      this.syncSwapHistoryDurableRetrySchedule();
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapHistoryPendingList: filterSwapHistoryPendingList(
-          pre.swapHistoryPendingList,
-        ).filter(
-          (item) =>
-            (item.txInfo.useOrderId
-              ? item.txInfo.orderId
-              : item.txInfo.txId) !== deleteHistoryId,
-        ),
-      }));
-      await this.cleanHistoryStateIntervals(deleteHistoryId);
-    });
+    }
+    try {
+      await this.swapHistoryMutationMutex.runExclusive(async () => {
+        await this.backgroundApi.simpleDb.swapHistory.deleteOneSwapHistory(
+          txInfo,
+        );
+        const deleteHistoryId = txInfo.useOrderId
+          ? (txInfo.orderId ?? '')
+          : (txInfo.txId ?? '');
+        // Same identity the retry queue is keyed by, so a pending durable retry
+        // cannot write this history back after the user removed it.
+        this.swapHistoryDurableRetryQueue.delete(deleteHistoryId);
+        this.syncSwapHistoryDurableRetrySchedule();
+        await inAppNotificationAtom.set((pre) => ({
+          ...pre,
+          swapHistoryPendingList: filterSwapHistoryPendingList(
+            pre.swapHistoryPendingList,
+          ).filter(
+            (item) =>
+              (item.txInfo.useOrderId
+                ? item.txInfo.orderId
+                : item.txInfo.txId) !== deleteHistoryId,
+          ),
+        }));
+        await this.cleanHistoryStateIntervals(deleteHistoryId);
+      });
+    } finally {
+      if (txId) {
+        const remaining = (this.pendingSwapHistoryDeletes.get(txId) ?? 1) - 1;
+        if (remaining > 0) this.pendingSwapHistoryDeletes.set(txId, remaining);
+        else this.pendingSwapHistoryDeletes.delete(txId);
+      }
+    }
     // Deleting a finished order does not change the pending-status key the list
     // refreshes off, so signal list views to re-fetch (same reason as the
     // batch clean above) — otherwise the deleted row lingers until a pending
@@ -3241,6 +3845,9 @@ export default class ServiceSwap extends ServiceBase {
       toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
       receivedAddress: stateReceivedAddress,
       orderId: stateOrderId,
+      requireValidStatus:
+        (await liveActivityRemoteTracking.isReady()) &&
+        !!buildSwapLiveActivitySnapshot(currentSwapTxHistory),
     });
   }
 
@@ -3293,9 +3900,75 @@ export default class ServiceSwap extends ServiceBase {
       privateSendStatusSource?: IPrivateSendStatusSource;
     },
   ) {
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
+    const snapshot = remoteTrackingEnabled
+      ? buildSwapLiveActivitySnapshot(swapTxHistory)
+      : undefined;
+    if (!snapshot) {
+      return this.swapHistoryStatusRunFetchInner(
+        swapTxHistory,
+        options,
+        remoteTrackingEnabled,
+      );
+    }
+    const key = JSON.stringify([
+      snapshot.order.orderKey,
+      swapTxHistory.txInfo.txId,
+    ]);
+    const existing = this.liveActivityStatusRequests.get(key);
+    if (existing) {
+      existing.shouldScheduleNextFetch ||=
+        options?.shouldScheduleNextFetch ?? true;
+      existing.shouldShowToast ||= options?.shouldShowToast ?? true;
+      return existing.promise;
+    }
+    const request: {
+      promise: Promise<void>;
+      shouldScheduleNextFetch: boolean;
+      shouldShowToast: boolean;
+      close: () => void;
+    } = {
+      promise: Promise.resolve(),
+      shouldScheduleNextFetch: options?.shouldScheduleNextFetch ?? true,
+      shouldShowToast: options?.shouldShowToast ?? true,
+      close: () => {
+        if (this.liveActivityStatusRequests.get(key) === request) {
+          this.liveActivityStatusRequests.delete(key);
+        }
+      },
+    };
+    this.liveActivityStatusRequests.set(key, request);
+    request.promise = Promise.resolve()
+      .then(() =>
+        this.swapHistoryStatusRunFetchInner(
+          swapTxHistory,
+          options,
+          remoteTrackingEnabled,
+          request,
+        ),
+      )
+      .finally(request.close);
+    return request.promise;
+  }
+
+  private async swapHistoryStatusRunFetchInner(
+    swapTxHistory: ISwapTxHistory,
+    options:
+      | {
+          shouldScheduleNextFetch?: boolean;
+          shouldShowToast?: boolean;
+          privateSendStatusSource?: IPrivateSendStatusSource;
+        }
+      | undefined,
+    remoteTrackingEnabled: boolean,
+    sharedRequest?: {
+      shouldScheduleNextFetch: boolean;
+      shouldShowToast: boolean;
+      close: () => void;
+    },
+  ) {
     let enableInterval = true;
-    const shouldScheduleNextFetch = options?.shouldScheduleNextFetch ?? true;
-    const shouldShowToast = options?.shouldShowToast ?? true;
+    let migratedPollingOwner = false;
     const privateSendStatusSource =
       options?.privateSendStatusSource ?? 'orderDetail';
     // Retry opportunistically on each pending-status tick rather than waiting
@@ -3303,6 +3976,15 @@ export default class ServiceSwap extends ServiceBase {
     // update below takes the same mutex.
     await this.flushSwapHistoryDurableRetriesWithLock();
     let currentSwapTxHistory = cloneDeep(swapTxHistory);
+    const refundSnapshot =
+      platformEnv.isNativeIOS &&
+      isSwapHistoryTerminalStatus(swapTxHistory.status)
+        ? buildSwapLiveActivitySnapshot(swapTxHistory)
+        : undefined;
+    const refundExpiresAt =
+      refundSnapshot?.content.status === 'refunding'
+        ? refundSnapshot.order.expiresAtMs
+        : undefined;
     const isPrivateSendHistory =
       currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
       currentSwapTxHistory.swapInfo.provider.provider === privateSendProvider;
@@ -3314,6 +3996,15 @@ export default class ServiceSwap extends ServiceBase {
       });
       const txStatusRes = fetchResult?.txStatusRes;
       if (!txStatusRes) {
+        return;
+      }
+      if (
+        this.isReplacedLiveActivityDeposit(
+          currentSwapTxHistory,
+          remoteTrackingEnabled,
+        )
+      ) {
+        enableInterval = false;
         return;
       }
       const previousSwapTxHistory = currentSwapTxHistory;
@@ -3363,7 +4054,7 @@ export default class ServiceSwap extends ServiceBase {
             currentSwapTxHistory?.crossChainStatus,
           txInfo: {
             ...currentSwapTxHistory.txInfo,
-            txId: txStatusRes.txId ?? currentSwapTxHistory.txInfo.txId,
+            txId: txStatusRes.txId || currentSwapTxHistory.txInfo.txId,
             receiverTransactionId:
               txStatusRes.crossChainReceiveTxHash ||
               currentSwapTxHistory.txInfo.receiverTransactionId,
@@ -3381,25 +4072,113 @@ export default class ServiceSwap extends ServiceBase {
               : currentSwapTxHistory.baseInfo.toAmount,
           },
         };
-        currentSwapTxHistory = await this.updateSwapHistoryItem(
-          currentSwapTxHistory,
-          {
-            ...(isPrivateSendHistory
-              ? {
-                  privateSendFeeUpdate: {
-                    gasFeeInNative: txStatusRes.gasFee,
-                    gasFeeFiatValue: txStatusRes.gasFeeFiatValue,
-                  },
-                }
-              : undefined),
-            shouldShowToast: shouldShowSwapHistoryStatusToast({
-              previousSwapTxHistory,
-              swapTxHistory: currentSwapTxHistory,
-              shouldShowToast,
-            }),
-          },
-        );
+        try {
+          currentSwapTxHistory = await this.updateSwapHistoryItem(
+            currentSwapTxHistory,
+            {
+              ...(isPrivateSendHistory
+                ? {
+                    privateSendFeeUpdate: {
+                      gasFeeInNative: txStatusRes.gasFee,
+                      gasFeeFiatValue: txStatusRes.gasFeeFiatValue,
+                    },
+                  }
+                : undefined),
+              rejectReplacedLiveActivityDeposit: sharedRequest
+                ? swapTxHistory.txInfo.txId
+                : undefined,
+              shouldShowToast: shouldShowSwapHistoryStatusToast({
+                previousSwapTxHistory,
+                swapTxHistory: currentSwapTxHistory,
+                shouldShowToast:
+                  sharedRequest?.shouldShowToast ??
+                  options?.shouldShowToast ??
+                  true,
+              }),
+            },
+          );
+        } catch (error) {
+          // Retry from the last persisted state when terminal publication fails.
+          currentSwapTxHistory = cloneDeep(previousSwapTxHistory);
+          if (
+            this.isReplacedLiveActivityDeposit(
+              currentSwapTxHistory,
+              remoteTrackingEnabled,
+            )
+          ) {
+            enableInterval = false;
+            return;
+          }
+          throw error;
+        }
+        if (
+          this.isReplacedLiveActivityDeposit(
+            swapTxHistory,
+            remoteTrackingEnabled,
+          )
+        ) {
+          enableInterval = false;
+          return;
+        }
         const finalStatus = currentSwapTxHistory.status;
+        const previousIntervalKey = this.getSwapHistoryIntervalKey(
+          previousSwapTxHistory,
+        );
+        const currentIntervalKey =
+          this.getSwapHistoryIntervalKey(currentSwapTxHistory);
+        if (
+          sharedRequest &&
+          previousIntervalKey &&
+          currentIntervalKey &&
+          previousIntervalKey !== currentIntervalKey &&
+          (!isSwapHistoryTerminalStatus(finalStatus) ||
+            this.shouldContinueLiveActivityRefundPolling(
+              currentSwapTxHistory,
+              remoteTrackingEnabled,
+            ))
+        ) {
+          const currentItem = currentSwapTxHistory;
+          migratedPollingOwner =
+            await this.swapHistoryMutationMutex.runExclusive(async () => {
+              if (
+                !this.historyCurrentStateIntervalIds.includes(
+                  previousIntervalKey,
+                )
+              )
+                return false;
+              const { swapHistoryPendingList } =
+                await inAppNotificationAtom.get();
+              let stillTracked = filterSwapHistoryPendingList(
+                swapHistoryPendingList,
+              ).some((item) => this.isSameSwapHistoryItem(item, currentItem));
+              if (
+                !stillTracked &&
+                this.shouldContinueLiveActivityRefundPolling(
+                  currentItem,
+                  remoteTrackingEnabled,
+                )
+              ) {
+                const histories =
+                  await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+                stillTracked = histories.some((item) =>
+                  this.isSameSwapHistoryItem(item, currentItem),
+                );
+              }
+              const nextAlreadyOwned =
+                this.historyCurrentStateIntervalIds.includes(
+                  currentIntervalKey,
+                );
+              const count =
+                this.historyStateIntervalCountMap[previousIntervalKey];
+              await this.cleanHistoryStateIntervals(previousIntervalKey);
+              if (!stillTracked || nextAlreadyOwned) return false;
+              this.historyCurrentStateIntervalIds.push(currentIntervalKey);
+              if (count !== undefined)
+                this.historyStateIntervalCountMap[currentIntervalKey] = count;
+              return true;
+            });
+          if (!migratedPollingOwner) enableInterval = false;
+        }
         trackPrivateSendOrderFinalStatusIfNeeded({
           isPrivateSendHistory,
           previousSwapTxHistory,
@@ -3431,7 +4210,13 @@ export default class ServiceSwap extends ServiceBase {
             orderToToken: currentSwapTxHistory.baseInfo.toToken,
           });
         }
-        if (isSwapHistoryTerminalStatus(finalStatus)) {
+        if (
+          isSwapHistoryTerminalStatus(finalStatus) &&
+          !this.shouldContinueLiveActivityRefundPolling(
+            currentSwapTxHistory,
+            remoteTrackingEnabled,
+          )
+        ) {
           enableInterval = false;
           await this.cleanSwapHistoryStateIntervals(
             previousSwapTxHistory,
@@ -3439,14 +4224,39 @@ export default class ServiceSwap extends ServiceBase {
           );
         }
       }
+      if (
+        remoteTrackingEnabled &&
+        !this.isReplacedLiveActivityDeposit(
+          swapTxHistory,
+          remoteTrackingEnabled,
+        )
+      ) {
+        // Project provider steps even when the coarse persisted state is unchanged.
+        void this.backgroundApi.serviceLiveActivity
+          .onSwapStatus({ history: previousSwapTxHistory, status: txStatusRes })
+          .catch(() => undefined);
+      }
     } catch (e) {
       const error = e as { message?: string };
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
+      if (
+        this.isReplacedLiveActivityDeposit(swapTxHistory, remoteTrackingEnabled)
+      ) {
+        enableInterval = false;
+      }
+      if (refundExpiresAt !== undefined && refundExpiresAt <= Date.now()) {
+        enableInterval = false;
+        await this.cleanSwapHistoryStateIntervals(swapTxHistory);
+      }
+      sharedRequest?.close();
       const keyId = this.getSwapHistoryIntervalKey(currentSwapTxHistory);
       if (
         enableInterval &&
-        shouldScheduleNextFetch &&
+        (migratedPollingOwner ||
+          (sharedRequest?.shouldScheduleNextFetch ??
+            options?.shouldScheduleNextFetch ??
+            true)) &&
         this.historyCurrentStateIntervalIds.includes(keyId)
       ) {
         this.historyStateIntervalCountMap[keyId] =
@@ -3468,28 +4278,41 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async swapHistoryStatusFetchLoop() {
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
     // Also retry on the pending-list transition so a terminal item gets one
     // immediate attempt before the independent backoff timer takes over.
     await this.flushSwapHistoryDurableRetriesWithLock();
-    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
-    const statusPendingList = filterSwapHistoryPendingList(
-      swapHistoryPendingList,
-    ).filter((item) => this.isSwapHistoryPendingStatus(item));
-    const newHistoryStatePendingList = statusPendingList.filter(
-      (item) =>
-        !this.historyCurrentStateIntervalIds.includes(
-          this.getSwapHistoryIntervalKey(item),
-        ),
+    const newlyOwned = await this.swapHistoryMutationMutex.runExclusive(
+      async () => {
+        const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+        const pendingList = filterSwapHistoryPendingList(
+          swapHistoryPendingList,
+        ).filter((item) => this.isSwapHistoryPendingStatus(item));
+        // Refunds can have a coarse FAILED state and be absent from the pending atom.
+        const refundList = remoteTrackingEnabled
+          ? (
+              await this.backgroundApi.simpleDb.swapHistory
+                .getSwapHistoryList()
+                .catch(() => [])
+            ).filter((item) =>
+              this.shouldContinueLiveActivityRefundPolling(
+                item,
+                remoteTrackingEnabled,
+              ),
+            )
+          : [];
+        return [...pendingList, ...refundList].filter((item) => {
+          const key = this.getSwapHistoryIntervalKey(item);
+          if (!key || this.historyCurrentStateIntervalIds.includes(key)) {
+            return false;
+          }
+          this.historyCurrentStateIntervalIds.push(key);
+          return true;
+        });
+      },
     );
-    if (!newHistoryStatePendingList.length) return;
     await Promise.all(
-      newHistoryStatePendingList.map(async (swapTxHistory) => {
-        this.historyCurrentStateIntervalIds = [
-          ...this.historyCurrentStateIntervalIds,
-          this.getSwapHistoryIntervalKey(swapTxHistory),
-        ];
-        await this.swapHistoryStatusRunFetch(swapTxHistory);
-      }),
+      newlyOwned.map((history) => this.swapHistoryStatusRunFetch(history)),
     );
   }
 

@@ -18,6 +18,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
+import {
+  blockIfWalletLocalSecretEnvelopeUnavailable,
+  useWalletLocalSecretEnvelopeIssue,
+} from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -75,6 +79,7 @@ import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
 import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
+import StarknetPrivacyBlock from './StarknetPrivacyBlock';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -168,7 +173,7 @@ type ITokenDetailsAddressBlockProps = {
   shouldShow: boolean;
   label: string;
   address: string;
-  onPress: () => void;
+  onPress: () => void | Promise<void>;
   testID?: string;
   disabled?: boolean;
 };
@@ -246,6 +251,7 @@ function TokenDetailsHeaderContent({
     deriveType,
     privacyHistoryPoolId: selectedPoolIdProp,
     privacyChainVaultSettings,
+    starknetPrivacyMode,
   } = props;
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -270,6 +276,7 @@ function TokenDetailsHeaderContent({
     walletId,
   });
   const vaultSettings = accountVaultSettings ?? privacyChainVaultSettings;
+  const isStarknetPrivate = starknetPrivacyMode === 'private';
   const privacyHistoryPoolId = resolveSelectedPoolId({
     settings: vaultSettings?.localWallet,
     selectedPoolId: selectedPoolIdProp,
@@ -384,6 +391,12 @@ function TokenDetailsHeaderContent({
     isBotWallet,
     isBotWalletDeactivated,
   });
+  const isLocalSecretEnvelopeUnavailable = Boolean(
+    useWalletLocalSecretEnvelopeIssue({
+      walletId: wallet?.id ?? walletId,
+      accountId,
+    }),
+  );
 
   const tokenDetailsPromiseOptions = useMemo(
     () => ({
@@ -650,11 +663,10 @@ function TokenDetailsHeaderContent({
       address = poolDisplay?.address ?? '';
     }
 
-    // For deactivated bot wallets the address must not be exposed in full —
-    // copying is blocked, and showing the full string would let users still
-    // grab the address via long-press / OS-level select. Mask it the same
-    // way the account selector shortens addresses.
-    if (isBotWalletCopyBlocked) {
+    // For deactivated bot wallets or wallets with unavailable local encrypted
+    // credentials, mask the full address so users cannot read/copy it via
+    // long-press and mistakenly deposit funds.
+    if (isBotWalletCopyBlocked || isLocalSecretEnvelopeUnavailable) {
       return accountUtils.shortenAddress({ address });
     }
 
@@ -669,15 +681,24 @@ function TokenDetailsHeaderContent({
   }, [
     account?.address,
     isBotWalletCopyBlocked,
+    isLocalSecretEnvelopeUnavailable,
     isPrivatePool,
     shouldUsePoolBalance,
     walletId,
     poolDisplay?.address,
   ]);
 
-  const handleCopyAddressPress = useCallback(() => {
+  const handleCopyAddressPress = useCallback(async () => {
     if (isBotWalletCopyBlocked) {
       showBotWalletDisabledToast('copyAddress');
+      return;
+    }
+    if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: wallet?.id ?? walletId,
+        accountId,
+      })
+    ) {
       return;
     }
     if (shouldUsePoolBalance) {
@@ -712,6 +733,52 @@ function TokenDetailsHeaderContent({
     isPrivatePool,
     shouldUsePoolBalance,
     poolDisplay?.address,
+    wallet?.id,
+    walletId,
+  ]);
+
+  const handleReceivePress = useCallback(async () => {
+    if (isBotWalletReceiveBlocked) {
+      showBotWalletDisabledToast('receive');
+      return;
+    }
+    if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: wallet?.id ?? walletId,
+        accountId,
+      })
+    ) {
+      return;
+    }
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+    defaultLogger.wallet.walletActions.actionReceive({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'tokenDetails',
+      isSoftwareWalletOnlyUser,
+    });
+    void handleOnReceive({
+      token: tokenInfo,
+      switchEntry: 'token',
+      allowAddressTypeMenu: true,
+      source: 'tokenDetails',
+    });
+  }, [
+    accountId,
+    handleOnReceive,
+    isBotWalletReceiveBlocked,
+    isSoftwareWalletOnlyUser,
+    network?.id,
+    tokenInfo,
+    wallet?.id,
+    wallet?.type,
+    walletId,
   ]);
 
   return (
@@ -748,8 +815,24 @@ function TokenDetailsHeaderContent({
             )}
           </Stack>
         ) : null}
+        {isStarknetPrivate ? (
+          <Stack px="$5" py="$5">
+            <StarknetPrivacyBlock
+              accountAddress={account?.address ?? ''}
+              onReceive={handleReceivePress}
+              receiveDisabled={isWatchOnly || isBotWalletReceiveBlocked}
+              allowReceiveWhenDisabled={isBotWalletReceiveBlocked}
+              networkId={networkId}
+              accountId={accountId}
+              token={tokenInfo}
+              publicBalanceParsed={tokenDetails?.balanceParsed}
+              price={tokenDetails?.price}
+              currency={tokenDetails?.currency}
+            />
+          </Stack>
+        ) : null}
         {/* Overview */}
-        {shouldShowOverview ? (
+        {shouldShowOverview && !isStarknetPrivate ? (
           <Stack px="$5" py="$5">
             <TokenDetailsBalanceHero
               isLoading={isBalanceLoading}
@@ -788,33 +871,7 @@ function TokenDetailsHeaderContent({
                     (isPrivatePool && localWalletPool.isSyncPaused)
                   }
                   allowPressWhenDisabled={isBotWalletReceiveBlocked}
-                  onPress={async () => {
-                    if (isBotWalletReceiveBlocked) {
-                      showBotWalletDisabledToast('receive');
-                      return;
-                    }
-                    if (
-                      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
-                        {
-                          walletId: wallet?.id ?? '',
-                        },
-                      )
-                    ) {
-                      return;
-                    }
-                    defaultLogger.wallet.walletActions.actionReceive({
-                      walletType: wallet?.type ?? '',
-                      networkId: network?.id ?? '',
-                      source: 'tokenDetails',
-                      isSoftwareWalletOnlyUser,
-                    });
-                    void handleOnReceive({
-                      token: tokenInfo,
-                      switchEntry: 'token',
-                      allowAddressTypeMenu: true,
-                      source: 'tokenDetails',
-                    });
-                  }}
+                  onPress={handleReceivePress}
                   trackID="wallet-token-details-receive"
                 />
                 <RawActions.Swap
@@ -843,15 +900,19 @@ function TokenDetailsHeaderContent({
         ) : null}
 
         {/* DeFi Entry Block */}
-        <TokenDetailsDeFiBlock
-          networkId={networkId}
-          tokenAddress={tokenInfo.address}
-          walletType={wallet?.type}
-          tokenLogoURI={tokenLogoURI}
-        />
+        {isStarknetPrivate ? null : (
+          <TokenDetailsDeFiBlock
+            networkId={networkId}
+            tokenAddress={tokenInfo.address}
+            walletType={wallet?.type}
+            tokenLogoURI={tokenLogoURI}
+          />
+        )}
         <TokenDetailsAddressBlock
           shouldShow={Boolean(
-            shouldShowAddressBlock && (!hasSelectedPool || addressBlockValue),
+            !isStarknetPrivate &&
+            shouldShowAddressBlock &&
+            (!hasSelectedPool || addressBlockValue),
           )}
           label={addressBlockLabel}
           address={addressBlockValue}

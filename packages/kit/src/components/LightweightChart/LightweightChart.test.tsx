@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore tickmarks
 
 import type { ReactNode } from 'react';
 
@@ -12,7 +13,15 @@ import { getChartColorWithAlpha } from './utils/chartColor';
 import { createHistogramSeriesPaneView } from './utils/histogramSeries';
 
 import type { IHistogramData } from './utils/histogramSeries';
-import type { PaneRendererCustomData, Time } from 'lightweight-charts';
+import type {
+  BarPrice,
+  IPrimitivePaneRenderer,
+  ISeriesPrimitive,
+  PaneRendererCustomData,
+  PriceFormatCustom,
+  SeriesAttachedParameter,
+  Time,
+} from 'lightweight-charts';
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const MockStack = React.forwardRef<
@@ -52,6 +61,7 @@ jest.mock('./hooks/useChartConfig', () => {
       seriesType,
       lineType,
       priceScalePosition,
+      priceScaleLabelAlign,
       showHorzGridLines,
       horzLineColor,
       horzLineStyle,
@@ -66,6 +76,7 @@ jest.mock('./hooks/useChartConfig', () => {
       seriesType?: 'area' | 'baseline' | 'dotted-area' | 'histogram';
       lineType?: 'simple' | 'steps';
       priceScalePosition?: 'left' | 'right';
+      priceScaleLabelAlign?: 'left' | 'right';
       showHorzGridLines?: boolean;
       horzLineColor?: string;
       horzLineStyle?: number;
@@ -126,6 +137,7 @@ jest.mock('./hooks/useChartConfig', () => {
           seriesType: seriesType ?? 'area',
           lineType,
           priceScalePosition: priceScalePosition ?? 'right',
+          priceScaleLabelAlign,
           baselineOptions,
           histogramOptions,
           referenceLine,
@@ -143,6 +155,7 @@ jest.mock('./hooks/useChartConfig', () => {
           lastValueLabelColor,
           lineType,
           priceScalePosition,
+          priceScaleLabelAlign,
           referenceLine,
           seriesType,
           showHorzGridLines,
@@ -249,6 +262,122 @@ describe('LightweightChart', () => {
     expect(getChartColorWithAlpha('#ffffff22', 1)).toBe(
       'rgba(255, 255, 255, 0.1333)',
     );
+  });
+
+  it('right-aligns signed axis labels and preserves their coordinates after refresh and resize', async () => {
+    const priceFormat: PriceFormatCustom = {
+      type: 'custom',
+      minMove: 0.0001,
+      formatter: (value) => `${value.toFixed(4)}%`,
+    };
+    const series = {
+      setData: jest.fn(),
+      priceToCoordinate: (value: number) => 100 - value * 1000,
+      attachPrimitive: jest.fn<void, [ISeriesPrimitive]>(),
+      options: () => ({ priceFormat }),
+      applyOptions: jest.fn(
+        (options: { priceFormat?: Partial<PriceFormatCustom> }) =>
+          Object.assign(priceFormat, options.priceFormat),
+      ),
+    };
+    const axisOptions = jest.fn();
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn(),
+    };
+    const chart = {
+      addSeries: jest.fn(() => series),
+      addCustomSeries: jest.fn(() => series),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      subscribeCrosshairMove: jest.fn(),
+      timeScale: () => timeScale,
+      priceScale: () => ({ applyOptions: axisOptions }),
+      options: () => ({ layout: { fontSize: 11, fontFamily: 'sans-serif' } }),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+    const { rerender } = render(
+      <LightweightChart
+        data={[
+          [1, -0.05],
+          [2, 0.05],
+        ]}
+        height={214}
+        priceScaleLabelAlign="right"
+        preserveChartInstanceOnDataChange
+      />,
+    );
+    await waitFor(() =>
+      expect(series.attachPrimitive).toHaveBeenCalledTimes(1),
+    );
+    expect(axisOptions).toHaveBeenCalledWith({ textColor: 'transparent' });
+    const primitive = series.attachPrimitive.mock.calls[0][0];
+    primitive.attached?.({
+      series,
+      chart,
+      requestUpdate: jest.fn(),
+    } as unknown as SeriesAttachedParameter);
+    const context = {
+      save: jest.fn(),
+      restore: jest.fn(),
+      fillText: jest.fn(),
+      font: '',
+      fillStyle: '',
+      textAlign: '',
+      textBaseline: '',
+    };
+    let axisWidth = 60;
+    const target = {
+      useMediaCoordinateSpace: (
+        draw: (scope: {
+          context: typeof context;
+          mediaSize: { width: number; height: number };
+        }) => void,
+      ) => draw({ context, mediaSize: { width: axisWidth, height: 214 } }),
+    } as unknown as Parameters<IPrimitivePaneRenderer['draw']>[0];
+    const renderer = primitive.priceAxisPaneViews?.()[0].renderer();
+    expect(
+      priceFormat.tickmarksFormatter?.(
+        [-0.05, 0, 0.05].map((value) => value as BarPrice),
+      ),
+    ).toEqual(['-0.0500%', '0.0000%', '0.0500%']);
+    renderer?.draw(target);
+    expect(context.textAlign).toBe('right');
+    expect(context.fillText.mock.calls).toEqual([
+      ['-0.0500%', 58, 150],
+      ['0.0000%', 58, 100],
+      ['0.0500%', 58, 50],
+    ]);
+    rerender(
+      <LightweightChart
+        data={[
+          [1, -0.02],
+          [2, 0.02],
+        ]}
+        height={214}
+        priceScaleLabelAlign="right"
+        preserveChartInstanceOnDataChange
+      />,
+    );
+    await waitFor(() =>
+      expect(series.setData).toHaveBeenLastCalledWith([
+        { time: 1, value: -0.02 },
+        { time: 2, value: 0.02 },
+      ]),
+    );
+    context.fillText.mockClear();
+    axisWidth = 80;
+    priceFormat.tickmarksFormatter?.(
+      [-0.02, 0.02].map((value) => value as BarPrice),
+    );
+    renderer?.draw(target);
+    expect(context.fillText.mock.calls).toEqual([
+      ['-0.0200%', 78, 120],
+      ['0.0200%', 78, 80],
+    ]);
   });
 
   it('uses the native step mode for baseline series', async () => {
@@ -539,6 +668,9 @@ describe('LightweightChart', () => {
     const context = {
       fillStyle: '',
       fillRect: jest.fn(),
+      beginPath: jest.fn(),
+      roundRect: jest.fn(),
+      fill: jest.fn(),
     };
     context.fillRect.mockImplementation(() => {
       fillStyles.push(context.fillStyle);
@@ -602,6 +734,37 @@ describe('LightweightChart', () => {
     expect(fillRect).toHaveBeenNthCalledWith(1, 25, 80, 10, 20);
     expect(fillRect).toHaveBeenNthCalledWith(2, 45, 100, 10, 30);
     expect(fillStyles).toEqual(['#00aa00', '#ee0000']);
+
+    paneView.update(rendererData, {
+      ...paneView.defaultOptions(),
+      barWidthRatio: 0.5,
+      borderRadius: 2,
+    });
+    renderer.draw(target, priceConverter, false);
+    expect(context.roundRect).toHaveBeenNthCalledWith(
+      1,
+      25,
+      80,
+      10,
+      20,
+      [2, 2, 0, 0],
+    );
+    expect(context.roundRect).toHaveBeenNthCalledWith(
+      2,
+      45,
+      100,
+      10,
+      30,
+      [0, 0, 2, 2],
+    );
+    expect(context.fill).toHaveBeenCalledTimes(2);
+    expect(fillRect).toHaveBeenCalledTimes(2);
+
+    Object.defineProperty(context, 'roundRect', { value: undefined });
+    renderer.draw(target, priceConverter, false);
+    expect(fillRect).toHaveBeenCalledTimes(4);
+    expect(fillRect).toHaveBeenNthCalledWith(3, 25, 80, 10, 20);
+    expect(fillRect).toHaveBeenNthCalledWith(4, 45, 100, 10, 30);
   });
 
   it('refits the full range after resizing without recreating the chart instance', async () => {
@@ -818,6 +981,161 @@ describe('LightweightChart', () => {
     rerender(<LightweightChart data={data} height={240} pulseLastPoint />);
     expect(series.attachPrimitive).toHaveBeenCalledTimes(2);
     expect(pulseX()).toBe('20');
+  });
+
+  async function renderCrosshairChart(
+    secondaryLineData: [number, number | null][],
+    { secondaryLineBlankSlots = true } = {},
+  ) {
+    const crosshairListeners: ((param: unknown) => void)[] = [];
+    // Each series is its own mock, so an event keyed by the overlay finds
+    // nothing under the primary series.
+    const createSeries = () => ({
+      setData: jest.fn(),
+      priceToCoordinate: jest.fn((price: number) => price),
+    });
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn((time: number) => time * 10),
+    };
+    const chart = {
+      addSeries: jest.fn(createSeries),
+      addCustomSeries: jest.fn(createSeries),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      clearCrosshairPosition: jest.fn(),
+      subscribeCrosshairMove: jest.fn((listener: (param: unknown) => void) => {
+        crosshairListeners.push(listener);
+      }),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+    const onHover = jest.fn();
+    render(
+      <LightweightChart
+        data={
+          [
+            [1, 10],
+            [2, 20],
+          ] as IMarketTokenChart
+        }
+        secondaryLineData={secondaryLineData}
+        secondaryLineBlankSlots={secondaryLineBlankSlots}
+        height={240}
+        pulseLastPoint
+        onHover={onHover}
+      />,
+    );
+    await waitFor(() => expect(createChart).toHaveBeenCalledTimes(1));
+    const [series, overlaySeries] = chart.addSeries.mock.results.map(
+      (result) => result.value as ReturnType<typeof createSeries>,
+    );
+    act(() => {
+      flushAnimationFrames();
+    });
+    const move = (param: unknown) =>
+      act(() => {
+        crosshairListeners.forEach((listener) => listener(param));
+      });
+    // The vertical guide's visibility as last applied, undefined if never set.
+    const guideVisible = () =>
+      (
+        chart.applyOptions.mock.calls as unknown as [
+          { crosshair?: { vertLine?: { visible?: boolean } } },
+        ][]
+      )
+        .map(([options]) => options.crosshair?.vertLine?.visible)
+        .filter((visible) => visible !== undefined)
+        .at(-1);
+    return { chart, series, overlaySeries, onHover, move, guideVisible };
+  }
+
+  it('hides the crosshair guide over the blank time slots past the last price', async () => {
+    const { chart, series, onHover, move, guideVisible } =
+      await renderCrosshairChart([
+        [1, 10],
+        [2, 20],
+        [3, null],
+        [4, null],
+      ]);
+
+    // The cursor sits on a blank slot ahead of the last price.
+    move({ time: 4, point: { x: 40, y: 5 }, seriesData: new Map() });
+
+    expect(guideVisible()).toBe(false);
+    // The position is kept: a touch long-press reads it back as its origin.
+    expect(chart.clearCrosshairPosition).not.toHaveBeenCalled();
+    expect(onHover).toHaveBeenLastCalledWith({
+      time: undefined,
+      price: undefined,
+      secondaryPrice: undefined,
+      x: undefined,
+      y: undefined,
+    });
+    // The pulse stays on the tail.
+    expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
+      '20',
+    );
+
+    // Back over the priced series the guide returns and follows the cursor.
+    move({
+      time: 1,
+      point: { x: 10, y: 5 },
+      seriesData: new Map([[series, { value: 10 }]]),
+    });
+    expect(guideVisible()).toBe(true);
+    expect(onHover).toHaveBeenLastCalledWith(
+      expect.objectContaining({ time: 1, price: 10, x: 10 }),
+    );
+    expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
+      '10',
+    );
+  });
+
+  it('keeps the crosshair guide on overlay values past the last price', async () => {
+    const { series, overlaySeries, move, guideVisible } =
+      await renderCrosshairChart([
+        [1, 5],
+        [2, 6],
+        [3, 7],
+      ]);
+    expect(overlaySeries).toBeDefined();
+    expect(overlaySeries).not.toBe(series);
+
+    move({
+      time: 3,
+      point: { x: 30, y: 5 },
+      seriesData: new Map([[overlaySeries, { value: 7 }]]),
+    });
+
+    expect(guideVisible()).toBeUndefined();
+  });
+
+  it('leaves the guide and hover as they were on charts without blank slots', async () => {
+    // The Earn APY chart: its overlay can end in gaps past the base line.
+    const { chart, onHover, move, guideVisible } = await renderCrosshairChart(
+      [
+        [1, 5],
+        [2, 6],
+        [3, null],
+      ],
+      { secondaryLineBlankSlots: false },
+    );
+
+    move({ time: 3, point: { x: 30, y: 5 }, seriesData: new Map() });
+
+    expect(guideVisible()).toBeUndefined();
+    expect(chart.clearCrosshairPosition).not.toHaveBeenCalled();
+    expect(onHover).toHaveBeenLastCalledWith({
+      time: undefined,
+      price: undefined,
+      secondaryPrice: undefined,
+      x: undefined,
+      y: undefined,
+    });
   });
 
   it('replaces the overlay data without re-fitting the chart', async () => {

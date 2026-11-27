@@ -24,6 +24,7 @@ import {
   createHistogramSeriesPaneView,
 } from './utils/histogramSeries';
 import { createPulseCrosshairPrimitive } from './utils/pulseCrosshair';
+import { createRightAlignedPriceAxis } from './utils/rightAlignedPriceAxis';
 
 import type { ILightweightChartProps } from './types';
 import type {
@@ -37,6 +38,7 @@ import type {
 import type {
   IChartApi,
   ISeriesApi,
+  MouseEventParams,
   SeriesPartialOptions,
   Time,
   WhitespaceData,
@@ -73,7 +75,11 @@ function applyPriceFormatOverrides(
   {
     priceFormatBase,
     priceTickFormatter,
-  }: Pick<ILightweightChartProps, 'priceFormatBase' | 'priceTickFormatter'>,
+    priceScaleLabelAlign,
+  }: Pick<
+    ILightweightChartProps,
+    'priceFormatBase' | 'priceTickFormatter' | 'priceScaleLabelAlign'
+  >,
 ) {
   if (priceFormatBase === undefined && !priceTickFormatter) return;
   const currentPriceFormat = series.options().priceFormat;
@@ -82,7 +88,10 @@ function applyPriceFormatOverrides(
     priceFormat: {
       ...currentPriceFormat,
       base: priceFormatBase,
-      tickmarksFormatter: priceTickFormatter,
+      tickmarksFormatter:
+        priceScaleLabelAlign === 'right'
+          ? currentPriceFormat.tickmarksFormatter
+          : priceTickFormatter,
     },
   });
 }
@@ -93,6 +102,20 @@ function getSeriesValue(seriesData: unknown): number | undefined {
     return typeof value === 'number' ? value : Number(value);
   }
   return undefined;
+}
+
+// How far the overlay line reaches past the last point of the series, or
+// undefined when it stays within it.
+function getOverlayTimeDomainEnd(config: {
+  data: { time: unknown }[];
+  secondaryLineData?: { time: unknown }[];
+}): number | undefined {
+  const overlayEnd = Number(config.secondaryLineData?.at(-1)?.time);
+  const seriesEnd = Number(config.data.at(-1)?.time);
+  return Number.isFinite(overlayEnd) &&
+    (!Number.isFinite(seriesEnd) || overlayEnd > seriesEnd)
+    ? overlayEnd
+    : undefined;
 }
 
 export function LightweightChart({
@@ -106,6 +129,7 @@ export function LightweightChart({
   secondaryLineColor,
   secondaryLineWidth,
   secondaryLineEndTime,
+  secondaryLineBlankSlots,
   lineWidth,
   showPriceScale,
   showHorzGridLines,
@@ -115,6 +139,7 @@ export function LightweightChart({
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceScaleMinimumWidth,
+  priceScaleLabelAlign,
   crosshairVertLineColor,
   crosshairVertLineStyle,
   patternColor,
@@ -151,6 +176,8 @@ export function LightweightChart({
   const curvedOverlaySeriesRef = useRef<IDottedAreaSeriesApi | null>(null);
   const secondaryLineEndTimeRef = useRef(secondaryLineEndTime);
   secondaryLineEndTimeRef.current = secondaryLineEndTime;
+  const secondaryLineBlankSlotsRef = useRef(secondaryLineBlankSlots);
+  secondaryLineBlankSlotsRef.current = secondaryLineBlankSlots;
   const secondaryPointSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
@@ -199,6 +226,7 @@ export function LightweightChart({
     pulseLastPointColor,
     priceFormatter,
     priceTickFormatter,
+    priceScaleLabelAlign,
     priceFormatBase,
     fontSize,
     seriesType,
@@ -222,6 +250,7 @@ export function LightweightChart({
     undefined,
   );
   const lastPointPositionGenerationRef = useRef(0);
+  const overlayTimeDomainEndRef = useRef<number | undefined>(undefined);
   const canPublishLastPointPositionRef = useRef(false);
   const hasSecondaryLineData =
     Array.isArray(chartConfig.secondaryLineData) &&
@@ -372,6 +401,28 @@ export function LightweightChart({
           });
         }
         applyPriceFormatOverrides(series, currentChartConfig);
+        if (currentChartConfig.priceScaleLabelAlign === 'right') {
+          const priceFormat = series.options().priceFormat;
+          if (priceFormat.type === 'custom') {
+            const layout = chart.options().layout;
+            const axis = createRightAlignedPriceAxis({
+              formatValue: priceFormat.formatter,
+              formatTicks: currentChartConfig.priceTickFormatter,
+              font: `${layout.fontSize}px ${layout.fontFamily}`,
+              color: currentChartConfig.theme.textSubduedColor,
+            });
+            series.attachPrimitive(axis.primitive);
+            series.applyOptions({
+              priceFormat: {
+                ...priceFormat,
+                tickmarksFormatter: axis.tickmarksFormatter,
+              },
+            });
+            chart
+              .priceScale(currentChartConfig.priceScalePosition ?? 'right')
+              .applyOptions({ textColor: 'transparent' });
+          }
+        }
         if (currentChartConfig.referenceLine?.includeInAutoscale) {
           series.applyOptions({
             autoscaleInfoProvider: createReferenceLineAutoscaleInfoProvider(
@@ -547,21 +598,55 @@ export function LightweightChart({
           };
         }, PULSE_CROSSHAIR_GAP_RADIUS);
         let pulseCrosshairAttached = false;
+        let isCrosshairGuideHidden = false;
+        const syncCrosshairVertLineVisibility = () => {
+          chart?.applyOptions({
+            crosshair: {
+              vertLine: {
+                visible: !pulseCrosshairAttached && !isCrosshairGuideHidden,
+              },
+            },
+          });
+        };
         const syncPulseCrosshair = () => {
           const enabled = !!pulseLastPointRef.current;
           if (enabled === pulseCrosshairAttached) return;
           crosshairPoint = undefined;
-          chart?.applyOptions({
-            crosshair: { vertLine: { visible: !enabled } },
-          });
           if (enabled) series.attachPrimitive(pulseCrosshair);
           else series.detachPrimitive(pulseCrosshair);
           pulseCrosshairAttached = enabled;
+          syncCrosshairVertLineVisibility();
         };
         syncPulseCrosshairRef.current = syncPulseCrosshair;
         syncPulseCrosshair();
 
+        // With `secondaryLineBlankSlots`, value-less overlay slots carry a
+        // running session's time scale past the last price. A pointer there
+        // points at no data, so the guide hides as if it had left the chart. (Native, scrubbed by a finger on
+        // the line, stops at the last price instead.) The guide is hidden
+        // through its options rather than by clearing the position: a touch
+        // long-press reads the position back as its tracking origin, and a
+        // cleared one would leave the whole drag without a crosshair.
+        const syncCrosshairGuide = (param: MouseEventParams<Time>) => {
+          const lastBar = chartConfigRef.current.data.at(-1);
+          const isOverBlankSlot =
+            !!secondaryLineBlankSlotsRef.current &&
+            param.time !== undefined &&
+            !!param.point &&
+            !!lastBar &&
+            Number(param.time) > Number(lastBar.time) &&
+            // An overlay can run past the series with values of its own (the
+            // Earn APY chart's full history); the guide stays on those.
+            ![...param.seriesData.values()].some(
+              (item) => getSeriesValue(item) !== undefined,
+            );
+          if (isOverBlankSlot === isCrosshairGuideHidden) return;
+          isCrosshairGuideHidden = isOverBlankSlot;
+          syncCrosshairVertLineVisibility();
+        };
+
         chart.subscribeCrosshairMove((param) => {
+          syncCrosshairGuide(param);
           if (cancelled || !pulseLastPointRef.current) return;
           const price = param.time
             ? getSeriesValue(param.seriesData.get(series))
@@ -699,6 +784,7 @@ export function LightweightChart({
     chartConfig.priceFormatter,
     chartConfig.priceTickFormatter,
     chartConfig.priceScalePosition,
+    chartConfig.priceScaleLabelAlign,
     chartConfig.priceScaleEntireTextOnly,
     chartConfig.priceScaleMargins,
     chartConfig.referenceLine,
@@ -748,6 +834,15 @@ export function LightweightChart({
     // A new range can sit at a different magnitude, so the tick step follows.
     applyPriceFormatOverrides(currentSeries, chartConfigRef.current);
     currentSeries.setData(chartConfig.data);
+    // The overlay's times are part of the time scale, so it takes its new data
+    // before the fit; fitting first would measure against the previous
+    // overlay and leave the scale on a range the chart no longer has.
+    const nextConfig = chartConfigRef.current;
+    secondarySeriesRef.current?.setData(nextConfig.secondaryLineData ?? []);
+    secondaryPointSeriesRef.current?.setData(
+      nextConfig.secondaryPointData ?? [],
+    );
+    overlayTimeDomainEndRef.current = getOverlayTimeDomainEnd(nextConfig);
     currentChart.timeScale().fitContent();
 
     const lastPointRafId = requestAnimationFrame(() => {
@@ -791,7 +886,20 @@ export function LightweightChart({
     secondaryPointSeriesRef.current?.setData(
       chartConfig.secondaryPointData ?? [],
     );
+    // An overlay that runs past the series (blank slots carrying the time axis
+    // to the end of a window) changes the time scale by itself, for example
+    // when a session ends and its slots go. Re-cutting the overlay inside the
+    // series, as hover dimming does, never does, so it stays off this path.
+    const domainEnd = getOverlayTimeDomainEnd({
+      data: chartConfig.data,
+      secondaryLineData: chartConfig.secondaryLineData,
+    });
+    if (domainEnd !== overlayTimeDomainEndRef.current) {
+      overlayTimeDomainEndRef.current = domainEnd;
+      chartRef.current?.timeScale().fitContent();
+    }
   }, [
+    chartConfig.data,
     chartConfig.secondaryLineData,
     chartConfig.secondaryPointData,
     preserveChartInstanceOnDataChange,

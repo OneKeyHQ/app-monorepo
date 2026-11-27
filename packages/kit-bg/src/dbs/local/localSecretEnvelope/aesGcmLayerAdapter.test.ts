@@ -119,11 +119,45 @@ describe('buildLocalSecretEnvelopeAesGcmLayerAdapter', () => {
     await expect(unwrapPromise).rejects.toBeInstanceOf(
       LocalSecretEnvelopeUnavailable,
     );
+    await expect(unwrapPromise).rejects.toMatchObject({
+      data: { localSecretEnvelopeFailureReason: 'key-missing' },
+    });
     await expect(unwrapPromise).rejects.toThrow(
       'Local secret envelope wrapping key unavailable: kind=secure-storage',
     );
     await expect(unwrapPromise).rejects.not.toThrow(
       /test:lse:secure-storage:missing-key/,
+    );
+  });
+
+  it('distinguishes a wrong wrapping key from a temporary storage error', async () => {
+    const { keyStorage, records } = buildMemoryKeyStorage();
+    const adapter = buildLocalSecretEnvelopeAesGcmLayerAdapter({
+      capabilities,
+      keyRef: 'wrong-key-test',
+      keyStorage,
+      kind: 'secure-storage',
+      randomBytes: buildDeterministicRandomBytes(),
+    });
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|RP|test-payload',
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    const unwrap = () =>
+      unwrapLocalSecretEnvelopeV1({
+        envelope,
+        resolveLayerAdapter: () => adapter,
+      });
+    records.set('wrong-key-test', 'ff'.repeat(32));
+    await expect(unwrap()).rejects.toMatchObject({
+      data: { localSecretEnvelopeFailureReason: 'authentication-failed' },
+    });
+    jest.spyOn(keyStorage, 'getItem').mockRejectedValueOnce(new Error('busy'));
+    await expect(unwrap()).rejects.not.toHaveProperty(
+      'data.localSecretEnvelopeFailureReason',
     );
   });
 

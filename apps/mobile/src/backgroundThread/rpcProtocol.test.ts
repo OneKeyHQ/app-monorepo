@@ -1,4 +1,5 @@
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { createSwapReviewSigningFailure } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import {
   getBroadcastTxContext,
   withBroadcastTxContext,
@@ -8,6 +9,7 @@ import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils
 import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
+  getLocalSecretEnvelopeCredentialIssue,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
@@ -23,6 +25,35 @@ import {
 } from './rpcProtocol';
 
 describe('background thread RPC protocol', () => {
+  it('only forwards a locally tagged signing failure from the send RPC', () => {
+    const error = createSwapReviewSigningFailure(new Error('Signing failed'));
+    const context = {
+      request: {
+        type: 'service-call' as const,
+        method: 'serviceSend.signAndSendTransaction',
+        params: [],
+        sync: false,
+      },
+      message: error.message,
+      error,
+    };
+    expect(buildSafeBackgroundThreadErrorData(error.data, context)).toEqual({
+      swapReviewSigningFailedBeforeBroadcast: true,
+    });
+    expect(
+      buildSafeBackgroundThreadErrorData(error.data, {
+        ...context,
+        error: { data: error.data },
+      }),
+    ).toBeUndefined();
+    expect(
+      buildSafeBackgroundThreadErrorData(error.data, {
+        ...context,
+        request: { ...context.request, method: 'serviceSend.signTransaction' },
+      }),
+    ).toBeUndefined();
+  });
+
   it('preserves Zcash runtime payloads across response serialization', () => {
     const error = Object.assign(new Error('INSUFFICIENT_FUNDS'), {
       code: 'INSUFFICIENT_FUNDS',
@@ -108,12 +139,48 @@ describe('background thread RPC protocol', () => {
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
       detail: { localOnly: true },
+      localSecretEnvelopeIssue: {
+        credentialKey: 'wallet-id-must-not-cross',
+        reason: 'key-missing',
+      },
     });
 
     expect(data).toEqual({
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
     });
+  });
+
+  it('round-trips only the wallet recovery metadata from an LSE error', () => {
+    const issue = {
+      credentialKey: 'a'.repeat(64),
+      reason: 'key-missing',
+      imported: true,
+    };
+    const error = {
+      name: 'LocalSecretEnvelopeUnavailable',
+      message: 'Local secret envelope wrapping key unavailable',
+      data: {
+        [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+          LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+        localSecretEnvelopeIssue: { ...issue, recordId: 'must-not-cross' },
+        credential: 'must-not-cross',
+      },
+    };
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse(
+        buildBackgroundThreadErrorResponse(error),
+      ),
+    );
+
+    expect(response?.error?.data).toEqual({
+      [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
+        LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+      localSecretEnvelopeIssue: issue,
+    });
+    expect(getLocalSecretEnvelopeCredentialIssue(response?.error)).toEqual(
+      issue,
+    );
   });
 
   it('round-trips only the broadcast identity from background error data', () => {

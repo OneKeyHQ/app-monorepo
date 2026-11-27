@@ -23,6 +23,16 @@ export enum EPerpPageEnterSource {
   DirectUrl = 'directUrl',
 }
 
+export type TPerpShareSource = 'position' | 'tradeHistory' | 'spotHolding';
+
+export interface IPerpShareParams {
+  source: TPerpShareSource;
+}
+
+export interface IPerpShareActionClickParams extends IPerpShareParams {
+  shareMethod: 'save' | 'share' | 'copy' | 'x';
+}
+
 export type TPerpTradeButtonState =
   | 'readyToTrade'
   | 'enableTrading'

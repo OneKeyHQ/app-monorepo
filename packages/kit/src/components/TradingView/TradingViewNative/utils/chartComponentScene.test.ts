@@ -1035,4 +1035,47 @@ describe('TradingViewNative trading line labels', () => {
     );
     expect(badge?.kind === 'roundRect' && badge.x + badge.width).toBe(320);
   });
+
+  // The chart tells a press on a line from one on the plot by the line rects
+  // alone, so they must hold every place a line takes a press.
+  it.each([
+    { name: 'an order label', label: orderLabel },
+    { name: 'a position label', label: { ...orderLabel, variant: undefined } },
+    { name: 'a title and a cancel button', label: undefined },
+  ])('covers every hit region of $name with a line rect', ({ label }) => {
+    const scene = buildPreviousCloseScene(101, {
+      width: 700,
+      chartComponents: [
+        {
+          id: 'limit-order',
+          type: 'referenceLine',
+          props: {
+            anchor: { type: 'price', price: 101 },
+            color: '#30A46C',
+            interactive: true,
+            cancelable: true,
+            draggable: true,
+            style: 'dotted',
+            title: 'Limit 101',
+            label,
+          },
+        },
+      ],
+    });
+    const hitRegions = scene.referenceLineHitRegions ?? [];
+    expect(hitRegions.map((hit) => hit.action)).toEqual(
+      expect.arrayContaining(['cancel', 'drag']),
+    );
+    for (const { rect } of hitRegions) {
+      expect(
+        scene.referenceLineRects?.some(
+          (line) =>
+            rect.x >= line.x &&
+            rect.y >= line.y &&
+            rect.x + rect.width <= line.x + line.width &&
+            rect.y + rect.height <= line.y + line.height,
+        ),
+      ).toBe(true);
+    }
+  });
 });

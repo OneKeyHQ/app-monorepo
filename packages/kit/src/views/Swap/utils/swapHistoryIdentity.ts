@@ -1,4 +1,6 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getSwapProviderOrderIdFromContext } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import type {
   IFetchBuildTxResponse,
   ISwapTxHistory,
@@ -38,6 +40,15 @@ export function getSwapBuildOrderId(buildRes: IFetchBuildTxResponse): string {
 // may hold the internal service order id instead (Stock orders track
 // history identity by it), so prefer the provider ids kept in ctx.
 export function getSwapHistoryProviderOrderId(item: ISwapTxHistory) {
+  if (
+    isXmrSwapNetwork(item.baseInfo?.fromToken.networkId) ||
+    isXmrSwapNetwork(item.baseInfo?.toToken.networkId)
+  ) {
+    return getSwapProviderOrderIdFromContext(
+      item.swapInfo.provider.provider,
+      item.ctx,
+    );
+  }
   const ctx = item.ctx as ISwapOrderCtx | undefined;
   return (
     ctx?.cowSwapOrderId ??

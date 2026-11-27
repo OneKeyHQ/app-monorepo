@@ -52,6 +52,9 @@ interface IHeaderContentProps {
   sortBy: IPerpsInvitesSortBy;
   sortOrder: IPerpsInvitesSortOrder;
   onSort: (field: IPerpsInvitesSortBy) => void;
+  // Only the single-row desktop table can grow its header; the compact table
+  // must keep it one line to stay aligned with the pinned address column.
+  wrapLabels?: boolean;
 }
 
 interface ISortableHeaderProps {
@@ -63,6 +66,7 @@ interface ISortableHeaderProps {
   width: string | number;
   jc?: 'flex-start' | 'flex-end';
   tooltipContent?: string;
+  wrapLabel?: boolean;
 }
 
 // Module-level constants to avoid re-creating on every render
@@ -83,6 +87,7 @@ function SortableHeader({
   width,
   jc = 'flex-start',
   tooltipContent,
+  wrapLabel,
 }: ISortableHeaderProps) {
   const isActive = sortBy === field;
   let iconName:
@@ -97,8 +102,11 @@ function SortableHeader({
   }
 
   return (
-    <XStack w={width} ai="center" jc={jc} gap="$1">
+    <XStack w={width} minWidth={0} ai="center" jc={jc} gap="$1">
       <XStack
+        // Lets long translations wrap inside the column.
+        flexShrink={wrapLabel ? 1 : undefined}
+        minWidth={0}
         ai="center"
         gap="$1"
         onPress={() => onSort(field)}
@@ -167,7 +175,8 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
   const isZeroData =
     isZeroValue(item.volumeFiatValue) &&
     isZeroValue(item.feeFiatValue) &&
-    isZeroValue(item.rewardFiatValue);
+    isZeroValue(item.rewardFiatValue) &&
+    isZeroValue(item.undistributedRewardFiatValue);
 
   return (
     <>
@@ -214,6 +223,18 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
         ) : (
           <Currency formatter="value" size="$bodyMd" color="$text">
             {item.feeFiatValue}
+          </Currency>
+        )}
+      </XStack>
+
+      <XStack w={columnWidths.undistributed} ai="center" py="$1">
+        {isZeroData || !item.undistributedRewardFiatValue ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            --
+          </SizableText>
+        ) : (
+          <Currency formatter="value" size="$bodyMd" color="$text">
+            {item.undistributedRewardFiatValue}
           </Currency>
         )}
       </XStack>
@@ -265,6 +286,7 @@ function ScrollableHeaderContent({
   sortBy,
   sortOrder,
   onSort,
+  wrapLabels,
 }: IHeaderContentProps) {
   const intl = useIntl();
 
@@ -279,6 +301,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.invitedAt}
+        wrapLabel={wrapLabels}
       />
 
       <XStack w={columnWidths.referralCode}>
@@ -302,6 +325,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.firstTrade}
+        wrapLabel={wrapLabels}
       />
 
       <SortableHeader
@@ -313,6 +337,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.volume}
+        wrapLabel={wrapLabels}
       />
 
       <SortableHeader
@@ -324,18 +349,32 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.fee}
+        wrapLabel={wrapLabels}
         tooltipContent={intl.formatMessage({
           id: ETranslations.referral_perps_onekey_fee_exclusion_notice,
         })}
       />
 
+      <XStack w={columnWidths.undistributed}>
+        <SizableText
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+        >
+          {intl.formatMessage({ id: ETranslations.referral_undistributed })}
+        </SizableText>
+      </XStack>
+
       <SortableHeader
-        label={intl.formatMessage({ id: ETranslations.referral_order_reward })}
+        label={intl.formatMessage({
+          id: ETranslations.referral_total_reward,
+        })}
         field="reward"
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.reward}
+        wrapLabel={wrapLabels}
         jc="flex-end"
       />
     </>
@@ -476,6 +515,7 @@ export function PerpsRecordTable({
           sortBy={sortBy}
           sortOrder={sortOrder}
           onSort={onSort}
+          wrapLabels
         />
       </XStack>
       {records.map((record) => (

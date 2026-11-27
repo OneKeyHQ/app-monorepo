@@ -6,6 +6,13 @@ import type { ICanvasConfig, IPnlDisplayMode, IShareData } from './types';
 
 export const SHOW_REFERRAL_CODE = true;
 
+export const SHARE_QR_ERROR_CORRECTION_LEVEL = 'Q';
+export const SHARE_QR_BORDER_RADIUS_RATIO = 0.06;
+// Keep small share-card dots legible when the card is scaled down.
+export const SHARE_QR_DOT_RADIUS_RATIO = 0.42;
+export const SHARE_QR_LOGO_SIZE_RATIO = 0.28;
+export const SHARE_QR_LOGO_MARGIN_RATIO = 0.03;
+
 const CDN_BASE_URL = 'https://uni.onekey-asset.com/static/perps';
 
 const BACKGROUND_FILE_NAMES = {
@@ -184,7 +191,7 @@ export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
       lineHeight: 1.2,
       badgeRadius: scale(58, currentSize, true),
       labelOpacity: 0.5,
-      qrCodeSize: scale(120, currentSize, true),
+      qrCodeSize: scale(144, currentSize, true),
       qrCodeSpacing: scale(20, currentSize, true),
     },
 

@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import {
   OptionCard,
   PaymentMethodBadges,
@@ -168,6 +169,13 @@ function WalletActionSend({
               resolve(value);
             }
           };
+          const claimChoice = (value: boolean) => {
+            if (resolved) {
+              return false;
+            }
+            safeResolve(value);
+            return true;
+          };
           const dialogRef = Dialog.show({
             icon: 'GasOutline',
             title: intl.formatMessage(
@@ -187,13 +195,30 @@ function WalletActionSend({
                     id: ETranslations.receive_from_another_wallet_desc,
                   })}
                   opacity={isBotWalletReceiveBlocked ? 0.5 : 1}
-                  onPress={() => {
+                  onPress={async () => {
                     if (isBotWalletReceiveBlocked) {
                       showBotWalletDisabledToast('receive');
                       return;
                     }
+                    if (
+                      await blockIfWalletLocalSecretEnvelopeUnavailable({
+                        walletId: wallet?.id,
+                        accountId: account?.id,
+                        presentDialog: async (show) => {
+                          if (!claimChoice(false)) {
+                            return;
+                          }
+                          await dialogRef.close();
+                          show();
+                        },
+                      })
+                    ) {
+                      return;
+                    }
+                    if (!claimChoice(false)) {
+                      return;
+                    }
                     logZeroGas('receive');
-                    safeResolve(false);
                     void dialogRef.close();
                     navigation.pushModal(EModalRoutes.ReceiveModal, {
                       screen: EModalReceiveRoutes.ReceiveSelector,
@@ -213,8 +238,25 @@ function WalletActionSend({
                         showBotWalletDisabledToast('addMoney');
                         return;
                       }
+                      if (
+                        await blockIfWalletLocalSecretEnvelopeUnavailable({
+                          walletId: wallet?.id,
+                          accountId: account?.id,
+                          presentDialog: async (show) => {
+                            if (!claimChoice(false)) {
+                              return;
+                            }
+                            await dialogRef.close();
+                            show();
+                          },
+                        })
+                      ) {
+                        return;
+                      }
+                      if (!claimChoice(false)) {
+                        return;
+                      }
                       logZeroGas('buy');
-                      safeResolve(false);
                       void dialogRef.close();
                       try {
                         if (

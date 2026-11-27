@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/components';
 import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -535,6 +536,14 @@ function DepositWithdrawContent({
     }
 
     await dismissKeyboardWithDelay();
+    if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: accountResult.wallet?.id,
+        accountId: selectedAccount.accountId ?? undefined,
+      })
+    ) {
+      return;
+    }
     if (await checkDepositWalletNotBackedUp()) {
       return;
     }

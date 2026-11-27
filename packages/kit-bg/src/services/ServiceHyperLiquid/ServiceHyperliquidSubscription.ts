@@ -8,6 +8,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -96,6 +97,7 @@ import {
 } from './utils/perpsAccountStatusCheckUtils';
 import {
   SUBSCRIPTION_TYPE_INFO,
+  buildFastL2Params,
   calculateRequiredSubscriptionsMap,
   generateSubscriptionKey,
   getOrderBookSubscriptionCoin,
@@ -142,6 +144,7 @@ interface IPublicTradesConnection {
 
 interface IPublicTradesSubscription {
   connection: IPublicTradesConnection;
+  recentTrades: IWsTrades;
   batchLimits: number[];
   connected: boolean;
   failure?: Error;
@@ -152,6 +155,18 @@ interface IPublicTradesBatch {
   trades: IWsTrades;
   timer: ReturnType<typeof setTimeout>;
 }
+
+type IPublicDepthBookRequest = { coin: string } & IL2BookOptions;
+type IPublicDepthBookSnapshot = { book: IBook; receivedAt: number };
+type IPublicDepthBookSubscription = {
+  refs: number;
+  latest?: IPublicDepthBookSnapshot;
+  transport?: WebSocketTransport;
+  retryTimer?: ReturnType<typeof setTimeout>;
+  snapshotTimer?: ReturnType<typeof setTimeout>;
+  retries: number;
+  fastFailures: number;
+};
 
 const PUBLIC_TRADES_BATCH_INTERVAL_MS = 1000;
 const PUBLIC_TRADES_BATCH_LIMIT = 10;
@@ -217,6 +232,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   >();
 
   private _publicTradesBatches = new Map<string, IPublicTradesBatch>();
+
+  private _publicDepthBooks = new Map<string, IPublicDepthBookSubscription>();
 
   private _currentState: ISubscriptionState = {
     currentUser: null,
@@ -1322,7 +1339,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._resumeRecoveryPromise;
   }
 
-  private _isSocketDisconnected(client = this._client): boolean {
+  private _isSocketDisconnected(
+    client: Pick<IHyperliquidWsClient, 'transport'> | null = this._client,
+  ): boolean {
     const socket = client?.transport?.socket;
     const readyState = socket?.readyState;
     // rews v4 reports CONNECTING during retry backoff as well as connection setup.
@@ -1342,8 +1361,32 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     return true;
   }
 
+  private _refreshAllPerpsDataPromise: Promise<boolean> | null = null;
+
   @backgroundMethod()
   async refreshAllPerpsData(): Promise<boolean> {
+    if (!this._refreshAllPerpsDataPromise) {
+      this._refreshAllPerpsDataPromise = this._refreshAllPerpsData().finally(
+        () => {
+          this._refreshAllPerpsDataPromise = null;
+        },
+      );
+    }
+    return this._refreshAllPerpsDataPromise;
+  }
+
+  private async _refreshAllPerpsData(): Promise<boolean> {
+    // Public trades can be shared with the ticker; keep those subscriptions intact.
+    const publicConnections = new Set(
+      [...this._publicTradesSubscriptions.values()].map(
+        (entry) => entry.connection,
+      ),
+    );
+    for (const connection of publicConnections) {
+      if (this._isSocketDisconnected(connection)) {
+        connection.transport.socket.reconnect();
+      }
+    }
     const client = await this.getWebSocketClient();
     const isSocketOpen =
       client?.transport?.socket?.readyState === WebSocket.OPEN;
@@ -1984,6 +2027,190 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   };
 
+  @backgroundMethod()
+  async subscribePublicDepthBook({
+    coin,
+    nSigFigs = null,
+    mantissa = null,
+  }: IPublicDepthBookRequest): Promise<IPublicDepthBookSnapshot | undefined> {
+    if (!coin) return undefined;
+
+    const options = { nSigFigs, mantissa };
+    const params = { coin, ...options };
+    const key = generateSubscriptionKey(ESubscriptionType.L2_BOOK, params);
+    const current = this._publicDepthBooks.get(key);
+    if (current) {
+      current.refs += 1;
+      return current.latest;
+    }
+
+    const entry: IPublicDepthBookSubscription = {
+      refs: 1,
+      retries: 0,
+      fastFailures: 0,
+    };
+    this._publicDepthBooks.set(key, entry);
+    const start = () => {
+      const fast = entry.fastFailures < 2;
+      let fastBook = new FastL2Book(coin, options);
+      // L2 replies carry only the coin. Isolate different precisions so a
+      // coarse snapshot can never be mistaken for a trading-book snapshot.
+      const transport = new WebSocketTransport({
+        url: 'wss://api.hyperliquid.xyz/ws',
+        timeout: 5000,
+        reconnect: {
+          maxRetries: 999,
+          connectionTimeout: 5000,
+          reconnectionDelay: (attempt: number) =>
+            Math.min(2 ** attempt * 150, 8000),
+        },
+        resubscribe: true,
+      });
+      entry.transport = transport;
+      const isCurrent = () =>
+        this._publicDepthBooks.get(key) === entry &&
+        entry.transport === transport;
+      const clearSnapshotTimer = () => {
+        clearTimeout(entry.snapshotTimer);
+        entry.snapshotTimer = undefined;
+      };
+      const handleFailure = () => {
+        if (!isCurrent()) return;
+        clearSnapshotTimer();
+        entry.latest = undefined;
+        entry.transport = undefined;
+        transport.close();
+        if (fast) entry.fastFailures += 1;
+        appEventBus.emit(EAppEventBusNames.HyperliquidPublicDepthBook, {
+          coin,
+          options,
+          status: 'error',
+        });
+        entry.retryTimer = setTimeout(
+          start,
+          Math.min(1000 * 2 ** entry.retries, 30_000),
+        );
+        entry.retries += 1;
+      };
+      const freshnessWindow = PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1;
+      const armSnapshotTimer = (delayMs: number) => {
+        entry.snapshotTimer = setTimeout(() => {
+          if (!isCurrent()) return;
+          const latest = entry.latest;
+          const remaining = latest
+            ? freshnessWindow - Math.max(0, Date.now() - latest.receivedAt)
+            : 0;
+          // One timer follows the latest valid frame without reallocating on each update.
+          if (remaining > 0) armSnapshotTimer(remaining);
+          else handleFailure();
+        }, delayMs);
+      };
+      transport.socket.addEventListener('close', () => {
+        if (!isCurrent()) return;
+        clearSnapshotTimer();
+        fastBook = new FastL2Book(coin, options);
+        entry.latest = undefined;
+        appEventBus.emit(EAppEventBusNames.HyperliquidPublicDepthBook, {
+          coin,
+          options,
+          status: 'disconnected',
+        });
+      });
+
+      const publishBook = (book: IBook) => {
+        if (!isCurrent() || book.coin !== coin) return;
+        entry.retries = 0;
+        entry.latest = {
+          book: { ...book, nSigFigs, mantissa },
+          receivedAt: Date.now(),
+        };
+        if (entry.snapshotTimer === undefined)
+          armSnapshotTimer(freshnessWindow);
+        appEventBus.emit(EAppEventBusNames.HyperliquidPublicDepthBook, {
+          coin,
+          options,
+          status: 'ready',
+          ...entry.latest,
+        });
+      };
+
+      const expectSnapshot = () => {
+        if (!isCurrent() || entry.latest) return;
+        clearSnapshotTimer();
+        armSnapshotTimer(
+          fast
+            ? ServiceHyperliquidSubscription.FAST_L2_SNAPSHOT_TIMEOUT_MS
+            : PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS,
+        );
+      };
+      transport.socket.addEventListener('open', expectSnapshot);
+      if (fast) {
+        const type = ESubscriptionType.L2;
+        void transport
+          .subscribe<IFastL2Frame>(
+            type,
+            { type, ...buildFastL2Params(coin, params) },
+            ({ detail }) => {
+              if (!isCurrent()) return;
+              try {
+                const book = fastBook.apply(detail);
+                if (shouldResetFastL2RecoveryAfterFrame(detail, book)) {
+                  entry.fastFailures = 0;
+                }
+                if (book) publishBook(book);
+              } catch (error) {
+                if (!isStaleFastL2TargetError(error)) handleFailure();
+              }
+            },
+            { onError: handleFailure },
+          )
+          .then(expectSnapshot)
+          .catch(handleFailure);
+      } else {
+        const client = new SubscriptionClient({ transport });
+        void client
+          .l2Book(
+            params,
+            (snapshot) => {
+              if (!isCurrent()) return;
+              try {
+                const book = fastBook.apply({ s: snapshot });
+                if (book) publishBook(book);
+              } catch (error) {
+                if (!isStaleFastL2TargetError(error)) handleFailure();
+              }
+            },
+            { onError: handleFailure },
+          )
+          .then(expectSnapshot)
+          .catch(handleFailure);
+      }
+    };
+    start();
+    return undefined;
+  }
+
+  @backgroundMethod()
+  async unsubscribePublicDepthBook({
+    coin,
+    nSigFigs = null,
+    mantissa = null,
+  }: IPublicDepthBookRequest): Promise<void> {
+    const key = generateSubscriptionKey(ESubscriptionType.L2_BOOK, {
+      coin,
+      nSigFigs,
+      mantissa,
+    });
+    const entry = this._publicDepthBooks.get(key);
+    if (!entry) return;
+    entry.refs -= 1;
+    if (entry.refs > 0) return;
+    this._publicDepthBooks.delete(key);
+    clearTimeout(entry.retryTimer);
+    clearTimeout(entry.snapshotTimer);
+    entry.transport?.close();
+  }
+
   private _getPublicTradesConnection(): IPublicTradesConnection {
     if (this._publicTradesConnection) {
       return this._publicTradesConnection;
@@ -2002,6 +2229,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     transport.socket.addEventListener('close', () => {
       this._publicTradesSubscriptions.forEach((entry, coin) => {
         if (entry.connection.transport !== transport) return;
+        this._flushClosedPublicTradesBatch(coin);
         entry.connected = false;
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
           status: 'disconnected',
@@ -2092,6 +2320,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
+    // A ticker may consume only one row before the tape joins the same feed.
+    const sorted = [...trades, ...entry.recentTrades].toSorted(
+      (a, b) => b.time - a.time || b.tid - a.tid,
+    );
+    const recentTrades: IWsTrades = [];
+    for (const trade of sorted) {
+      const last = recentTrades.at(-1);
+      if (
+        trade.coin === coin &&
+        (last?.time !== trade.time || last.tid !== trade.tid)
+      ) {
+        recentTrades.push(trade);
+        if (recentTrades.length === PERPS_RECENT_TRADES_LIMIT) break;
+      }
+    }
+    entry.recentTrades = recentTrades;
+
     const currentBatch = this._publicTradesBatches.get(coin);
     const limit = Math.min(
       PERPS_RECENT_TRADES_LIMIT,
@@ -2099,8 +2344,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     );
     const batchedTrades = orderBy(
       [...(currentBatch?.trades ?? []), ...trades],
-      ['time'],
-      ['desc'],
+      ['time', 'tid'],
+      ['desc', 'desc'],
     ).slice(0, limit);
     // The Perps tape requests the full window and follows the exchange's frame
     // cadence. Include any pending Swap batch when it joins the same market.
@@ -2135,12 +2380,33 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._publicTradesBatches.set(coin, batch);
   }
 
-  private _clearPublicTradesBatch(coin: string): void {
+  private _clearPublicTradesBatch(coin: string) {
     const batch = this._publicTradesBatches.get(coin);
     if (batch) {
       clearTimeout(batch.timer);
       this._publicTradesBatches.delete(coin);
     }
+    return batch;
+  }
+
+  private _flushClosedPublicTradesBatch(coin: string) {
+    const batch = this._clearPublicTradesBatch(coin);
+    if (batch) {
+      this._emitHyperliquidDataUpdate(
+        ESubscriptionType.TRADES,
+        batch.trades,
+        true,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async getRetainedPublicTrades({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IWsTrades> {
+    return this._publicTradesSubscriptions.get(coin.trim())?.recentTrades ?? [];
   }
 
   @backgroundMethod()
@@ -2170,6 +2436,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         const connection = this._getPublicTradesConnection();
         const entry: IPublicTradesSubscription = {
           connection,
+          recentTrades: [],
           batchLimits: [limit],
           connected: false,
           subscriptionPromise: connection.client.trades(
@@ -2183,6 +2450,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
                   this._publicTradesSubscriptions.get(normalizedCoin) === entry
                 ) {
                   this._retirePublicTradesConnection(connection);
+                  this._flushClosedPublicTradesBatch(normalizedCoin);
                   entry.connected = false;
                   entry.failure = error;
                   appEventBus.emit(
@@ -3323,11 +3591,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _emitHyperliquidDataUpdate(
     subscriptionType: ESubscriptionType,
     data: unknown,
+    displayOnly?: boolean,
   ): void {
     appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
       type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
       subType: subscriptionType,
       data,
+      ...(displayOnly && { displayOnly }),
     });
   }
 
@@ -3441,6 +3711,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   async dispose(): Promise<void> {
+    const depthBooks = [...this._publicDepthBooks.values()];
+    this._publicDepthBooks.clear();
+    depthBooks.forEach((entry) => {
+      clearTimeout(entry.retryTimer);
+      clearTimeout(entry.snapshotTimer);
+      entry.transport?.close();
+    });
     this._resetFundedActivationRefreshState();
     await this.disconnect();
   }

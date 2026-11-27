@@ -16,6 +16,9 @@ import type {
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { getLocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -46,6 +49,11 @@ export type IBackupStatus = {
   hasBackup: boolean;
   lastBackupTime?: number;
   backupSize?: number;
+};
+
+type ICloudBackupRestoreStatus = {
+  success: boolean;
+  localStorageUnavailable?: true;
 };
 
 @backgroundClass()
@@ -771,7 +779,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async restorePreparedLocalBackup(params: {
     taskUUID: string;
     restoreId: string;
-  }): Promise<{ success: boolean } | null> {
+  }): Promise<ICloudBackupRestoreStatus | null> {
     if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return null;
     const generation = this.recoveryGeneration;
     if (!this.isRecoveryActive(generation)) return null;
@@ -780,7 +788,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     this.clearPreparedLocalRestore();
     if (prepared.expiresAt <= Date.now()) return null;
     this.recoveryImportTasks.add(params.taskUUID);
-    // Authorization/import failures propagate, rather than retrying with a password.
+    // For a prepared restore, authorization errors propagate to the caller.
     try {
       const accountInfo = await this.getCloudAccountInfo();
       if (
@@ -790,12 +798,19 @@ class ServiceCloudBackupV2 extends ServiceBase {
         accountInfo.userId !== prepared.accountId
       )
         return null;
-      const { success } = await this.importBackup({
+      const result = await this.importBackup({
         transferData: prepared.transferData,
         taskUUID: params.taskUUID,
         generation,
       });
-      return this.isRecoveryActive(generation) ? { success } : null;
+      if (!this.isRecoveryActive(generation)) return null;
+      if (
+        'localStorageUnavailable' in result &&
+        result.localStorageUnavailable === true
+      ) {
+        return { success: false, localStorageUnavailable: true };
+      }
+      return { success: result.success };
     } catch (error) {
       if (this.isRecoveryActive(generation)) {
         await this.recoveryImportMutex.runExclusive(async () => {
@@ -910,8 +925,11 @@ class ServiceCloudBackupV2 extends ServiceBase {
       });
       if (!(await isActive()) || !this.isRecoveryActive(generation))
         return cancelledResult;
-      const { success, errorsInfo, taskUUID } =
-        await this.backgroundApi.servicePrimeTransfer.startImport({
+      let result: Awaited<
+        ReturnType<typeof this.backgroundApi.servicePrimeTransfer.startImport>
+      >;
+      try {
+        result = await this.backgroundApi.servicePrimeTransfer.startImport({
           taskUUID: params.taskUUID,
           selectedTransferData,
           includingDefaultNetworks: true,
@@ -919,10 +937,28 @@ class ServiceCloudBackupV2 extends ServiceBase {
           password: localPassword,
           localPassword,
         });
+      } catch (error) {
+        if (
+          !errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+          }) ||
+          getLocalSecretEnvelopeCredentialIssue(error)
+        ) {
+          throw error;
+        }
+        if (!(await isActive()) || !this.isRecoveryActive(generation))
+          return cancelledResult;
+        await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
+          taskUUID: params.taskUUID,
+        });
+        return { ...cancelledResult, localStorageUnavailable: true as const };
+      }
 
       // Once writes start, reset waits for them to settle before erasing wallets.
       if (!(await isActive()) || !this.isRecoveryActive(generation))
         return cancelledResult;
+      const { success, errorsInfo, taskUUID } = result;
       await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
         errorsInfo,
         taskUUID,

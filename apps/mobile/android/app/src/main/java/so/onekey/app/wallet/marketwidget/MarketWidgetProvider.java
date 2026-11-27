@@ -147,6 +147,10 @@ public class MarketWidgetProvider extends AppWidgetProvider {
         List<MarketWidgetData.Asset> assets = MarketWidgetStore.assets(context, id, single);
         RemoteViews views = new RemoteViews(context.getPackageName(),
             single ? R.layout.market_widget_single : R.layout.market_widget_watchlist);
+        // The launcher can reapply updates to the existing view when the layout is unchanged.
+        views.setImageViewResource(R.id.market_widget_brand, configuration.privacyMasked
+            ? R.mipmap.ic_launcher_travel : R.drawable.market_widget_logo);
+        views.setContentDescription(R.id.market_widget_brand, configuration.privacyMasked ? null : "OneKey");
         boolean hot = MarketWidgetStore.HOT.equals(MarketWidgetStore.source(context, id));
         views.setTextViewText(R.id.market_widget_title, textContext.getString(MarketWidgetStore.hasManualSelection(context, id)
             ? (single ? R.string.market_widget_single_title : R.string.market_widget_watchlist_title)

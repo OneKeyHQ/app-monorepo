@@ -56,6 +56,7 @@ type ICustomTabItemProps = IStackProps & {
   itemId: ESwapTabSwitchType;
   isSelected?: boolean;
   compact?: boolean;
+  plain?: boolean;
   onPress?: IStackProps['onPress'];
 };
 
@@ -75,14 +76,16 @@ function CustomTabItem({
   children,
   isSelected,
   compact,
+  plain,
   onPress,
   ...rest
 }: ICustomTabItemProps) {
   const { handleItemLayout } = useScrollableFilterBar();
+  const tabPadding = compact ? '$2' : '$2.5';
   return (
     <Stack
       py="$1"
-      px={compact ? '$2' : '$2.5'}
+      px={plain ? '$0' : tabPadding}
       borderRadius="$2"
       borderCurve="continuous"
       userSelect="none"
@@ -90,18 +93,16 @@ function CustomTabItem({
         top: 4,
         bottom: 4,
       }}
-      {...(isSelected
-        ? {
-            bg: '$bgStrong',
-          }
-        : {
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-          })}
+      bg={isSelected && !plain ? '$bgStrong' : undefined}
+      {...(!isSelected &&
+        !plain && {
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+        })}
       {...rest}
       testID={SwapTestIDs.typeTab(itemId)}
       onPress={onPress}
@@ -130,6 +131,7 @@ interface ISwapHeaderContainerProps {
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
+  hideStockAndProTabs?: boolean;
   singleSwapBridgeTab?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
@@ -145,6 +147,7 @@ const SwapHeaderContainer = ({
   onSwapTypeSwitch,
   showSwapPro,
   hideRightActions,
+  hideStockAndProTabs,
   singleSwapBridgeTab,
   marketPresetSettings,
   enterFrom,
@@ -219,6 +222,7 @@ const SwapHeaderContainer = ({
     if (hasPendingSwapProEntry) {
       navigation.setParams({
         tab: getRouteTabParamFromSwapType(ESwapTabSwitchType.LIMIT),
+        swapPrefill: undefined,
       });
     }
   }, [hasPendingSwapProEntry, navigation]);
@@ -262,7 +266,7 @@ const SwapHeaderContainer = ({
         return;
       }
       const tab = getRouteTabParamFromSwapType(type);
-      navigation.setParams({ tab });
+      navigation.setParams({ tab, swapPrefill: undefined });
     },
     [navigation, pageType],
   );
@@ -431,48 +435,29 @@ const SwapHeaderContainer = ({
     !platformEnv.isExtensionUiSidePanel;
   const hideStockModalKLine = Boolean(
     (platformEnv.isDesktop ||
+      platformEnv.isExtensionUiExpandTab ||
       (platformEnv.isNative && enterFrom === ESwapSource.MARKET)) &&
     pageType === 'modal' &&
     swapTypeSwitch === ESwapTabSwitchType.STOCK,
   );
-  const tabs = (
-    <>
+  const tabs = segmentOptions
+    .filter(
+      ({ value }) => !hideStockAndProTabs || value !== ESwapTabSwitchType.STOCK,
+    )
+    .map(({ value, label }) => (
       <CustomTabItem
-        itemId={ESwapTabSwitchType.SWAP}
+        key={value}
+        itemId={value}
         compact={isCompactLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
+        plain={hideStockAndProTabs && value === ESwapTabSwitchType.SWAP}
+        isSelected={swapTypeSwitch === value}
         onPress={() => {
-          void handleSwapTypeChange(ESwapTabSwitchType.SWAP);
+          void handleSwapTypeChange(value);
         }}
       >
-        {swapBridgeLabel}
+        {label}
       </CustomTabItem>
-      <CustomTabItem
-        itemId={ESwapTabSwitchType.STOCK}
-        compact={isCompactLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
-        onPress={() => {
-          void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
-        }}
-      >
-        {stockLabel}
-      </CustomTabItem>
-      <CustomTabItem
-        itemId={ESwapTabSwitchType.LIMIT}
-        compact={isCompactLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
-        onPress={() => {
-          void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
-        }}
-      >
-        {intl.formatMessage({
-          id: showSwapPro
-            ? ETranslations.dexmarket_pro
-            : ETranslations.swap_page_limit,
-        })}
-      </CustomTabItem>
-    </>
-  );
+    ));
 
   if (singleSwapBridgeTab) {
     // This branch is only reached from the Market detail pages' embedded swap.
@@ -524,13 +509,19 @@ const SwapHeaderContainer = ({
       {...(platformEnv.isNativeIOS && { height: 56, zIndex: 1 })}
     >
       <Stack flex={1} minWidth={0}>
-        <ScrollableFilterBar
-          selectedItemId={swapTypeSwitch}
-          itemGap="$1.5"
-          itemPr="$5"
-        >
-          {tabs}
-        </ScrollableFilterBar>
+        {hideStockAndProTabs && showSwapPro ? (
+          <SizableText size="$headingMd" color="$text" py="$1">
+            {swapBridgeLabel}
+          </SizableText>
+        ) : (
+          <ScrollableFilterBar
+            selectedItemId={swapTypeSwitch}
+            itemGap="$1.5"
+            itemPr="$5"
+          >
+            {tabs}
+          </ScrollableFilterBar>
+        )}
       </Stack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer

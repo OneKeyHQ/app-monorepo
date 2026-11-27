@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildMergedAllNetworkSnapshot } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import type {
   ICustomTokenItem,
   IFetchAccountTokensResp,
@@ -55,7 +56,8 @@ const mockEndPortfolioStage = jest.fn(
 const mockShowPortfolioProcessing = jest.fn<Promise<void>, []>(
   async () => undefined,
 );
-const mockCustomTokens: ICustomTokenItem[] = [];
+let mockCustomTokens: ICustomTokenItem[] = [];
+const mockGetHomeDefaultTokenMap = jest.fn(async () => ({}));
 const mockCurrencyMap = {};
 let mockEpoch = 0;
 let mockTokenWorth = '125';
@@ -457,6 +459,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockNotifySettled(...args),
     },
     serviceToken: {
+      getHomeDefaultTokenMap: mockGetHomeDefaultTokenMap,
       abortFetchAccountTokens: mockAsyncNoop,
       fetchAccountTokens: () => mockFetchTokens(),
       updateCurrentAccount: mockAsyncNoop,
@@ -545,6 +548,7 @@ describe('Home automatic Portfolio sync', () => {
     });
     mockEpoch = 0;
     mockVisibilityListener = undefined;
+    mockCustomTokens = [];
     platformEnv.isExtensionUi = false;
     platformEnv.isExtensionUiPopup = false;
     mockIndexedAccountReady = true;
@@ -601,6 +605,66 @@ describe('Home automatic Portfolio sync', () => {
 
     expect(mockVisibilityListener).toBeUndefined();
     expect(mockRunAllNetworks).not.toHaveBeenCalled();
+  });
+
+  it('only republishes the retained All Networks list when custom tokens change', async () => {
+    platformEnv.isExtensionUi = true;
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    const response = tokenResponse();
+    mockAllNetworkResult = [
+      {
+        ...response,
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: false,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue(
+      buildMergedAllNetworkSnapshot({
+        rounds: [],
+        mergeDeriveAssetsByNetworkId: {},
+      }),
+    );
+    const token = response.tokens.data[0];
+    const other = { ...token, $key: 'other', address: '0xABC' };
+    mockCustomTokens = [token, other];
+    const { rerender } = render(<TokenListBlock />);
+    await waitFor(() =>
+      expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(1),
+    );
+
+    mockCustomTokens = [
+      { ...other, address: '0xabc', name: 'Renamed' },
+      { ...token },
+      { ...token },
+    ];
+    await act(async () => rerender(<TokenListBlock />));
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(1);
+
+    mockCustomTokens = [token, { ...other, networkId: 'evm--10' }];
+    await act(async () => rerender(<TokenListBlock />));
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(2);
+
+    mockCustomTokens = [token];
+    await act(async () => rerender(<TokenListBlock />));
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(3);
+  });
+
+  it('reloads defaults in every mounted extension Home when background writes them', async () => {
+    platformEnv.isExtensionUi = true;
+    render(<TokenListBlock />);
+    const peer = render(<TokenListBlock />);
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.HomeDefaultTokensUpdated, undefined);
+    });
+    expect(mockGetHomeDefaultTokenMap).toHaveBeenCalledTimes(2);
+
+    peer.unmount();
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.HomeDefaultTokensUpdated, undefined);
+    });
+    expect(mockGetHomeDefaultTokenMap).toHaveBeenCalledTimes(3);
   });
 
   it('does not query categories until a current spot response is available', async () => {
@@ -977,12 +1041,7 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockEndPortfolioStage).toHaveBeenCalledWith({
       doneI18n: { key: 'portfolio_updated__title' },
     });
-    expect(mockPortfolioError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toastId: expect.stringMatching(/^portfolio-sync-failed-/),
-        title: 'global.update_failed: cosmos--secret-4',
-      }),
-    );
+    expect(mockPortfolioError).not.toHaveBeenCalled();
   });
 
   it('preserves funded aggregate tokens during partial All Networks sync', async () => {

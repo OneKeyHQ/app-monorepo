@@ -4,8 +4,11 @@ import {
   wrapLocalSecretEnvelopeV1,
 } from '.';
 
+import { LocalSecretEnvelopeUnavailable } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
 
+import { buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter } from './mmkvProfileKeyLayerAdapter';
 import {
   DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
@@ -141,6 +144,237 @@ function buildMemorySecureStorage({
 }
 
 describe('buildSecureStorageLocalSecretEnvelopeLayerAdapter', () => {
+  it.each([false, true])(
+    'distinguishes an unreadable Android entry from an absent entry (profile key: %s)',
+    async (withProfileKey) => {
+      const { calls, records, secureStorage } = buildMemorySecureStorage();
+      const profileRecords = new Map<string, string>();
+      const profileAdapter = buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter(
+        {
+          keyStorage: {
+            getItem: async (key) => profileRecords.get(key) ?? null,
+            setItem: async (key, value) => {
+              profileRecords.set(key, value);
+            },
+            removeItem: async (key) => {
+              profileRecords.delete(key);
+            },
+          },
+        },
+      );
+      let keyReadable = true;
+      const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+        secureStorage: {
+          ...secureStorage,
+          getSecureItem: (key) =>
+            keyReadable
+              ? secureStorage.getSecureItem(key)
+              : Promise.resolve(null),
+          hasStoredSecureItem: async (key) => records.has(key),
+        },
+      });
+      const envelope = await wrapLocalSecretEnvelopeV1({
+        dataType: 'credential',
+        layerAdapters: withProfileKey ? [profileAdapter, adapter] : [adapter],
+        plaintext: '|RP|test-payload',
+        recordId: 'hd-1',
+        strength: 'secure-storage-bound',
+      });
+      const writesBeforeRead = calls.set;
+      const unwrap = () =>
+        unwrapLocalSecretEnvelopeV1({
+          envelope,
+          resolveLayerAdapter: ({ kind }) =>
+            kind === profileAdapter.kind ? profileAdapter : adapter,
+        });
+      const androidEnv = jest.replaceProperty(
+        platformEnv,
+        'isNativeAndroid',
+        true,
+      );
+      try {
+        keyReadable = false;
+        await expect(unwrap()).rejects.toThrow('wrapping key unavailable');
+        await expect(unwrap()).rejects.not.toHaveProperty(
+          'data.localSecretEnvelopeFailureReason',
+        );
+        expect(calls.set).toBe(writesBeforeRead);
+        expect(calls.remove).toBe(0);
+        expect(records.has(DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF)).toBe(
+          true,
+        );
+
+        keyReadable = true;
+        await expect(unwrap()).resolves.toBe('|RP|test-payload');
+        records.delete(DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF);
+        await expect(unwrap()).rejects.toHaveProperty(
+          'data.localSecretEnvelopeFailureReason',
+          'key-missing',
+        );
+      } finally {
+        androidEnv.restore();
+      }
+    },
+  );
+
+  it('classifies migrated Android entries as permanent failure when KeyStore is operational even if MMKV profile key was also migrated', async () => {
+    const { calls, records, secureStorage } = buildMemorySecureStorage();
+    const profileRecords = new Map<string, string>();
+    const profileAdapter = buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter({
+      keyStorage: {
+        getItem: async (key) => profileRecords.get(key) ?? null,
+        setItem: async (key, value) => {
+          profileRecords.set(key, value);
+        },
+        removeItem: async (key) => {
+          profileRecords.delete(key);
+        },
+      },
+    });
+    let keyReadable = true;
+    const verifySecureStorageOperational = jest.fn(async () => true);
+    const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      secureStorage: {
+        ...secureStorage,
+        getSecureItem: (key) =>
+          keyReadable
+            ? secureStorage.getSecureItem(key)
+            : Promise.resolve(null),
+        hasStoredSecureItem: async (key) => records.has(key),
+        verifySecureStorageOperational,
+      },
+    });
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [profileAdapter, adapter],
+      plaintext: '|RP|migrated-android-payload',
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    const writesBeforeRead = calls.set;
+    const androidEnv = jest.replaceProperty(
+      platformEnv,
+      'isNativeAndroid',
+      true,
+    );
+    try {
+      // Simulate OEM phone migration: SharedPreferences entry and MMKV profile
+      // key are both present on the new phone, AndroidKeyStore is healthy, but
+      // the old device's KeyStore alias is missing/mismatched so getSecureItem
+      // returns null.
+      keyReadable = false;
+      await expect(
+        unwrapLocalSecretEnvelopeV1({
+          envelope,
+          resolveLayerAdapter: ({ kind }) =>
+            kind === profileAdapter.kind ? profileAdapter : adapter,
+        }),
+      ).rejects.toHaveProperty(
+        'data.localSecretEnvelopeFailureReason',
+        'authentication-failed',
+      );
+      expect(verifySecureStorageOperational).toHaveBeenCalledTimes(1);
+      // Must remain non-destructive to the stored SharedPreferences entry.
+      expect(calls.set).toBe(writesBeforeRead);
+      expect(calls.remove).toBe(0);
+      expect(records.has(DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF)).toBe(true);
+    } finally {
+      androidEnv.restore();
+    }
+  });
+
+  it('recovers when a migrated-looking Android read succeeds on re-read after KeyStore warmup', async () => {
+    const { records, secureStorage } = buildMemorySecureStorage();
+    let readCount = 0;
+    const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      secureStorage: {
+        ...secureStorage,
+        getSecureItem: async (key) => {
+          readCount += 1;
+          if (readCount === 1) {
+            return null;
+          }
+          return secureStorage.getSecureItem(key);
+        },
+        hasStoredSecureItem: async (key) => records.has(key),
+        verifySecureStorageOperational: async () => true,
+      },
+    });
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|RP|warmup-recovered',
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    readCount = 0;
+    const androidEnv = jest.replaceProperty(
+      platformEnv,
+      'isNativeAndroid',
+      true,
+    );
+    try {
+      await expect(
+        unwrapLocalSecretEnvelopeV1({
+          envelope,
+          resolveLayerAdapter: () => adapter,
+        }),
+      ).resolves.toBe('|RP|warmup-recovered');
+      expect(readCount).toBe(2);
+    } finally {
+      androidEnv.restore();
+    }
+  });
+
+  it('keeps Android reads retryable when hasStoredSecureItem returns undefined', async () => {
+    const { secureStorage } = buildMemorySecureStorage();
+    const verifyOperational = jest.fn(async () => true);
+    const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      secureStorage: {
+        ...secureStorage,
+        hasStoredSecureItem: async () => undefined,
+        verifySecureStorageOperational: verifyOperational,
+      },
+    });
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|RP|unknown-presence',
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    const readAdapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      secureStorage: {
+        ...secureStorage,
+        getSecureItem: async () => null,
+        hasStoredSecureItem: async () => undefined,
+        verifySecureStorageOperational: verifyOperational,
+      },
+    });
+    const androidEnv = jest.replaceProperty(
+      platformEnv,
+      'isNativeAndroid',
+      true,
+    );
+    try {
+      const error = await unwrapLocalSecretEnvelopeV1({
+        envelope,
+        resolveLayerAdapter: () => readAdapter,
+      }).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+      expect(
+        (
+          error as LocalSecretEnvelopeUnavailable & {
+            data?: { localSecretEnvelopeFailureReason?: string };
+          }
+        ).data?.localSecretEnvelopeFailureReason,
+      ).toBeUndefined();
+      expect(verifyOperational).not.toHaveBeenCalled();
+    } finally {
+      androidEnv.restore();
+    }
+  });
+
   it('uses one stable secureStorage key for multiple envelopes', async () => {
     const { records, secureStorage } = buildMemorySecureStorage();
     const keyRef = 'test:lse:secure-storage:global-key';

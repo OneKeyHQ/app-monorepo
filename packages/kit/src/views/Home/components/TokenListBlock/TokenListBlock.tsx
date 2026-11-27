@@ -12,7 +12,7 @@ import type { ReactNode } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil, uniqBy } from 'lodash';
+import { isEmpty, isEqual, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -258,6 +258,19 @@ function pickTokenListFiatMap({
   return map;
 }
 
+// computeNonZeroIds matches either the row key or the network/address pair.
+function getCustomTokenMembership(tokens: ICustomTokenItem[] = []) {
+  const keys = new Set<string>();
+  const addresses = new Set<string>();
+  for (const token of tokens) {
+    keys.add(token.$key);
+    addresses.add(
+      JSON.stringify([token.networkId, token.address.toLowerCase()]),
+    );
+  }
+  return { keys: [...keys].toSorted(), addresses: [...addresses].toSorted() };
+}
+
 type IActiveAccountTokenListRequestContext = {
   accountId: string;
   indexedAccountId: string;
@@ -414,11 +427,11 @@ function TokenListBlock({
   const cellsIngestInputsRef = useRef<{
     ownerKey: string;
     nonZeroInputs: {
-      keepDefault?: boolean;
+      keepDefault: boolean;
       homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
       customTokens?: ICustomTokenItem[];
     };
-  }>({ ownerKey: '', nonZeroInputs: {} });
+  }>({ ownerKey: '', nonZeroInputs: { keepDefault: true } });
   const homeRequestRef = useRef<IHomeTokenRequest | undefined>(undefined);
   const lastSingleLiveRequestRef = useRef<IHomeTokenRequest | undefined>(
     undefined,
@@ -932,10 +945,21 @@ function TokenListBlock({
   const tokenListStore = useTokenListContextData().store!;
   const [listStructure] = useListStructureAtom();
 
-  const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
-    const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
-    return r;
-  }, []);
+  const { result: homeDefaultTokenMap, run: reloadHomeDefaultTokens } =
+    usePromiseResult(
+      () => backgroundApiProxy.serviceToken.getHomeDefaultTokenMap(),
+      [],
+      { checkIsFocused: !platformEnv.isExtensionUi },
+    );
+
+  useEffect(() => {
+    if (!platformEnv.isExtensionUi) return;
+    const reload = () => void reloadHomeDefaultTokens().catch(() => undefined);
+    appEventBus.on(EAppEventBusNames.HomeDefaultTokensUpdated, reload);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HomeDefaultTokensUpdated, reload);
+    };
+  }, [reloadHomeDefaultTokens]);
 
   const { run } = usePromiseResult(
     async () => {
@@ -1529,16 +1553,27 @@ function TokenListBlock({
     enabled: !deferCellsTokenManagement || tokenListState.initialized,
     customTokensOnly: true,
   });
-  const cellsNonZeroInputs = useMemo(
-    () => ({
-      // Home keeps default zero-balance tokens (TokenListView defaults
-      // keepDefaultZeroBalanceTokens=true on the home path).
+  const cellsNonZeroInputs = useMemo(() => {
+    const inputs = {
       keepDefault: true,
       homeDefaultTokenMap,
-      customTokens: cellsCustomTokens,
-    }),
-    [homeDefaultTokenMap, cellsCustomTokens],
-  );
+      customTokens: cellsCustomTokens ?? [],
+    };
+    // Each structure broadcast re-reads custom tokens. Equal bridge results
+    // must not make two Home windows publish their retained snapshots again.
+    const previous = cellsIngestInputsRef.current.nonZeroInputs;
+    if (
+      isEqual(previous.homeDefaultTokenMap, homeDefaultTokenMap) &&
+      (previous.customTokens === inputs.customTokens ||
+        isEqual(
+          getCustomTokenMembership(previous.customTokens),
+          getCustomTokenMembership(inputs.customTokens),
+        ))
+    ) {
+      return previous;
+    }
+    return inputs;
+  }, [homeDefaultTokenMap, cellsCustomTokens]);
   useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
 
   // Per-owner token worth (OK-63873). `accountWorthAtom` is replaced on every
@@ -2153,22 +2188,16 @@ function TokenListBlock({
         return;
       }
 
-      if (!homeRequest && !a?.aggregateTokenConfigMap) {
-        await backgroundApiProxy.serviceSetting.syncWalletConfig();
-        a =
-          await backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot();
-      } else if (!homeRequest) {
-        // Refresh the cached wallet config in the background when it is stale
-        // (app/bundle version changed or TTL expired) so delisted networks get
-        // purged from the persisted aggregate-token maps. Not awaited: the
-        // current refresh renders with the cached data and the next one picks
-        // up the fresh config.
-        backgroundApiProxy.serviceSetting
-          .syncWalletConfigIfNeeded()
-          .catch(() => {
-            // Background refresh failure is non-fatal; the stale cache heals on
-            // the next refresh attempt.
-          });
+      if (!homeRequest) {
+        const configSync =
+          backgroundApiProxy.serviceSetting.syncWalletConfigIfNeeded();
+        if (!a?.aggregateTokenConfigMap) {
+          await configSync;
+          a =
+            await backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot();
+        } else {
+          void configSync.catch(() => undefined);
+        }
       }
 
       if (
@@ -4104,7 +4133,7 @@ function TokenListBlock({
     (
       request: IPortfolioSyncRequest,
       eventPayload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled],
-      missingNetworkIds?: string[],
+      failedCategorySources?: string[],
     ) => {
       if (!transitionPortfolioSyncRequest(request.id, 'communicating')) return;
       void backgroundApiProxy.serviceHardwarePortfolioSync
@@ -4116,8 +4145,8 @@ function TokenListBlock({
           if (portfolioSyncRequestRef.current?.id !== request.id) {
             return;
           }
-          if (portfolioSynced && missingNetworkIds?.length) {
-            toastPortfolioUpdateFailed(request.id, missingNetworkIds);
+          if (portfolioSynced && failedCategorySources?.length) {
+            toastPortfolioUpdateFailed(request.id, failedCategorySources);
           }
           finishPortfolioSyncRequest(
             request.id,
@@ -4367,10 +4396,11 @@ function TokenListBlock({
         });
         return;
       }
+      const failedCategorySources = categoryResult?.failedSources;
       communicatePortfolio(
         request,
         eventPayload,
-        missingItems.length ? missingItems : undefined,
+        failedCategorySources?.length ? failedCategorySources : undefined,
       );
     }
   }, [

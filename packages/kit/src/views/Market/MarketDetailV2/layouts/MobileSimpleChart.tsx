@@ -1,8 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  ScrollView,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type {
   IIconProps,
   IKeyOfIcons,
@@ -12,21 +19,31 @@ import { TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/com
 import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import {
-  type IStockSimpleChartRange,
-  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
-  TOKEN_SIMPLE_CHART_RANGES,
-  resolveStockSimpleChartRangeForPriceMode,
+  StockSimpleChartTimeRangeSelect,
+  hasStockSimpleChartSessions,
+  useStockSimpleChartSelection,
 } from '../components/StockSimpleChart';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 
-import { MobileSimpleChartFrame } from './components/MobileSimpleChartFrame';
+import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleChartConstants';
 
 // Keep Simple compact and independent of Pro's indicator panes: a 280pt plot
 // plus the chart's own 28pt time axis.
 export const MOBILE_SIMPLE_CHART_HEIGHT = 308;
+// The range row follows the Pro interval bar's 30pt pills, packed tighter
+// (8pt side padding, at least 36pt wide) so the time-range capsule and the
+// range buttons fit one row without scrolling.
+const RANGE_BUTTON_HEIGHT = 30;
+const RANGE_BUTTON_MIN_WIDTH = 36;
+
+const RANGE_ROW_STYLE = {
+  flexGrow: 1,
+  alignItems: 'center',
+} as const;
 
 export function ChartModeButton({
   icon,
@@ -70,10 +87,12 @@ export function MobileChartModeControl() {
   const intl = useIntl();
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
+  const chartAnalytics = useMarketDetailChartAnalytics();
   const nextMode = mode === 'simple' ? 'pro' : 'simple';
   const handleModeChange = useCallback(() => {
     setChartDisplayMode({ mode: nextMode });
-  }, [nextMode, setChartDisplayMode]);
+    chartAnalytics?.onChartDisplayModeSwitch(mode, nextMode);
+  }, [chartAnalytics, mode, nextMode, setChartDisplayMode]);
 
   return (
     <ChartModeButton
@@ -99,37 +118,86 @@ export function MobileSimpleChart({
 }: {
   marketAssetId?: string;
 }) {
-  const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
-  const { stockId } = useStockDetail();
+  const intl = useIntl();
+  const { stockDetail, stockId } = useStockDetail();
   const { priceMode } = useStockPriceSource();
-  const range = resolveStockSimpleChartRangeForPriceMode({
+  const chartAnalytics = useMarketDetailChartAnalytics();
+  const {
+    range,
+    session,
+    capsuleSession,
+    selectedRange,
+    selectRange,
+    selectSession,
+    showsSessions,
+    chartRanges,
+  } = useStockSimpleChartSelection(
     priceMode,
-    range: selectedRange,
-  });
-  const chartRanges =
-    priceMode === 'share'
-      ? STOCK_SHARE_SIMPLE_CHART_RANGES
-      : TOKEN_SIMPLE_CHART_RANGES;
+    stockDetail?.marketStatus?.session,
+    hasStockSimpleChartSessions(stockDetail),
+  );
 
   return (
-    <MobileSimpleChartFrame
-      height={
-        MOBILE_SIMPLE_CHART_HEIGHT + TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT
-      }
-      range={range}
-      onRangeChange={setRange}
-      chartRanges={chartRanges}
-      controlsPaddingHorizontal="$2"
-      modeControl={<MobileChartModeControl />}
-    >
-      <StockSimpleChart
-        initialHeight={MOBILE_SIMPLE_CHART_HEIGHT}
-        marketAssetId={marketAssetId}
-        range={range}
-        priceMode={priceMode}
-        priceScaleFormat={stockId ? 'stock' : 'full'}
-      />
-    </MobileSimpleChartFrame>
+    <YStack width="100%" testID="market-mobile-simple-chart">
+      <XStack
+        h={TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT}
+        px="$2"
+        gap="$2"
+        alignItems="center"
+        width="100%"
+      >
+        <ScrollView
+          horizontal
+          flex={1}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={RANGE_ROW_STYLE}
+        >
+          {showsSessions ? (
+            <StockSimpleChartTimeRangeSelect
+              testID="market-mobile-chart-time-range"
+              height={RANGE_BUTTON_HEIGHT}
+              activateOnPress
+              capsuleSession={capsuleSession}
+              session={session}
+              onSessionChange={selectSession}
+            />
+          ) : null}
+          {chartRanges.map((item) => (
+            <Button
+              key={item}
+              testID={`market-mobile-chart-range-${item}`}
+              minWidth={RANGE_BUTTON_MIN_WIDTH}
+              height={RANGE_BUTTON_HEIGHT}
+              m="$0"
+              px="$2"
+              borderWidth={0}
+              size="small"
+              variant={selectedRange === item ? 'secondary' : 'tertiary'}
+              borderRadius="$full"
+              onPress={() => {
+                selectRange(item);
+                chartAnalytics?.onSimpleChartRangeSelect(range, item);
+              }}
+            >
+              {intl.formatMessage({
+                id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
+              })}
+            </Button>
+          ))}
+        </ScrollView>
+        <MobileChartModeControl />
+      </XStack>
+      <Stack height={MOBILE_SIMPLE_CHART_HEIGHT} width="100%">
+        <StockSimpleChart
+          initialHeight={MOBILE_SIMPLE_CHART_HEIGHT}
+          marketAssetId={marketAssetId}
+          range={range}
+          session={session}
+          priceMode={priceMode}
+          priceScaleFormat={stockId ? 'stock' : 'full'}
+        />
+      </Stack>
+    </YStack>
   );
 }
 

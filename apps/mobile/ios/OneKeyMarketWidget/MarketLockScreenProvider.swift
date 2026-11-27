@@ -1,3 +1,4 @@
+import AppIntents
 import Foundation
 import WidgetKit
 
@@ -8,7 +9,9 @@ enum MarketLockScreenTimeline {
     let permitted = configuration.map { $0.privacyMasked != true } == true
     let selected = permitted ? Array(assets.filter(\.isValid).prefix(isWatchlist ? 3 : 1)) : []
     return MarketWidgetEntry(date: now, configuration: configuration,
-      rows: selected.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0), failed: false).forLockScreen(at: now) },
+      rows: selected.map {
+        MarketWidgetRow(asset: $0, quote: store.quote(for: $0, now: now, allowLegacy: true), failed: false).forLockScreen(at: now)
+      },
       isWatchlist: isWatchlist, selectionUnavailable: selected.isEmpty, source: .hot)
   }
 
@@ -20,7 +23,7 @@ enum MarketLockScreenTimeline {
       MarketWidgetDiagnostics.event("timeline.started", ["surface": "lock_screen", "kind": isWatchlist ? "list" : "single"])
       defer { MarketWidgetDiagnostics.event("timeline.completed", ["durationMs": Int(Date().timeIntervalSince(started) * 1000), "nextRequestedAfterSeconds": 900]) }
       let initial = snapshot(assets: assets, isWatchlist: isWatchlist, store: store)
-      guard !initial.rows.isEmpty else { return result(initial, includingChart: includingChart) }
+      guard !initial.rows.isEmpty else { return result(initial, includingChart: includingChart, store: store) }
       var fetched: [String: MarketWidgetQuote] = [:]
       do {
         try store.rememberLockScreenAssets(initial.rows.map(\.asset))
@@ -43,7 +46,8 @@ enum MarketLockScreenTimeline {
       } catch {
         MarketWidgetDiagnostics.event("timeline.selection_write_failed", error: error)
       }
-      return result(finishRefresh(initial: initial, fetched: fetched, store: store), includingChart: includingChart)
+      let entry = finishRefresh(initial: initial, fetched: fetched, store: store)
+      return result(entry, includingChart: includingChart, store: store)
     }
   }
 
@@ -63,18 +67,16 @@ enum MarketLockScreenTimeline {
       isWatchlist: current.isWatchlist, selectionUnavailable: current.selectionUnavailable, source: current.source)
   }
 
-  private static func result(_ entry: MarketWidgetEntry, includingChart: Bool) -> Timeline<MarketWidgetEntry> {
-    var dates: Set<Date> = [entry.date]
-    for row in entry.rows {
+  static func result(_ entry: MarketWidgetEntry, includingChart: Bool, store: MarketWidgetStore) -> Timeline<MarketWidgetEntry> {
+    let quotes = MarketWidgetTimelineQuotes(base: entry, store: store)
+    let displayed = quotes.entry(at: entry.date)
+    var dates = quotes.appQuoteExpiryDates
+    dates.insert(entry.date)
+    for row in quotes.detailRows + displayed.rows {
       guard let quote = row.quote else { continue }
       let staleAt = quote.fetchedAt.addingTimeInterval(MarketWidgetRow.lockScreenFreshnessInterval)
       if !row.failed, staleAt > entry.date { dates.insert(staleAt) }
 
-      let timestamp = quote.priceUpdatedAt ?? quote.fetchedAt
-      if let midnight = Calendar.current.dateInterval(of: .day, for: timestamp)?.end,
-         midnight > entry.date, row.failed || midnight > staleAt {
-        dates.insert(midnight)
-      }
       if includingChart, quote.chart != nil || quote.stockSparkline != nil {
         let chartExpiry = (quote.chartFetchedAt ?? quote.fetchedAt).addingTimeInterval(MarketWidgetQuote.chartLifetime)
         if chartExpiry > entry.date { dates.insert(chartExpiry) }
@@ -82,9 +84,9 @@ enum MarketLockScreenTimeline {
     }
 
     let entries = dates.sorted().map { date in
-      MarketWidgetEntry(date: date, configuration: entry.configuration,
-        rows: entry.rows.map { $0.forLockScreen(at: date) }, isWatchlist: entry.isWatchlist,
-        selectionUnavailable: entry.selectionUnavailable, source: entry.source)
+      var rendered = date == entry.date ? displayed : quotes.entry(at: date)
+      rendered.rows = rendered.rows.map { $0.forLockScreen(at: date) }
+      return rendered
     }
     let reloadAt = entry.date.addingTimeInterval(MarketWidgetRow.lockScreenFreshnessInterval)
     return Timeline(entries: entries, policy: .after(reloadAt))
@@ -105,5 +107,35 @@ enum MarketLockScreenTimeline {
     }
     return MarketWidgetEntry(date: date, configuration: .initial, rows: rows,
       isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot, isGalleryPreview: true)
+  }
+}
+
+@available(iOS 17.0, *)
+struct MarketLockScreenSpotProvider: AppIntentTimelineProvider {
+  let includingChart: Bool
+  func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: false) }
+  func snapshot(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> MarketWidgetEntry {
+    if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: false) }
+    let store = MarketWidgetStore()
+    return MarketLockScreenTimeline.snapshot(assets: configuration.coin.map { [$0.asset] } ?? [], isWatchlist: false, store: store)
+      .usingChartMode(in: store)
+  }
+  func timeline(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
+    await MarketLockScreenTimeline.timeline(assets: configuration.coin.map { [$0.asset] } ?? [],
+      isWatchlist: false, includingChart: includingChart)
+  }
+}
+
+@available(iOS 17.0, *)
+struct MarketLockScreenListProvider: AppIntentTimelineProvider {
+  func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: true) }
+  func snapshot(for configuration: MarketLockScreenListIntent, in context: Context) async -> MarketWidgetEntry {
+    if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: true) }
+    let store = MarketWidgetStore()
+    return MarketLockScreenTimeline.snapshot(assets: configuration.assets, isWatchlist: true, store: store)
+      .usingChartMode(in: store)
+  }
+  func timeline(for configuration: MarketLockScreenListIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
+    await MarketLockScreenTimeline.timeline(assets: configuration.assets, isWatchlist: true, includingChart: false)
   }
 }

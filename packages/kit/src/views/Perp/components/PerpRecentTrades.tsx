@@ -1,12 +1,10 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Anchor,
-  Button,
   type IXStackProps,
   Icon,
   Popover,
@@ -15,11 +13,8 @@ import {
   Spinner,
   XStack,
   YStack,
-  getCurrentVisibilityState,
-  onVisibilityStateChange,
   useTheme,
 } from '@onekeyhq/components';
-import { Tooltip } from '@onekeyhq/components/src/actions/Tooltip';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -32,6 +27,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpMarketForeground } from '../hooks/usePerpMarketForeground';
 import { usePerpPublicTrades } from '../hooks/usePerpPublicTrades';
 import { ORDER_BOOK_VERTICAL_ROW_STEP } from '../layouts/perpLayoutUtils';
 
@@ -91,6 +87,8 @@ function TradeLine({
   const theme = useTheme();
   const intl = useIntl();
   const isHeader = side === undefined;
+  const isDesktopSizeHeader =
+    isHeader && !inline && !platformEnv.isNative && !!sizeSymbol;
   const headerStyle = inline
     ? orderBookTextStyles.horizontalHeader
     : orderBookTextStyles.verticalHeader;
@@ -110,6 +108,10 @@ function TradeLine({
           paddingLeft: !inline && isHeader ? 8 : 0,
           color: side ? priceColors[side] : textColor,
         },
+        isDesktopSizeHeader && {
+          width: 'auto',
+          flexShrink: 0,
+        },
       ]}
       aria-label={priceLabel}
     >
@@ -124,12 +126,16 @@ function TradeLine({
     const trigger = (
       <SizeHeaderTrigger
         width={platformEnv.isNative ? '100%' : sizeWidth}
+        {...(isDesktopSizeHeader && {
+          width: 'auto',
+          flex: 1,
+          paddingLeft: 8,
+        })}
         minWidth={0}
         alignItems="center"
         justifyContent="flex-end"
         gap="$1"
         aria-label={label}
-        tabIndex={platformEnv.isNative ? undefined : 0}
         role={platformEnv.isNative ? 'button' : undefined}
       >
         <PerpBookText
@@ -163,11 +169,7 @@ function TradeLine({
         />
       </YStack>
     ) : (
-      <Tooltip
-        triggerAsChild
-        renderTrigger={trigger}
-        renderContent={<Tooltip.Text>{label}</Tooltip.Text>}
-      />
+      trigger
     );
   } else {
     sizeCell = (
@@ -313,8 +315,10 @@ function RecentTradesList({
   loadingMinHeight?: number;
 }) {
   const intl = useIntl();
-  const { trades, isLoading, isError, isDisconnected, retry } =
-    usePerpPublicTrades(coin, active);
+  const { trades, isLoading, isError, isDisconnected } = usePerpPublicTrades(
+    coin,
+    active,
+  );
   const priceDecimals = useMemo(() => {
     if (!visible) return 0;
     return trades.reduce((decimals, trade) => {
@@ -331,8 +335,7 @@ function RecentTradesList({
   }, [trades, szDecimals, visible]);
   if (!visible) return null;
   const hasStatus = isError || isDisconnected;
-  const showInitialLoading =
-    active && isLoading && trades.length === 0 && !hasStatus;
+  const showInitialLoading = trades.length === 0 && (isLoading || hasStatus);
   const inlineMinHeight =
     showInitialLoading && loadingMinHeight ? loadingMinHeight : '$20';
   const rows = trades.map((trade) => (
@@ -355,14 +358,13 @@ function RecentTradesList({
       {rows}
     </ScrollView>
   );
-
   return (
     <YStack
       flex={inline ? undefined : 1}
       minHeight={inline ? inlineMinHeight : 0}
       padding={inline ? 0 : 1}
       testID="perp-recent-trades"
-      aria-busy={active && isLoading}
+      aria-busy={active && showInitialLoading}
     >
       <TradeLine
         inline={inline}
@@ -372,69 +374,31 @@ function RecentTradesList({
         time={intl.formatMessage({ id: ETranslations.global_time })}
       />
 
-      {hasStatus ? (
-        <XStack
-          px={inline ? '$5' : '$2'}
-          py="$1"
-          alignItems="center"
-          justifyContent="space-between"
-          bg="$bgSubdued"
-        >
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: isDisconnected
-                ? ETranslations.perp_offline
-                : ETranslations.global_network_error,
-            })}
-          </SizableText>
-          <Button
-            testID="perp-recent-trades-retry"
-            size="small"
-            variant="tertiary"
-            onPress={retry}
-          >
-            {intl.formatMessage({ id: ETranslations.global_retry })}
-          </Button>
-        </XStack>
-      ) : null}
-
       {trades.length > 0 ? (
         listContent
       ) : (
-        <YStack flex={1} alignItems="center" justifyContent="center">
-          {isLoading && !hasStatus ? <Spinner /> : null}
-          {!isLoading && !hasStatus ? (
+        <YStack
+          flex={1}
+          px="$4"
+          py="$4"
+          gap="$2"
+          alignItems="center"
+          justifyContent="center"
+        >
+          {showInitialLoading ? (
+            <Spinner />
+          ) : (
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_no_data })}
             </SizableText>
-          ) : null}
+          )}
         </YStack>
       )}
     </YStack>
   );
 }
 
-// A visible Electron window still shows market data when another app has focus.
-function getTradesVisibility() {
-  return platformEnv.isDesktop && typeof document !== 'undefined'
-    ? !document.hidden
-    : getCurrentVisibilityState();
-}
-
-export function useRecentTradesForeground() {
-  const isFocused = useIsFocused();
-  const [visible, setVisible] = useState(getTradesVisibility);
-  useEffect(() => {
-    if (platformEnv.isDesktop && typeof document !== 'undefined') {
-      const onChange = () => setVisible(!document.hidden);
-      document.addEventListener('visibilitychange', onChange);
-      onChange();
-      return () => document.removeEventListener('visibilitychange', onChange);
-    }
-    return onVisibilityStateChange(setVisible);
-  }, []);
-  return isFocused && visible;
-}
+export const useRecentTradesForeground = usePerpMarketForeground;
 
 export function PerpRecentTrades({
   inline = false,

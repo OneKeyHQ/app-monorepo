@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { useContext, useEffect, useState } from 'react';
+import { Fragment, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -19,12 +19,16 @@ import { getTradingViewNativeSourceKey } from '../data/getTradingViewNativeSourc
 
 import { TradingViewNativeMultiChart } from './TradingViewNativeMultiChart';
 import { TradingViewNativeMultiChartControlsContext } from './TradingViewNativeMultiChartPanelContext';
+import { useMultiChartIntervalSync } from './useMultiChartIntervalSync';
 
 import type {
   ITradingViewNativeMultiChartPanel,
   ITradingViewNativeMultiChartProps,
 } from './TradingViewNativeMultiChart.types';
-import type { ITradingViewNativeMultiChartDrawingTools } from './TradingViewNativeMultiChartPanelContext';
+import type {
+  ITradingViewNativeMultiChartDrawingTools,
+  ITradingViewNativeMultiChartMaximize,
+} from './TradingViewNativeMultiChartPanelContext';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -35,19 +39,40 @@ jest.mock('@onekeyhq/components', () => ({
     children,
     testID,
     'data-selected': selected,
+    'data-maximized': maximized,
+    left,
+    top,
+    width,
+    height,
+    pointerEvents,
   }: {
     children?: ReactNode;
     testID?: string;
     'data-selected'?: string;
+    'data-maximized'?: string;
+    left?: string | number;
+    top?: string | number;
+    width?: string | number;
+    height?: string | number;
+    pointerEvents?: 'none' | 'auto';
   }) => (
-    <div data-testid={testID} data-selected={selected}>
+    <div
+      data-testid={testID}
+      data-selected={selected}
+      data-maximized={maximized}
+      style={{ left, top, width, height, pointerEvents }}
+    >
       {children}
     </div>
   ),
 }));
 
 jest.mock('./TradingViewNativeMultiChartDivider', () => ({
-  TradingViewNativeMultiChartDivider: () => null,
+  TradingViewNativeMultiChartDivider: ({
+    divider,
+  }: {
+    divider: { axis: string; index: number };
+  }) => <span data-testid={`divider-${divider.axis}-${divider.index}`} />,
 }));
 
 jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
@@ -57,8 +82,8 @@ jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
     sync,
   }: {
     onChange: (preset: '2h' | '4') => void;
-    onSyncChange: (option: 'symbol', isSynced: boolean) => void;
-    sync: { symbol: boolean };
+    onSyncChange: (option: 'symbol' | 'interval', isSynced: boolean) => void;
+    sync: { symbol: boolean; interval: boolean };
   }) => (
     <span data-testid="layout-select">
       <button
@@ -66,6 +91,13 @@ jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
         aria-label="symbol sync"
         data-testid="sync-symbol"
         onClick={() => onSyncChange('symbol', !sync.symbol)}
+      />
+      <button
+        type="button"
+        aria-label="interval sync"
+        data-testid="sync-interval"
+        data-checked={String(sync.interval)}
+        onClick={() => onSyncChange('interval', !sync.interval)}
       />
       {(['2h', '4'] as const).map((preset) => (
         <button
@@ -94,6 +126,19 @@ const mockDrawingTools = new Map<
   string,
   ITradingViewNativeMultiChartDrawingTools
 >();
+// The interval each panel's chart is on. A chart stores it by panel, so one
+// mounted anew, e.g. for another token, starts from it.
+const mockIntervals = new Map<string, string>();
+// Picks an interval in a panel's chart, as the user does in its controls.
+const mockPickInterval = new Map<string, (interval: string) => void>();
+// Moves a panel's chart to an interval by itself, as when it falls back to
+// the one it showed because the data of a new one fails to load.
+const mockFallBackInterval = new Map<string, (interval: string) => void>();
+// What each panel's chart can do to maximize its panel, by panel id.
+const mockMaximize = new Map<
+  string,
+  ITradingViewNativeMultiChartMaximize | undefined
+>();
 
 function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   const label = `${panel.id}:${getTradingViewNativeSourceKey(panel.source)}`;
@@ -101,10 +146,27 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
     mockChartMount(label);
     return () => mockChartUnmount(label);
   }, [label]);
+  const [interval, setChartInterval] = useState(
+    () => mockIntervals.get(panel.id) ?? '60',
+  );
+  const applyInterval = (next: string) => {
+    mockIntervals.set(panel.id, next);
+    setChartInterval(next);
+  };
+  const publishInterval = useMultiChartIntervalSync({
+    activeInterval: interval,
+    onSyncedIntervalChange: applyInterval,
+  });
+  mockPickInterval.set(panel.id, (next) => {
+    applyInterval(next);
+    publishInterval(next);
+  });
+  mockFallBackInterval.set(panel.id, applyInterval);
   // Stands in for the chart's controls row, as `TradingViewNative` places it.
   const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
   mockPanels.set(panel.id, panel);
   if (controlsSlot) mockDrawingTools.set(panel.id, controlsSlot.drawingTools);
+  mockMaximize.set(panel.id, controlsSlot?.maximize);
   const controls = (
     <span data-testid={`controls-${panel.id}`}>{panel.layoutControl}</span>
   );
@@ -112,6 +174,16 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   return (
     <>
       {controlsSlot ? controlsSlot.renderControls(controls) : controls}
+      {/* Stands in for the chart's own interval picker, as `TradingViewNative`
+          places it. */}
+      {controlsSlot
+        ? controlsSlot.renderIntervalControl(
+            <span
+              data-testid={`interval-${panel.id}`}
+              data-interval={interval}
+            />,
+          )
+        : null}
       {/* Stands in for the drawing tools, as the web chart places them. */}
       {toolsContainer
         ? createPortal(
@@ -131,6 +203,7 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
       <span
         data-testid={`chart-${panel.id}`}
         data-coin={panel.source.kind === 'hyperliquid' ? panel.source.coin : ''}
+        data-interval={interval}
       />
       {/* What the keyboard can focus in a panel: the chart itself and its own
           controls, such as a drawing tool's style list. */}
@@ -155,11 +228,26 @@ const renderPanel = (panel: ITradingViewNativeMultiChartPanel) => (
   <Chart key={getTradingViewNativeSourceKey(panel.source)} panel={panel} />
 );
 
+// A host that names every panel of a split in a header, as Perps does, with
+// the interval picker of the panel's chart in it.
+const renderPanelWithHeader = (panel: ITradingViewNativeMultiChartPanel) => (
+  <Fragment key={getTradingViewNativeSourceKey(panel.source)}>
+    {panel.isSplit ? (
+      <div data-testid={`header-${panel.id}`}>{panel.intervalControl}</div>
+    ) : null}
+    <Chart panel={panel} />
+  </Fragment>
+);
+
 interface IHarness {
   layout: ITradingViewNativeMultiChartLayout;
   setActiveSource: (source: ITradingViewNativeSource) => void;
   // Lets the next layout write, or all of them, come back from bg.
   flushLayout: (count?: number) => void;
+  // The next layout write, or the next `count`, fails on its way to bg.
+  failLayout: (count?: number) => void;
+  // Layout writes on their way to bg.
+  countSentLayouts: () => number;
   // Another writer, e.g. another window, saves a layout.
   replaceLayout: (layout: ITradingViewNativeMultiChartLayout) => void;
   unmount: () => void;
@@ -177,6 +265,7 @@ function renderGrid({
   activeSource: initialActiveSource = coin('BTC'),
   keepsSelectedPanel = false,
   layoutKey,
+  renderHostPanel = renderPanel,
 }: {
   activeSource?: ITradingViewNativeSource;
   // The host keeps the panel selected on its page, as one whose saved layout
@@ -184,6 +273,7 @@ function renderGrid({
   keepsSelectedPanel?: boolean;
   layout?: ITradingViewNativeMultiChartLayout;
   layoutKey?: string;
+  renderHostPanel?: ITradingViewNativeMultiChartProps['renderPanel'];
   onSelectPanel: (
     source: ITradingViewNativeSource,
     harness: IHarness,
@@ -194,24 +284,41 @@ function renderGrid({
     layout: initialLayout,
     setActiveSource: () => {},
     flushLayout: () => {},
+    failLayout: () => {},
+    countSentLayouts: () => 0,
     replaceLayout: () => {},
     unmount: () => {},
     remount: () => {},
   };
   // As on a split runtime: a write is evaluated at once against the snapshot
   // bg sent last, forwarded as a complete layout and applied when it returns.
-  const sentLayouts: ITradingViewNativeMultiChartLayout[] = [];
+  const sentLayouts: {
+    layout: ITradingViewNativeMultiChartLayout;
+    settle: (isSaved: boolean) => void;
+  }[] = [];
   const onLayoutChange: ITradingViewNativeMultiChartProps['onLayoutChange'] = (
     update,
   ) => {
     const next = update(harness.layout);
-    if (next === harness.layout) return;
+    if (next === harness.layout) return undefined;
     if (deferLayoutWrites) {
-      sentLayouts.push(next);
-    } else {
-      harness.layout = next;
-      harness.flushLayout();
+      // Settles as the host's write would: once bg has it, or failed.
+      const written = new Promise<void>((resolve, reject) => {
+        sentLayouts.push({
+          layout: next,
+          settle: (isSaved) =>
+            isSaved
+              ? resolve()
+              : reject(new OneKeyLocalError('Layout write failed')),
+        });
+      });
+      // The host deals with a failure itself; the grid may also listen.
+      written.catch(() => {});
+      return written;
     }
+    harness.layout = next;
+    harness.flushLayout();
+    return undefined;
   };
   // The saved layout, the host's source and its selected panel outlive a
   // mounted grid.
@@ -231,12 +338,18 @@ function renderGrid({
     setHostLayout?.(next);
   };
   harness.flushLayout = (count = sentLayouts.length) => {
-    const sent = sentLayouts.splice(0, count).at(-1);
+    const sent = sentLayouts.splice(0, count);
+    for (const item of sent) item.settle(true);
+    const last = sent.at(-1)?.layout;
     // As bg sends it back: the way there drops fields set to `undefined`.
     harness.replaceLayout(
-      sent ? JSON.parse(JSON.stringify(sent)) : harness.layout,
+      last ? JSON.parse(JSON.stringify(last)) : harness.layout,
     );
   };
+  harness.failLayout = (count = 1) => {
+    for (const item of sentLayouts.splice(0, count)) item.settle(false);
+  };
+  harness.countSentLayouts = () => sentLayouts.length;
   harness.setActiveSource = (source) => {
     hostSource = source;
     setHostSource?.(source);
@@ -263,7 +376,7 @@ function renderGrid({
         onSelectPanel={(source) => onSelectPanel(source, harness)}
         defaultIndicatorSettings={indicatorSettings}
         getDefaultPanelSource={() => coin('SOL')}
-        renderPanel={renderPanel}
+        renderPanel={renderHostPanel}
       />
     );
   }
@@ -313,6 +426,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockPanels.clear();
   mockDrawingTools.clear();
+  mockIntervals.clear();
+  mockPickInterval.clear();
+  mockFallBackInterval.clear();
+  mockMaximize.clear();
 });
 
 // Sizes jsdom does not lay out.
@@ -772,6 +889,69 @@ it('shows the selected panel drawing tools once, at the left of the grid', async
 
   expectTools('panel-2');
   expect(mockChartUnmount).not.toHaveBeenCalled();
+});
+
+it('puts every panel interval picker in its own header, selected or not', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+    renderHostPanel: renderPanelWithHeader,
+  });
+  const expectPickers = (expected: Record<string, string>) => {
+    for (const [id, interval] of Object.entries(expected)) {
+      const picker = screen.getByTestId(`interval-${id}`);
+      expect(screen.getByTestId(`header-${id}`).contains(picker)).toBe(true);
+      expect(picker.dataset.interval).toBe(interval);
+    }
+  };
+  expectPickers({ main: '1', 'panel-2': '240' });
+
+  // A pick in a chart that is not selected moves that chart only.
+  pickInterval('panel-2', '1D');
+  expectPickers({ main: '1', 'panel-2': '1D' });
+  expectIntervals({ main: '1', 'panel-2': '1D' });
+
+  // Selecting the panel moves its controls row, not its picker.
+  const picker = screen.getByTestId('interval-panel-2');
+  await act(async () => press('panel-2'));
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+  expect(screen.getByTestId('interval-panel-2')).toBe(picker);
+  expectPickers({ main: '1', 'panel-2': '1D' });
+  expect(mockChartUnmount).not.toHaveBeenCalled();
+});
+
+it('shows no interval picker where the host places none', () => {
+  renderGrid({ onSelectPanel: async () => true });
+
+  expect(screen.queryAllByTestId(/^interval-/)).toEqual([]);
+});
+
+it('takes the interval pickers away with the headers of a split', () => {
+  const harness = renderGrid({
+    onSelectPanel: async () => true,
+    renderHostPanel: renderPanelWithHeader,
+  });
+  expect(
+    screen.getAllByTestId(/^interval-/).map((node) => node.dataset.testid),
+  ).toEqual(['interval-main', 'interval-panel-2']);
+
+  // A single chart has no header to show it in.
+  act(() => harness.replaceLayout({ ...harness.layout, preset: '1' }));
+  expect(screen.queryAllByTestId(/^header-/)).toEqual([]);
+  expect(screen.queryAllByTestId(/^interval-/)).toEqual([]);
+
+  act(() => harness.replaceLayout({ ...harness.layout, preset: '2h' }));
+  for (const id of ['main', 'panel-2']) {
+    expect(
+      screen
+        .getByTestId(`header-${id}`)
+        .contains(screen.getByTestId(`interval-${id}`)),
+    ).toBe(true);
+  }
 });
 
 it('keeps a layout change still on its way to a split runtime for a selection answered after the grid is gone', async () => {
@@ -2208,5 +2388,680 @@ it('leaves a token that never landed out of the layout when two more panels are 
       main: { source: coin('BTC') },
       'panel-2': { source: coin('ETH') },
     },
+  });
+});
+
+function expectIntervals(expected: Record<string, string>) {
+  for (const [id, interval] of Object.entries(expected)) {
+    expect(screen.getByTestId(`chart-${id}`).dataset.interval).toBe(interval);
+  }
+}
+
+function pickInterval(id: string, interval: string) {
+  act(() => mockPickInterval.get(id)?.(interval));
+}
+
+// The second panel is the selected one and shows the host's BTC.
+const secondPanelSelected: ITradingViewNativeMultiChartLayout = {
+  preset: '2h',
+  activePanelId: 'panel-2',
+  panels: {
+    main: { source: coin('ETH') },
+    'panel-2': { source: coin('BTC'), indicatorSettings },
+  },
+};
+
+it('syncs the intervals to the selected panel when the option is turned on', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+  });
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
+  expectIntervals({ main: '1', 'panel-2': '240' });
+
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+  // Saved with the option, for the other pages that show the layout.
+  expect(harness.layout).toMatchObject({
+    sync: { interval: true },
+    intervalSyncStart: '240',
+  });
+
+  // From then on a pick in either chart moves both.
+  pickInterval('main', '15');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+  pickInterval('panel-2', '60');
+  expectIntervals({ main: '60', 'panel-2': '60' });
+
+  // Off, each chart keeps to itself; on again, the selected one leads again.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(harness.layout.intervalSyncStart).toBeUndefined();
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '60' });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '60', 'panel-2': '60' });
+});
+
+it('syncs the intervals at once on the page that turns the option on, before a split runtime has saved it', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+  expect(harness.layout.sync).toBeUndefined();
+
+  act(() => harness.flushLayout());
+  expectIntervals({ main: '240', 'panel-2': '240' });
+  expect(harness.layout).toMatchObject({
+    sync: { interval: true },
+    intervalSyncStart: '240',
+  });
+});
+
+it('keeps the intervals on the chart the option was turned on in when another panel is selected before a split runtime has saved it', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  await act(async () => press('main'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  act(() => harness.flushLayout());
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('moves every chart to an interval picked before a split runtime has saved the option, and keeps it', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '5' });
+
+  act(() => harness.flushLayout());
+  expectIntervals({ main: '5', 'panel-2': '5' });
+  // The other pages got the interval the option was turned on with.
+  expect(harness.layout.intervalSyncStart).toBe('240');
+});
+
+it('shows the option on from the press, before a split runtime has saved it, and turns it off on the next press', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  expect(option()).toBe('false');
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(option()).toBe('true');
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+
+  // Off again before the first write is back.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(option()).toBe('false');
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '15' });
+
+  act(() => harness.flushLayout());
+  expect(option()).toBe('false');
+  expect(harness.layout.sync).toEqual({ interval: false });
+  expectIntervals({ main: '5', 'panel-2': '15' });
+});
+
+it('keeps the option off when the write that turned it on is saved after it was turned off again', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+
+  // The write that turned it on comes back first.
+  act(() => harness.flushLayout(1));
+  expect(harness.layout.sync).toEqual({ interval: true });
+  expect(option()).toBe('false');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+
+  act(() => harness.flushLayout());
+  expect(harness.layout.sync).toEqual({ interval: false });
+  expect(option()).toBe('false');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+});
+
+it('keeps the intervals synced when the option is turned on, off and on again and the writes come back one by one', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+
+  for (let index = 0; index < 3; index += 1) {
+    act(() => harness.flushLayout(1));
+    expect(option()).toBe('true');
+    expectIntervals({ main: '15', 'panel-2': '15' });
+  }
+  expect(harness.layout.sync).toEqual({ interval: true });
+});
+
+it('takes back a write that fails to turn the option off, so the next edit leaves it on', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  act(() => harness.flushLayout(1));
+  await act(async () => harness.failLayout());
+  // On as saved, and the charts follow it again.
+  expect(option()).toBe('true');
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  fireEvent.click(screen.getByTestId('preset-4'));
+  act(() => harness.flushLayout());
+  expect(harness.layout).toMatchObject({
+    preset: '4',
+    sync: { interval: true },
+  });
+  expect(option()).toBe('true');
+});
+
+it('keeps the intervals the charts show when a write that turns the option off fails', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  act(() => harness.flushLayout());
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+
+  // Off, and a pick in the selected chart before the write fails.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('panel-2', '60');
+  expectIntervals({ main: '15', 'panel-2': '60' });
+  await act(async () => harness.failLayout());
+  // On again from the selected chart, not from the interval saved with the
+  // option.
+  expect(option()).toBe('true');
+  expectIntervals({ main: '60', 'panel-2': '60' });
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '5' });
+  expect(harness.layout).toMatchObject({
+    sync: { interval: true },
+    intervalSyncStart: '240',
+  });
+});
+
+it('leaves the option off when a write that turns it off fails after another page saved it off', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  act(() => harness.flushLayout());
+  const { revision = 0 } = harness.layout;
+
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  // Another page turned it off over the same layout first: the same revision,
+  // without the write of this page.
+  act(() =>
+    harness.replaceLayout({
+      ...harness.layout,
+      sync: { interval: false },
+      revision: revision + 1,
+      writeId: 'other-page',
+    }),
+  );
+  await act(async () => harness.failLayout());
+  expect(option()).toBe('false');
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '240', 'panel-2': '15' });
+});
+
+it('stops syncing the intervals when a split runtime fails to save the option, and asks for it again on the next press', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  await act(async () => harness.failLayout());
+  expect(option()).toBe('false');
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+
+  // The failed write is not one the next press builds on.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(harness.countSentLayouts()).toBe(1);
+  expectIntervals({ main: '240', 'panel-2': '240' });
+  act(() => harness.flushLayout());
+  expect(option()).toBe('true');
+  expect(harness.layout).toMatchObject({
+    sync: { interval: true },
+    intervalSyncStart: '240',
+  });
+});
+
+it('keeps syncing the intervals when a write the option was saved over fails', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  // A write of the layout on its way, then the option written over it.
+  fireEvent.click(screen.getByTestId('preset-4'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(harness.countSentLayouts()).toBe(2);
+
+  // Only the earlier one fails; the option's write still carries it.
+  await act(async () => harness.failLayout());
+  act(() => harness.flushLayout());
+  expect(harness.layout).toMatchObject({
+    preset: '4',
+    sync: { interval: true },
+  });
+  expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('leaves a chart on the interval it fell back to when a split runtime saves the option', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('panel-2', '15');
+  // The data of the picked interval fails to load in the chart it was
+  // picked in.
+  act(() => mockFallBackInterval.get('panel-2')?.('240'));
+
+  act(() => harness.flushLayout());
+  expectIntervals({ main: '15', 'panel-2': '240' });
+});
+
+it('leaves the intervals synced here alone when the option of another page arrives first', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('main', '15');
+
+  // That page turned the option on in a chart on another interval.
+  act(() =>
+    harness.replaceLayout({
+      ...harness.layout,
+      sync: { interval: true },
+      intervalSyncStart: '60',
+    }),
+  );
+  expectIntervals({ main: '15', 'panel-2': '15' });
+});
+
+it('stops syncing the intervals when the option asked for here is lost to a write of another page', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  // Saved over the write of this grid, without the option.
+  act(() => harness.replaceLayout({ ...harness.layout, revision: 9 }));
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+});
+
+it('syncs the intervals to the chart another page turned the option on in', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '15');
+  const harness = renderGrid({ onSelectPanel: async () => true });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+
+  // That page had another panel selected, on another interval.
+  act(() =>
+    harness.replaceLayout({
+      ...harness.layout,
+      sync: { interval: true },
+      intervalSyncStart: '240',
+    }),
+  );
+  expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('syncs the intervals to the first panel when the option arrives without an interval', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+  });
+
+  // Saved by a page that knew no interval to start from.
+  act(() =>
+    harness.replaceLayout({ ...harness.layout, sync: { interval: true } }),
+  );
+  expectIntervals({ main: '1', 'panel-2': '1' });
+});
+
+it('leaves a synced chart on the interval it fell back to when its panel is selected', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+  act(() => mockFallBackInterval.get('main')?.('1'));
+
+  // Selecting it is no reason to load the shared interval again.
+  await act(async () => press('main'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  expectIntervals({ main: '1', 'panel-2': '240' });
+});
+
+it('syncs the intervals to the first panel when it is the selected one', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({ onSelectPanel: async () => true });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '1', 'panel-2': '1' });
+});
+
+it('keeps the synced intervals where they are when another panel is selected', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  await act(async () => press('main'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('hands the synced interval to the panels a larger preset adds', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  mockIntervals.set('panel-3', '15');
+  renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+
+  fireEvent.click(screen.getByTestId('preset-4'));
+  expectIntervals({
+    main: '240',
+    'panel-2': '240',
+    'panel-3': '240',
+    'panel-4': '240',
+  });
+});
+
+it('starts a split view that mounts with the intervals synced from the first panel', () => {
+  // The first panel's interval is the one a single chart shows and changes,
+  // e.g. on a narrower page that has no grid.
+  mockIntervals.set('main', '15');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: {
+      ...secondPanelSelected,
+      sync: { interval: true },
+      // What the option was turned on with, some time ago.
+      intervalSyncStart: '5',
+    },
+    onSelectPanel: async () => true,
+  });
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+});
+
+it('opens a split view on the interval its single chart shows while the intervals are synced', () => {
+  mockIntervals.set('main', '60');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: {
+      ...secondPanelSelected,
+      preset: '1',
+      sync: { interval: true },
+      intervalSyncStart: '5',
+    },
+    onSelectPanel: async () => true,
+  });
+  // The one chart stands in for the hidden selected panel.
+  expect(screen.getByTestId('chart-main').dataset.coin).toBe('BTC');
+  expectIntervals({ main: '60' });
+  pickInterval('main', '15');
+
+  // The selected panel returns with an older interval of its own.
+  fireEvent.click(screen.getByTestId('preset-2h'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+});
+
+it('leaves a single chart on its own interval while the intervals are synced', () => {
+  mockIntervals.set('main', '60');
+  const harness = renderGrid({
+    layout: {
+      ...secondPanelSelected,
+      preset: '1',
+      sync: { interval: true },
+    },
+    onSelectPanel: async () => true,
+  });
+  pickInterval('main', '15');
+  // The chart falls back to another interval by itself, e.g. as its data
+  // fails to load, and is then mounted anew for another token.
+  mockIntervals.set('main', '240');
+  act(() => harness.setActiveSource(coin('SOL')));
+
+  expect(screen.getByTestId('chart-main').dataset.coin).toBe('SOL');
+  expectIntervals({ main: '240' });
+});
+
+it('opens a split view on the interval of the single chart the option was turned on in', () => {
+  mockIntervals.set('main', '60');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: { ...secondPanelSelected, preset: '1' },
+    onSelectPanel: async () => true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+
+  fireEvent.click(screen.getByTestId('preset-2h'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
+  expectIntervals({ main: '60', 'panel-2': '60' });
+});
+
+describe('maximizing a panel', () => {
+  // Behind a maximized panel the chart stays mounted at its place, unseen,
+  // and its box takes no press: one later in the tree lies over the
+  // maximized panel.
+  const isCovered = (id: string) => {
+    const panel = getPanel(id);
+    const isHidden =
+      (panel.firstElementChild as HTMLElement).style.visibility === 'hidden';
+    expect(panel.style.pointerEvents === 'none').toBe(isHidden);
+    return isHidden;
+  };
+  const hostSwitches = () =>
+    jest.fn(async (source: ITradingViewNativeSource, harness: IHarness) => {
+      harness.setActiveSource(source);
+      return true;
+    });
+
+  it('fills the grid with a panel, selecting it, and brings the split back', async () => {
+    const onSelectPanel = hostSwitches();
+    const harness = renderGrid({ onSelectPanel });
+    expect(mockMaximize.get('panel-2')?.isMaximized).toBe(false);
+    expect(screen.queryAllByTestId(/^divider-/)).toHaveLength(1);
+
+    // From the keyboard: nothing has pressed the panel to select it.
+    await act(async () => mockMaximize.get('panel-2')?.toggle());
+
+    expect(onSelectPanel).toHaveBeenCalledTimes(1);
+    expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+    expect(getPanel('panel-2').dataset.maximized).toBe('true');
+    expect(getPanel('panel-2').style).toMatchObject({
+      left: '0%',
+      top: '0%',
+      width: '100%',
+      height: '100%',
+    });
+    expect(mockMaximize.get('panel-2')?.isMaximized).toBe(true);
+    expect(isCovered('main')).toBe(true);
+    expect(isCovered('panel-2')).toBe(false);
+    expect(screen.queryAllByTestId(/^divider-/)).toHaveLength(0);
+    const saved = harness.layout;
+
+    await act(async () => mockMaximize.get('panel-2')?.toggle());
+
+    expect(getPanel('panel-2').dataset.maximized).toBeUndefined();
+    expect(getPanel('panel-2').style).toMatchObject({
+      left: '50%',
+      width: '50%',
+    });
+    expect(isCovered('main')).toBe(false);
+    expect(screen.queryAllByTestId(/^divider-/)).toHaveLength(1);
+    expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+    // A view of the grid only: nothing of it is saved.
+    expect(harness.layout).toBe(saved);
+    expect(onSelectPanel).toHaveBeenCalledTimes(1);
+    expect(mockChartUnmount).not.toHaveBeenCalled();
+  });
+
+  it('asks the host once when a press selected the panel first', async () => {
+    const onSelectPanel = hostSwitches();
+    renderGrid({ onSelectPanel });
+
+    await act(async () => press('panel-2'));
+    await act(async () => mockMaximize.get('panel-2')?.toggle());
+
+    expect(onSelectPanel).toHaveBeenCalledTimes(1);
+    expect(getPanel('panel-2').dataset.maximized).toBe('true');
+  });
+
+  it('ends for good when another preset is picked', async () => {
+    const harness = renderGrid({ onSelectPanel: hostSwitches() });
+    const saved = harness.layout;
+
+    act(() => mockMaximize.get('main')?.toggle());
+    expect(getPanel('main').dataset.maximized).toBe('true');
+    expect(harness.layout).toBe(saved);
+
+    fireEvent.click(screen.getByTestId('preset-4'));
+    expect(getPanel('main').dataset.maximized).toBeUndefined();
+    expect(isCovered('panel-4')).toBe(false);
+    expect(screen.queryAllByTestId(/^divider-/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId('preset-2h'));
+    expect(getPanel('main').dataset.maximized).toBeUndefined();
+    expect(isCovered('panel-2')).toBe(false);
+  });
+
+  it('ends with a selection the host turns down, which a later one does not undo', async () => {
+    const onSelectPanel = hostSwitches().mockImplementationOnce(
+      async () => false,
+    );
+    renderGrid({ onSelectPanel });
+
+    await act(async () => mockMaximize.get('panel-2')?.toggle());
+
+    // The host keeps BTC: the selection goes back, and the split with it.
+    expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+    expect(getPanel('panel-2').dataset.maximized).toBeUndefined();
+    expect(isCovered('main')).toBe(false);
+
+    await act(async () => press('panel-2'));
+    expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+    expect(getPanel('panel-2').dataset.maximized).toBeUndefined();
+  });
+
+  it('offers nothing to a single chart', () => {
+    renderGrid({
+      layout: { preset: '1', panels: {} },
+      onSelectPanel: hostSwitches(),
+    });
+
+    expect(mockMaximize.has('main')).toBe(true);
+    expect(mockMaximize.get('main')).toBeUndefined();
   });
 });

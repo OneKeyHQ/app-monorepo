@@ -92,6 +92,7 @@ export type ILocalSecretEnvelopeLayerAdapter = {
     params: ILocalSecretEnvelopeLayerEncryptParams,
   ) => Promise<string>;
   decrypt: (params: ILocalSecretEnvelopeLayerDecryptParams) => Promise<string>;
+  checkExistingKey?: (layer: ILocalSecretEnvelopeLayer) => Promise<void>;
   deleteLayerKey?: (
     params: ILocalSecretEnvelopeLayerDeleteKeyParams,
   ) => Promise<void>;

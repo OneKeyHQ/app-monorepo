@@ -669,7 +669,7 @@ class ServiceToken extends ServiceBase {
       (await settingsPersistAtom.get())?.currencyInfo?.id ?? USD_CURRENCY_ID;
     throwIfRequestAborted();
 
-    const resp = await vault.fetchTokenList({
+    const fetchTokenListParams = {
       accountId,
       requestApiParams: {
         ...rest,
@@ -684,7 +684,8 @@ class ServiceToken extends ServiceBase {
       // interceptor would otherwise re-read settings.currencyInfo.id at send
       // time, and a mid-flight currency switch would tag the cache wrongly.
       requestCurrency,
-    });
+    };
+    const resp = await vault.fetchTokenList(fetchTokenListParams);
     throwIfRequestAborted();
 
     // OK-66042: a row listed in `data` without a `map` entry reaches Home as a
@@ -921,6 +922,56 @@ class ServiceToken extends ServiceBase {
       }
     }
     throwIfRequestAborted();
+    const publicSnapshot =
+      cacheRequest && (flag === 'home-token-list' || flag === 'dust-sweep')
+        ? {
+            tokens: resp.data.data.tokens,
+            smallBalanceTokens: resp.data.data.smallBalanceTokens,
+            riskTokens: resp.data.data.riskTokens,
+          }
+        : undefined;
+    if (vault.overlaySessionTokenListResponse && !params.withoutWalletToken) {
+      // Clone persisted token groups before overlaying session-only private
+      // balances so `localAccountTokensCache` / `simpleDb.localTokens` stay
+      // strictly public-only even after wallet lock.
+      resp.data.data = {
+        ...resp.data.data,
+        tokens: {
+          ...resp.data.data.tokens,
+          data: [...resp.data.data.tokens.data],
+          map: { ...resp.data.data.tokens.map },
+        },
+        smallBalanceTokens: {
+          ...resp.data.data.smallBalanceTokens,
+          data: [...resp.data.data.smallBalanceTokens.data],
+          map: { ...resp.data.data.smallBalanceTokens.map },
+        },
+        riskTokens: {
+          ...resp.data.data.riskTokens,
+          data: [...resp.data.data.riskTokens.data],
+          map: { ...resp.data.data.riskTokens.map },
+        },
+      };
+      await vault.overlaySessionTokenListResponse(resp, fetchTokenListParams);
+      throwIfRequestAborted();
+    }
+    if (
+      cacheRequest &&
+      publicSnapshot &&
+      (flag === 'home-token-list' || flag === 'dust-sweep')
+    ) {
+      // Commit the public-only snapshot only after the post-overlay cancellation
+      // check so neither shielded data nor canceled requests enter the cache.
+      this.accountTokensSnapshotCache.set(cacheRequest, {
+        accountId,
+        networkId,
+        accountAddress,
+        xpub,
+        source: flag,
+        coverage: 'partial',
+        ...publicSnapshot,
+      });
+    }
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
       allNetworksNetworkId &&
@@ -930,22 +981,6 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.accountId = accountId;
     resp.data.data.networkId = networkId;
-
-    if (cacheRequest && (flag === 'home-token-list' || flag === 'dust-sweep')) {
-      // The persistence cap only slices its own lists. These normalized groups
-      // remain untruncated and have not entered Home's aggregate projection.
-      this.accountTokensSnapshotCache.set(cacheRequest, {
-        accountId,
-        networkId,
-        accountAddress,
-        xpub,
-        source: flag,
-        coverage: 'partial',
-        tokens: resp.data.data.tokens,
-        smallBalanceTokens: resp.data.data.smallBalanceTokens,
-        riskTokens: resp.data.data.riskTokens,
-      });
-    }
 
     if (homeRequest && isAllNetworks && homeContext) {
       const groups = aggregateHomeTokenGroups({

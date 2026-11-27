@@ -113,7 +113,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import type { IChangeHistoryUpdateItem } from '@onekeyhq/shared/src/types/changeHistory';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
@@ -170,8 +176,13 @@ import type {
 import { takeRecoveryTestFault } from '../../services/recoveryTestFaults';
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import {
+  CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS,
   canArchiveSettledForeignAccountHandoff,
   canReplaceSettledPublicAccountCache,
+  isCloudSyncDeletionNewer,
+  isComparableCloudSyncDataTime,
+  isForeignCloudSyncDeletion,
+  isForeignLiveCloudSyncItem,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
@@ -185,6 +196,7 @@ import {
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
+  publicAccountSyncIdentityEqual,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
   getForeignAccountDeletion,
@@ -197,7 +209,14 @@ import {
   rejectPublicAccountSnapshotWrite,
   rememberPublicAccountSnapshotWrite,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
-import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
+import {
+  clearWalletLocalSecretEnvelopeIssue,
+  getWalletLocalSecretEnvelopeIssue,
+  hasWalletLocalSecretEnvelopeIssue,
+  markCredentialLocalSecretEnvelopeUnavailableError,
+  recordWalletLocalSecretEnvelopeIssue,
+  reportWalletLocalSecretEnvelopeFailure,
+} from '../../utils/localSecretEnvelopeErrorUtils';
 
 import { EDBAccountType } from './consts';
 import {
@@ -214,6 +233,8 @@ import { ELocalDBStoreNames } from './localDBStoreNames';
 import {
   LOCAL_SECRET_ENVELOPE_INNER_PREFIX,
   buildLocalSecretEnvelopeLayerAdapterResolver,
+  buildLocalSecretEnvelopeReadOnlyResolver,
+  buildWalletRecoverySecureStorageLayerAdapter,
   classifyLocalSecretEnvelopeMigrationCandidate,
   cleanupLocalSecretEnvelopeLayerKeysBestEffort,
   isLocalSecretEnvelopeLayerTopologyDowngrade,
@@ -239,6 +260,7 @@ import type {
 } from './localSecretEnvelope';
 import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
 import type {
+  ICloudSyncPoolExistingItem,
   IDBAccount,
   IDBAddress,
   IDBApiGetContextOptions,
@@ -387,9 +409,7 @@ export type IUpdateDeviceStateResult =
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION = 2;
-const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS = timerUtils.getTimeDurationMs({
-  minute: 10,
-});
+const WALLET_LSE_REVALIDATION_TIMEOUT_MS = 1500;
 
 type ILocalPasswordKdfParams = {
   kdfBackend?: IPbkdf2DispatchBackend;
@@ -451,13 +471,7 @@ type IAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
-  onBeforeWalletServerMerge?: (
-    previous: IDBCloudSyncItem,
-    incoming: IDBCloudSyncItem,
-  ) => void;
-  preserveExisting?: (
-    item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
-  ) => boolean;
+  preserveExisting?: (item: ICloudSyncPoolExistingItem) => boolean;
   fn?: () => Promise<void>;
 };
 
@@ -469,13 +483,7 @@ type ITxAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
-  onBeforeWalletServerMerge?: (
-    previous: IDBCloudSyncItem,
-    incoming: IDBCloudSyncItem,
-  ) => void;
-  preserveExisting?: (
-    item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
-  ) => boolean;
+  preserveExisting?: (item: ICloudSyncPoolExistingItem) => boolean;
 };
 
 type ITxAddAndUpdateFreshSyncItemsParams = ITxAddAndUpdateSyncItemsParams;
@@ -499,6 +507,7 @@ type IPublicCloudAccountApplyParams = {
 
 type IPublicCloudAccountApplyResult = {
   added: number;
+  updated: number;
   indexedAccountsChanged: boolean;
   deleted: number;
   unchanged: number;
@@ -2763,6 +2772,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       } catch (error) {
         if (error instanceof LocalSecretEnvelopeUnavailable) {
           markCredentialLocalSecretEnvelopeUnavailableError(error);
+          if (getWalletLocalSecretEnvelopeIssue(error, credential.id)) {
+            const walletName = await this.getWalletCredentialDisplayName(
+              credential.id,
+            );
+            if (
+              (await this.getCredentialSafe(credential.id))?.credential ===
+              originalCredential
+            ) {
+              reportWalletLocalSecretEnvelopeFailure(
+                error,
+                credential.id,
+                walletName,
+              );
+            }
+          }
         }
         throw error;
       }
@@ -3184,6 +3208,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         verifyString: originalVerifyString,
       }),
     ]);
+    await Promise.all(
+      preparedCredentialUpdates.map(({ id }) =>
+        this.revalidateWalletLocalSecretEnvelopeIssueAfterWrite(id),
+      ),
+    );
 
     // A password change re-encrypts every credential and the verifyString with
     // the new password, but records that were not already LSE-wrapped are
@@ -3301,6 +3330,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  private async getWalletCredentialDisplayName(credentialId: string) {
+    if (accountUtils.isImportedAccount({ accountId: credentialId })) {
+      const accountId = accountUtils.getAccountIdFromTonMnemonicCredentialId({
+        credentialId,
+      });
+      return (await this.getAccountSafe({ accountId }))?.name;
+    }
+    const walletId = accountUtils.getWalletIdFromAccountId({
+      accountId: credentialId,
+    });
+    return (await this.getWalletSafe({ walletId, withoutRefill: true }))?.name;
+  }
+
   async getContextVerifyStringInner({
     context,
     resolveLayerAdapter,
@@ -3349,15 +3391,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           envelope: credential.credential,
           resolveLayerAdapter,
         });
-
+      const innerCredential = await unwrapLocalSecretEnvelopeV1({
+        envelope: credential.credential,
+        expectedDataType: 'credential',
+        expectedRecordId: credential.id,
+        resolveLayerAdapter: layerAdapterResolver,
+      });
+      if (markUnavailableForWalletRecovery) {
+        void clearWalletLocalSecretEnvelopeIssue(credentialId).catch(
+          () => undefined,
+        );
+      }
       return {
         ...credential,
-        credential: await unwrapLocalSecretEnvelopeV1({
-          envelope: credential.credential,
-          expectedDataType: 'credential',
-          expectedRecordId: credential.id,
-          resolveLayerAdapter: layerAdapterResolver,
-        }),
+        credential: innerCredential,
       };
     } catch (error) {
       if (
@@ -3365,8 +3412,91 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         error instanceof LocalSecretEnvelopeUnavailable
       ) {
         markCredentialLocalSecretEnvelopeUnavailableError(error);
+        if (
+          error.data &&
+          (await this.getCredentialSafe(credentialId))?.credential ===
+            credential.credential
+        ) {
+          reportWalletLocalSecretEnvelopeFailure(error, credentialId);
+        }
       }
       throw error;
+    }
+  }
+
+  // Null means no issue was found. Undefined means the check was inconclusive.
+  async preflightWalletLocalSecretEnvelope(
+    credentialId: string,
+    expiresAt: number,
+  ) {
+    const credential = await this.getCredentialSafe(credentialId);
+    if (!credential) {
+      return undefined;
+    }
+    const isEnvelope = isLocalSecretEnvelopeString(credential.credential);
+    if (
+      !isEnvelope &&
+      !(await hasWalletLocalSecretEnvelopeIssue(credentialId))
+    ) {
+      return null;
+    }
+    try {
+      if (isEnvelope) {
+        await unwrapLocalSecretEnvelopeV1({
+          envelope: credential.credential,
+          expectedDataType: 'credential',
+          expectedRecordId: credentialId,
+          resolveLayerAdapter: buildLocalSecretEnvelopeReadOnlyResolver(),
+        });
+      }
+      if (
+        Date.now() < expiresAt &&
+        (await this.getCredentialSafe(credentialId))?.credential ===
+          credential.credential
+      ) {
+        await clearWalletLocalSecretEnvelopeIssue(credentialId);
+        return null;
+      }
+    } catch (error) {
+      if (
+        error instanceof LocalSecretEnvelopeUnavailable &&
+        Date.now() < expiresAt &&
+        (await this.getCredentialSafe(credentialId))?.credential ===
+          credential.credential
+      ) {
+        const issue = getWalletLocalSecretEnvelopeIssue(error, credentialId);
+        if (issue && Date.now() < expiresAt) {
+          await recordWalletLocalSecretEnvelopeIssue(issue);
+          return issue;
+        }
+      }
+      // An unsupported layer or interrupted read leaves preflight inconclusive.
+    }
+    return undefined;
+  }
+
+  private async revalidateWalletLocalSecretEnvelopeIssueAfterWrite(
+    credentialId: string,
+  ) {
+    try {
+      const expiresAt = Date.now() + WALLET_LSE_REVALIDATION_TIMEOUT_MS;
+      const revalidate = async () => {
+        if (
+          (await hasWalletLocalSecretEnvelopeIssue(credentialId)) &&
+          Date.now() < expiresAt
+        ) {
+          await this.preflightWalletLocalSecretEnvelope(
+            credentialId,
+            expiresAt,
+          );
+        }
+      };
+      await resolveBeforeTimeout(
+        revalidate(),
+        WALLET_LSE_REVALIDATION_TIMEOUT_MS,
+      );
+    } catch {
+      // Status refresh is best-effort after a successful commit.
     }
   }
 
@@ -3452,12 +3582,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     credential,
     credentialId,
     markUnavailableForWalletRecovery = true,
+    recoverUnavailableSecureStorageKey = false,
     requireLocalSecretEnvelope = false,
     skipLocalPasswordKdfUpgradeCheck = false,
   }: {
     credential: string;
     credentialId: string;
     markUnavailableForWalletRecovery?: boolean;
+    recoverUnavailableSecureStorageKey?: boolean;
     requireLocalSecretEnvelope?: boolean;
     skipLocalPasswordKdfUpgradeCheck?: boolean;
   }): Promise<{
@@ -3522,7 +3654,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       };
     } catch (error) {
       let wrapError = error;
-      if (config.layerAdapters.length > 1) {
+      const shouldRecoverSecureStorageKey =
+        recoverUnavailableSecureStorageKey &&
+        error instanceof Error &&
+        error.name === SECURE_STORAGE_PERMANENT_READ_ERROR_NAME &&
+        config.layerAdapters.some(
+          (adapter) => adapter.kind === 'secure-storage',
+        );
+      if (shouldRecoverSecureStorageKey) {
+        const layerAdapters = config.layerAdapters.map((adapter) =>
+          adapter.kind === 'secure-storage'
+            ? buildWalletRecoverySecureStorageLayerAdapter()
+            : adapter,
+        );
+        try {
+          return {
+            credential: await wrapLocalSecretEnvelopeV1({
+              dataType: 'credential',
+              layerAdapters,
+              plaintext: credential,
+              recordId: credentialId,
+              strength: config.strength,
+            }),
+            layerAdapters,
+          };
+        } catch (recoveryError) {
+          wrapError = recoveryError;
+        }
+      } else if (config.layerAdapters.length > 1) {
         // A layer can fail after its capability probe succeeded. Re-probe once
         // using the bounded provider policy; if only the mandatory base layer
         // remains healthy, this write may continue as single-layer LSE. The
@@ -3562,6 +3721,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         throw wrapError;
       }
       if (
+        shouldRecoverSecureStorageKey ||
         requireLocalSecretEnvelope ||
         (await this.isLocalSecretEnvelopeCredentialMigrationCompleted())
       ) {
@@ -3594,17 +3754,46 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     ).credential;
   }
 
+  private async cleanupUncommittedWalletCredential({
+    credentialId,
+    credential,
+    layerAdapters,
+  }: {
+    credentialId: string;
+    credential: string;
+    layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+  }): Promise<void> {
+    if (!layerAdapters?.length) return;
+    // A failed transaction can already have committed on IndexedDB.
+    const canDiscard = await this.getRecordById({
+      name: ELocalDBStoreNames.Credential,
+      id: credentialId,
+    }).then(
+      (record) => record?.credential !== credential,
+      () => false,
+    );
+    if (canDiscard) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: credential,
+        layerAdapters,
+      });
+    }
+  }
+
   async replaceCredentialWithLocalSecretEnvelopeIfNeeded({
     credential,
     credentialId,
+    recoverUnavailableSecureStorageKey,
   }: {
     credential: string;
     credentialId: string;
+    recoverUnavailableSecureStorageKey?: boolean;
   }): Promise<boolean> {
     const nextCredentialInfo =
       await this.buildCredentialForLocalSecretEnvelopeWrite({
         credential,
         credentialId,
+        recoverUnavailableSecureStorageKey,
       });
     const existingCredential = await this.getCredentialSafe(credentialId);
     let originalCredential: string | undefined;
@@ -3660,13 +3849,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       });
     } catch (error) {
-      if (nextCredentialInfo.layerAdapters?.length) {
+      if (recoverUnavailableSecureStorageKey) {
+        await this.cleanupUncommittedWalletCredential({
+          credentialId,
+          ...nextCredentialInfo,
+        });
+      } else if (nextCredentialInfo.layerAdapters?.length) {
         await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
           envelope: nextCredentialInfo.credential,
           layerAdapters: nextCredentialInfo.layerAdapters,
         });
       }
       throw error;
+    }
+
+    if (
+      !replaced &&
+      (!originalCredential ||
+        originalCredential !== nextCredentialInfo.credential) &&
+      nextCredentialInfo.layerAdapters?.length
+    ) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: nextCredentialInfo.credential,
+        layerAdapters: nextCredentialInfo.layerAdapters,
+      });
     }
 
     if (downgradeBlocked) {
@@ -3683,18 +3889,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     if (
-      !replaced &&
-      (!originalCredential ||
-        originalCredential !== nextCredentialInfo.credential) &&
-      nextCredentialInfo.layerAdapters?.length
-    ) {
-      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
-        envelope: nextCredentialInfo.credential,
-        layerAdapters: nextCredentialInfo.layerAdapters,
-      });
-    }
-
-    if (
       replaced &&
       originalCredential &&
       originalCredential !== nextCredentialInfo.credential &&
@@ -3707,6 +3901,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     }
 
+    if (replaced) {
+      await this.revalidateWalletLocalSecretEnvelopeIssueAfterWrite(
+        credentialId,
+      );
+    }
     return replaced;
   }
 
@@ -5472,6 +5671,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       rejectPublicAccountSnapshotWrite(updateItem);
       return;
     }
+    // A replayed local edit cannot replace a confirmed version at the same time.
+    if (
+      item.dataTime &&
+      item.dataTime === updateItem.dataTime &&
+      item.pwdHash === updateItem.pwdHash &&
+      item.serverUploaded &&
+      !updateItem.serverUploaded
+    ) {
+      if (
+        item.data !== updateItem.data ||
+        item.isDeleted !== updateItem.isDeleted
+      )
+        item.localSceneUpdated = false;
+      rejectPublicAccountSnapshotWrite(updateItem);
+      return;
+    }
     let shouldUpdate =
       item.dataTime &&
       updateItem.dataTime &&
@@ -5517,6 +5732,32 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
+    const incomingIsForeignDeletion =
+      updateItem.serverUploaded &&
+      !item.isDeleted &&
+      isForeignCloudSyncDeletion(updateItem, item.pwdHash);
+    const existingIsForeignDeletion =
+      (!updateItem.isDeleted || updateItem.serverUploaded) &&
+      isForeignCloudSyncDeletion(item, updateItem.pwdHash);
+    const acceptsUndatedForeignLive =
+      updateItem.serverUploaded &&
+      !updateItem.isDeleted &&
+      isForeignLiveCloudSyncItem(item, updateItem.pwdHash) &&
+      !isComparableCloudSyncDataTime(item.dataTime);
+    if (incomingIsForeignDeletion) {
+      shouldUpdate = isCloudSyncDeletionNewer(
+        updateItem.dataTime,
+        item.dataTime,
+      );
+    } else if (existingIsForeignDeletion) {
+      shouldUpdate = !isCloudSyncDeletionNewer(
+        item.dataTime,
+        updateItem.dataTime,
+      );
+    } else if (acceptsUndatedForeignLive) {
+      shouldUpdate = true;
+    }
+
     if (!shouldUpdate) {
       return;
     }
@@ -5530,7 +5771,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       rawData: updateItem.rawData,
 
       data: updateItem.data,
-      dataTime: updateItem.dataTime ?? item.dataTime,
+      dataTime:
+        existingIsForeignDeletion || acceptsUndatedForeignLive
+          ? updateItem.dataTime
+          : (updateItem.dataTime ?? item.dataTime),
 
       isDeleted: updateItem.isDeleted,
       localSceneUpdated: updateItem.localSceneUpdated,
@@ -5679,7 +5923,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUploadToServer,
     fn,
     preserveExisting,
-    onBeforeWalletServerMerge,
   }: IAddAndUpdateSyncItemsParams) {
     if (items?.length) {
       // EIndexedDBBucketNames.cloudSync
@@ -5691,7 +5934,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           skipUpdate,
           skipUploadToServer,
           preserveExisting,
-          onBeforeWalletServerMerge,
         });
 
         await fn?.();
@@ -5826,7 +6068,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUploadToServer,
     preserveExisting,
     onWalletPoolWrite,
-    onBeforeWalletServerMerge,
   }: ITxAddAndUpdateSyncItemsParams) {
     const guardedItems = items.filter(hasPublicAccountSnapshotWriteGuard);
     if (guardedItems.length) {
@@ -5888,33 +6129,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             (item) => item.id === record.id,
           );
           if (recordToUpdate && !preserveExisting?.(record)) {
-            if (
-              onBeforeWalletServerMerge &&
-              recordToUpdate.dataType === EPrimeCloudSyncDataType.Wallet &&
-              recordToUpdate.serverUploaded &&
-              record.dataType === EPrimeCloudSyncDataType.Wallet &&
-              record.serverUploaded &&
-              record.localSceneUpdated &&
-              !record.isDeleted &&
-              !!record.data
-            ) {
-              // Snapshot ciphertext and replay metadata, not a live Realm proxy.
-              onBeforeWalletServerMerge(
-                {
-                  id: record.id,
-                  dataType: record.dataType,
-                  data: record.data,
-                  dataTime: record.dataTime,
-                  pwdHash: record.pwdHash,
-                  isDeleted: false,
-                  serverUploaded: true,
-                  localSceneUpdated: true,
-                  rawKey: record.rawKey,
-                  rawData: undefined,
-                },
-                recordToUpdate,
-              );
-            }
             this._updateCloudSyncPoolItemFn({
               item: record,
               updateItem: recordToUpdate,
@@ -6025,7 +6239,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             current.rawData ||
             current.pendingPublicAccountDeletionAt ||
             !isSupportedCloudSyncDataType(current.dataType) ||
-            isInactiveHardwareWalletAccount(current, activePwdHash)
+            isInactiveHardwareWalletAccount(current, activePwdHash) ||
+            (current.localSceneUpdated &&
+              isForeignCloudSyncDeletion(current, activePwdHash))
           )
             return [];
           const expected = expectedById.get(current.id);
@@ -6388,12 +6604,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       avatar: initAvatarInfo ?? randomAvatar(),
     });
 
-    const credentialToCreate =
-      await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
-        credentialId: walletId,
-        credential: rs,
-      });
-
     if (!currentWalletToCreate) {
       throw new OneKeyLocalError('currentWalletToCreate is undefined');
     }
@@ -6499,6 +6709,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const logTransaction: IHDWalletCreationLog = (event, details) => {
       log?.(event, { transactionId, stage, ...details });
     };
+    const { credential: credentialToCreate, layerAdapters } =
+      await this.buildCredentialForLocalSecretEnvelopeWrite({
+        credentialId: walletId,
+        credential: rs,
+        recoverUnavailableSecureStorageKey:
+          params.recoverUnavailableSecureStorageKey,
+      });
     await this.withTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
@@ -6621,7 +6838,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               logTransaction(event, getHDWalletErrorDetails(error))
           : undefined,
       },
-    );
+    ).catch(async (error: unknown) => {
+      if (params.recoverUnavailableSecureStorageKey) {
+        await this.cleanupUncommittedWalletCredential({
+          credentialId: walletId,
+          credential: credentialToCreate,
+          layerAdapters,
+        });
+      }
+      throw error;
+    });
 
     if (committedSyncItems.length) {
       void this.backgroundApi.servicePrimeCloudSync
@@ -6634,6 +6860,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId,
       addedHdAccountIndex,
     });
+    await this.revalidateWalletLocalSecretEnvelopeIssueAfterWrite(walletId);
     this.runPostPasswordVerifiedLazyUpgrade({ password });
     return result;
   }
@@ -8923,6 +9150,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       current.dataTime !== source.dataTime ||
       current.dataType !== source.dataType ||
       current.isDeleted !== source.isDeleted ||
+      (source.serverUploaded && !current.serverUploaded) ||
       current.pwdHash !== source.pwdHash ||
       (!source.data && current.rawData !== source.rawData)
     ) {
@@ -9019,11 +9247,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     params: IDBSetWalletNameAndAvatarParams,
     {
       isCurrent,
-      expectedCloudSyncWalletAvatar,
       onCloudWalletWriteFailure,
     }: {
       isCurrent?: () => boolean;
-      expectedCloudSyncWalletAvatar?: string;
       onCloudWalletWriteFailure?: () => void;
     } = {},
   ): Promise<IDBWallet> {
@@ -9036,7 +9262,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return isCurrent && params.cloudSyncSource
         ? this.setWalletNameAndAvatarInternal(params, {
             isCurrent,
-            expectedCloudSyncWalletAvatar,
             onCloudWalletWriteFailure,
           })
         : this.setWalletNameAndAvatarInternal(params);
@@ -9093,7 +9318,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       passiveLocalVendor,
       explicitSyncOffEdit,
       isCurrent,
-      expectedCloudSyncWalletAvatar,
       onCloudWalletWriteFailure,
     }: {
       verifiedCredential?: ICloudSyncCredential;
@@ -9102,7 +9326,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       passiveLocalVendor?: boolean;
       explicitSyncOffEdit?: boolean;
       isCurrent?: () => boolean;
-      expectedCloudSyncWalletAvatar?: string;
       onCloudWalletWriteFailure?: () => void;
     } = {},
   ): Promise<IDBWallet> {
@@ -9330,22 +9553,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         source: params.cloudSyncSource,
       });
       assertCurrent();
-      if (
-        params.deferCloudSyncWalletName &&
-        params.cloudSyncSource?.serverUploaded &&
-        params.cloudSyncSource.localSceneUpdated
-      ) {
-        await this.txUpdateRecords({
-          tx,
-          name: ELocalDBStoreNames.CloudSyncItem,
-          ids: [params.cloudSyncSource.id],
-          updater: (current) => {
-            if (current.serverUploaded && current.localSceneUpdated)
-              current.localSceneUpdated = false;
-            return current;
-          },
-        });
-      }
       if (explicitSyncOffEdit) {
         const {
           records: [current],
@@ -9520,16 +9727,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           if (walletName && (!useExplicitFields || params.name)) {
             w.name = walletName;
           }
-          if (
-            avatarInfo &&
-            (!useExplicitFields || params.avatar) &&
-            // A partial scene can fill a missing value or replace exactly the
-            // authenticated predecessor. Preserve other local avatars.
-            (!params.deferCloudSyncWalletName ||
-              !w.avatar ||
-              (expectedCloudSyncWalletAvatar !== undefined &&
-                w.avatar === expectedCloudSyncWalletAvatar))
-          ) {
+          if (avatarInfo && (!useExplicitFields || params.avatar)) {
             w.avatar = JSON.stringify(avatarInfo);
           }
           if (
@@ -10086,6 +10284,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     const unchangedResult = {
       added: 0,
+      updated: 0,
       indexedAccountsChanged: false,
       deleted: 0,
       unchanged: 0,
@@ -10098,6 +10297,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ),
     };
     const cancelled = new OneKeyLocalError('Cloud account import cancelled');
+    const nameHistory: IChangeHistoryUpdateItem[] = [];
     const expectedSources =
       sourceItemsByAccountId &&
       new Map(
@@ -10115,7 +10315,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     try {
       checkCurrent();
-      return await this.withTransaction(
+      const applied = await this.withTransaction(
         EIndexedDBBucketNames.account,
         async (tx) => {
           const {
@@ -10190,13 +10390,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           };
           const toAdd: IDBAccount[] = [];
           const toDelete = new Map<string, IDBAccount>();
+          const metadataUpdates = new Map<string, IDBAccount>();
           const conflictingIds = new Set<string>();
           for (const account of accounts) {
             if (
               accounts.some(
                 (other) =>
                   other.id === account.id &&
-                  !publicAccountIdentityEqual(account, other),
+                  !publicAccountSyncIdentityEqual(account, other),
               )
             )
               conflictingIds.add(account.id);
@@ -10231,8 +10432,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const replaceableLiveCaches = new Set<string>();
           const prepareAccount = async (account: IDBAccount) => {
             checkCurrent();
+            const source = expectedSources?.get(account.id);
             if (expectedSources) {
-              const source = expectedSources.get(account.id);
               const currentSource =
                 source && currentSources.find((item) => item?.id === source.id);
               const foreign = source && foreignAccountsByWireId?.get(source.id);
@@ -10256,6 +10457,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   source.serverUploaded &&
                   !!source.data
                 : !!source &&
+                  (!source.serverUploaded || !!currentSource?.serverUploaded) &&
                   matchesPublicAccountSnapshotWrite(
                     source,
                     currentSource ?? undefined,
@@ -10314,7 +10516,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               if (!existing) {
                 result.unchanged += 1;
                 result.appliedAccountIds.push(account.id);
-              } else if (publicAccountIdentityEqual(existing, account)) {
+              } else if (publicAccountSyncIdentityEqual(existing, account)) {
                 if (!toDelete.has(existing.id))
                   toDelete.set(existing.id, existing);
                 else result.unchanged += 1;
@@ -10327,7 +10529,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
             const duplicate =
               existing || toAdd.find((item) => item.id === account.id);
-            if (duplicate && !publicAccountIdentityEqual(duplicate, account)) {
+            if (
+              duplicate &&
+              !publicAccountSyncIdentityEqual(duplicate, account)
+            ) {
               result.conflicts += 1;
               result.issueByAccountId[account.id] = 'conflicts';
               return;
@@ -10376,7 +10581,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               });
             }
             if (duplicate) {
-              result.unchanged += 1;
+              if (
+                existing &&
+                source?.serverUploaded &&
+                !source.localSceneUpdated &&
+                !replaceableLiveCaches.has(account.id) &&
+                ((account.name.trim() && account.name !== existing.name) ||
+                  (account.createAtNetwork !== undefined &&
+                    account.createAtNetwork !== existing.createAtNetwork))
+              ) {
+                metadataUpdates.set(account.id, account);
+              } else {
+                result.unchanged += 1;
+              }
               result.appliedAccountIds.push(account.id);
             } else {
               toAdd.push(account);
@@ -10384,6 +10601,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           };
           for (const account of accounts) {
             await prepareAccount(account);
+          }
+          if (metadataUpdates.size) {
+            await this.txUpdateRecords({
+              tx,
+              name: ELocalDBStoreNames.Account,
+              ids: [...metadataUpdates.keys()],
+              updater: (existing) => {
+                const incoming = metadataUpdates.get(existing.id);
+                if (!incoming) return existing;
+                if (incoming.name.trim() && existing.name !== incoming.name) {
+                  if (existing.name.trim()) {
+                    nameHistory.push({
+                      entityType: EChangeHistoryEntityType.Account,
+                      entityId: existing.id,
+                      contentType: EChangeHistoryContentType.Name,
+                      oldValue: existing.name,
+                      value: incoming.name,
+                    });
+                  }
+                  existing.name = incoming.name;
+                }
+                if (incoming.createAtNetwork !== undefined)
+                  existing.createAtNetwork = incoming.createAtNetwork;
+                return existing;
+              },
+            });
+            checkCurrent();
+            result.updated = metadataUpdates.size;
           }
           if (toDelete.size) {
             // No account-reference index exists in both DB backends. One read
@@ -10457,7 +10702,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
           }
           // Write both record types in one transaction, without Cloud hooks or
-          // per-account events. Existing records are never removed or updated.
+          // per-account events.
           if (indexedToAdd.size) {
             const addedIndexes = await this.txAddRecords({
               tx,
@@ -10618,6 +10863,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           };
         },
       );
+      const changeHistory = this.backgroundApi?.simpleDb?.changeHistory;
+      if (nameHistory.length && changeHistory) {
+        await resolveBeforeTimeout(
+          changeHistory.addChangeHistory({ items: nameHistory }),
+          1500,
+        ).catch((error) => errorUtils.autoPrintErrorIgnore(error));
+      }
+      return applied;
     } catch (error) {
       if (error === cancelled) return { ...unchangedResult, cancelled: true };
       throw error;
@@ -11275,6 +11528,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         envelope: replacedImportedCredential,
         layerAdapters: importedCredentialToAddInfo.layerAdapters,
       });
+    }
+    if (importedCredentialId && importedCredentialToAdd) {
+      await this.revalidateWalletLocalSecretEnvelopeIssueAfterWrite(
+        importedCredentialId,
+      );
     }
 
     // saveAccountAddresses

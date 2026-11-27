@@ -98,15 +98,22 @@ import {
 import { ChartInspector } from './drawings/ChartInspector';
 import { getDataWindowSnapshot } from './drawings/dataWindow';
 import { DrawingToolbar } from './drawings/DrawingToolbar';
-import { useChartDrawings } from './drawings/useChartDrawings';
+import {
+  isEditableKeyTarget,
+  useChartDrawings,
+} from './drawings/useChartDrawings';
 import { drawTradingViewNativeCanvasChart } from './drawTradingViewNativeCanvasChart';
+import { TradingViewNativeMaximizeButton } from './TradingViewNativeMaximizeButton';
 import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { TradingViewNativeSubIndicatorPriceAxis } from './TradingViewNativeSubIndicatorPriceAxis';
 import { useChartCrosshairSync } from './useChartCrosshairSync';
 import { useChartPriceSelection } from './useChartPriceSelection';
 import { useChartViewportSync } from './useChartViewportSync';
-import { useReferenceLineInteraction } from './useReferenceLineInteraction';
+import {
+  containsPoint,
+  useReferenceLineInteraction,
+} from './useReferenceLineInteraction';
 import { useTradingViewNativeCanvasRender } from './useTradingViewNativeCanvasRender';
 import {
   createTradingViewNativeWebPriceScaleModel,
@@ -244,6 +251,13 @@ export const TradingViewNativeChart = memo(
     // left of all charts, outside this chart's root.
     const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
     const sharedDrawingTools = controlsSlot?.drawingTools;
+    // In a split view: the chart's panel can fill the grid.
+    const maximize = controlsSlot?.maximize;
+    // Whether each of the last two presses in the chart was on the plot
+    // itself, not on a drawing, an order line, a pane's legend or a control.
+    // A double click maximizes the panel only when both of its presses were:
+    // the first one can place a drawing and leave the cursor tool armed.
+    const plotPressesRef = useRef<[boolean, boolean]>([false, false]);
     const drawingToolsRef = useRef<HTMLDivElement>(null);
     const getDrawingToolsCollapseGain = sharedDrawingTools?.getCollapseGain;
     // Where the plot's reference width starts: the chart's root, which holds a
@@ -271,6 +285,11 @@ export const TradingViewNativeChart = memo(
     const priceSelectionLeaveRef = useRef<() => void>(() => undefined);
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
+    >([]);
+    // Every order or position line drawn, its labels and cancel buttons, also
+    // those that take no press, e.g. a position's PnL label.
+    const referenceLineRectsRef = useRef<
+      ITradingViewNativeReferenceLineHitRegion['rect'][]
     >([]);
     const [cancelLoadingRegions, setCancelLoadingRegions] = useState<
       ITradingViewNativeReferenceLineHitRegion[]
@@ -336,13 +355,17 @@ export const TradingViewNativeChart = memo(
     const activePointerIdsRef = useRef(new Set<number>());
     const [pointerInteraction, setPointerInteraction] = useState(false);
     const trackPointerInteraction = Boolean(onInteractionChange);
+    // Maximizing a split-view panel also waits for the pressed pointers, so a
+    // gesture under way, e.g. on an order's cancel control, ends on the
+    // geometry it started with.
+    const tracksPointers = trackPointerInteraction || Boolean(maximize);
     const startPointerInteraction = useCallback(
       (event: ReactPointerEvent<HTMLDivElement>) => {
         if (event.button !== 0) return;
         activePointerIdsRef.current.add(event.pointerId);
-        setPointerInteraction(true);
+        if (trackPointerInteraction) setPointerInteraction(true);
       },
-      [],
+      [trackPointerInteraction],
     );
     const finishPointerInteraction = useCallback(
       ({ pointerId }: { pointerId: number }) => {
@@ -357,7 +380,7 @@ export const TradingViewNativeChart = memo(
         activePointerIdsRef.current.clear();
         setPointerInteraction(false);
       };
-      if (!trackPointerInteraction) {
+      if (!tracksPointers) {
         reset();
         return;
       }
@@ -382,7 +405,14 @@ export const TradingViewNativeChart = memo(
         );
         globalThis.removeEventListener('blur', reset);
       };
-    }, [finishPointerInteraction, trackPointerInteraction]);
+    }, [finishPointerInteraction, tracksPointers]);
+    // An order line gesture also holds off for its whole life, e.g. after a
+    // preset change has let the pressed pointers go.
+    const toggleMaximize = useCallback(() => {
+      if (activePointerIdsRef.current.size > 0 || isReferenceLineInteracting())
+        return;
+      maximize?.toggle();
+    }, [isReferenceLineInteracting, maximize]);
     useEffect(() => {
       onInteractionChange?.(drawingInteraction || pointerInteraction);
     }, [drawingInteraction, onInteractionChange, pointerInteraction]);
@@ -644,6 +674,7 @@ export const TradingViewNativeChart = memo(
           scene?.subIndicatorLegendHitRegions ?? [];
         referenceLineHitRegionsRef.current =
           scene?.referenceLineHitRegions ?? [];
+        referenceLineRectsRef.current = scene?.referenceLineRects ?? [];
         const loadingRegions = referenceLineHitRegionsRef.current.filter(
           (region) => region.loadingColor !== undefined,
         );
@@ -1210,12 +1241,21 @@ export const TradingViewNativeChart = memo(
           priceAxisFontSize,
         );
         const canvasRect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - canvasRect.left;
+        const y = event.clientY - canvasRect.top;
         const subIndicatorSettingsTarget =
           getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
             regions: subIndicatorLegendHitRegionsRef.current,
-            x: event.clientX - canvasRect.left,
-            y: event.clientY - canvasRect.top,
+            x,
+            y,
           });
+        // An order or position line that takes no press, e.g. a PnL label or
+        // a pending order, is still no part of the plot.
+        plotPressesRef.current[1] =
+          subIndicatorSettingsTarget === null &&
+          !referenceLineRectsRef.current.some((rect) =>
+            containsPoint(rect, x, y),
+          );
         let nextRuntimeState = runtimeStateRef.current;
         if (subIndicatorSettingsTarget === null) {
           nextRuntimeState = reduceTradingViewNativeChartRuntime(
@@ -1808,9 +1848,34 @@ export const TradingViewNativeChart = memo(
     return (
       <div
         ref={drawingRootRef}
-        onPointerDownCapture={
-          trackPointerInteraction ? startPointerInteraction : undefined
-        }
+        onPointerDownCapture={(event) => {
+          // Every press in the chart counts as one off the plot until the
+          // canvas finds it on the plot.
+          plotPressesRef.current = [plotPressesRef.current[1], false];
+          if (tracksPointers) startPointerInteraction(event);
+        }}
+        // Alt+Enter (Option+Enter) with focus in the chart maximizes its
+        // split-view panel or brings the split back, also without the corner
+        // button. Taken before that button, so it toggles once. An editable
+        // field, e.g. a drawing's name, keeps the key.
+        onKeyDownCapture={(event) => {
+          const { target } = event;
+          if (
+            !maximize ||
+            event.key !== 'Enter' ||
+            !event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            !(target instanceof HTMLElement) ||
+            !event.currentTarget.contains(target) ||
+            isEditableKeyTarget(target)
+          ) {
+            return;
+          }
+          event.preventDefault();
+          if (!event.repeat) toggleMaximize();
+        }}
         onLostPointerCapture={finishPointerInteraction}
         style={{
           display: 'flex',
@@ -1854,7 +1919,11 @@ export const TradingViewNativeChart = memo(
             data-drawing-tool={drawingController.state.tool}
             tabIndex={drawingsEnabled ? 0 : undefined}
             aria-label="Price chart"
-            onDoubleClick={drawingController.onDoubleClick}
+            onDoubleClick={(event) => {
+              if (drawingController.onDoubleClick(event)) return;
+              const [isFirstOnPlot, isSecondOnPlot] = plotPressesRef.current;
+              if (isFirstOnPlot && isSecondOnPlot) toggleMaximize();
+            }}
             onContextMenu={priceSelection.onContextMenu}
             onLostPointerCapture={(event) => {
               if (referenceLineInteraction.onPointerUp(event)) return;
@@ -2032,6 +2101,22 @@ export const TradingViewNativeChart = memo(
                 ) : null;
               })
             : null}
+          {/* Only in the empty corner where the price axis meets the time
+              axis. Without a price axis every edge of the plot and the axis
+              hold controls of their own, so a double click is the way. */}
+          {maximize &&
+          measuredChartWidth > 0 &&
+          chartSettings.options.yAxis &&
+          measuredPriceAxisWidth > 0 ? (
+            <TradingViewNativeMaximizeButton
+              backgroundColor={background}
+              isMaximized={maximize.isMaximized}
+              onPress={toggleMaximize}
+              priceAxisWidth={measuredPriceAxisWidth}
+              testID={testID}
+              timeAxisHeight={timeAxisHeight}
+            />
+          ) : null}
           {showNavigationControls && measuredChartWidth > 0 ? (
             <TradingViewNativeNavigationControls
               backgroundColor={background}

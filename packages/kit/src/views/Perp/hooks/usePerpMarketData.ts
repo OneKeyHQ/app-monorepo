@@ -21,7 +21,7 @@ import {
   getFreshL2BookSnapshotFromColdCache,
   getPerpsL2BookColdCacheGlobalSnapshot,
   getPerpsL2BookInteractiveRefreshDelayMs,
-  hasL2BookLevels,
+  hasL2BookSides,
   isL2BookForTarget,
   isPerpsL2BookInteractive,
 } from '../utils/l2BookFreshness';
@@ -144,7 +144,7 @@ export function useL2Book(options?: IL2BookOptions): {
         nSigFigs,
         mantissa,
       }) &&
-      hasL2BookLevels(l2BookData)
+      hasL2BookSides(l2BookData)
     ) {
       bookData = l2BookData;
     } else if (expectedCoin) {
