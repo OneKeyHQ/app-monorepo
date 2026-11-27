@@ -8,15 +8,20 @@ const viewport = (toTime: number) => ({
 });
 
 // Three panels; the first one is the main panel unless told otherwise.
-function setup({ mainIndex = 0 }: { mainIndex?: number | null } = {}) {
-  const channel = createTradingViewNativeViewportSyncChannel();
-  const join = (isMain: boolean) => {
+function setup({
+  mainIndex = 0,
+  startPanelId,
+}: { mainIndex?: number | null; startPanelId?: string } = {}) {
+  const channel = createTradingViewNativeViewportSyncChannel(startPanelId);
+  const join = (isMain: boolean, panelId = isMain ? 'main' : 'other') => {
     const onChange = jest.fn();
-    return { onChange, ...channel.join({ isMain, onChange }) };
+    return { onChange, ...channel.join({ isMain, panelId, onChange }) };
   };
   return {
     join,
-    charts: [0, 1, 2].map((index) => join(index === mainIndex)),
+    charts: [0, 1, 2].map((index) =>
+      join(index === mainIndex, `panel-${index}`),
+    ),
   };
 }
 
@@ -127,5 +132,38 @@ describe('viewport sync channel', () => {
 
     const next = join(false);
     expect(next.getViewport()).toBeNull();
+  });
+
+  it('lines the charts up with the panel the option was turned on in', () => {
+    const { join } = setup({ mainIndex: null, startPanelId: 'selected' });
+    // The first panel joins and reports before the selected one is there.
+    const main = join(true, 'main');
+    main.publish(viewport(100));
+    const selected = join(false, 'selected');
+    const other = join(false, 'other');
+    // Not the first panel's viewport: the selected chart has yet to report.
+    expect(main.getViewport()).toBeNull();
+    expect(other.getViewport()).toBeNull();
+
+    selected.publish(viewport(50));
+    main.publish(viewport(100));
+    expect(selected.getViewport()).toBeNull();
+    expect(main.getViewport()).toEqual(viewport(50));
+    expect(other.getViewport()).toEqual(viewport(50));
+  });
+
+  it('lines the next chart of the panel the option was turned on in up with the others', () => {
+    const { join } = setup({ mainIndex: null, startPanelId: 'selected' });
+    const main = join(true, 'main');
+    const selected = join(false, 'selected');
+    selected.publish(viewport(50));
+    // The panel changes its interval: its chart unmounts and mounts anew.
+    selected.leave();
+    main.publish(viewport(60));
+
+    const remounted = join(false, 'selected');
+    expect(remounted.getViewport()).toEqual(viewport(60));
+    remounted.publish(viewport(300));
+    expect(main.getViewport()).toBeNull();
   });
 });

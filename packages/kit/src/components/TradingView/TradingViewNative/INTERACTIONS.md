@@ -180,14 +180,30 @@ under separate owners:
     in a chart's runtime state: a chart's own crosshair always wins, and
     trade-mark tooltips keep following the pointer only.
   - Time and date range: `multiChart/viewportSync` lets the charts follow the
-    one the user moved last; until then they follow the first panel. The
-    leading chart reports, after each draw, the times of the newest and
-    oldest candles in view and where they sit (`utils/syncedViewport`). A
-    following chart lines itself up before each of its own draws: its candle
-    holding the newest time goes to the same place at the right, and with date
-    range on its zoom changes so the oldest time lands at the same place at
-    the left, within the zoom limits. A time it has not loaded goes to its
-    nearest loaded candle, from where its history loads as usual. A following
+    one the user moved last. Turned on in a split view, either option starts
+    from the selected panel's chart, which the user may have just moved, e.g.
+    to a picked date range: the grid starts the channel anew with that panel,
+    whose chart leads as it joins, before any chart lines up with another
+    one. A split view that opens with either option on (preset change, page
+    load) starts from the first panel. The
+    leading chart reports, after each draw, the times at the edges of its
+    plot and where they sit (`utils/syncedViewport`). A time moves through
+    its candle in step with the pixels, so the times change as smoothly as
+    the chart pans or zooms; times taken from whole candles would jump by a
+    candle whenever one crosses an edge and shake the charts of other
+    intervals or candle widths. Past the newest candle the time is where that
+    candle ends, and the room after it is kept as a share of the width. A
+    following chart lines itself up before each of its own draws: the time
+    at the right goes to the same place, and with date range on its zoom
+    changes so the time at the left lands at the same place, within the zoom
+    limits. A time still to come is where its newest candle ends, and a time
+    inside a gap in its data is where the candle before the gap ends. A time
+    it has not loaded goes to its nearest loaded candle, from where its
+    history loads. The chart reports
+    the times it follows with its visible range, so a newer page or a gap
+    fill reaches them in one request, up to a full history request, instead
+    of a few screens at a time: page by page, the chart would line up again
+    with every page and seem to flicker. A following
     chart never reports back, so charts cannot move each other in circles.
     Panning, zooming, the navigation buttons and a picked date make a chart
     the leading one, but only when they move it in time: a drag that changes
