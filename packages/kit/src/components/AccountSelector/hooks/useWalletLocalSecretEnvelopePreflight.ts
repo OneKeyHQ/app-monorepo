@@ -5,9 +5,13 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  clearWalletLocalSecretEnvelopeConfirmedReadableCache,
+  getWalletLocalSecretEnvelopeCredentialId,
+  markWalletLocalSecretEnvelopeConfirmedReadable,
+} from '../../LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 
 const PREFLIGHT_DELAY_MS = 250;
 const PREFLIGHT_TIMEOUT_MS = 1500;
@@ -24,12 +28,10 @@ export function getActiveWalletLocalSecretEnvelopeCredentialId({
 }) {
   if (!ready) return undefined;
 
-  const accountId = dbAccount?.id;
-  if (accountId && accountUtils.isImportedAccount({ accountId })) {
-    return accountId;
-  }
-  const walletId = wallet?.id;
-  return accountUtils.isHdWallet({ walletId }) ? walletId : undefined;
+  return getWalletLocalSecretEnvelopeCredentialId({
+    walletId: wallet?.id,
+    accountId: dbAccount?.id,
+  });
 }
 
 export function useWalletLocalSecretEnvelopePreflight(
@@ -39,7 +41,10 @@ export function useWalletLocalSecretEnvelopePreflight(
   const [keyRevision, setKeyRevision] = useState(0);
 
   useEffect(() => {
-    const onKeysChanged = () => setKeyRevision((revision) => revision + 1);
+    const onKeysChanged = () => {
+      clearWalletLocalSecretEnvelopeConfirmedReadableCache();
+      setKeyRevision((revision) => revision + 1);
+    };
     appEventBus.on(
       EAppEventBusNames.WalletLocalSecretEnvelopeKeysChanged,
       onKeysChanged,
@@ -71,7 +76,11 @@ export function useWalletLocalSecretEnvelopePreflight(
         }
         if (cancelled) return;
         if (Date.now() < expiresAt && result !== undefined) {
-          if (result) onIssue?.(result);
+          if (result) {
+            onIssue?.(result);
+          } else {
+            markWalletLocalSecretEnvelopeConfirmedReadable(credentialId);
+          }
           return;
         }
         if (canRetry) {

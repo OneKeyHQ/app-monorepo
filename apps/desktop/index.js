@@ -20,10 +20,13 @@ import '@onekeyhq/kit-bg/src/hydration/hydrate';
 // imports behind the hardened runtime.
 import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import '@onekeyhq/shared/src/security/sesHarden/installDesktopRenderer';
+import { initFirstLaunchForApp } from '@onekeyhq/shared/src/utils/freshInstallDetector';
 
 import { registerRootComponent } from 'expo';
 
 import App from './App';
+
+initFirstLaunchForApp();
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,

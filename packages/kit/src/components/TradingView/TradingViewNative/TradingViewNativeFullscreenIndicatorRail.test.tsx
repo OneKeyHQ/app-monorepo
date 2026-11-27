@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewNativeFullscreenIndicatorRail } from './TradingViewNativeFullscreenIndicatorRail';
+import { TradingViewNativeFullscreenTrailingInsetContext } from './TradingViewNativeFullscreenTrailingInsetContext';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -16,6 +17,7 @@ type IMockProps = {
   onPress?: () => void;
   accessibilityLabel?: string;
   accessibilityState?: { selected?: boolean; disabled?: boolean };
+  mr?: number;
 };
 
 jest.mock('@onekeyhq/components', () => {
@@ -25,6 +27,7 @@ jest.mock('@onekeyhq/components', () => {
     onPress,
     accessibilityLabel,
     accessibilityState,
+    mr,
   }: IMockProps) =>
     onPress || accessibilityState ? (
       <button
@@ -38,7 +41,9 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </button>
     ) : (
-      <div data-testid={testID}>{children}</div>
+      <div data-testid={testID} style={{ marginRight: mr }}>
+        {children}
+      </div>
     );
   return {
     IconButton: View,
@@ -88,4 +93,31 @@ describe('TradingViewNativeFullscreenIndicatorRail', () => {
     fireEvent.click(screen.getByTestId(`${RAIL}-panel-trigger`));
     expect(onOpenPanel).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    [0, 0],
+    // An inset narrower than the edge gap leaves the rail where it is.
+    [6, 0],
+    // Reaches the clear inset but stops 8pt short of the screen edge.
+    [62, 54],
+  ])(
+    'reaches into a %ipt clear trailing inset by %ipt',
+    (clearTrailingInset, reach) => {
+      render(
+        <TradingViewNativeFullscreenTrailingInsetContext.Provider
+          value={clearTrailingInset}
+        >
+          <TradingViewNativeFullscreenIndicatorRail
+            mainIndicators={[{ label: 'MA', value: 'MA' }]}
+            subIndicators={[{ label: 'VOL', value: 'VOL' }]}
+            activeIndicatorValues={new Set()}
+            canToggleIndicatorOn={() => true}
+            onIndicatorPress={jest.fn()}
+            onOpenPanel={jest.fn()}
+          />
+        </TradingViewNativeFullscreenTrailingInsetContext.Provider>,
+      );
+      expect(screen.getByTestId(RAIL).style.marginRight).toBe(`${-reach}px`);
+    },
+  );
 });

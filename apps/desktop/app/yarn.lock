@@ -43,10 +43,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.2":
-  version: 44.0.2-alpha.2
-  resolution: "@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.2"
-  checksum: 10/cc6e4da6955604006e1faed28501a2539a52f6af74bdeb09dbd117d43cdeb9f08ab645bbdf559ab618a3f34346dcd536d53c01f344443f031f6054c91634966f
+"@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.3":
+  version: 44.0.2-alpha.3
+  resolution: "@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.3"
+  checksum: 10/2448140b44f1acb9a7177a3bd40a95648d2344bb8fdcea4d60b59ea76e4704a3b9ceb5cfd6d0fcd4caa7a0c8d76a82543c4b3bf4d89a6bbdc85d03d318e17929
   languageName: node
   linkType: hard
 
@@ -62,7 +62,7 @@ __metadata:
   resolution: "@onekeyhq/desktop@workspace:."
   dependencies:
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
-    "@onekeyfe/electron-qr-scanner": "npm:44.0.2-alpha.2"
+    "@onekeyfe/electron-qr-scanner": "npm:44.0.2-alpha.3"
     "@onekeyfe/electron-windows-hello": "npm:44.0.2-alpha.1"
     "@sentry/electron": "npm:7.8.0"
     "@stoprocent/noble": "npm:2.3.16"

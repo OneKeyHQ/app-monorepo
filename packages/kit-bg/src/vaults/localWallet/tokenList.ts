@@ -5,7 +5,11 @@ import { isEmpty } from 'lodash';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IFetchServerTokenListResponse } from '@onekeyhq/shared/types/serverToken';
-import type { ITokenData, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IToken,
+  ITokenData,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 /**
  * For a balance that cannot be read now. Thrown as a failed backend fetch is
@@ -126,4 +130,104 @@ export function buildLocalWalletNativeTokenList(params: {
       },
     },
   };
+}
+
+export type IBackendTokenComposedBalance = {
+  /** Composed total in base units (empty string if unknown). */
+  total: string;
+  /** Optional frozen portion in base units (e.g. pending shielded notes). */
+  frozen?: string;
+  /** Optional decimals override; defaults to the token's own decimals. */
+  decimals?: number;
+};
+
+type ITokenListGroupKey = 'tokens' | 'smallBalanceTokens' | 'riskTokens';
+
+/**
+ * Overlays locally composed (public + private) balances onto a backend token
+ * list response, recounting each affected group's `fiatValue` and refreshing
+ * its `keys` fingerprint so UI caches update cleanly.
+ *
+ * Shared across privacy-capable chains (e.g. Zcash native balance, Starknet
+ * STRK20 ERC-20 balances).
+ */
+export function applyComposedBalancesToBackendTokenList({
+  response,
+  resolveBalance,
+  groups = ['tokens'],
+}: {
+  response: IFetchServerTokenListResponse;
+  resolveBalance: (
+    token: IToken,
+    currentFiat: ITokenFiat,
+  ) => IBackendTokenComposedBalance | undefined;
+  groups?: ITokenListGroupKey[];
+}): boolean {
+  let updatedAny = false;
+  for (const groupName of groups) {
+    const group = response.data.data[groupName];
+    if (group) {
+      const fingerprintParts: string[] = [];
+      for (const token of group.data) {
+        const currentFiat = group.map[token.$key];
+        const overlay = currentFiat
+          ? resolveBalance(token, currentFiat)
+          : undefined;
+        if (currentFiat && overlay) {
+          const decimals = overlay.decimals ?? token.decimals;
+          const totalBn = new BigNumber(overlay.total);
+          const balanceParsed = totalBn.isFinite()
+            ? totalBn.shiftedBy(-decimals).toFixed()
+            : '';
+          const price = currentFiat.price || 0;
+          const fiatValue =
+            balanceParsed !== ''
+              ? new BigNumber(balanceParsed).multipliedBy(price).toFixed()
+              : '';
+          // The group total feeds cached account worth: recount it from the
+          // composed row value rather than leaving the public-only figure behind.
+          const prevFiat = new BigNumber(currentFiat.fiatValue || 0);
+          const groupFiat = new BigNumber(group.fiatValue || 0);
+          if (fiatValue !== '' && prevFiat.isFinite() && groupFiat.isFinite()) {
+            group.fiatValue = groupFiat
+              .minus(prevFiat)
+              .plus(fiatValue)
+              .toFixed();
+          }
+          const nextEntry: ITokenFiat = {
+            ...currentFiat,
+            balance: overlay.total,
+            balanceParsed,
+            totalBalance: overlay.total,
+            totalBalanceParsed: balanceParsed,
+            fiatValue,
+            totalBalanceFiatValue: fiatValue,
+          };
+          if (overlay.frozen !== undefined) {
+            const frozenBn = new BigNumber(overlay.frozen);
+            const frozenBalanceParsed = frozenBn.isFinite()
+              ? frozenBn.shiftedBy(-decimals).toFixed()
+              : '';
+            nextEntry.frozenBalance = overlay.frozen;
+            nextEntry.frozenBalanceParsed = frozenBalanceParsed;
+            nextEntry.frozenBalanceFiatValue =
+              frozenBalanceParsed !== ''
+                ? new BigNumber(frozenBalanceParsed)
+                    .multipliedBy(price)
+                    .toFixed()
+                : '';
+          }
+          group.map[token.$key] = nextEntry;
+          fingerprintParts.push(
+            `${token.$key}_${overlay.total}_${overlay.frozen ?? ''}`,
+          );
+          updatedAny = true;
+        }
+      }
+      if (fingerprintParts.length > 0) {
+        group.keys = md5(`${group.keys}_${fingerprintParts.join('_')}`);
+      }
+    }
+  }
+  return updatedAny;
 }

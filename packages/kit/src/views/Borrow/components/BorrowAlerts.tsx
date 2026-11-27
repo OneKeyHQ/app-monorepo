@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IAlertProps } from '@onekeyhq/components';
 import { Alert, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -50,6 +51,15 @@ export const BorrowAlerts = memo(
     const handleReceivePress = useCallback(async () => {
       if (!marketNetworkId || !accountId || !walletId) {
         console.warn('Borrow alert receive action missing account context.');
+        return;
+      }
+
+      if (
+        await blockIfWalletLocalSecretEnvelopeUnavailable({
+          walletId,
+          accountId,
+        })
+      ) {
         return;
       }
 

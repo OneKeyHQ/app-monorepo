@@ -18,6 +18,7 @@ export function TradingViewNativeMultiChart({
     isSymbolSynced: false,
     source: activeSource,
     layoutControl: null,
+    intervalControl: null,
     // The only chart shows the host's source, so a token picked in it is the
     // host's to switch to.
     selectSource: (source) => {

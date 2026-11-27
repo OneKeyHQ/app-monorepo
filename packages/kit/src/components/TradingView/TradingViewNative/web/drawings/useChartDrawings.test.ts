@@ -1045,6 +1045,39 @@ it('finishes variable-length paths as one undoable drawing and restores every an
   expect(restored.result.current.state.history.present).toEqual([path]);
 });
 
+it('tells a double click on a drawing or an unfinished path from one on the plot', async () => {
+  const hook = setup();
+  await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+  const doubleClick = (x: number, y: number) => {
+    let isTaken: boolean | undefined;
+    act(() => {
+      isTaken = hook.result.current.onDoubleClick(hook.event('dblclick', x, y));
+    });
+    return isTaken;
+  };
+  // Nothing drawn there: the chart has it, e.g. to maximize its panel.
+  expect(doubleClick(300, 160)).toBe(false);
+  hook.line();
+  expect(doubleClick(600, 320)).toBe(false);
+  expect(hook.result.current.state.editingCoordinates).toBe(false);
+  // On the line it opens the line's coordinates.
+  expect(doubleClick(300, 160)).toBe(true);
+  expect(hook.result.current.state.editingCoordinates).toBe(true);
+  // It finishes a path being drawn.
+  void act(() => hook.result.current.selectTool('polyline'));
+  for (const [x, y] of [
+    [200, 260],
+    [280, 300],
+  ]) {
+    void act(() => {
+      hook.result.current.onPointerDown(hook.event('pointerdown', x, y));
+      hook.result.current.onPointerUp(hook.event('pointerup', x, y));
+    });
+  }
+  expect(doubleClick(280, 300)).toBe(true);
+  expect(hook.result.current.state.history.present).toHaveLength(2);
+});
+
 it('edits anchored text in viewport percentages without changing its price coordinates', async () => {
   const hook = setup();
   await waitFor(() => expect(hook.result.current.state.ready).toBe(true));

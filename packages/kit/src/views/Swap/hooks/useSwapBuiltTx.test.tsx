@@ -12,6 +12,7 @@ import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jota
 import type { IBuildUnsignedTxParams } from '@onekeyhq/kit-bg/src/vaults/types';
 import { XMR_NOT_SYNCED_ERROR_CODE } from '@onekeyhq/shared/src/config/xmr';
 import {
+  OneKeyInternalError,
   OneKeyLocalError,
   PasswordPromptDialogCancel,
 } from '@onekeyhq/shared/src/errors';
@@ -162,6 +163,10 @@ const quote: IFetchQuoteResult = {
   quoteResultCtx: {},
 };
 let mockSelectedQuote = quote;
+let mockFromAccountId = 'hd-repro--0';
+let mockToAccountId = 'hd-repro--0';
+const watchOnlyAccountId =
+  'watching--60--0x0000000000000000000000000000000000000002';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -224,7 +229,9 @@ jest.mock('./useSwapAccount', () => ({
         ? mockSelectedQuote.fromTokenInfo.networkId
         : mockSelectedQuote.toTokenInfo.networkId,
     accountInfo: {
-      account: { id: 'hd-repro--0' },
+      account: {
+        id: direction === 'from' ? mockFromAccountId : mockToAccountId,
+      },
       indexedAccount: { id: 'hd-repro-index-0' },
       wallet: { type: 'hd' },
     },
@@ -356,6 +363,8 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     mockNotificationState = {};
     mockSetNotification.mockClear();
     platformEnv.isNative = false;
+    mockFromAccountId = 'hd-repro--0';
+    mockToAccountId = 'hd-repro--0';
     globalJotaiStorageReadyHandler.resolveReady(true);
     mockFetchBuildTx.mockReset().mockResolvedValue(buildResponse('120'));
     mockFetchSwapTokenDetails
@@ -1444,6 +1453,43 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
       await execution;
     });
     expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a definitive pre-submit error for a watch-only Swap payer', async () => {
+    platformEnv.isNative = true;
+    mockFromAccountId = watchOnlyAccountId;
+    mockSignAndSendTransaction.mockRejectedValueOnce(
+      new OneKeyInternalError('Cannot trade with a watch-only wallet.'),
+    );
+    const { result, store } = renderExecutionReview();
+
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+
+    const step = store.get(swapStepsAtom()).steps.at(-1);
+    expect(step).toMatchObject({
+      status: ESwapStepStatus.FAILED,
+      canRetry: false,
+      errorMessage: 'wallet.error_trade_with_watched_account',
+    });
+    expect(step?.submitResultUnknown).not.toBe(true);
+    expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+    expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    expect(mockSaveSendHistory).not.toHaveBeenCalled();
+  });
+
+  it('allows a signing Swap payer to send to a watch-only recipient', async () => {
+    platformEnv.isNative = true;
+    mockToAccountId = watchOnlyAccountId;
+    const { result } = renderExecutionReview();
+
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockGenerateSwapHistory).toHaveBeenCalledTimes(1);
   });
 
   it('still signs and records a transaction while its Review remains active', async () => {

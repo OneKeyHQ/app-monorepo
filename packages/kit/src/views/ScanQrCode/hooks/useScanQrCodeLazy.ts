@@ -63,12 +63,15 @@ export default function useScanQrCodeLazy() {
                 value,
                 popNavigation,
                 routeKey,
+                isCaptureCurrent,
                 onResultDismiss,
               }) => {
                 const { parseQRCodeWithDeps } = await parseQRCodeModulePromise;
                 if (
-                  popNavigation &&
-                  rootNavigationRef.current?.getCurrentRoute()?.key !== routeKey
+                  isCaptureCurrent?.() === false ||
+                  (popNavigation &&
+                    rootNavigationRef.current?.getCurrentRoute()?.key !==
+                      routeKey)
                 ) {
                   return { retry: true };
                 }
@@ -90,6 +93,7 @@ export default function useScanQrCodeLazy() {
                       intl,
                       scanRequestId,
                       scanRouteKey: routeKey,
+                      isCaptureCurrent,
                       onResultDismiss,
                     },
                   );
@@ -97,6 +101,7 @@ export default function useScanQrCodeLazy() {
                   // A transient parse failure retries the frame; an action error stays
                   // a dropped frame, as before. The page stays open for both.
                   if (
+                    isCaptureCurrent?.() === false ||
                     error instanceof OneKeyErrorScanQrCodeCancel ||
                     isRetryableQrParseFailure(error)
                   ) {
@@ -106,6 +111,7 @@ export default function useScanQrCodeLazy() {
                   reject(error);
                   return {};
                 }
+                if (isCaptureCurrent?.() === false) return { retry: true };
                 if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                   const animationValue = parseValue.data as IAnimationValue;
                   if (animationValue.fullData) {

@@ -83,6 +83,8 @@ type ILease = {
   capture?: ReturnType<INativeScanner['createCapture']>;
   generation?: number;
   multiSymbol: boolean;
+  paused: boolean;
+  analysisRevision: number;
 };
 
 export function installNativeQrScanner(
@@ -118,6 +120,7 @@ export function installNativeQrScanner(
     if (
       lease !== active ||
       frame.generation !== active.generation ||
+      active.paused ||
       textureInFlight ||
       !trusted(active.frame) ||
       !window.isVisible() ||
@@ -149,6 +152,7 @@ export function installNativeQrScanner(
       await sharedTexture.sendSharedTexture(
         { frame: active.frame, importedSharedTexture: imported },
         active.sessionId,
+        active.analysisRevision,
       );
     } catch {
       fail(active, 'preview-unavailable');
@@ -192,7 +196,13 @@ export function installNativeQrScanner(
     if (!scanner) return false;
 
     stop();
-    const active: ILease = { sessionId, frame, multiSymbol };
+    const active: ILease = {
+      sessionId,
+      frame,
+      multiSymbol,
+      paused: false,
+      analysisRevision: 0,
+    };
     lease = active;
     try {
       const cameras = await scanner.listCameras();
@@ -215,14 +225,20 @@ export function installNativeQrScanner(
           send(active, { type: 'ready', sessionId, cameraId: openedCameraId });
         },
         onText(text, generation) {
-          if (generation === active.generation)
-            send(active, { type: 'text', sessionId, text });
+          if (!active.paused && generation === active.generation)
+            send(active, {
+              type: 'text',
+              sessionId,
+              text,
+              analysisRevision: active.analysisRevision,
+            });
         },
         onSymbols(symbols, frameWidth, frameHeight, generation) {
-          if (generation === active.generation) {
+          if (!active.paused && generation === active.generation) {
             send(active, {
               type: 'symbols',
               sessionId,
+              analysisRevision: active.analysisRevision,
               symbols,
               frameWidth,
               frameHeight,
@@ -236,6 +252,7 @@ export function installNativeQrScanner(
           void sendPreview(active, previewFrame);
         },
       });
+      if (active.paused) active.capture.setPaused?.(true);
       active.capture.start();
       return true;
     } catch {
@@ -269,14 +286,21 @@ export function installNativeQrScanner(
   ipcMain.removeHandler(desktopQrScannerChannel.setPaused);
   ipcMain.handle(
     desktopQrScannerChannel.setPaused,
-    (event, sessionId: unknown, paused: unknown) => {
+    (event, sessionId: unknown, paused: unknown, revision: unknown) => {
       const activeLease = lease;
       if (
         trustedInvoke(event) &&
         activeLease &&
         activeLease.sessionId === sessionId &&
-        typeof paused === 'boolean'
+        typeof paused === 'boolean' &&
+        (revision === undefined ||
+          (typeof revision === 'number' &&
+            Number.isSafeInteger(revision) &&
+            revision >= activeLease.analysisRevision))
       ) {
+        if (typeof revision === 'number')
+          activeLease.analysisRevision = revision;
+        activeLease.paused = paused;
         activeLease.capture?.setPaused?.(paused);
       }
     },

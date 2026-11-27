@@ -239,3 +239,114 @@ it('settles on the first answer, stays settled while retrying and resets for a n
   expect(result.current.settled).toBe(false);
   unmount();
 });
+
+function memoryCache(initial?: string) {
+  const saved: string[] = [];
+  return {
+    saved,
+    cache: {
+      read: () => saved.at(-1) ?? initial,
+      save: (data: string) => {
+        saved.push(data);
+      },
+    },
+  };
+}
+
+it('starts from a cached answer and refreshes it in place', async () => {
+  const fresh = deferred<string>();
+  const load = () => fresh.promise;
+  const { saved, cache } = memoryCache('cached');
+  const { result } = renderHook(() =>
+    useSupportResource(load, true, false, cache),
+  );
+  // A cached answer needs no first-load placeholder, but it still refreshes.
+  expect(result.current).toMatchObject({
+    data: 'cached',
+    loading: true,
+    failed: false,
+    settled: true,
+  });
+  await act(async () => fresh.resolve('fresh'));
+  expect(result.current).toMatchObject({ data: 'fresh', loading: false });
+  expect(saved).toEqual(['fresh']);
+});
+
+it('keeps a cached answer on an inactive screen without loading it', () => {
+  const load = jest.fn(async () => 'fresh');
+  const { cache } = memoryCache('cached');
+  const { result } = renderHook(() =>
+    useSupportResource(load, false, false, cache),
+  );
+  expect(result.current).toMatchObject({
+    data: 'cached',
+    loading: false,
+    settled: true,
+  });
+  expect(load).not.toHaveBeenCalled();
+});
+
+it('keeps the cached answer and caches nothing when its refresh fails', async () => {
+  const { saved, cache } = memoryCache('cached');
+  const load = jest.fn(async () => {
+    throw new OneKeyLocalError('Read failed');
+  });
+  const { result } = renderHook(() =>
+    useSupportResource(load, true, false, cache),
+  );
+  await act(async () => {});
+  expect(result.current).toMatchObject({
+    data: 'cached',
+    failed: true,
+    fresh: false,
+  });
+  expect(saved).toEqual([]);
+});
+
+it('does not cache an answer that arrives after the screen becomes inactive', async () => {
+  const late = deferred<string>();
+  const { saved, cache } = memoryCache('cached');
+  const load = () => late.promise;
+  const { result, rerender } = renderHook(
+    ({ enabled }) => useSupportResource(load, enabled, false, cache),
+    { initialProps: { enabled: true } },
+  );
+  rerender({ enabled: false });
+  await act(async () => late.resolve('late'));
+  expect(result.current.data).toBe('cached');
+  expect(saved).toEqual([]);
+});
+
+it('starts a new loader from its own cache and keeps the old answer out of it', async () => {
+  const old = deferred<string>();
+  const first = memoryCache('first account');
+  const second = memoryCache('second account');
+  const loadOld = () => old.promise;
+  const loadNew = () => new Promise<string>(() => {});
+  const { result, rerender } = renderHook(
+    ({ load, cache }) => useSupportResource(load, true, false, cache),
+    { initialProps: { load: loadOld, cache: first.cache } },
+  );
+  expect(result.current.data).toBe('first account');
+  rerender({ load: loadNew, cache: second.cache });
+  expect(result.current).toMatchObject({
+    data: 'second account',
+    settled: true,
+  });
+  await act(async () => old.resolve('late first account'));
+  expect(result.current.data).toBe('second account');
+  expect(first.saved).toEqual([]);
+  expect(second.saved).toEqual([]);
+});
+
+it('marks data fresh only once the loader itself has answered', async () => {
+  const answer = deferred<string>();
+  const load = () => answer.promise;
+  const { cache } = memoryCache('cached');
+  const { result } = renderHook(() =>
+    useSupportResource(load, true, false, cache),
+  );
+  expect(result.current).toMatchObject({ data: 'cached', fresh: false });
+  await act(async () => answer.resolve('fresh'));
+  expect(result.current).toMatchObject({ data: 'fresh', fresh: true });
+});

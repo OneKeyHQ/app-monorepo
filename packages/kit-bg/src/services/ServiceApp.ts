@@ -33,6 +33,7 @@ import appStorage, {
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { resetFirstLaunchState } from '@onekeyhq/shared/src/utils/freshInstallDetector';
 import { storeExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -253,6 +254,13 @@ class ServiceApp extends ServiceBase {
           await import('../states/jotai/jotaiStorage');
         await clearNativeJotaiStorageForReset();
       });
+      await runCleanup('firstLaunchState', async () => {
+        if (!(await resetFirstLaunchState())) {
+          throw new OneKeyLocalError(
+            'Failed to reset native first-launch state',
+          );
+        }
+      });
     }
     // A retry must clear snapshots again even if the first attempt cleared them.
     this.completedResetCleanups.delete('snapshotCaches');
@@ -297,9 +305,10 @@ class ServiceApp extends ServiceBase {
         }
       }
       if (platformEnv.isRuntimeBrowser) {
-        await runCleanup('browserStorage', () =>
-          globalThis.localStorage.clear(),
-        );
+        await runCleanup('browserStorage', async () => {
+          globalThis.localStorage.clear();
+          await resetFirstLaunchState();
+        });
         await runCleanup('browserSessionStorage', () =>
           globalThis.sessionStorage.clear(),
         );
