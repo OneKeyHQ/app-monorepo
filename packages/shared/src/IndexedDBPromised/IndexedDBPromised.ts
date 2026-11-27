@@ -673,6 +673,7 @@ export class IndexedDBPromised<
     name: string,
     onBlocked?: () => void,
     canClear?: () => boolean,
+    afterClear?: (transaction: IDBTransaction) => void,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const request = factory.open(name);
@@ -711,6 +712,7 @@ export class IndexedDBPromised<
             for (const store of stores) {
               tx.objectStore(store).clear();
             }
+            afterClear?.(tx);
           } catch (error) {
             tx.abort();
             reject(error);

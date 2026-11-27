@@ -136,7 +136,7 @@ class ServiceLogger extends ServiceBase {
     }
   }
 
-  async stopPersistenceForReset(clear = true) {
+  async stopPersistenceForReset(clear = true, clearDatabase = clear) {
     this.resettingLogs = true;
     this.resetDiagnosticActive = clear;
     this.resetFailedDiagnosticExport = false;
@@ -144,8 +144,8 @@ class ServiceLogger extends ServiceBase {
     this.resetDiagnosticBytes = 0;
     this.logExport.close();
     if (clear) notifyLogReset();
-    // The general reset also clears all buckets/databases if explicit deletion fails.
-    await this.persistentLogs?.stop(clear).catch(() => {});
+    // ServiceApp erases both storage layouts without queuing a default IDB delete.
+    await this.persistentLogs?.stop(clearDatabase).catch(() => {});
   }
 
   @backgroundMethod()
@@ -305,3 +305,4 @@ class ServiceLogger extends ServiceBase {
 }
 
 export default ServiceLogger;
+

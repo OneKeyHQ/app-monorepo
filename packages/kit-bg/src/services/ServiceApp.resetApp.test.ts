@@ -1560,6 +1560,100 @@ describe('ServiceApp privacy database reset ordering', () => {
     }
   });
 
+  it('keeps public Web bootstrap caches and clears other caches', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    const wasWeb = platformEnv.isWeb;
+    const deleteCache = jest.fn().mockResolvedValue(true);
+    platformEnv.isWeb = true;
+    Object.assign(globalThis, {
+      caches: {
+        keys: jest
+          .fn()
+          .mockResolvedValue([
+            'onekey-web-version-state',
+            'onekey-web-html:v1',
+            'onekey-web-critical:v1',
+            'workbox-precache-v2',
+            'static-resources',
+            'onekey-web-critical-temp:v2',
+            'static-assets',
+            'runtime-cache',
+          ]),
+        delete: deleteCache,
+      },
+    });
+    try {
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearBrowserCacheStorage: (logger: () => void) => Promise<void>;
+      };
+      await service.clearBrowserCacheStorage(() => {});
+      expect(deleteCache.mock.calls).toEqual([
+        ['onekey-web-critical-temp:v2'],
+        ['static-assets'],
+        ['runtime-cache'],
+      ]);
+    } finally {
+      platformEnv.isWeb = wasWeb;
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'caches', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'caches');
+      }
+    }
+  });
+
+  it('does not count a failed wallet snapshot sweep as reset success', async () => {
+    jest
+      .spyOn(globalThis.indexedDB, 'databases')
+      .mockResolvedValue([{ name: 'onekey-ui-snapshot' }]);
+    jest.spyOn(globalThis.indexedDB, 'open').mockImplementation(() => {
+      throw new Error('snapshot storage busy');
+    });
+    const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+      clearRemainingBrowserData: (logger: () => void) => Promise<void>;
+    };
+    await expect(service.clearRemainingBrowserData(() => {})).rejects.toThrow(
+      'snapshot storage busy',
+    );
+  });
+
+  it('starts a fresh optional database cleanup on retry', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        runOptionalResetCleanup: (
+          logger: () => void,
+          stage: string,
+          task: (canContinue: () => boolean) => unknown,
+          rejoinPending: boolean,
+        ) => Promise<void>;
+      };
+      const task = jest
+        .fn()
+        .mockReturnValueOnce(new Promise<void>(() => {}))
+        .mockImplementationOnce((canContinue: () => boolean) => {
+          expect(canContinue()).toBe(true);
+        });
+      const first = service.runOptionalResetCleanup(
+        () => {},
+        'optionalIndexedDB:sentry-offline',
+        task,
+        false,
+      );
+      await jest.advanceTimersByTimeAsync(1000);
+      await first;
+      await service.runOptionalResetCleanup(
+        () => {},
+        'optionalIndexedDB:sentry-offline',
+        task,
+        false,
+      );
+      expect(task).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('does not wait for a stalled cache sweep or delete after a late enumeration', async () => {
     jest.useFakeTimers();
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');

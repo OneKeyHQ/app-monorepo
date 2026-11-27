@@ -122,6 +122,22 @@ describe('diagnostic log storage isolation', () => {
     await tabs[0].close(true);
   });
 
+  it('clears logs and resets metadata without blocking on an open connection', async () => {
+    const factory = new IDBFactory();
+    const first = new BrowserLogDatabase(async () => factory);
+    const fresh = new BrowserLogDatabase(async () => factory);
+    const deletion = jest.spyOn(factory, 'deleteDatabase');
+    try {
+      await first.append(['old\n']);
+      await BrowserLogDatabase.clearForReset(factory);
+      await fresh.append(['new\n']);
+      expect(await (await fresh.snapshot()).text()).toBe('new\n');
+      expect(deletion).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([first.close(), fresh.close()]);
+    }
+  });
+
   it('never reopens a connection deleted by another tab', async () => {
     const factory = new IDBFactory();
     const first = new BrowserLogDatabase(async () => factory);

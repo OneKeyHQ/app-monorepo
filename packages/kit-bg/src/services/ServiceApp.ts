@@ -70,6 +70,10 @@ import {
   writeAppResetMarker,
   writeAppResetPrivacyCleanup,
 } from './appResetState';
+import {
+  BrowserLogDatabase,
+  BROWSER_LOG_DATABASE,
+} from './logger/BrowserLogDatabase';
 import { takeRecoveryTestFault } from './recoveryTestFaults';
 import ServiceBase from './ServiceBase';
 import { RecoveryCacheErasureError } from './ServiceCloudBackupV2/RecoveryCacheErasureError';
@@ -89,14 +93,10 @@ const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 const WORKBOX_EXPIRATION_INDEXED_DB_NAME = 'workbox-expiration';
 const OPTIONAL_RESET_DATABASES = new Set([
   WORKBOX_EXPIRATION_INDEXED_DB_NAME,
-  'onekey-ui-snapshot',
-  'OneKeyDiagnosticLogs',
+  BROWSER_LOG_DATABASE,
   'sentry-offline',
 ]);
-const OPTIONAL_RESET_BUCKETS = new Set([
-  'onekey-ui-snapshot',
-  'diagnostic-logs_onekey-bucket',
-]);
+const OPTIONAL_RESET_BUCKETS = new Set(['diagnostic-logs_onekey-bucket']);
 
 type IResetStageLogger = (
   stage: string,
@@ -234,7 +234,10 @@ class ServiceApp extends ServiceBase {
       this.runResetCleanup(log, failedStages, stage, task);
     if (!this.completedResetCleanups.has('logPersistence')) {
       await this.runOptionalResetCleanup(log, 'logPersistence', async () => {
-        await this.backgroundApi.serviceLogger.stopPersistenceForReset();
+        await this.backgroundApi.serviceLogger.stopPersistenceForReset(
+          true,
+          false,
+        );
         this.completedResetCleanups.add('logPersistence');
       });
     }
@@ -289,11 +292,22 @@ class ServiceApp extends ServiceBase {
         }
       });
     }
-    await this.runOptionalResetCleanup(log, 'snapshotCaches', async () => {
+    const clearSnapshots = async () => {
       const { clearAllSnapshotCaches } =
         await import('@onekeyhq/shared/src/storage/SnapshotCache');
       await clearAllSnapshotCaches();
-    });
+    };
+    const sweepsBrowserStorage =
+      platformEnv.isRuntimeBrowser ||
+      platformEnv.isDesktop ||
+      platformEnv.isExtensionBackground;
+    if (sweepsBrowserStorage && !globalThis.indexedDB?.databases) {
+      // Without enumeration, the dedicated wipe must verify snapshot erasure.
+      await runCleanup('snapshotCaches', clearSnapshots);
+    } else {
+      // The required database/bucket sweep below confirms on-disk erasure.
+      await this.runOptionalResetCleanup(log, 'snapshotCaches', clearSnapshots);
+    }
     await runCleanup('legacyAppStorage', () => v4appStorage.clear());
     await runCleanup('walletEncryptionKeys', () =>
       this.resetNativeLocalSecretEnvelopeKeys(),
@@ -396,7 +410,14 @@ class ServiceApp extends ServiceBase {
 
   private async clearRemainingBrowserData(log: IResetStageLogger) {
     const indexedDB = globalThis.indexedDB;
-    const databases = (await indexedDB?.databases?.()) ?? [];
+    let databases: IDBDatabaseInfo[] = [];
+    if (indexedDB?.databases) {
+      databases = await indexedDB.databases();
+    } else if (indexedDB) {
+      databases = ['onekey-ui-snapshot', BROWSER_LOG_DATABASE].map((name) => ({
+        name,
+      }));
+    }
     const cacheCleanup = this.clearBrowserCacheStorage(log);
     const results = await Promise.allSettled([
       cacheCleanup,
@@ -416,12 +437,21 @@ class ServiceApp extends ServiceBase {
           // Keep the empty schema. A queued delete cannot be canceled and
           // would block new opens while another connection remains active.
           const clear = async (canClear?: () => boolean) => {
-            await IndexedDBPromised.clearDatabaseForReset(
-              indexedDB,
-              name,
-              () => log(stage, 'blocked', { detail: name }),
-              canClear,
-            );
+            const onBlocked = () => log(stage, 'blocked', { detail: name });
+            if (name === BROWSER_LOG_DATABASE) {
+              await BrowserLogDatabase.clearForReset(
+                indexedDB,
+                onBlocked,
+                canClear,
+              );
+            } else {
+              await IndexedDBPromised.clearDatabaseForReset(
+                indexedDB,
+                name,
+                onBlocked,
+                canClear,
+              );
+            }
             if (!canClear || canClear()) {
               log(stage, 'cleared', { detail: name });
             }
@@ -431,6 +461,7 @@ class ServiceApp extends ServiceBase {
               log,
               `optionalIndexedDB:${name}`,
               clear,
+              false,
             );
           } else {
             await clear();
@@ -457,7 +488,20 @@ class ServiceApp extends ServiceBase {
       // A late enumeration must not start deleting caches after reset.
       if (timedOut) return;
       const results = await Promise.allSettled(
-        names.map(async (name) => caches.delete(name)),
+        names.map(async (name) => {
+          // Keep the Web service worker's public boot resources for offline reload.
+          if (
+            platformEnv.isWeb &&
+            (name === 'onekey-web-version-state' ||
+              name === 'static-resources' ||
+              name.startsWith('workbox-precache-') ||
+              name.startsWith('onekey-web-html:') ||
+              name.startsWith('onekey-web-critical:'))
+          ) {
+            return false;
+          }
+          return caches.delete(name);
+        }),
       );
       if (timedOut) return;
       let failed = false;
@@ -517,6 +561,7 @@ class ServiceApp extends ServiceBase {
     log: IResetStageLogger,
     stage: string,
     task: (canContinue: () => boolean) => unknown,
+    rejoinPending = true,
   ) {
     let active = true;
     try {
@@ -525,6 +570,7 @@ class ServiceApp extends ServiceBase {
         stage,
         () => task(() => active),
         RESET_OPTIONAL_CLEANUP_DEADLINE_MS,
+        rejoinPending,
       );
     } catch {
       // runResetStage records the failure, but this is not required erasure.
@@ -578,6 +624,7 @@ class ServiceApp extends ServiceBase {
     stage: string,
     task: () => T | Promise<T>,
     deadlineMs = RESET_LOCAL_STAGE_DEADLINE_MS,
+    rejoinPending = true,
   ): Promise<T> {
     const start = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -587,8 +634,9 @@ class ServiceApp extends ServiceBase {
       // Rejoin a native or database operation after its deadline.
       // Starting another delete could leave it queued behind a successful retry.
       const pending =
-        (this.runningResetStages.get(stage) as Promise<T> | undefined) ??
-        Promise.resolve().then(task);
+        (rejoinPending
+          ? (this.runningResetStages.get(stage) as Promise<T> | undefined)
+          : undefined) ?? Promise.resolve().then(task);
       this.runningResetStages.set(stage, pending);
       const clearPending = () => {
         if (this.runningResetStages.get(stage) === pending) {
