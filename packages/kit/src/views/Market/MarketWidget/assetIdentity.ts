@@ -8,6 +8,12 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+const defaultAssetNetworkIds: Record<string, string | undefined> = {
+  btc: 'btc--0',
+  eth: 'evm--1',
+  sol: 'sol--101',
+};
+
 export function getMarketWidgetAssetKey(asset: IMarketWidgetAsset) {
   if (asset.kind === 'stock') return `stock:${asset.stockId}`;
   return asset.kind === 'asset'
@@ -43,14 +49,44 @@ export function getMarketWidgetDisplayAsset({
     (settings?.asset && getMarketWidgetAssetKey(settings.asset) === key
       ? settings.asset
       : undefined);
-  if (!latest) return asset;
   // Enrichment may update the display, but never replace the user's draft selection.
-  return {
-    ...asset,
-    symbol: latest.symbol.trim() ? latest.symbol : asset.symbol,
-    name: latest.name.trim() ? latest.name : asset.name,
-    logoURL: latest.logoURL || asset.logoURL,
-  };
+  const display = latest
+    ? {
+        ...asset,
+        symbol: latest.symbol.trim() ? latest.symbol : asset.symbol,
+        name: latest.name.trim() ? latest.name : asset.name,
+        logoURL: latest.logoURL?.trim() || asset.logoURL?.trim(),
+      }
+    : asset;
+  // Public defaults can precede the native catalog's chain-specific identities.
+  let networkId: string | undefined;
+  if (asset.kind === 'asset') {
+    networkId = defaultAssetNetworkIds[asset.assetId];
+  } else if (asset.kind === 'token' && asset.isNative) {
+    networkId = asset.chainId;
+  }
+  const logoURL =
+    display.logoURL?.trim() ||
+    (networkId
+      ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+      : undefined);
+  return logoURL && logoURL !== display.logoURL
+    ? { ...display, logoURL }
+    : display;
+}
+
+export function getMarketWidgetAssetLogoUrls(
+  params: Parameters<typeof getMarketWidgetDisplayAsset>[0],
+): string[] {
+  const display = getMarketWidgetDisplayAsset(params);
+  if (!display) return [];
+  return [
+    ...new Set(
+      [params.asset?.logoURL, display.logoURL]
+        .map((uri) => uri?.trim())
+        .filter((uri): uri is string => !!uri),
+    ),
+  ];
 }
 
 export function isMarketWidgetManualAssetAvailable({
@@ -181,6 +217,53 @@ export function getMarketWidgetAssetSearchText(asset: IMarketWidgetAsset) {
   else
     identity = `${asset.chainId} ${asset.contractAddress} ${asset.requestTokenAddress}`;
   return [asset.symbol, asset.name, identity].join(' ').toLowerCase();
+}
+
+export function getMarketWidgetAssetSections({
+  state,
+  source,
+  query,
+  searchQuery,
+}: {
+  state: IMarketWidgetEditorState | undefined;
+  source: IMarketWidgetSource;
+  query: string;
+  searchQuery: string | undefined;
+}): { key: 'all' | 'stocks' | 'tokens'; data: IMarketWidgetAsset[] }[] {
+  const normalized = query.trim();
+  const search = normalized.toLowerCase();
+  const remote =
+    search && normalized === searchQuery ? state?.searchResults : undefined;
+  const incomplete = normalized === searchQuery && state?.searchIncomplete;
+  const candidates = [
+    ...(state?.[source] ?? []),
+    ...(search && source === 'hot' && (!remote || incomplete)
+      ? (state?.searchAssets ?? [])
+      : []),
+  ].filter(
+    (item) => !search || getMarketWidgetAssetSearchText(item).includes(search),
+  );
+  const seen = new Set<string>();
+  // The server ranks search results; local suggestions must not take precedence.
+  const assets = (
+    remote ? [...remote, ...(incomplete ? candidates : [])] : candidates
+  ).filter((item) => {
+    const key = getMarketWidgetAssetKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (!search) return assets.length ? [{ key: 'all', data: assets }] : [];
+  return [
+    {
+      key: 'stocks' as const,
+      data: assets.filter((item) => item.kind === 'stock'),
+    },
+    {
+      key: 'tokens' as const,
+      data: assets.filter((item) => item.kind !== 'stock'),
+    },
+  ].filter((section) => section.data.length > 0);
 }
 
 export function containsMarketWidgetAsset(

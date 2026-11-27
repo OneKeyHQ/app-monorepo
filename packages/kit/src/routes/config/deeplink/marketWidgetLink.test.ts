@@ -449,6 +449,18 @@ describe('market widget destination mapping', () => {
     });
   });
 
+  it('opens editable settings for an unbound widget with a legacy setup link', async () => {
+    platformEnv.isNativeAndroid = false;
+    platformEnv.isNativeIOS = true;
+    await handleMarketWidgetLink({
+      target: { kind: 'editor', needsBinding: true },
+      shouldContinue: () => true,
+    });
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.MarketModal, {
+      screen: EModalMarketRoutes.MarketWidgetList,
+    });
+  });
+
   it('rejects Android editor links without a session and invalid native sessions', async () => {
     await handleMarketWidgetLink({
       target: { kind: 'editor', widgetKind: 'list' },
@@ -479,29 +491,64 @@ describe('market widget destination mapping', () => {
     expect(Toast.error).toHaveBeenCalledTimes(1);
   });
 
-  it('opens native detail for an empty native-token address', async () => {
+  it.each(['btc--0', 'evm--1', 'sol--101'])(
+    'allows the current %s detail to resolve the native asset',
+    async (chainId) => {
+      platformEnv.isNativeIOS = true;
+      await handleMarketWidgetLink({
+        target: {
+          kind: 'token',
+          chainId,
+          contractAddress: '',
+          isNative: true,
+        },
+        shouldContinue: () => true,
+      });
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: expect.objectContaining({
+            network: chainId,
+            isNative: true,
+            marketWidgetToken: {
+              networkId: chainId,
+              tokenAddress: '',
+              isNative: true,
+            },
+          }),
+        },
+      });
+      expect(navigate.mock.calls[0]?.[1]?.params.params).not.toHaveProperty(
+        'preserveTokenQuote',
+      );
+      expect(fetchAssetDetail).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps an iOS stock token on its chain quote', async () => {
     platformEnv.isNativeIOS = true;
     await handleMarketWidgetLink({
       target: {
         kind: 'token',
-        chainId: 'evm--1',
-        contractAddress: '',
-        isNative: true,
+        chainId: 'sol--101',
+        contractAddress: 'aaplx-mint',
+        isNative: false,
       },
       shouldContinue: () => true,
     });
     expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
-        screen: ETabMarketRoutes.MarketNativeDetail,
+        screen: ETabMarketRoutes.MarketDetailV2,
         params: expect.objectContaining({
-          network: 'evm--1',
-          isNative: true,
+          network: 'sol--101',
+          tokenAddress: 'aaplx-mint',
+          isNative: false,
           preserveTokenQuote: true,
         }),
       },
     });
-    expect(fetchAssetDetail).not.toHaveBeenCalled();
   });
 
   it('preserves the native Move type tag when opening SUI detail', async () => {
@@ -526,36 +573,43 @@ describe('market widget destination mapping', () => {
     });
   });
 
-  it('resolves a listing through its selected variant and retains the listing identity', async () => {
-    fetchAssetDetail.mockResolvedValue({
-      selectedVariant: {
-        networkId: 'btc--0',
-        tokenAddress: '',
-        isNative: true,
-        variantId: 'btc-native',
-      },
-    } as IMarketAssetDetailData);
-    await handleMarketWidgetLink({
-      target: { kind: 'asset', assetId: 'bitcoin' },
-      shouldContinue: () => true,
-    });
-    expect(fetchAssetDetail).toHaveBeenCalledWith({
-      assetId: 'bitcoin',
-      currency: 'usd',
-      autoHandleError: false,
-    });
-    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
-      screen: ETabRoutes.Market,
-      params: {
-        screen: ETabMarketRoutes.MarketNativeDetail,
-        params: expect.objectContaining({
-          network: 'btc--0',
-          marketTokenId: 'bitcoin',
-          marketVariantId: 'btc-native',
-        }),
-      },
-    });
-  });
+  it.each([
+    ['btc', 'btc--0'],
+    ['eth', 'evm--1'],
+    ['sol', 'sol--101'],
+  ])(
+    'opens the current %s detail while retaining its selected variant',
+    async (assetId, networkId) => {
+      fetchAssetDetail.mockResolvedValue({
+        selectedVariant: {
+          networkId,
+          tokenAddress: '',
+          isNative: true,
+          variantId: `${assetId}-native`,
+        },
+      } as IMarketAssetDetailData);
+      await handleMarketWidgetLink({
+        target: { kind: 'asset', assetId },
+        shouldContinue: () => true,
+      });
+      expect(fetchAssetDetail).toHaveBeenCalledWith({
+        assetId,
+        currency: 'usd',
+        autoHandleError: false,
+      });
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: expect.objectContaining({
+            network: networkId,
+            marketTokenId: assetId,
+            marketVariantId: `${assetId}-native`,
+          }),
+        },
+      });
+    },
+  );
 
   it('shows an error instead of opening a wrong coin when listing resolution fails', async () => {
     fetchAssetDetail.mockRejectedValue(new Error('offline'));

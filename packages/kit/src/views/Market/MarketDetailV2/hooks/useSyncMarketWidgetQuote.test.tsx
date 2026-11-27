@@ -125,6 +125,86 @@ describe('native widget quote synchronization', () => {
     expect(result.current.observation).toEqual(refreshed);
   });
 
+  it('syncs the original native widget after opening an already loaded asset detail', async () => {
+    const nativeTarget = {
+      active: true,
+      networkId: 'sol--101',
+      tokenAddress: '',
+      isNative: true,
+      assetId: 'sol',
+    };
+    const marketWidgetToken = {
+      networkId: 'sol--101',
+      tokenAddress: '',
+      isNative: true,
+    };
+    mockToken = {
+      ...mockToken,
+      networkId: 'sol--101',
+      address: 'native',
+      isNative: true,
+      widgetDetailQuote: {
+        assetId: 'sol',
+        price: '73',
+        change24h: '2',
+        fetchedAt: Date.now(),
+      },
+    };
+    const { rerender, unmount } = renderHook(
+      ({ preserveWidget }) =>
+        useSyncMarketWidgetQuote({
+          ...nativeTarget,
+          ...(preserveWidget ? { marketWidgetToken } : {}),
+        }),
+      { initialProps: { preserveWidget: false } },
+    );
+    await act(async () => undefined);
+    expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({
+          asset: expect.objectContaining({ kind: 'asset', assetId: 'sol' }),
+        }),
+      }),
+    );
+    rerender({ preserveWidget: true });
+    await act(async () => mockAppStateChanged?.('background'));
+    expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({
+          price: '73',
+          asset: expect.objectContaining({
+            kind: 'token',
+            chainId: 'sol--101',
+            contractAddress: '',
+          }),
+        }),
+      }),
+    );
+    mockMode = 'pro';
+    mockToken = {
+      ...mockToken,
+      price: '74',
+      chartPriceMode: 'pro',
+      chartPriceUpdatedAt: Date.now(),
+    };
+    rerender({ preserveWidget: true });
+    await act(async () => mockAppStateChanged?.('background'));
+    expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({
+          price: '74',
+          chartMode: 'pro',
+          asset: expect.objectContaining({
+            kind: 'token',
+            chainId: 'sol--101',
+            contractAddress: '',
+          }),
+        }),
+      }),
+    );
+    unmount();
+  });
+
   it('flushes the latest detail pair when there is no chart quote in the active mode', async () => {
     const { rerender, unmount } = renderHook(() =>
       useSyncMarketWidgetQuote(target),

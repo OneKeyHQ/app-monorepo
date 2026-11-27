@@ -91,31 +91,14 @@ enum MarketLockScreenTimeline {
     let reloadAt = entry.date.addingTimeInterval(MarketWidgetRow.lockScreenFreshnessInterval)
     return Timeline(entries: entries, policy: .after(reloadAt))
   }
-
-  static func preview(isWatchlist: Bool) -> MarketWidgetEntry {
-    let date = Date()
-    let prices = ["77447.70", "2214.59", "95.73"]
-    let values = [1.0, 0.99, 1.0, 1.02, 1.01, 1.01, 1.08, 1.04, 1.02, 1.03, 0.91, 0.93, 0.90, 0.84, 0.87, 0.87]
-    let rows = MarketWidgetAsset.defaults.prefix(isWatchlist ? 3 : 1).enumerated().map { index, asset in
-      let chart = values.enumerated().map { offset, value in
-        MarketWidgetChartPoint(timestamp: date.timeIntervalSince1970 - 86400 + Double(offset) / Double(values.count - 1) * 86400,
-          value: value * (Double(prices[index]) ?? 1))
-      }
-      let quote = MarketWidgetQuote(asset: asset, price: prices[index], change24h: "-3.11", fetchedAt: date,
-        chart: chart, chartFetchedAt: date)
-      return MarketWidgetRow(asset: asset, quote: quote, failed: false)
-    }
-    return MarketWidgetEntry(date: date, configuration: .initial, rows: rows,
-      isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot, isGalleryPreview: true)
-  }
 }
 
 @available(iOS 17.0, *)
 struct MarketLockScreenSpotProvider: AppIntentTimelineProvider {
   let includingChart: Bool
-  func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: false) }
+  func placeholder(in context: Context) -> MarketWidgetEntry { MarketWidgetEntry.preview(isWatchlist: false) }
   func snapshot(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> MarketWidgetEntry {
-    if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: false) }
+    if context.isPreview { return MarketWidgetEntry.preview(isWatchlist: false) }
     let store = MarketWidgetStore()
     return MarketLockScreenTimeline.snapshot(assets: configuration.coin.map { [$0.asset] } ?? [], isWatchlist: false, store: store)
       .usingChartMode(in: store)
@@ -128,9 +111,9 @@ struct MarketLockScreenSpotProvider: AppIntentTimelineProvider {
 
 @available(iOS 17.0, *)
 struct MarketLockScreenListProvider: AppIntentTimelineProvider {
-  func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: true) }
+  func placeholder(in context: Context) -> MarketWidgetEntry { MarketWidgetEntry.preview(isWatchlist: true) }
   func snapshot(for configuration: MarketLockScreenListIntent, in context: Context) async -> MarketWidgetEntry {
-    if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: true) }
+    if context.isPreview { return MarketWidgetEntry.preview(isWatchlist: true) }
     let store = MarketWidgetStore()
     return MarketLockScreenTimeline.snapshot(assets: configuration.assets, isWatchlist: true, store: store)
       .usingChartMode(in: store)

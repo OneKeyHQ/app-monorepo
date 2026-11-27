@@ -182,7 +182,7 @@ struct MarketLockScreenTests {
     try fixture.configure([], masked: true)
     expect(published.entries.allSatisfy { !$0.canDisplayOnLockScreen(store: fixture.store) },
       "Views archived after a privacy change hide quotes from an already generated timeline")
-    expect(MarketLockScreenTimeline.preview(isWatchlist: false).canDisplayOnLockScreen(store: fixture.store),
+    expect(MarketWidgetEntry.preview(isWatchlist: false).canDisplayOnLockScreen(store: fixture.store),
       "The Widget gallery can still archive synthetic placeholder data")
 
     let masked = await MarketLockScreenTimeline.timeline(assets: [asset], isWatchlist: false,

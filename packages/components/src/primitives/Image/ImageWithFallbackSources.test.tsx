@@ -5,9 +5,12 @@ import { act, render } from '@testing-library/react';
 
 import { ImageWithFallbackSources } from './ImageWithFallbackSources';
 
+import type { IImageLoadEventData } from './type';
+
 type IMockImageV2Props = {
   src?: string;
   onError?: (event: { error: string }) => void;
+  onLoad?: (event: IImageLoadEventData) => void;
 };
 
 const mockImageV2 = jest.fn<null, [IMockImageV2Props]>(() => null);
@@ -127,5 +130,49 @@ describe('ImageWithFallbackSources', () => {
 
     failLastLoad();
     expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, true])(
+    'uses a late fallback only after the primary failed (failed=%s)',
+    (failed) => {
+      const { rerender } = render(
+        <ImageWithFallbackSources sources={primaryOnlySources} />,
+      );
+      if (failed) failLastLoad();
+
+      rerender(
+        <ImageWithFallbackSources sources={primaryThenSecondarySources} />,
+      );
+
+      expect(mockImageV2).toHaveBeenLastCalledWith(
+        expect.objectContaining({ src: failed ? secondaryUri : primaryUri }),
+      );
+      expect(mockImageV2Mount).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('keeps a recovered primary image when a fallback arrives', () => {
+    const onLoad = jest.fn();
+    const { rerender } = render(
+      <ImageWithFallbackSources sources={primaryOnlySources} onLoad={onLoad} />,
+    );
+    failLastLoad();
+    const event: IImageLoadEventData = {
+      cacheType: 'memory',
+      source: { url: primaryUri, width: 40, height: 40 },
+    };
+    act(() => mockImageV2.mock.calls.at(-1)?.[0].onLoad?.(event));
+
+    rerender(
+      <ImageWithFallbackSources
+        sources={primaryThenSecondarySources}
+        onLoad={onLoad}
+      />,
+    );
+
+    expect(onLoad).toHaveBeenCalledWith(event);
+    expect(mockImageV2).toHaveBeenLastCalledWith(
+      expect.objectContaining({ src: primaryUri }),
+    );
   });
 });
