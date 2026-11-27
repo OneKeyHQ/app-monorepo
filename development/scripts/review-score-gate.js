@@ -14,6 +14,15 @@ const PR_TYPES = [
 
 const SEVERITIES = new Set(['P0', 'P1', 'P2']);
 
+const GATE_MODES = new Set(['shadow', 'soft', 'strict']);
+
+const HIGH_RISK_SAFETY_CATEGORIES = new Set([
+  'security',
+  'funds_loss',
+  'crash',
+  'data_corruption',
+]);
+
 const BASE_IMPACT = {
   security: 40,
   funds_loss: 40,
@@ -187,6 +196,62 @@ function normalizeTitleForDedup(title) {
     .replace(/^p[0-2]\s*:\s*/i, '')
     .replace(/[^a-z0-9\u4e00-\u9fff]+/g, ' ')
     .trim();
+}
+
+/**
+ * Safely parse LLM JSON output, tolerating markdown code fences or surrounding prose.
+ * Never throws; returns structured ok/error result so pilot modes can fail-open.
+ */
+function parseReviewDraftSafely(rawText) {
+  if (rawText && typeof rawText === 'object') {
+    return { ok: true, draft: rawText, error: null, recoveredFromFence: false };
+  }
+  const text = String(rawText || '').trim();
+  if (!text) {
+    return {
+      ok: false,
+      draft: null,
+      error: 'Empty review draft input.',
+      recoveredFromFence: false,
+    };
+  }
+  try {
+    return {
+      ok: true,
+      draft: JSON.parse(text),
+      error: null,
+      recoveredFromFence: false,
+    };
+  } catch {
+    // Try stripping ```json ... ``` fence or extracting outermost JSON object
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = fenceMatch ? fenceMatch[1].trim() : text;
+    const firstBrace = candidate.indexOf('{');
+    const lastBrace = candidate.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        return {
+          ok: true,
+          draft: JSON.parse(candidate.slice(firstBrace, lastBrace + 1)),
+          error: null,
+          recoveredFromFence: true,
+        };
+      } catch (innerErr) {
+        return {
+          ok: false,
+          draft: null,
+          error: `Failed to parse extracted JSON: ${innerErr.message}`,
+          recoveredFromFence: false,
+        };
+      }
+    }
+    return {
+      ok: false,
+      draft: null,
+      error: 'No valid JSON object found in review draft.',
+      recoveredFromFence: false,
+    };
+  }
 }
 
 /**
@@ -411,6 +476,7 @@ function scoreFinding(finding, options = {}) {
     hasDiff = false,
     repoRoot = null,
     existingThreads = [],
+    mode = 'soft',
   } = options;
 
   const title = String(finding.title || '').trim();
@@ -568,6 +634,19 @@ function scoreFinding(finding, options = {}) {
     preliminaryDecision = 'SUMMARY_ONLY';
   }
 
+  // High-risk P0 safety valve in pilot modes (shadow/soft): never silently drop high-risk P0s
+  let safetyValveApplied = false;
+  if (
+    preliminaryDecision === 'DROP' &&
+    mode !== 'strict' &&
+    severity === 'P0' &&
+    HIGH_RISK_SAFETY_CATEGORIES.has(effectiveCategory)
+  ) {
+    preliminaryDecision = 'SUMMARY_ONLY';
+    safetyValveApplied = true;
+    penaltyReasons.push('safety_valve_p0_preserved');
+  }
+
   return {
     ...finding,
     file,
@@ -585,6 +664,7 @@ function scoreFinding(finding, options = {}) {
       reclassifiedReasons,
       verifiedReuseTargets,
       missingReuseTargets,
+      safetyValveApplied,
     },
     signalScore,
     decision: preliminaryDecision,
@@ -595,6 +675,7 @@ function scoreFinding(finding, options = {}) {
  * Evaluate a full review draft against PR context and diff.
  */
 function evaluateReview(draft, prContext = {}, options = {}) {
+  const mode = GATE_MODES.has(options.mode) ? options.mode : 'soft';
   const observed = extractObservedProfile(prContext);
   const characterizationCheck = verifyCharacterization(
     draft.characterization,
@@ -615,6 +696,7 @@ function evaluateReview(draft, prContext = {}, options = {}) {
       existingThreads: Array.isArray(prContext.existingThreads)
         ? prContext.existingThreads
         : [],
+      mode,
     }),
   );
 
@@ -662,6 +744,9 @@ function evaluateReview(draft, prContext = {}, options = {}) {
   }
 
   return {
+    mode,
+    status: 'ok',
+    gateErrors: characterizationCheck.valid ? [] : characterizationCheck.errors,
     prNumber: draft.prNumber ?? prContext.prNumber ?? null,
     headSha: draft.headSha ?? prContext.headSha ?? null,
     observedProfile: observed,
@@ -677,20 +762,30 @@ function evaluateReview(draft, prContext = {}, options = {}) {
     published,
     summaryOnly,
     dropped,
+    allScored: scored,
   };
 }
 
 function buildPublishPayload(result) {
+  // In shadow mode, do not suppress any candidate comments; attach gate decisions for comparison
+  const itemsToPublish =
+    result.mode === 'shadow'
+      ? result.allScored || result.published
+      : result.published;
   return {
+    mode: result.mode || 'soft',
+    status: result.status || 'ok',
     prNumber: result.prNumber,
     headSha: result.headSha,
     verdict: result.verdict,
-    comments: result.published.map((f) => ({
+    summaryCommentBody: renderMarkdownReport(result),
+    comments: itemsToPublish.map((f) => ({
       path: f.file,
       line: f.line,
       side: 'RIGHT',
       severity: f.severity,
       signalScore: f.signalScore,
+      gateDecision: f.decision,
       body: [
         `${f.severity}: [${f.title}] (SignalScore: ${f.signalScore}/100)`,
         '',
@@ -751,27 +846,39 @@ function renderMarkdownReport(result) {
     lines.push('');
   }
 
-  if (result.summaryOnly.length > 0) {
-    lines.push('## 次要参考（SUMMARY_ONLY，不发内联评论）');
-    for (const f of result.summaryOnly) {
-      lines.push(
-        `- [${f.severity}][Score ${f.signalScore}] \`${f.file}${f.line ? `:${f.line}` : ''}\` — ${f.title}`,
-      );
-    }
+  const filteredCount = result.summaryOnly.length + result.dropped.length;
+  if (filteredCount > 0) {
+    lines.push('<details>');
+    lines.push(
+      `<summary>🔍 门禁未发内联评论明细（共 ${filteredCount} 条：次要参考 ${result.summaryOnly.length} 条 / 自动过滤 ${result.dropped.length} 条，点击展开核查）</summary>`,
+    );
     lines.push('');
-  }
-
-  if (result.dropped.length > 0) {
-    lines.push('## 自动过滤统计（DROPPED）');
-    for (const f of result.dropped) {
-      const reasons = [
-        ...f.scoreBreakdown.reclassifiedReasons,
-        ...f.scoreBreakdown.penaltyReasons,
-      ];
-      lines.push(
-        `- [Score ${f.signalScore}] \`${f.effectiveCategory}\` — ${f.title}${reasons.length ? ` (${reasons.join(', ')})` : ''}`,
-      );
+    if (result.summaryOnly.length > 0) {
+      lines.push('### 次要参考（SUMMARY_ONLY）');
+      for (const f of result.summaryOnly) {
+        const valve = f.scoreBreakdown.safetyValveApplied
+          ? ' ⚠️ `safety_valve_p0_preserved`'
+          : '';
+        lines.push(
+          `- [${f.severity}][Score ${f.signalScore}] \`${f.file}${f.line ? `:${f.line}` : ''}\` — ${f.title}${valve}`,
+        );
+      }
+      lines.push('');
     }
+    if (result.dropped.length > 0) {
+      lines.push('### 自动过滤（DROPPED）');
+      for (const f of result.dropped) {
+        const reasons = [
+          ...f.scoreBreakdown.reclassifiedReasons,
+          ...f.scoreBreakdown.penaltyReasons,
+        ];
+        lines.push(
+          `- [Score ${f.signalScore}] \`${f.effectiveCategory}\` \`${f.file}${f.line ? `:${f.line}` : ''}\` — ${f.title}${reasons.length ? ` (${reasons.join(', ')})` : ''}`,
+        );
+      }
+      lines.push('');
+    }
+    lines.push('</details>');
     lines.push('');
   }
 
@@ -803,12 +910,48 @@ function runCli(argv) {
   const cmd = args._[0] || 'evaluate';
   if (cmd !== 'evaluate' || !args.input) {
     process.stderr.write(
-      'Usage: node development/scripts/review-score-gate.js evaluate --input <draft.json> [--context <pr-context.json>] [--diff <pr.diff>] [--repo <path>] [--out-json <validated.json>] [--out-md <report.md>] [--strict]\n',
+      'Usage: node development/scripts/review-score-gate.js evaluate --input <draft.json> [--mode shadow|soft|strict] [--context <pr-context.json>] [--diff <pr.diff>] [--repo <path>] [--out-json <validated.json>] [--out-md <report.md>] [--strict]\n',
     );
     process.exit(1);
   }
 
-  const draft = JSON.parse(fs.readFileSync(args.input, 'utf8'));
+  let mode = 'soft';
+  if (args.strict) {
+    mode = 'strict';
+  } else if (GATE_MODES.has(args.mode)) {
+    mode = args.mode;
+  }
+
+  const rawDraftText = fs.readFileSync(args.input, 'utf8');
+  const parsed = parseReviewDraftSafely(rawDraftText);
+
+  if (!parsed.ok) {
+    const fallbackResult = {
+      mode,
+      status: 'fallback_passthrough',
+      gateErrors: [{ code: 'E_INVALID_DRAFT_JSON', message: parsed.error }],
+      rawDraftPreview: rawDraftText.slice(0, 500),
+    };
+    if (args['out-json']) {
+      fs.writeFileSync(
+        args['out-json'],
+        JSON.stringify(fallbackResult, null, 2),
+      );
+    }
+    if (args['out-md']) {
+      fs.writeFileSync(
+        args['out-md'],
+        `> ⚠️ Review score gate entered \`fallback_passthrough\` (${parsed.error}). Pipeline was not blocked.\n`,
+      );
+    }
+    if (mode === 'strict') {
+      process.stderr.write(`Draft JSON parse failed: ${parsed.error}\n`);
+      process.exit(2);
+    }
+    return;
+  }
+
+  const draft = parsed.draft;
   const prContext = args.context
     ? JSON.parse(fs.readFileSync(args.context, 'utf8'))
     : draft.prContext || {};
@@ -818,6 +961,7 @@ function runCli(argv) {
 
   const result = evaluateReview(draft, prContext, {
     repoRoot: args.repo || process.cwd(),
+    mode,
   });
   const payload = buildPublishPayload(result);
   const reportMd = renderMarkdownReport(result);
@@ -836,7 +980,7 @@ function runCli(argv) {
     process.stdout.write(`${reportMd}\n`);
   }
 
-  if (args.strict && !result.characterizationCheck.valid) {
+  if (mode === 'strict' && !result.characterizationCheck.valid) {
     process.stderr.write(
       `Characterization check failed:\n${JSON.stringify(result.characterizationCheck.errors, null, 2)}\n`,
     );
@@ -850,10 +994,12 @@ if (require.main === module) {
 
 module.exports = {
   PR_TYPES,
+  GATE_MODES,
   FINDING_CATEGORIES,
   BASE_IMPACT,
   TYPE_ALIGNMENT_MATRIX,
   THRESHOLDS,
+  parseReviewDraftSafely,
   parseUnifiedDiffHunks,
   extractObservedProfile,
   verifyCharacterization,

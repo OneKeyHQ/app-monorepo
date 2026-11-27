@@ -188,12 +188,17 @@ Do not rely solely on prose discipline to enforce PR characterization, noise fil
 ```bash
 node development/scripts/review-score-gate.js evaluate \
   --input /tmp/pr-<N>-review-draft.json \
+  --mode soft \
   --diff /tmp/pr-<N>.diff \
   --repo . \
   --out-json /tmp/pr-<N>-review-validated.json \
-  --out-md /tmp/pr-<N>-review-report.md \
-  --strict
+  --out-md /tmp/pr-<N>-review-report.md
 ```
+
+- **Progressive rollout modes (`--mode`)**:
+  - `shadow` (pilot week 1–2): fail-open (`exit 0`), passes all candidates through while recording side-by-side gate scores.
+  - `soft` (default): fail-open (`exit 0`), auto-corrects mismatched PR characterization using observed signals, preserves high-risk P0s via safety valve, and folds filtered findings into a collapsible `<details>` block so zero findings are silently lost.
+  - `strict`: exits with code `2` on invalid JSON or characterization mismatch; enforces hard score cutoffs and top-5 inline cap.
 
 ### How the Gate Works
 1. **Verifiable PR Characterization**: Independently extracts an observed profile from PR title, files, diff hunks, and review round (`isRevert`, `isDepsOrCi`, `hasCrossPlatformSignals`, `hasSecurityCriticalSignals`, `isA11yTarget`, `isFollowUpRound`). Under `--strict`, claiming a type that contradicts observed signals (e.g., classifying a `revert:` PR as `core_feature`) exits with code `2`.

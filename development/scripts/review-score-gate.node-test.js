@@ -5,6 +5,7 @@ const test = require('node:test');
 const path = require('path');
 
 const {
+  parseReviewDraftSafely,
   parseUnifiedDiffHunks,
   extractObservedProfile,
   verifyCharacterization,
@@ -327,4 +328,79 @@ test('allows genuine a11y findings when PR is explicitly scoped to accessibility
   assert.equal(result.counts.published, 1);
   assert.equal(result.published[0].scoreBreakdown.typeAlignment, 1.5);
   assert.ok(result.published[0].signalScore >= 70);
+});
+
+test('pilot rollout safeguards: JSON fence recovery, shadow passthrough, P0 safety valve, and collapsible details drawer', () => {
+  // 1. JSON wrapped in markdown code fence recovers cleanly
+  const fenced = parseReviewDraftSafely(
+    'Here is the JSON:\n```json\n{"prNumber": 123, "findings": []}\n```\nDone.',
+  );
+  assert.equal(fenced.ok, true);
+  assert.equal(fenced.recoveredFromFence, true);
+  assert.equal(fenced.draft.prNumber, 123);
+
+  // 2. Broken JSON fails gracefully without throwing
+  const broken = parseReviewDraftSafely('not json at all');
+  assert.equal(broken.ok, false);
+
+  // 3. P0 safety valve preserves high-risk P0 in soft/shadow mode even with out-of-diff penalty
+  const prContext = {
+    prNumber: 15_002,
+    title: 'fix: update signing payload helper',
+    files: ['packages/kit-bg/src/vaults/signing.ts'],
+    diffText: [
+      'diff --git a/packages/kit-bg/src/vaults/signing.ts b/packages/kit-bg/src/vaults/signing.ts',
+      '--- a/packages/kit-bg/src/vaults/signing.ts',
+      '+++ b/packages/kit-bg/src/vaults/signing.ts',
+      '@@ -10,2 +10,3 @@',
+      '+const x = 1;',
+    ].join('\n'),
+  };
+
+  const draft = {
+    prNumber: 15_002,
+    characterization: {
+      type: 'targeted_bugfix',
+      summary: 'Update signing payload helper',
+      focusAreas: ['security'],
+    },
+    findings: [
+      {
+        severity: 'P0',
+        category: 'security',
+        file: 'packages/kit-bg/src/vaults/signing.ts',
+        line: 99, // outside hunk -> -30 out-of-diff penalty, raw score < 55
+        title: 'Confirm raw mnemonic is not logged in catch handler',
+        problem: 'Mnemonic buffer might be passed into logger.',
+        evidence: {},
+      },
+      {
+        severity: 'P2',
+        category: 'a11y_or_motion',
+        file: 'packages/kit-bg/src/vaults/signing.ts',
+        line: 10,
+        title: 'Add accessibilityLabel for VoiceOver',
+        problem: 'Screen reader label missing.',
+        evidence: {},
+      },
+    ],
+  };
+
+  // In soft mode: P0 is preserved in summaryOnly via safety valve (not dropped!), and collapsible drawer renders both
+  const softResult = evaluateReview(draft, prContext, { mode: 'soft' });
+  assert.equal(softResult.counts.summaryOnly, 1);
+  assert.equal(
+    softResult.summaryOnly[0].scoreBreakdown.safetyValveApplied,
+    true,
+  );
+  assert.equal(softResult.counts.dropped, 1);
+  const md = renderMarkdownReport(softResult);
+  assert.match(md, /<details>/);
+  assert.match(md, /safety_valve_p0_preserved/);
+
+  // In shadow mode: publishPayload preserves all original candidates while tagging gateDecision
+  const shadowResult = evaluateReview(draft, prContext, { mode: 'shadow' });
+  const shadowPayload = buildPublishPayload(shadowResult);
+  assert.equal(shadowPayload.comments.length, 2);
+  assert.equal(shadowPayload.mode, 'shadow');
 });
