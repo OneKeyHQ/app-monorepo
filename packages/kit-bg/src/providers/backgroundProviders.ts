@@ -47,6 +47,7 @@ export const providerApiLoaders: Partial<
   [IInjectedProviderNames.btc]: () => import('./ProviderApiBtc'),
   [IInjectedProviderNames.neo]: () => import('./ProviderApiNeoN3'),
   [IInjectedProviderNames.stellar]: () => import('./ProviderApiStellar'),
+  [IInjectedProviderNames.starknet]: () => import('./ProviderApiStarknet'),
 };
 
 // $private stays EAGER: it is accessed SYNCHRONOUSLY by name in several places

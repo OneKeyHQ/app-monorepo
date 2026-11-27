@@ -42,7 +42,12 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => ({
+    formatMessage: (
+      { id }: { id: string },
+      values?: Record<string, string | number>,
+    ) => (values ? `${id}:${JSON.stringify(values)}` : id),
+  }),
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -237,6 +242,27 @@ it('leaves a cancelled password prompt silent and clears loading', async () => {
   expect(mockToast).not.toHaveBeenCalled();
   expect(ui.result.current.optInErrorKey).toBeUndefined();
   expect(ui.result.current.isOptingIn).toBe(false);
+});
+
+it('surfaces dynamic confirming wait seconds when buildRegisterTx is waiting', async () => {
+  mockBuild.mockRejectedValueOnce(
+    new OneKeyLocalError({
+      key: ETranslations.starknet_privacy_error_confirming_wait__msg,
+      data: {
+        starknetPrivacyErrorCode: EStrk20ErrorCode.Waiting,
+        estimatedSecondsRemaining: 12,
+      },
+    }),
+  );
+  const ui = renderHook(() => useStarknetPrivacyOptIn(account));
+  await act(async () => ui.result.current.optIn());
+  expect(ui.result.current.optInErrorKey).toBe(
+    ETranslations.starknet_privacy_error_confirming_wait__msg,
+  );
+  expect(ui.result.current.optInErrorValues).toEqual({ seconds: 12 });
+  expect(mockToast).toHaveBeenCalledWith({
+    title: `${ETranslations.starknet_privacy_error_confirming_wait__msg}:{"seconds":12}`,
+  });
 });
 
 it('surfaces the service unavailable reason instead of a generic unknown error', async () => {

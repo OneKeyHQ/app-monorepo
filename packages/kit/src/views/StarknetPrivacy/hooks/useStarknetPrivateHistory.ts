@@ -279,6 +279,7 @@ export function useStarknetPrivateHistory({
     txs: page?.txs ?? [],
     isEnabled: page?.isEnabled,
     hasMore: page?.hasMore ?? false,
+    cursorId: page?.cursor?.cursorId,
     initialized: result?.identity === identity,
     errorKey: result?.identity === identity ? result.errorKey : undefined,
     errorCode: result?.identity === identity ? result.errorCode : undefined,

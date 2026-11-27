@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import launchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { INavigateToNotificationDetailParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import type {
@@ -23,34 +24,32 @@ export const useInitialNotification = () => {
         'getEarnAccount' | 'localParams'
       >,
     ) => {
-      if (!isVersionCompatible(params.message?.extras?.miniBundlerVersion)) {
+      if (
+        travelModeManager.isMaskingDataSync() ||
+        !isVersionCompatible(params.message?.extras?.miniBundlerVersion)
+      ) {
         return;
       }
       await whenAppUnlocked();
-      void notificationsUtils.navigateToNotificationDetail(params);
+      if (!travelModeManager.isMaskingDataSync()) {
+        void notificationsUtils.navigateToNotificationDetail(params);
+      }
     },
     [isVersionCompatible],
   );
   useEffect(() => {
-    setTimeout(async () => {
-      if (coldStartRef.current) {
+    const timer = setTimeout(async () => {
+      if (coldStartRef.current && !travelModeManager.isMaskingDataSync()) {
         coldStartRef.current = false;
         const options: IJPushRemotePushMessageInfo | null =
           ColdStartByNotification.launchNotification;
         if (options) {
-          console.log(
-            'coldStart ColdStartByNotification launchNotification',
-            options,
-          );
-          options.msgId =
-            options?.params?.msgId ||
-            options?.msgId ||
-            options?._j_msgid?.toString() ||
+          ColdStartByNotification.launchNotification = null;
+          const notificationId =
+            options.params?.msgId ||
+            options.msgId ||
+            options._j_msgid?.toString() ||
             '';
-          console.log(
-            'coldStart ColdStartByNotification launchNotification FIXED',
-            options,
-          );
           const title = options.aps?.alert?.title || '';
           const content = options.aps?.alert?.body || '';
           const icon = options?.image;
@@ -58,9 +57,9 @@ export const useInitialNotification = () => {
 
           void backgroundApiProxy.serviceNotification.handleColdStartByNotification(
             {
-              notificationId: options.msgId,
+              notificationId,
               params: {
-                notificationId: options.msgId,
+                notificationId,
                 title,
                 description: content,
                 icon,
@@ -71,6 +70,7 @@ export const useInitialNotification = () => {
                   badge,
                   extras: {
                     ...options,
+                    msgId: notificationId,
                   },
                 },
               },
@@ -78,24 +78,33 @@ export const useInitialNotification = () => {
           );
           return;
         }
-        const launchOptions = await launchOptionsManager.getLaunchOptions();
-        let userInfo: INotificationPushMessageInfo | undefined;
-        if (launchOptions?.localNotification) {
-          userInfo = launchOptions.localNotification.userInfo;
-        } else if (launchOptions?.remoteNotification) {
-          userInfo = launchOptions.remoteNotification.userInfo;
+        const localNotification =
+          ColdStartByNotification.localLaunchNotification;
+        ColdStartByNotification.localLaunchNotification = null;
+        let userInfo: INotificationPushMessageInfo | undefined | null =
+          localNotification;
+        if (!userInfo) {
+          const launchOptions = await launchOptionsManager.getLaunchOptions();
+          userInfo =
+            launchOptions?.localNotification?.userInfo ??
+            launchOptions?.remoteNotification?.userInfo;
         }
         if (userInfo) {
           await handleShowNotificationDetail({
             message: userInfo,
+            isFromNotificationClick: true,
             notificationAccountId: userInfo?.extras?.params?.accountId,
             mode: userInfo?.extras?.mode,
             payload: userInfo?.extras?.payload,
             notificationId:
-              userInfo?.extras?.params?.msgId || userInfo?.extras?.msgId || '',
+              userInfo?.extras?.params?.msgId ||
+              userInfo?.extras?.msgId ||
+              localNotification?.notificationId ||
+              '',
           });
         }
       }
     }, 350);
+    return () => clearTimeout(timer);
   }, [handleShowNotificationDetail]);
 };
