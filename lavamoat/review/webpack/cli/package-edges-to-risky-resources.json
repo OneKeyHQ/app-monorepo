@@ -1,0 +1,215 @@
+{
+  "@onekeyfe/hd-core>axios": {
+    "@onekeyfe/hd-core>axios>follow-redirects": true,
+    "@onekeyfe/hd-core>axios>form-data": true,
+    "@onekeyfe/hd-core>axios>https-proxy-agent": true
+  },
+  "@onekeyfe/hd-core>axios>follow-redirects": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "@onekeyfe/hd-core>axios>https-proxy-agent": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "@onekeyfe/hd-core>axios>https-proxy-agent>agent-base": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "@onekeyhq/core": {
+    "@onekeyfe/hd-core>bignumber.js": true,
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/core>@onekeyfe/coinselect": true,
+    "@onekeyhq/core>@solana/web3.js": true,
+    "@onekeyhq/shared": true,
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.js": true
+  },
+  "@onekeyhq/core>@onekeyfe/coinselect": {
+    "@onekeyfe/hd-core>bignumber.js": true
+  },
+  "@onekeyhq/core>@onekeyfe/coinselect>blake-hash": {
+    "@onekeyhq/core>@onekeyfe/coinselect>blake-hash>node-gyp-build": true
+  },
+  "@onekeyhq/core>@onekeyfe/coinselect>tiny-secp256k1": {
+    "@onekeyhq/core>js-conflux-sdk>keccak>bindings": true
+  },
+  "@onekeyhq/core>@solana/spl-token": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@solana/spl-token>@solana/buffer-layout-utils": {
+    "@onekeyfe/hd-core>bignumber.js": true,
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@solana/web3.js": {
+    "@onekeyhq/core>near-api-js>node-fetch": true
+  },
+  "@onekeyhq/core>@solana/web3.js>rpc-websockets": {
+    "@onekeyhq/core>xrpl>ws": true
+  },
+  "@onekeyhq/core>bitcoinjs-message>secp256k1": {
+    "@onekeyhq/core>js-conflux-sdk>keccak>bindings": true
+  },
+  "@onekeyhq/core>cip-23>keccak": {
+    "@onekeyhq/core>cip-23>keccak>node-gyp-build": true
+  },
+  "@onekeyhq/core>elliptic": {
+    "@onekeyhq/core>elliptic>brorand": true
+  },
+  "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>secp256k1": {
+    "@onekeyhq/core>cip-23>keccak>node-gyp-build": true
+  },
+  "@onekeyhq/core>tonweb-mnemonic": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "@onekeyhq/core>xrpl>ws>bufferutil": {
+    "@onekeyhq/core>cip-23>keccak>node-gyp-build": true
+  },
+  "@onekeyhq/core>xrpl>ws>utf-8-validate": {
+    "@onekeyhq/core>cip-23>keccak>node-gyp-build": true
+  },
+  "@onekeyhq/shared": {
+    "@onekeyfe/hd-core>axios": true,
+    "@onekeyfe/hd-core>bignumber.js": true,
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/shared>localforage": true,
+    "@onekeyhq/shared>react-native-uuid": true,
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/transports/offline.js": true,
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.js": true,
+    "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": true
+  },
+  "external:../../node_modules/@ethereumjs/util/dist/account.js": {
+    "@onekeyhq/core>web3-utils>ethereum-cryptography": true
+  },
+  "external:../../node_modules/@ethereumjs/util/dist/constants.js": {
+    "@onekeyhq/core>web3-utils>ethereum-cryptography": true
+  },
+  "external:../../node_modules/@ethereumjs/util/dist/provider.js": {
+    "external:../../node_modules/micro-ftch/index.js": true
+  },
+  "external:../../node_modules/@ethereumjs/util/dist/signature.js": {
+    "@onekeyhq/core>web3-utils>ethereum-cryptography": true
+  },
+  "external:../../node_modules/@metamask/eth-sig-util/dist/encryption.js": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "external:../../node_modules/@metamask/eth-sig-util/dist/sign-typed-data.js": {
+    "@onekeyhq/core>web3-utils>ethereum-cryptography": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedProviderReceiveHandler.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeSimple.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/breadcrumbs.js": {
+    "external:../../node_modules/@sentry-internal/browser-utils/build/esm/instrument/xhr.js": true
+  },
+  "external:../../node_modules/@sentry/core/build/esm/utils/envelope.js": {
+    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
+  },
+  "external:../../node_modules/@sentry/core/build/esm/utils/prepareEvent.js": {
+    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/index.js": {
+    "external:../../node_modules/engine.io-client/build/esm-debug/socket.js": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/socket.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/transport.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/transports/index.js": {
+    "external:../../node_modules/engine.io-client/build/esm-debug/transports/polling.js": true,
+    "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket.js": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/transports/polling.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket-constructor.js": {
+    "@onekeyhq/core>xrpl>ws": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/transports/webtransport.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/transports/xmlhttprequest.js": {
+    "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js": true
+  },
+  "external:../../node_modules/fake-indexeddb/build/esm/FDBDatabase.js": {
+    "external:../../node_modules/fake-indexeddb/build/esm/lib/scheduling.js": true
+  },
+  "external:../../node_modules/fake-indexeddb/build/esm/FDBFactory.js": {
+    "external:../../node_modules/fake-indexeddb/build/esm/lib/scheduling.js": true
+  },
+  "external:../../node_modules/fake-indexeddb/build/esm/FDBTransaction.js": {
+    "external:../../node_modules/fake-indexeddb/build/esm/lib/scheduling.js": true
+  },
+  "external:../../node_modules/fake-indexeddb/build/esm/lib/Database.js": {
+    "external:../../node_modules/fake-indexeddb/build/esm/lib/scheduling.js": true
+  },
+  "external:../../node_modules/memoizee/ext/async.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/memoizee/ext/max-age.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/memoizee/ext/promise.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/socket.io-client/build/esm-debug/index.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
+    "external:../../node_modules/socket.io-client/build/esm-debug/url.js": true
+  },
+  "external:../../node_modules/socket.io-client/build/esm-debug/manager.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/socket.io-client/build/esm-debug/socket.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/socket.io-client/build/esm-debug/url.js": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/socket.io-parser/node_modules/debug/src/index.js": {
+    "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js": true
+  },
+  "external:../../packages/kit-bg/src/apis/RemoteApiProxyBase.ts": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/chunkedTransfer.ts": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/JsBridgeE2EEClientToClient.ts": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/transferErrors.ts": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/transferSize.ts": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../packages/kit-bg/src/webembeds/instance/webembedApiProxy.ts": {
+    "@onekeyhq/shared": true
+  },
+  "proper-lockfile": {
+    "proper-lockfile>graceful-fs": true
+  }
+}

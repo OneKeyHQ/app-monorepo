@@ -8,10 +8,9 @@ import platformEnv, { isManifestV3 } from '../platformEnv';
 import type { AsyncStorageStatic } from './appStorageTypes';
 
 class ExtensionStorage implements AsyncStorageStatic {
-  browserApi: typeof chrome =
-    platformEnv.isExtFirefox || !isManifestV3
-      ? globalThis.browser
-      : globalThis.chrome;
+  browserApi: typeof chrome = isManifestV3
+    ? globalThis.chrome
+    : globalThis.browser;
 
   _checkOffscreen() {
     if (platformEnv.isExtensionOffscreen) {

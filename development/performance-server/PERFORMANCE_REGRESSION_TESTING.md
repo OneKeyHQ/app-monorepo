@@ -514,7 +514,7 @@ perfMark('scroll:end:TokenList');
 | Abbr | Platform | Notes |
 |------|----------|-------|
 | **M** | Mobile (iOS / Android) | React Native, Hermes engine, FlashList for lists |
-| **E** | Extension (Chrome / Firefox) | Popup (550x600) + Side Panel + Full Page modes |
+| **E** | Extension (Chrome / Edge) | Popup (550x600) + Side Panel + Full Page modes |
 | **W** | Web | Standard browser tab, react-virtualized for tab lists |
 | **D** | Desktop | Electron app, same rendering engine as web |
 

@@ -287,6 +287,7 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
+          SENTRY_UPLOAD_BY_CLI: 'true'
           MARKET_HOME_TOKEN_SEED_ENV: 'test'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -301,10 +302,9 @@ jobs:
           grep -q "__ONEKEY_BOOTSTRAP_DATA__" apps/web/web-build/index.html
           grep -q "__ONEKEY_BOOTSTRAP_DATA__" apps/web/web-build/404.html
 
-      # rspack (unlike the old webpack build) has no in-build Sentry plugin, so
-      # sourcemaps are uploaded here via sentry-cli and then deleted from the
-      # shipped artifact. Mirrors the webpack sentryWebpackPlugin behaviour
-      # (upload + filesToDeleteAfterUpload). Guarded: skips upload if no token.
+      # This workflow owns sourcemap uploads; the build plugin is disabled above.
+      # Upload without changing JavaScript bytes so the built SRI remains valid.
+      # Skip upload when credentials are absent.
       - name: Upload Web Sourcemaps to Sentry
         id: upload_web_sourcemaps
         env:
@@ -324,7 +324,7 @@ jobs:
           # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
           # built .js files in place (prepends a _sentryDebugIds IIFE + appends
           # //# debugId), which would invalidate the sha384 Subresource
-          # Integrity hashes rspack already baked into index.html at build time.
+          # Integrity hashes already baked into index.html at build time.
           # Served cross-origin (app-assets.onekey.so) with crossorigin=anonymous
           # the browser would hard-block every script -> blank app. Use
           # release-based upload (no source-file mutation) so SRI stays valid.
@@ -578,6 +578,7 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
+          SENTRY_UPLOAD_BY_CLI: 'true'
           MARKET_HOME_TOKEN_SEED_ENV: 'production'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           ONEKEY_AUTOMATION_TOKEN: ${{ secrets.ONEKEY_AUTOMATION_TOKEN }}
@@ -593,10 +594,9 @@ jobs:
           grep -q "__ONEKEY_BOOTSTRAP_DATA__" apps/web/web-build/index.html
           grep -q "__ONEKEY_BOOTSTRAP_DATA__" apps/web/web-build/404.html
 
-      # rspack (unlike the old webpack build) has no in-build Sentry plugin, so
-      # sourcemaps are uploaded here via sentry-cli and then deleted from the
-      # shipped artifact. Mirrors the webpack sentryWebpackPlugin behaviour
-      # (upload + filesToDeleteAfterUpload). Guarded: skips upload if no token.
+      # This workflow owns sourcemap uploads; the build plugin is disabled above.
+      # Upload without changing JavaScript bytes so the built SRI remains valid.
+      # Skip upload when credentials are absent.
       - name: Upload Web Sourcemaps to Sentry
         id: upload_web_sourcemaps
         env:
@@ -616,7 +616,7 @@ jobs:
           # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
           # built .js files in place (prepends a _sentryDebugIds IIFE + appends
           # //# debugId), which would invalidate the sha384 Subresource
-          # Integrity hashes rspack already baked into index.html at build time.
+          # Integrity hashes already baked into index.html at build time.
           # Served cross-origin (app-assets.onekey.so) with crossorigin=anonymous
           # the browser would hard-block every script -> blank app. Use
           # release-based upload (no source-file mutation) so SRI stays valid.

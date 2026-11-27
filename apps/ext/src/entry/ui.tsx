@@ -58,9 +58,6 @@ function init() {
   maybeLockdownOneKeyRuntime({ runtime: 'ext-ui' });
   installSesRuntimeCheckHandlerLate();
 
-  // popupSizeFix();
-  // **** must be after popupSizeFix();
-  // resizeEventOptimize();
   setupUiRuntimeLate();
 
   globalThis.$$onekeyPerfTrace?.log({

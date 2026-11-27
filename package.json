@@ -13,7 +13,11 @@
   "scripts": {
     "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env')){if(fs.existsSync('.env.example')){fs.copyFileSync('.env.example','.env')}else{fs.writeFileSync('.env','')}}\"",
     "skills:sync": "node development/scripts/skillshare/install.js",
-    "postinstall": "node development/scripts/postinstall.js",
+    "setup:dependencies": "node development/scripts/postinstall.js",
+    "lavamoat:supply-chain:check": "yarn supply-chain check",
+    "lavamoat:supply-chain:inventory": "yarn supply-chain inventory",
+    "lavamoat:supply-chain:test": "node --test development/lavamoat/supply-chain.test.cjs development/lavamoat/supply-chain-git.test.cjs",
+    "lavamoat:git-dependencies:check": "git-safe-dependencies --type=yarn",
     "copy:inject": "node development/scripts/copy-injected.js",
     "fonts:sync": "node development/scripts/fonts-sync.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
@@ -168,7 +172,52 @@
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
     "onekeyhq:modules:upgrade": "node development/scripts/upgrade-modules.js",
     "check:release-age": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts diff",
-    "check:release-age:full": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts full"
+    "check:release-age:full": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts full",
+    "lavamoat:policy:web": "node development/lavamoat/run-targets.cjs policy web",
+    "lavamoat:policy:desktop-renderer": "node development/lavamoat/run-targets.cjs policy desktop-renderer",
+    "lavamoat:policy:web-embed": "node development/lavamoat/run-targets.cjs policy web-embed",
+    "lavamoat:policy:all": "node development/lavamoat/run-targets.cjs policy all",
+    "lavamoat:build:web": "node development/lavamoat/run-targets.cjs build web",
+    "lavamoat:smoke:web": "node development/lavamoat/smoke-web.cjs",
+    "lavamoat:build:desktop-renderer": "node development/lavamoat/run-targets.cjs build desktop-renderer",
+    "lavamoat:build:web-embed": "node development/lavamoat/run-targets.cjs build web-embed",
+    "lavamoat:build:all": "node development/lavamoat/run-targets.cjs build all",
+    "lavamoat:review": "node development/lavamoat/split-policy-for-review.cjs",
+    "lavamoat:normalize-policies": "node development/lavamoat/normalize-policy-artifacts.cjs",
+    "lavamoat:validate-artifacts": "node development/lavamoat/validate-policy-artifacts.cjs",
+    "lavamoat:validate-generated-scope": "node development/lavamoat/check-generated-file-scope.cjs",
+    "lavamoat:validate-webpack-integration": "node development/lavamoat/validate-webpack-integration.cjs",
+    "lavamoat:test-tooling": "node development/lavamoat/test-tooling.cjs && node --test --test-concurrency=1 apps/web-embed/scripts/check-browser-compat.test.cjs development/lavamoat/webpack-loader-policy.test.cjs development/lavamoat/webpack-wasm-assets.test.cjs development/lavamoat/webpack-runtime-chunks.test.cjs development/lavamoat/webpack-resource-identifiers.test.cjs development/lavamoat/webpack-host-globals.test.cjs development/lavamoat/webpack-tronweb-protobuf.test.cjs development/lavamoat/webpack-web-embed.test.cjs development/lavamoat/webpack-web-startup.test.cjs development/lavamoat/webpack-extension.test.cjs development/lavamoat/webpack-extension-origin.test.cjs development/lavamoat/webpack-extension-fetch.test.cjs development/lavamoat/webpack-extension-passkey.test.cjs development/lavamoat/extension-request-protocol.test.cjs development/lavamoat/webpack-extension-kaspa.test.cjs apps/ext/scripts/smoke-lavamoat.test.cjs development/lavamoat/node-webpack.test.cjs development/lavamoat/node-build-runtime.test.cjs && yarn lavamoat:validate-webpack-integration",
+    "lavamoat:diff": "node development/lavamoat/check-policy-diff.cjs",
+    "lavamoat:ci:validate": "yarn lavamoat:test-tooling && yarn lavamoat:policy:all && yarn lavamoat:validate-artifacts && yarn lavamoat:validate-generated-scope && yarn lavamoat:diff",
+    "lavamoat:ci:build": "node development/lavamoat/run-targets.cjs build ci",
+    "lavamoat:ci:all": "yarn lavamoat:ci:validate && yarn lavamoat:ci:build",
+    "lavamoat:supply-chain:binaries": "node development/lavamoat/check-install-binaries.cjs",
+    "lavamoat:policy:ext-pages": "node development/lavamoat/run-targets.cjs policy ext-pages",
+    "lavamoat:build:ext-pages": "node development/lavamoat/run-targets.cjs build ext-pages",
+    "lavamoat:policy:ext-background": "node development/lavamoat/run-targets.cjs policy ext-background",
+    "lavamoat:build:ext-background": "node development/lavamoat/run-targets.cjs build ext-background",
+    "lavamoat:policy:ext-content-script": "node development/lavamoat/run-targets.cjs policy ext-content-script",
+    "lavamoat:build:ext-content-script": "node development/lavamoat/run-targets.cjs build ext-content-script",
+    "lavamoat:smoke:web-embed": "node development/lavamoat/smoke-web-embed.cjs",
+    "lavamoat:policy:node-build:raw": "node development/lavamoat/node-build-runtime.mjs --generate-policy",
+    "lavamoat:build:node-build:raw": "node development/lavamoat/node-build-runtime.mjs",
+    "lavamoat:policy:cli": "node development/lavamoat/run-targets.cjs policy cli",
+    "lavamoat:build:cli": "node development/lavamoat/run-targets.cjs build cli",
+    "lavamoat:policy:desktop-main": "node development/lavamoat/run-targets.cjs policy desktop-main",
+    "lavamoat:build:desktop-main": "node development/lavamoat/run-targets.cjs build desktop-main",
+    "lavamoat:policy:desktop-preload": "node development/lavamoat/run-targets.cjs policy desktop-preload",
+    "lavamoat:build:desktop-preload": "node development/lavamoat/run-targets.cjs build desktop-preload",
+    "lavamoat:policy:desktop-services-index": "node development/lavamoat/run-targets.cjs policy desktop-services-index",
+    "lavamoat:build:desktop-services-index": "node development/lavamoat/run-targets.cjs build desktop-services-index",
+    "lavamoat:policy:desktop-services-enum": "node development/lavamoat/run-targets.cjs policy desktop-services-enum",
+    "lavamoat:build:desktop-services-enum": "node development/lavamoat/run-targets.cjs build desktop-services-enum",
+    "lavamoat:policy:desktop-services-windowsHello": "node development/lavamoat/run-targets.cjs policy desktop-services-windowsHello",
+    "lavamoat:build:desktop-services-windowsHello": "node development/lavamoat/run-targets.cjs build desktop-services-windowsHello",
+    "lavamoat:policy:desktop-services-checkBiometricAuthChanged": "node development/lavamoat/run-targets.cjs policy desktop-services-checkBiometricAuthChanged",
+    "lavamoat:build:desktop-services-checkBiometricAuthChanged": "node development/lavamoat/run-targets.cjs build desktop-services-checkBiometricAuthChanged",
+    "lavamoat:policy:node-build": "node development/lavamoat/run-targets.cjs policy node-build",
+    "lavamoat:build:node-build": "node development/lavamoat/run-targets.cjs build node-build"
   },
   "minimumReleaseAge": {
     "days": 7,
@@ -322,6 +371,9 @@
     "@emurgo/cardano-serialization-lib-nodejs": "13.2.0",
     "@expo/webpack-config": "~19.0.1",
     "@formatjs/icu-messageformat-parser": "2.7.8",
+    "@lavamoat/git-safe-dependencies": "1.0.1",
+    "@lavamoat/node": "1.0.7",
+    "@lavamoat/webpack": "2.2.3",
     "@open-wc/webpack-import-meta-loader": "^0.4.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
     "@react-native-community/cli": "^18.0.1",
@@ -437,7 +489,7 @@
     "tamagui-loader": "2.7.7",
     "typescript": "7.0.2",
     "ultra-runner": "^3.10.5",
-    "webpack": "5.90.3",
+    "webpack": "5.104.1",
     "webpack-bundle-analyzer": "^4.9.1",
     "webpack-cli": "5.1.4",
     "webpack-dev-server": "^4.15.1",
@@ -609,6 +661,7 @@
     "follow-redirects": "1.16.2",
     "decode-uri-component": "0.5.1",
     "js-yaml@^4.1.0": "4.3.2",
+    "@lavamoat/git-safe-dependencies/js-yaml": "4.3.2",
     "lodash-es@^4.17.21": "4.18.0",
     "minimatch@2 || 3": "3.1.4",
     "minimatch@^3.0.4": "3.1.4",
@@ -669,6 +722,93 @@
     "minimatch@^10.0.3": "10.2.6",
     "minimatch@^10.1.1": "10.2.6",
     "source-map-js@^1.2.1": "1.2.2",
-    "image-size@^1.0.2": "2.0.4"
+    "image-size@^1.0.2": "2.0.4",
+    "lavamoat-core": "18.0.5"
+  },
+  "dependenciesMeta": {
+    "@onekeyfe/electron-mac-icloud@1.2.6": {
+      "built": true
+    },
+    "@reown/appkit@1.8.9": {
+      "built": false
+    },
+    "@serialport/bindings-cpp@12.0.1": {
+      "built": true
+    },
+    "@stoprocent/bluetooth-hci-socket@2.2.5": {
+      "built": true
+    },
+    "@stoprocent/noble@2.3.16": {
+      "built": true
+    },
+    "@swc/core@1.7.6": {
+      "built": false
+    },
+    "bigint-buffer@1.1.5": {
+      "built": true
+    },
+    "blake-hash@2.0.0": {
+      "built": true
+    },
+    "bufferutil@4.0.8": {
+      "built": true
+    },
+    "core-js@2.6.12": {
+      "built": false
+    },
+    "core-js@3.49.0": {
+      "built": false
+    },
+    "core-js-pure@3.34.0": {
+      "built": false
+    },
+    "detox@20.46.3": {
+      "built": true
+    },
+    "dtrace-provider@0.8.8": {
+      "built": false
+    },
+    "electron-check-biometric-auth-changed@1.0.0": {
+      "built": true
+    },
+    "es5-ext@0.10.64": {
+      "built": false
+    },
+    "keccak@1.4.0": {
+      "built": true
+    },
+    "keccak@2.1.0": {
+      "built": true
+    },
+    "keccak@3.0.4": {
+      "built": true
+    },
+    "protobufjs@6.11.4": {
+      "built": false
+    },
+    "react-native-video@7.0.0-beta.11": {
+      "built": false
+    },
+    "realm@20.2.0": {
+      "built": false
+    },
+    "secp256k1@3.8.1": {
+      "built": true
+    },
+    "secp256k1@4.0.4": {
+      "built": true
+    },
+    "secp256k1@5.0.1": {
+      "built": true
+    },
+    "tiny-secp256k1@1.1.7": {
+      "built": true
+    },
+    "usb@2.16.0": {
+      "built": true
+    },
+    "utf-8-validate@5.0.10": {
+      "built": true
+    }
   }
 }

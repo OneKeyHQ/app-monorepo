@@ -16,6 +16,7 @@ const {
 const { resolveCommitSha } = require('../utils/resolveCommitSha');
 
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
+const { isLavaMoatEnabled } = require('./lavamoat');
 const { createResolveExtensions } = require('./utils');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
@@ -167,7 +168,12 @@ const basePerformance = {
   maxEntrypointSize: 600_000,
 };
 
-module.exports = ({ platform, basePath, configName }) => {
+module.exports = ({
+  platform,
+  basePath,
+  configName,
+  firstPartyBabelPlugins = [],
+}) => {
   const babelLoaderOption = {
     babelrc: false,
     configFile: true,
@@ -393,20 +399,34 @@ module.exports = ({ platform, basePath, configName }) => {
               test: /\.(js|mjs|jsx|ts|tsx)$/,
               exclude: [/node_modules/],
               use: [
-                useBabelLoader,
-                {
-                  loader: 'tamagui-loader',
-                  options: {
-                    config: path.join(
-                      basePath,
-                      '../../packages/components/tamagui.config.ts',
-                    ),
-                    components: ['tamagui'],
-                    importsWhitelist: [],
-                    logTimings: false,
-                    disableExtraction: isDev,
-                  },
-                },
+                firstPartyBabelPlugins.length
+                  ? {
+                      ...useBabelLoader,
+                      options: {
+                        ...babelLoaderOption,
+                        plugins: firstPartyBabelPlugins,
+                      },
+                    }
+                  : useBabelLoader,
+                // Match the shipping Rspack builds. Tamagui's extractor uses
+                // the classic compiler API, which TypeScript 7 no longer exports.
+                ...(isLavaMoatEnabled()
+                  ? []
+                  : [
+                      {
+                        loader: 'tamagui-loader',
+                        options: {
+                          config: path.join(
+                            basePath,
+                            '../../packages/components/tamagui.config.ts',
+                          ),
+                          components: ['tamagui'],
+                          importsWhitelist: [],
+                          logTimings: false,
+                          disableExtraction: isDev,
+                        },
+                      },
+                    ]),
               ],
               resolve: { fullySpecified: false },
             },

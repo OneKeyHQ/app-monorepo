@@ -26,5 +26,4 @@ export const EXTENSION_STORE_URLS = {
   chrome: `https://chrome.google.com/webstore/detail/onekey/${EXTENSION_IDS.chrome}`,
   edge: `https://microsoftedge.microsoft.com/addons/detail/onekey/${EXTENSION_IDS.edge}`,
   chromeDevelopment: `https://chromewebstore.google.com/detail/onekey-secure-crypto-wall/${EXTENSION_IDS.chromeDevelopment}?hl=en-GB&utm_source=ext_sidebar`,
-  firefox: 'https://addons.mozilla.org/zh-CN/firefox/addon/onekey/reviews/',
 } as const;

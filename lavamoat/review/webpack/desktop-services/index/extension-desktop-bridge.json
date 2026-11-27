@@ -1,0 +1,10 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "electron-log": {
+      "builtins": {
+        "electron": true
+      }
+    }
+  }
+}

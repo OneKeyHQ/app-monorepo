@@ -6,7 +6,7 @@ const { EXT_CHANNEL, TARGET_BROWSER } = require('./constant');
 
 exports.createResolveExtensions = function ({ platform, configName }) {
   const result = uniq([
-    // .chrome-ext.ts, .firefox-ext.ts
+    // .chrome-ext.ts, .edge-ext.ts
     ...(EXT_CHANNEL && TARGET_BROWSER
       ? ['.ts', '.tsx', '.js', '.jsx'].map(
           (ext) => `.${TARGET_BROWSER}-${platform}${ext}`,

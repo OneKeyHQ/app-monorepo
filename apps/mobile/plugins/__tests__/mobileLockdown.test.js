@@ -10,14 +10,34 @@ const babel = require('@babel/core');
 const devVendorConfig = require('../../dev-vendor.config');
 const {
   applyMobileLockdownConfig,
+  getMobileLockdownE2ERunId,
   getMobileLockdownPolyfills,
   isMobileLockdownEnabled,
 } = require('../mobileLockdown');
+const {
+  createFileToIdMap,
+  loadRegistry: loadProductionRegistry,
+} = require('../moduleIdRegistry');
+
 const mobileRoot = path.resolve(__dirname, '../..');
 const helperPath = path.join(
   mobileRoot,
   'src/security/finishMobileLockdown.ts',
 );
+
+test('all guarded Release helpers resolve through the strict production registry', () => {
+  const registry = loadProductionRegistry();
+  const resolver = createFileToIdMap({ registry, strict: true });
+  const helpers = fs
+    .readdirSync(path.join(mobileRoot, 'src/security'))
+    .filter((name) => /^mobileLockdown.*Release.*\.ts$/u.test(name));
+  expect(helpers.length).toBeGreaterThan(0);
+  const identifiers = helpers.map((name) =>
+    resolver.get(path.join(mobileRoot, 'src/security', name)),
+  );
+  expect(new Set(identifiers).size).toBe(helpers.length);
+  for (const identifier of identifiers) expect(identifier).toBeGreaterThan(0);
+});
 
 function createRuntime({
   enabled = true,
@@ -237,6 +257,7 @@ describe('mobile lockdown bootstrap', () => {
     );
   });
   const originalMode = process.env.ONEKEY_MOBILE_LOCKDOWN;
+  const originalE2ERunId = process.env.ONEKEY_MOBILE_LOCKDOWN_E2E;
   // Jest's console functions may originate in the worker realm rather than
   // this suite's realm. Check both sets of prototypes for cross-realm damage.
   const consoleFunctionPrototype = Object.getPrototypeOf(console.log);
@@ -250,6 +271,107 @@ describe('mobile lockdown bootstrap', () => {
   afterEach(() => {
     if (originalMode === undefined) delete process.env.ONEKEY_MOBILE_LOCKDOWN;
     else process.env.ONEKEY_MOBILE_LOCKDOWN = originalMode;
+    if (originalE2ERunId === undefined)
+      delete process.env.ONEKEY_MOBILE_LOCKDOWN_E2E;
+    else process.env.ONEKEY_MOBILE_LOCKDOWN_E2E = originalE2ERunId;
+  });
+
+  test('accepts only explicit protected E2E run IDs and separates cache inputs', () => {
+    expect(getMobileLockdownE2ERunId({})).toBe('');
+    for (const value of [
+      '',
+      'true',
+      'A'.repeat(32),
+      'a'.repeat(31),
+      'a'.repeat(33),
+      ['a'.repeat(32)],
+    ]) {
+      expect(() =>
+        getMobileLockdownE2ERunId({ ONEKEY_MOBILE_LOCKDOWN_E2E: value }),
+      ).toThrow('run ID');
+    }
+    const runId = 'a'.repeat(32);
+    expect(() =>
+      getMobileLockdownE2ERunId({
+        ONEKEY_MOBILE_LOCKDOWN_E2E: runId,
+        ONEKEY_MOBILE_LOCKDOWN: 'false',
+      }),
+    ).toThrow('requires protection');
+    delete process.env.ONEKEY_MOBILE_LOCKDOWN;
+    delete process.env.ONEKEY_MOBILE_LOCKDOWN_E2E;
+    const config = () =>
+      applyMobileLockdownConfig({ serializer: { getPolyfills: () => [] } });
+    const defaultKey = config().cacheVersion;
+    const env = {};
+    devVendorConfig.applyTransformationEnvironment(env);
+    const defaultEnv = devVendorConfig.getTransformationEnvironment(env);
+    process.env.ONEKEY_MOBILE_LOCKDOWN_E2E = runId;
+    expect(config().cacheVersion).not.toBe(defaultKey);
+    env.ONEKEY_MOBILE_LOCKDOWN_E2E = runId;
+    devVendorConfig.applyTransformationEnvironment(env);
+    expect(env.ONEKEY_MOBILE_LOCKDOWN_E2E).toBe(runId);
+    expect(devVendorConfig.getTransformationEnvironment(env)).not.toEqual(
+      defaultEnv,
+    );
+  });
+
+  test('production E2E requires complete build identity before Metro compilation', () => {
+    const env = {
+      ONEKEY_MOBILE_LOCKDOWN_E2E: 'a'.repeat(32),
+      NODE_ENV: 'production',
+      VERSION: '1.0.0',
+      BUILD_NUMBER: '1',
+      BUNDLE_VERSION: '21600000',
+    };
+    expect(getMobileLockdownE2ERunId(env)).toBe(env.ONEKEY_MOBILE_LOCKDOWN_E2E);
+    for (const key of ['VERSION', 'BUILD_NUMBER', 'BUNDLE_VERSION']) {
+      for (const value of [undefined, '', 'invalid', '-1', '0']) {
+        expect(() =>
+          getMobileLockdownE2ERunId({ ...env, [key]: value }),
+        ).toThrow(key);
+      }
+    }
+    expect(getMobileLockdownE2ERunId({ NODE_ENV: 'production' })).toBe('');
+  });
+
+  test('Release probe accepts separate hardened heaps and rejects rollback or wrong identity', () => {
+    const { code } = babel.transformFileSync(
+      path.join(mobileRoot, 'src/security/mobileLockdownReleaseProbe.ts'),
+      {
+        babelrc: false,
+        configFile: false,
+        plugins: [
+          '@babel/plugin-transform-typescript',
+          '@babel/plugin-transform-modules-commonjs',
+        ],
+      },
+    );
+    for (const name of ['main', 'background']) {
+      const context = createRuntime();
+      context.exports.finishMobileLockdown(name);
+      vm.runInContext(code, context);
+      expect(
+        context.exports.captureMobileLockdownIntegrity(name),
+      ).toMatchObject({
+        runtime: name,
+        enabled: true,
+        tamperBlocked: true,
+        bindingImmutable: true,
+      });
+      expect(() =>
+        context.exports.captureMobileLockdownIntegrity(
+          name === 'main' ? 'background' : 'main',
+        ),
+      ).toThrow('integrity check failed');
+    }
+    const disabled = createRuntime({ enabled: false, repair: false });
+    disabled.exports.finishMobileLockdown('main');
+    vm.runInContext(code, disabled);
+    expect(() =>
+      disabled.exports.captureMobileLockdownIntegrity('main'),
+    ).toThrow('integrity check failed');
+    for (const prototype of hostPrototypes)
+      expect(Object.isFrozen(prototype)).toBe(false);
   });
 
   test('disabled mode leaves serializers unchanged and invalid modes fail closed', () => {

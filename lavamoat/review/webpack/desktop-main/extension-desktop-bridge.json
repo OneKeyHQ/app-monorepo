@@ -1,0 +1,85 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/kit-bg": {
+      "builtins": {
+        "electron.app": true,
+        "electron.autoUpdater": true,
+        "electron.BrowserWindow": true,
+        "electron.dialog": true,
+        "electron.inAppPurchase": true,
+        "electron.ipcMain": true,
+        "electron.Menu": true,
+        "electron.nativeImage": true,
+        "electron.net": true,
+        "electron.Notification": true,
+        "electron.session": true,
+        "electron.ShareMenu": true,
+        "electron.shell": true,
+        "electron.systemPreferences": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "chrome": true,
+        "desktopApi": true
+      }
+    },
+    "@sentry/electron": {
+      "builtins": {
+        "electron": true
+      },
+      "globals": {
+        "__SENTRY_IPC__": "write"
+      }
+    },
+    "electron-context-menu": {
+      "builtins": {
+        "electron": true
+      }
+    },
+    "electron-context-menu>electron-dl": {
+      "builtins": {
+        "electron.app": true,
+        "electron.BrowserWindow": true,
+        "electron.dialog": true,
+        "electron.shell": true
+      }
+    },
+    "electron-context-menu>electron-is-dev": {
+      "builtins": {
+        "electron": true
+      }
+    },
+    "electron-is-dev": {
+      "builtins": {
+        "electron": true
+      }
+    },
+    "electron-log": {
+      "builtins": {
+        "electron": true
+      }
+    },
+    "electron-store": {
+      "builtins": {
+        "electron.app": true,
+        "electron.ipcMain": true,
+        "electron.ipcRenderer": true,
+        "electron.shell.openPath": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-a420607d.js": {
+      "builtins": {
+        "electron.ipcMain.handle": true,
+        "electron.ipcMain.removeHandler": true,
+        "electron.webContents.getAllWebContents": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs": {
+      "builtins": {
+        "electron.ipcMain": true
+      }
+    }
+  }
+}

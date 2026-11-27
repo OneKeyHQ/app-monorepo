@@ -24,9 +24,90 @@ function isMobileLockdownEnabled(env = process.env) {
   return value !== 'false';
 }
 
+function getMobileLockdownE2ERunId(env = process.env) {
+  const value = env.ONEKEY_MOBILE_LOCKDOWN_E2E;
+  if (value === undefined) return '';
+  if (typeof value !== 'string' || !/^[a-f0-9]{32}$/.test(value)) {
+    throw new Error(
+      'ONEKEY_MOBILE_LOCKDOWN_E2E must be a 32-character lowercase hex run ID.',
+    );
+  }
+  if (!isMobileLockdownEnabled(env)) {
+    throw new Error('Mobile lockdown E2E requires protection to be enabled.');
+  }
+  if (env.NODE_ENV === 'production') {
+    if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(env.VERSION || '')) {
+      throw new Error(
+        'Mobile lockdown Release E2E requires an explicit VERSION.',
+      );
+    }
+    for (const key of ['BUILD_NUMBER', 'BUNDLE_VERSION']) {
+      if (!/^[1-9]\d*$/.test(env[key] || '')) {
+        throw new Error(
+          `Mobile lockdown Release E2E requires a positive integer ${key}.`,
+        );
+      }
+    }
+  }
+  return value;
+}
+
+function getMobileLockdownWebEmbedCandidateEnabled(env = process.env) {
+  const keys = [
+    'ONEKEY_MOBILE_LOCKDOWN_E2E_WEB_EMBED_ARTIFACT',
+    'ONEKEY_MOBILE_LOCKDOWN_E2E_WEB_EMBED_MANIFEST',
+    'ONEKEY_MOBILE_LOCKDOWN_E2E_WEB_EMBED_MANIFEST_SHA256',
+  ];
+  if (keys.every((key) => env[key] === undefined)) return false;
+  if (
+    env.NODE_ENV !== 'production' ||
+    !getMobileLockdownE2ERunId(env) ||
+    keys.some((key) => typeof env[key] !== 'string' || !env[key].trim()) ||
+    !/^[a-f0-9]{64}$/.test(
+      env.ONEKEY_MOBILE_LOCKDOWN_E2E_WEB_EMBED_MANIFEST_SHA256,
+    )
+  ) {
+    throw new Error(
+      'Protected WebEmbed assets require a Release E2E run and all verified candidate inputs.',
+    );
+  }
+  // prepareCandidateWebEmbed verifies every byte before native assets are copied.
+  // This compile-time switch never makes the modern-engine candidate release eligible.
+  return true;
+}
+
+function mobileLockdownE2EGate() {
+  return {
+    name: 'mobile-lockdown-e2e-gate',
+    visitor: {
+      IfStatement(statement, state) {
+        if (
+          !state.opts.runId &&
+          statement
+            .get('test')
+            .matchesPattern('process.env.ONEKEY_MOBILE_LOCKDOWN_E2E')
+        ) {
+          // Remove only this explicit test-build guard before Metro collects
+          // dependencies, including in development bundles without minification.
+          if (statement.node.alternate)
+            throw statement.buildCodeFrameError(
+              'Mobile lockdown E2E guards must not have an else branch.',
+            );
+          statement.remove();
+        }
+      },
+    },
+  };
+}
+
 function applyMobileLockdownConfig(config) {
   const enabled = isMobileLockdownEnabled();
-  config.cacheVersion = `${config.cacheVersion || 'default'}:mobile-lockdown-${enabled ? 'on' : 'off'}`;
+  const e2eRunId = getMobileLockdownE2ERunId();
+  const webEmbedCandidate = getMobileLockdownWebEmbedCandidateEnabled();
+  const webEmbedKey = webEmbedCandidate
+    ? process.env.ONEKEY_MOBILE_LOCKDOWN_E2E_WEB_EMBED_MANIFEST_SHA256
+    : 'off';
+  config.cacheVersion = `${config.cacheVersion || 'default'}:mobile-lockdown-${enabled ? 'on' : 'off'}:e2e-${e2eRunId || 'off'}:webembed-${webEmbedKey}`;
   if (!enabled) return config;
 
   // Resolve SES from the adapter's dependency tree. The web hardening runtime
@@ -70,5 +151,8 @@ function applyMobileLockdownConfig(config) {
 module.exports = {
   applyMobileLockdownConfig,
   getMobileLockdownPolyfills,
+  getMobileLockdownWebEmbedCandidateEnabled,
+  getMobileLockdownE2ERunId,
+  mobileLockdownE2EGate,
   isMobileLockdownEnabled,
 };

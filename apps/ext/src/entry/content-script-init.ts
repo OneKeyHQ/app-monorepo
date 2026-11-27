@@ -129,7 +129,6 @@ export interface IOneKeyWalletInfo {
 
     isExtension?: boolean;
     isExtChrome?: boolean;
-    isExtFirefox?: boolean;
 
     isDesktop?: boolean;
     isDesktopWin?: boolean;

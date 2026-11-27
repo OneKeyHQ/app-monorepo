@@ -1,6 +1,6 @@
 const path = require('path');
 
-const outputRoot = path.resolve(__dirname, '../../build/firefox_v3');
+const outputRoot = path.resolve(__dirname, '../../build/chrome_v3');
 const backgroundFiles = [
   'release-meta.js',
   'background-runtime.bundle.js',
@@ -28,6 +28,10 @@ function createOutput() {
     ['background.bundle.js', 'rspackChunkonekey_ext_background'],
     ['background-vendor.bundle.js', '/* background vendor */'],
     [
+      'background.bootstrap.js',
+      `importScripts(${backgroundFiles.map((file) => JSON.stringify(file)).join(',')});`,
+    ],
+    [
       'content-script-runtime.bundle.js',
       'rspackChunkonekey_ext_content_script',
     ],
@@ -39,8 +43,9 @@ function createOutput() {
     [
       'manifest.json',
       JSON.stringify({
-        manifest_version: 2,
-        background: { page: 'background.html' },
+        manifest_version: 3,
+        background: { service_worker: 'background.bootstrap.js' },
+        action: { default_popup: 'ui-popup.html' },
         content_scripts: [
           {
             js: [
@@ -55,26 +60,15 @@ function createOutput() {
     ],
     ['content-script-vendor.bundle.js', '/* content script vendor */'],
   ]);
-  const scripts = [
-    backgroundFiles[0],
-    'preload-html-head.js?v=1',
-    ...backgroundFiles.slice(1),
-    'extra.js?v=1',
-    'extra.js?v=2#cached',
-  ];
   sources.set(
-    'background.html',
-    scripts.map((file) => `<script src="/${file}"></script>`).join(''),
+    'ui-popup.html',
+    '<script src="/preload-html-head.js?v=1"></script><script src="/extra.js?v=2#cached"></script>',
   );
-  const baselineBytes = [...backgroundFiles, 'preload-html-head.js'].reduce(
-    (total, file) => total + Buffer.byteLength(sources.get(file)),
-    0,
-  );
-  return {
-    sources,
-    baselineBytes,
-    extraBytes: Buffer.byteLength(sources.get('extra.js')),
-  };
+  const backgroundBytes = [
+    'background.bootstrap.js',
+    ...backgroundFiles,
+  ].reduce((total, file) => total + Buffer.byteLength(sources.get(file)), 0);
+  return { sources, backgroundBytes };
 }
 
 function runCheck(sources, budget) {
@@ -100,12 +94,12 @@ function runCheck(sources, budget) {
           }))
         : realFs.readdirSync(directory, options),
   }));
-  process.argv = ['node', 'check-build-output.js', '--browser', 'firefox'];
+  process.argv = ['node', 'check-build-output.js', '--browser', 'chrome'];
   process.env.EXT_BUILD_MAX_BACKGROUND_BYTES = String(budget);
   jest.isolateModules(() => require('../check-build-output'));
 }
 
-describe('Firefox background entrypoint budget', () => {
+describe('Chromium MV3 build output', () => {
   let originalArgv;
   let originalBudget;
   let log;
@@ -125,23 +119,37 @@ describe('Firefox background entrypoint budget', () => {
     jest.dontMock('fs');
   });
 
-  it('counts preload and extra scripts once after removing URL queries and fragments', () => {
-    const { sources, baselineBytes, extraBytes } = createOutput();
-    runCheck(sources, baselineBytes + extraBytes);
+  it('counts the bootstrap and background bundles without counting popup files', () => {
+    const { sources, backgroundBytes } = createOutput();
+    runCheck(sources, backgroundBytes);
     const summary = JSON.parse(log.mock.calls[0][0]);
-    expect(summary.backgroundBytes).toBe(baselineBytes + extraBytes);
+    expect(summary.backgroundBytes).toBe(backgroundBytes);
   });
 
-  it('rejects an extra script that exceeds the background budget', () => {
-    const { sources, baselineBytes, extraBytes } = createOutput();
-    expect(() => runCheck(sources, baselineBytes + extraBytes - 1)).toThrow(
+  it('rejects a background entrypoint that exceeds its budget', () => {
+    const { sources, backgroundBytes } = createOutput();
+    expect(() => runCheck(sources, backgroundBytes - 1)).toThrow(
       'Background entrypoint exceeds size budget',
     );
   });
 
+  it('rejects a Manifest V2 production output', () => {
+    const { sources, backgroundBytes } = createOutput();
+    sources.set(
+      'manifest.json',
+      JSON.stringify({
+        manifest_version: 2,
+        background: { page: 'background.html' },
+      }),
+    );
+    expect(() => runCheck(sources, backgroundBytes)).toThrow(
+      'Unexpected extension manifest version: 2 !== 3',
+    );
+  });
+
   it('validates both the current and historical vendored Stripe runtimes', () => {
-    const { sources, baselineBytes, extraBytes } = createOutput();
-    expect(() => runCheck(sources, baselineBytes + extraBytes)).not.toThrow();
+    const { sources, backgroundBytes } = createOutput();
+    expect(() => runCheck(sources, backgroundBytes)).not.toThrow();
   });
 
   it.each(['stripe.js', 'stripe-faulty.js'])(

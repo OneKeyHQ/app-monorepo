@@ -1,0 +1,39 @@
+{
+  "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
+  "resources": {
+    "@onekeyhq/shared": {
+      "globals": {
+        "document": true,
+        "location.pathname.startsWith": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "document": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": {
+      "globals": {
+        "document.createElement": true,
+        "document.documentElement": true,
+        "document.head": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": {
+      "globals": {
+        "document.createElement": true,
+        "location.hostname": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+      "globals": {
+        "location.origin": true
+      }
+    }
+  }
+}

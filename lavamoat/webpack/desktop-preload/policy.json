@@ -1,0 +1,28 @@
+{
+  "resources": {
+    "@onekeyhq/shared": {
+      "globals": {
+        "require": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/hd-core/package.json": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": {
+      "globals": {
+        "setTimeout": true,
+        "SuppressedError": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/chunk-O6YS25TV.mjs": {
+      "globals": {
+        "require": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/constants.mjs": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/chunk-O6YS25TV.mjs": true
+      }
+    }
+  }
+}

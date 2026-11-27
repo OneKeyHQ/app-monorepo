@@ -55,6 +55,62 @@
       "block": "re-exports the same hooks on web as on native",
       "count": 1,
       "reason": "Web builds resolve hooks/index.web-only.tsx before index.tsx with export presence checks off, so a re-export missing from the web barrel is undefined at runtime (it crashed web Settings). Both barrels import the whole UI layer (Toast, Button, expo modules) and cannot be loaded under Jest, so the test compares their re-export lists. Replace with a web bundle export check if one is added."
+    },
+    {
+      "file": "development/lavamoat/webpack-extension-fetch.test.cjs",
+      "rule": "source-text-assertion",
+      "block": "the named native binding shim preserves data flags and rejects accessors, nonwritable values and Object.prototype",
+      "count": 1,
+      "reason": "The marker pins the precise inline prelude loop the fixture executes in fresh realms with controlled property descriptors."
+    },
+    {
+      "file": "development/lavamoat/webpack-extension-fetch.test.cjs",
+      "rule": "source-slice-eval",
+      "block": "the named native binding shim preserves data flags and rejects accessors, nonwritable values and Object.prototype",
+      "count": 1,
+      "reason": "The inline startup prelude has no exported function. The fixture executes its real binding loop in a VM with deliberately constructed property descriptors."
+    },
+    {
+      "file": "development/lavamoat/webpack-extension-fetch.test.cjs",
+      "rule": "source-text-assertion",
+      "block": "actual protected MV3 workers bind inherited native fetch while preserving write propagation and receiver confinement",
+      "count": 2,
+      "reason": "Pins the one descriptor-lookup mutation used to reproduce the old worker behavior and checks that the comparison left the production prelude untouched."
+    },
+    {
+      "file": "development/lavamoat/webpack-extension-passkey.test.cjs",
+      "rule": "source-text-assertion",
+      "block": null,
+      "count": 1,
+      "reason": "Checks that the exact request-helper initialization is present once before deriving the comparison fixture. The fixtures execute both versions."
+    },
+    {
+      "file": "development/lavamoat/webpack-extension-passkey.test.cjs",
+      "rule": "source-slice-eval",
+      "block": "Offscreen initializes requests after bridge hardening and retains keep-alive and port recovery",
+      "count": 1,
+      "reason": "Executes the production Offscreen startup in a VM with browser bridge and timer doubles, including the comparison without request initialization."
+    },
+    {
+      "file": "development/lavamoat/webpack-extension-passkey.test.cjs",
+      "rule": "source-slice-eval",
+      "block": null,
+      "count": 1,
+      "reason": "Compiles the production Passkey and Offscreen entry variants into a real isolated MV3 extension fixture while substituting its application dependencies."
+    },
+    {
+      "file": "development/lavamoat/webpack-extension.test.cjs",
+      "rule": "source-text-assertion",
+      "block": "extension global shims install missing aliases before and after lockdown without patching intrinsics",
+      "count": 3,
+      "reason": "Pins the first import and absence of conflicting polyfills in both isolated bootstrap modules. The VM exercises the shared shim itself under real SES."
+    },
+    {
+      "file": "development/lavamoat/webpack-host-globals.test.cjs",
+      "rule": "source-slice-eval",
+      "block": "Web PostHog initializes its shipped SDK with existing privacy configuration and real native history, persistence, and local delivery",
+      "count": 1,
+      "reason": "Extracts the app’s actual SDK options without loading its production key or starting telemetry. The fixture executes the shipped SDK using those options and a local endpoint."
     }
   ]
 }

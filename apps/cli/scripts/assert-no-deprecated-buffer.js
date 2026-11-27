@@ -2,13 +2,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const cliRoot = path.resolve(__dirname, '..');
-const distCliPath = path.join(cliRoot, 'dist/cli.js');
+const defaultDistCliPath = path.join(cliRoot, 'dist/cli.js');
 
 function getLineNumber(contents, index) {
   return contents.slice(0, index).split('\n').length;
 }
 
-function assertNoDeprecatedBufferConstructors() {
+function assertNoDeprecatedBufferConstructors(
+  distCliPath = defaultDistCliPath,
+) {
   const contents = fs.readFileSync(distCliPath, 'utf8');
   const forbiddenPatterns = [
     {
@@ -64,4 +66,13 @@ function assertNoDeprecatedBufferConstructors() {
   }
 }
 
-assertNoDeprecatedBufferConstructors();
+module.exports = { assertNoDeprecatedBufferConstructors };
+
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  if (args.length > 1)
+    throw new TypeError('Expected an optional CLI bundle path');
+  assertNoDeprecatedBufferConstructors(
+    args[0] ? path.resolve(args[0]) : undefined,
+  );
+}

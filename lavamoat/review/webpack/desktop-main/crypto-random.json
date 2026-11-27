@@ -1,0 +1,20 @@
+{
+  "description": "加密、随机数、密钥相关 API",
+  "resources": {
+    "@onekeyhq/shared>react-native-uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/openpgp/dist/node/openpgp.min.js": {
+      "globals": {
+        "crypto": true
+      }
+    }
+  }
+}

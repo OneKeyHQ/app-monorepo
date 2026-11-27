@@ -1,0 +1,635 @@
+{
+  "policies": [
+    {
+      "sourcePolicy": "lavamoat/webpack/cli/policy.json",
+      "sourceOverride": "lavamoat/webpack/cli/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 806,
+      "generatedResources": 806,
+      "highRiskResources": 45,
+      "highRiskEntries": 141,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 11,
+          "entries": 14
+        },
+        "storage-privacy": {
+          "resources": 16,
+          "entries": 30
+        },
+        "extension-desktop-bridge": {
+          "resources": 1,
+          "entries": 10
+        },
+        "hardware-device": {
+          "resources": 7,
+          "entries": 7
+        },
+        "crypto-random": {
+          "resources": 11,
+          "entries": 14
+        },
+        "code-execution": {
+          "resources": 1,
+          "entries": 1
+        },
+        "dom-injection-navigation": {
+          "resources": 15,
+          "entries": 23
+        },
+        "node-system": {
+          "resources": 15,
+          "entries": 42
+        }
+      },
+      "packageEdgesToRiskyResources": 87
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/desktop-main/policy.json",
+      "sourceOverride": "lavamoat/webpack/desktop-main/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 271,
+      "generatedResources": 270,
+      "highRiskResources": 65,
+      "highRiskEntries": 306,
+      "deniedOverrides": 1,
+      "categoryCounts": {
+        "network": {
+          "resources": 8,
+          "entries": 11
+        },
+        "storage-privacy": {
+          "resources": 16,
+          "entries": 24
+        },
+        "extension-desktop-bridge": {
+          "resources": 11,
+          "entries": 34
+        },
+        "hardware-device": {
+          "resources": 5,
+          "entries": 5
+        },
+        "crypto-random": {
+          "resources": 3,
+          "entries": 3
+        },
+        "code-execution": {
+          "resources": 9,
+          "entries": 13
+        },
+        "dom-injection-navigation": {
+          "resources": 15,
+          "entries": 23
+        },
+        "node-system": {
+          "resources": 44,
+          "entries": 193
+        }
+      },
+      "packageEdgesToRiskyResources": 128
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/desktop-preload/policy.json",
+      "sourceOverride": "lavamoat/webpack/desktop-preload/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 5,
+      "generatedResources": 4,
+      "highRiskResources": 0,
+      "highRiskEntries": 0,
+      "deniedOverrides": 1,
+      "categoryCounts": {
+        "network": {
+          "resources": 0,
+          "entries": 0
+        },
+        "storage-privacy": {
+          "resources": 0,
+          "entries": 0
+        },
+        "extension-desktop-bridge": {
+          "resources": 0,
+          "entries": 0
+        },
+        "hardware-device": {
+          "resources": 0,
+          "entries": 0
+        },
+        "crypto-random": {
+          "resources": 0,
+          "entries": 0
+        },
+        "code-execution": {
+          "resources": 0,
+          "entries": 0
+        },
+        "dom-injection-navigation": {
+          "resources": 0,
+          "entries": 0
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 0
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/desktop-services/index/policy.json",
+      "sourceOverride": "lavamoat/webpack/desktop-services/index/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 1,
+      "generatedResources": 1,
+      "highRiskResources": 1,
+      "highRiskEntries": 16,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 0,
+          "entries": 0
+        },
+        "storage-privacy": {
+          "resources": 0,
+          "entries": 0
+        },
+        "extension-desktop-bridge": {
+          "resources": 1,
+          "entries": 1
+        },
+        "hardware-device": {
+          "resources": 0,
+          "entries": 0
+        },
+        "crypto-random": {
+          "resources": 0,
+          "entries": 0
+        },
+        "code-execution": {
+          "resources": 0,
+          "entries": 0
+        },
+        "dom-injection-navigation": {
+          "resources": 0,
+          "entries": 0
+        },
+        "node-system": {
+          "resources": 1,
+          "entries": 15
+        }
+      },
+      "packageEdgesToRiskyResources": 0
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/desktop-services/enum/policy.json",
+      "sourceOverride": "lavamoat/webpack/desktop-services/enum/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 0,
+      "generatedResources": 0,
+      "highRiskResources": 0,
+      "highRiskEntries": 0,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 0,
+          "entries": 0
+        },
+        "storage-privacy": {
+          "resources": 0,
+          "entries": 0
+        },
+        "extension-desktop-bridge": {
+          "resources": 0,
+          "entries": 0
+        },
+        "hardware-device": {
+          "resources": 0,
+          "entries": 0
+        },
+        "crypto-random": {
+          "resources": 0,
+          "entries": 0
+        },
+        "code-execution": {
+          "resources": 0,
+          "entries": 0
+        },
+        "dom-injection-navigation": {
+          "resources": 0,
+          "entries": 0
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 0
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/desktop-services/windowsHello/policy.json",
+      "sourceOverride": "lavamoat/webpack/desktop-services/windowsHello/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 0,
+      "generatedResources": 0,
+      "highRiskResources": 0,
+      "highRiskEntries": 0,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 0,
+          "entries": 0
+        },
+        "storage-privacy": {
+          "resources": 0,
+          "entries": 0
+        },
+        "extension-desktop-bridge": {
+          "resources": 0,
+          "entries": 0
+        },
+        "hardware-device": {
+          "resources": 0,
+          "entries": 0
+        },
+        "crypto-random": {
+          "resources": 0,
+          "entries": 0
+        },
+        "code-execution": {
+          "resources": 0,
+          "entries": 0
+        },
+        "dom-injection-navigation": {
+          "resources": 0,
+          "entries": 0
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 0
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/desktop-services/checkBiometricAuthChanged/policy.json",
+      "sourceOverride": "lavamoat/webpack/desktop-services/checkBiometricAuthChanged/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 1,
+      "generatedResources": 1,
+      "highRiskResources": 0,
+      "highRiskEntries": 0,
+      "deniedOverrides": 1,
+      "categoryCounts": {
+        "network": {
+          "resources": 0,
+          "entries": 0
+        },
+        "storage-privacy": {
+          "resources": 0,
+          "entries": 0
+        },
+        "extension-desktop-bridge": {
+          "resources": 0,
+          "entries": 0
+        },
+        "hardware-device": {
+          "resources": 0,
+          "entries": 0
+        },
+        "crypto-random": {
+          "resources": 0,
+          "entries": 0
+        },
+        "code-execution": {
+          "resources": 0,
+          "entries": 0
+        },
+        "dom-injection-navigation": {
+          "resources": 0,
+          "entries": 0
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 0
+    },
+    {
+      "sourcePolicy": "lavamoat/node/build-tools/policy.json",
+      "sourceOverride": "lavamoat/node/build-tools/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 15,
+      "generatedResources": 15,
+      "highRiskResources": 2,
+      "highRiskEntries": 20,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 1,
+          "entries": 1
+        },
+        "storage-privacy": {
+          "resources": 1,
+          "entries": 3
+        },
+        "extension-desktop-bridge": {
+          "resources": 0,
+          "entries": 0
+        },
+        "hardware-device": {
+          "resources": 1,
+          "entries": 1
+        },
+        "crypto-random": {
+          "resources": 0,
+          "entries": 0
+        },
+        "code-execution": {
+          "resources": 1,
+          "entries": 1
+        },
+        "dom-injection-navigation": {
+          "resources": 1,
+          "entries": 1
+        },
+        "node-system": {
+          "resources": 1,
+          "entries": 13
+        }
+      },
+      "packageEdgesToRiskyResources": 1
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/ext/mv3/pages/policy.json",
+      "sourceOverride": "lavamoat/webpack/ext/mv3/pages/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 3344,
+      "generatedResources": 3340,
+      "highRiskResources": 236,
+      "highRiskEntries": 638,
+      "deniedOverrides": 4,
+      "categoryCounts": {
+        "network": {
+          "resources": 78,
+          "entries": 95
+        },
+        "storage-privacy": {
+          "resources": 87,
+          "entries": 123
+        },
+        "extension-desktop-bridge": {
+          "resources": 13,
+          "entries": 103
+        },
+        "hardware-device": {
+          "resources": 30,
+          "entries": 31
+        },
+        "crypto-random": {
+          "resources": 53,
+          "entries": 54
+        },
+        "code-execution": {
+          "resources": 12,
+          "entries": 21
+        },
+        "dom-injection-navigation": {
+          "resources": 121,
+          "entries": 211
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 799
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/ext/mv3/background/policy.json",
+      "sourceOverride": "lavamoat/webpack/ext/mv3/background/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 3467,
+      "generatedResources": 3464,
+      "highRiskResources": 213,
+      "highRiskEntries": 540,
+      "deniedOverrides": 2,
+      "categoryCounts": {
+        "network": {
+          "resources": 89,
+          "entries": 106
+        },
+        "storage-privacy": {
+          "resources": 71,
+          "entries": 113
+        },
+        "extension-desktop-bridge": {
+          "resources": 8,
+          "entries": 68
+        },
+        "hardware-device": {
+          "resources": 41,
+          "entries": 42
+        },
+        "crypto-random": {
+          "resources": 75,
+          "entries": 79
+        },
+        "code-execution": {
+          "resources": 15,
+          "entries": 21
+        },
+        "dom-injection-navigation": {
+          "resources": 65,
+          "entries": 111
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 536
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/ext/mv3/content-script/policy.json",
+      "sourceOverride": "lavamoat/webpack/ext/mv3/content-script/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 46,
+      "generatedResources": 46,
+      "highRiskResources": 14,
+      "highRiskEntries": 37,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 2,
+          "entries": 2
+        },
+        "storage-privacy": {
+          "resources": 6,
+          "entries": 10
+        },
+        "extension-desktop-bridge": {
+          "resources": 4,
+          "entries": 10
+        },
+        "hardware-device": {
+          "resources": 2,
+          "entries": 2
+        },
+        "crypto-random": {
+          "resources": 2,
+          "entries": 2
+        },
+        "code-execution": {
+          "resources": 1,
+          "entries": 1
+        },
+        "dom-injection-navigation": {
+          "resources": 6,
+          "entries": 10
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 25
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/web-embed/policy.json",
+      "sourceOverride": "lavamoat/webpack/web-embed/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 450,
+      "generatedResources": 450,
+      "highRiskResources": 56,
+      "highRiskEntries": 133,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 11,
+          "entries": 18
+        },
+        "storage-privacy": {
+          "resources": 25,
+          "entries": 40
+        },
+        "extension-desktop-bridge": {
+          "resources": 2,
+          "entries": 6
+        },
+        "hardware-device": {
+          "resources": 5,
+          "entries": 5
+        },
+        "crypto-random": {
+          "resources": 20,
+          "entries": 20
+        },
+        "code-execution": {
+          "resources": 4,
+          "entries": 5
+        },
+        "dom-injection-navigation": {
+          "resources": 27,
+          "entries": 39
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 111
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/web/policy.json",
+      "sourceOverride": "lavamoat/webpack/web/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 4672,
+      "generatedResources": 4668,
+      "highRiskResources": 300,
+      "highRiskEntries": 775,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 120,
+          "entries": 152
+        },
+        "storage-privacy": {
+          "resources": 117,
+          "entries": 182
+        },
+        "extension-desktop-bridge": {
+          "resources": 10,
+          "entries": 20
+        },
+        "hardware-device": {
+          "resources": 57,
+          "entries": 59
+        },
+        "crypto-random": {
+          "resources": 81,
+          "entries": 86
+        },
+        "code-execution": {
+          "resources": 23,
+          "entries": 34
+        },
+        "dom-injection-navigation": {
+          "resources": 133,
+          "entries": 242
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 1024
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/desktop-renderer/policy.json",
+      "sourceOverride": "lavamoat/webpack/desktop-renderer/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 4370,
+      "generatedResources": 4366,
+      "highRiskResources": 302,
+      "highRiskEntries": 855,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 120,
+          "entries": 150
+        },
+        "storage-privacy": {
+          "resources": 116,
+          "entries": 171
+        },
+        "extension-desktop-bridge": {
+          "resources": 11,
+          "entries": 115
+        },
+        "hardware-device": {
+          "resources": 56,
+          "entries": 58
+        },
+        "crypto-random": {
+          "resources": 81,
+          "entries": 85
+        },
+        "code-execution": {
+          "resources": 25,
+          "entries": 36
+        },
+        "dom-injection-navigation": {
+          "resources": 135,
+          "entries": 240
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 1039
+    }
+  ],
+  "totalPolicies": 14
+}

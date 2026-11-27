@@ -1,3 +1,5 @@
+import { resolveCommitSha } from '../utils/resolveCommitSha.js';
+
 // Values that change between releases but must not invalidate unchanged modules.
 // Keep compile-time feature flags in DefinePlugin so dead code elimination works.
 export const RELEASE_ENV_KEYS = [
@@ -10,11 +12,6 @@ export const RELEASE_ENV_KEYS = [
 ] as const;
 
 export type ReleaseEnvKey = (typeof RELEASE_ENV_KEYS)[number];
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
-  resolveCommitSha: () => string;
-};
 
 export function getReleaseEnvValue(key: ReleaseEnvKey): string | undefined {
   return key === 'GITHUB_SHA' ? resolveCommitSha() : process.env[key];

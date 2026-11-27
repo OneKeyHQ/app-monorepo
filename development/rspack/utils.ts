@@ -18,7 +18,7 @@ export function createResolveExtensions({
   configName?: string;
 }): string[] {
   const result = uniq([
-    // .chrome-ext.ts, .firefox-ext.ts
+    // .chrome-ext.ts, .edge-ext.ts
     ...(extChannel && targetBrowser
       ? ['.ts', '.tsx', '.js', '.jsx'].map(
           (ext) => `.${targetBrowser}-${platform}${ext}`,

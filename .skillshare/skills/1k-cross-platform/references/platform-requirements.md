@@ -37,7 +37,6 @@ uname -s
 | **Android** | API 26 (Android 8.0 Oreo) | Explicit app minimum |
 | **iOS** | 16.4 | Deployment target |
 | **Chrome Extension** | Chrome 111+ | Required for MAIN world injection |
-| **Firefox Extension** | Latest stable | Follows Chrome manifest v2 |
 | **Desktop (Electron)** | Electron 39.x | See OS requirements below |
 | **macOS** | 10.15+ (Catalina) | Electron 39 requirement |
 | **Windows** | Windows 10+ | Electron 39 requirement |
@@ -88,12 +87,6 @@ grep "minimum_chrome_version" apps/ext/src/manifest/chrome_v3.js
 ```
 
 **Note**: Version 111+ is required for MAIN world content script injection (manifest v3 feature).
-
-### Firefox Extension
-
-**Location**: `apps/ext/src/manifest/firefox.js`
-
-Firefox manifest extends Chrome manifest but may have different requirements. Currently follows Chrome manifest v2 patterns.
 
 ### Desktop (Electron) Version
 

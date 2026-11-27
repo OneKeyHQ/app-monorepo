@@ -90,7 +90,7 @@ declare global {
   var $$onekeyPerfTrace: IOneKeyPerfTrace | undefined;
 
   var chrome: typeof chrome; // chrome api
-  var browser: typeof chrome; // firefox api
+  var browser: typeof chrome; // WebExtension API polyfill
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {

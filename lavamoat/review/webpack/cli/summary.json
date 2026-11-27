@@ -1,0 +1,45 @@
+{
+  "categoryCounts": {
+    "code-execution": {
+      "entries": 1,
+      "resources": 1
+    },
+    "crypto-random": {
+      "entries": 14,
+      "resources": 11
+    },
+    "dom-injection-navigation": {
+      "entries": 23,
+      "resources": 15
+    },
+    "extension-desktop-bridge": {
+      "entries": 10,
+      "resources": 1
+    },
+    "hardware-device": {
+      "entries": 7,
+      "resources": 7
+    },
+    "network": {
+      "entries": 14,
+      "resources": 11
+    },
+    "node-system": {
+      "entries": 42,
+      "resources": 15
+    },
+    "storage-privacy": {
+      "entries": 30,
+      "resources": 16
+    }
+  },
+  "deniedOverrides": 0,
+  "generatedResources": 806,
+  "highRiskEntries": 141,
+  "highRiskResources": 45,
+  "packageEdgesToRiskyResources": 87,
+  "reviewMode": "effective-policy",
+  "sourceOverride": "lavamoat/webpack/cli/policy-override.json",
+  "sourcePolicy": "lavamoat/webpack/cli/policy.json",
+  "totalResources": 806
+}

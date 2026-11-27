@@ -2,7 +2,12 @@ const path = require('path');
 
 const babelTools = require('../../development/babelTools');
 
-const { isMobileLockdownEnabled } = require('./plugins/mobileLockdown');
+const {
+  getMobileLockdownE2ERunId,
+  getMobileLockdownWebEmbedCandidateEnabled,
+  isMobileLockdownEnabled,
+  mobileLockdownE2EGate,
+} = require('./plugins/mobileLockdown');
 
 console.log('process.env.TAMAGUI_TARGET: ', process.env.TAMAGUI_TARGET);
 if (process.env.TAMAGUI_TARGET !== 'native') {
@@ -42,12 +47,17 @@ module.exports = function (api) {
         },
       ],
       plugins: [
+        [mobileLockdownE2EGate, { runId: getMobileLockdownE2ERunId() }],
         [
           'transform-define',
           {
             'process.env.ONEKEY_MOBILE_LOCKDOWN': String(
               isMobileLockdownEnabled(),
             ),
+            'process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER':
+              getMobileLockdownWebEmbedCandidateEnabled(),
+            'process.env.ONEKEY_MOBILE_LOCKDOWN_E2E':
+              getMobileLockdownE2ERunId(),
           },
           'mobile-lockdown-mode',
         ],

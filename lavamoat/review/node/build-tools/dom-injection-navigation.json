@@ -1,0 +1,10 @@
+{
+  "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
+  "resources": {
+    "@babel/traverse>debug": {
+      "globals": {
+        "document": true
+      }
+    }
+  }
+}

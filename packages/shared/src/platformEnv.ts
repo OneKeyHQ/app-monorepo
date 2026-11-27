@@ -23,7 +23,6 @@ export type IPlatformLegacy =
   | 'web-embed';
 export type IAppChannel =
   | 'chrome'
-  | 'firefox'
   | 'edge'
   | 'phone'
   | 'pad'
@@ -131,9 +130,7 @@ export type IPlatformEnv = {
   /** macos for appStore */
   isMas?: boolean;
 
-  isExtFirefox?: boolean;
   isExtChrome?: boolean;
-  isExtFirefoxUiPopup?: boolean;
 
   /** ios, both tablet & iPhone */
   isNativeIOS?: boolean;
@@ -193,7 +190,6 @@ const {
   isExtension,
   isNative,
   isExtChrome,
-  isExtFirefox,
   isExtEdge,
   isE2E,
   enableNativeBackgroundThread,
@@ -208,7 +204,6 @@ const {
   isExtension: boolean;
   isNative: boolean;
   isExtChrome: boolean;
-  isExtFirefox: boolean;
   isExtEdge: boolean;
   isE2E: boolean;
   enableNativeBackgroundThread: boolean;
@@ -276,7 +271,6 @@ const getPlatformSymbolLegacy = (): IPlatformLegacy | undefined => {
 
 const getAppChannel = (): IAppChannel | undefined => {
   if (isExtChrome) return 'chrome';
-  if (isExtFirefox) return 'firefox';
   if (isExtEdge) return 'edge';
 
   if (isNativeIOSPad) return 'pad';
@@ -297,8 +291,12 @@ const getAppChannel = (): IAppChannel | undefined => {
 };
 
 const isRuntimeBrowser: boolean =
-  // eslint-disable-next-line unicorn/prefer-global-this
-  typeof window !== 'undefined' && !isNative;
+  // Compartment global aliases can include `window` in a service worker or
+  // Node runtime. Require a DOM document; native main and bg remain separate.
+  !isNative &&
+  typeof document === 'object' &&
+  document !== null &&
+  document.nodeType === 9;
 
 // @ts-ignore
 const isRuntimeFirefox: boolean = typeof InstallTrigger !== 'undefined';
@@ -532,7 +530,6 @@ export const isExtensionDevelopmentBuild: boolean =
     false);
 
 export const isManifestV3: boolean =
-  // TODO firefox check v3
   isExtension &&
   globalThis.chrome?.runtime?.getManifest?.()?.manifest_version === 3;
 
@@ -606,7 +603,6 @@ const platformEnv: IPlatformEnv = {
   isDesktopStore,
   isMas,
 
-  isExtFirefox,
   isExtChrome,
 
   isNativeIOS,
@@ -636,7 +632,6 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiExpandTab,
   isExtensionUiSidePanel,
   isExtensionUiStandaloneWindow,
-  isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
   isExtensionDevelopmentBuild,
 
   isRuntimeBrowser,

@@ -76,7 +76,6 @@ interface IBuildTimeEnv {
   isExtension: boolean;
   isNative: boolean;
   isExtChrome: boolean;
-  isExtFirefox: boolean;
   enableNativeBackgroundThread: boolean;
 }
 function loadBuildTimeEnv(platform: string): IBuildTimeEnv {

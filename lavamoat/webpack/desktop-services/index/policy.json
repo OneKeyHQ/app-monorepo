@@ -1,0 +1,62 @@
+{
+  "resources": {
+    "electron-log": {
+      "builtin": {
+        "child_process.exec": true,
+        "electron": true,
+        "events": true,
+        "fs.closeSync": true,
+        "fs.existsSync": true,
+        "fs.mkdirSync": true,
+        "fs.openSync": true,
+        "fs.readdirSync": true,
+        "fs.readFileSync": true,
+        "fs.readSync": true,
+        "fs.renameSync": true,
+        "fs.statSync": true,
+        "fs.writeFile": true,
+        "fs.writeFileSync": true,
+        "http": true,
+        "https": true,
+        "os": true,
+        "path.basename": true,
+        "path.dirname": true,
+        "path.join": true,
+        "path.parse": true,
+        "path.resolve": true,
+        "util.formatWithOptions": true
+      },
+      "globals": {
+        "__dirname": true,
+        "__electronLog": "write",
+        "Buffer.alloc": true,
+        "Buffer.byteLength": true,
+        "Buffer.from": true,
+        "console.debug": true,
+        "console.error": true,
+        "console.info": true,
+        "console.log": true,
+        "console.warn": true,
+        "postMessage": true,
+        "process.argv.filter": true,
+        "process.contextIsolated": true,
+        "process.cwd": true,
+        "process.env.APPDATA": true,
+        "process.env.ELECTRON_IS_DEV": true,
+        "process.env.FORCE_STYLES": true,
+        "process.env.HOME": true,
+        "process.env.XDG_CONFIG_HOME": true,
+        "process.execPath": true,
+        "process.on": true,
+        "process.platform": true,
+        "process.removeListener": true,
+        "process.resourcesPath": true,
+        "process.stderr": true,
+        "process.stdout": true,
+        "process.type": true,
+        "process.versions.electron": true,
+        "URLSearchParams": true
+      }
+    }
+  }
+}

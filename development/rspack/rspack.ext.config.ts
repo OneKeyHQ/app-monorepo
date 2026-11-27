@@ -262,10 +262,6 @@ function removeDefaultHtmlPlugin(config: RspackOptions): void {
   );
 }
 
-function getSwcTargets(): Record<string, string> {
-  return targetBrowser === 'firefox' ? { firefox: '115' } : { chrome: '111' };
-}
-
 function createCompilerConfig({
   basePath,
   compilerName,
@@ -284,7 +280,7 @@ function createCompilerConfig({
     basePath,
     configName,
     target: ['web', 'es2022'],
-    swcTargets: getSwcTargets(),
+    swcTargets: { chrome: '111' },
     enableImportMetaCompat: true,
     enableSentryMinimalCompat: true,
     removeFirstPartyConsole: true,
@@ -335,7 +331,7 @@ function enablePagesCodeSplitting(config: RspackOptions): void {
     ...currentSplitChunks,
     chunks: 'all',
     minSize: 100 * 1024,
-    maxSize: targetBrowser === 'firefox' ? 1024 * 1024 : 4 * 1024 * 1024,
+    maxSize: 4 * 1024 * 1024,
     hidePathInfo: true,
     automaticNameDelimiter: '.',
     name: false,

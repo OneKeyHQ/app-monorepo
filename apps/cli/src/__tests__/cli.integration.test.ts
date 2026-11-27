@@ -116,9 +116,14 @@ function createLoginDependencies({
   paths: IVaultClientPaths;
   vaultClient: VaultClient;
 }): Required<
-  Pick<ILoginPipelineDependencies, 'createMasterKey' | 'logoutPipeline'>
+  Pick<
+    ILoginPipelineDependencies,
+    'createMasterKey' | 'logoutPipeline' | 'deriveDisplayAddress'
+  >
 > {
   return {
+    // Keep the optional receiver-side lookup out of the live vault and key API.
+    deriveDisplayAddress: jest.fn(async () => ''),
     createMasterKey: () =>
       createMasterKey({
         account: paths.masterKeyAccount,
@@ -516,6 +521,7 @@ describe('onekey CLI (integration)', () => {
           vaultClient,
         }),
       ).resolves.toEqual({ ok: true, data: { keyId: 'B'.repeat(43) } });
+      expect(loginDependencies.deriveDisplayAddress).toHaveBeenCalledTimes(1);
 
       await expect(keychainStorage.get(MASTER_KEY_ACCOUNT)).resolves.toEqual(
         expect.any(Buffer),
@@ -551,6 +557,7 @@ describe('onekey CLI (integration)', () => {
         now: () => 3000,
         vaultClient,
       });
+      expect(loginDependencies.deriveDisplayAddress).toHaveBeenCalledTimes(1);
 
       const fetchKey = jest.fn(async () => ({
         kind: 'ok' as const,
@@ -612,6 +619,7 @@ describe('onekey CLI (integration)', () => {
         now: () => 5000,
         vaultClient,
       });
+      expect(loginDependencies.deriveDisplayAddress).toHaveBeenCalledTimes(1);
       events.length = 0;
 
       await executeLogoutPipeline({
@@ -674,6 +682,7 @@ describe('onekey CLI (integration)', () => {
         now: () => 6000,
         vaultClient,
       });
+      expect(loginDependencies.deriveDisplayAddress).toHaveBeenCalledTimes(1);
       events.length = 0;
 
       const signer = new SignerSoftwareBase({

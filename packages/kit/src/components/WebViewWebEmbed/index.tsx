@@ -12,7 +12,9 @@ import {
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
+  ANDROID_WEB_EMBED_DOCUMENT_URL,
   EWebEmbedRoutePath,
+  IOS_WEB_EMBED_DOCUMENT_URL,
   WEB_EMBED_ANDROID_LOCAL_ORIGIN,
 } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -85,7 +87,7 @@ function getAndroidLocalOriginWebEmbedUrl(webEmbedPath: string) {
       url: webEmbedPath,
     });
   }
-  return `${WEB_EMBED_ANDROID_LOCAL_ORIGIN}/web-embed/index.html`;
+  return ANDROID_WEB_EMBED_DOCUMENT_URL;
 }
 
 // /onboarding/auto_typing
@@ -317,11 +319,14 @@ export function WebViewWebEmbed({
     }
     // iOS
     if (platformEnv.isNativeIOS) {
+      const uri = process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER
+        ? IOS_WEB_EMBED_DOCUMENT_URL
+        : 'web-embed/index.html';
       defaultLogger.app.webembed.webEmbedWebViewSource({
-        nativeUri: 'web-embed/index.html',
+        nativeUri: uri,
       });
       return {
-        uri: 'web-embed/index.html',
+        uri,
       };
     }
     defaultLogger.app.webembed.webEmbedWebViewSource({});
@@ -433,6 +438,14 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
+        oneKeyWebEmbedAssets={Boolean(
+          process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER &&
+          !remoteUrl &&
+          ((platformEnv.isNativeAndroid &&
+            nativeWebviewSource?.uri === ANDROID_WEB_EMBED_DOCUMENT_URL) ||
+            (platformEnv.isNativeIOS &&
+              nativeWebviewSource?.uri === IOS_WEB_EMBED_DOCUMENT_URL)),
+        )}
         allowFileAccess={allowFileAccessByUrl}
         allowFileAccessFromFileURLs={allowFileAccessByUrl}
         allowingReadAccessToURL={iosAllowingReadAccessToURL}
@@ -574,11 +587,14 @@ export function WebViewWebEmbed({
   const debugViewSize = useMemo(() => {
     if (config?.debug) {
       if (minimized) {
-        return { width: '$8', height: '$6', borderWidth: 4 };
+        return { width: '$8', height: '$6', borderWidth: 4, opacity: 1 };
       }
-      return { width: '90%', height: '$60', borderWidth: 4 };
+      return { width: '90%', height: '$60', borderWidth: 4, opacity: 1 };
     }
-    return { width: 0, height: 0, borderWidth: 0 };
+    // Fabric recycles a zero-sized host view during startup layout passes.
+    // Keep a tiny transparent surface so the WebView's JS runtime survives
+    // those passes while remaining invisible in production.
+    return { width: 1, height: 1, borderWidth: 0, opacity: 0 };
   }, [config?.debug, minimized]);
 
   if (!isSingleton) {
@@ -589,7 +605,11 @@ export function WebViewWebEmbed({
     <View
       width={debugViewSize.width}
       height={debugViewSize.height}
+      minWidth={1}
+      minHeight={1}
       borderWidth={debugViewSize.borderWidth}
+      opacity={debugViewSize.opacity}
+      collapsable={false}
       overflow="hidden"
       top={top}
       left="5%"

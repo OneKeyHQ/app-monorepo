@@ -78,6 +78,16 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
         require('./src/splitBundle/nativeBridge') as typeof import('./src/splitBundle/nativeBridge');
       installProdBundleLoader(getNativeSplitBundleLoader());
     }
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { runMobileLockdownReleaseCheck } =
+        require('./src/security/mobileLockdownReleaseCheck') as typeof import('./src/security/mobileLockdownReleaseCheck');
+      const { getNativeSplitBundleLoader } =
+        require('./src/splitBundle/nativeBridge') as typeof import('./src/splitBundle/nativeBridge');
+      void runMobileLockdownReleaseCheck('main', getNativeSplitBundleLoader());
+      const { requestMobileLockdownWebEmbedMount } =
+        require('./src/security/mobileLockdownWebEmbedReleaseCheck') as typeof import('./src/security/mobileLockdownWebEmbedReleaseCheck');
+      void requestMobileLockdownWebEmbedMount();
+    }
     const { NativeLogger: _NL2, LogLevel: _LL2 } =
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
     _NL2.write(
