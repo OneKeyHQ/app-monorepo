@@ -9,7 +9,7 @@ import { OHTTPClient, KeyConfig } from "ohttp-ts";
 // onekey: the HPKE suite moved behind a platform-swappable factory so Hermes can
 // supply pure-JS primitives; upstream constructed it inline from `hpke` here.
 import { decompressResponseText } from "../platform/decompressResponseText";
-import { createPlatformHpkeSuite } from "../platform/hpkeSuite";
+import { createPlatformHpkeSuite, decapsulateOhttpResponse } from "../platform/hpkeSuite";
 import { withTimeoutSignal } from "../platform/timeoutSignal";
 import { ReorgError, ServiceHttpError } from "./errors";
 
@@ -115,7 +115,7 @@ export class OhttpClient {
     }
 
     // Decrypt the OHTTP response
-    const innerResponse = await context.decapsulateResponse(response);
+    const innerResponse = await decapsulateOhttpResponse(context, response);
 
     // The reconstructed Response from decapsulateResponse does not auto-decompress
     // Content-Encoding (unlike fetch). Handle gzip/deflate explicitly.

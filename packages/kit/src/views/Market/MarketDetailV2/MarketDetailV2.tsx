@@ -657,7 +657,7 @@ function MarketDetailV2(
     | ETabMarketRoutes.MarketDetailV2
     | ETabMarketRoutes.MarketStockDetail
     | ETabMarketRoutes.MarketNativeDetail
-  >,
+  > & { tabBarVisibilityManagedByRoute?: boolean },
 ) {
   const { navigation } = props;
   const routeName = props.route.name;
@@ -840,9 +840,10 @@ function MarketDetailV2(
   );
 
   useMarketDetailTabBarVisibility(
-    effectiveIsChartFullscreen ||
-      platformEnv.isNative ||
-      (!platformEnv.isExtension && media.md),
+    !props.tabBarVisibilityManagedByRoute &&
+      (effectiveIsChartFullscreen ||
+        platformEnv.isNative ||
+        (!platformEnv.isExtension && media.md)),
     finishMarketDetailTabBarTransition,
   );
 
