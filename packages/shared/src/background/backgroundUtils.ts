@@ -33,6 +33,7 @@ import {
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
+  IMPL_STARKNET,
   IMPL_STELLAR,
   IMPL_SUI,
   IMPL_TBTC,
@@ -309,6 +310,7 @@ export const scopeNetworks: Record<
   'nostr': [IMPL_NOSTR],
   'neo': [IMPL_NEO],
   'stellar': [IMPL_STELLAR],
+  'starknet': [IMPL_STARKNET],
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$walletConnect': undefined,
@@ -333,6 +335,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.webln,
   IInjectedProviderNames.bfc,
   IInjectedProviderNames.neo,
+  IInjectedProviderNames.starknet,
 ];
 
 export function getNetworkImplsFromDappScope(

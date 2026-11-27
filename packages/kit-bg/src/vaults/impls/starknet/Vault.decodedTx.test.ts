@@ -215,7 +215,7 @@ describe('Starknet private transaction public spending', () => {
     );
   });
 
-  it.each(['register', 'deposit', 'withdraw', 'transfer'] as const)(
+  it.each(['register', 'transfer'] as const)(
     'includes an explicit Type component in txDisplay for Starknet privacy %s',
     async (kind) => {
       const encodedTx = buildEncodedTx(false);
@@ -243,6 +243,40 @@ describe('Starknet private transaction public spending', () => {
         result.txDisplay?.components.some(
           (component) =>
             component.type === 'default' && component.label === 'Operation',
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it.each(['deposit', 'withdraw'] as const)(
+    'omits redundant Type, From/To, and pool Address rows in txDisplay for Starknet privacy %s',
+    async (kind) => {
+      const encodedTx = buildEncodedTx(false);
+      encodedTx.privacy = {
+        kind,
+        tokenAddress: STRK,
+        amount: '1000000000000000000',
+        recipient: ACCOUNT_ADDRESS,
+        poolAddress: '0x456',
+        protocolFee: '4500000000000000000',
+        proof: '0x01',
+        proofFacts: [],
+        provingBlockId: 991,
+        builtAt: Date.now(),
+      };
+      const result = await buildVault().buildDecodedTx({
+        unsignedTx: { encodedTx },
+      });
+      expect(result.isLocalParsed).toBe(true);
+      expect(result.txDisplay?.title).toBeTruthy();
+      expect(
+        result.txDisplay?.components.some(
+          (component) => component.type === 'default',
+        ),
+      ).toBe(false);
+      expect(
+        result.txDisplay?.components.some(
+          (component) => component.type === 'address',
         ),
       ).toBe(false);
     },
