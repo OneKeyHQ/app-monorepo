@@ -443,10 +443,9 @@ class ServiceApp extends ServiceBase {
               name === BROWSER_LOG_DATABASE
                 ? (transaction) => {
                     // Keep the retained logger schema ready for fresh writes.
-                    transaction.objectStore('meta').put(
-                      { nextId: 1, bytes: 0, count: 0 },
-                      'state',
-                    );
+                    transaction
+                      .objectStore('meta')
+                      .put({ nextId: 1, bytes: 0, count: 0 }, 'state');
                   }
                 : undefined,
             );
