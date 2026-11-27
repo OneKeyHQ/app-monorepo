@@ -274,6 +274,7 @@ function PerpNativeSplitPanel({
             overflow="hidden"
           >
             <PerpChartTokenSelector
+              coin={coin}
               display={tokenDisplay}
               onSelectToken={handleSelectToken}
               testID={`${PerpTestIDs.NativeChartPanelToken}-${id}`}
