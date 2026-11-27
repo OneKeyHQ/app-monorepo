@@ -1603,6 +1603,49 @@ describe('ServiceApp privacy database reset ordering', () => {
     }
   });
 
+  it('does not clear an optional database that opens after its reset deadline', async () => {
+    jest.useFakeTimers();
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
+    const db = { close: jest.fn(), transaction: jest.fn() };
+    const request = {
+      result: db,
+      addEventListener: jest.fn(),
+      onsuccess: () => {},
+    };
+    const open = jest.fn().mockReturnValue(request);
+    Object.assign(globalThis, {
+      indexedDB: {
+        databases: jest.fn().mockResolvedValue([{ name: 'sentry-offline' }]),
+        open,
+      },
+    });
+
+    try {
+      const log = jest.fn();
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearRemainingBrowserData: (logger: typeof log) => Promise<void>;
+      };
+      const cleanup = service.clearRemainingBrowserData(log);
+      await jest.advanceTimersByTimeAsync(1000);
+      await expect(cleanup).resolves.toBeUndefined();
+      expect(open).toHaveBeenCalledWith('sentry-offline');
+      request.onsuccess();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(db.close).toHaveBeenCalledTimes(1);
+      expect(db.transaction).not.toHaveBeenCalled();
+      expect(log).not.toHaveBeenCalledWith('otherIndexedDBs', 'cleared', {
+        detail: 'sentry-offline',
+      });
+    } finally {
+      jest.useRealTimers();
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'indexedDB', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'indexedDB');
+      }
+    }
+  });
+
   it('marks ServiceLogger reset failure when resetApp fails and resets flag on retry', async () => {
     const beginResetAttempt = jest.fn();
     const markResetFailed = jest.fn();

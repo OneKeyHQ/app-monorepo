@@ -672,6 +672,7 @@ export class IndexedDBPromised<
     factory: IDBFactory,
     name: string,
     onBlocked?: () => void,
+    canClear?: () => boolean,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const request = factory.open(name);
@@ -692,6 +693,11 @@ export class IndexedDBPromised<
       request.onsuccess = () => {
         const db = request.result;
         try {
+          // Optional reset must not clear data written after it has finished.
+          if (canClear && !canClear()) {
+            resolve();
+            return;
+          }
           const stores = Array.from(db.objectStoreNames);
           if (stores.length === 0) {
             resolve();

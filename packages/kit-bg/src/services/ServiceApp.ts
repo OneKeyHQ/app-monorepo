@@ -415,11 +415,16 @@ class ServiceApp extends ServiceBase {
           }
           // Keep the empty schema. A queued delete cannot be canceled and
           // would block new opens while another connection remains active.
-          const clear = async () => {
-            await IndexedDBPromised.clearDatabaseForReset(indexedDB, name, () =>
-              log(stage, 'blocked', { detail: name }),
+          const clear = async (canClear?: () => boolean) => {
+            await IndexedDBPromised.clearDatabaseForReset(
+              indexedDB,
+              name,
+              () => log(stage, 'blocked', { detail: name }),
+              canClear,
             );
-            log(stage, 'cleared', { detail: name });
+            if (!canClear || canClear()) {
+              log(stage, 'cleared', { detail: name });
+            }
           };
           if (OPTIONAL_RESET_DATABASES.has(name)) {
             await this.runOptionalResetCleanup(
@@ -511,17 +516,20 @@ class ServiceApp extends ServiceBase {
   private async runOptionalResetCleanup(
     log: IResetStageLogger,
     stage: string,
-    task: () => unknown,
+    task: (canContinue: () => boolean) => unknown,
   ) {
+    let active = true;
     try {
       await this.runResetStage(
         log,
         stage,
-        task,
+        () => task(() => active),
         RESET_OPTIONAL_CLEANUP_DEADLINE_MS,
       );
     } catch {
       // runResetStage records the failure, but this is not required erasure.
+    } finally {
+      active = false;
     }
   }
 
