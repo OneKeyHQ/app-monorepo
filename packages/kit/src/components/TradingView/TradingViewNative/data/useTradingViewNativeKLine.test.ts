@@ -4997,36 +4997,54 @@ describe('TradingViewNative K-line data state machine', () => {
     ]);
   });
 
-  it('keeps the live edge during Hyperliquid gap repair after a delayed visible range report', async () => {
-    const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
-      '1',
-      60,
-    );
-    const pointCount = result.current.points.length;
-    const liveRange = { startIndex: 0, endIndex: pointCount, pointCount };
-    const next = right + 60;
-    pushRealtimePoint(buildResponse(125, next).points[0]);
-    expect(result.current.points).toHaveLength(pointCount + 1);
-    act(() => result.current.handleVisiblePointRangeChange(liveRange));
-
-    await act(async () => {
-      gap.resolve(
-        buildMultiPointResponse([
-          { close: 110, timestamp: left },
-          { close: 115, timestamp: middle },
-        ]),
+  it.each([
+    { mode: 'live', followsLive: true },
+    { mode: 'panned', followsLive: false },
+  ])(
+    'preserves the $mode viewport during Hyperliquid gap repair after a delayed visible range report',
+    async ({ followsLive }) => {
+      const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+        '1',
+        60,
       );
-      await gap.promise;
-    });
+      const pointCount = result.current.points.length;
+      const range = {
+        startIndex: 0,
+        endIndex: pointCount,
+        followsLive,
+      };
+      const next = right + 60;
+      pushRealtimePoint(buildResponse(125, next).points[0]);
+      expect(result.current.points).toHaveLength(pointCount + 1);
+      act(() => result.current.handleVisiblePointRangeChange(range));
 
-    expect(result.current.points.map((point) => point.t)).toEqual([
-      left,
-      middle,
-      right,
-      next,
-    ]);
-    expect(result.current.viewportRequest).toBeNull();
-  });
+      await act(async () => {
+        gap.resolve(
+          buildMultiPointResponse([
+            { close: 110, timestamp: left },
+            { close: 115, timestamp: middle },
+          ]),
+        );
+        await gap.promise;
+      });
+
+      expect(result.current.points.map((point) => point.t)).toEqual([
+        left,
+        middle,
+        right,
+        next,
+      ]);
+      expect(result.current.viewportRequest).toEqual(
+        followsLive
+          ? null
+          : expect.objectContaining({
+              preserveVisibleAnchor: true,
+              insertedAfterAnchor: 1,
+              target: { kind: 'timestamp', timestamp: left },
+            }),
+      );
+    },
+  );
 
   it('does not request the same Hyperliquid gap again after an empty response', async () => {
     const { gap, left, result, right } = await renderPerpsRealtimeGap('1', 60);

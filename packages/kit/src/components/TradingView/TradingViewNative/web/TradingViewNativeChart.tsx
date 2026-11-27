@@ -48,12 +48,10 @@ import {
   type ITradingViewNativeChartRuntimeState,
   createTradingViewNativeChartRuntimeState,
   getTradingViewNativeChartRuntimeVisiblePointRange,
+  getTradingViewNativeViewportRequestEvent,
   reduceTradingViewNativeChartRuntime,
 } from '../utils/chartRuntime';
-import {
-  getTradingViewNativeDataUpdateMetadata,
-  getTradingViewNativeViewportPointRange,
-} from '../utils/chartViewport';
+import { getTradingViewNativeDataUpdateMetadata } from '../utils/chartViewport';
 import { getTradingViewNativeMainPriceRange } from '../utils/mainPriceRange';
 import { getTradingViewNativeMainPriceAxisLayout } from '../utils/priceAxisScale';
 import {
@@ -927,32 +925,19 @@ export const TradingViewNativeChart = memo(
     }, [pointCount, points, priceAxisFontSize, priceAxisLabels]);
 
     useLayoutEffect(() => {
-      if (
-        !viewportRequest ||
-        (viewportRequest.requestId ===
-          appliedViewportRequestRef.current.requestId &&
-          measuredChartWidth ===
-            appliedViewportRequestRef.current.chartWidth) ||
-        measuredChartWidth <= 0 ||
-        pointCount <= 0
-      ) {
-        return;
-      }
-      const pointRange = getTradingViewNativeViewportPointRange({
+      if (!viewportRequest) return;
+      const event = getTradingViewNativeViewportRequestEvent({
+        applied: appliedViewportRequestRef.current,
+        chartWidth: measuredChartWidth,
         points,
-        target: viewportRequest.target,
+        request: viewportRequest,
       });
-      if (!pointRange) {
+      if (!event) {
         return;
       }
       const nextRuntimeState = reduceTradingViewNativeChartRuntime(
         runtimeStateRef.current,
-        {
-          chartWidth: measuredChartWidth,
-          pointCount,
-          pointRange,
-          type: 'viewportRequested',
-        },
+        event,
       );
       const nextViewport = nextRuntimeState.viewport;
       if (
@@ -1121,7 +1106,6 @@ export const TradingViewNativeChart = memo(
           state: runtimeStateRef.current,
         }),
         followedTimeRange: getFollowedTimeRange(),
-        pointCount,
       });
     }, [
       getFollowedTimeRange,

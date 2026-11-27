@@ -241,7 +241,7 @@ interface IHistoryGapRecoveryProgressOptions {
 }
 
 interface IScopedVisiblePointRange {
-  atRightEdge: boolean;
+  followsLive: boolean;
   endIndex: number;
   interval: ITradingViewNativeChartInterval;
   seriesKey: string;
@@ -1573,20 +1573,24 @@ function getVisiblePointAnchorTimestamp({
   return points[Math.floor((startIndex + endIndex) / 2)]?.t;
 }
 
-function gapAddsCandles(
+function countInsertedGapCandles(
   points: IMarketTokenKLineDataPoint[],
   gapPoints: IMarketTokenKLineDataPoint[],
   realtimeBuffer: Map<number, IMarketTokenKLineDataPoint>,
+  afterTimestamp: number,
 ) {
-  return gapPoints.some(({ t }) => {
+  const inserted = new Set<number>();
+  for (const { t } of gapPoints) {
     // A tick may already be queued in the same React batch as the gap response.
-    if (realtimeBuffer.has(t)) return false;
-    const match = getTradingViewNativeViewportPointRange({
-      points,
-      target: { kind: 'timestamp', timestamp: t },
-    });
-    return !match || points[match.firstIndex].t !== t;
-  });
+    if (t > afterTimestamp && !realtimeBuffer.has(t)) {
+      const match = getTradingViewNativeViewportPointRange({
+        points,
+        target: { kind: 'timestamp', timestamp: t },
+      });
+      if (!match || points[match.firstIndex].t !== t) inserted.add(t);
+    }
+  }
+  return inserted.size;
 }
 
 function getViewportTargetTimeRange(target: ITradingViewNativeViewportTarget) {
@@ -3269,12 +3273,12 @@ export function useTradingViewNativeKLine({
       {
         endIndex,
         followedTimeRange,
-        pointCount,
+        followsLive,
         startIndex,
       }: {
         endIndex?: number;
         followedTimeRange?: ITradingViewNativeFollowedTimeRange;
-        pointCount?: number;
+        followsLive?: boolean;
         startIndex: number;
       },
       gapOnly = false,
@@ -3292,10 +3296,10 @@ export function useTradingViewNativeKLine({
 
       if (endIndex !== undefined && Number.isFinite(endIndex)) {
         visiblePointRangeRef.current = {
-          atRightEdge:
+          followsLive:
             gapOnly && visiblePointRangeRef.current
-              ? visiblePointRangeRef.current.atRightEdge
-              : endIndex >= (pointCount ?? currentChartData.points.length),
+              ? visiblePointRangeRef.current.followsLive
+              : (followsLive ?? endIndex >= currentChartData.points.length),
           endIndex,
           interval: activeInterval,
           seriesKey,
@@ -3481,22 +3485,31 @@ export function useTradingViewNativeKLine({
                   latestVisibleRange?.seriesKey === seriesKey &&
                   latestVisibleRange.interval === activeInterval &&
                   (!fixedHyperliquidCandles ||
-                    ((pagination.hasMoreAfter ||
-                      !latestVisibleRange.atRightEdge) &&
-                      gapAddsCandles(
-                        latestChartData.points,
-                        gapPoints,
-                        realtimePointBufferRef.current,
-                      )))
+                    pagination.hasMoreAfter ||
+                    !latestVisibleRange.followsLive)
                     ? getVisiblePointAnchorTimestamp({
                         points: latestChartData.points,
                         range: latestVisibleRange,
                       })
                     : undefined;
-                if (anchorTimestamp !== undefined) {
+                const preservePan =
+                  fixedHyperliquidCandles && !latestVisibleRange?.followsLive;
+                const inserted =
+                  fixedHyperliquidCandles &&
+                  latestChartData &&
+                  anchorTimestamp !== undefined
+                    ? countInsertedGapCandles(
+                        latestChartData.points,
+                        gapPoints,
+                        realtimePointBufferRef.current,
+                        preservePan ? anchorTimestamp : -Infinity,
+                      )
+                    : undefined;
+                if (anchorTimestamp !== undefined && inserted !== 0) {
                   viewportRequestIdRef.current += 1;
                   const nextViewportRequest = {
                     interval: activeInterval,
+                    insertedAfterAnchor: preservePan ? inserted : undefined,
                     preserveVisibleAnchor: true,
                     requestId: viewportRequestIdRef.current,
                     seriesKey,

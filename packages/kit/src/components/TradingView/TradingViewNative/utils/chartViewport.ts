@@ -26,7 +26,7 @@ export interface ITradingViewNativeFollowedTimeRange {
 }
 
 export interface ITradingViewNativeVisiblePointRangeChange extends ITradingViewNativeVisiblePointRange {
-  pointCount: number;
+  followsLive: boolean;
   /**
    * While the chart follows another one of a split view, the times it lines
    * up with: from the oldest to the newest candle in view there.
@@ -66,6 +66,8 @@ export type ITradingViewNativeViewportTarget =
     };
 
 export interface ITradingViewNativeViewportRequest {
+  /** Interior insertions to the right of a panned anchor, excluding live appends. */
+  insertedAfterAnchor?: number;
   preserveVisibleAnchor?: boolean;
   requestId: number;
   target: ITradingViewNativeViewportTarget;
@@ -328,6 +330,20 @@ export function getTradingViewNativePanOffsetBounds({
   };
 }
 
+function clampPanOffsetToBounds(
+  offset: number,
+  {
+    minOffset,
+    maxOffset,
+  }: ReturnType<typeof getTradingViewNativePanOffsetBounds>,
+) {
+  'worklet';
+
+  return Number.isFinite(offset)
+    ? Math.min(Math.max(offset, minOffset), maxOffset)
+    : 0;
+}
+
 export function clampTradingViewNativePanOffset({
   offset,
   ...viewport
@@ -336,12 +352,25 @@ export function clampTradingViewNativePanOffset({
 }) {
   'worklet';
 
-  if (!Number.isFinite(offset)) {
-    return 0;
-  }
-  const { minOffset, maxOffset } =
-    getTradingViewNativePanOffsetBounds(viewport);
-  return Math.min(Math.max(offset, minOffset), maxOffset);
+  return clampPanOffsetToBounds(
+    offset,
+    getTradingViewNativePanOffsetBounds(viewport),
+  );
+}
+
+export function getTradingViewNativePanPosition({
+  offset,
+  ...viewport
+}: Parameters<typeof clampTradingViewNativePanOffset>[0]) {
+  'worklet';
+
+  const bounds = getTradingViewNativePanOffsetBounds(viewport);
+  const clampedOffset = clampPanOffsetToBounds(offset, bounds);
+  // Large right padding can clamp the live position away from zero.
+  return {
+    offset: clampedOffset,
+    followsLive: clampedOffset === clampPanOffsetToBounds(0, bounds),
+  };
 }
 
 export function getTradingViewNativeViewportForPointRange({
@@ -476,31 +505,19 @@ export function getTradingViewNativePanOffsetAfterDataUpdate({
   'worklet';
 
   const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
-  const clampedOffset = clampTradingViewNativePanOffset({
-    candleGap: resolvedCandleGap,
-    chartWidth,
-    initialRightOffset,
-    offset: currentOffset,
-    pointCount,
-    zoomScale,
-  });
+  const { offset: clampedOffset, followsLive } =
+    getTradingViewNativePanPosition({
+      candleGap: resolvedCandleGap,
+      chartWidth,
+      initialRightOffset,
+      offset: currentOffset,
+      pointCount,
+      zoomScale,
+    });
   const safeAppendedPointCount = Number.isFinite(appendedPointCount)
     ? Math.max(Math.floor(appendedPointCount), 0)
     : 0;
-  if (safeAppendedPointCount === 0) {
-    return clampedOffset;
-  }
-
-  // Clamping the initial right padding can move the live position away from zero.
-  const liveOffset = clampTradingViewNativePanOffset({
-    candleGap: resolvedCandleGap,
-    chartWidth,
-    initialRightOffset,
-    offset: 0,
-    pointCount,
-    zoomScale,
-  });
-  if (clampedOffset === liveOffset) {
+  if (safeAppendedPointCount === 0 || followsLive) {
     return clampedOffset;
   }
 

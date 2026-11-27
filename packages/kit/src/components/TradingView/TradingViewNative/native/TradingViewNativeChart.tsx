@@ -59,6 +59,7 @@ import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
 import { isTradingViewNativeNavigationResetAvailable } from '../utils/chartNavigation';
 import {
   getTradingViewNativeChartRuntimeVisiblePointRange,
+  getTradingViewNativeViewportRequestEvent,
   reduceTradingViewNativeChartRuntime,
 } from '../utils/chartRuntime';
 import { getTradingViewNativeRenderDataRevision } from '../utils/chartType';
@@ -66,7 +67,6 @@ import {
   getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativePanStartOffsetAfterViewportPreservation,
-  getTradingViewNativeViewportPointRange,
 } from '../utils/chartViewport';
 import { getTradingViewNativeMainPriceRange } from '../utils/mainPriceRange';
 import { isTradingViewNativeLogPriceScaleAvailable } from '../utils/priceScale';
@@ -786,10 +786,10 @@ export const TradingViewNativeChart = memo(
     }, []);
 
     const handleVisiblePointRangeChange = useCallback(
-      (startIndex: number, endIndex: number, measuredPointCount: number) => {
+      (startIndex: number, endIndex: number, followsLive: boolean) => {
         onVisiblePointRangeChange?.({
           endIndex,
-          pointCount: measuredPointCount,
+          followsLive,
           startIndex,
         });
       },
@@ -869,7 +869,7 @@ export const TradingViewNativeChart = memo(
           current.chartWidth > 0 &&
           current.pointCount > 0 &&
           (current.chartWidth !== previous?.chartWidth ||
-            current.pointCount !== previous?.pointCount ||
+            current.followsLive !== previous?.followsLive ||
             current.startIndex !== previous?.startIndex ||
             current.endIndex !== previous?.endIndex)
         ) {
@@ -877,7 +877,7 @@ export const TradingViewNativeChart = memo(
             handleVisiblePointRangeChange,
             current.startIndex,
             current.endIndex,
-            current.pointCount,
+            current.followsLive,
           );
         }
       },
@@ -1181,21 +1181,14 @@ export const TradingViewNativeChart = memo(
     ]);
 
     useLayoutEffect(() => {
-      if (
-        !viewportRequest ||
-        (viewportRequest.requestId ===
-          appliedViewportRequestRef.current.requestId &&
-          chartWidth === appliedViewportRequestRef.current.chartWidth) ||
-        chartWidth <= 0 ||
-        pointCount <= 0
-      ) {
-        return;
-      }
-      const pointRange = getTradingViewNativeViewportPointRange({
+      if (!viewportRequest) return;
+      const event = getTradingViewNativeViewportRequestEvent({
+        applied: appliedViewportRequestRef.current,
+        chartWidth,
         points,
-        target: viewportRequest.target,
+        request: viewportRequest,
       });
-      if (!pointRange) {
+      if (!event) {
         return;
       }
 
@@ -1209,12 +1202,10 @@ export const TradingViewNativeChart = memo(
         'worklet';
 
         const runtime = chartRuntime.value;
-        const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
-          chartWidth,
-          pointCount,
-          pointRange,
-          type: 'viewportRequested',
-        });
+        const nextRuntimeState = reduceTradingViewNativeChartRuntime(
+          runtime,
+          event,
+        );
         const nextViewport = nextRuntimeState.viewport;
 
         cancelAnimation(decayOffset);
