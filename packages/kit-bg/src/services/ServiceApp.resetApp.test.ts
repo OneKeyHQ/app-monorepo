@@ -1452,6 +1452,94 @@ describe('ServiceApp privacy database reset ordering', () => {
     expect(clear).not.toHaveBeenCalled();
   });
 
+  it('clears workbox-expiration records and static-assets cache without blocking on a held Service Worker connection', async () => {
+    const indexedDB = new IDBFactory();
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
+    const cachesDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'caches',
+    );
+    const deleteCache = jest.fn().mockResolvedValue(true);
+    const wasDesktop = platformEnv.isDesktop;
+    const name = 'workbox-expiration';
+    const store = 'cache-entries';
+    const open = indexedDB.open(name);
+    open.onupgradeneeded = () => {
+      open.result.createObjectStore(store).put({ timestamp: 1 }, 'asset-url');
+    };
+    const held = await new Promise<IDBDatabase>((resolve, reject) => {
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error);
+    });
+    Object.assign(globalThis, { indexedDB, caches: { delete: deleteCache } });
+    platformEnv.isDesktop = false;
+
+    try {
+      const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
+      const log = jest.fn();
+      const service = new ServiceApp({ backgroundApi: {} });
+      await (
+        service as unknown as {
+          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+        }
+      ).deleteOtherIndexedDBs(log);
+
+      expect(deleteCache).toHaveBeenCalledWith('static-assets');
+      expect(log).toHaveBeenCalledWith('workboxExpirationIndexedDB', 'cleared');
+      expect(deletion).toHaveBeenCalledWith(name);
+      const count = held.transaction(store).objectStore(store).count();
+      await expect(
+        new Promise<number>((resolve, reject) => {
+          count.onsuccess = () => resolve(count.result);
+          count.onerror = () => reject(count.error);
+        }),
+      ).resolves.toBe(0);
+    } finally {
+      held.close();
+      platformEnv.isDesktop = wasDesktop;
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'indexedDB', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'indexedDB');
+      }
+      if (cachesDescriptor) {
+        Object.defineProperty(globalThis, 'caches', cachesDescriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'caches');
+      }
+    }
+  });
+
+  it('marks ServiceLogger reset failure when resetApp fails and resets flag on retry', async () => {
+    const beginResetAttempt = jest.fn();
+    const markResetFailed = jest.fn();
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceCloudBackupV2: {
+          prepareLocalRecoveryForReset: jest
+            .fn()
+            .mockRejectedValueOnce(new Error('storage busy'))
+            .mockResolvedValueOnce(undefined),
+        },
+        serviceNotification: { unregisterClient: jest.fn() },
+        serviceLogger: {
+          beginResetAttempt,
+          markResetFailed,
+          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+        },
+        servicePrivacyChain: {
+          dropAllLocalWalletData: jest.fn().mockResolvedValue([]),
+        },
+      },
+    });
+    jest.spyOn(service, 'restartApp').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await expect(service.resetApp()).rejects.toThrow('storage busy');
+    expect(beginResetAttempt).toHaveBeenCalledTimes(1);
+    expect(markResetFailed).toHaveBeenCalledTimes(1);
+  });
+
   it('formats multi-stage resetData failures without double-wrapping stage envelopes', async () => {
     jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
     jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);

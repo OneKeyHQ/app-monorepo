@@ -84,11 +84,13 @@ const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
 const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
+const WORKBOX_EXPIRATION_INDEXED_DB_NAME = 'workbox-expiration';
+const WORKBOX_STATIC_ASSETS_CACHE_NAME = 'static-assets';
 
 type IResetStageLogger = (
   stage: string,
   event: string,
-  details?: { elapsedMs?: number; deadlineMs?: number },
+  details?: { elapsedMs?: number; deadlineMs?: number; detail?: string },
 ) => void;
 
 const resetStageErrorDetails = new WeakMap<Error, string>();
@@ -366,13 +368,36 @@ class ServiceApp extends ServiceBase {
     const results = await Promise.allSettled(
       databases.map(async ({ name }) => {
         if (name === WALLET_CONNECT_INDEXED_DB_NAME && !platformEnv.isDesktop) {
-          await this.clearAndDeleteWalletConnectIndexedDB(indexedDB, log);
+          await this.clearAndDeleteHeldIndexedDB(
+            indexedDB,
+            name,
+            'walletConnectIndexedDB',
+            log,
+          );
+        } else if (
+          name === WORKBOX_EXPIRATION_INDEXED_DB_NAME &&
+          !platformEnv.isDesktop
+        ) {
+          // Delete the Workbox Cache Storage entries together with their
+          // expiration metadata so cached assets are not orphaned outside TTL/maxEntries.
+          await globalThis.caches
+            ?.delete(WORKBOX_STATIC_ASSETS_CACHE_NAME)
+            .catch(() => {});
+          // Service Worker holds workbox-expiration open for static asset TTLs;
+          // clear its records and queue deletion without blocking app reset.
+          await this.clearAndDeleteHeldIndexedDB(
+            indexedDB,
+            name,
+            'workboxExpirationIndexedDB',
+            log,
+          );
         } else if (name && name !== APP_RESET_CONTROL_NAME) {
           await new Promise<void>((resolve, reject) => {
             const request = indexedDB.deleteDatabase(name);
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
-            request.onblocked = () => log('otherIndexedDBs', 'blocked');
+            request.onblocked = () =>
+              log('otherIndexedDBs', 'blocked', { detail: name });
           });
         }
       }),
@@ -381,15 +406,16 @@ class ServiceApp extends ServiceBase {
     if (failure) throw failure.reason;
   }
 
-  private async clearAndDeleteWalletConnectIndexedDB(
+  private async clearAndDeleteHeldIndexedDB(
     indexedDB: IDBFactory,
+    databaseName: string,
+    stage: string,
     log: IResetStageLogger,
   ) {
-    const stage = 'walletConnectIndexedDB';
     if (this.completedResetCleanups.has(stage)) return;
     await new Promise<void>((resolve, reject) => {
       let missing = false;
-      const open = indexedDB.open(WALLET_CONNECT_INDEXED_DB_NAME);
+      const open = indexedDB.open(databaseName);
       open.onupgradeneeded = () => {
         missing = true;
         open.transaction?.abort();
@@ -399,7 +425,9 @@ class ServiceApp extends ServiceBase {
           resolve();
           return;
         }
-        log(stage, 'clear_failed');
+        log(stage, 'clear_failed', {
+          detail: this.formatResetErrorDetail(open.error) || databaseName,
+        });
         reject(open.error);
       };
       open.onsuccess = () => {
@@ -416,9 +444,14 @@ class ServiceApp extends ServiceBase {
             resolve();
           };
           tx.onabort = () => {
-            log(stage, 'clear_failed');
+            log(stage, 'clear_failed', {
+              detail: this.formatResetErrorDetail(tx.error) || databaseName,
+            });
             reject(
-              tx.error ?? new OneKeyLocalError('WalletConnect clear aborted'),
+              tx.error ??
+                new OneKeyLocalError(
+                  `${databaseName === WALLET_CONNECT_INDEXED_DB_NAME ? 'WalletConnect' : databaseName} clear aborted`,
+                ),
             );
           };
           try {
@@ -430,7 +463,9 @@ class ServiceApp extends ServiceBase {
             throw error;
           }
         } catch (error) {
-          log(stage, 'clear_failed');
+          log(stage, 'clear_failed', {
+            detail: this.formatResetErrorDetail(error) || databaseName,
+          });
           reject(error);
         } finally {
           db.close();
@@ -440,7 +475,7 @@ class ServiceApp extends ServiceBase {
     this.completedResetCleanups.add(stage);
     // The records are gone even if an existing connection still blocks deletion.
     try {
-      const deletion = indexedDB.deleteDatabase(WALLET_CONNECT_INDEXED_DB_NAME);
+      const deletion = indexedDB.deleteDatabase(databaseName);
       deletion.onblocked = () => log(stage, 'blocked');
       deletion.onerror = () => log(stage, 'delete_failed');
       deletion.onsuccess = () => log(stage, 'deleted');
@@ -554,9 +589,13 @@ class ServiceApp extends ServiceBase {
       log(stage, 'completed', { elapsedMs: Date.now() - start });
       return result;
     } catch (error) {
-      log(stage, 'failed', { elapsedMs: Date.now() - start, deadlineMs });
-      if (error instanceof RecoveryCacheErasureError || timedOut) throw error;
       const detail = this.formatResetErrorDetail(error);
+      log(stage, 'failed', {
+        elapsedMs: Date.now() - start,
+        deadlineMs,
+        ...(detail ? { detail } : undefined),
+      });
+      if (error instanceof RecoveryCacheErasureError || timedOut) throw error;
       throw createResetStageError(
         detail
           ? `App reset could not complete ${stage}: ${detail}. Retry Reset App.`
@@ -669,7 +708,13 @@ class ServiceApp extends ServiceBase {
         this.completedResetCleanups.clear();
       }
       this.resetMarker = currentMarker;
-      await this.resetAppInternal(currentMarker, tryRemote && !pendingMarker);
+      this.backgroundApi.serviceLogger?.beginResetAttempt?.();
+      try {
+        await this.resetAppInternal(currentMarker, tryRemote && !pendingMarker);
+      } catch (error) {
+        this.backgroundApi.serviceLogger?.markResetFailed?.();
+        throw error;
+      }
     });
     this.resetRequest = request;
     try {
