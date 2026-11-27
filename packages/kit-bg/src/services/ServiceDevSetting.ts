@@ -477,19 +477,21 @@ class ServiceDevSetting extends ServiceBase {
             : undefined),
         },
       }));
-      await this.saveDevModeToSyncStorage();
-      await this.syncCryptoSettings();
       try {
+        await this.saveDevModeToSyncStorage();
+        await this.syncCryptoSettings();
         await this.applyNetworkThrottleAfterEnableDevMode();
       } catch (error) {
         await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
-        await this.saveDevModeToSyncStorage();
+        await this.saveDevModeToSyncStorage().catch(() => undefined);
         await this.syncCryptoSettings();
         throw error;
       }
       return;
     }
 
+    const previousFirmwareDevSettings =
+      await firmwareUpdateDevSettingsPersistAtom.get();
     await this.setDevSettingsWithCloudClockScope(() => ({
       enabled: false,
       settings: {},
@@ -498,14 +500,17 @@ class ServiceDevSetting extends ServiceBase {
       ...prev,
       usePreReleaseConfig: false,
     }));
-    await this.saveDevModeToSyncStorage();
-    await this.syncCryptoSettings();
 
     try {
+      await this.saveDevModeToSyncStorage();
+      await this.syncCryptoSettings();
       await this.clearNetworkThrottleAfterDisableDevMode();
     } catch (error) {
       await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
-      await this.saveDevModeToSyncStorage();
+      await firmwareUpdateDevSettingsPersistAtom.set(
+        () => previousFirmwareDevSettings,
+      );
+      await this.saveDevModeToSyncStorage().catch(() => undefined);
       await this.syncCryptoSettings();
       throw error;
     }
