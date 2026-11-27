@@ -316,6 +316,7 @@ struct MarketWidgetView: View {
             .monospacedDigit().lineLimit(1).minimumScaleFactor(0.65)
           if row.quote != nil {
             change(row.quote?.change24h, size: 12, isStock: asset.kind == .stock)
+              .accessibilityHidden(row.cacheDate(at: entry.date) != nil)
           }
           if row.cacheDate(at: entry.date) != nil || row.quote == nil {
             quoteStatus(row, size: 9)
