@@ -218,39 +218,20 @@ function CtxQuoteText({
   );
 }
 
-/** `priceAndPercent` shows both from one quote subscription. */
-export type ICtxPriceDisplayMode =
-  | IPerpFavoritesDisplayMode
-  | 'priceAndPercent';
-
-function CtxQuote({
-  displayMode,
-  quote,
-}: {
-  displayMode: ICtxPriceDisplayMode;
-  quote: ICtxQuote;
-}) {
-  if (displayMode !== 'priceAndPercent') {
-    return <CtxQuoteText quote={quote} displayMode={displayMode} />;
-  }
-  return (
-    <>
-      <CtxQuoteText quote={quote} displayMode="price" />
-      <CtxQuoteText quote={quote} displayMode="percent" />
-    </>
-  );
-}
-
 type ICtxModeQuoteProps = ICtxQuoteSourceProps & {
-  displayMode: ICtxPriceDisplayMode;
+  displayMode: IPerpFavoritesDisplayMode;
 };
 
 function PerpCtxPriceDisplay({ displayMode, ...source }: ICtxModeQuoteProps) {
-  return <CtxQuote quote={usePerpCtxQuote(source)} displayMode={displayMode} />;
+  return (
+    <CtxQuoteText quote={usePerpCtxQuote(source)} displayMode={displayMode} />
+  );
 }
 
 function SpotCtxPriceDisplay({ displayMode, ...source }: ICtxModeQuoteProps) {
-  return <CtxQuote quote={useSpotCtxQuote(source)} displayMode={displayMode} />;
+  return (
+    <CtxQuoteText quote={useSpotCtxQuote(source)} displayMode={displayMode} />
+  );
 }
 
 export const CtxPriceDisplay = memo(
@@ -259,7 +240,7 @@ export const CtxPriceDisplay = memo(
     mode,
     ...source
   }: ICtxQuoteSourceProps & {
-    displayMode?: ICtxPriceDisplayMode;
+    displayMode?: IPerpFavoritesDisplayMode;
     mode: 'perp' | 'spot';
   }) =>
     mode === 'spot' ? (

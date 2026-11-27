@@ -30,6 +30,7 @@ export type IMarketTokenDetailRouteParams = {
   marketVariantId?: string;
   marketTokenCategory?: string;
   preserveTokenQuote?: boolean;
+  marketWidgetToken?: IMarketPreferredToken;
   skipMarketDataFetch?: boolean;
   legacyTokenPreview?: IMarketTokenDetailPreview;
   marketTokenPreviewId?: string;

@@ -13,6 +13,7 @@ actor MarketWidgetService {
   private let session: URLSession
   private var trendingRequest: Task<MarketWidgetCatalog, Error>?
   private var requests: [String: Task<MarketWidgetQuote, Error>] = [:]
+  private var iconRequests: [String: Task<Void, Never>] = [:]
   private var chartRequests: [String: Task<MarketWidgetQuote, Error>] = [:]
   private var searchRequests: [String: (id: UUID, task: Task<MarketWidgetSearchResult, Error>)] = [:]
   private var searchCache: [String: (assets: [MarketWidgetAsset], fetchedAt: Date)] = [:]
@@ -39,6 +40,7 @@ actor MarketWidgetService {
     if let cached = store.quote(for: asset),
        Date().timeIntervalSince(cached.fetchedAt) < (force ? 15 : 300) {
       MarketWidgetDiagnostics.event("quote.cache_hit", ["ageSeconds": Int(Date().timeIntervalSince(cached.fetchedAt))])
+      await fetchCachedIcon(for: asset)
       return cached
     }
     if let request = requests[asset.id] {
@@ -54,6 +56,16 @@ actor MarketWidgetService {
     requests[asset.id] = request
     defer { requests[asset.id] = nil }
     return try await request.value
+  }
+
+  private func fetchCachedIcon(for asset: MarketWidgetAsset) async {
+    if let request = iconRequests[asset.id] { await request.value; return }
+    let request = Task {
+      await Self.fetchIcon(asset: store.assetWithMetadata(asset), store: store, session: session)
+    }
+    iconRequests[asset.id] = request
+    defer { iconRequests[asset.id] = nil }
+    await request.value
   }
 
   private func withChart(_ quote: MarketWidgetQuote, asset: MarketWidgetAsset, locale: String) async -> MarketWidgetQuote {
@@ -267,12 +279,16 @@ actor MarketWidgetService {
                                     session: URLSession = .shared) async {
     guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else { return }
     var seen = Set<String>()
-    let assets = (store.assets(for: .watchlist) + store.assets(for: .hot)
-      + store.profiles().compactMap(\.asset) + [store.desktopSettings(kind: .single)?.asset].compactMap { $0 })
+    let settings = store.profiles() + [MarketWidgetKind.single, .list].compactMap { store.desktopSettings(kind: $0) }
+      + ((try? store.storedInstanceSettings()) ?? [])
+    let selected = settings.flatMap { $0.assets ?? $0.asset.map { [$0] } ?? [] }
+    let assets = (store.assets(for: .watchlist) + (store.trending()?.assets ?? MarketWidgetAsset.defaults) + selected)
       .filter { seen.insert($0.id).inserted }
       .filter { asset in
         let known = store.assetWithMetadata(asset)
-        return known.symbol.isEmpty || known.name.isEmpty
+        let incomplete = known.symbol.isEmpty || known.name.isEmpty
+          || (known.logoURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        return incomplete && !store.hasRecentMetadata(for: asset)
       }
     // Only display metadata is needed here; charts and icon downloads remain widget work.
     for start in stride(from: 0, to: assets.count, by: 4) {
