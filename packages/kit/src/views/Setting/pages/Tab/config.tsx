@@ -318,12 +318,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       }),
                       onPress: (navigation) => {
                         // Leaving this screen, even briefly, cancels the
-                        // pending launch.
+                        // pending launch and any sign-in prompt it opened.
                         const source = watchRouteLeave();
                         void goToPageBackupList({
                           isActive: source.isActive,
                           beforeNavigate: () => navigation?.popStack(),
-                        }).finally(source.stop);
+                        });
                       },
                     }
                   : null,

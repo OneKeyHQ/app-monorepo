@@ -44,16 +44,19 @@ let isBackupErrorDialogShowing = false;
 
 // Turns inactive on the first navigation away from the current screen and
 // stays that way, so coming back before an async launch finishes cannot
-// resume it.
+// resume it. The listener outlives the launch on purpose: a sign-in prompt it
+// opened can still be confirmed later. It detaches on that first route change.
 export function watchRouteLeave() {
   const rootNavigation = rootNavigationRef.current;
-  if (!rootNavigation) return { isActive: () => true, stop: () => undefined };
+  if (!rootNavigation) return { isActive: () => true };
   const routeKey = rootNavigation.getCurrentRoute()?.key;
   let left = false;
   const unsubscribe = rootNavigation.addListener('state', () => {
-    if (rootNavigation.getCurrentRoute()?.key !== routeKey) left = true;
+    if (rootNavigation.getCurrentRoute()?.key === routeKey) return;
+    left = true;
+    unsubscribe();
   });
-  return { isActive: () => !left, stop: unsubscribe };
+  return { isActive: () => !left };
 }
 
 export function useCloudBackup() {

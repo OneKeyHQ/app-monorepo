@@ -347,14 +347,15 @@ describe.each(['Android', 'iOS', 'desktop'])(
       }
     });
 
+    function showRoute(key: string) {
+      mockRootNavigation.getCurrentRoute.mockReturnValue({
+        key,
+        name: 'source',
+      });
+      mockNavigationStateListeners.forEach((listener) => listener());
+    }
+
     it('keeps a Settings handoff cancelled after the user leaves and comes back', async () => {
-      const showRoute = (key: string) => {
-        mockRootNavigation.getCurrentRoute.mockReturnValue({
-          key,
-          name: 'source',
-        });
-        mockNavigationStateListeners.forEach((listener) => listener());
-      };
       showRoute('settings-backup');
       const source = watchRouteLeave();
       const closeSettings = jest.fn();
@@ -373,11 +374,43 @@ describe.each(['Android', 'iOS', 'desktop'])(
           beforeNavigate: closeSettings,
         });
       });
-      source.stop();
       expect(closeSettings).not.toHaveBeenCalled();
       expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      // Detached on the first route change.
       expect(mockNavigationStateListeners.size).toBe(0);
     });
+
+    if (platform === 'Android') {
+      it('keeps watching the route while the Google sign-in prompt is open', async () => {
+        showRoute('settings-backup');
+        const source = watchRouteLeave();
+        service.getCloudAccountInfo.mockResolvedValueOnce({
+          userId: '',
+          userEmail: '',
+          providerType: ECloudBackupProviderType.GoogleDrive,
+          googleDrive: { googlePlayServiceAvailable: true, userInfo: null },
+        });
+        const { result } = renderHook(() => useCloudBackup());
+        await act(async () => {
+          await result.current.goToPageBackupList({
+            isActive: source.isActive,
+            beforeNavigate: jest.fn(),
+          });
+        });
+        // The launch has finished, but the sign-in prompt is still open.
+        expect(mockNavigationStateListeners.size).toBe(1);
+        const confirmSignIn = jest.mocked(Dialog).confirm.mock.calls[0]?.[0]
+          ?.onConfirm as (() => Promise<void>) | undefined;
+        // An app link opens another screen before the user confirms.
+        showRoute('market');
+        await act(async () => {
+          await confirmSignIn?.();
+        });
+        expect(confirmSignIn).toBeDefined();
+        expect(service.loginCloudIfNeed).not.toHaveBeenCalled();
+        expect(mockNavigationStateListeners.size).toBe(0);
+      });
+    }
 
     it('preserves the wallet hook navigation plus 100ms handoff after the source unmounts', async () => {
       const source = renderHook(() =>
