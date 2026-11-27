@@ -419,6 +419,11 @@ import {
 import type { IActivityHubCampaign } from './types';
 import type { ViewInstance } from 'react-native';
 
+// The recall dialog and the desktop hint show this English catalog title.
+const RECALL_TITLE = jest.requireActual<Record<string, string>>(
+  '@onekeyhq/shared/src/locale/json/en_US.json',
+).perps_recall__title;
+
 const CAMPAIGNS: IActivityHubCampaign[] = [
   {
     id: 'campaign-1',
@@ -1038,7 +1043,7 @@ describe('Perps recall activity integration', () => {
       expect(mockDialogShow).toHaveBeenCalledTimes(1);
       expect(mockDialogShow).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'Comeback rewards',
+          title: RECALL_TITLE,
           showFooter: false,
         }),
       );
@@ -1094,7 +1099,7 @@ describe('Perps recall activity integration', () => {
       fireEvent.click(screen.getByTestId('perps-recall-banner'));
       expect(mockDialogShow).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'Comeback rewards',
+          title: RECALL_TITLE,
           showFooter: false,
         }),
       );
@@ -1167,7 +1172,7 @@ describe('Perps recall activity integration', () => {
       hub.unmount();
       resolveClose();
       await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(2));
-      expect(getDialog(1).title).toBe('Comeback rewards');
+      expect(getDialog(1).title).toBe(RECALL_TITLE);
       renderDialog(1);
       expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
       expect(screen.queryByTestId('perps-activity-dialog-back')).toBeNull();
@@ -1296,7 +1301,7 @@ describe('Perps recall activity integration', () => {
     expect(hint.queryByTestId('icon-ArrowRightOutline')).toBeNull();
     expect(hint.getByText('OneKey')).toBeTruthy();
     expect(hint.getByTestId('icon-ChartLine2Outline')).toBeTruthy();
-    expect(hint.getByText('Comeback rewards')).toBeTruthy();
+    expect(hint.getByText(RECALL_TITLE)).toBeTruthy();
     expect(hint.queryByText('ETHUSDC')).toBeNull();
     expect(
       screen.getByText(
