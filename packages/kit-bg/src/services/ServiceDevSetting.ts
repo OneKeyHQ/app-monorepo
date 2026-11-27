@@ -490,16 +490,18 @@ class ServiceDevSetting extends ServiceBase {
       return;
     }
 
-    const previousFirmwareDevSettings =
-      await firmwareUpdateDevSettingsPersistAtom.get();
     await this.setDevSettingsWithCloudClockScope(() => ({
       enabled: false,
       settings: {},
     }));
-    await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
-      ...prev,
-      usePreReleaseConfig: false,
-    }));
+    let previousUsePreReleaseConfig = false;
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => {
+      previousUsePreReleaseConfig = prev.usePreReleaseConfig;
+      return {
+        ...prev,
+        usePreReleaseConfig: false,
+      };
+    });
 
     try {
       await this.saveDevModeToSyncStorage();
@@ -507,9 +509,10 @@ class ServiceDevSetting extends ServiceBase {
       await this.clearNetworkThrottleAfterDisableDevMode();
     } catch (error) {
       await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
-      await firmwareUpdateDevSettingsPersistAtom.set(
-        () => previousFirmwareDevSettings,
-      );
+      await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
+        ...prev,
+        usePreReleaseConfig: previousUsePreReleaseConfig,
+      }));
       await this.saveDevModeToSyncStorage().catch(() => undefined);
       await this.syncCryptoSettings();
       throw error;
