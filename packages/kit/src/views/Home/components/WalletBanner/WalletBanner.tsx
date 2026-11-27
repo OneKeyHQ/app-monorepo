@@ -32,6 +32,7 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
+import { DESKTOP_MODE_UI_PAGE_BORDER_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
@@ -82,13 +83,14 @@ const BANNER_IMAGE_PLACEHOLDER = <Skeleton w="100%" h="100%" radius={8} />;
 
 const closedBanners: Record<string, boolean> = {};
 
-// Wide web home: one banner at a time in a white card. A layered shadow draws
-// the card edge; on dark surfaces only the theme-aware ring remains visible.
+// Wide web home: one banner at a time in a white card, raised the same way as
+// the Swap pay card (SWAP_RAISED_SHADOW): a hairline at the desktop page
+// border's width and a shadow that falls only below. On dark surfaces the black
+// shadow fades out and the theme-aware hairline remains. Under a pointer the
+// hairline and the shadow each deepen one step.
 const STRIP_HEIGHT = 72;
-const STRIP_SHADOW =
-  '0 0 0 1px var(--neutral3), 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 10px -4px rgba(0, 0, 0, 0.05)';
-const STRIP_SHADOW_HOVER =
-  '0 0 0 1px var(--neutral4), 0 1px 3px rgba(0, 0, 0, 0.07), 0 4px 10px -4px rgba(0, 0, 0, 0.08)';
+const STRIP_SHADOW = `0 0 0 ${DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}px var(--borderSubdued), 0 1px 1px -0.5px rgba(0, 0, 0, 0.05), 0 3px 4px -3px rgba(0, 0, 0, 0.07)`;
+const STRIP_SHADOW_HOVER = `0 0 0 ${DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}px var(--border), 0 1px 1px -0.5px rgba(0, 0, 0, 0.07), 0 3px 4px -3px rgba(0, 0, 0, 0.1)`;
 // The web animation driver writes these names into `transition-property`.
 // Reduced motion keeps the shadow, opacity and blur changes and drops movement.
 const ANIMATE_ONLY_STRIP_CARD = ['box-shadow', 'transform', 'opacity'];
