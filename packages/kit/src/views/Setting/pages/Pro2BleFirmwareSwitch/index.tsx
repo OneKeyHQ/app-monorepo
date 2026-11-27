@@ -11,12 +11,25 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { inspectPro2BleFirmwareBase64 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/pro2BundledBleFirmware';
 
-import { loadPro2BleFirmwareBase64 } from './pro2BleFirmwareAssets';
 import {
-  type IPro2BleFirmwareVersion,
+  loadPro2BleFirmwareBase64,
+  pickPro2BleFirmwareFile,
+} from './pro2BleFirmwareAssets';
+import {
+  PRO2_BLE_FIRMWARE_VARIANTS,
   PRO2_BLE_FIRMWARE_VERSIONS,
 } from './pro2BleFirmwareCatalog';
+
+type IFirmwareInstallTarget = {
+  key: string;
+  title: string;
+  description: string;
+  loadFirmwareBase64: () => Promise<string>;
+};
+
+const MANUAL_FIRMWARE_KEY = 'manual';
 
 type IPro2BleDevice = {
   connectId?: string;
@@ -89,31 +102,28 @@ export default function PagePro2BleFirmwareSwitch() {
   }, [scanDevices]);
 
   const installFirmware = useCallback(
-    async (firmware: IPro2BleFirmwareVersion) => {
+    async (target: IFirmwareInstallTarget) => {
       if (!selectedConnectId) {
         setStatus('Select a Pro 2 before installing.');
         return;
       }
-      setBusyKey(firmware.id);
-      setStatus(`Loading ${firmware.title}...`);
+      setBusyKey(target.key);
+      setStatus(`Loading ${target.title}...`);
       try {
-        const firmwareBase64 = await loadPro2BleFirmwareBase64(
-          firmware.id,
-          firmware.title,
-        );
+        const firmwareBase64 = await target.loadFirmwareBase64();
         setStatus(
-          `Installing ${firmware.title}. Confirm the update on the device.`,
+          `Installing ${target.title}. Confirm the update on the device.`,
         );
         await backgroundApiProxy.serviceHardware.installBundledPro2BleFirmware({
           connectId: selectedConnectId,
           firmwareBase64,
         });
-        setStatus(`${firmware.title} installed. The device may restart.`);
+        setStatus(`${target.title} installed. The device may restart.`);
       } catch (error) {
         setStatus(
           error instanceof Error
             ? error.message
-            : `${firmware.title} installation failed.`,
+            : `${target.title} installation failed.`,
         );
       } finally {
         setBusyKey(undefined);
@@ -123,30 +133,59 @@ export default function PagePro2BleFirmwareSwitch() {
   );
 
   const confirmInstall = useCallback(
-    (firmware: IPro2BleFirmwareVersion) => {
+    (target: IFirmwareInstallTarget) => {
       if (busyKey || !selectedConnectId) {
         return;
       }
       Dialog.show({
-        title: `Install ${firmware.title}?`,
-        description:
-          'This replaces the Pro 2 Bluetooth firmware. Confirm the update on the device and keep it nearby until the installation finishes.',
+        title: `Install ${target.title}?`,
+        description: `${target.description}\n\nThis replaces the Pro 2 Bluetooth firmware. Confirm the update on the device and keep it nearby until the installation finishes.`,
         onConfirmText: 'Install',
         onConfirm: () => {
-          void installFirmware(firmware);
+          void installFirmware(target);
         },
       });
     },
     [busyKey, installFirmware, selectedConnectId],
   );
 
+  const pickAndInstallFirmware = useCallback(async () => {
+    if (busyKey || !selectedConnectId) {
+      return;
+    }
+    setBusyKey(MANUAL_FIRMWARE_KEY);
+    try {
+      const picked = await pickPro2BleFirmwareFile();
+      if (!picked) {
+        setStatus('No file selected.');
+        return;
+      }
+      // Validate before asking for confirmation so a wrong file never reaches
+      // the install dialog.
+      const info = inspectPro2BleFirmwareBase64(picked.firmwareBase64);
+      setStatus(`Selected ${picked.name} (package ${info.version}).`);
+      confirmInstall({
+        key: MANUAL_FIRMWARE_KEY,
+        title: picked.name,
+        description: `Package version ${info.version} · ${info.byteLength} bytes`,
+        loadFirmwareBase64: () => Promise.resolve(picked.firmwareBase64),
+      });
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : 'Cannot read the file.',
+      );
+    } finally {
+      setBusyKey(undefined);
+    }
+  }, [busyKey, confirmInstall, selectedConnectId]);
+
   return (
     <Page scrollEnabled>
       <Page.Header title="Pro 2 Bluetooth firmware" />
       <YStack px="$5" py="$3" gap="$4">
         <SizableText size="$bodyMd" color="$textSubdued">
-          Find My certification build. Choose a bundled Bluetooth firmware and
-          install it on the connected Pro 2.
+          Find My certification build. Install a bundled debug or production
+          Bluetooth firmware, or choose a firmware file, on the selected Pro 2.
         </SizableText>
         <XStack>
           <Button
@@ -178,32 +217,75 @@ export default function PagePro2BleFirmwareSwitch() {
             );
           })}
         </YStack>
-        <YStack gap="$3">
-          {PRO2_BLE_FIRMWARE_VERSIONS.map((firmware) => (
-            <YStack key={firmware.id} gap="$2">
-              <SizableText size="$bodyLgMedium">{firmware.title}</SizableText>
+        {PRO2_BLE_FIRMWARE_VARIANTS.map((group) => (
+          <YStack key={group.variant} gap="$3">
+            <YStack gap="$1">
+              <SizableText size="$headingMd">{group.title}</SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                {firmware.detail} · {firmware.byteLength} bytes
+                {group.detail}
               </SizableText>
-              <XStack>
-                <Button
-                  size="medium"
-                  variant="primary"
-                  disabled={Boolean(busyKey) || !selectedConnectId}
-                  onPress={() => {
-                    confirmInstall(firmware);
-                  }}
-                  testID={`pro2-ble-firmware-install-${firmware.id}`}
-                >
-                  {busyKey === firmware.id ? (
-                    <Spinner size="small" />
-                  ) : (
-                    'Install'
-                  )}
-                </Button>
-              </XStack>
             </YStack>
-          ))}
+            {PRO2_BLE_FIRMWARE_VERSIONS.filter(
+              (firmware) => firmware.variant === group.variant,
+            ).map((firmware) => (
+              <YStack key={firmware.id} gap="$2">
+                <SizableText size="$bodyLgMedium">{firmware.title}</SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {firmware.fileName} · {firmware.byteLength} bytes
+                </SizableText>
+                <XStack>
+                  <Button
+                    size="medium"
+                    variant="primary"
+                    disabled={Boolean(busyKey) || !selectedConnectId}
+                    onPress={() => {
+                      confirmInstall({
+                        key: firmware.id,
+                        title: firmware.title,
+                        description: firmware.fileName,
+                        loadFirmwareBase64: () =>
+                          loadPro2BleFirmwareBase64(
+                            firmware.id,
+                            firmware.title,
+                          ),
+                      });
+                    }}
+                    testID={`pro2-ble-firmware-install-${firmware.id}`}
+                  >
+                    {busyKey === firmware.id ? (
+                      <Spinner size="small" />
+                    ) : (
+                      'Install'
+                    )}
+                  </Button>
+                </XStack>
+              </YStack>
+            ))}
+          </YStack>
+        ))}
+        <YStack gap="$2">
+          <SizableText size="$headingMd">Choose a file</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            Pick a signed Pro 2 coprocessor package (.bin) from Files. Raw
+            Bluetooth images are rejected.
+          </SizableText>
+          <XStack>
+            <Button
+              size="medium"
+              variant="secondary"
+              disabled={Boolean(busyKey) || !selectedConnectId}
+              onPress={() => {
+                void pickAndInstallFirmware();
+              }}
+              testID="pro2-ble-firmware-pick-file"
+            >
+              {busyKey === MANUAL_FIRMWARE_KEY ? (
+                <Spinner size="small" />
+              ) : (
+                'Choose firmware file'
+              )}
+            </Button>
+          </XStack>
         </YStack>
         <SizableText size="$bodyMd">{status}</SizableText>
       </YStack>
