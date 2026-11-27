@@ -571,10 +571,11 @@ async function processDeepLinkUrlAccount(
           await openPrimeInfiniSubscriptionFromDeepLink({ navigation });
           break;
         case EOneKeyDeepLinkPath.prime_dashboard:
-          // Same page as the in-app Prime entry: logged-out users sign in on
-          // the dashboard itself, with no handoff to the Infini checkout.
+          // Logged-out users sign in on the dashboard itself, with no handoff
+          // to the Infini checkout. pushModal, not pushFullModal: on iOS a
+          // full-screen modal opens under any modal that is already open.
           await whenAppUnlocked();
-          navigation.pushFullModal(EModalRoutes.PrimeModal, {
+          navigation.pushModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDashboard,
           });
           break;

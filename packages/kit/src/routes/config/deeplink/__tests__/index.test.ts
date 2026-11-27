@@ -980,7 +980,7 @@ describe('prime_dashboard deep link', () => {
   });
 
   it.each([false, true])(
-    'opens the plain Prime dashboard like the in-app entry (logged in: %s)',
+    'opens the plain Prime dashboard as a modal (logged in: %s)',
     async (isLoggedIn) => {
       backgroundApiProxy.servicePrime.isLoggedIn.mockResolvedValue(isLoggedIn);
 
@@ -988,12 +988,13 @@ describe('prime_dashboard deep link', () => {
       await flushAsyncTasks();
       await flushAsyncTasks();
 
-      expect(pushFullModal).toHaveBeenCalledTimes(1);
+      expect(pushModal).toHaveBeenCalledTimes(1);
       // No fromDeepLink: that flag hands logged-out users on to Infini.
-      expect(pushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
       });
-      expect(pushModal).not.toHaveBeenCalled();
+      // A full-screen modal would open under an already open modal on iOS.
+      expect(pushFullModal).not.toHaveBeenCalled();
     },
   );
 
@@ -1009,11 +1010,11 @@ describe('prime_dashboard deep link', () => {
     handleDeepLinkUrl({ url: primeDashboardDeepLink });
     await flushAsyncTasks();
     await flushAsyncTasks();
-    expect(pushFullModal).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
 
     resolveUnlock();
     await flushAsyncTasks();
-    expect(pushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeDashboard,
     });
   });
