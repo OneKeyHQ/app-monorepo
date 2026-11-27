@@ -108,4 +108,49 @@ describe('ServiceLogger reset diagnostic export', () => {
       'Log export unavailable during app reset',
     );
   });
+
+  it('blocks new and existing exports immediately on beginResetAttempt and closes active sessions on retry', async () => {
+    const database = createInMemoryLogDatabase();
+    const service = new ServiceLogger({ backgroundApi: {} });
+    (
+      service as unknown as { persistentLogs: BrowserLogStore }
+    ).persistentLogs = new BrowserLogStore(database);
+
+    await service.addMsg('before-reset\r\n');
+    const activeBeforeReset = await service.beginLogExport({ scope: 'recent' });
+
+    service.beginResetAttempt();
+    await expect(service.beginLogExport({ scope: 'recent' })).rejects.toThrow(
+      'Log export unavailable during app reset',
+    );
+    await expect(
+      service.readLogExportPage({ id: activeBeforeReset.id, offset: 0 }),
+    ).rejects.toThrow('Log export expired');
+
+    await service.stopPersistenceForReset(true);
+    await service.addMsg('reset failure detail\r\n');
+    service.markResetFailed();
+
+    const activeDiagnostic = await service.beginLogExport({ scope: 'recent' });
+    service.beginResetAttempt();
+    await expect(
+      service.readLogExportPage({ id: activeDiagnostic.id, offset: 0 }),
+    ).rejects.toThrow('Log export expired');
+  });
+
+  it('keeps sibling tabs stopped by broadcast in discard mode even if markResetFailed is called', async () => {
+    const database = createInMemoryLogDatabase();
+    const service = new ServiceLogger({ backgroundApi: {} });
+    (
+      service as unknown as { persistentLogs: BrowserLogStore }
+    ).persistentLogs = new BrowserLogStore(database);
+
+    await service.stopPersistenceForReset(false);
+    await service.addMsg('delayed pre-reset log in sibling tab\r\n');
+    service.markResetFailed();
+
+    await expect(service.beginLogExport({ scope: 'recent' })).rejects.toThrow(
+      'Log export unavailable during app reset',
+    );
+  });
 });

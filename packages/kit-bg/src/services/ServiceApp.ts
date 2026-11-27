@@ -85,6 +85,7 @@ const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 const WORKBOX_EXPIRATION_INDEXED_DB_NAME = 'workbox-expiration';
+const WORKBOX_STATIC_ASSETS_CACHE_NAME = 'static-assets';
 
 type IResetStageLogger = (
   stage: string,
@@ -366,6 +367,11 @@ class ServiceApp extends ServiceBase {
           name === WORKBOX_EXPIRATION_INDEXED_DB_NAME &&
           !platformEnv.isDesktop
         ) {
+          // Delete the Workbox Cache Storage entries together with their
+          // expiration metadata so cached assets are not orphaned outside TTL/maxEntries.
+          await globalThis.caches
+            ?.delete(WORKBOX_STATIC_ASSETS_CACHE_NAME)
+            .catch(() => {});
           // Service Worker holds workbox-expiration open for static asset TTLs;
           // clear its records and queue deletion without blocking app reset.
           await this.clearAndDeleteHeldIndexedDB(
@@ -676,7 +682,6 @@ class ServiceApp extends ServiceBase {
 
   private async startAppReset(marker: IAppResetMarker, tryRemote: boolean) {
     this.backgroundApi.serviceCloudBackupV2?.beginLocalRecoveryReset?.();
-    this.backgroundApi.serviceLogger?.beginResetAttempt?.();
     const request = runWithAppResetLock(async () => {
       const pendingMarker = await readAppResetMarker().catch(() => undefined);
       if (!tryRemote && !this.resetMarker && !pendingMarker) return;
@@ -685,14 +690,17 @@ class ServiceApp extends ServiceBase {
         this.completedResetCleanups.clear();
       }
       this.resetMarker = currentMarker;
-      await this.resetAppInternal(currentMarker, tryRemote && !pendingMarker);
+      this.backgroundApi.serviceLogger?.beginResetAttempt?.();
+      try {
+        await this.resetAppInternal(currentMarker, tryRemote && !pendingMarker);
+      } catch (error) {
+        this.backgroundApi.serviceLogger?.markResetFailed?.();
+        throw error;
+      }
     });
     this.resetRequest = request;
     try {
       await request;
-    } catch (error) {
-      this.backgroundApi.serviceLogger?.markResetFailed?.();
-      throw error;
     } finally {
       this.resetRequest = undefined;
     }

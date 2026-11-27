@@ -28,7 +28,6 @@ import { BrowserLogExport } from './logger/BrowserLogExport';
 import { createLogArchive } from './logger/createLogArchive';
 import createLogStore from './logger/createLogStore';
 import { notifyLogReset } from './logger/logReset';
-import { recentLogBytes } from './logger/recentLogBytes';
 import ServiceBase from './ServiceBase';
 
 const RESET_DIAGNOSTIC_LOG_MAX_BYTES = 256 * 1024;
@@ -48,9 +47,13 @@ class ServiceLogger extends ServiceBase {
 
   private resettingLogs = false;
 
+  private resetExportBlocked = false;
+
+  private resetDiagnosticActive = false;
+
   private resetFailedDiagnosticExport = false;
 
-  // In-memory diagnostic ring for logs emitted after stopPersistenceForReset(),
+  // In-memory diagnostic ring for logs emitted after stopPersistenceForReset(true),
   // allowing post-failure export without touching disk or retaining pre-reset logs.
   private resetDiagnosticBuffer: { message: string; bytes: number }[] = [];
 
@@ -99,7 +102,9 @@ class ServiceLogger extends ServiceBase {
   @backgroundMethod()
   async addMsg(message: string) {
     if (this.resettingLogs) {
-      this.appendResetDiagnosticMsg(message);
+      if (this.resetDiagnosticActive) {
+        this.appendResetDiagnosticMsg(message);
+      }
       return true;
     }
     if (this.persistentLogs) {
@@ -119,19 +124,21 @@ class ServiceLogger extends ServiceBase {
   }
 
   beginResetAttempt() {
-    if (this.resettingLogs) {
-      this.resetFailedDiagnosticExport = false;
-    }
+    this.resetExportBlocked = true;
+    this.resetFailedDiagnosticExport = false;
+    this.logExport.close();
   }
 
   markResetFailed() {
-    if (this.resettingLogs) {
+    this.resetExportBlocked = false;
+    if (this.resettingLogs && this.resetDiagnosticActive) {
       this.resetFailedDiagnosticExport = true;
     }
   }
 
   async stopPersistenceForReset(clear = true) {
     this.resettingLogs = true;
+    this.resetDiagnosticActive = clear;
     this.resetFailedDiagnosticExport = false;
     this.resetDiagnosticBuffer = [];
     this.resetDiagnosticBytes = 0;
@@ -145,20 +152,20 @@ class ServiceLogger extends ServiceBase {
   async beginLogExport({ scope = 'recent' }: { scope?: ILogExportScope } = {}) {
     if (scope !== 'recent' && scope !== 'full')
       throw new OneKeyLocalError('Invalid log export scope');
+    if (this.resetExportBlocked) {
+      throw new OneKeyLocalError('Log export unavailable during app reset');
+    }
     if (this.resettingLogs) {
-      if (!this.resetFailedDiagnosticExport) {
+      if (!this.resetFailedDiagnosticExport || !this.resetDiagnosticActive) {
         throw new OneKeyLocalError('Log export unavailable during app reset');
       }
       return this.logExport.begin(async (isCancelled) => {
         await loggerUtils.flushPendingRepeat();
-        const encoded = new TextEncoder().encode(
-          this.resetDiagnosticBuffer.map((item) => item.message).join(''),
+        // resetDiagnosticBuffer is already capped at 256 KiB (below both export limits).
+        const snapshot = new Blob(
+          this.resetDiagnosticBuffer.map((item) => item.message),
+          { type: 'text/plain' },
         );
-        const maxBytes =
-          scope === 'full' ? BROWSER_LOG_MAX_BYTES : RECENT_LOG_EXPORT_BYTES;
-        const snapshot = new Blob([recentLogBytes(encoded, maxBytes)], {
-          type: 'text/plain',
-        });
         return createLogArchive(snapshot, isCancelled);
       });
     }

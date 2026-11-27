@@ -1452,9 +1452,14 @@ describe('ServiceApp privacy database reset ordering', () => {
     expect(clear).not.toHaveBeenCalled();
   });
 
-  it('clears workbox-expiration records without blocking on a held Service Worker connection', async () => {
+  it('clears workbox-expiration records and static-assets cache without blocking on a held Service Worker connection', async () => {
     const indexedDB = new IDBFactory();
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
+    const cachesDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'caches',
+    );
+    const deleteCache = jest.fn().mockResolvedValue(true);
     const wasDesktop = platformEnv.isDesktop;
     const name = 'workbox-expiration';
     const store = 'cache-entries';
@@ -1466,7 +1471,7 @@ describe('ServiceApp privacy database reset ordering', () => {
       open.onsuccess = () => resolve(open.result);
       open.onerror = () => reject(open.error);
     });
-    Object.assign(globalThis, { indexedDB });
+    Object.assign(globalThis, { indexedDB, caches: { delete: deleteCache } });
     platformEnv.isDesktop = false;
 
     try {
@@ -1479,6 +1484,7 @@ describe('ServiceApp privacy database reset ordering', () => {
         }
       ).deleteOtherIndexedDBs(log);
 
+      expect(deleteCache).toHaveBeenCalledWith('static-assets');
       expect(log).toHaveBeenCalledWith('workboxExpirationIndexedDB', 'cleared');
       expect(deletion).toHaveBeenCalledWith(name);
       const count = held.transaction(store).objectStore(store).count();
@@ -1495,6 +1501,11 @@ describe('ServiceApp privacy database reset ordering', () => {
         Object.defineProperty(globalThis, 'indexedDB', descriptor);
       } else {
         Reflect.deleteProperty(globalThis, 'indexedDB');
+      }
+      if (cachesDescriptor) {
+        Object.defineProperty(globalThis, 'caches', cachesDescriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'caches');
       }
     }
   });
