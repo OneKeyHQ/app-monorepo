@@ -70,6 +70,7 @@ jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
   EEnterWay: {
     ExtensionPopup: 'ExtensionPopup',
     ExtensionSidePanel: 'ExtensionSidePanel',
+    MarketList: 'MarketList',
     Search: 'Search',
   },
 }));
@@ -164,7 +165,12 @@ describe('useToDetailPage', () => {
     jest
       .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
       .mockReset();
-    Object.assign(platformEnv, { isNative: false, isDesktop: false });
+    Object.assign(platformEnv, {
+      isNative: false,
+      isNativeIOS: false,
+      isNativeAndroid: false,
+      isDesktop: false,
+    });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
     mockGetRootState.mockReturnValue(undefined);
@@ -540,6 +546,37 @@ describe('useToDetailPage', () => {
         );
       }
       expect(fetchAssetDetail).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['iOS', 'Android'])(
+    'opens a list token on %s while the detail preload is pending',
+    async (platform) => {
+      Object.assign(platformEnv, {
+        isExtensionUiPopup: false,
+        isNative: true,
+        isNativeIOS: platform === 'iOS',
+        isNativeAndroid: platform === 'Android',
+      });
+      const preload = deferred<void>();
+      jest.mocked(preloadMarketDetailV2Page).mockReturnValue(preload.promise);
+      const { result } = renderHook(() =>
+        useToDetailPage({ from: EEnterWay.MarketList }),
+      );
+      const navigation = result.current(tokenItem);
+      try {
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          expect.objectContaining({
+            tokenAddress: tokenItem.tokenAddress,
+            from: EEnterWay.MarketList,
+          }),
+        );
+      } finally {
+        jest.mocked(preloadMarketDetailV2Page).mockResolvedValue(undefined);
+        preload.resolve();
+        await navigation;
+      }
     },
   );
 

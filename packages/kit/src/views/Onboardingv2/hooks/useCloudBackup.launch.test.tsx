@@ -29,7 +29,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useBackUpWallet } from '../../../hooks/useBackUpWallet';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 
-import { useCloudBackup } from './useCloudBackup';
+import { useCloudBackup, watchRouteLeave } from './useCloudBackup';
 
 import type { ParamListBase } from '@react-navigation/routers';
 
@@ -66,7 +66,9 @@ const mockRootNavigation = {
     };
   }),
   navigate: jest.fn(),
-  getCurrentRoute: jest.fn(() => ({ name: 'source' })),
+  getCurrentRoute: jest.fn((): { key?: string; name: string } => ({
+    name: 'source',
+  })),
   getRootState: jest.fn(() => ({
     routes: [{ key: 'source', name: 'source' }],
     index: 0,
@@ -254,6 +256,187 @@ describe.each(['Android', 'iOS', 'desktop'])(
       );
       expect(service.buildBackupData).toHaveBeenCalledTimes(1);
     });
+
+    it('closes Settings only after the cloud account is ready, then opens a restorable backup list once', async () => {
+      const { result } = renderHook(() => useCloudBackup());
+      const steps: string[] = [];
+      const closeSettings = jest.fn(() => steps.push('close'));
+      mockNavigation.navigate.mockImplementation(() => steps.push('navigate'));
+      await act(async () => {
+        await Promise.all([
+          result.current.goToPageBackupList({ beforeNavigate: closeSettings }),
+          result.current.goToPageBackupList({ beforeNavigate: closeSettings }),
+        ]);
+      });
+      expect(service.getCloudAccountInfo).toHaveBeenCalledTimes(1);
+      expect(service.loginCloudIfNeed).toHaveBeenCalledTimes(
+        platform === 'Android' ? 1 : 0,
+      );
+      expect(steps).toEqual(['close', 'navigate']);
+      expect(mockNavigation.navigate).toHaveBeenCalledWith(
+        ERootRoutes.Onboarding,
+        {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.ICloudBackup,
+            params: { hideRestoreButton: undefined },
+          },
+        },
+      );
+    });
+
+    it('keeps Settings open while the cloud account is unavailable and allows another try', async () => {
+      service.getCloudAccountInfo.mockResolvedValueOnce({
+        userId: '',
+        userEmail: '',
+        providerType: ECloudBackupProviderType.iCloud,
+      });
+      const { result } = renderHook(() => useCloudBackup());
+      const closeSettings = jest.fn();
+      await act(async () => {
+        await result.current.goToPageBackupList({
+          beforeNavigate: closeSettings,
+        });
+      });
+      expect(jest.mocked(Dialog).confirm).toHaveBeenCalledTimes(1);
+      expect(closeSettings).not.toHaveBeenCalled();
+      expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      await act(async () => {
+        await result.current.goToPageBackupList({
+          beforeNavigate: closeSettings,
+        });
+      });
+      expect(closeSettings).toHaveBeenCalledTimes(1);
+      expect(mockNavigation.navigate).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops the Settings handoff when the user moves on before the list opens', async () => {
+      let active = true;
+      const isActive = () => active;
+      const closeSettings = jest.fn();
+      const { result } = renderHook(() => useCloudBackup());
+      const readAccount = service.getCloudAccountInfo.getMockImplementation();
+      service.getCloudAccountInfo.mockImplementationOnce(async () => {
+        active = false;
+        if (!readAccount) throw new OneKeyLocalError('Missing account mock');
+        return readAccount();
+      });
+      await act(async () => {
+        await result.current.goToPageBackupList({
+          isActive,
+          beforeNavigate: closeSettings,
+        });
+      });
+      expect(jest.mocked(Dialog).confirm).not.toHaveBeenCalled();
+      expect(closeSettings).not.toHaveBeenCalled();
+      expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      if (platform === 'Android') {
+        active = true;
+        service.loginCloudIfNeed.mockImplementationOnce(async () => {
+          active = false;
+        });
+        await act(async () => {
+          await result.current.goToPageBackupList({
+            isActive,
+            beforeNavigate: closeSettings,
+          });
+        });
+        expect(service.loginCloudIfNeed).toHaveBeenCalledTimes(1);
+        expect(closeSettings).not.toHaveBeenCalled();
+        expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      }
+    });
+
+    function showRoute(key: string) {
+      mockRootNavigation.getCurrentRoute.mockReturnValue({
+        key,
+        name: 'source',
+      });
+      mockNavigationStateListeners.forEach((listener) => listener());
+    }
+
+    it('releases the route listener when each attempt settles', async () => {
+      showRoute('settings-backup');
+      const { result } = renderHook(() => useCloudBackup());
+      const tapImport = () => {
+        const source = watchRouteLeave();
+        return result.current
+          .goToPageBackupList({
+            isActive: source.isActive,
+            beforeNavigate: jest.fn(),
+          })
+          .finally(source.dispose);
+      };
+      await act(async () => {
+        // The second tap is ignored while the first is in flight.
+        await Promise.all([tapImport(), tapImport()]);
+      });
+      expect(mockNavigationStateListeners.size).toBe(0);
+    });
+
+    it('keeps a Settings handoff cancelled after the user leaves and comes back', async () => {
+      showRoute('settings-backup');
+      const closeSettings = jest.fn();
+      const { result } = renderHook(() => useCloudBackup());
+      const source = watchRouteLeave();
+      const readAccount = service.getCloudAccountInfo.getMockImplementation();
+      service.getCloudAccountInfo.mockImplementationOnce(async () => {
+        // Another Settings pane, then back, while the account check runs.
+        showRoute('settings-general');
+        showRoute('settings-backup');
+        if (!readAccount) throw new OneKeyLocalError('Missing account mock');
+        return readAccount();
+      });
+      await act(async () => {
+        await result.current
+          .goToPageBackupList({
+            isActive: source.isActive,
+            beforeNavigate: closeSettings,
+          })
+          .finally(source.dispose);
+      });
+      expect(closeSettings).not.toHaveBeenCalled();
+      expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      expect(mockNavigationStateListeners.size).toBe(0);
+    });
+
+    if (platform === 'Android') {
+      it('lets a late Google sign-in prompt act only on its own screen', async () => {
+        showRoute('settings-backup');
+        service.getCloudAccountInfo.mockResolvedValueOnce({
+          userId: '',
+          userEmail: '',
+          providerType: ECloudBackupProviderType.GoogleDrive,
+          googleDrive: { googlePlayServiceAvailable: true, userInfo: null },
+        });
+        const { result } = renderHook(() => useCloudBackup());
+        const source = watchRouteLeave();
+        await act(async () => {
+          await result.current
+            .goToPageBackupList({
+              isActive: source.isActive,
+              beforeNavigate: jest.fn(),
+            })
+            .finally(source.dispose);
+        });
+        // The attempt released its listener; the sign-in prompt is still open.
+        expect(mockNavigationStateListeners.size).toBe(0);
+        const confirmSignIn = jest.mocked(Dialog).confirm.mock.calls[0]?.[0]
+          ?.onConfirm as (() => Promise<void>) | undefined;
+        expect(confirmSignIn).toBeDefined();
+        // An app link opens another screen before the user confirms.
+        showRoute('market');
+        await act(async () => {
+          await confirmSignIn?.();
+        });
+        expect(service.loginCloudIfNeed).not.toHaveBeenCalled();
+        showRoute('settings-backup');
+        await act(async () => {
+          await confirmSignIn?.();
+        });
+        expect(service.loginCloudIfNeed).toHaveBeenCalledTimes(1);
+      });
+    }
 
     it('preserves the wallet hook navigation plus 100ms handoff after the source unmounts', async () => {
       const source = renderHook(() =>
