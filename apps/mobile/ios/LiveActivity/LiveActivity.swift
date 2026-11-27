@@ -164,6 +164,7 @@ private struct SwapActivityETA: View {
         .lineLimit(2)
         .multilineTextAlignment(.center)
         .frame(height: 25)
+        .padding(.trailing, 3)
       } else {
         Text(localizedTemplate.replacingOccurrences(of: "{number}", with: number))
       }
@@ -175,6 +176,7 @@ private struct SwapActivityETA: View {
           .font(.system(size: 11, weight: .regular))
       }
       .frame(height: 25)
+      .padding(.trailing, 3)
     } else {
       Text("~\(number) min")
     }
