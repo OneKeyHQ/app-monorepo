@@ -104,6 +104,8 @@ export function PerpNativeCandles({
 }
 
 const PANEL_HEADER_HEIGHT = 32;
+// One line of the header's items: the height of its token picker.
+const PANEL_HEADER_ITEM_HEIGHT = 28;
 
 // Offered to newly opened panels, most liquid first.
 const DEFAULT_PANEL_COINS = ['BTC', 'ETH', 'SOL', 'HYPE'];
@@ -169,9 +171,11 @@ function PerpChartPanelQuote({
  * read-only. Selecting a panel only changes these props, so no chart remounts.
  * Only the selected panel's controls are on screen, above the grid, so every
  * panel gets the page-level controls; in a split each panel shows its token,
- * price and 24h change instead. The token is a picker: a press on it selects
- * the panel like any press in it, and a pick selects the panel with the
- * picked token, so one switch of the trade instrument decides both.
+ * price, 24h change and interval instead. The token is a picker: a press on
+ * it selects the panel like any press in it, and a pick selects the panel
+ * with the picked token, so one switch of the trade instrument decides both.
+ * The interval is the chart's own picker, so a pick there changes only its
+ * panel's interval, or every panel's while the intervals are synced.
  */
 function PerpNativeSplitPanel({
   activeDisplay,
@@ -189,8 +193,16 @@ function PerpNativeSplitPanel({
   /** The token of a panel switch still on its way. */
   switchingCoin?: string;
 }) {
-  const { id, isActive, isMain, isSplit, layoutControl, selectSource, source } =
-    panel;
+  const {
+    id,
+    intervalControl,
+    isActive,
+    isMain,
+    isSplit,
+    layoutControl,
+    selectSource,
+    source,
+  } = panel;
   const coin = source.kind === 'hyperliquid' ? source.coin : '';
   const activeInstrument = useActivePerpsChartInstrument();
   const { display, instrument: panelInstrument } =
@@ -249,18 +261,34 @@ function PerpNativeSplitPanel({
           overflow="hidden"
           testID={`${PerpTestIDs.NativeChartPanelHeader}-${id}`}
         >
-          <PerpChartTokenSelector
-            coin={coin}
-            display={tokenDisplay}
-            onSelectToken={handleSelectToken}
-            testID={`${PerpTestIDs.NativeChartPanelToken}-${id}`}
-          />
-          <PerpChartPanelQuote
-            coin={coin}
-            mode={instrument.mode}
-            assetId={instrument.assetId}
-            isLive={isVisible}
-          />
+          {/* Gives way first on a narrow panel, so the interval picker after
+              it stays whole. What does not fit wraps onto a line out of view,
+              so a price is left out rather than cut short. */}
+          <XStack
+            h={PANEL_HEADER_ITEM_HEIGHT}
+            flexShrink={1}
+            minWidth={0}
+            flexWrap="wrap"
+            gap="$2"
+            alignItems="center"
+            overflow="hidden"
+          >
+            <PerpChartTokenSelector
+              coin={coin}
+              display={tokenDisplay}
+              onSelectToken={handleSelectToken}
+              testID={`${PerpTestIDs.NativeChartPanelToken}-${id}`}
+            />
+            <PerpChartPanelQuote
+              coin={coin}
+              mode={instrument.mode}
+              assetId={instrument.assetId}
+              isLive={isVisible}
+            />
+          </XStack>
+          {/* Leaves with the chart, e.g. for another workspace view, so its
+              popover cannot stay open over that view. */}
+          {isVisible ? intervalControl : null}
         </XStack>
       ) : null}
       <TradingViewNative

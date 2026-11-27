@@ -63,7 +63,10 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useUnifiedNetworkSelectorTrigger } from '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger';
+import { getActiveWalletLocalSecretEnvelopeCredentialId } from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
+import { WalletLocalSecretEnvelopeStatus } from '../../../components/AccountSelector/WalletLocalSecretEnvelopeStatus';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
+import { useWalletLocalSecretEnvelopeIssue } from '../../../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
@@ -265,6 +268,37 @@ function HomeTabsScrollToTopBridge({
   return null;
 }
 
+function EmptyAccountWalletUnavailableStatus({
+  walletId,
+  accountId,
+  credentialId,
+}: {
+  walletId?: string;
+  accountId?: string;
+  credentialId?: string;
+}) {
+  const issue = useWalletLocalSecretEnvelopeIssue({ walletId, accountId });
+  if (!issue || !credentialId) {
+    return null;
+  }
+  return (
+    <Stack
+      {...homePageContentMaxWidthSx}
+      pt="$5"
+      $gtMd={{ pt: '$8' }}
+      px="$pagePadding"
+      alignItems="flex-start"
+    >
+      <WalletLocalSecretEnvelopeStatus
+        credentialId={credentialId}
+        compact
+        ml="$0"
+        testID={HomeTestIDs.walletUnavailable}
+      />
+    </Stack>
+  );
+}
+
 type IHomePageViewProps = {
   onPressHide?: () => void;
   sceneName: EAccountSelectorSceneName;
@@ -294,6 +328,8 @@ function BaseHomePageView({
     indexedAccount,
     vaultSettings: cachedVaultSettings,
   } = activeAccount;
+  const localSecretEnvelopeCredentialId =
+    getActiveWalletLocalSecretEnvelopeCredentialId(activeAccount);
   const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
     num: 0,
   });
@@ -1668,6 +1704,11 @@ function BaseHomePageView({
     ) {
       return (
         <YStack flex={1}>
+          <EmptyAccountWalletUnavailableStatus
+            walletId={wallet?.id}
+            accountId={activeAccount.dbAccount?.id}
+            credentialId={localSecretEnvelopeCredentialId}
+          />
           <Stack flex={1} justifyContent="center">
             {emptyAccountView}
           </Stack>
@@ -1699,6 +1740,8 @@ function BaseHomePageView({
     isRequiredValidation,
     watchingAccountEnabled,
     emptyAccountView,
+    activeAccount.dbAccount?.id,
+    localSecretEnvelopeCredentialId,
     network?.id,
     network?.isAllNetworks,
     tabs,

@@ -409,6 +409,37 @@ it.each(['before parsing', 'during parsing'])(
   },
 );
 
+it('an abandoned camera cannot dismiss the scanner or deliver a completed UR', async () => {
+  const scan = { key: 'scan', name: EScanQrCodeModalPages.ScanQrCodeStack };
+  mockGetCurrentRoute.mockReturnValue(scan);
+  const { result: hook } = renderHook(() => useScanQrCodeLazy());
+  const result = hook.current.start({});
+  const settled = jest.fn();
+  void result.then(settled);
+  const { callback } = mockPushScanModal.mock.calls[0][1].params;
+  const isCaptureCurrent = jest.fn(() => true);
+  const onResultDismiss = jest.fn(() => true);
+  mockParse.mockImplementationOnce(async () => {
+    isCaptureCurrent.mockReturnValue(false);
+    return {
+      type: EQRCodeHandlerType.ANIMATION_CODE,
+      data: { fullData: 'UR:BYTES/RETIRED' },
+    };
+  });
+  const frame = { routeKey: scan.key, popNavigation: true, onResultDismiss };
+  await expect(
+    callback({ ...frame, value: 'UR:BYTES/LAST-PART', isCaptureCurrent }),
+  ).resolves.toEqual({ retry: true });
+  expect(onResultDismiss).not.toHaveBeenCalled();
+  expect(mockResetScanModalRoute).not.toHaveBeenCalled();
+  expect(settled).not.toHaveBeenCalled();
+
+  const parsed = { type: EQRCodeHandlerType.BITCOIN, data: { address: 'new' } };
+  mockParse.mockResolvedValueOnce(parsed);
+  await callback({ ...frame, value: 'new' });
+  await expect(result).resolves.toEqual(parsed);
+});
+
 it.each([true, false])(
   'settles a URL-account scan after navigation accepts dismissal: %s',
   async (acceptsDismissal) => {

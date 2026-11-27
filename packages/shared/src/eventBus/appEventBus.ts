@@ -486,6 +486,7 @@ export interface IAppEventBusPayload {
     walletId?: string;
     walletType?: string;
   };
+  [EAppEventBusNames.HomeDefaultTokensUpdated]: undefined;
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
     | {
@@ -701,6 +702,7 @@ export interface IAppEventBusPayload {
     type: string;
     subType: ESubscriptionType;
     data: unknown;
+    displayOnly?: boolean;
   };
   [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
   [EAppEventBusNames.HyperliquidPublicTradesStatus]: {

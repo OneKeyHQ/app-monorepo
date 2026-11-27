@@ -1,26 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Page,
-  ScrollView,
-  Spinner,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Page, Spinner, XStack, YStack, useMedia } from '@onekeyhq/components';
 import type { IDateRange } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IHardwareCumulativeRewards,
-  IHardwareRecordItem,
-} from '@onekeyhq/shared/src/referralCode/type';
+import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -30,10 +20,12 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ExportButton,
   FilterButton,
+  LoadMoreScrollView,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
   RewardDateRangeField,
 } from '../../components';
+import { useCursorPagination } from '../../hooks/useCursorPagination';
 import {
   REFERRAL_ALL_TIME_START,
   useDatePresets,
@@ -93,13 +85,6 @@ function HardwareSalesRewardPageWrapper() {
   const [cumulativeRewards, setCumulativeRewards] = useState<
     IHardwareCumulativeRewards | undefined
   >();
-
-  // Hardware Records state
-  const [hardwareRecords, setHardwareRecords] = useState<IHardwareRecordItem[]>(
-    [],
-  );
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Filter state
   const {
@@ -184,55 +169,8 @@ function HardwareSalesRewardPageWrapper() {
     ],
   );
 
-  const onRefresh = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [cumulativeRewardsResult, recordsResult] = await Promise.allSettled(
-        [
-          backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
-            filterState.inviteCode,
-            effectiveTimeRange,
-            filterState.startTime,
-            filterState.endTime,
-          ),
-          backgroundApiProxy.serviceReferralCode.getHardwareRecords(
-            undefined,
-            effectiveTimeRange,
-            filterState.inviteCode,
-            filterState.startTime,
-            filterState.endTime,
-          ),
-        ],
-      );
-
-      if (cumulativeRewardsResult.status === 'fulfilled') {
-        setCumulativeRewards(cumulativeRewardsResult.value);
-      }
-
-      if (recordsResult.status === 'fulfilled') {
-        const items = recordsResult.value.items || [];
-        setHardwareRecords(items);
-        const hasMore = items.length >= 10;
-        setCursor(hasMore ? items[items.length - 1]?._id : undefined);
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    filterState.inviteCode,
-    effectiveTimeRange,
-    filterState.startTime,
-    filterState.endTime,
-  ]);
-
-  const onLoadMore = useCallback(async () => {
-    if (!cursor || isLoadingMore) {
-      return;
-    }
-    setIsLoadingMore(true);
-    try {
+  const fetchRecordsPage = useCallback(
+    async (cursor: string | undefined) => {
       const result =
         await backgroundApiProxy.serviceReferralCode.getHardwareRecords(
           cursor,
@@ -242,45 +180,73 @@ function HardwareSalesRewardPageWrapper() {
           filterState.endTime,
         );
       const items = result.items || [];
-      setHardwareRecords((prev) => [...prev, ...items]);
       // Use last item's _id as cursor, undefined if no more data (items < limit)
       const hasMore = items.length >= 10;
-      setCursor(hasMore ? items[items.length - 1]?._id : undefined);
+      return {
+        items,
+        cursor: hasMore ? items[items.length - 1]?._id : undefined,
+      };
+    },
+    [
+      effectiveTimeRange,
+      filterState.inviteCode,
+      filterState.startTime,
+      filterState.endTime,
+    ],
+  );
+
+  const pagination = useCursorPagination({
+    queryKey: [
+      filterState.inviteCode,
+      effectiveTimeRange,
+      filterState.startTime,
+      filterState.endTime,
+    ].join('|'),
+    fetchPage: fetchRecordsPage,
+  });
+  const { loadFirstPage } = pagination;
+
+  // Drops summary results and loading updates from a superseded refresh.
+  const refreshIdRef = useRef(0);
+
+  const onRefresh = useCallback(async () => {
+    refreshIdRef.current += 1;
+    const refreshId = refreshIdRef.current;
+    setIsLoading(true);
+    try {
+      const cumulativeRewardsRequest =
+        backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
+          filterState.inviteCode,
+          effectiveTimeRange,
+          filterState.startTime,
+          filterState.endTime,
+        );
+      // Show the totals and the first page of records together.
+      const [cumulativeRewardsResult] = await Promise.allSettled([
+        cumulativeRewardsRequest,
+        loadFirstPage(cumulativeRewardsRequest),
+      ]);
+      if (refreshId !== refreshIdRef.current) {
+        return;
+      }
+
+      if (cumulativeRewardsResult.status === 'fulfilled') {
+        setCumulativeRewards(cumulativeRewardsResult.value);
+      }
     } catch (error) {
-      console.error('Failed to load more:', error);
+      console.error('Failed to fetch data:', error);
     } finally {
-      setIsLoadingMore(false);
+      if (refreshId === refreshIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [
-    cursor,
-    isLoadingMore,
-    effectiveTimeRange,
     filterState.inviteCode,
+    effectiveTimeRange,
     filterState.startTime,
     filterState.endTime,
+    loadFirstPage,
   ]);
-
-  const handleScroll = useCallback(
-    (event: {
-      nativeEvent: {
-        contentOffset: { y: number };
-        contentSize: { height: number };
-        layoutMeasurement: { height: number };
-      };
-    }) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent;
-      const paddingToBottom = 100;
-      const isCloseToBottom =
-        contentOffset.y + layoutMeasurement.height >=
-        contentSize.height - paddingToBottom;
-
-      if (isCloseToBottom && cursor && !isLoadingMore) {
-        void onLoadMore();
-      }
-    },
-    [cursor, isLoadingMore, onLoadMore],
-  );
 
   useEffect(() => {
     void onRefresh();
@@ -310,11 +276,10 @@ function HardwareSalesRewardPageWrapper() {
               <Spinner size="large" />
             </YStack>
           ) : (
-            <ScrollView
+            <LoadMoreScrollView
               flex={1}
               contentContainerStyle={{ pb: '$5' }}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
+              {...pagination.scrollProps}
             >
               {/* Hardware Sales Reward Header */}
               <HardwareSalesRewardHeader
@@ -326,11 +291,11 @@ function HardwareSalesRewardPageWrapper() {
               {/* Hardware Records List */}
               <HardwareRecordsList
                 isLoading={isLoading}
-                records={hardwareRecords}
+                records={pagination.items}
                 isMobile={md}
-                isLoadingMore={isLoadingMore}
+                isLoadingMore={pagination.isLoadingMore}
               />
-            </ScrollView>
+            </LoadMoreScrollView>
           )}
         </ReferFriendsPageContainer>
       </Page.Body>
