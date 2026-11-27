@@ -220,9 +220,10 @@ export function getMarketWidgetAssetSections({
   const search = normalized.toLowerCase();
   const remote =
     search && normalized === searchQuery ? state?.searchResults : undefined;
+  const incomplete = normalized === searchQuery && state?.searchIncomplete;
   const candidates = [
     ...(state?.[source] ?? []),
-    ...(search && source === 'hot' && !remote
+    ...(search && source === 'hot' && (!remote || incomplete)
       ? (state?.searchAssets ?? [])
       : []),
   ].filter(
@@ -230,7 +231,9 @@ export function getMarketWidgetAssetSections({
   );
   const seen = new Set<string>();
   // The server ranks search results; local suggestions must not take precedence.
-  const assets = (remote ?? candidates).filter((item) => {
+  const assets = (
+    remote ? [...remote, ...(incomplete ? candidates : [])] : candidates
+  ).filter((item) => {
     const key = getMarketWidgetAssetKey(item);
     if (seen.has(key)) return false;
     seen.add(key);

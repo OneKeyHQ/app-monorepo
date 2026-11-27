@@ -498,6 +498,45 @@ describe('widget search result sections', () => {
     ).toEqual([]);
   });
 
+  it.each(['hot', 'watchlist'] as const)(
+    'retains distinct local matches after partial remote results in %s',
+    (source) => {
+      expect(
+        getMarketWidgetAssetSections({
+          state: {
+            ...state,
+            [source]: [appleSolana, appleEthereum, bitcoin],
+            searchAssets: [appleSolana],
+            searchResults: [apple, appleEthereum],
+            searchIncomplete: true,
+          },
+          source,
+          query: 'aapl',
+          searchQuery: 'aapl',
+        }),
+      ).toEqual([
+        { key: 'stocks', data: [apple] },
+        { key: 'tokens', data: [appleEthereum, appleSolana] },
+      ]);
+    },
+  );
+
+  it('retains cached search matches when a partial response has no results', () => {
+    expect(
+      getMarketWidgetAssetSections({
+        state: {
+          ...state,
+          searchAssets: [appleSolana],
+          searchResults: [],
+          searchIncomplete: true,
+        },
+        source: 'hot',
+        query: 'aapl',
+        searchQuery: 'aapl',
+      }),
+    ).toEqual([{ key: 'tokens', data: [appleSolana] }]);
+  });
+
   it('ignores results for an earlier query while filtering local suggestions', () => {
     expect(
       getMarketWidgetAssetSections({

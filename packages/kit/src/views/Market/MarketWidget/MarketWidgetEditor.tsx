@@ -358,7 +358,14 @@ const MarketWidgetEditorForm = ({
                   renderAvatar={
                     <Token
                       size="lg"
-                      tokenImageUri={item.logoURL}
+                      tokenImageUri={
+                        getMarketWidgetDisplayAsset({
+                          asset: item,
+                          state: editor.state,
+                          source,
+                          kind,
+                        })?.logoURL
+                      }
                       networkId={
                         item.kind === 'token' ? item.chainId : undefined
                       }

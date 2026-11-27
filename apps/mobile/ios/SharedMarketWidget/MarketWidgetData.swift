@@ -836,6 +836,15 @@ struct MarketWidgetStore {
     }
   }
 
+  func hasRecentMetadata(for asset: MarketWidgetAsset) -> Bool {
+    guard metadata(for: asset) != nil, let directory,
+          let values = try? directory.appendingPathComponent("metadata-\(digest(asset.id)).json")
+            .resourceValues(forKeys: [.contentModificationDateKey]),
+          let updatedAt = values.contentModificationDate else { return false }
+    // Successful detail responses can omit a logo; avoid retrying on every editor refresh.
+    return Date().timeIntervalSince(updatedAt) < 300
+  }
+
   func saveProfile(json: String) throws -> MarketWidgetProfile {
     guard let data = json.data(using: .utf8), data.count <= 8192 else { throw MarketWidgetError.invalidProfile }
     let input = try JSONDecoder().decode(MarketWidgetProfileInput.self, from: data)

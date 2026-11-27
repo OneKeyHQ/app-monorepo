@@ -439,6 +439,7 @@ struct MarketWidgetDataTests {
     try await testIncompleteSearchCanRetry()
     try await testDesktopAssetSearchAndFullLists()
     try await testMissingListIcons()
+    try await testMissingIconMetadataRetry()
     try await testCachedQuoteMissingIcon()
     try testAppQuoteSync()
     try testStocks()
@@ -1345,19 +1346,64 @@ struct MarketWidgetDataTests {
     asset.logoURL = "https://coin-images.coingecko.com/bitcoin.png"
     let configuration = MarketWidgetConfiguration(schemaVersion: 1, assets: [asset], greenUp: true, locale: "en-US")
     try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(configuration), as: UTF8.self))
-    let quote = MarketWidgetQuote(asset: asset, price: "100", change24h: "1", fetchedAt: Date())
+    let quote = MarketWidgetQuote(asset: MarketWidgetAsset.defaults[0], price: "100", change24h: "1", fetchedAt: Date())
     try store.saveQuote(quote)
     let sessionConfiguration = URLSessionConfiguration.ephemeral
     sessionConfiguration.protocolClasses = [MarketWidgetTestURLProtocol.self]
     let session = URLSession(configuration: sessionConfiguration)
     defer { session.invalidateAndCancel() }
     MarketWidgetTestURLProtocol.configure { _ in
-      Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5WQAAAAASUVORK5CYII=")!
+      Thread.sleep(forTimeInterval: 0.05)
+      return Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5WQAAAAASUVORK5CYII=")!
     }
-    let result = try await MarketWidgetService(store: store, session: session).quote(for: asset, locale: "en-US")
-    expect(result.price == quote.price && MarketWidgetTestURLProtocol.recordedPaths == ["/bitcoin.png"],
-      "A fresh cached quote downloads its missing icon without fetching another price")
+    let service = MarketWidgetService(store: store, session: session)
+    let results = try await withThrowingTaskGroup(of: MarketWidgetQuote.self) { group in
+      for _ in 0..<3 {
+        group.addTask { try await service.quote(for: asset, locale: "en-US") }
+      }
+      var results: [MarketWidgetQuote] = []
+      for try await result in group { results.append(result) }
+      return results
+    }
+    expect(results.count == 3 && results.allSatisfy { $0.price == quote.price }
+      && MarketWidgetTestURLProtocol.recordedPaths == ["/bitcoin.png"],
+      "Concurrent cached quotes use the selected asset's logo and download it once without fetching prices")
     expect(store.icon(for: asset) != nil, "The recovered icon is available to WidgetKit rendering")
+  }
+
+  private static func testMissingIconMetadataRetry() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let asset = MarketWidgetAsset.defaults[0]
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    try store.saveTrending(MarketWidgetCatalog(assets: [asset], fetchedAt: Date()))
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    MarketWidgetTestURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2,
+      "Failed detail requests remain retryable on the next editor refresh")
+    MarketWidgetTestURLProtocol.configure { _ in
+      json(#"{"code":0,"data":{"asset":{"assetId":"btc","symbol":"BTC","name":"Bitcoin"},"market":{"price":"1"}}}"#)
+    }
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    await MarketWidgetService.prepareEditorMetadata(store: MarketWidgetStore(directory: directory), session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1,
+      "Successful details without a logo are reused across editor refreshes and store instances")
+    let metadataFile = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+      .first { $0.lastPathComponent.hasPrefix("metadata-") }!
+    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-301)], ofItemAtPath: metadataFile.path)
+    MarketWidgetTestURLProtocol.configure { _ in
+      json(#"{"code":0,"data":{"asset":{"assetId":"btc","symbol":"BTC","name":"Bitcoin","logoUrl":"https://coin-images.coingecko.com/bitcoin.png"},"market":{"price":"1"}}}"#)
+    }
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1
+      && store.assetWithMetadata(asset).logoURL?.hasSuffix("bitcoin.png") == true,
+      "Missing logos can recover after the five-minute metadata retry interval")
   }
 
   private static func checkEditorMetadata() async throws {
