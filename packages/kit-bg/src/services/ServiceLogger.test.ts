@@ -112,9 +112,8 @@ describe('ServiceLogger reset diagnostic export', () => {
   it('blocks new and existing exports immediately on beginResetAttempt and closes active sessions on retry', async () => {
     const database = createInMemoryLogDatabase();
     const service = new ServiceLogger({ backgroundApi: {} });
-    (
-      service as unknown as { persistentLogs: BrowserLogStore }
-    ).persistentLogs = new BrowserLogStore(database);
+    (service as unknown as { persistentLogs: BrowserLogStore }).persistentLogs =
+      new BrowserLogStore(database);
 
     await service.addMsg('before-reset\r\n');
     const activeBeforeReset = await service.beginLogExport({ scope: 'recent' });
@@ -141,9 +140,8 @@ describe('ServiceLogger reset diagnostic export', () => {
   it('keeps sibling tabs stopped by broadcast in discard mode even if markResetFailed is called', async () => {
     const database = createInMemoryLogDatabase();
     const service = new ServiceLogger({ backgroundApi: {} });
-    (
-      service as unknown as { persistentLogs: BrowserLogStore }
-    ).persistentLogs = new BrowserLogStore(database);
+    (service as unknown as { persistentLogs: BrowserLogStore }).persistentLogs =
+      new BrowserLogStore(database);
 
     await service.stopPersistenceForReset(false);
     await service.addMsg('delayed pre-reset log in sibling tab\r\n');
