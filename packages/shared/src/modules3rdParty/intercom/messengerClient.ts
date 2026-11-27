@@ -47,6 +47,11 @@ export function createMessengerClient(options: IClientOptions) {
   const post = async (
     path: string,
     parameters: Record<string, unknown> = {},
+    // A boot's ping talks as the identity that the boot has not committed yet.
+    pending?: {
+      identity: { token?: string; language: string };
+      visitor?: IIntercomVisitor;
+    },
   ) => {
     await assertCurrent();
     // Restrict the transport to the small set of end-user operations we render.
@@ -56,15 +61,18 @@ export function createMessengerClient(options: IClientOptions) {
       )
     )
       throw new OneKeyLocalError('Unsupported support operation');
-    const sentVisitorId = identity?.token ? undefined : visitor?.anonymousId;
-    const userData = identity?.token
+    const sender = pending ?? { identity, visitor };
+    const sentVisitorId = sender.identity?.token
+      ? undefined
+      : sender.visitor?.anonymousId;
+    const userData = sender.identity?.token
       ? {
-          intercom_user_jwt: identity.token,
-          language_override: identity.language,
+          intercom_user_jwt: sender.identity.token,
+          language_override: sender.identity.language,
         }
       : {
-          anonymous_id: visitor?.anonymousId,
-          language_override: identity?.language,
+          anonymous_id: sender.visitor?.anonymousId,
+          language_override: sender.identity?.language,
         };
     const fields: Record<string, unknown> = {
       ...parameters,
@@ -74,9 +82,9 @@ export function createMessengerClient(options: IClientOptions) {
       s: sessionId,
       referer: 'https://app.onekey.so',
       user_data: JSON.stringify(userData),
-      anonymous_session: identity?.token
+      anonymous_session: sender.identity?.token
         ? undefined
-        : visitor?.anonymousSession,
+        : sender.visitor?.anonymousSession,
       'Idempotency-Key':
         typeof parameters.client_assigned_uuid === 'string'
           ? parameters.client_assigned_uuid
@@ -137,18 +145,27 @@ export function createMessengerClient(options: IClientOptions) {
       return;
     if (!booting) {
       const initialize = async () => {
-        identity = await options.getIdentity();
+        // The identity and visitor of this boot stay provisional until it
+        // finishes. Requests meanwhile keep the committed ones or wait for the
+        // boot, so the old client never talks as a visitor this boot replaces.
+        const nextIdentity = await options.getIdentity();
         await assertCurrent();
-        if (identity.token) {
-          visitor = undefined;
-        } else {
+        let nextVisitor: IIntercomVisitor | undefined;
+        if (!nextIdentity.token) {
           // A different window may have refreshed the shared visitor while
           // this client waited for the boot lock. Storage is authoritative.
-          visitor = await options.loadVisitor();
-          if (visitor && visitor.expiresAt <= Date.now()) visitor = undefined;
+          nextVisitor = await options.loadVisitor();
+          if (nextVisitor && nextVisitor.expiresAt <= Date.now())
+            nextVisitor = undefined;
         }
         await assertCurrent();
-        const data = intercomRecord(await post('ping', { source: 'api' }));
+        const data = intercomRecord(
+          await post(
+            'ping',
+            { source: 'api' },
+            { identity: nextIdentity, visitor: nextVisitor },
+          ),
+        );
         if (!intercomRecord(data.user).id)
           throw new OneKeyLocalError('Support session is unavailable');
         inboundDisabled =
@@ -158,7 +175,7 @@ export function createMessengerClient(options: IClientOptions) {
           home: modules.home,
           customization: modules.customization,
         };
-        if (!identity.token) {
+        if (!nextIdentity.token) {
           const anonymousId = intercomRecord(data.user).anonymous_id;
           const anonymousSession = data.anonymous_session;
           if (
@@ -166,7 +183,7 @@ export function createMessengerClient(options: IClientOptions) {
             typeof anonymousSession !== 'string'
           )
             throw new OneKeyLocalError('Invalid support visitor session');
-          visitor = {
+          nextVisitor = {
             anonymousId,
             anonymousSession,
             expiresAt:
@@ -174,9 +191,11 @@ export function createMessengerClient(options: IClientOptions) {
                 ? data.session_expiry * 1000
                 : Date.now() + 24 * 60 * 60_000,
           };
-          await options.saveVisitor(visitor);
+          await options.saveVisitor(nextVisitor);
           await assertCurrent();
         }
+        identity = nextIdentity;
+        visitor = nextVisitor;
         bootedAt = Date.now();
       };
       booting = (

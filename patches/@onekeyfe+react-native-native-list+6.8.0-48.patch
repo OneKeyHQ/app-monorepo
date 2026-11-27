@@ -1,8 +1,8 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
-index 95c5ccf..4396ac4 100644
+index f078224..72a1ecb 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
-@@ -1590,7 +1590,9 @@ function isAllowedImageUri(value) {
+@@ -1604,7 +1604,9 @@ function isAllowedImageUri(value) {
  }
  const IMAGE_FIELDS = ['uri', 'width', 'height', 'headers', 'contentFit', 'cachePolicy', 'autoplay', 'optimizeTos', 'overscan', 'loadingStrategy', 'fallbackUri', 'fallbackUris', 'retryTimes'];
  const ICON_FIELDS = ['name', 'tintColor', 'backgroundColor', 'size', 'accessibilityLabel', 'hoverActionKey'];
@@ -13,7 +13,7 @@ index 95c5ccf..4396ac4 100644
  const TEXT_STYLE_FIELDS = ['token', 'fontSize', 'fontWeight', 'color', 'lineHeight', 'lines', 'truncate', 'alignment', 'verticalAlignment', 'offsetY', 'letterSpacing', 'tabularNumbers'];
  const ACCESSORY_FIELDS = {
    value: ['kind', 'text', 'secondary', 'textSegments'],
-@@ -1823,7 +1825,9 @@ function sanitizeDecoration(value, field) {
+@@ -1837,7 +1839,9 @@ function sanitizeDecoration(value, field) {
    if (['leading', 'visual', 'secondaryLeading'].includes(field)) {
      if (next.kind === 'image' && !next.image) return {
        kind: 'token',
@@ -54,7 +54,7 @@ index 291aba7..2aac0f4 100644
      };
      if (image) image.addEventListener('error', showFallback, {
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-index 776bdb6..9a087a8 100644
+index 1e03747..e13efa9 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 @@ -265,6 +265,10 @@ type VisualWithImage = Readonly<{
@@ -69,7 +69,7 @@ index 776bdb6..9a087a8 100644
      shape?: 'circle' | 'rounded' | 'square';
      cornerIcon?: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-index e73b0bd..db2c5c5 100644
+index 4c59cd8..ec3c54a 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 @@ -385,6 +385,10 @@ type VisualWithImage = Readonly<{
@@ -84,10 +84,10 @@ index e73b0bd..db2c5c5 100644
    shape?: 'circle' | 'rounded' | 'square';
    cornerIcon?: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
-index ac67bb2..5fa37f3 100644
+index c1cecc7..a5aaf90 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
-@@ -3565,6 +3565,9 @@ const VISUAL_FIELDS = [
+@@ -3605,6 +3605,9 @@ const VISUAL_FIELDS = [
    'fallbackIcon',
    'fallbackText',
    'fallbackTextColor',
@@ -97,7 +97,7 @@ index ac67bb2..5fa37f3 100644
    'overlays',
    'borderStyle',
    'borderColor',
-@@ -4226,6 +4229,9 @@ function sanitizeDecoration(value: unknown, field: string): unknown {
+@@ -4266,6 +4269,9 @@ function sanitizeDecoration(value: unknown, field: string): unknown {
            'fallbackIcon',
            'fallbackText',
            'fallbackTextColor',

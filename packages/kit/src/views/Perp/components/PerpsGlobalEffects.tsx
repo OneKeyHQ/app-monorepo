@@ -336,6 +336,7 @@ function useHyperliquidEventBusListener() {
   const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
 
+  const previousL2BookRef = useRef<IBook | null>(null);
   const l2BookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const l2BookDirtyRef = useRef<IBook | null>(null);
   const bboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -413,15 +414,36 @@ function useHyperliquidEventBusListener() {
             break;
           }
 
-          case ESubscriptionType.L2_BOOK:
+          case ESubscriptionType.L2_BOOK: {
+            const book = data as IBook | null;
+            if (!book) break;
+            const previous = previousL2BookRef.current;
+            previousL2BookRef.current = book;
+            if (
+              previous &&
+              (previous.coin !== book.coin ||
+                previous.nSigFigs !== book.nSigFigs ||
+                previous.mantissa !== book.mantissa ||
+                Boolean(previous.levels?.[0]?.length) !==
+                  Boolean(book.levels?.[0]?.length) ||
+                Boolean(previous.levels?.[1]?.length) !==
+                  Boolean(book.levels?.[1]?.length))
+            ) {
+              if (l2BookTimerRef.current) clearTimeout(l2BookTimerRef.current);
+              l2BookTimerRef.current = null;
+              l2BookDirtyRef.current = null;
+              void actions.current.updateL2Book(book);
+              break;
+            }
             scheduleThrottledDispatch(
               l2BookDirtyRef,
               l2BookTimerRef,
               HIGH_FREQ_CHANNEL_THROTTLE_MS,
-              (book) => void actions.current.updateL2Book(book),
-              data as IBook,
+              (nextBook) => void actions.current.updateL2Book(nextBook),
+              book,
             );
             break;
+          }
 
           case ESubscriptionType.BBO:
             if (data === null) {

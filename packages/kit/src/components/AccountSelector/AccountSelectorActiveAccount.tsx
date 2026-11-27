@@ -35,6 +35,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { showBotWalletDisabledToast } from '../../utils/botWalletDisabledToast';
 import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '../LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 
 import {
   DESKTOP_HEADER_TRIGGER_PROPS,
@@ -118,6 +119,15 @@ const AllNetworkAccountSelector = ({
     }
 
     if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: activeAccount?.wallet?.id,
+        accountId: activeAccount?.dbAccount?.id ?? activeAccount?.account?.id,
+      })
+    ) {
+      return;
+    }
+
+    if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: activeAccount?.wallet?.id ?? '',
       })
@@ -125,7 +135,13 @@ const AllNetworkAccountSelector = ({
       return;
     }
     await handleAllNetworkCopyAddress(true);
-  }, [activeAccount?.wallet?.id, handleAllNetworkCopyAddress, isCopyDisabled]);
+  }, [
+    activeAccount?.account?.id,
+    activeAccount?.dbAccount?.id,
+    activeAccount?.wallet?.id,
+    handleAllNetworkCopyAddress,
+    isCopyDisabled,
+  ]);
 
   if (!isAllNetworkEnabled) {
     return null;
@@ -300,8 +316,22 @@ export function AccountSelectorActiveAccountHome({
       showBotWalletDisabledToast('copyAddress');
       return;
     }
+    if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: wallet?.id,
+        accountId: activeAccount?.dbAccount?.id ?? account?.id,
+      })
+    ) {
+      return;
+    }
     await handleAllNetworkCopyAddress();
-  }, [handleAllNetworkCopyAddress, isCopyDisabled]);
+  }, [
+    account?.id,
+    activeAccount?.dbAccount?.id,
+    handleAllNetworkCopyAddress,
+    isCopyDisabled,
+    wallet?.id,
+  ]);
 
   const logActiveAccount = useCallback(() => {
     defaultLogger.accountSelector.perf.trace('activeAccountInteraction', {
@@ -325,6 +355,15 @@ export function AccountSelectorActiveAccountHome({
       })
     ) {
       showBotWalletDisabledToast('copyAddress');
+      return;
+    }
+
+    if (
+      await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId: wallet.id,
+        accountId: activeAccount?.dbAccount?.id ?? account.id,
+      })
+    ) {
       return;
     }
 
@@ -401,6 +440,7 @@ export function AccountSelectorActiveAccountHome({
     account?.address,
     account?.createAtNetwork,
     account?.id,
+    activeAccount?.dbAccount?.id,
     copyAddressWithDeriveType,
     deriveInfoItems,
     indexedAccount?.id,

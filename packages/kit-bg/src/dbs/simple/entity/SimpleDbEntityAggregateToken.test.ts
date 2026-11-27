@@ -1,4 +1,46 @@
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SimpleDbEntityAggregateToken } from './SimpleDbEntityAggregateToken';
+
+it('broadcasts extension Home defaults only after the aggregate config write commits', async () => {
+  const entity = new SimpleDbEntityAggregateToken();
+  const previousPlatform = platformEnv.isExtensionBackground;
+  platformEnv.isExtensionBackground = true;
+  const notify = jest.fn();
+  appEventBus.on(EAppEventBusNames.HomeDefaultTokensUpdated, notify);
+  try {
+    let commit!: () => void;
+    const write = jest.spyOn(entity, 'setRawData').mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          commit = () => resolve({ homeDefaultTokenMap: {} });
+        }),
+    );
+    const sync = entity.updateAllAggregateInfo({
+      aggregateTokenConfigMap: {},
+      aggregateTokenSymbolMap: {},
+      homeDefaultTokenMap: {},
+      allAggregateTokenMap: {},
+      allAggregateTokens: [],
+    });
+    expect(notify).not.toHaveBeenCalled();
+    commit();
+    await sync;
+    expect(notify).toHaveBeenCalledTimes(1);
+
+    write.mockResolvedValueOnce(undefined);
+    await entity.updateHomeDefaultTokenMap({ homeDefaultTokenMap: {} });
+    expect(notify).toHaveBeenCalledTimes(1);
+  } finally {
+    platformEnv.isExtensionBackground = previousPlatform;
+    appEventBus.off(EAppEventBusNames.HomeDefaultTokensUpdated, notify);
+    jest.restoreAllMocks();
+  }
+});
 
 describe('getAggregateTokenConfigSnapshot', () => {
   const entity = new SimpleDbEntityAggregateToken();

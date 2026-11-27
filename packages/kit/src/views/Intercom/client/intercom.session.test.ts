@@ -1,5 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IIntercomVisitor } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerClient';
+import type {
+  IIntercomHome,
+  IIntercomInbox,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 
 let mockUserId: string | null = null;
 let mockLocked = false;
@@ -638,7 +642,13 @@ it('drops the old count when an expired visitor is replaced without one', async 
     }
     return respond({ unread_conversation_ids: ['7', '8'] });
   });
-  await session.refreshUnread();
+  // Booting another visitor retires the client, so the old count goes with it.
+  await expect(session.refreshUnread()).rejects.toThrow(
+    'Support session changed',
+  );
+  // The next session counts for the visitor saved above.
+  const next = await subject.createIntercomMessengerSession(null);
+  await next.refreshUnread();
   expect(counts).toEqual([['visitor:next-visitor', 2]]);
 });
 
@@ -676,16 +686,22 @@ it('ignores unread results sent for a visitor that has since been replaced', asy
   held[0](respond({ unread_conversation_ids: ['7', '8'] }));
   await duringBoot;
   const { unread_conversation_ids: _unread, ...next } = boot;
-  held[2](
-    respond({
-      ...next,
-      user: { id: 'test-user', anonymous_id: 'next-visitor' },
-    }),
-  );
-  await replacement;
+  const nextPing = {
+    ...next,
+    user: { id: 'test-user', anonymous_id: 'next-visitor' },
+  };
+  held[2](respond(nextPing));
+  // Booting another visitor retires the client.
+  await expect(replacement).rejects.toThrow('Support session changed');
   // And another lands after the replacement is saved.
   held[1](respond({ unread_conversation_ids: ['7', '8'] }));
-  await afterBoot;
+  await expect(afterBoot).rejects.toThrow('Support session changed');
+  // The next session counts for the visitor saved above.
+  mockFetch.mockImplementation(async (url) =>
+    respond(url.endsWith('/ping') ? nextPing : { unread_conversation_ids: [] }),
+  );
+  const nextSession = await subject.createIntercomMessengerSession(null);
+  await nextSession.refreshUnread();
   expect(counts).toEqual([['visitor:next-visitor', 0]]);
 });
 
@@ -784,4 +800,209 @@ it('allows an explicit support open before passive polling starts', async () => 
   await subject.createIntercomMessengerSession('A');
   expect(mockCredentials).toHaveBeenCalledTimes(1);
   expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+describe('cached support answers', () => {
+  const home: IIntercomHome = {
+    homeLabel: 'Home',
+    messagesLabel: 'Messages',
+    newConversationLabel: 'Contact us',
+    recentConversationLimit: 2,
+    articles: [],
+    links: [],
+  };
+
+  it('reuses only the live session of the same unlocked identity', async () => {
+    expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+    const session = await subject.createIntercomMessengerSession(null);
+    expect(subject.peekIntercomMessengerSession(null)).toBe(session);
+    expect(subject.peekIntercomMessengerSession('A')).toBeUndefined();
+    await setLock(true);
+    expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+  });
+
+  it('drops the answers of a session retired by a lock, including late ones', async () => {
+    const session = await subject.createIntercomMessengerSession(null);
+    subject.getIntercomResponseCache(session, 'home')?.save(home);
+    expect(subject.getIntercomResponseCache(session, 'home')?.read()).toBe(
+      home,
+    );
+    expect(
+      subject.getIntercomResponseCache(session, 'inbox')?.read(),
+    ).toBeUndefined();
+    await setLock(true);
+    expect(
+      subject.getIntercomResponseCache(session, 'home')?.read(),
+    ).toBeUndefined();
+    await setLock(false);
+    const next = await subject.createIntercomMessengerSession(null);
+    expect(next).not.toBe(session);
+    subject.getIntercomResponseCache(session, 'home')?.save(home);
+    expect(
+      subject.getIntercomResponseCache(next, 'home')?.read(),
+    ).toBeUndefined();
+  });
+
+  it('drops cached answers when the account changes', async () => {
+    const session = await subject.createIntercomMessengerSession(null);
+    const cache = subject.getIntercomResponseCache(session, 'home');
+    cache?.save(home);
+    mockUserId = 'A';
+    await subject.initIntercom();
+    expect(cache?.read()).toBeUndefined();
+    expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+    const next = await subject.createIntercomMessengerSession('A');
+    expect(subject.peekIntercomMessengerSession('A')).toBe(next);
+    expect(
+      subject.getIntercomResponseCache(next, 'home')?.read(),
+    ).toBeUndefined();
+  });
+
+  it('retires the client when boot replaces an expired visitor, before a pending reply is posted', async () => {
+    const inbox: IIntercomInbox = { conversations: [], hasMore: false };
+    const start = Date.now();
+    const expiry = Math.floor(start / 1000) + 3600;
+    mockFetch.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ ...boot, session_expiry: expiry })),
+    );
+    const session = await subject.createIntercomMessengerSession(null);
+    subject.getIntercomResponseCache(session, 'inbox')?.save(inbox);
+    expect(subject.peekIntercomMessengerSession(null)).toBe(session);
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(expiry * 1000 + 1);
+    try {
+      expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+      expect(
+        subject.getIntercomResponseCache(session, 'inbox')?.read(),
+      ).toBeUndefined();
+      const generation = subject.getIntercomSessionGeneration();
+      const retired = jest.fn();
+      const unsubscribe = subject.subscribeToIntercomSessionGeneration(retired);
+      let releaseInbox!: (response: Response) => void;
+      mockFetch.mockClear();
+      mockFetch.mockImplementation(async (url) =>
+        url.endsWith('/conversations')
+          ? new Promise<Response>((done) => {
+              releaseInbox = done;
+            })
+          : new Response(
+              JSON.stringify({
+                ...boot,
+                user: { id: 'next-user', anonymous_id: 'next-visitor' },
+                anonymous_session: 'next-session',
+                session_expiry: expiry + 3600,
+              }),
+            ),
+      );
+      // A reply composed for the expired visitor boots another one, which
+      // retires the client before the reply could be posted as the new visitor.
+      await expect(
+        session.reply('42', {
+          clientId: 'reply-1',
+          blocks: [{ type: 'paragraph', text: 'Hello support' }],
+        }),
+      ).rejects.toThrow('Support session changed');
+      expect(
+        mockFetch.mock.calls.map(([url]) => url.split('/messenger/web/')[1]),
+      ).toEqual(['ping']);
+      expect(subject.getIntercomSessionGeneration()).toBe(generation + 1);
+      expect(retired).toHaveBeenCalledTimes(1);
+      expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+      // The next session boots the saved visitor on a new client.
+      const next = await subject.createIntercomMessengerSession(null);
+      expect(next).not.toBe(session);
+      const ping = new URLSearchParams(
+        String(mockFetch.mock.calls.at(-1)?.[1]?.body),
+      );
+      expect(JSON.parse(ping.get('user_data') ?? '{}')).toMatchObject({
+        anonymous_id: 'next-visitor',
+      });
+      const pending = next.listConversations();
+      await new Promise<void>((done) => setImmediate(done));
+      expect(subject.peekIntercomMessengerSession(null)).toBe(next);
+      expect(
+        subject.getIntercomResponseCache(next, 'inbox')?.read(),
+      ).toBeUndefined();
+      expect(
+        subject.getIntercomResponseCache(session, 'inbox')?.read(),
+      ).toBeUndefined();
+      releaseInbox(new Response(JSON.stringify({ conversations: [] })));
+      await pending;
+      expect(retired).toHaveBeenCalledTimes(1);
+      unsubscribe();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('retires support screens and answers when the shared visitor is revoked', async () => {
+    const session = await subject.createIntercomMessengerSession(null);
+    subject.getIntercomResponseCache(session, 'home')?.save(home);
+    const retired = jest.fn();
+    const unsubscribe = subject.subscribeToIntercomSessionGeneration(retired);
+    mockStorageEpoch += 1;
+    await expect(subject.createIntercomMessengerSession(null)).rejects.toThrow(
+      'Support visitor installation changed',
+    );
+    expect(retired).toHaveBeenCalledTimes(1);
+    expect(subject.peekIntercomMessengerSession(null)).toBeUndefined();
+    expect(
+      subject.getIntercomResponseCache(session, 'home')?.read(),
+    ).toBeUndefined();
+    unsubscribe();
+  });
+
+  it('retires a session once, not on every later invalidation', async () => {
+    await subject.createIntercomMessengerSession(null);
+    const retired = jest.fn();
+    const unsubscribe = subject.subscribeToIntercomSessionGeneration(retired);
+    await setLock(true);
+    await setLock(true);
+    expect(retired).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+});
+
+it('keeps the unread badge in the same poll when another window replaced the visitor', async () => {
+  jest.useFakeTimers();
+  await subject.createIntercomMessengerSession(null);
+  await subject.startIntercomBackgroundPolling();
+  subject.setIntercomInAppMessageVisibility(true);
+  await jest.advanceTimersByTimeAsync(0);
+  expect(subject.getIntercomUnreadCount()).toBe(1);
+  // Another window saved a replacement visitor; the next boot here finds it.
+  mockVisitor = JSON.stringify({
+    anonymousId: 'next-visitor',
+    anonymousSession: 'next-session',
+    expiresAt: 9_999_999_999_000,
+  } satisfies IIntercomVisitor);
+  mockFetch.mockImplementation(
+    async (url) =>
+      new Response(
+        JSON.stringify(
+          url.endsWith('/ping')
+            ? {
+                ...boot,
+                user: { id: 'next-user', anonymous_id: 'next-visitor' },
+                anonymous_session: 'next-session',
+              }
+            : { unread_conversation_ids: ['42'] },
+        ),
+      ),
+  );
+  const generation = subject.getIntercomSessionGeneration();
+  mockFetch.mockClear();
+  // The poll after five minutes boots again and meets the replacement.
+  await jest.advanceTimersByTimeAsync(5 * 60_000 + 1000);
+  expect(subject.getIntercomSessionGeneration()).toBe(generation + 1);
+  expect(subject.getIntercomUnreadCount()).toBe(1);
+  const unread = mockFetch.mock.calls.filter(([url]) =>
+    url.endsWith('/conversations/unread'),
+  );
+  expect(
+    JSON.parse(
+      new URLSearchParams(String(unread.at(-1)?.[1]?.body)).get('user_data') ||
+        '{}',
+    ),
+  ).toMatchObject({ anonymous_id: 'next-visitor' });
 });

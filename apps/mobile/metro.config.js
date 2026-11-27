@@ -217,6 +217,14 @@ const nativePagerViewEntry = path.resolve(
   monorepoRoot,
   'node_modules/react-native-pager-view/lib/module/index.native.js',
 );
+// @onekeyfe/react-native-device-utils exposes `./first-launch` only via package
+// exports (`react-native` -> `firstLaunch.native.js`). With package exports
+// disabled, Metro cannot read the export map and Node's require.resolve() picks
+// the web entry, so pin native resolution explicitly.
+const nativeDeviceUtilsFirstLaunchEntry = path.resolve(
+  monorepoRoot,
+  'node_modules/@onekeyfe/react-native-device-utils/lib/module/firstLaunch.native.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -249,6 +257,15 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     return {
       type: 'sourceFile',
       filePath: nativePagerViewEntry,
+    };
+  }
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === '@onekeyfe/react-native-device-utils/first-launch'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: nativeDeviceUtilsFirstLaunchEntry,
     };
   }
   if (

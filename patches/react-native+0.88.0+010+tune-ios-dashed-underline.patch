@@ -1,0 +1,322 @@
+diff --git a/node_modules/react-native/Libraries/Text/TextNativeComponent.js b/node_modules/react-native/Libraries/Text/TextNativeComponent.js
+index 11c8691..b01ff1a 100644
+--- a/node_modules/react-native/Libraries/Text/TextNativeComponent.js
++++ b/node_modules/react-native/Libraries/Text/TextNativeComponent.js
+@@ -45,6 +45,7 @@ const textViewConfig = {
+     minimumFontScale: true,
+     textBreakStrategy: true,
+     onTextLayout: true,
++    onekeyDashText: true,
+     dataDetectorType: true,
+     android_hyphenationFrequency: true,
+     lineBreakStrategyIOS: true,
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
+index 228ec0d..a20937d 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
+@@ -42,6 +42,7 @@ @interface RCTParagraphTextView : UIView
+ @property (nonatomic) ParagraphAttributes paragraphAttributes;
+ @property (nonatomic) LayoutMetrics layoutMetrics;
+ @property (nonatomic) CGRect drawingFrame;
++@property (nonatomic, copy) NSString *onekeyDashText;
+
+ @end
+
+@@ -121,6 +122,10 @@ - (void)updateProps:(const Props::Shared &)props oldProps:(const Props::Shared &
+
+   _paragraphAttributes = newParagraphProps.paragraphAttributes;
+   _textView.paragraphAttributes = _paragraphAttributes;
++  if (oldProps == nullptr || newParagraphProps.onekeyDashText != oldParagraphProps.onekeyDashText) {
++    _textView.onekeyDashText = [NSString stringWithUTF8String:newParagraphProps.onekeyDashText.c_str()];
++    [_textView setNeedsDisplay];
++  }
+
+   if (newParagraphProps.isSelectable != oldParagraphProps.isSelectable) {
+     if (newParagraphProps.isSelectable) {
+@@ -167,6 +172,7 @@ - (void)prepareForRecycle
+ {
+   [super prepareForRecycle];
+   _textView.state = nullptr;
++  _textView.onekeyDashText = nil;
+   _accessibilityProvider = nil;
+ }
+
+@@ -455,6 +461,10 @@ - (void)drawRect:(CGRect)rect
+   [nativeTextLayoutManager drawAttributedString:stateData.attributedString
+                             paragraphAttributes:_paragraphAttributes
+                                           frame:frame
++                                  onekeyDashText:self.onekeyDashText
++                                  drawingBottom:CGRectGetMaxY(self.bounds)
++                          pixelSnappedBottomPadding:stateData.pixelSnappedBottomPadding
++                                          scale:self.contentScaleFactor
+                               drawHighlightPath:^(UIBezierPath *highlightPath) {
+                                 if (highlightPath) {
+                                   if (!self->_highlightLayer) {
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/text/BaseParagraphProps.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/text/BaseParagraphProps.cpp
+index 9cd9fdb..d06ac8e 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/text/BaseParagraphProps.cpp
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/text/BaseParagraphProps.cpp
+@@ -38,7 +38,9 @@ BaseParagraphProps::BaseParagraphProps(
+           rawProps,
+           "onTextLayout",
+           sourceProps.onTextLayout,
+-          {})) {
++          {})),
++      onekeyDashText(convertRawProp(
++          context, rawProps, "onekeyDashText", sourceProps.onekeyDashText, {})) {
+   /*
+    * These props are applied to `View`, therefore they must not be a part of
+    * base text attributes.
+@@ -127,6 +129,7 @@ void BaseParagraphProps::setProp(
+   switch (hash) {
+     RAW_SET_PROP_SWITCH_CASE(isSelectable, "selectable");
+     RAW_SET_PROP_SWITCH_CASE_BASIC(onTextLayout);
++    RAW_SET_PROP_SWITCH_CASE_BASIC(onekeyDashText);
+   }
+
+   /*
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/text/BaseParagraphProps.h b/node_modules/react-native/ReactCommon/react/renderer/components/text/BaseParagraphProps.h
+index d5bb11a..9ae3cc5 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/text/BaseParagraphProps.h
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/text/BaseParagraphProps.h
+@@ -51,6 +51,8 @@ class BaseParagraphProps : public ViewProps, public BaseTextProps {
+
+   bool onTextLayout{};
+
++  std::string onekeyDashText{};
++
+ #pragma mark - DebugStringConvertible
+
+ #if RN_DEBUG_STRING_CONVERTIBLE
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/text/ParagraphShadowNode.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/text/ParagraphShadowNode.cpp
+index 17b14c4..2d25370 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/text/ParagraphShadowNode.cpp
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/text/ParagraphShadowNode.cpp
+@@ -171,7 +171,15 @@ void ParagraphShadowNode::updateStateIfNeeded(const Content& content) {
+   auto& state = getStateData();
+
+   react_native_assert(textLayoutManager_);
++#ifdef __APPLE__
++  const auto pixelSnappedBottomPadding = getConcreteProps().onekeyDashText.empty()
++      ? 0.0f
++      : yogaNode_.getLayout().pixelSnappedBottomPadding;
++  if (state.attributedString == content.attributedString &&
++      state.pixelSnappedBottomPadding == pixelSnappedBottomPadding) {
++#else
+   if (state.attributedString == content.attributedString) {
++#endif
+     return;
+   }
+
+@@ -179,7 +187,11 @@ void ParagraphShadowNode::updateStateIfNeeded(const Content& content) {
+       ParagraphState{
+           content.attributedString,
+           content.paragraphAttributes,
+-          textLayoutManager_});
++          textLayoutManager_,
++#ifdef __APPLE__
++          pixelSnappedBottomPadding,
++#endif
++      });
+ }
+
+ MeasuredPreparedTextLayout* ParagraphShadowNode::findUsableLayout() {
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/text/platform/cxx/react/renderer/components/text/ParagraphState.h b/node_modules/react-native/ReactCommon/react/renderer/components/text/platform/cxx/react/renderer/components/text/ParagraphState.h
+index 3b351ae..749f704 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/text/platform/cxx/react/renderer/components/text/ParagraphState.h
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/text/platform/cxx/react/renderer/components/text/ParagraphState.h
+@@ -39,6 +39,9 @@ class ParagraphState final {
+    * `AttributedString`.
+    */
+   std::weak_ptr<const TextLayoutManager> layoutManager;
++#ifdef __APPLE__
++  Float pixelSnappedBottomPadding{};
++#endif
+ };
+
+ } // namespace facebook::react
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.h b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.h
+index a4b9be7..f5e48c8 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.h
++++ b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.h
+@@ -40,6 +40,10 @@ using RCTTextLayoutFragmentEnumerationBlock =
+ - (void)drawAttributedString:(facebook::react::AttributedString)attributedString
+          paragraphAttributes:(facebook::react::ParagraphAttributes)paragraphAttributes
+                        frame:(CGRect)frame
++               onekeyDashText:(nullable NSString *)onekeyDashText
++               drawingBottom:(CGFloat)drawingBottom
++       pixelSnappedBottomPadding:(CGFloat)pixelSnappedBottomPadding
++                        scale:(CGFloat)scale
+            drawHighlightPath:(void (^_Nullable)(UIBezierPath *highlightPath))block;
+
+ - (facebook::react::LinesMeasurements)getLinesForAttributedString:(facebook::react::AttributedString)attributedString
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
+index 5f9847a..6518238 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
++++ b/node_modules/react-native/ReactCommon/react/renderer/textlayoutmanager/platform/ios/react/renderer/textlayoutmanager/RCTTextLayoutManager.mm
+@@ -7,7 +7,10 @@
+
+ #import "RCTTextLayoutManager.h"
+
++#import <algorithm>
+ #import <array>
++#import <cmath>
++#import <vector>
+
+ #import "RCTAttributedTextUtils.h"
+
+@@ -20,6 +23,40 @@
+
+ using namespace facebook::react;
+
++static void RCTAddDashTextSegments(
++    CGContextRef context,
++    NSLayoutManager *layoutManager,
++    NSTextContainer *container,
++    NSRange glyphRange,
++    CGFloat originX,
++    CGFloat x1,
++    CGFloat x2,
++    CGFloat y)
++{
++  std::vector<unsigned char> bidiLevels(glyphRange.length);
++  [layoutManager getGlyphsInRange:glyphRange
++                          glyphs:nullptr
++                      properties:nullptr
++                characterIndexes:nullptr
++                      bidiLevels:bidiLevels.data()];
++  if (x2 > x1 && std::none_of(bidiLevels.begin(), bidiLevels.end(), [](unsigned char level) { return level != 0; })) {
++    CGContextMoveToPoint(context, x1, y);
++    CGContextAddLineToPoint(context, x2, y);
++    return;
++  }
++
++  [layoutManager
++      enumerateEnclosingRectsForGlyphRange:glyphRange
++                  withinSelectedGlyphRange:NSMakeRange(NSNotFound, 0)
++                           inTextContainer:container
++                                usingBlock:^(CGRect rect, __unused BOOL *stop) {
++                                  if (!CGRectIsEmpty(rect)) {
++                                    CGContextMoveToPoint(context, CGRectGetMinX(rect) + originX, y);
++                                    CGContextAddLineToPoint(context, CGRectGetMaxX(rect) + originX, y);
++                                  }
++                                }];
++}
++
+ @implementation RCTTextLayoutManager {
+   SimpleThreadSafeCache<AttributedString, std::shared_ptr<void>, 256> _cache;
+ }
+@@ -130,6 +167,10 @@ - (CGRect)drawingFrameForAttributedString:(AttributedString)attributedString
+ - (void)drawAttributedString:(AttributedString)attributedString
+          paragraphAttributes:(ParagraphAttributes)paragraphAttributes
+                        frame:(CGRect)frame
++               onekeyDashText:(nullable NSString *)onekeyDashText
++               drawingBottom:(CGFloat)drawingBottom
++       pixelSnappedBottomPadding:(CGFloat)pixelSnappedBottomPadding
++                        scale:(CGFloat)scale
+            drawHighlightPath:(void (^_Nullable)(UIBezierPath *highlightPath))block
+ {
+   NSTextStorage *textStorage = [self
+@@ -156,6 +197,12 @@ - (void)drawAttributedString:(AttributedString)attributedString
+   CGContextRestoreGState(context);
+ #endif
+
++  NSArray<NSString *> *dashText =
++      onekeyDashText.length ? [onekeyDashText componentsSeparatedByString:@","] : nil;
++  CGFloat dashThickness = dashText.count == 3 ? dashText[0].doubleValue : 0.0;
++  CGFloat dashSpacing = dashThickness > 0.0 ? dashText[1].doubleValue : 0.0;
++  NSString *dashMode = dashThickness > 0.0 ? dashText[2] : nil;
++
+   // Custom decoration pass: enumerate `RCTCustomDecorationAttributeName`
+   // ranges and paint each one ourselves. Covers wavy (no UIKit equivalent),
+   // dotted, and dashed (UIKit's pattern bits don't match browser geometry).
+@@ -236,6 +283,50 @@ - (void)drawAttributedString:(AttributedString)attributedString
+
+                                                    // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
+                                                    for (NSString *line in lines) {
++                                                     // OneKey patch: Draw the DashText rule in the text's reserved padding.
++                                                     if (dashThickness > 0.0 && std::isfinite(dashThickness) &&
++                                                         scale > 0.0 && [style isEqualToString:@"dashed"] &&
++                                                         [line isEqualToString:@"underline"]) {
++                                                       constexpr std::array<CGFloat, 2> intervals = {3.0, 2.0};
++                                                       CGFloat lineBottom = CGRectGetMaxY(lineRect) + frame.origin.y;
++                                                       CGFloat bottom = round(drawingBottom * scale);
++                                                       if (bottom < 1.0) {
++                                                         continue;
++                                                       }
++                                                       CGFloat height = MAX(1.0, round(dashThickness * scale));
++                                                       CGFloat top;
++                                                       if ([dashMode isEqualToString:@"overlay"]) {
++                                                         top = round(MIN(lineBottom, drawingBottom) * scale) - height;
++                                                       } else if ([dashMode isEqualToString:@"single"]) {
++                                                         // The old rule occupied its own Yoga box, with independently
++                                                         // rounded edges even when fractional padding rounds outward.
++                                                         height = MAX(1.0, round(pixelSnappedBottomPadding * scale));
++                                                         // TextKit's fragment can end one pixel above the old text view.
++                                                         top = round(MIN(lineBottom, CGRectGetMaxY(frame)) * scale) + 1.0;
++                                                       } else {
++                                                         top = round((lineBottom + dashSpacing) * scale);
++                                                       }
++                                                       height = MIN(height, bottom);
++                                                       top = MAX(0.0, MIN(top, bottom - height));
++                                                       CGFloat dashY = (top + height / 2.0) / scale;
++
++                                                       CGContextSaveGState(ctx);
++                                                       CGContextSetLineWidth(ctx, height / scale);
++                                                       CGContextSetLineDash(ctx, 0, intervals.data(), intervals.size());
++                                                       CGContextBeginPath(ctx);
++                                                       RCTAddDashTextSegments(
++                                                           ctx,
++                                                           layoutManager,
++                                                           container,
++                                                           intersection,
++                                                           frame.origin.x,
++                                                           x1,
++                                                           x2,
++                                                           dashY);
++                                                       CGContextStrokePath(ctx);
++                                                       CGContextRestoreGState(ctx);
++                                                       continue;
++                                                     }
+                                                      CGFloat y = 0.0f;
+                                                      if ([line isEqualToString:@"underline"]) {
+                                                        if ([style isEqualToString:@"wavy"]) {
+diff --git a/node_modules/react-native/ReactCommon/yoga/yoga/algorithm/PixelGrid.cpp b/node_modules/react-native/ReactCommon/yoga/yoga/algorithm/PixelGrid.cpp
+index 5c5a3b7..3a619c9 100644
+--- a/node_modules/react-native/ReactCommon/yoga/yoga/algorithm/PixelGrid.cpp
++++ b/node_modules/react-native/ReactCommon/yoga/yoga/algorithm/PixelGrid.cpp
+@@ -85,6 +85,17 @@ void roundLayoutResultsToPixelGrid(
+     // If a node has a custom measure function we never want to round down its
+     // size as this could lead to unwanted text truncation.
+     const bool textRounding = node->getNodeType() == NodeType::Text;
++#ifdef __APPLE__
++    if (textRounding) {
++      const auto bottomPadding = node->getLayout().padding(PhysicalEdge::Bottom);
++      node->getLayout().pixelSnappedBottomPadding = bottomPadding > 0.0f
++          ? roundValueToPixelGrid(
++                absoluteNodeBottom, pointScaleFactor, false, false) -
++              roundValueToPixelGrid(
++                absoluteNodeBottom - bottomPadding, pointScaleFactor, false, false)
++          : 0.0f;
++    }
++#endif
+
+     node->setLayoutPosition(
+         roundValueToPixelGrid(nodeLeft, pointScaleFactor, false, textRounding),
+diff --git a/node_modules/react-native/ReactCommon/yoga/yoga/node/LayoutResults.h b/node_modules/react-native/ReactCommon/yoga/yoga/node/LayoutResults.h
+index 24d353f..1855183 100644
+--- a/node_modules/react-native/ReactCommon/yoga/yoga/node/LayoutResults.h
++++ b/node_modules/react-native/ReactCommon/yoga/yoga/node/LayoutResults.h
+@@ -118,6 +118,12 @@ struct LayoutResults {
+     padding_[yoga::to_underlying(physicalEdge)] = dimension;
+   }
+
++#ifdef __APPLE__
++  // Paints inside a text node can need ordinary view rounding even though
++  // the text box itself rounds outward to avoid truncating glyphs.
++  float pixelSnappedBottomPadding = 0.0f;
++#endif
++
+   bool operator==(LayoutResults layout) const;
+
+  private:
