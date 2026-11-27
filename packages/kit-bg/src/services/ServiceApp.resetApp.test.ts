@@ -1539,4 +1539,52 @@ describe('ServiceApp privacy database reset ordering', () => {
     expect(beginResetAttempt).toHaveBeenCalledTimes(1);
     expect(markResetFailed).toHaveBeenCalledTimes(1);
   });
+
+  it('formats multi-stage resetData failures without double-wrapping stage envelopes', async () => {
+    jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
+    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const snapshotErr = new Error('Internal error.');
+    snapshotErr.name = 'UnknownError';
+    jest.mocked(clearAllSnapshotCaches).mockRejectedValueOnce(snapshotErr);
+    jest
+      .mocked(localDb.reset)
+      .mockRejectedValueOnce(new Error('Database locked.'));
+
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceLogger: {
+          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    });
+
+    await expect(
+      (service as unknown as { resetData: () => Promise<void> }).resetData(),
+    ).rejects.toThrow(
+      'App reset could not complete snapshotCaches (UnknownError: Internal error), walletDatabase (Database locked). Retry Reset App.',
+    );
+  });
+
+  it('formats recoveryDrain failure without double-wrapping the stage message', async () => {
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceCloudBackupV2: {
+          prepareLocalRecoveryForReset: jest
+            .fn()
+            .mockRejectedValue(new Error('backup lock busy.')),
+        },
+        serviceNotification: { unregisterClient: jest.fn() },
+      },
+    });
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(service.resetApp()).rejects.toThrow(
+      'App reset could not drain recovery tasks: backup lock busy. Retry Reset App.',
+    );
+  });
 });
