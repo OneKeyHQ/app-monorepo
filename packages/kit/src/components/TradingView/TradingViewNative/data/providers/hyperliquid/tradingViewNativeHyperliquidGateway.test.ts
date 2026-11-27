@@ -1,3 +1,5 @@
+import { HttpRequestError } from '@nktkas/hyperliquid';
+
 import type { ICandle } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { TradingViewNativeHyperliquidGateway } from './tradingViewNativeHyperliquidGateway';
@@ -41,6 +43,14 @@ jest.mock('@nktkas/hyperliquid', () => {
   ).__tradingViewNativeHyperliquidGatewayMocks = bag;
 
   return {
+    HttpRequestError: class extends Error {
+      response?: Response;
+
+      constructor({ response }: { response?: Response }) {
+        super('HTTP request failed');
+        this.response = response;
+      }
+    },
     HttpTransport: jest.fn(),
     InfoClient: jest.fn(() => ({ candleSnapshot: bag.candleSnapshot })),
     SubscriptionClient: jest.fn(() => ({ candle: bag.candle })),
@@ -93,6 +103,8 @@ describe('TradingViewNative Hyperliquid gateway', () => {
       mocks.closeFunctions.length = 0;
       mocks.readyFunctions.length = 0;
       mocks.unsubscribeFunctions.length = 0;
+      // Drops responses queued by an earlier test that did not use them.
+      mocks.candleSnapshot.mockReset();
       mocks.candleSnapshot.mockResolvedValue([]);
     }
   });
@@ -390,6 +402,73 @@ describe('TradingViewNative Hyperliquid gateway', () => {
       h: 98_998,
       l: 96_000,
       c: 97_578,
+    });
+  });
+
+  describe('rate-limited history', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    const httpError = (status: number) =>
+      new HttpRequestError({ response: new Response(null, { status }) });
+    const request = {
+      coin: 'BTC',
+      environment: 'mainnet',
+      interval: '1h',
+      timeFrom: 1_720_000_000,
+      timeTo: 1_720_003_600,
+    } as const;
+
+    it('waits five seconds after a 429 and requests the history again', async () => {
+      const gateway = new TradingViewNativeHyperliquidGateway();
+      const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+      mocks?.candleSnapshot
+        .mockRejectedValueOnce(httpError(429))
+        .mockRejectedValueOnce(httpError(429))
+        .mockResolvedValueOnce([buildCandle()]);
+
+      const result = gateway.fetchCandles({
+        ...request,
+        signal: new AbortController().signal,
+      });
+      await jest.advanceTimersByTimeAsync(4999);
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(2);
+      await jest.advanceTimersByTimeAsync(5000);
+
+      await expect(result).resolves.toMatchObject({ total: 1 });
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(3);
+    });
+
+    it('stops waiting once the request is aborted', async () => {
+      const gateway = new TradingViewNativeHyperliquidGateway();
+      const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+      const rateLimit = httpError(429);
+      mocks?.candleSnapshot.mockRejectedValueOnce(rateLimit);
+      const abortController = new AbortController();
+
+      // Pending until the abort, so it has a handler before it can reject.
+      const result = gateway.fetchCandles({
+        ...request,
+        signal: abortController.signal,
+      });
+      await jest.advanceTimersByTimeAsync(1000);
+      abortController.abort();
+      await expect(result).rejects.toBe(rateLimit);
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails other request errors without waiting', async () => {
+      const gateway = new TradingViewNativeHyperliquidGateway();
+      const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+      const serverError = httpError(500);
+      mocks?.candleSnapshot.mockRejectedValueOnce(serverError);
+
+      await expect(gateway.fetchCandles(request)).rejects.toBe(serverError);
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(1);
     });
   });
 

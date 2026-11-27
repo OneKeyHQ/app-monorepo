@@ -1,4 +1,5 @@
 import {
+  HttpRequestError,
   HttpTransport,
   InfoClient,
   SubscriptionClient,
@@ -68,6 +69,32 @@ function getChannelKey(coin: string, interval: IHyperliquidCandleInterval) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+// Hyperliquid limits request weight per IP, and a split view loads several
+// charts at once. A rate-limited history request waits and tries again, so
+// the chart loads late instead of showing no data.
+const RATE_LIMIT_RETRY_DELAY_MS = 5000;
+
+function isRateLimitError(error: unknown) {
+  return error instanceof HttpRequestError && error.response?.status === 429;
+}
+
+// Resolves early once the request is aborted.
+function waitForRateLimitRetry(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    const timeoutState: { timer?: ReturnType<typeof setTimeout> } = {};
+    const finish = () => {
+      clearTimeout(timeoutState.timer);
+      signal?.removeEventListener('abort', finish);
+      resolve();
+    };
+    timeoutState.timer = setTimeout(finish, RATE_LIMIT_RETRY_DELAY_MS);
+    signal?.addEventListener('abort', finish, { once: true });
+  });
 }
 
 export class TradingViewNativeHyperliquidGateway {
@@ -261,6 +288,32 @@ export class TradingViewNativeHyperliquidGateway {
     }
   }
 
+  private async requestCandleSnapshot({
+    environment,
+    request,
+    signal,
+  }: {
+    environment: ITradingViewNativeHyperliquidEnvironment;
+    request: Parameters<InfoClient['candleSnapshot']>[0];
+    signal?: AbortSignal;
+  }) {
+    const client = this.getInfoClient(environment);
+    for (;;) {
+      try {
+        return await client.candleSnapshot(request, signal);
+      } catch (error) {
+        if (!isRateLimitError(error)) {
+          throw error;
+        }
+        await waitForRateLimitRetry(signal);
+        // Stop once the caller aborts; it ignores the error.
+        if (signal?.aborted) {
+          throw error;
+        }
+      }
+    }
+  }
+
   async fetchCandles({
     coin,
     environment,
@@ -276,15 +329,16 @@ export class TradingViewNativeHyperliquidGateway {
     if (boundary && startTime >= timeTo * 1000) {
       return { points: [], total: 0 };
     }
-    const candles = await this.getInfoClient(environment).candleSnapshot(
-      {
+    const candles = await this.requestCandleSnapshot({
+      environment,
+      request: {
         coin,
         interval,
         startTime,
         endTime: timeTo * 1000,
       },
       signal,
-    );
+    });
     const points = candles
       .map((candle) => normalizeHyperliquidHistoryCandle(candle, environment))
       .filter((point) => point !== null);
