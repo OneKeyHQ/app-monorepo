@@ -473,6 +473,8 @@ function extractObservedProfile(prContext = {}) {
   const depsOrCiFiles = files.filter((f) => DEPS_OR_CI_FILE_RE.test(f));
   const isStrictlyDepsOrCi =
     !isRevert && files.length > 0 && depsOrCiFiles.length === files.length;
+  const isDepsOrCiDominant =
+    !isRevert && files.length > 0 && depsOrCiFiles.length / files.length >= 0.8;
   const isDepsOrCiTitle = !isRevert && DEPS_OR_CI_TITLE_RE.test(title);
 
   const platformFiles = files.filter((f) => PLATFORM_SUFFIX_RE.test(f));
@@ -497,8 +499,13 @@ function extractObservedProfile(prContext = {}) {
     expectedTypes = ['revert'];
   } else if (isStrictlyDepsOrCi) {
     expectedTypes = ['deps_or_ci'];
-  } else if (isDepsOrCiTitle) {
-    expectedTypes = ['deps_or_ci', 'core_feature', 'targeted_bugfix'];
+  } else if (isDepsOrCiTitle || isDepsOrCiDominant) {
+    expectedTypes = [
+      'deps_or_ci',
+      'core_feature',
+      'cross_platform_migration',
+      'targeted_bugfix',
+    ];
   } else if (hasCrossPlatformSignals) {
     expectedTypes = [
       'cross_platform_migration',
