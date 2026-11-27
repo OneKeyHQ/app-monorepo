@@ -87,29 +87,45 @@ export function useCloudBackup() {
     [intl, supportCloudBackup],
   );
 
+  const backupListLaunchPending = useRef(false);
   const goToPageBackupList = useCallback(
-    async ({ hideRestoreButton }: { hideRestoreButton?: boolean } = {}) => {
-      const isAvailable = await checkIsAvailable();
-      if (isAvailable) {
-        if (platformEnv.isNativeAndroid) {
-          await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-        }
-        navigation.navigate(ERootRoutes.Onboarding, {
-          screen: EOnboardingV2Routes.OnboardingV2,
-          params: {
-            screen: EOnboardingPagesV2.ICloudBackup,
+    async ({
+      hideRestoreButton,
+      beforeNavigate,
+    }: {
+      hideRestoreButton?: boolean;
+      // Lets a source such as Settings close itself only after sign-in
+      // prompts have finished, so the user is not left behind on Home.
+      beforeNavigate?: () => void;
+    } = {}) => {
+      if (backupListLaunchPending.current) return;
+      backupListLaunchPending.current = true;
+      try {
+        const isAvailable = await checkIsAvailable();
+        if (isAvailable) {
+          if (platformEnv.isNativeAndroid) {
+            await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+          }
+          beforeNavigate?.();
+          navigation.navigate(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
             params: {
-              hideRestoreButton,
+              screen: EOnboardingPagesV2.ICloudBackup,
+              params: {
+                hideRestoreButton,
+              },
             },
-          },
-        });
-        defaultLogger.account.wallet.addWalletStarted({
-          addMethod: 'ImportWallet',
-          details: {
-            importType: 'cloud',
-          },
-          isSoftwareWalletOnlyUser: true,
-        });
+          });
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'ImportWallet',
+            details: {
+              importType: 'cloud',
+            },
+            isSoftwareWalletOnlyUser: true,
+          });
+        }
+      } finally {
+        backupListLaunchPending.current = false;
       }
     },
     [checkIsAvailable, navigation],

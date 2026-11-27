@@ -241,7 +241,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [settings] = useSettingsPersistAtom();
   const { isPrimeActive } = useOneKeyAuth();
 
-  const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
+  const { cloudBackupFeatureInfo, startBackup, goToPageBackupList } =
+    useCloudBackup();
 
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
@@ -287,8 +288,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 cloudBackupFeatureInfo?.supportCloudBackup
                   ? {
                       id: 'cloud-backup',
-                      icon: cloudBackupFeatureInfo?.icon,
-                      title: cloudBackupFeatureInfo?.title,
+                      icon: 'CloudUploadOutline',
+                      title: intl.formatMessage({
+                        id: platformEnv.isNativeAndroid
+                          ? ETranslations.backup_backup_to_google_drive
+                          : ETranslations.backup_backup_to_icloud,
+                      }),
                       onPress: (navigation) => {
                         navigation?.popStack();
                         void startBackup({ alwaysGoToBackupDetail: true });
@@ -296,6 +301,22 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         // navigation?.pushModal(EModalRoutes.CloudBackupModal, {
                         //   screen: ECloudBackupRoutes.CloudBackupHome,
                         // });
+                      },
+                    }
+                  : null,
+                cloudBackupFeatureInfo?.supportCloudBackup
+                  ? {
+                      id: 'cloud-backup-import',
+                      icon: 'CloudDownloadOutline',
+                      title: intl.formatMessage({
+                        id: platformEnv.isNativeAndroid
+                          ? ETranslations.backup_import_from_google_drive
+                          : ETranslations.backup_import_from_icloud,
+                      }),
+                      onPress: (navigation) => {
+                        void goToPageBackupList({
+                          beforeNavigate: () => navigation?.popStack(),
+                        });
                       },
                     }
                   : null,
@@ -1270,8 +1291,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     intl,
     marketWidgetCopy.marketWidgets,
     cloudBackupFeatureInfo?.supportCloudBackup,
-    cloudBackupFeatureInfo?.icon,
-    cloudBackupFeatureInfo?.title,
     isPasswordSet,
     biologyAuthIsSupport,
     webAuthIsSupport,
@@ -1282,6 +1301,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     devSettings.enabled,
     isKeylessWalletExistsLocal,
     startBackup,
+    goToPageBackupList,
     onPressAddressBook,
     helpCenterUrl,
     userAgreementUrl,

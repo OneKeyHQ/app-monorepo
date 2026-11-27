@@ -28,6 +28,7 @@ const mockPrepareBackup = jest.fn<
   Promise<IPrimeTransferData | undefined>,
   []
 >();
+const mockGoToPageBackupList = jest.fn(async () => undefined);
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
@@ -93,6 +94,7 @@ jest.mock('../../../hooks/useAppNavigation', () => ({
 jest.mock('../hooks/useCloudBackup', () => ({
   useCloudBackup: () => ({
     prepareBackup: mockPrepareBackup,
+    goToPageBackupList: mockGoToPageBackupList,
     checkLoading: false,
   }),
 }));
@@ -191,6 +193,7 @@ function deferred<T>() {
 
 beforeEach(() => {
   mockPrepareBackup.mockReset();
+  mockGoToPageBackupList.mockClear();
   getAccountInfo.mockReset();
   getAccountInfo.mockResolvedValue(signedOut);
   jest
@@ -268,6 +271,53 @@ it.each(['permission denied', 'network failure'])(
     await screen.findByText('Synthetic wallet');
     expect(
       screen.queryByTestId(OnboardingTestIDs.iCloudBackupDetailsRetryBtn),
+    ).toBeNull();
+  },
+);
+
+it('offers importing an existing cloud backup when local wallet data cannot be read', async () => {
+  mockPrepareBackup
+    .mockRejectedValueOnce(
+      new OneKeyLocalError(
+        'Local secret envelope layer decrypt failed: kind=secure-storage, index=1',
+      ),
+    )
+    .mockResolvedValueOnce(data);
+  render(<ICloudBackupDetails {...props} />);
+  const importButton = await screen.findByTestId(
+    OnboardingTestIDs.iCloudBackupDetailsImportFromCloudBtn,
+  );
+  expect(importButton.textContent).toBe(
+    ETranslations.backup_import_from_google_drive,
+  );
+  fireEvent.click(importButton);
+  // Without hideRestoreButton, so the list keeps Import available.
+  expect(mockGoToPageBackupList).toHaveBeenCalledWith();
+  fireEvent.click(
+    screen.getByTestId(OnboardingTestIDs.iCloudBackupDetailsRetryBtn),
+  );
+  await screen.findByText('Synthetic wallet');
+  expect(
+    screen.queryByTestId(
+      OnboardingTestIDs.iCloudBackupDetailsImportFromCloudBtn,
+    ),
+  ).toBeNull();
+});
+
+it.each(['cancel', 'cloud unavailable'] as const)(
+  'offers only Retry after %s',
+  async (outcome) => {
+    if (outcome === 'cancel') {
+      mockPrepareBackup.mockRejectedValueOnce(new OAuthLoginCancelError());
+    } else {
+      mockPrepareBackup.mockResolvedValueOnce(undefined);
+    }
+    render(<ICloudBackupDetails {...props} />);
+    await screen.findByTestId(OnboardingTestIDs.iCloudBackupDetailsRetryBtn);
+    expect(
+      screen.queryByTestId(
+        OnboardingTestIDs.iCloudBackupDetailsImportFromCloudBtn,
+      ),
     ).toBeNull();
   },
 );

@@ -21,6 +21,7 @@ import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBack
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPagesV2,
   IOnboardingParamListV2,
@@ -59,6 +60,7 @@ export default function ICloudBackupDetails({
   const hideRestoreButton = route.params?.hideRestoreButton;
   const isMountedRef = useIsMounted();
   const [accountRefreshNonce, setAccountRefreshNonce] = useState(0);
+  const [prepareFailed, setPrepareFailed] = useState(false);
   const {
     doBackup,
     prepareBackup,
@@ -79,6 +81,7 @@ export default function ICloudBackupDetails({
       await timerUtils.wait(300);
       if (actionType === 'backup') {
         if (!isMountedRef.current) return undefined;
+        setPrepareFailed(false);
         try {
           const data = await prepareBackup();
           if (!isMountedRef.current) return undefined;
@@ -89,6 +92,9 @@ export default function ICloudBackupDetails({
           if (!errorToastUtils.isUserCancelStyleError(error)) {
             errorToastUtils.toastIfError(error);
             errorToastUtils.showToastOfError(error);
+            // Local wallet data may be unreadable (e.g. after moving to a new
+            // phone), while existing cloud backups can still be restored.
+            setPrepareFailed(true);
           }
           // Settle both automatic loading and Retry into the retryable empty
           // result. User cancellation must not escape as an unhandled rejection.
@@ -211,12 +217,26 @@ export default function ICloudBackupDetails({
     }
     if (actionType === 'backup' && !backupData) {
       return (
-        <Button
-          testID={OnboardingTestIDs.iCloudBackupDetailsRetryBtn}
-          onPress={() => reloadBackupData()}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
+        <>
+          <Button
+            testID={OnboardingTestIDs.iCloudBackupDetailsRetryBtn}
+            onPress={() => reloadBackupData()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+          {prepareFailed ? (
+            <Button
+              testID={OnboardingTestIDs.iCloudBackupDetailsImportFromCloudBtn}
+              onPress={() => goToPageBackupList()}
+            >
+              {intl.formatMessage({
+                id: platformEnv.isNativeAndroid
+                  ? ETranslations.backup_import_from_google_drive
+                  : ETranslations.backup_import_from_icloud,
+              })}
+            </Button>
+          ) : null}
+        </>
       );
     }
     if (!walletData?.length) {

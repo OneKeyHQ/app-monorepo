@@ -255,6 +255,59 @@ describe.each(['Android', 'iOS', 'desktop'])(
       expect(service.buildBackupData).toHaveBeenCalledTimes(1);
     });
 
+    it('closes Settings only after the cloud account is ready, then opens a restorable backup list once', async () => {
+      const { result } = renderHook(() => useCloudBackup());
+      const steps: string[] = [];
+      const closeSettings = jest.fn(() => steps.push('close'));
+      mockNavigation.navigate.mockImplementation(() => steps.push('navigate'));
+      await act(async () => {
+        await Promise.all([
+          result.current.goToPageBackupList({ beforeNavigate: closeSettings }),
+          result.current.goToPageBackupList({ beforeNavigate: closeSettings }),
+        ]);
+      });
+      expect(service.getCloudAccountInfo).toHaveBeenCalledTimes(1);
+      expect(service.loginCloudIfNeed).toHaveBeenCalledTimes(
+        platform === 'Android' ? 1 : 0,
+      );
+      expect(steps).toEqual(['close', 'navigate']);
+      expect(mockNavigation.navigate).toHaveBeenCalledWith(
+        ERootRoutes.Onboarding,
+        {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.ICloudBackup,
+            params: { hideRestoreButton: undefined },
+          },
+        },
+      );
+    });
+
+    it('keeps Settings open while the cloud account is unavailable and allows another try', async () => {
+      service.getCloudAccountInfo.mockResolvedValueOnce({
+        userId: '',
+        userEmail: '',
+        providerType: ECloudBackupProviderType.iCloud,
+      });
+      const { result } = renderHook(() => useCloudBackup());
+      const closeSettings = jest.fn();
+      await act(async () => {
+        await result.current.goToPageBackupList({
+          beforeNavigate: closeSettings,
+        });
+      });
+      expect(jest.mocked(Dialog).confirm).toHaveBeenCalledTimes(1);
+      expect(closeSettings).not.toHaveBeenCalled();
+      expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      await act(async () => {
+        await result.current.goToPageBackupList({
+          beforeNavigate: closeSettings,
+        });
+      });
+      expect(closeSettings).toHaveBeenCalledTimes(1);
+      expect(mockNavigation.navigate).toHaveBeenCalledTimes(1);
+    });
+
     it('preserves the wallet hook navigation plus 100ms handoff after the source unmounts', async () => {
       const source = renderHook(() =>
         useBackUpWallet({ walletId: 'synthetic-wallet' }),
