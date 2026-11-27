@@ -14,6 +14,20 @@ import {
 
 import { getLocalSecretEnvelopeCredentialIssue } from './localSecretEnvelopeErrorData';
 
+// Query and hash can carry tokens. The path stays so support can see which
+// request failed. The toast Copy action and the support message share this text.
+export function stripDiagnosticRequestUrl(requestUrl: string) {
+  try {
+    const url = new URL(requestUrl);
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    const withoutHash = requestUrl.split('#')[0] ?? requestUrl;
+    return withoutHash.split('?')[0] ?? withoutHash;
+  }
+}
+
 async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
   const parts: string[] = [];
 
@@ -21,7 +35,7 @@ async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
   const requestUrl = (err?.data as { requestUrl?: string } | undefined)
     ?.requestUrl;
   if (requestUrl) {
-    parts.push(`URL: ${requestUrl}`);
+    parts.push(`URL: ${stripDiagnosticRequestUrl(requestUrl)}`);
   }
 
   if (err?.requestId) {
