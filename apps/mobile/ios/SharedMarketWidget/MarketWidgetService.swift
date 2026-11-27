@@ -35,7 +35,8 @@ actor MarketWidgetService {
     return quote.merging(store.quote(for: asset))
   }
 
-  private func price(for asset: MarketWidgetAsset, locale: String, force: Bool) async throws -> MarketWidgetQuote {
+  func price(for asset: MarketWidgetAsset, locale: String, force: Bool = false) async throws -> MarketWidgetQuote {
+    guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
     if let cached = store.quote(for: asset),
        Date().timeIntervalSince(cached.fetchedAt) < (force ? 15 : 300) {
       MarketWidgetDiagnostics.event("quote.cache_hit", ["ageSeconds": Int(Date().timeIntervalSince(cached.fetchedAt))])
@@ -54,6 +55,20 @@ actor MarketWidgetService {
     requests[asset.id] = request
     defer { requests[asset.id] = nil }
     return try await request.value
+  }
+
+  func refreshPrices(assets: [MarketWidgetAsset], locale: String) async {
+    var seen = Set<String>()
+    let unique = assets.filter { seen.insert($0.id).inserted }
+    await withTaskGroup(of: Void.self) { group in
+      for asset in unique {
+        group.addTask {
+          do { _ = try await self.price(for: asset, locale: locale, force: true) }
+          catch { MarketWidgetDiagnostics.event("quote.foreground_failed", error: error) }
+        }
+      }
+    }
+    MarketWidgetDiagnostics.event("quote.foreground_completed", ["assetCount": unique.count])
   }
 
   private func withChart(_ quote: MarketWidgetQuote, asset: MarketWidgetAsset, locale: String) async -> MarketWidgetQuote {

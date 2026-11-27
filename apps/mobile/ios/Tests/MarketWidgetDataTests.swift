@@ -421,7 +421,89 @@ struct MarketWidgetDataTests {
     expect(reopened.quote(for: stock)?.stockSparkline == quote.stockSparkline, "The native quote cache preserves stock curves")
   }
 
+  private static func testFirstSnapshotAndForegroundPrices() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let service = MarketWidgetService(store: store, session: session)
+    let btc = MarketWidgetAsset.defaults[0]
+    let eth = MarketWidgetAsset.defaults[1]
+    try store.setChartMode(.simple)
+    MarketWidgetTestURLProtocol.configure { request in
+      let id = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "assetId" }?.value ?? ""
+      return json("{\"code\":0,\"data\":{\"asset\":{\"assetId\":\"\(id)\",\"symbol\":\"BTC\",\"name\":\"Bitcoin\"},\"market\":{\"price\":\"10\"}}}")
+    }
+    expect(MarketWidgetEntry.snapshot(isWatchlist: false, store: store).rows.first?.quote == nil,
+      "A clean install starts without a fabricated price")
+    let loaded = await MarketWidgetEntry.loadedSnapshot(isWatchlist: false, store: store, service: service)
+    expect(loaded.rows.first?.quote?.price == "10", "The first real snapshot fetches its price without opening the App")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1
+      && MarketWidgetTestURLProtocol.recordedPaths[0].hasSuffix("/detail"),
+      "The first snapshot never waits for rankings or charts, even in Simple mode")
+    _ = await MarketWidgetEntry.loadedSnapshot(isWatchlist: false, store: store, service: service)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1, "A populated snapshot does not refetch prices")
+
+    let offlineStore = MarketWidgetStore(directory: directory.appendingPathComponent("offline"))
+    MarketWidgetTestURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
+    let offline = await MarketWidgetEntry.loadedSnapshot(isWatchlist: false, store: offlineStore,
+      service: MarketWidgetService(store: offlineStore, session: session))
+    expect(offline.rows.first?.quote == nil && offline.rows.first?.failed == true,
+      "A failed first snapshot presents an unavailable state instead of an unmarked empty price")
+
+    let foregroundStore = MarketWidgetStore(directory: directory.appendingPathComponent("foreground"))
+    let foregroundService = MarketWidgetService(store: foregroundStore, session: session)
+    let old = Date().addingTimeInterval(-60)
+    try foregroundStore.saveQuote(MarketWidgetQuote(asset: btc, price: "1", change24h: nil, fetchedAt: old))
+    try foregroundStore.saveQuote(MarketWidgetQuote(asset: eth, price: "2", change24h: nil, fetchedAt: old))
+    MarketWidgetTestURLProtocol.configure { request in
+      let id = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "assetId" }?.value ?? ""
+      if id == "eth" { throw URLError(.notConnectedToInternet) }
+      return json("{\"code\":0,\"data\":{\"asset\":{\"assetId\":\"\(id)\",\"symbol\":\"BTC\",\"name\":\"Bitcoin\"},\"market\":{\"price\":\"20\"}}}")
+    }
+    await foregroundService.refreshPrices(assets: [btc, eth, btc], locale: "en-US")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2, "Foreground prices bypass the five-minute cache and deduplicate shared coins")
+    expect(foregroundStore.quote(for: btc)?.price == "20" && foregroundStore.quote(for: eth)?.price == "2"
+      && foregroundStore.quote(for: eth)?.fetchedAt == old,
+      "One failed coin preserves its timestamp and cannot block another widget's price")
+    await foregroundService.refreshPrices(assets: [btc], locale: "en-US")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2, "Repeated foreground triggers retain the short request cooldown")
+
+    try foregroundStore.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
+    await foregroundService.refreshPrices(assets: [btc, eth], locale: "en-US")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2, "Foreground refresh cannot request prices after privacy masking")
+  }
+
+  private static func testHomeQuoteExpiry() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let date = Date()
+    let asset = MarketWidgetAsset.defaults[0]
+    let quote = MarketWidgetQuote(asset: asset, price: "1", change24h: nil, fetchedAt: date)
+    let row = MarketWidgetRow(asset: asset, quote: quote, failed: false)
+    let base = MarketWidgetEntry(date: date, configuration: .initial, rows: [row], isWatchlist: false, selectionUnavailable: false)
+    let timeline = MarketWidgetEntry.homeTimeline(base, store: store)
+    expect(timeline.entries.count == 2 && timeline.entries.first?.rows.first?.cacheDate(at: date) == nil,
+      "A fresh Home Screen quote schedules a future stale state")
+    let expired = timeline.entries.last!
+    expect(expired.date == date.addingTimeInterval(900)
+      && expired.rows.first?.cacheDate(at: expired.date) == date,
+      "The Home Screen marks an expired quote without another network request")
+    let failed = MarketWidgetRow(asset: asset, quote: quote, failed: true)
+    expect(failed.cacheDate(at: date) == date, "A failed refresh marks even a recent cached quote")
+    var missing = base
+    missing.rows = [MarketWidgetRow(asset: asset, quote: nil, failed: true)]
+    expect(MarketWidgetEntry.homeTimeline(missing, store: store).policy == .after(date.addingTimeInterval(60)),
+      "A failed first load requests an earlier retry")
+  }
+
   static func main() async throws {
+    try await testFirstSnapshotAndForegroundPrices()
+    try testHomeQuoteExpiry()
     try testQuotePermissionReads()
     try testLockScreenPermissionDuringMasking()
     try testIndependentListSettings()

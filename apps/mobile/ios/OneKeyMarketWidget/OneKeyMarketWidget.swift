@@ -106,7 +106,8 @@ struct MarketHomeWidgetProvider: AppIntentTimelineProvider {
     }
   }
   func snapshot(for configuration: MarketWidgetInstanceIntent, in context: Context) async -> MarketWidgetEntry {
-    .snapshot(isWatchlist: isWatchlist, instanceID: boundID(configuration, preview: context.isPreview))
+    if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: isWatchlist) }
+    return await .loadedSnapshot(isWatchlist: isWatchlist, instanceID: boundID(configuration, preview: false))
   }
   func timeline(for configuration: MarketWidgetInstanceIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
     await MarketWidgetEntry.timeline(isWatchlist: isWatchlist, instanceID: boundID(configuration, preview: context.isPreview))
@@ -216,11 +217,11 @@ struct MarketWidgetView: View {
               .font(.system(size: 14, weight: .medium)).lineLimit(1)
             change(row.quote?.change24h, size: 13, isStock: row.asset.kind == .stock)
             Spacer(minLength: 0)
-            if row.failed { Image(systemName: "exclamationmark.circle").font(.system(size: 10)).foregroundStyle(secondary) }
           }
           Text(price(row.quote?.price)).font(.system(size: 28, weight: .semibold))
             .minimumScaleFactor(0.5).lineLimit(1).monospacedDigit()
             .accessibilityLabel(localized("market_widget_usd_price__desc", arguments: [price(row.quote?.price, currency: false)]))
+          quoteStatus(row, size: 10)
         } else { emptyState }
       }
       .padding(17)
@@ -314,8 +315,11 @@ struct MarketWidgetView: View {
           Text(price(row.quote?.price)).font(.system(size: 14, weight: .medium))
             .monospacedDigit().lineLimit(1).minimumScaleFactor(0.65)
           HStack(spacing: 3) {
-            if row.failed { Image(systemName: "exclamationmark.circle").font(.system(size: 9)).foregroundStyle(secondary) }
-            change(row.quote?.change24h, size: 12, isStock: asset.kind == .stock)
+            if row.cacheDate(at: entry.date) != nil || row.quote == nil {
+              quoteStatus(row, size: 9)
+            } else {
+              change(row.quote?.change24h, size: 12, isStock: asset.kind == .stock)
+            }
           }
         }
         .padding(.trailing, 1)
@@ -325,6 +329,24 @@ struct MarketWidgetView: View {
     }
     .frame(maxHeight: .infinity)
     .accessibilityElement(children: .combine)
+  }
+
+  @ViewBuilder private func quoteStatus(_ row: MarketWidgetRow, size: CGFloat) -> some View {
+    if let date = row.cacheDate(at: entry.date) ?? row.quote?.fetchedAt {
+      HStack(spacing: 3) {
+        Image(systemName: row.cacheDate(at: entry.date) != nil ? "exclamationmark.circle" : "clock")
+        Text(date, format: .dateTime.month().day().hour().minute())
+      }
+      .font(.system(size: size)).foregroundStyle(secondary)
+      .lineLimit(1).minimumScaleFactor(0.7)
+      .accessibilityLabel(localized(row.cacheDate(at: entry.date) != nil
+        ? "market_widget_quote_cached__desc" : "market_widget_quote__desc",
+        arguments: [row.asset.displaySymbol, price(row.quote?.price, currency: false), row.quote?.change24h ?? "—"])
+        + " " + date.formatted(date: .abbreviated, time: .shortened))
+    } else if row.failed {
+      Text(localized("wallet.price_unavailable"))
+        .font(.system(size: size)).foregroundStyle(secondary).lineLimit(1).minimumScaleFactor(0.7)
+    }
   }
 
   private func localized(_ key: String, arguments: [CVarArg] = []) -> String {

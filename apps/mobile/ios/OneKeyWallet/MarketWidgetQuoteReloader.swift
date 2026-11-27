@@ -11,7 +11,7 @@ protocol MarketWidgetQuoteConfiguration {
 
 extension WidgetInfo: MarketWidgetQuoteConfiguration {}
 
-private func installedMarketWidgets() async throws -> [WidgetInfo] {
+func installedMarketWidgets() async throws -> [WidgetInfo] {
   try await withCheckedThrowingContinuation { continuation in
     WidgetCenter.shared.getCurrentConfigurations { continuation.resume(with: $0) }
   }
@@ -129,32 +129,36 @@ final class MarketWidgetQuoteReloader {
     }
   }
 
+  nonisolated static func selectedAssets<C: MarketWidgetQuoteConfiguration>(for info: C,
+    store: MarketWidgetStore) -> [MarketWidgetAsset] {
+    guard store.configuration().configuration.map({ $0.privacyMasked != true }) == true else { return [] }
+    switch info.kind {
+    case MarketWidgetKind.single.timelineKind, MarketWidgetKind.list.timelineKind:
+      var instanceID: UUID?
+      if #available(iOS 17.0, *) {
+        let intent = info.widgetConfigurationIntent(of: MarketWidgetInstanceIntent.self)
+        instanceID = intent?.instanceID
+      }
+      let kind: MarketWidgetKind = info.kind == MarketWidgetKind.single.timelineKind ? .single : .list
+      return store.selection(kind: kind, instanceID: instanceID).assets
+    case "OneKeyMarketLockScreenWatchlist":
+      guard #available(iOS 17.0, *) else { return [] }
+      return info.widgetConfigurationIntent(of: MarketLockScreenListIntent.self)?.assets ?? []
+    case "OneKeyMarketLockScreenCompact", "OneKeyMarketLockScreenPrice", "OneKeyMarketLockScreenChart":
+      guard #available(iOS 17.0, *),
+            let coin = info.widgetConfigurationIntent(of: MarketLockScreenSpotIntent.self)?.coin else { return [] }
+      return [coin.asset]
+    default:
+      return []
+    }
+  }
+
   nonisolated static func affectedKinds<C: MarketWidgetQuoteConfiguration>(for assetIDs: Set<String>,
     configurations: [C], store: MarketWidgetStore) -> Set<String> {
     guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else { return [] }
     var kinds = Set<String>()
     for info in configurations where !kinds.contains(info.kind) {
-      let assets: [MarketWidgetAsset]
-      switch info.kind {
-      case MarketWidgetKind.single.timelineKind, MarketWidgetKind.list.timelineKind:
-        var instanceID: UUID?
-        if #available(iOS 17.0, *) {
-          let intent = info.widgetConfigurationIntent(of: MarketWidgetInstanceIntent.self)
-          instanceID = intent?.instanceID
-        }
-        let kind: MarketWidgetKind = info.kind == MarketWidgetKind.single.timelineKind ? .single : .list
-        assets = store.selection(kind: kind, instanceID: instanceID).assets
-      case "OneKeyMarketLockScreenWatchlist":
-        guard #available(iOS 17.0, *) else { continue }
-        assets = info.widgetConfigurationIntent(of: MarketLockScreenListIntent.self)?.assets ?? []
-      case "OneKeyMarketLockScreenCompact", "OneKeyMarketLockScreenPrice", "OneKeyMarketLockScreenChart":
-        guard #available(iOS 17.0, *),
-              let coin = info.widgetConfigurationIntent(of: MarketLockScreenSpotIntent.self)?.coin else { continue }
-        assets = [coin.asset]
-      default:
-        continue
-      }
-      if assets.contains(where: { assetIDs.contains($0.id) }) { kinds.insert(info.kind) }
+      if selectedAssets(for: info, store: store).contains(where: { assetIDs.contains($0.id) }) { kinds.insert(info.kind) }
     }
     return kinds
   }

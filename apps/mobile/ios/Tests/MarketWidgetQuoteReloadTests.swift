@@ -51,6 +51,9 @@ struct MarketWidgetQuoteReloadTests {
     let compact = "OneKeyMarketLockScreenCompact"
     let widgets = [first, second, InstalledWidget(kind: watchlist, intent: lockList),
       spot(chart, btc), spot(price, sol), spot(compact, otherBTC)]
+    let selected = Set(widgets.flatMap { MarketWidgetQuoteReloader.selectedAssets(for: $0, store: store) }.map(\.id))
+    precondition(selected == Set([btc, eth, sol, otherBTC].map(\.id)),
+      "Foreground refresh includes every installed size, instance and Lock Screen selection")
     func kinds(_ assets: [MarketWidgetAsset], _ installed: [InstalledWidget]) -> Set<String> {
       MarketWidgetQuoteReloader.affectedKinds(for: Set(assets.map(\.id)), configurations: installed, store: store)
     }
