@@ -226,7 +226,13 @@ export function createTradingViewNativeHyperliquidDataProvider(
     isReady: Boolean(source.coin),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: true,
-    fetchHistory: async ({ interval, signal, timeFrom, timeTo }) => {
+    fetchHistory: async ({
+      interval,
+      signal,
+      timeFrom,
+      timeTo,
+      waitOutRateLimit,
+    }) => {
       const calendarInterval = interval.hyperliquidValue;
       if (!isHyperliquidCalendarInterval(calendarInterval)) {
         return tradingViewNativeHyperliquidGateway.fetchCandles({
@@ -236,6 +242,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
           signal,
           timeFrom,
           timeTo,
+          waitOutRateLimit,
         });
       }
       const response = await tradingViewNativeHyperliquidGateway.fetchCandles({
@@ -243,6 +250,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
         environment: source.environment,
         interval: '1d',
         signal,
+        waitOutRateLimit,
         timeFrom: Math.max(
           0,
           getHyperliquidCalendarBucketStart(timeFrom, calendarInterval),

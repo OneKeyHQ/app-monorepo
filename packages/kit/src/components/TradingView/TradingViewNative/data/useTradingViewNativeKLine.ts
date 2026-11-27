@@ -732,6 +732,8 @@ function prefetchHistoryBoundaryPage({
   }
 
   const coarsestInterval = getHistoryBoundarySearchInterval();
+  // Shared by charts of the series and not aborted when one goes away, so a
+  // rate-limited page fails at once instead of waiting.
   const abortController = new AbortController();
   const timeFrom = 0;
   const timeTo = Math.floor(Date.now() / 1000);
@@ -753,6 +755,7 @@ function prefetchHistoryBoundaryPage({
             signal: abortController.signal,
             timeFrom,
             timeTo: oldestPageTimeTo,
+            waitOutRateLimit: false,
           },
           requestAttemptBudget,
           unavailableMessage:
@@ -824,6 +827,7 @@ function prefetchHistoryBoundaryPage({
           signal: abortController.signal,
           timeFrom: dailyTimeFrom,
           timeTo: dailyTimeTo,
+          waitOutRateLimit: false,
         },
         requestAttemptBudget,
         unavailableMessage:

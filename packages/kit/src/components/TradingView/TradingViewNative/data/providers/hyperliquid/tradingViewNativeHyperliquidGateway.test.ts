@@ -439,6 +439,55 @@ describe('TradingViewNative Hyperliquid gateway', () => {
 
       await expect(result).resolves.toMatchObject({ total: 1 });
       expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(3);
+      // A range that ended long ago is asked for unchanged.
+      expect(mocks?.candleSnapshot).toHaveBeenLastCalledWith(
+        expect.objectContaining({ endTime: 1_720_003_600_000 }),
+        expect.anything(),
+      );
+    });
+
+    it('asks a request for the latest candles again up to the retry time', async () => {
+      jest.setSystemTime(1_720_003_600_500);
+      const gateway = new TradingViewNativeHyperliquidGateway();
+      const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+      mocks?.candleSnapshot
+        .mockRejectedValueOnce(httpError(429))
+        .mockResolvedValueOnce([buildCandle()]);
+
+      const result = gateway.fetchCandles({
+        ...request,
+        signal: new AbortController().signal,
+      });
+      await jest.advanceTimersByTimeAsync(5000);
+
+      await expect(result).resolves.toMatchObject({ total: 1 });
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(2);
+      expect(mocks?.candleSnapshot).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ endTime: 1_720_003_600_000 }),
+        expect.anything(),
+      );
+      expect(mocks?.candleSnapshot).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ endTime: 1_720_003_605_500 }),
+        expect.anything(),
+      );
+    });
+
+    it('fails a rate limit at once for a request that does not wait it out', async () => {
+      const gateway = new TradingViewNativeHyperliquidGateway();
+      const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+      const rateLimit = httpError(429);
+      mocks?.candleSnapshot.mockRejectedValueOnce(rateLimit);
+
+      await expect(
+        gateway.fetchCandles({
+          ...request,
+          signal: new AbortController().signal,
+          waitOutRateLimit: false,
+        }),
+      ).rejects.toBe(rateLimit);
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(1);
     });
 
     it('retries a rate limit at most ten times per load', async () => {

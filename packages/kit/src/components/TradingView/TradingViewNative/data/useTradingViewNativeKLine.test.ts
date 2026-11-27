@@ -1268,6 +1268,13 @@ describe('TradingViewNative K-line data state machine', () => {
         timeTo: 200_000,
       }),
     );
+    // No chart aborts the shared prefetch, so only its requests fail fast on
+    // a rate limit.
+    expect(
+      mockFetchHistory.mock.calls
+        .filter(([request]) => request.waitOutRateLimit === false)
+        .map(([request]) => request.interval.value),
+    ).toEqual(['1W', '1D']);
 
     now += 24 * 60 * 60 * 1000 - 1;
     act(() => result.current.handleHistoryBoundaryPrefetch());

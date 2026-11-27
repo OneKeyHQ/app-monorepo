@@ -17,6 +17,9 @@ export interface ITradingViewNativeHistoryRequest {
   signal: AbortSignal;
   timeFrom: number;
   timeTo: number;
+  // False fails a rate-limited request at once instead of waiting it out,
+  // for background requests no chart cancels when it goes away.
+  waitOutRateLimit?: boolean;
 }
 
 export interface ITradingViewNativeRealtimeSubscription {

@@ -133,6 +133,24 @@ describe('Hyperliquid native calendar provider', () => {
     );
   });
 
+  it.each(['60', '1W'])(
+    'passes a %s request that should not wait out rate limits to the gateway',
+    async (value) => {
+      await createTradingViewNativeHyperliquidDataProvider(source).fetchHistory(
+        {
+          interval: interval(value),
+          signal: new AbortController().signal,
+          timeFrom: ts('2026-10-08'),
+          timeTo: ts('2026-10-09'),
+          waitOutRateLimit: false,
+        },
+      );
+      expect(gateway.fetchCandles.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ waitOutRateLimit: false }),
+      );
+    },
+  );
+
   it('preserves normal interval history and subscription contracts', async () => {
     const provider = createTradingViewNativeHyperliquidDataProvider(source);
     const signal = new AbortController().signal;
