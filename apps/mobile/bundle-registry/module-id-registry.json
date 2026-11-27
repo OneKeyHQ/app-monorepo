@@ -25323,6 +25323,7 @@
     "packages/kit/src/views/Home/pages/portfolioSidebarSticky.ts": 22136,
     "packages/kit/src/views/Home/pages/primePurchaseComplete/PrimePurchaseCompleteLandingPage.tsx": 23575,
     "packages/kit/src/views/Home/pages/primePurchaseComplete/notifyPrimeWebCheckoutReturnInExtension.ts": 23159,
+    "packages/kit/src/views/Home/pages/primeSubscription/PrimeDashboardLandingPage.tsx": 11023,
     "packages/kit/src/views/Home/pages/primeSubscription/PrimeSubscriptionLandingPage.tsx": 13314,
     "packages/kit/src/views/Home/pages/primeSubscription/openPrimeSubscriptionFromWebLanding.ts": 4342,
     "packages/kit/src/views/Home/pages/primeSubscription/openPrimeSubscriptionInExtension.ts": 17881,
