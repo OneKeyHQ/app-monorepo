@@ -22,8 +22,8 @@ import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid'
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 
@@ -93,7 +93,7 @@ export function AccountModeTokenBadge({
         w={size}
         h={size}
         borderRadius="$3"
-        bg="$bgActive"
+        bg="$bgSuccess"
         alignItems="center"
         justifyContent="center"
       >
@@ -108,7 +108,7 @@ export function AccountModeTokenBadge({
       w={size}
       h={size}
       borderRadius="$3"
-      bg="$bgActive"
+      bg="$bgSuccess"
       alignItems="center"
       justifyContent="center"
       gap="$1.5"
@@ -145,11 +145,17 @@ function AccountModeOption({
   requirement?: ETranslations;
 }) {
   const intl = useIntl();
-  const handleLearnMorePress = useCallback(() => {
-    openUrlExternal(PORTFOLIO_MARGIN_LEARN_MORE_URL);
-  }, []);
+  const handleLearnMorePress = useCallback(
+    (e?: { stopPropagation?: () => void }) => {
+      e?.stopPropagation?.();
+      openUrlExternal(PORTFOLIO_MARGIN_LEARN_MORE_URL);
+    },
+    [],
+  );
   const learnMoreText = learnMore ? (
     <SizableText
+      alignSelf="flex-start"
+      cursor="pointer"
       size="$bodySm"
       color="$textInfo"
       textDecorationLine="underline"
@@ -161,6 +167,8 @@ function AccountModeOption({
 
   return (
     <YStack
+      position="relative"
+      overflow="hidden"
       p="$4"
       borderRadius="$3"
       borderWidth="$px"
@@ -172,34 +180,41 @@ function AccountModeOption({
       }}
       pressStyle={{ borderColor: '$borderActive' }}
     >
+      {recommended ? (
+        <Badge
+          position="absolute"
+          top={0}
+          right={0}
+          badgeSize="sm"
+          badgeType="success"
+          borderRadius="$0"
+          borderBottomLeftRadius="$2"
+          px="$2.5"
+          py="$0.5"
+          pointerEvents="none"
+        >
+          <Badge.Text>
+            {intl.formatMessage({
+              id: ETranslations.perp_account_mode_recommended__title,
+            })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
       <XStack alignItems="center" gap="$4">
         <AccountModeTokenBadge mode={modeIcon} />
         <YStack flex={1} minWidth={0} gap="$1">
-          <XStack alignItems="center" gap="$2" flexWrap="wrap">
-            <SizableText size="$headingMd" fontWeight="600">
-              {intl.formatMessage({ id: label })}
-            </SizableText>
-            {recommended ? (
-              <Badge badgeSize="sm" badgeType="success">
-                <Badge.Text>
-                  {intl.formatMessage({
-                    id: ETranslations.perp_account_mode_recommended__title,
-                  })}
-                </Badge.Text>
-              </Badge>
-            ) : null}
-          </XStack>
+          <SizableText size="$headingMd" fontWeight="600">
+            {intl.formatMessage({ id: label })}
+          </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: desc })}
           </SizableText>
           {requirement ? (
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({ id: requirement })}
-              {learnMore ? <> {learnMoreText}</> : null}
             </SizableText>
-          ) : (
-            learnMoreText
-          )}
+          ) : null}
+          {learnMoreText}
         </YStack>
       </XStack>
     </YStack>
@@ -216,6 +231,7 @@ function AccountModeContent({
   onSelect?: (mode: IPerpsAccountModeOption) => void;
 }) {
   const intl = useIntl();
+  const dialogButtonSize = usePerpDialogButtonSize();
   const actions = useHyperliquidActions();
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [selectedMode, setSelectedMode] =
@@ -279,11 +295,11 @@ function AccountModeContent({
           requirement={option.requirement}
         />
       ))}
-      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+      <TradingGuardWrapper buttonSize={dialogButtonSize}>
         <Button
           testID="perp-account-mode-confirm-button"
           variant="primary"
-          size={PERP_DIALOG_BUTTON_SIZE}
+          size={dialogButtonSize}
           loading={loading}
           disabled={loading}
           onPress={handleConfirm}
