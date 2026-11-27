@@ -69,6 +69,7 @@ import {
   useSupportLogJob,
 } from '../supportLog/supportLogJobs';
 import {
+  type ISupportErrorContext,
   attachSupportLogs,
   deleteSupportCompose,
   getSupportCompose,
@@ -82,6 +83,8 @@ type IOutgoing = {
   createdAt?: number;
   text: string;
   image?: IPickedImage;
+  // Kept off `text` so a failed send can put the card back on the composer.
+  errorAttachment?: ISupportErrorContext;
   blocks?: IIntercomBlock[];
   quickReply?: { partId: string; replyId: string };
   status: 'sending' | 'failed';
@@ -415,6 +418,9 @@ function SupportConversationContent({
   logJobIdRef.current = logJobId;
   const conversationIdRef = useRef(conversationId);
   conversationIdRef.current = conversationId;
+  // Set once createConversation is in flight, so leaving the screen does not
+  // drop the log job before the receipt can bind it.
+  const creationSubmittedRef = useRef(false);
   const logJob = useSupportLogJob({ jobId: logJobId, conversationId });
   useEffect(() => {
     alive.current = true;
@@ -425,9 +431,14 @@ function SupportConversationContent({
       for (const path of files)
         void cleanSupportImage(path).catch(() => undefined);
       deleteSupportCompose(composeId);
-      // Leaving before the first message abandons the request, so its
-      // upload stops too. A created conversation keeps its upload running.
-      if (!conversationIdRef.current && logJobIdRef.current) {
+      // Leaving before the first message is submitted abandons the request,
+      // so its upload stops too. A submitted create keeps the job until the
+      // receipt binds it. A created conversation keeps its upload running.
+      if (
+        !conversationIdRef.current &&
+        !creationSubmittedRef.current &&
+        logJobIdRef.current
+      ) {
         removeSupportLog(logJobIdRef.current);
       }
     };
@@ -446,6 +457,11 @@ function SupportConversationContent({
   const open = resource.data?.open;
   const acceptConversation = useCallback(
     (conversation: IIntercomConversation) => {
+      // Bind even after the screen unmounts: the receipt can arrive later.
+      if (logJobIdRef.current) {
+        bindSupportLogConversation(logJobIdRef.current, conversation.id);
+      }
+      conversationIdRef.current = conversation.id;
       if (!alive.current) return;
       setCreatedConversation(conversation);
       setConfirmed(conversation.parts);
@@ -453,10 +469,6 @@ function SupportConversationContent({
       setPending(undefined);
       onCreated(conversation.id);
       navigation.setParams({ conversationId: conversation.id });
-      // The log ID can only be posted once the conversation exists.
-      if (logJobIdRef.current) {
-        bindSupportLogConversation(logJobIdRef.current, conversation.id);
-      }
     },
     [navigation, onCreated],
   );
@@ -570,9 +582,15 @@ function SupportConversationContent({
           }
           if (!alive.current) return;
         }
+        const messageText = [
+          prepared.text,
+          prepared.errorAttachment?.diagnosticText,
+        ]
+          .filter(Boolean)
+          .join('\n\n');
         let blocks =
           prepared.blocks ??
-          (prepared.text.trim() ? intercomMessageBlocks(prepared.text) : []);
+          (messageText.trim() ? intercomMessageBlocks(messageText) : []);
         if (prepared.image && !prepared.blocks) {
           const controller = new AbortController();
           uploadController.current = controller;
@@ -605,11 +623,25 @@ function SupportConversationContent({
         } else {
           if (!open)
             throw new OneKeyLocalError('Support composer is unavailable');
-          const conversation = await session.createConversation({
-            message,
-            open,
-            quickReplyId: prepared.quickReply?.replyId,
-          });
+          creationSubmittedRef.current = true;
+          let conversation: IIntercomConversation;
+          try {
+            conversation = await session.createConversation({
+              message,
+              open,
+              quickReplyId: prepared.quickReply?.replyId,
+            });
+          } catch (error) {
+            if (logJobIdRef.current && !conversationIdRef.current) {
+              if (!alive.current) {
+                removeSupportLog(logJobIdRef.current);
+              } else {
+                // The screen is still here, so a later leave can drop the job.
+                creationSubmittedRef.current = false;
+              }
+            }
+            throw error;
+          }
           acceptConversation(conversation);
         }
         if (alive.current) {
@@ -665,12 +697,17 @@ function SupportConversationContent({
       if ((!text.trim() && !image) || !canReply || pending || sending.current)
         return false;
       setImage(undefined);
-      // Attached error details go out as the message's second paragraph.
-      setErrorContext(undefined);
+      // A photo with no typed text leaves the card in place. Details ride
+      // with the first text message, and stay separate so a failed send can
+      // put the card back.
+      const errorAttachment =
+        text.trim() && errorContext ? errorContext : undefined;
+      if (errorAttachment) setErrorContext(undefined);
       void send({
         id: generateUUID(),
-        text: [text, errorContext?.diagnosticText].filter(Boolean).join('\n\n'),
+        text,
         image,
+        errorAttachment,
         status: 'sending',
       });
       return true;
@@ -684,13 +721,15 @@ function SupportConversationContent({
       ownerUserId: route.userId,
       conversationId,
       requestId: route.requestId,
+      errorContext,
     }).then((jobId) => {
       // A new conversation binds the upload when its first message lands.
+      // The extension popup hands the upload off and returns no job id.
       if (!jobId || conversationId || !alive.current) return;
       if (logJobIdRef.current) removeSupportLog(logJobIdRef.current);
       setLogJobId(jobId);
     });
-  }, [intl, route.userId, route.requestId, conversationId]);
+  }, [intl, route.userId, route.requestId, conversationId, errorContext]);
   const footer = (
     <YStack gap="$3" py="$3">
       {!conversationId && open?.suggestionPrompt ? (
@@ -733,9 +772,11 @@ function SupportConversationContent({
           testID="support-pending-message"
         >
           <YStack bg="$bgInverse" px="$4" py="$3" borderRadius={20} gap="$2">
-            {pending.text ? (
+            {pending.text || pending.errorAttachment ? (
               <SizableText selectable size="$bodyLg" color="$textInverse">
-                {pending.text}
+                {[pending.text, pending.errorAttachment?.diagnosticText]
+                  .filter(Boolean)
+                  .join('\n\n')}
               </SizableText>
             ) : null}
             {pending.image ? (
@@ -768,6 +809,8 @@ function SupportConversationContent({
                 onPress={() => {
                   composer.current?.setText(pending.text);
                   setImage(pending.image);
+                  if (pending.errorAttachment)
+                    setErrorContext(pending.errorAttachment);
                   setPending(undefined);
                 }}
               >
@@ -924,20 +967,24 @@ function SupportConversationContent({
 }
 
 function SupportConversationRoute(props: ISupportSessionProps) {
+  // A new compose reuses this screen when conversationId is still empty.
+  // Key the draft by composeId so that open rebuilds the card and upload.
+  const routeIdentity =
+    props.route.conversationId ?? props.route.composeId ?? '';
   const [identity, setIdentity] = useState<{
     routeId?: string;
     createdId?: string;
     key: number;
-  }>({ routeId: props.route.conversationId, key: 0 });
+  }>({ routeId: routeIdentity, key: 0 });
   const onCreated = useCallback((id: string) => {
     setIdentity((previous) => ({ ...previous, createdId: id }));
   }, []);
-  if (identity.routeId !== props.route.conversationId) {
+  if (identity.routeId !== routeIdentity) {
     const promoted =
       identity.createdId !== undefined &&
       identity.createdId === props.route.conversationId;
     setIdentity({
-      routeId: props.route.conversationId,
+      routeId: routeIdentity,
       key: promoted ? identity.key : identity.key + 1,
     });
   }

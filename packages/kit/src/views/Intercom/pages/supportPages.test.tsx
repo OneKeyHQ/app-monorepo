@@ -909,6 +909,73 @@ it('sends attached error details with the next typed message unless removed', as
   );
 });
 
+it('keeps the error card when a photo is sent without text', async () => {
+  mockCompose = {
+    errorContext: {
+      title: 'Signing failed',
+      diagnosticText: 'RequestId: r-1',
+      occurredAt: 0,
+    },
+  };
+  mockRoute.params = { userId: null, conversationId: '42' };
+  const upload = deferred<Awaited<ReturnType<typeof uploadIntercomImage>>>();
+  jest.mocked(uploadIntercomImage).mockReturnValueOnce(upload.promise);
+  jest.mocked(pickSupportImage).mockResolvedValueOnce({
+    path: 'file:///test-upload.jpg',
+    filename: 'test-upload.jpg',
+    mime: 'image/jpeg',
+    size: 100,
+    width: 10,
+    height: 10,
+  });
+  render(<SupportScreen />);
+  await screen.findByText('Hello support');
+  expect(screen.getByTestId('support-error-attachment')).toBeTruthy();
+  fireEvent.click(screen.getByTestId('support-add-image'));
+  await screen.findByTestId('support-remove-image');
+  fireEvent.click(screen.getByTestId('support-send'));
+  await waitFor(() => expect(uploadIntercomImage).toHaveBeenCalled());
+  await act(async () =>
+    upload.resolve({
+      type: 'image',
+      url: 'https://downloads.intercomcdn.com/test-image.jpg',
+      width: 10,
+      height: 10,
+    }),
+  );
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith(
+      'conversations/42/reply',
+      expect.anything(),
+    ),
+  );
+  const body = mockRequest.mock.calls.find(
+    ([path]) => path === 'conversations/42/reply',
+  )?.[1];
+  expect(JSON.stringify(body)).not.toContain('RequestId');
+  expect(screen.getByTestId('support-error-attachment')).toBeTruthy();
+});
+
+it('puts the error card back when a failed send is discarded', async () => {
+  mockCompose = {
+    errorContext: {
+      title: 'Signing failed',
+      diagnosticText: 'RequestId: r-1',
+      occurredAt: 0,
+    },
+  };
+  mockFailSend = true;
+  render(<SupportScreen />);
+  await enterMessage('Signing keeps failing');
+  await screen.findByTestId('support-discard-send');
+  expect(screen.queryByTestId('support-error-attachment')).toBeNull();
+  fireEvent.click(screen.getByTestId('support-discard-send'));
+  expect(screen.getByTestId('support-error-attachment')).toBeTruthy();
+  expect(
+    (screen.getByTestId('support-message-input') as HTMLTextAreaElement).value,
+  ).toBe('Signing keeps failing');
+});
+
 it('cleans a delayed image selection when the route changes', async () => {
   const selection = deferred<IIntercomImage>();
   jest.mocked(pickSupportImage).mockReturnValueOnce(selection.promise);

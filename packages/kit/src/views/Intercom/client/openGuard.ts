@@ -38,7 +38,11 @@ export function createIntercomOpenGuard(onError: (error: unknown) => void) {
         }
       }
       const targeted = !!params?.conversationId;
-      const key = params?.requestId ?? '';
+      // A new draft is its own open. Sharing only requestId would drop it
+      // while an earlier support open with that id is still pending.
+      const key = params?.composeId
+        ? `compose:${params.composeId}`
+        : (params?.requestId ?? '');
       if (targeted) {
         // A late ordinary open must not replace a notification's conversation.
         current.conversationRevision += 1;
