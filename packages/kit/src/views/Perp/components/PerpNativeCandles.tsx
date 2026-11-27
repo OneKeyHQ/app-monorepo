@@ -181,18 +181,22 @@ function PerpChartPanelQuote({
   }, [actions, isLive, mode]);
   // Off screen the quote would still follow the trade instrument's own ticks,
   // and the trade feed would stay subscribed.
-  if (assetId === undefined || !isLive) return null;
+  if (!isLive) return null;
   return (
     <>
+      {/* The trade feed needs only the token, so the price does not wait for
+          the panel's metadata, which can still be loading or have failed. */}
       <PerpChartPanelLatestPrice coin={coin} />
-      <CtxPriceDisplay
-        key={`${mode}:${coin}:${assetId}`}
-        coinName={coin}
-        dexIndex={getDexIndexByAssetId(assetId)}
-        assetId={assetId}
-        mode={mode}
-        displayMode="percent"
-      />
+      {assetId === undefined ? null : (
+        <CtxPriceDisplay
+          key={`${mode}:${coin}:${assetId}`}
+          coinName={coin}
+          dexIndex={getDexIndexByAssetId(assetId)}
+          assetId={assetId}
+          mode={mode}
+          displayMode="percent"
+        />
+      )}
     </>
   );
 }

@@ -683,6 +683,29 @@ describe('split view', () => {
     ]);
   });
 
+  // PR #14834 review: the price waited for the panel's metadata, which can
+  // still be loading or fail for good.
+  it('prices a panel by its latest trade before its metadata loads', () => {
+    mockLatestTrades = { ETH: { px: '1733.9', side: 'B' } };
+    const loadMeta = mockGetSymbolMeta.getMockImplementation();
+    mockGetSymbolMeta.mockImplementation(() => new Promise<never>(() => {}));
+    try {
+      const view = renderTradingViewCandles();
+
+      expect(getPanelPrices(view)).toEqual([
+        ['--', '$text'],
+        [formatLocalizedNumberString('1733.9'), '$green11'],
+      ]);
+      expect([...mockStreamedTrades].toSorted()).toEqual(['BTC', 'ETH']);
+      // Only the 24h change needs the asset, to find its quote.
+      expect(mockQuote).not.toHaveBeenCalledWith(
+        expect.objectContaining({ coinName: 'ETH' }),
+      );
+    } finally {
+      mockGetSymbolMeta.mockImplementation(loadMeta);
+    }
+  });
+
   it('streams panel trades only while the page is in the foreground', async () => {
     mockRecentTradesForeground = false;
     const view = renderTradingViewCandles();
