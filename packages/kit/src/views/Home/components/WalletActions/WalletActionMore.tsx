@@ -51,7 +51,7 @@ import { WalletActionVote } from './WalletActionVote';
 import { WalletPortfolioSpotlight } from './WalletPortfolioSpotlight';
 
 type IRenderMoreItemsParams = {
-  handleActionListClose: () => void;
+  handleActionListClose: () => void | Promise<void>;
   resolvedVaultSettings?: IVaultSettings;
   resolvedIsBotWalletDeactivated?: boolean;
 };
@@ -402,7 +402,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
     async ({
       handleActionListClose,
     }: {
-      handleActionListClose: () => void;
+      handleActionListClose: () => void | Promise<void>;
     }) => {
       const walletId = activeAccount?.wallet?.id;
       const [resolvedVaultSettings, resolvedIsBotWalletDeactivated] =

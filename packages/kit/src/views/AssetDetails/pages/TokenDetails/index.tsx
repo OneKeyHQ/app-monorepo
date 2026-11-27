@@ -26,6 +26,7 @@ import {
   Stack,
   Toast,
   XStack,
+  runAfterActionListClose,
   useClipboard,
   useMedia,
   usePopoverContext,
@@ -561,11 +562,16 @@ function TokenDetailsView() {
             id: ETranslations.global_view_in_blockchain_explorer,
           }),
           icon: 'OpenOutline',
-          onPress: () =>
-            openTokenDetailsUrl({
-              networkId: effectiveTokenInfo.networkId ?? '',
-              tokenAddress: effectiveTokenInfo?.address,
-            }),
+          onPress: (close) =>
+            runAfterActionListClose(
+              close,
+              () =>
+                openTokenDetailsUrl({
+                  networkId: effectiveTokenInfo.networkId ?? '',
+                  tokenAddress: effectiveTokenInfo?.address,
+                }),
+              { waitForAnimation: false },
+            ),
         });
       }
     }
