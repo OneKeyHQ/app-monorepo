@@ -3,11 +3,10 @@ import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
-import { Page, SizableText, YStack } from '@onekeyhq/components';
+import { Page, YStack } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EAppEventBusNames,
@@ -38,11 +37,6 @@ export const MarketWidgetList = () => {
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalMarketParamList>>();
 
-  const route = useAppRoute<
-    IModalMarketParamList,
-    EModalMarketRoutes.MarketWidgetList
-  >();
-  const needsBinding = route.params?.needsBinding;
   const [isActive, setIsActive] = useState(
     () => (AppState.currentState ?? 'active') === 'active',
   );
@@ -50,7 +44,6 @@ export const MarketWidgetList = () => {
     useState<IMarketWidgetInstalledInstance[]>();
   const shouldListInstances =
     platformEnv.isNativeIOS &&
-    !needsBinding &&
     isActive &&
     !travelModeManager.isMaskingDataSync();
   const { result: installed, run: refreshInstalled } = usePromiseResult(
@@ -73,12 +66,12 @@ export const MarketWidgetList = () => {
     },
   );
   useEffect(() => {
-    if (!platformEnv.isNativeIOS || needsBinding) return undefined;
+    if (!platformEnv.isNativeIOS) return undefined;
     const subscription = AppState.addEventListener('change', (state) =>
       setIsActive(state === 'active'),
     );
     return () => subscription.remove();
-  }, [needsBinding]);
+  }, []);
   useEffect(() => {
     if (!shouldListInstances) return undefined;
     const onConfigurationSynced = () => void refreshInstalled();
@@ -98,19 +91,6 @@ export const MarketWidgetList = () => {
     ? (installed?.instances ?? lastInstalled)
     : undefined;
   if (instances !== lastInstalled) setLastInstalled(instances);
-
-  if (needsBinding) {
-    return (
-      <Page scrollEnabled>
-        <Page.Header title={copy.marketWidgets} />
-        <Page.Body>
-          <YStack p="$5" gap="$3">
-            <SizableText size="$bodyLg">{copy.bindingHint}</SizableText>
-          </YStack>
-        </Page.Body>
-      </Page>
-    );
-  }
 
   const items = [
     ...(instances ?? []),

@@ -278,7 +278,9 @@ describe.each(['perp', 'spot'] as const)(
       expect(mockQuoteRender).not.toHaveBeenCalled();
     });
 
-    it('shows the price and the 24h change from one quote', () => {
+    // A split chart panel prices its token by the latest trade and takes
+    // only the 24h change from the quote.
+    it('shows only the 24h change in percent mode', () => {
       const renderQuote = (state: {
         selected: boolean;
         coin: string;
@@ -294,18 +296,18 @@ describe.each(['perp', 'spot'] as const)(
               assetId={1}
               dexIndex={0}
               mode={mode}
-              displayMode="priceAndPercent"
+              displayMode="percent"
             />
           </mockQuoteContext.Provider>,
         );
       };
-      const { getByText, getByTestId } = renderQuote({
+      const { getByTestId, queryByText } = renderQuote({
         selected: false,
         coin: mode === 'perp' ? 'kBONK' : '@2',
         marketPrice: '0.00346',
       });
-      expect(getByText('0.00346')).toBeTruthy();
       expect(Number(getByTestId('change').textContent)).toBeLessThan(0);
+      expect(queryByText('0.00346')).toBeNull();
     });
 
     it('cleans up a pending handoff on unmount', () => {

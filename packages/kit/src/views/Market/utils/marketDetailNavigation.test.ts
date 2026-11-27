@@ -903,6 +903,7 @@ describe('marketDetailNavigation', () => {
       marketTokenId: undefined,
       marketVariantId: undefined,
       marketTokenCategory: undefined,
+      marketWidgetToken: undefined,
       skipMarketDataFetch: undefined,
       legacyTokenPreview: undefined,
       marketTokenPreviewId: undefined,
@@ -917,6 +918,55 @@ describe('marketDetailNavigation', () => {
       showFavoriteButton: undefined,
     });
   });
+
+  it.each([true, false])(
+    'clears or replaces widget quote identity through the router merge (fromWidget=%s)',
+    (fromWidget) => {
+      const router = StackRouter({});
+      const config = {
+        routeNames: ['MarketDetailV2'],
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const initial = router.getInitialState(config);
+      const widgetToken = {
+        networkId: 'sol--101',
+        tokenAddress: '',
+        isNative: true,
+      };
+      const state = {
+        ...initial,
+        routes: [
+          {
+            ...initial.routes[0],
+            params: { marketTokenId: 'solana', marketWidgetToken: widgetToken },
+          },
+        ],
+      };
+      const nextWidgetToken = fromWidget ? widgetToken : undefined;
+      const result = router.getStateForAction(
+        state,
+        {
+          type: 'SET_PARAMS',
+          payload: {
+            params: buildReplacedMarketDetailParams({
+              marketTokenId: 'solana',
+              ...(nextWidgetToken
+                ? { marketWidgetToken: nextWidgetToken }
+                : {}),
+            }),
+          },
+        },
+        config,
+      );
+      expect(result?.routes[0].params).toEqual(
+        expect.objectContaining({
+          marketTokenId: 'solana',
+          marketWidgetToken: nextWidgetToken,
+        }),
+      );
+    },
+  );
 
   it.each([true, false])(
     'replaces or clears a stock quote through the router merge (hasQuote=%s)',

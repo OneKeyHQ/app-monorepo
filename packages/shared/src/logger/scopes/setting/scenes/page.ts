@@ -130,6 +130,7 @@ export class PageScene extends BaseScene {
     event: string;
     elapsedMs?: number;
     deadlineMs?: number;
+    detail?: string;
   }) {
     return params;
   }
