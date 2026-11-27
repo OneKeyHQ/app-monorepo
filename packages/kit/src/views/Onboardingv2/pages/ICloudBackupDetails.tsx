@@ -60,7 +60,6 @@ export default function ICloudBackupDetails({
   const hideRestoreButton = route.params?.hideRestoreButton;
   const isMountedRef = useIsMounted();
   const [accountRefreshNonce, setAccountRefreshNonce] = useState(0);
-  const [prepareFailed, setPrepareFailed] = useState(false);
   const {
     doBackup,
     prepareBackup,
@@ -71,34 +70,43 @@ export default function ICloudBackupDetails({
   } = useCloudBackup();
 
   const {
-    result: backupData,
+    result: loadResult,
     isLoading: fetchLoading,
     run: reloadBackupData,
   } = usePromiseResult<
-    IPrimeTransferData | IBackupDataEncryptedPayload | undefined
+    | {
+        data?: IPrimeTransferData | IBackupDataEncryptedPayload;
+        offerCloudImport?: boolean;
+      }
+    | undefined
   >(
     async () => {
       await timerUtils.wait(300);
       if (actionType === 'backup') {
         if (!isMountedRef.current) return undefined;
-        setPrepareFailed(false);
+        let cloudReady = false;
         try {
-          const data = await prepareBackup();
+          const data = await prepareBackup({
+            onCloudReady: () => {
+              cloudReady = true;
+            },
+          });
           if (!isMountedRef.current) return undefined;
           if (data) setAccountRefreshNonce((nonce) => nonce + 1);
-          return data;
+          return { data };
         } catch (error) {
           if (!isMountedRef.current) return undefined;
-          if (!errorToastUtils.isUserCancelStyleError(error)) {
+          const isUserCancel = errorToastUtils.isUserCancelStyleError(error);
+          if (!isUserCancel) {
             errorToastUtils.toastIfError(error);
             errorToastUtils.showToastOfError(error);
-            // Local wallet data may be unreadable (e.g. after moving to a new
-            // phone), while existing cloud backups can still be restored.
-            setPrepareFailed(true);
           }
           // Settle both automatic loading and Retry into the retryable empty
           // result. User cancellation must not escape as an unhandled rejection.
-          return undefined;
+          // When the cloud account is ready but local wallet data cannot be
+          // read (e.g. after moving to a new phone), existing cloud backups
+          // can still be restored.
+          return { offerCloudImport: cloudReady && !isUserCancel };
         }
       }
       if (actionType === 'restore') {
@@ -111,7 +119,7 @@ export default function ICloudBackupDetails({
         const data = await backgroundApiProxy.serviceCloudBackupV2.download({
           recordId: route.params?.backupId,
         });
-        return data?.payload;
+        return { data: data?.payload };
       }
       return undefined;
     },
@@ -120,6 +128,7 @@ export default function ICloudBackupDetails({
       watchLoading: true,
     },
   );
+  const backupData = loadResult?.data;
 
   const walletDataFromBackup = useMemo(() => {
     return backupData?.publicData?.walletDetails ?? [];
@@ -224,7 +233,7 @@ export default function ICloudBackupDetails({
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
-          {prepareFailed ? (
+          {loadResult?.offerCloudImport ? (
             <Button
               testID={OnboardingTestIDs.iCloudBackupDetailsImportFromCloudBtn}
               onPress={() => goToPageBackupList()}

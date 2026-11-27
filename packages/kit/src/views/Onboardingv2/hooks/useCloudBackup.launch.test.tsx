@@ -308,6 +308,43 @@ describe.each(['Android', 'iOS', 'desktop'])(
       expect(mockNavigation.navigate).toHaveBeenCalledTimes(1);
     });
 
+    it('drops the Settings handoff when the user moves on before the list opens', async () => {
+      let active = true;
+      const isActive = () => active;
+      const closeSettings = jest.fn();
+      const { result } = renderHook(() => useCloudBackup());
+      const readAccount = service.getCloudAccountInfo.getMockImplementation();
+      service.getCloudAccountInfo.mockImplementationOnce(async () => {
+        active = false;
+        if (!readAccount) throw new OneKeyLocalError('Missing account mock');
+        return readAccount();
+      });
+      await act(async () => {
+        await result.current.goToPageBackupList({
+          isActive,
+          beforeNavigate: closeSettings,
+        });
+      });
+      expect(jest.mocked(Dialog).confirm).not.toHaveBeenCalled();
+      expect(closeSettings).not.toHaveBeenCalled();
+      expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      if (platform === 'Android') {
+        active = true;
+        service.loginCloudIfNeed.mockImplementationOnce(async () => {
+          active = false;
+        });
+        await act(async () => {
+          await result.current.goToPageBackupList({
+            isActive,
+            beforeNavigate: closeSettings,
+          });
+        });
+        expect(service.loginCloudIfNeed).toHaveBeenCalledTimes(1);
+        expect(closeSettings).not.toHaveBeenCalled();
+        expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      }
+    });
+
     it('preserves the wallet hook navigation plus 100ms handoff after the source unmounts', async () => {
       const source = renderHook(() =>
         useBackUpWallet({ walletId: 'synthetic-wallet' }),

@@ -91,9 +91,12 @@ export function useCloudBackup() {
   const goToPageBackupList = useCallback(
     async ({
       hideRestoreButton,
+      isActive = () => true,
       beforeNavigate,
     }: {
       hideRestoreButton?: boolean;
+      // Whether the screen that started this is still where the user is.
+      isActive?: () => boolean;
       // Lets a source such as Settings close itself only after sign-in
       // prompts have finished, so the user is not left behind on Home.
       beforeNavigate?: () => void;
@@ -101,11 +104,13 @@ export function useCloudBackup() {
       if (backupListLaunchPending.current) return;
       backupListLaunchPending.current = true;
       try {
-        const isAvailable = await checkIsAvailable();
+        const isAvailable = await checkIsAvailable({ isActive });
         if (isAvailable) {
           if (platformEnv.isNativeAndroid) {
             await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
           }
+          // The user may have moved on while sign-in was pending.
+          if (!isActive()) return;
           beforeNavigate?.();
           navigation.navigate(ERootRoutes.Onboarding, {
             screen: EOnboardingV2Routes.OnboardingV2,
@@ -132,16 +137,25 @@ export function useCloudBackup() {
   );
 
   // The destination page owns authorization after an explicit navigation handoff.
-  const prepareBackup = useCallback(async () => {
-    const isAvailable = await checkIsAvailable({
-      isActive: () => isMountedRef.current,
-      signInIfNeeded: true,
-    });
-    if (!isAvailable || !isMountedRef.current) return undefined;
-    const data =
-      await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
-    return isMountedRef.current ? data : undefined;
-  }, [checkIsAvailable, isMountedRef]);
+  const prepareBackup = useCallback(
+    async ({
+      onCloudReady,
+    }: {
+      // Marks that later failures come from reading local wallet data.
+      onCloudReady?: () => void;
+    } = {}) => {
+      const isAvailable = await checkIsAvailable({
+        isActive: () => isMountedRef.current,
+        signInIfNeeded: true,
+      });
+      if (!isAvailable || !isMountedRef.current) return undefined;
+      onCloudReady?.();
+      const data =
+        await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+      return isMountedRef.current ? data : undefined;
+    },
+    [checkIsAvailable, isMountedRef],
+  );
 
   const doBackup = useThrottledCallback(
     async ({

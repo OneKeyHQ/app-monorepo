@@ -10,7 +10,7 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { isNativeTablet } from '@onekeyhq/components';
+import { isNativeTablet, rootNavigationRef } from '@onekeyhq/components';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
@@ -314,7 +314,14 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                           : ETranslations.backup_import_from_icloud,
                       }),
                       onPress: (navigation) => {
+                        const sourceRouteKey =
+                          rootNavigationRef.current?.getCurrentRoute()?.key;
                         void goToPageBackupList({
+                          // Stop if the user opened or closed another screen
+                          // while the cloud account check was pending.
+                          isActive: () =>
+                            rootNavigationRef.current?.getCurrentRoute()
+                              ?.key === sourceRouteKey,
                           beforeNavigate: () => navigation?.popStack(),
                         });
                       },
@@ -1217,6 +1224,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       'notifications',
       'onekey-transfer',
       'manual-backup',
+      'cloud-backup-import',
       'address-book',
       'account-derivation',
       'passcode',

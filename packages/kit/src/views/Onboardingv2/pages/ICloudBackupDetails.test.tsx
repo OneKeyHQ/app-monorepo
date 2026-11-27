@@ -26,8 +26,10 @@ import ICloudBackupDetails from './ICloudBackupDetails';
 
 const mockPrepareBackup = jest.fn<
   Promise<IPrimeTransferData | undefined>,
-  []
+  [{ onCloudReady?: () => void }?]
 >();
+// Swapped to give the hook a new identity, as a language change does.
+let mockActivePrepareBackup = mockPrepareBackup;
 const mockGoToPageBackupList = jest.fn(async () => undefined);
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 
@@ -93,7 +95,7 @@ jest.mock('../../../hooks/useAppNavigation', () => ({
 }));
 jest.mock('../hooks/useCloudBackup', () => ({
   useCloudBackup: () => ({
-    prepareBackup: mockPrepareBackup,
+    prepareBackup: mockActivePrepareBackup,
     goToPageBackupList: mockGoToPageBackupList,
     checkLoading: false,
   }),
@@ -193,6 +195,7 @@ function deferred<T>() {
 
 beforeEach(() => {
   mockPrepareBackup.mockReset();
+  mockActivePrepareBackup = mockPrepareBackup;
   mockGoToPageBackupList.mockClear();
   getAccountInfo.mockReset();
   getAccountInfo.mockResolvedValue(signedOut);
@@ -277,11 +280,12 @@ it.each(['permission denied', 'network failure'])(
 
 it('offers importing an existing cloud backup when local wallet data cannot be read', async () => {
   mockPrepareBackup
-    .mockRejectedValueOnce(
-      new OneKeyLocalError(
+    .mockImplementationOnce(async ({ onCloudReady } = {}) => {
+      onCloudReady?.();
+      throw new OneKeyLocalError(
         'Local secret envelope layer decrypt failed: kind=secure-storage, index=1',
-      ),
-    )
+      );
+    })
     .mockResolvedValueOnce(data);
   render(<ICloudBackupDetails {...props} />);
   const importButton = await screen.findByTestId(
@@ -304,13 +308,18 @@ it('offers importing an existing cloud backup when local wallet data cannot be r
   ).toBeNull();
 });
 
-it.each(['cancel', 'cloud unavailable'] as const)(
+it.each(['cancel', 'cloud unavailable', 'cloud sign-in failure'] as const)(
   'offers only Retry after %s',
   async (outcome) => {
     if (outcome === 'cancel') {
       mockPrepareBackup.mockRejectedValueOnce(new OAuthLoginCancelError());
-    } else {
+    } else if (outcome === 'cloud unavailable') {
       mockPrepareBackup.mockResolvedValueOnce(undefined);
+    } else {
+      // Fails before the cloud account is ready, so Import would fail too.
+      mockPrepareBackup.mockRejectedValueOnce(
+        new OneKeyLocalError('Drive sign-in failed'),
+      );
     }
     render(<ICloudBackupDetails {...props} />);
     await screen.findByTestId(OnboardingTestIDs.iCloudBackupDetailsRetryBtn);
@@ -321,6 +330,32 @@ it.each(['cancel', 'cloud unavailable'] as const)(
     ).toBeNull();
   },
 );
+
+it('lets only the latest preparation decide whether to offer import', async () => {
+  const first = deferred<IPrimeTransferData | undefined>();
+  mockPrepareBackup.mockImplementationOnce(async ({ onCloudReady } = {}) => {
+    onCloudReady?.();
+    return first.promise;
+  });
+  const view = render(<ICloudBackupDetails {...props} />);
+  await waitFor(() => expect(mockPrepareBackup).toHaveBeenCalledTimes(1));
+  const latest = jest.fn<
+    Promise<IPrimeTransferData | undefined>,
+    [{ onCloudReady?: () => void }?]
+  >(async () => undefined);
+  mockActivePrepareBackup = latest;
+  view.rerender(<ICloudBackupDetails {...props} />);
+  await waitFor(() => expect(latest).toHaveBeenCalledTimes(1));
+  await screen.findByTestId(OnboardingTestIDs.iCloudBackupDetailsRetryBtn);
+  await act(async () => {
+    first.reject(new OneKeyLocalError('failed after a newer attempt'));
+  });
+  expect(
+    screen.queryByTestId(
+      OnboardingTestIDs.iCloudBackupDetailsImportFromCloudBtn,
+    ),
+  ).toBeNull();
+});
 
 it.each(['success', 'cancel', 'error'] as const)(
   'ignores late %s after leaving the page',
