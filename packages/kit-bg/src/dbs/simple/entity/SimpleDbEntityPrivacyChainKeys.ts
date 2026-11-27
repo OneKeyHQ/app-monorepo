@@ -3,8 +3,11 @@ import { z } from 'zod';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { buildPrivacyChainStorageKey } from '../../../vaults/localWallet/privacyChainStorageKey';
 import { PRIVACY_CHAIN_VIEWING_KEY_MISMATCH } from '../../../vaults/localWallet/viewingKeyMismatch';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+
+export { buildPrivacyChainStorageKey };
 
 // The only host copy of each account's viewing key (Zcash UFVK, Monero `spendPub:viewPriv`,
 // Starknet STRK20 viewing key). Supports both legacy plaintext and password-encrypted records.
@@ -41,16 +44,6 @@ const keyRecordSchema = z.object({
   ]),
   accountId: z.string().min(1).optional(),
 });
-
-export function buildPrivacyChainStorageKey({
-  accountId,
-  scope,
-}: {
-  accountId: string;
-  scope?: string;
-}): string {
-  return scope ? `${accountId}::${scope}` : accountId;
-}
 
 function extractOwnerAccountId(
   storageKey: string,

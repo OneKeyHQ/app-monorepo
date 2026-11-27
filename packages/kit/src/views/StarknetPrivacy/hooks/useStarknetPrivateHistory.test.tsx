@@ -400,3 +400,40 @@ it('resets retained range and reloads a fresh page when the background cursor wa
   expect(ui.result.current.txs.map((item) => item.id)).toEqual(['0x9']);
   expect(ui.result.current.hasMore).toBe(true);
 });
+
+it('preserves paginated rows when the first page has only other-token txs and overlapping discoveryTxIds', async () => {
+  const cursor1 = { cursorId: 'cursor-page-1' };
+  const cursor2 = { cursorId: 'cursor-page-2' };
+  mockRead.mockResolvedValueOnce({
+    txs: [],
+    discoveryTxIds: ['0xother-token-1'],
+    hasMore: true,
+    cursor: cursor1,
+  });
+  const ui = renderHook(() => useStarknetPrivateHistory(scope));
+  await tick();
+  expect(ui.result.current.txs).toEqual([]);
+  expect(ui.result.current.cursorId).toBe('cursor-page-1');
+
+  mockRead.mockResolvedValueOnce({
+    txs: [tx('0x2')],
+    discoveryTxIds: ['0x2'],
+    hasMore: true,
+    cursor: cursor2,
+  });
+  await act(async () => ui.result.current.loadMore());
+  expect(ui.result.current.txs.map((item) => item.id)).toEqual(['0x2']);
+  expect(ui.result.current.cursorId).toBe('cursor-page-2');
+
+  // Next poll fetches page 1 again with no matching token rows but overlapping account-level discoveryTxIds.
+  mockRead.mockResolvedValueOnce({
+    txs: [],
+    discoveryTxIds: ['0xother-token-1'],
+    hasMore: true,
+    cursor: cursor1,
+  });
+  act(() => ui.result.current.reload());
+  await tick();
+  expect(ui.result.current.txs.map((item) => item.id)).toEqual(['0x2']);
+  expect(ui.result.current.cursorId).toBe('cursor-page-2');
+});
