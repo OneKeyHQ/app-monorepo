@@ -15,8 +15,6 @@ const PR_TYPES = [
 
 const SEVERITIES = new Set(['P0', 'P1', 'P2']);
 
-const CONFIDENCES = new Set(['high', 'medium', 'low']);
-
 const GATE_MODES = new Set(['shadow', 'soft', 'strict']);
 
 const HIGH_RISK_SAFETY_CATEGORIES = new Set([
@@ -24,21 +22,34 @@ const HIGH_RISK_SAFETY_CATEGORIES = new Set([
   'funds_loss',
   'crash',
   'data_corruption',
+  'concurrency_race',
+  'half_migration',
+  'cross_platform_divergence',
+]);
+
+const RECLASSIFY_EXEMPT_CATEGORIES = new Set([
+  'security',
+  'funds_loss',
+  'crash',
+  'build_registry',
+  'data_corruption',
+  'concurrency_race',
+  'runtime_boundary',
 ]);
 
 const BASE_IMPACT = {
-  security: 40,
-  funds_loss: 40,
-  crash: 40,
-  build_registry: 40,
-  cross_platform_divergence: 32,
-  half_migration: 32,
-  code_duplication: 32,
-  concurrency_race: 32,
-  data_corruption: 32,
-  runtime_boundary: 26,
-  memory_leak: 26,
-  error_handling: 26,
+  security: 44,
+  funds_loss: 44,
+  crash: 44,
+  build_registry: 44,
+  cross_platform_divergence: 36,
+  half_migration: 36,
+  code_duplication: 36,
+  concurrency_race: 36,
+  data_corruption: 36,
+  runtime_boundary: 34,
+  memory_leak: 34,
+  error_handling: 30,
   performance: 18,
   edge_case: 18,
   a11y_or_motion: 8,
@@ -55,15 +66,15 @@ const TYPE_ALIGNMENT_MATRIX = {
     funds_loss: 1.3,
     crash: 1.3,
     build_registry: 1.3,
-    data_corruption: 1.1,
-    concurrency_race: 0.8,
-    runtime_boundary: 0.8,
-    memory_leak: 0.6,
-    error_handling: 0.4,
-    cross_platform_divergence: 0.0,
-    half_migration: 0.0,
+    data_corruption: 1.2,
+    half_migration: 1.1,
+    concurrency_race: 0.9,
+    runtime_boundary: 0.9,
+    memory_leak: 0.8,
+    cross_platform_divergence: 0.6,
+    error_handling: 0.5,
+    performance: 0.5,
     code_duplication: 0.0,
-    performance: 0.0,
     edge_case: 0.0,
     a11y_or_motion: 0.0,
     ui_polish: 0.0,
@@ -74,15 +85,15 @@ const TYPE_ALIGNMENT_MATRIX = {
     funds_loss: 1.3,
     crash: 1.2,
     build_registry: 1.4,
-    data_corruption: 1.0,
-    runtime_boundary: 0.9,
-    concurrency_race: 0.5,
-    memory_leak: 0.4,
-    error_handling: 0.4,
+    data_corruption: 1.1,
+    runtime_boundary: 1.0,
+    concurrency_race: 0.7,
+    memory_leak: 0.6,
+    error_handling: 0.5,
+    performance: 0.4,
     cross_platform_divergence: 0.0,
     half_migration: 0.0,
     code_duplication: 0.0,
-    performance: 0.3,
     edge_case: 0.0,
     a11y_or_motion: 0.0,
     ui_polish: 0.0,
@@ -93,9 +104,9 @@ const TYPE_ALIGNMENT_MATRIX = {
     funds_loss: 1.3,
     crash: 1.2,
     build_registry: 1.2,
-    cross_platform_divergence: 1.5,
-    half_migration: 1.5,
-    code_duplication: 1.5,
+    cross_platform_divergence: 1.4,
+    half_migration: 1.4,
+    code_duplication: 1.4,
     runtime_boundary: 1.3,
     concurrency_race: 1.2,
     data_corruption: 1.2,
@@ -112,10 +123,10 @@ const TYPE_ALIGNMENT_MATRIX = {
     funds_loss: 1.4,
     crash: 1.3,
     build_registry: 1.2,
-    data_corruption: 1.4,
+    data_corruption: 1.3,
     concurrency_race: 1.3,
     runtime_boundary: 1.2,
-    memory_leak: 1.1,
+    memory_leak: 1.2,
     cross_platform_divergence: 1.1,
     half_migration: 1.0,
     code_duplication: 1.1,
@@ -134,11 +145,11 @@ const TYPE_ALIGNMENT_MATRIX = {
     data_corruption: 1.3,
     concurrency_race: 1.3,
     runtime_boundary: 1.2,
-    memory_leak: 1.1,
+    memory_leak: 1.2,
     error_handling: 1.0,
-    cross_platform_divergence: 0.9,
-    half_migration: 0.8,
-    code_duplication: 0.8,
+    cross_platform_divergence: 1.1,
+    half_migration: 0.9,
+    code_duplication: 0.9,
     performance: 0.8,
     edge_case: 0.6,
     a11y_or_motion: 0.2,
@@ -151,9 +162,9 @@ const TYPE_ALIGNMENT_MATRIX = {
     crash: 1.2,
     build_registry: 1.2,
     data_corruption: 1.2,
-    concurrency_race: 1.1,
-    runtime_boundary: 1.1,
-    memory_leak: 1.0,
+    concurrency_race: 1.2,
+    runtime_boundary: 1.2,
+    memory_leak: 1.1,
     error_handling: 0.9,
     cross_platform_divergence: 1.0,
     half_migration: 0.9,
@@ -170,17 +181,20 @@ const THRESHOLDS = {
   PUBLISH_MIN_SCORE: 70,
   PUBLISH_P0_MIN_SCORE: 55,
   SUMMARY_MIN_SCORE: 50,
-  REQUEST_CHANGES_P1_MIN_SCORE: 85,
+  REQUEST_CHANGES_P1_MIN_SCORE: 78,
 };
 
 const A11Y_OR_MOTION_RE =
-  /\b(voiceover|talkback|screen\s*readers?|assistive\s+technolog|accessibilitylabel|accessibilityrole|aria-[a-z]+|contentdescription|spoken\s+(?:value|text)|reduce[d]?\s+motion|keyboard\s+(?:navigation|focus|operable|accessible)|focus\s+(?:ring|indicator|frame)|tab\s*order|tabindex|separating\s+hinge|accessible\s+name)\b/i;
+  /\b(voiceover|talkback|screen\s*readers?|assistive\s+technolog|accessibilitylabel|accessibilityrole|aria-[a-z]+|contentdescription|spoken\s+(?:value|text)|reduce[d]?\s+motion|keyboard\s+(?:navigation|focus|operable|accessible)|focus\s+(?:ring|indicator|frame)|tab\s*order|tabindex|separating\s+hinge|accessible\s+name)\b|(旁白|读屏|屏幕阅读器|无障碍|辅助功能|减弱动态效果|减少动态效果|键盘导航|焦点框|折叠屏铰链)/i;
 
 const SPECULATIVE_TITLE_RE =
-  /^\s*(?:P[0-2]\s*:\s*)?\[?\s*(confirm|verify|check\s+whether|check\s+if|ensure\s+that|double[- ]check)\b/i;
+  /^\s*(?:P[0-2]\s*:\s*)?\[?\s*(?:(?:confirm|verify|check\s+whether|check\s+if|ensure\s+that|double[- ]check)\b|确认是否|验证是否|检查是否|请确认|核实)/i;
 
 const DEPS_OR_CI_FILE_RE =
-  /(^|\/)(package\.json|yarn\.lock|Podfile\.lock|Gemfile\.lock|Cargo\.lock|renovate\.json|\.github\/workflows\/|\.github\/actions\/)/i;
+  /(^|\/)(package\.json|yarn\.lock|Podfile\.lock|Gemfile\.lock|Cargo\.lock|renovate\.json|Dockerfile|\.yarnrc\.yml|\.github\/workflows\/|\.github\/actions\/)|\.podspec$/i;
+
+const DEPS_OR_CI_TITLE_RE =
+  /^\s*(?:(?:chore|build)\(deps[^)]*\)|ci(?:\([^)]+\))?):/i;
 
 const PLATFORM_SUFFIX_RE =
   /\.(native|ios|android|web|desktop|ext)\.(ts|tsx|js|jsx)$/i;
@@ -192,15 +206,23 @@ const SECURITY_CRITICAL_FILE_RE =
   /(^|\/)(vault|signing|crypto|auth|manifest|keyring|hardware|bundle-registry|dbs\/local\/consts\.ts)/i;
 
 const A11Y_PR_HINT_RE =
-  /\b(a11y|accessibility|voiceover|talkback|screen\s*reader|wcag)\b/i;
+  /\b(a11y|accessibility|voiceover|talkback|screen\s*reader|wcag)\b|(无障碍|旁白|读屏)/i;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 function normalizePath(filePath) {
   if (!filePath || typeof filePath !== 'string') return '';
-  return filePath
+  let clean = filePath.trim();
+  if (clean.startsWith('"') && clean.endsWith('"')) {
+    clean = clean.slice(1, -1);
+  }
+  return clean
     .replace(/^a\/|^b\//, '')
     .replace(/^\.\//, '')
     .trim();
@@ -219,12 +241,32 @@ function normalizeTitleForDedup(title) {
     .trim();
 }
 
+function escapeMdCell(text) {
+  return String(text || '')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n+/g, ' ')
+    .trim();
+}
+
+/**
+ * Parse both plain ('high'|'medium'|'low') and SKILL.md emoji ('🔵 High'|'🟠 Medium'|'⚪ Low') confidence labels.
+ * Missing or unknown confidence defaults to 'low' (never silently upgraded to 'high').
+ */
+function parseConfidence(raw) {
+  if (typeof raw !== 'string') return 'low';
+  const norm = raw.toLowerCase();
+  if (norm.includes('high') || norm.includes('🔵')) return 'high';
+  if (norm.includes('medium') || norm.includes('🟠')) return 'medium';
+  if (norm.includes('low') || norm.includes('⚪')) return 'low';
+  return 'low';
+}
+
 /**
  * Safely parse LLM JSON output, tolerating markdown code fences or surrounding prose.
- * Never throws; returns structured ok/error result so pilot modes can fail-open.
+ * Scans all fenced blocks (prioritizing ```json) and rejects non-plain-object JSON (e.g. null, arrays).
  */
 function parseReviewDraftSafely(rawText) {
-  if (rawText && typeof rawText === 'object') {
+  if (isPlainObject(rawText)) {
     return { ok: true, draft: rawText, error: null, recoveredFromFence: false };
   }
   const text = String(rawText || '').trim();
@@ -237,26 +279,61 @@ function parseReviewDraftSafely(rawText) {
     };
   }
   try {
-    return {
-      ok: true,
-      draft: JSON.parse(text),
-      error: null,
-      recoveredFromFence: false,
-    };
+    const direct = JSON.parse(text);
+    if (!isPlainObject(direct)) {
+      return {
+        ok: false,
+        draft: null,
+        error: 'Review draft JSON must be an object.',
+        recoveredFromFence: false,
+      };
+    }
+    return { ok: true, draft: direct, error: null, recoveredFromFence: false };
   } catch {
-    // Try stripping ```json ... ``` fence or extracting outermost JSON object
-    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    const candidate = fenceMatch ? fenceMatch[1].trim() : text;
-    const firstBrace = candidate.indexOf('{');
-    const lastBrace = candidate.lastIndexOf('}');
+    // Scan all fenced blocks, prioritizing ```json blocks first
+    const fenceRe = /```(json)?\s*([\s\S]*?)```/gi;
+    const jsonBlocks = [];
+    const otherBlocks = [];
+    let match = fenceRe.exec(text);
+    while (match !== null) {
+      if (match[1]) {
+        jsonBlocks.push(match[2].trim());
+      } else {
+        otherBlocks.push(match[2].trim());
+      }
+      match = fenceRe.exec(text);
+    }
+
+    for (const candidate of [...jsonBlocks, ...otherBlocks]) {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (isPlainObject(parsed)) {
+          return {
+            ok: true,
+            draft: parsed,
+            error: null,
+            recoveredFromFence: true,
+          };
+        }
+      } catch {
+        // continue trying remaining blocks
+      }
+    }
+
+    // Last resort: extract outermost { ... }
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace > firstBrace) {
       try {
-        return {
-          ok: true,
-          draft: JSON.parse(candidate.slice(firstBrace, lastBrace + 1)),
-          error: null,
-          recoveredFromFence: true,
-        };
+        const parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+        if (isPlainObject(parsed)) {
+          return {
+            ok: true,
+            draft: parsed,
+            error: null,
+            recoveredFromFence: true,
+          };
+        }
       } catch (innerErr) {
         return {
           ok: false,
@@ -266,6 +343,7 @@ function parseReviewDraftSafely(rawText) {
         };
       }
     }
+
     return {
       ok: false,
       draft: null,
@@ -277,8 +355,8 @@ function parseReviewDraftSafely(rawText) {
 
 /**
  * Parse unified diff text into a map of changed right-side line ranges per file.
- * @param {string} diffText
- * @returns {Record<string, Array<{ start: number, end: number }>>}
+ * Tracks diff header state so added lines starting with '++ ' are never parsed as file headers,
+ * and skips pure-deletion hunks (count === 0).
  */
 function parseUnifiedDiffHunks(diffText) {
   const fileHunks = {};
@@ -286,11 +364,18 @@ function parseUnifiedDiffHunks(diffText) {
     return fileHunks;
   }
   let currentFile = null;
+  let expectingPlusHeader = false;
   const lines = diffText.split(/\r?\n/);
+
   for (const line of lines) {
-    const fileMatch = line.match(/^\+\+\+\s+(?:b\/)?(.+)$/);
-    if (fileMatch) {
-      const candidate = fileMatch[1].trim();
+    if (line.startsWith('diff --git ')) {
+      currentFile = null;
+      expectingPlusHeader = false;
+    } else if (line.startsWith('--- ')) {
+      expectingPlusHeader = true;
+    } else if (expectingPlusHeader && line.startsWith('+++ ')) {
+      expectingPlusHeader = false;
+      const candidate = line.slice(4).trim();
       if (candidate === '/dev/null') {
         currentFile = null;
       } else {
@@ -299,15 +384,16 @@ function parseUnifiedDiffHunks(diffText) {
           fileHunks[currentFile] = [];
         }
       }
-    } else if (currentFile) {
+    } else if (currentFile && line.startsWith('@@ ')) {
       const hunkMatch = line.match(
         /^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/,
       );
       if (hunkMatch) {
         const start = Number(hunkMatch[1]);
         const count = hunkMatch[2] === undefined ? 1 : Number(hunkMatch[2]);
-        const end = count > 0 ? start + count - 1 : start;
-        fileHunks[currentFile].push({ start, end });
+        if (count > 0) {
+          fileHunks[currentFile].push({ start, end: start + count - 1 });
+        }
       }
     }
   }
@@ -329,16 +415,49 @@ function isLineInDiffHunks(fileHunks, filePath, lineNumber) {
 }
 
 /**
+ * Verify a relative file path exists as a regular file strictly inside repoRoot.
+ */
+function isVerifiedRepoFile(repoRoot, rawTarget) {
+  if (!repoRoot) return false;
+  const clean = stripLineSuffix(rawTarget);
+  if (!clean || path.isAbsolute(clean)) return false;
+  const resolvedRoot = path.resolve(repoRoot);
+  const resolvedFile = path.resolve(resolvedRoot, clean);
+  if (
+    resolvedFile !== resolvedRoot &&
+    !resolvedFile.startsWith(`${resolvedRoot}${path.sep}`)
+  ) {
+    return false;
+  }
+  try {
+    return fs.statSync(resolvedFile).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Extract an objective PR profile from PR metadata and diff signals.
+ * Supports both plain string arrays and `gh pr view --json` object arrays ({name}, {path}).
  */
 function extractObservedProfile(prContext = {}) {
   const title = String(prContext.title || '');
   const body = String(prContext.body || '');
   const labels = Array.isArray(prContext.labels)
-    ? prContext.labels.map((l) => String(l))
+    ? prContext.labels
+        .map((l) => {
+          if (typeof l === 'string') return l;
+          return l && l.name ? String(l.name) : '';
+        })
+        .filter(Boolean)
     : [];
   const files = Array.isArray(prContext.files)
-    ? prContext.files.map(normalizePath).filter(Boolean)
+    ? prContext.files
+        .map((f) => {
+          const raw = typeof f === 'string' ? f : String((f && f.path) || '');
+          return normalizePath(raw);
+        })
+        .filter(Boolean)
     : [];
   const diffText = String(prContext.diffText || '');
   const existingAutoThreadCount = Number(
@@ -349,12 +468,12 @@ function extractObservedProfile(prContext = {}) {
   const isRevert =
     /^\s*revert(\([^)]+\))?:/i.test(title) ||
     /^\s*revert\s+"/i.test(title) ||
-    /\bthis reverts commit\b/i.test(body);
+    /^this reverts commit\b/im.test(body);
 
   const depsOrCiFiles = files.filter((f) => DEPS_OR_CI_FILE_RE.test(f));
-  // Lock deps_or_ci only when 100% of changed files are dependency/CI files (no mixed app source)
-  const isDepsOrCi =
+  const isStrictlyDepsOrCi =
     !isRevert && files.length > 0 && depsOrCiFiles.length === files.length;
+  const isDepsOrCiTitle = !isRevert && DEPS_OR_CI_TITLE_RE.test(title);
 
   const platformFiles = files.filter((f) => PLATFORM_SUFFIX_RE.test(f));
   const hasCrossPlatformSignals =
@@ -371,35 +490,32 @@ function extractObservedProfile(prContext = {}) {
     A11Y_PR_HINT_RE.test(title) || labels.some((l) => A11Y_PR_HINT_RE.test(l));
 
   const isFollowUpRound = existingAutoThreadCount > 0 || reviewRound >= 2;
-
   const isFixTitle = /^\s*fix(\([^)]+\))?:/i.test(title);
 
   let expectedTypes;
   if (isRevert) {
     expectedTypes = ['revert'];
-  } else if (isDepsOrCi) {
+  } else if (isStrictlyDepsOrCi) {
     expectedTypes = ['deps_or_ci'];
+  } else if (isDepsOrCiTitle) {
+    expectedTypes = ['deps_or_ci', 'core_feature', 'targeted_bugfix'];
   } else if (hasCrossPlatformSignals) {
     expectedTypes = [
       'cross_platform_migration',
       'core_feature',
       'targeted_bugfix',
-      'general',
     ];
   } else if (isFixTitle) {
-    expectedTypes = ['targeted_bugfix', 'core_feature', 'general'];
+    expectedTypes = ['targeted_bugfix', 'core_feature'];
+  } else if (files.length === 0 && !title.trim()) {
+    expectedTypes = ['general', 'core_feature', 'targeted_bugfix'];
   } else {
-    expectedTypes = [
-      'core_feature',
-      'cross_platform_migration',
-      'targeted_bugfix',
-      'general',
-    ];
+    expectedTypes = ['core_feature', 'targeted_bugfix', 'general'];
   }
 
   return {
     isRevert,
-    isDepsOrCi,
+    isDepsOrCi: isStrictlyDepsOrCi,
     hasCrossPlatformSignals,
     hasSecurityCriticalSignals,
     isA11yTarget,
@@ -417,14 +533,14 @@ function verifyCharacterization(claimed, observed) {
   const errors = [];
   const warnings = [];
 
-  if (!claimed || typeof claimed !== 'object') {
+  if (!isPlainObject(claimed)) {
     errors.push({
       code: 'E_MISSING_CHARACTERIZATION',
       message: 'Missing characterization object in review draft.',
     });
     return {
       valid: false,
-      effectiveType: observed.expectedTypes[0] || 'core_feature',
+      effectiveType: observed.expectedTypes[0] || 'general',
       errors,
       warnings,
     };
@@ -474,7 +590,7 @@ function verifyCharacterization(claimed, observed) {
     });
   }
 
-  let effectiveType = observed.expectedTypes[0] || 'core_feature';
+  let effectiveType = observed.expectedTypes[0] || 'general';
   if (observed.isRevert) {
     effectiveType = 'revert';
   } else if (observed.isDepsOrCi) {
@@ -513,12 +629,17 @@ function scoreFinding(finding, options = {}) {
     typeof finding.line === 'number' && Number.isFinite(finding.line)
       ? finding.line
       : null;
-  const severity = SEVERITIES.has(finding.severity) ? finding.severity : 'P2';
-  const confidence = CONFIDENCES.has(finding.confidence)
-    ? finding.confidence
-    : 'high';
+  const anchorFile = normalizePath(finding.anchorFile || finding.file);
+  const anchorLine =
+    typeof finding.anchorLine === 'number' &&
+    Number.isFinite(finding.anchorLine)
+      ? finding.anchorLine
+      : line;
 
-  // Anti-gaming reclassification: detect a11y/motion nitpicks even if labeled edge_case
+  const severity = SEVERITIES.has(finding.severity) ? finding.severity : 'P2';
+  const confidence = parseConfidence(finding.confidence);
+
+  // Anti-gaming reclassification: detect a11y/motion nitpicks unless category is core safety/runtime
   let effectiveCategory = FINDING_CATEGORIES.includes(finding.category)
     ? finding.category
     : 'edge_case';
@@ -527,7 +648,7 @@ function scoreFinding(finding, options = {}) {
   if (
     A11Y_OR_MOTION_RE.test(combinedText) &&
     effectiveCategory !== 'a11y_or_motion' &&
-    !['security', 'funds_loss', 'crash'].includes(effectiveCategory)
+    !RECLASSIFY_EXEMPT_CATEGORIES.has(effectiveCategory)
   ) {
     effectiveCategory = 'a11y_or_motion';
     reclassifiedReasons.push('reclassified_to_a11y_or_motion');
@@ -540,7 +661,7 @@ function scoreFinding(finding, options = {}) {
 
   // Dynamic signal-based alignment adjustments
   if (observed.isA11yTarget && effectiveCategory === 'a11y_or_motion') {
-    baseImpact = 30;
+    baseImpact = 32;
     typeAlignment = 1.5;
   }
   if (
@@ -562,14 +683,17 @@ function scoreFinding(finding, options = {}) {
   }
 
   // Evidence verification (0-40)
-  const evidence = finding.evidence || {};
-  const hasLine =
-    typeof line === 'number' && Number.isFinite(line) && line >= 1;
-  let inDiffVerified = Boolean(evidence.inDiff) && hasLine;
+  const evidence = isPlainObject(finding.evidence) ? finding.evidence : {};
+  const hasAnchorLine =
+    typeof anchorLine === 'number' &&
+    Number.isFinite(anchorLine) &&
+    anchorLine >= 1;
+  let inDiffVerified = Boolean(evidence.inDiff) && hasAnchorLine;
   if (hasDiff) {
-    inDiffVerified = isLineInDiffHunks(fileHunks, file, line);
+    inDiffVerified = isLineInDiffHunks(fileHunks, anchorFile, anchorLine);
   }
-  const hasValidInlineAnchor = Boolean(file) && hasLine && inDiffVerified;
+  const hasValidInlineAnchor =
+    Boolean(anchorFile) && hasAnchorLine && inDiffVerified;
 
   const isSpeculative = SPECULATIVE_TITLE_RE.test(title);
   const hasConcreteProof =
@@ -577,24 +701,20 @@ function scoreFinding(finding, options = {}) {
     (Boolean(String(evidence.executionPath || '').trim()) ||
       Boolean(String(evidence.reproduction || '').trim()));
 
-  const verifiedReuseTargets = [];
-  const missingReuseTargets = [];
-  const rawTargets = Array.isArray(evidence.existingReuseTargets)
-    ? evidence.existingReuseTargets
-    : [];
-  for (const raw of rawTargets) {
-    const clean = stripLineSuffix(raw);
-    if (clean) {
-      if (repoRoot) {
-        const fullPath = path.join(repoRoot, clean);
-        if (fs.existsSync(fullPath)) {
-          verifiedReuseTargets.push(raw);
-        } else {
-          missingReuseTargets.push(raw);
-        }
-      } else {
-        verifiedReuseTargets.push(raw);
-      }
+  // Verify referenced repository files (codeReferences or existingReuseTargets) strictly inside repoRoot
+  const verifiedCodeRefs = [];
+  const missingCodeRefs = [];
+  const rawRefs = [
+    ...(Array.isArray(evidence.existingReuseTargets)
+      ? evidence.existingReuseTargets
+      : []),
+    ...(Array.isArray(evidence.codeReferences) ? evidence.codeReferences : []),
+  ];
+  for (const raw of rawRefs) {
+    if (isVerifiedRepoFile(repoRoot, raw)) {
+      verifiedCodeRefs.push(raw);
+    } else if (raw && typeof raw === 'string') {
+      missingCodeRefs.push(raw);
     }
   }
 
@@ -608,9 +728,9 @@ function scoreFinding(finding, options = {}) {
     evidenceScore += 15;
     evidenceNotes.push('concrete_proof(+15)');
   }
-  if (verifiedReuseTargets.length > 0) {
+  if (verifiedCodeRefs.length > 0) {
     evidenceScore += 10;
-    evidenceNotes.push(`verified_refs:${verifiedReuseTargets.length}(+10)`);
+    evidenceNotes.push(`verified_refs:${verifiedCodeRefs.length}(+10)`);
   }
 
   // Noise & spiral penalties
@@ -622,11 +742,16 @@ function scoreFinding(finding, options = {}) {
     penaltyReasons.push('speculative_question(-25)');
   }
 
+  // Only penalize pre-existing issues when explicitly marked pre-existing, OR out-of-diff without proof linking to this diff
   const isPreExisting =
-    Boolean(finding.isPreExisting) || (hasDiff && !inDiffVerified);
+    finding.isPreExisting === true ||
+    (finding.isPreExisting !== false &&
+      hasDiff &&
+      !inDiffVerified &&
+      !hasConcreteProof);
   if (isPreExisting) {
     noisePenalty += 30;
-    penaltyReasons.push('pre_existing_or_out_of_diff(-30)');
+    penaltyReasons.push('pre_existing(-30)');
   }
 
   if (observed.isFollowUpRound && severity === 'P2') {
@@ -634,21 +759,30 @@ function scoreFinding(finding, options = {}) {
     penaltyReasons.push('follow_up_round_p2_spiral(-35)');
   }
 
-  if (missingReuseTargets.length > 0 && verifiedReuseTargets.length === 0) {
+  if (repoRoot && missingCodeRefs.length > 0 && verifiedCodeRefs.length === 0) {
     noisePenalty += 15;
-    penaltyReasons.push('unverified_reuse_target(-15)');
+    penaltyReasons.push('unverified_code_ref(-15)');
   }
 
+  // Duplicate unresolved thread handling: NEVER penalize score or drop blockers; route to REPLY_THREAD
   const normTitle = normalizeTitleForDedup(title);
-  const isDuplicateThread = existingThreads.some((th) => {
+  const minDedupLen = /[\u4e00-\u9fff]/.test(normTitle) ? 4 : 8;
+  const matchedThread = existingThreads.find((th) => {
+    if (th.isResolved) return false;
+    if (finding.existingThreadId && th.id === finding.existingThreadId) {
+      return true;
+    }
     const sameFile = normalizePath(th.path) === file;
     const thTitle = normalizeTitleForDedup(th.title || th.body || '');
-    return sameFile && normTitle.length > 8 && thTitle.includes(normTitle);
+    return (
+      sameFile &&
+      normTitle.length >= minDedupLen &&
+      (thTitle.includes(normTitle) || normTitle.includes(thTitle))
+    );
   });
-  if (isDuplicateThread) {
-    noisePenalty += 40;
-    penaltyReasons.push('duplicate_existing_thread(-40)');
-  }
+  const duplicateOfThreadId = matchedThread
+    ? matchedThread.id || 'matched'
+    : null;
 
   const weightedImpact = Number((baseImpact * typeAlignment).toFixed(2));
   const rawScore = weightedImpact + evidenceScore - noisePenalty;
@@ -659,19 +793,21 @@ function scoreFinding(finding, options = {}) {
       ? THRESHOLDS.PUBLISH_P0_MIN_SCORE
       : THRESHOLDS.PUBLISH_MIN_SCORE;
 
-  // Align inline publication eligibility with SKILL.md: P0 (any confidence) or P1 with high confidence
+  // Inline publication eligibility: P0 (any confidence) or P1 with high confidence
   const meetsInlineEligibility =
     severity === 'P0' || (severity === 'P1' && confidence === 'high');
 
   let preliminaryDecision = 'DROP';
   if (
+    !isSpeculative &&
     meetsInlineEligibility &&
-    hasValidInlineAnchor &&
+    (hasValidInlineAnchor || Boolean(duplicateOfThreadId)) &&
     signalScore >= publishThreshold &&
     typeAlignment > 0
   ) {
     preliminaryDecision = 'PUBLISH';
   } else if (
+    !isSpeculative &&
     (signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE ||
       (meetsInlineEligibility &&
         !hasValidInlineAnchor &&
@@ -684,11 +820,12 @@ function scoreFinding(finding, options = {}) {
     }
   }
 
-  // High-risk P0 safety valve in pilot modes (shadow/soft): never silently drop high-risk P0s
+  // High-risk P0 safety valve in pilot modes (shadow/soft): preserve non-speculative high-risk P0s
   let safetyValveApplied = false;
   if (
     preliminaryDecision === 'DROP' &&
     mode !== 'strict' &&
+    !isSpeculative &&
     severity === 'P0' &&
     HIGH_RISK_SAFETY_CATEGORIES.has(effectiveCategory)
   ) {
@@ -697,13 +834,19 @@ function scoreFinding(finding, options = {}) {
     penaltyReasons.push('safety_valve_p0_preserved');
   }
 
+  const publishAction = duplicateOfThreadId ? 'REPLY_THREAD' : 'NEW_THREAD';
+
   return {
     ...finding,
     file,
     line,
+    anchorFile,
+    anchorLine,
     severity,
     confidence,
     effectiveCategory,
+    publishAction,
+    duplicateOfThreadId,
     scoreBreakdown: {
       baseImpact,
       typeAlignment,
@@ -713,10 +856,11 @@ function scoreFinding(finding, options = {}) {
       noisePenalty,
       penaltyReasons,
       reclassifiedReasons,
-      verifiedReuseTargets,
-      missingReuseTargets,
+      verifiedCodeRefs,
+      missingCodeRefs,
       hasValidInlineAnchor,
       meetsInlineEligibility,
+      isSpeculative,
       safetyValveApplied,
     },
     signalScore,
@@ -731,30 +875,40 @@ function evaluateReview(draft, prContext = {}, options = {}) {
   const mode = GATE_MODES.has(options.mode) ? options.mode : 'soft';
   const inputErrors = [];
 
+  if (!isPlainObject(draft)) {
+    inputErrors.push({
+      code: 'E_INVALID_DRAFT_OBJECT',
+      message: 'Review draft must be a plain JSON object.',
+    });
+  }
+  const safeDraft = isPlainObject(draft) ? draft : {};
+
   // Independently collected prContext is the source of truth for PR identity
-  const resolvedPrNumber = prContext.prNumber ?? draft.prNumber ?? null;
-  const resolvedHeadSha = prContext.headSha ?? draft.headSha ?? null;
+  const resolvedPrNumber = prContext.prNumber ?? safeDraft.prNumber ?? null;
+  const resolvedHeadSha =
+    prContext.headSha ?? prContext.headRefOid ?? safeDraft.headSha ?? null;
   if (
     prContext.prNumber !== undefined &&
-    draft.prNumber !== undefined &&
-    Number(prContext.prNumber) !== Number(draft.prNumber)
+    safeDraft.prNumber !== undefined &&
+    Number(prContext.prNumber) !== Number(safeDraft.prNumber)
   ) {
     inputErrors.push({
       code: 'E_CONTEXT_MISMATCH',
-      message: `Draft prNumber (${draft.prNumber}) does not match independently collected context (${prContext.prNumber}).`,
+      message: `Draft prNumber (${safeDraft.prNumber}) does not match independently collected context (${prContext.prNumber}).`,
     });
   }
+  const contextSha = prContext.headSha ?? prContext.headRefOid;
   if (
-    prContext.headSha &&
-    draft.headSha &&
-    String(prContext.headSha) !== String(draft.headSha)
+    contextSha &&
+    safeDraft.headSha &&
+    String(contextSha) !== String(safeDraft.headSha)
   ) {
     inputErrors.push({
       code: 'E_CONTEXT_MISMATCH',
-      message: `Draft headSha (${draft.headSha}) does not match independently collected context (${prContext.headSha}).`,
+      message: `Draft headSha (${safeDraft.headSha}) does not match independently collected context (${contextSha}).`,
     });
   }
-  if (!Array.isArray(draft.findings)) {
+  if (!Array.isArray(safeDraft.findings)) {
     inputErrors.push({
       code: 'E_MISSING_FINDINGS_ARRAY',
       message: 'Review draft must include an explicit "findings" array.',
@@ -763,14 +917,16 @@ function evaluateReview(draft, prContext = {}, options = {}) {
 
   const observed = extractObservedProfile(prContext);
   const characterizationCheck = verifyCharacterization(
-    draft.characterization,
+    safeDraft.characterization,
     observed,
   );
   const diffText = String(prContext.diffText || '');
   const hasDiff = diffText.trim().length > 0;
   const fileHunks = hasDiff ? parseUnifiedDiffHunks(diffText) : {};
 
-  const rawFindings = Array.isArray(draft.findings) ? draft.findings : [];
+  const rawFindings = Array.isArray(safeDraft.findings)
+    ? safeDraft.findings
+    : [];
   const scored = rawFindings.map((f) =>
     scoreFinding(f, {
       effectiveType: characterizationCheck.effectiveType,
@@ -818,13 +974,21 @@ function evaluateReview(draft, prContext = {}, options = {}) {
   const summaryOnly = scored.filter((f) => f.decision === 'SUMMARY_ONLY');
   const dropped = scored.filter((f) => f.decision === 'DROP');
 
-  // Compute merge verdict from all verified blockers (both published and report-only high-scoring P0/P1s)
+  const gateErrors = [
+    ...inputErrors,
+    ...(characterizationCheck.valid ? [] : characterizationCheck.errors),
+  ];
+
+  // Compute merge verdict from all verified non-speculative blockers
   const verifiedBlockers = [...published, ...summaryOnly].filter(
     (f) =>
-      f.severity === 'P0' ||
-      (f.severity === 'P1' &&
-        f.confidence === 'high' &&
-        f.signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE),
+      !f.scoreBreakdown.isSpeculative &&
+      ((f.severity === 'P0' &&
+        (f.decision === 'PUBLISH' ||
+          f.signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE)) ||
+        (f.severity === 'P1' &&
+          f.confidence === 'high' &&
+          f.signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE)),
   );
   const hasP0Blocker = verifiedBlockers.some((f) => f.severity === 'P0');
   const hasHighP1Blocker = verifiedBlockers.some(
@@ -836,14 +1000,13 @@ function evaluateReview(draft, prContext = {}, options = {}) {
   let verdict = 'APPROVE';
   if (hasP0Blocker || hasHighP1Blocker) {
     verdict = 'REQUEST_CHANGES';
-  } else if (published.length > 0 || verifiedBlockers.length > 0) {
+  } else if (
+    published.length > 0 ||
+    verifiedBlockers.length > 0 ||
+    gateErrors.length > 0
+  ) {
     verdict = 'COMMENT';
   }
-
-  const gateErrors = [
-    ...inputErrors,
-    ...(characterizationCheck.valid ? [] : characterizationCheck.errors),
-  ];
 
   return {
     mode,
@@ -853,7 +1016,7 @@ function evaluateReview(draft, prContext = {}, options = {}) {
     headSha: resolvedHeadSha,
     observedProfile: observed,
     characterizationCheck,
-    claimedCharacterization: draft.characterization || null,
+    claimedCharacterization: safeDraft.characterization || null,
     verdict,
     counts: {
       totalCandidates: scored.length,
@@ -868,81 +1031,135 @@ function evaluateReview(draft, prContext = {}, options = {}) {
   };
 }
 
+function formatInlineBody(f) {
+  const locationNote =
+    f.anchorFile !== f.file || f.anchorLine !== f.line
+      ? `> 实际缺陷位置：\`${f.file}${f.line ? `:${f.line}` : ''}\`\n`
+      : '';
+  let suggestionBlock = '';
+  if (f.autoFix) {
+    suggestionBlock = `\n**建议修复:**\n\`\`\`suggestion\n${f.autoFix}\n\`\`\``;
+  } else if (f.suggestedFix) {
+    suggestionBlock = `\n**建议修复:** ${f.suggestedFix}`;
+  }
+
+  return [
+    `**[${f.severity}] ${f.title}**（SignalScore: ${f.signalScore}/100）`,
+    '',
+    locationNote ? locationNote.trim() : null,
+    f.problem,
+    f.impact ? `**影响**: ${f.impact}` : null,
+    suggestionBlock ? suggestionBlock.trim() : null,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 function buildPublishPayload(result) {
-  // In shadow mode, do not suppress any candidate comments; attach gate decisions for comparison
-  const itemsToPublish =
+  // In shadow mode, pass through all anchored findings while keeping unanchored ones separate (never trigger 422)
+  const sourceItems =
     result.mode === 'shadow'
       ? result.allScored || result.published
       : result.published;
+
+  const comments = [];
+  const unanchoredComments = [];
+
+  for (const f of sourceItems) {
+    const canAttach =
+      Boolean(f.duplicateOfThreadId) ||
+      (Boolean(f.anchorFile) &&
+        typeof f.anchorLine === 'number' &&
+        f.anchorLine >= 1 &&
+        (result.mode === 'shadow' || f.scoreBreakdown.hasValidInlineAnchor));
+
+    const entry = {
+      action: f.publishAction || 'NEW_THREAD',
+      replyToThreadId: f.duplicateOfThreadId || null,
+      path: f.anchorFile || f.file,
+      line: f.anchorLine || f.line,
+      side: 'RIGHT',
+      severity: f.severity,
+      confidence: f.confidence,
+      signalScore: f.signalScore,
+      gateDecision: f.decision,
+      body: formatInlineBody(f),
+    };
+
+    if (canAttach) {
+      comments.push(entry);
+    } else {
+      unanchoredComments.push(entry);
+    }
+  }
+
   return {
     mode: result.mode || 'soft',
     status: result.status || 'ok',
     prNumber: result.prNumber,
     headSha: result.headSha,
     verdict: result.verdict,
-    summaryCommentBody: renderMarkdownReport(result),
-    comments: itemsToPublish.map((f) => ({
-      path: f.file,
-      line: f.line,
-      side: 'RIGHT',
-      severity: f.severity,
-      signalScore: f.signalScore,
-      gateDecision: f.decision,
-      body: [
-        `${f.severity}: [${f.title}] (SignalScore: ${f.signalScore}/100)`,
-        '',
-        `**Problem**: ${f.problem}`,
-        f.impact ? `**Impact**: ${f.impact}` : null,
-        f.suggestedFix ? `**Suggested Fix**: ${f.suggestedFix}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    })),
+    appendixMarkdown: renderMarkdownReport(result),
+    comments,
+    unanchoredComments,
   };
 }
 
+/**
+ * Render a scoring appendix Markdown block (designed to complement the Unified Report Format).
+ */
 function renderMarkdownReport(result) {
   const verdictLabel = {
     APPROVE: '✅ APPROVE（无高信噪比阻塞问题）',
-    COMMENT: '⚠️ COMMENT（建议修改后合入）',
-    REQUEST_CHANGES: '❌ REQUEST_CHANGES（存在高分 P0/P1 需修复）',
+    COMMENT: '⚠️ COMMENT（建议修改后复审）',
+    REQUEST_CHANGES: '❌ REQUEST_CHANGES（存在高分 P0/P1 阻塞项）',
   }[result.verdict];
 
   const lines = [];
   lines.push(
-    `# PR ${result.prNumber ? `#${result.prNumber}` : ''} 量化门禁审查报告`,
+    `### 量化门禁评分附录${result.prNumber ? `（PR #${result.prNumber}）` : ''}`,
   );
   lines.push('');
-  lines.push('## 审查概要');
   lines.push(
-    `- **PR 定性（已核验）**: \`${result.characterizationCheck.effectiveType}\` ${result.characterizationCheck.valid ? '✅' : '⚠️ (已按客观信号校验)'}`,
+    `- **门禁模式**: \`${result.mode}\` | **PR 定性（已核验）**: \`${result.characterizationCheck.effectiveType}\` ${result.characterizationCheck.valid ? '✅' : '⚠️ (已按客观信号自动纠偏)'}`,
   );
-  if (result.claimedCharacterization?.summary) {
-    lines.push(`- **变更意图**: ${result.claimedCharacterization.summary}`);
-  }
   lines.push(
-    `- **门禁筛选结果**: 候选 ${result.counts.totalCandidates} 条 → **发布 ${result.counts.published} 条** / 汇总参考 ${result.counts.summaryOnly} 条 / 自动丢弃 ${result.counts.dropped} 条`,
+    `- **门禁筛选结果**: 候选 ${result.counts.totalCandidates} 条 → **发布 ${result.counts.published} 条** / 仅报告 ${result.counts.summaryOnly} 条 / 自动过滤 ${result.counts.dropped} 条`,
   );
-  lines.push(`- **最终结论**: ${verdictLabel}`);
+  lines.push(`- **门禁判定**: ${verdictLabel}`);
   lines.push('');
 
-  if (result.published.length === 0) {
-    lines.push('## 发布发现');
+  if (Array.isArray(result.gateErrors) && result.gateErrors.length > 0) {
+    lines.push('> [!WARNING]');
     lines.push(
-      'LGTM — 未发现达到发布阈值的高信噪比问题，本次发布 0 条行内评论。',
+      '> 门禁校验发现以下输入/定性问题（`soft`/`shadow` 模式下未阻断流程）：',
     );
+    for (const err of result.gateErrors) {
+      lines.push(`> - \`${err.code}\`: ${err.message}`);
+    }
     lines.push('');
+  }
+
+  if (result.published.length === 0) {
+    if (result.gateErrors.length === 0) {
+      lines.push(
+        '未发现达到行内发布阈值的高信噪比问题，本次发布 0 条行内评论。',
+      );
+      lines.push('');
+    }
   } else {
-    lines.push('## 发布发现（PUBLISH）');
-    lines.push('');
-    lines.push('| 优先级 | SignalScore | 类别 | 文件 | 标题 | 分数拆解 |');
-    lines.push('|---|---:|---|---|---|---|');
+    lines.push(
+      '| 优先级 | 置信度 | SignalScore | 动作 | 类别 | 文件 | 标题 | 分数拆解 |',
+    );
+    lines.push('|---|---|---:|---|---|---|---|---|');
     for (const f of result.published) {
       const b = f.scoreBreakdown;
-      const loc = f.line ? `\`${f.file}:${f.line}\`` : `\`${f.file}\``;
+      const loc = f.anchorLine
+        ? `\`${f.anchorFile}:${f.anchorLine}\``
+        : `\`${f.anchorFile}\``;
       const breakdown = `${b.baseImpact}×${b.typeAlignment} +${b.evidenceScore} -${b.noisePenalty}`;
       lines.push(
-        `| **${f.severity}** | **${f.signalScore}** | \`${f.effectiveCategory}\` | ${loc} | ${f.title} | \`${breakdown}\` |`,
+        `| **${f.severity}** | \`${f.confidence}\` | **${f.signalScore}** | \`${f.publishAction}\` | \`${f.effectiveCategory}\` | ${loc} | ${escapeMdCell(f.title)} | \`${breakdown}\` |`,
       );
     }
     lines.push('');
@@ -952,30 +1169,30 @@ function renderMarkdownReport(result) {
   if (filteredCount > 0) {
     lines.push('<details>');
     lines.push(
-      `<summary>🔍 门禁未发内联评论明细（共 ${filteredCount} 条：次要参考 ${result.summaryOnly.length} 条 / 自动过滤 ${result.dropped.length} 条，点击展开核查）</summary>`,
+      `<summary>🔍 门禁未发内联评论明细（共 ${filteredCount} 条：仅报告 ${result.summaryOnly.length} 条 / 自动过滤 ${result.dropped.length} 条，点击展开核查）</summary>`,
     );
     lines.push('');
     if (result.summaryOnly.length > 0) {
-      lines.push('### 次要参考（SUMMARY_ONLY）');
+      lines.push('#### 仅报告（SUMMARY_ONLY）');
       for (const f of result.summaryOnly) {
         const valve = f.scoreBreakdown.safetyValveApplied
           ? ' ⚠️ `safety_valve_p0_preserved`'
           : '';
         lines.push(
-          `- [${f.severity}][Score ${f.signalScore}] \`${f.file}${f.line ? `:${f.line}` : ''}\` — ${f.title}${valve}`,
+          `- [${f.severity}][${f.confidence}][Score ${f.signalScore}] \`${f.file}${f.line ? `:${f.line}` : ''}\` — ${escapeMdCell(f.title)}${valve}`,
         );
       }
       lines.push('');
     }
     if (result.dropped.length > 0) {
-      lines.push('### 自动过滤（DROPPED）');
+      lines.push('#### 自动过滤（DROPPED）');
       for (const f of result.dropped) {
         const reasons = [
           ...f.scoreBreakdown.reclassifiedReasons,
           ...f.scoreBreakdown.penaltyReasons,
         ];
         lines.push(
-          `- [Score ${f.signalScore}] \`${f.effectiveCategory}\` \`${f.file}${f.line ? `:${f.line}` : ''}\` — ${f.title}${reasons.length ? ` (${reasons.join(', ')})` : ''}`,
+          `- [Score ${f.signalScore}] \`${f.effectiveCategory}\` \`${f.file}${f.line ? `:${f.line}` : ''}\` — ${escapeMdCell(f.title)}${reasons.length ? ` (${reasons.join(', ')})` : ''}`,
         );
       }
       lines.push('');
@@ -1010,9 +1227,9 @@ function parseCliArgs(argv) {
 function runCli(argv) {
   const args = parseCliArgs(argv);
   const cmd = args._[0] || 'evaluate';
-  if (cmd !== 'evaluate' || !args.input) {
+  if (cmd !== 'evaluate' || typeof args.input !== 'string' || !args.input) {
     process.stderr.write(
-      'Usage: node development/scripts/review-score-gate.js evaluate --input <draft.json> [--mode shadow|soft|strict] [--context <pr-context.json>] [--diff <pr.diff>] [--repo <path>] [--out-json <validated.json>] [--out-md <report.md>] [--strict]\n',
+      'Usage: node development/scripts/review-score-gate.js evaluate --input <draft.json> [--mode shadow|soft|strict] [--context <pr-context.json>] [--diff <pr.diff>] [--repo <path>] [--out-json <validated.json>] [--out-md <appendix.md>] [--strict]\n',
     );
     process.exit(1);
   }
@@ -1020,7 +1237,13 @@ function runCli(argv) {
   let mode = 'soft';
   if (args.strict) {
     mode = 'strict';
-  } else if (GATE_MODES.has(args.mode)) {
+  } else if (args.mode !== undefined) {
+    if (typeof args.mode !== 'string' || !GATE_MODES.has(args.mode)) {
+      process.stderr.write(
+        `Invalid --mode "${args.mode}". Expected one of: shadow, soft, strict.\n`,
+      );
+      process.exit(1);
+    }
     mode = args.mode;
   }
 
@@ -1028,52 +1251,64 @@ function runCli(argv) {
   const parsed = parseReviewDraftSafely(rawDraftText);
 
   if (!parsed.ok) {
+    if (mode === 'strict') {
+      process.stderr.write(`Draft JSON parse failed: ${parsed.error}\n`);
+      process.exit(2);
+    }
     const fallbackResult = {
       mode,
       status: 'fallback_passthrough',
       gateErrors: [{ code: 'E_INVALID_DRAFT_JSON', message: parsed.error }],
       rawDraftPreview: rawDraftText.slice(0, 500),
     };
-    if (args['out-json']) {
+    if (typeof args['out-json'] === 'string') {
       fs.writeFileSync(
         args['out-json'],
         JSON.stringify(fallbackResult, null, 2),
       );
     }
-    if (args['out-md']) {
+    if (typeof args['out-md'] === 'string') {
       fs.writeFileSync(
         args['out-md'],
         `> ⚠️ Review score gate entered \`fallback_passthrough\` (${parsed.error}). Pipeline was not blocked.\n`,
       );
     }
-    if (mode === 'strict') {
-      process.stderr.write(`Draft JSON parse failed: ${parsed.error}\n`);
-      process.exit(2);
-    }
     return;
   }
 
   const draft = parsed.draft;
-  if (mode === 'strict' && !args.context) {
+  if (
+    mode === 'strict' &&
+    (typeof args.context !== 'string' || !args.context)
+  ) {
     process.stderr.write(
       'Strict mode requires independently collected PR metadata via --context <pr-context.json>.\n',
     );
     process.exit(2);
   }
 
-  const prContext = args.context
-    ? JSON.parse(fs.readFileSync(args.context, 'utf8'))
-    : draft.prContext || {};
-  if (args.diff) {
+  let prContext = draft.prContext || {};
+  if (typeof args.context === 'string' && args.context) {
+    try {
+      prContext = JSON.parse(fs.readFileSync(args.context, 'utf8'));
+    } catch (ctxErr) {
+      if (mode === 'strict') {
+        process.stderr.write(`Context JSON parse failed: ${ctxErr.message}\n`);
+        process.exit(2);
+      }
+      prContext = {};
+    }
+  }
+  if (typeof args.diff === 'string' && args.diff) {
     prContext.diffText = fs.readFileSync(args.diff, 'utf8');
   }
 
   const result = evaluateReview(draft, prContext, {
-    repoRoot: args.repo || process.cwd(),
+    repoRoot: typeof args.repo === 'string' ? args.repo : process.cwd(),
     mode,
   });
 
-  // In strict mode, fail before writing any publication artifacts
+  // In strict mode, fail before writing any output files
   if (mode === 'strict' && result.gateErrors.length > 0) {
     process.stderr.write(
       `Strict gate validation failed:\n${JSON.stringify(result.gateErrors, null, 2)}\n`,
@@ -1084,13 +1319,13 @@ function runCli(argv) {
   const payload = buildPublishPayload(result);
   const reportMd = renderMarkdownReport(result);
 
-  if (args['out-json']) {
+  if (typeof args['out-json'] === 'string') {
     fs.writeFileSync(
       args['out-json'],
       JSON.stringify({ ...result, publishPayload: payload }, null, 2),
     );
   }
-  if (args['out-md']) {
+  if (typeof args['out-md'] === 'string') {
     fs.writeFileSync(args['out-md'], reportMd);
   }
 
@@ -1110,6 +1345,7 @@ module.exports = {
   BASE_IMPACT,
   TYPE_ALIGNMENT_MATRIX,
   THRESHOLDS,
+  parseConfidence,
   parseReviewDraftSafely,
   parseUnifiedDiffHunks,
   extractObservedProfile,

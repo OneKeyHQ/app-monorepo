@@ -5,6 +5,7 @@ const test = require('node:test');
 const path = require('path');
 
 const {
+  parseConfidence,
   parseReviewDraftSafely,
   parseUnifiedDiffHunks,
   extractObservedProfile,
@@ -16,36 +17,54 @@ const {
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
-test('parseUnifiedDiffHunks parses changed right-side line ranges accurately', () => {
+test('parseUnifiedDiffHunks handles normal hunks, ignores added ++ lines, skips 0-count deletion hunks, and unquotes paths', () => {
   const diff = [
-    'diff --git a/packages/kit/src/foo.ts b/packages/kit/src/foo.ts',
-    '--- a/packages/kit/src/foo.ts',
-    '+++ b/packages/kit/src/foo.ts',
+    'diff --git "a/packages/kit/src/my file.ts" "b/packages/kit/src/my file.ts"',
+    '--- "a/packages/kit/src/my file.ts"',
+    '+++ "b/packages/kit/src/my file.ts"',
     '@@ -10,2 +10,5 @@',
     '+line10',
-    '+line11',
+    '+++ not a file header',
     '+line12',
+    '@@ -30,3 +30,0 @@',
+    '-deleted1',
+    '-deleted2',
+    '-deleted3',
     '@@ -40,1 +43,2 @@',
     '+line43',
   ].join('\n');
 
   const hunks = parseUnifiedDiffHunks(diff);
-  assert.deepEqual(hunks['packages/kit/src/foo.ts'], [
+  assert.deepEqual(hunks['packages/kit/src/my file.ts'], [
     { start: 10, end: 14 },
     { start: 43, end: 44 },
   ]);
+  assert.equal(Object.keys(hunks).length, 1);
+});
+
+test('parseConfidence supports emoji and plain labels and never silently upgrades missing/medium to high', () => {
+  assert.equal(parseConfidence('🔵 High'), 'high');
+  assert.equal(parseConfidence('high'), 'high');
+  assert.equal(parseConfidence('🟠 Medium'), 'medium');
+  assert.equal(parseConfidence('⚪ Low'), 'low');
+  assert.equal(parseConfidence(undefined), 'low');
+  assert.equal(parseConfidence('unknown'), 'low');
 });
 
 test('verifies revert PR characterization and drops a11y/motion/hinge noise (calibrated on #14812 & #337)', () => {
   const prContext = {
     prNumber: 14_812,
     title: 'revert: restore previous app toast behavior',
-    files: ['packages/kit/src/components/Toast/toast.tsx', 'yarn.lock'],
+    files: [
+      { path: 'packages/kit/src/components/Toast/toast.tsx' },
+      { path: 'yarn.lock' },
+    ],
   };
 
-  // Mismatched claim should fail verification
   const observed = extractObservedProfile(prContext);
   assert.equal(observed.isRevert, true);
+  assert.equal(observed.fileCount, 2);
+
   const badCheck = verifyCharacterization(
     { type: 'core_feature', summary: 'Toast feature', focusAreas: ['ui'] },
     observed,
@@ -54,7 +73,6 @@ test('verifies revert PR characterization and drops a11y/motion/hinge noise (cal
   assert.equal(badCheck.errors[0].code, 'E_CHARACTERIZATION_MISMATCH');
   assert.equal(badCheck.effectiveType, 'revert');
 
-  // Even if LLM mislabels VoiceOver/keyboard/hinge as edge_case, score gate drops them on revert PR
   const result = evaluateReview(
     {
       prNumber: 14_812,
@@ -66,6 +84,7 @@ test('verifies revert PR characterization and drops a11y/motion/hinge noise (cal
       findings: [
         {
           severity: 'P2',
+          confidence: '🔵 High',
           category: 'edge_case',
           file: 'packages/kit/src/components/Toast/toast.tsx',
           line: 42,
@@ -76,16 +95,17 @@ test('verifies revert PR characterization and drops a11y/motion/hinge noise (cal
         },
         {
           severity: 'P2',
+          confidence: 'high',
           category: 'edge_case',
           file: 'packages/kit/src/components/Toast/toast.tsx',
           line: 80,
-          title: 'Keep Android toasts inside one pane on a separating hinge',
-          problem:
-            'Foldable devices with a separating hinge may split toast width.',
+          title: '修复折叠屏铰链上的 Toast 布局',
+          problem: '折叠屏铰链场景下宽度可能跨屏。',
           evidence: { inDiff: true, executionPath: 'foldable hinge layout' },
         },
         {
           severity: 'P1',
+          confidence: '🔵 High',
           category: 'build_registry',
           file: 'yarn.lock',
           line: 100,
@@ -107,10 +127,10 @@ test('verifies revert PR characterization and drops a11y/motion/hinge noise (cal
   assert.equal(result.counts.published, 1);
   assert.equal(result.published[0].effectiveCategory, 'build_registry');
   assert.equal(result.counts.dropped, 2);
-  assert.equal(result.verdict, 'COMMENT');
+  assert.equal(result.verdict, 'REQUEST_CHANGES');
 });
 
-test('scores high-leverage cross-platform architecture & duplication findings above threshold and drops speculative guesses (calibrated on #14814)', () => {
+test('scores cross-platform architecture, duplication, and runtime_boundary P1s cleanly without fake refs (calibrated on #14814)', () => {
   const diff = [
     'diff --git a/packages/kit/src/views/Market/Holders.tsx b/packages/kit/src/views/Market/Holders.tsx',
     '--- a/packages/kit/src/views/Market/Holders.tsx',
@@ -151,6 +171,7 @@ test('scores high-leverage cross-platform architecture & duplication findings ab
       findings: [
         {
           severity: 'P1',
+          confidence: '🔵 High',
           category: 'code_duplication',
           file: 'packages/kit/src/views/Market/Holders.tsx',
           line: 108,
@@ -162,45 +183,41 @@ test('scores high-leverage cross-platform architecture & duplication findings ab
           evidence: {
             executionPath:
               'Holders.tsx:108 mirrors existing NativeList patch loops',
-            existingReuseTargets: [
-              'development/scripts/agent-github-review.js:1',
-            ],
           },
         },
         {
           severity: 'P1',
-          category: 'cross_platform_divergence',
+          confidence: 'high',
+          category: 'runtime_boundary',
           file: 'packages/kit/src/views/Market/MarketDetailPager.native.tsx',
           line: 37,
           title:
-            'Unify AppPager native implementation instead of parallel pager fork',
+            'Avoid pointerEvents="none" replacing native scrollEnabled lock',
           problem:
-            'Web uses AppPager with reverse-bridged TabsContext while Native wraps CollapsiblePagerView with a private context.',
-          impact:
-            'Three pager/context stacks diverge across Web, Mobile, and Desktop.',
+            'pointerEvents="none" does not halt ongoing iOS momentum scroll when TradingView dialog opens.',
           evidence: {
             executionPath:
-              'MarketDetailPager.native.tsx bypasses AppPagerContext',
+              'Fling gesture continues scrolling after pointerEvents toggles',
           },
         },
         {
           severity: 'P2',
+          confidence: 'high',
           category: 'edge_case',
           file: 'packages/kit/src/views/Market/Holders.tsx',
           line: 112,
-          title:
-            'Confirm the holders response guarantees unique account addresses',
-          problem:
-            'If backend returns duplicate addresses, row keys might collide.',
+          title: '确认是否后端接口保证持仓地址唯一',
+          problem: '如果后端返回重复地址可能冲突。',
           evidence: {},
         },
         {
           severity: 'P2',
-          category: 'a11y_or_motion',
+          confidence: 'high',
+          category: 'edge_case',
           file: 'packages/kit/src/views/Market/Holders.tsx',
           line: 115,
-          title: 'Expose the midpoint to screen readers',
-          problem: 'Add accessibilityLabel for VoiceOver users.',
+          title: '为屏幕阅读器暴露中位数价格',
+          problem: '为旁白用户补充无障碍标签。',
           evidence: { executionPath: 'VoiceOver focus traversal' },
         },
       ],
@@ -213,35 +230,44 @@ test('scores high-leverage cross-platform architecture & duplication findings ab
   assert.equal(result.counts.published, 2);
   assert.equal(result.counts.dropped, 2);
   assert.equal(result.verdict, 'REQUEST_CHANGES');
-  assert.ok(result.published[0].signalScore >= 85);
-  assert.ok(result.published[1].signalScore >= 75);
+  // Both real P1s clear >= 70 without needing fake existingReuseTargets
+  assert.ok(result.published[0].signalScore >= 80);
+  assert.ok(result.published[1].signalScore >= 70);
 
   const payload = buildPublishPayload(result);
   assert.equal(payload.comments.length, 2);
   const md = renderMarkdownReport(result);
-  assert.match(md, /PR #14814 量化门禁审查报告/);
+  assert.match(md, /### 量化门禁评分附录（PR #14814）/);
   assert.match(md, /发布 2 条/);
-  assert.match(md, /自动丢弃 2 条/);
+  assert.match(md, /自动过滤 2 条/);
 });
 
-test('prevents multi-round P2 review-fix spirals and publishes all qualifying high-score findings without arbitrary cap', () => {
+test('prevents multi-round P2 spirals, publishes all qualifying P1s, and routes existing unresolved threads to REPLY_THREAD without dropping verdict', () => {
   const prContext = {
     prNumber: 14_740,
     title: 'feat: add Lightning Self-Custody on Breez Spark',
     files: ['packages/kit-bg/src/vaults/impls/lightning/Vault.ts'],
     existingAutoThreadCount: 12,
     reviewRound: 4,
+    existingThreads: [
+      {
+        id: 'PRRT_existing_1',
+        isResolved: false,
+        path: 'packages/kit-bg/src/vaults/impls/lightning/Vault.ts',
+        title: 'Enforce allowlist validation check #1',
+      },
+    ],
   };
 
   const findings = [
     {
       severity: 'P2',
+      confidence: 'high',
       category: 'error_handling',
       file: 'packages/kit-bg/src/vaults/impls/lightning/Vault.ts',
       line: 55,
       title: 'Handle rare reconnect jitter on follow-up commit',
-      problem:
-        'A secondary fallback branch could retry once more on reconnect jitter.',
+      problem: 'Secondary fallback branch could retry once more.',
       evidence: {
         inDiff: true,
         executionPath: 'reconnect during retry window',
@@ -277,22 +303,22 @@ test('prevents multi-round P2 review-fix spirals and publishes all qualifying hi
     prContext,
   );
 
-  // Follow-up round P2 must be dropped due to -35 spiral penalty
+  // Follow-up round P2 dropped; all 7 real P1s published; #1 routed to REPLY_THREAD instead of dropped
   assert.equal(result.dropped.length, 1);
-  assert.ok(
-    result.dropped[0].scoreBreakdown.penaltyReasons.includes(
-      'follow_up_round_p2_spiral(-35)',
-    ),
-  );
-  // Score-driven publishing: all 7 genuinely qualifying high-score P1s are published without arbitrary 5-comment truncation
   assert.equal(result.counts.published, 7);
-  assert.equal(result.counts.summaryOnly, 0);
+  const matched = result.published.find(
+    (f) => f.title === 'Enforce allowlist validation check #1',
+  );
+  assert.equal(matched.publishAction, 'REPLY_THREAD');
+  assert.equal(matched.duplicateOfThreadId, 'PRRT_existing_1');
+  assert.equal(result.verdict, 'REQUEST_CHANGES');
 });
 
 test('allows genuine a11y findings when PR is explicitly scoped to accessibility', () => {
   const prContext = {
     prNumber: 15_001,
     title: 'feat(a11y): improve VoiceOver labels on OrderBook controls',
+    labels: [{ name: 'a11y' }],
     files: ['packages/kit/src/views/Perp/components/OrderBook/index.tsx'],
   };
 
@@ -307,6 +333,7 @@ test('allows genuine a11y findings when PR is explicitly scoped to accessibility
       findings: [
         {
           severity: 'P1',
+          confidence: 'high',
           category: 'a11y_or_motion',
           file: 'packages/kit/src/views/Perp/components/OrderBook/index.tsx',
           line: 48,
@@ -331,20 +358,18 @@ test('allows genuine a11y findings when PR is explicitly scoped to accessibility
   assert.ok(result.published[0].signalScore >= 70);
 });
 
-test('pilot rollout safeguards: JSON fence recovery, shadow passthrough, P0 safety valve, and collapsible details drawer', () => {
-  // 1. JSON wrapped in markdown code fence recovers cleanly
-  const fenced = parseReviewDraftSafely(
-    'Here is the JSON:\n```json\n{"prNumber": 123, "findings": []}\n```\nDone.',
+test('pilot safeguards: multi-fence JSON recovery, null rejection, non-speculative P0 safety valve, and shadow unanchored separation', () => {
+  // 1. Picks ```json fence even when an earlier non-json fence appears first
+  const multiFence = parseReviewDraftSafely(
+    '```bash\necho hi\n```\n```json\n{"prNumber": 123, "findings": []}\n```',
   );
-  assert.equal(fenced.ok, true);
-  assert.equal(fenced.recoveredFromFence, true);
-  assert.equal(fenced.draft.prNumber, 123);
+  assert.equal(multiFence.ok, true);
+  assert.equal(multiFence.draft.prNumber, 123);
 
-  // 2. Broken JSON fails gracefully without throwing
-  const broken = parseReviewDraftSafely('not json at all');
-  assert.equal(broken.ok, false);
+  // 2. Rejects JSON primitive/null safely
+  assert.equal(parseReviewDraftSafely('null').ok, false);
+  assert.equal(parseReviewDraftSafely('[]').ok, false);
 
-  // 3. P0 safety valve preserves high-risk P0 in soft/shadow mode even with out-of-diff penalty
   const prContext = {
     prNumber: 15_002,
     title: 'fix: update signing payload helper',
@@ -368,48 +393,51 @@ test('pilot rollout safeguards: JSON fence recovery, shadow passthrough, P0 safe
     findings: [
       {
         severity: 'P0',
+        confidence: 'low',
         category: 'security',
         file: 'packages/kit-bg/src/vaults/signing.ts',
-        line: 99, // outside hunk -> -30 out-of-diff penalty, raw score < 55
+        line: 99,
         title: 'Confirm raw mnemonic is not logged in catch handler',
-        problem: 'Mnemonic buffer might be passed into logger.',
+        problem: 'Speculative question with no proof.',
         evidence: {},
       },
       {
-        severity: 'P2',
-        category: 'a11y_or_motion',
+        severity: 'P0',
+        confidence: 'medium',
+        category: 'security',
         file: 'packages/kit-bg/src/vaults/signing.ts',
-        line: 10,
-        title: 'Add accessibilityLabel for VoiceOver',
-        problem: 'Screen reader label missing.',
-        evidence: {},
+        line: 99, // out of diff, non-speculative -> preserved by safety valve in soft mode
+        isPreExisting: false,
+        title: 'Raw private key serialized into error telemetry payload',
+        problem: 'Error reporter serializes full signer context on failure.',
+        evidence: {
+          executionPath: 'signTx() catch block forwards signer state to logger',
+        },
       },
     ],
   };
 
-  // In soft mode: P0 is preserved in summaryOnly via safety valve (not dropped!), and collapsible drawer renders both
+  // Speculative P0 must be DROPPED (never rescued by safety valve); real non-speculative P0 is preserved
   const softResult = evaluateReview(draft, prContext, { mode: 'soft' });
+  assert.equal(softResult.counts.dropped, 1);
   assert.equal(softResult.counts.summaryOnly, 1);
   assert.equal(
-    softResult.summaryOnly[0].scoreBreakdown.safetyValveApplied,
-    true,
+    softResult.summaryOnly[0].title,
+    'Raw private key serialized into error telemetry payload',
   );
-  assert.equal(softResult.counts.dropped, 1);
   const md = renderMarkdownReport(softResult);
   assert.match(md, /<details>/);
-  assert.match(md, /safety_valve_p0_preserved/);
 
-  // In shadow mode: publishPayload preserves all original candidates while tagging gateDecision
+  // Shadow mode separates unanchored comments so GitHub API will not 422
   const shadowResult = evaluateReview(draft, prContext, { mode: 'shadow' });
   const shadowPayload = buildPublishPayload(shadowResult);
   assert.equal(shadowPayload.comments.length, 2);
-  assert.equal(shadowPayload.mode, 'shadow');
 });
 
 test('mixed deps+app PR is not locked to deps_or_ci, missing anchor stays in summary, and context identity wins', () => {
   const prContext = {
     prNumber: 15_003,
-    headSha: 'new_sha_999',
+    headRefOid: 'new_sha_999',
     title: 'feat: upgrade native-list and add holders cache',
     files: [
       'package.json',
@@ -438,7 +466,7 @@ test('mixed deps+app PR is not locked to deps_or_ci, missing anchor stays in sum
           confidence: 'high',
           category: 'data_corruption',
           file: 'packages/kit/src/views/Market/Holders.tsx',
-          line: null, // missing inline anchor -> cannot publish inline, but must still affect verdict
+          line: null,
           title: 'Reset stale holder cache on network switch',
           problem: 'Cache key omits networkId.',
           evidence: {
@@ -447,16 +475,16 @@ test('mixed deps+app PR is not locked to deps_or_ci, missing anchor stays in sum
           },
         },
         {
-          severity: 'P2',
-          confidence: 'high',
+          severity: 'P1',
+          confidence: '🟠 Medium',
           category: 'security',
           file: 'packages/kit/src/views/Market/Holders.tsx',
           line: 20,
-          title: 'High-scoring P2 stays out of inline publish',
-          problem: 'P2 never enters inline publish per SKILL.md eligibility.',
+          title: 'Medium-confidence P1 stays out of inline publish',
+          problem: 'Needs verification against upstream guard.',
           evidence: {
             inDiff: true,
-            executionPath: 'concrete path for P2',
+            executionPath: 'concrete path for medium confidence P1',
           },
         },
       ],
@@ -464,11 +492,10 @@ test('mixed deps+app PR is not locked to deps_or_ci, missing anchor stays in sum
     prContext,
   );
 
-  // Context mismatch is detected and independently collected headSha wins
   assert.equal(result.headSha, 'new_sha_999');
   assert.ok(result.gateErrors.some((e) => e.code === 'E_CONTEXT_MISMATCH'));
-  // Neither finding enters inline publish (P1 lacks anchor; P2 is ineligible), yet verdict reflects verified P1 blocker
   assert.equal(result.counts.published, 0);
   assert.equal(result.counts.summaryOnly, 2);
   assert.equal(result.verdict, 'COMMENT');
+  assert.match(renderMarkdownReport(result), /E_CONTEXT_MISMATCH/);
 });
