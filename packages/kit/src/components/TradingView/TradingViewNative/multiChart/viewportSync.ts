@@ -16,6 +16,8 @@ export interface ITradingViewNativeViewportSyncMember {
 interface IViewportSyncChart {
   /** The first panel: it leads until the user moves a chart. */
   isMain: boolean;
+  /** The panel the chart is in. */
+  panelId: string;
   /** Called when this chart has a viewport to line up with, or to report. */
   onChange: () => void;
 }
@@ -28,15 +30,34 @@ export interface ITradingViewNativeViewportSyncChannel {
  * Lets the charts of a split view follow the one the user moved last. A chart
  * that lines itself up never reports back, so the charts cannot move each
  * other in circles.
+ *
+ * `startPanelId` is the panel the option was turned on in: its chart leads
+ * from the moment it joins, whatever it shows, instead of the first panel.
  */
-export function createTradingViewNativeViewportSyncChannel(): ITradingViewNativeViewportSyncChannel {
+export function createTradingViewNativeViewportSyncChannel(
+  startPanelId?: string,
+): ITradingViewNativeViewportSyncChannel {
   const charts = new Set<IViewportSyncChart>();
   let leader: IViewportSyncChart | null = null;
   let viewport: ITradingViewNativeSyncedViewport | null = null;
+  // Only the first chart to join from that panel takes it: the panel's next
+  // chart, as after an interval change, lines up with the others like any
+  // chart that mounts.
+  let pendingStartPanelId = startPanelId;
   return {
     join: (chart) => {
       charts.add(chart);
-      if (!leader && chart.isMain) leader = chart;
+      if (
+        pendingStartPanelId !== undefined &&
+        chart.panelId === pendingStartPanelId
+      ) {
+        pendingStartPanelId = undefined;
+        leader = chart;
+        // What a chart that joined before reported is not this one's.
+        viewport = null;
+      } else if (!leader && chart.isMain) {
+        leader = chart;
+      }
       return {
         getViewport: () => (leader === chart ? null : viewport),
         lead: () => {
