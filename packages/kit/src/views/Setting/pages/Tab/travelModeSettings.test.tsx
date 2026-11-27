@@ -270,7 +270,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{}],
 }));
 jest.mock('../../../Onboardingv2/hooks/useCloudBackup', () => ({
-  useCloudBackup: () => ({}),
+  useCloudBackup: () => ({
+    cloudBackupFeatureInfo: { supportCloudBackup: true },
+  }),
 }));
 jest.mock('./exportLogs/showExportLogsDialog', () => ({}));
 jest.mock('./exportLogs/ExportDiagnosticLogsListItem', () => ({
@@ -497,6 +499,9 @@ describe.each([
         (category) => category?.configs.flat().map((item) => item?.id) ?? [],
       );
       expect(itemIds).not.toContain('manual-backup');
+      // Search still reaches inert categories, so restoring must be removed.
+      expect(itemIds).toContain('cloud-backup');
+      expect(itemIds).not.toContain('cloud-backup-import');
       expect(itemIds).not.toContain('address-book');
       expect(itemIds).not.toContain('add-network');
       expect(itemIds).not.toContain('custom-rpc');
