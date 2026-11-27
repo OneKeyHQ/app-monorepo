@@ -928,7 +928,7 @@ it('keeps native Market controller inputs stable on unrelated renders', () => {
   expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(commands);
 });
 
-it('leaves Android header avoidance to the pager while keeping empty Favorites scrollable', () => {
+it('keeps Android empty Favorites scrollable without a header-sized blank area', () => {
   jest.replaceProperty(platformEnv, 'isNativeIOS', false);
   jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
   render(
@@ -940,12 +940,11 @@ it('leaves Android header avoidance to the pager while keeping empty Favorites s
   );
   measureMarketViewport(700);
   expect(mockWatchlistContainerProps?.emptyContentPaddingTop).toBe(16);
-  expect(
-    mockWatchlistContainerProps?.emptyScrollContentMinHeight,
-  ).toBeGreaterThan(700);
+  expect(mockWatchlistContainerProps?.emptyScrollContentMinHeight).toBe(657);
 
   act(() => {
     mockStickyHeaderLayout?.({ nativeEvent: { layout: { height: 132 } } });
   });
   expect(mockWatchlistContainerProps?.emptyContentPaddingTop).toBe(16);
+  expect(mockWatchlistContainerProps?.emptyScrollContentMinHeight).toBe(569);
 });
