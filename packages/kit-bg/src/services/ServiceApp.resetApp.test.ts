@@ -919,9 +919,19 @@ describe('ServiceApp.resetApp', () => {
           return clearRequest;
         });
         try {
-          await expect(
-            makeService().clearRemainingBrowserData(log),
-          ).rejects.toThrow(`${name} clear aborted`);
+          const cleanup = makeService().clearRemainingBrowserData(log);
+          if (name === 'sentry-offline') {
+            await expect(cleanup).resolves.toBeUndefined();
+            expect(log).toHaveBeenCalledWith(
+              'optionalIndexedDB:sentry-offline',
+              'failed',
+              expect.objectContaining({
+                detail: 'sentry-offline clear aborted',
+              }),
+            );
+          } else {
+            await expect(cleanup).rejects.toThrow(`${name} clear aborted`);
+          }
           expect(deletion).not.toHaveBeenCalled();
         } finally {
           clear.mockRestore();
@@ -1623,8 +1633,10 @@ describe('ServiceApp privacy database reset ordering', () => {
     expect(markResetFailed).toHaveBeenCalledTimes(1);
   });
 
-  it('formats multi-stage resetData failures without double-wrapping stage envelopes', async () => {
-    jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+  it('reports required reset failures without including an optional snapshot failure', async () => {
+    jest
+      .spyOn(appStorage, 'clear')
+      .mockRejectedValueOnce(new Error('Storage locked.'));
     jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
     jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
@@ -1648,7 +1660,7 @@ describe('ServiceApp privacy database reset ordering', () => {
     await expect(
       (service as unknown as { resetData: () => Promise<void> }).resetData(),
     ).rejects.toThrow(
-      'App reset could not complete snapshotCaches (UnknownError: Internal error), walletDatabase (Database locked). Retry Reset App.',
+      'App reset could not complete appStorage (Storage locked), walletDatabase (Database locked). Retry Reset App.',
     );
   });
 

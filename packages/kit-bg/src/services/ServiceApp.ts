@@ -82,11 +82,21 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 
 const RESET_REMOTE_DEADLINE_MS = 10_000;
 const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
-const RESET_CACHE_STORAGE_DEADLINE_MS = 1_000;
+const RESET_OPTIONAL_CLEANUP_DEADLINE_MS = 1_000;
 const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 const WORKBOX_EXPIRATION_INDEXED_DB_NAME = 'workbox-expiration';
+const OPTIONAL_RESET_DATABASES = new Set([
+  WORKBOX_EXPIRATION_INDEXED_DB_NAME,
+  'onekey-ui-snapshot',
+  'OneKeyDiagnosticLogs',
+  'sentry-offline',
+]);
+const OPTIONAL_RESET_BUCKETS = new Set([
+  'onekey-ui-snapshot',
+  'diagnostic-logs_onekey-bucket',
+]);
 
 type IResetStageLogger = (
   stage: string,
@@ -222,7 +232,7 @@ class ServiceApp extends ServiceBase {
   ) {
     const runCleanup = (stage: string, task: () => unknown) =>
       this.runResetCleanup(log, failedStages, stage, task);
-    await runCleanup('logPersistence', () =>
+    await this.runOptionalResetCleanup(log, 'logPersistence', () =>
       this.backgroundApi.serviceLogger.stopPersistenceForReset(),
     );
 
@@ -276,9 +286,7 @@ class ServiceApp extends ServiceBase {
         }
       });
     }
-    // A retry must clear snapshots again even if the first attempt cleared them.
-    this.completedResetCleanups.delete('snapshotCaches');
-    await runCleanup('snapshotCaches', async () => {
+    await this.runOptionalResetCleanup(log, 'snapshotCaches', async () => {
       const { clearAllSnapshotCaches } =
         await import('@onekeyhq/shared/src/storage/SnapshotCache');
       await clearAllSnapshotCaches();
@@ -311,7 +319,17 @@ class ServiceApp extends ServiceBase {
           if (!buckets) return;
           const names = await buckets.keys();
           const results = await Promise.allSettled(
-            names.map((name) => buckets.delete(name)),
+            names.map(async (name) => {
+              if (OPTIONAL_RESET_BUCKETS.has(name)) {
+                await this.runOptionalResetCleanup(
+                  log,
+                  `optionalBucket:${name}`,
+                  () => buckets.delete(name),
+                );
+              } else {
+                await buckets.delete(name);
+              }
+            }),
           );
           const failed = results.findIndex(
             (result) => result.status === 'rejected',
@@ -390,15 +408,25 @@ class ServiceApp extends ServiceBase {
         try {
           if (name === WORKBOX_EXPIRATION_INDEXED_DB_NAME) {
             // Give the matching cached assets a chance to be removed first.
-            // Cache Storage is best effort, but IndexedDB erasure is required.
             await cacheCleanup;
           }
           // Keep the empty schema. An uncancellable delete queued behind a
           // live handle would block new opens after reset.
-          await IndexedDBPromised.clearDatabaseForReset(indexedDB, name, () =>
-            log(stage, 'blocked', { detail: name }),
-          );
-          log(stage, 'cleared', { detail: name });
+          const clear = async () => {
+            await IndexedDBPromised.clearDatabaseForReset(indexedDB, name, () =>
+              log(stage, 'blocked', { detail: name }),
+            );
+            log(stage, 'cleared', { detail: name });
+          };
+          if (OPTIONAL_RESET_DATABASES.has(name)) {
+            await this.runOptionalResetCleanup(
+              log,
+              `optionalIndexedDB:${name}`,
+              clear,
+            );
+          } else {
+            await clear();
+          }
         } catch (error) {
           log(stage, 'clear_failed', {
             detail: `${name}: ${this.formatResetErrorDetail(error)}`,
@@ -441,10 +469,10 @@ class ServiceApp extends ServiceBase {
           timer = setTimeout(() => {
             timedOut = true;
             log('cacheStorage', 'timeout', {
-              deadlineMs: RESET_CACHE_STORAGE_DEADLINE_MS,
+              deadlineMs: RESET_OPTIONAL_CLEANUP_DEADLINE_MS,
             });
             resolve();
-          }, RESET_CACHE_STORAGE_DEADLINE_MS);
+          }, RESET_OPTIONAL_CLEANUP_DEADLINE_MS);
         }),
       ]);
     } catch (error) {
@@ -476,6 +504,23 @@ class ServiceApp extends ServiceBase {
   private readonly runningResetStages = new Map<string, Promise<unknown>>();
 
   private readonly completedResetCleanups = new Set<string>();
+
+  private async runOptionalResetCleanup(
+    log: IResetStageLogger,
+    stage: string,
+    task: () => unknown,
+  ) {
+    try {
+      await this.runResetStage(
+        log,
+        stage,
+        task,
+        RESET_OPTIONAL_CLEANUP_DEADLINE_MS,
+      );
+    } catch {
+      // runResetStage records the failure, but this is not required erasure.
+    }
+  }
 
   private async runResetCleanup(
     log: IResetStageLogger,
