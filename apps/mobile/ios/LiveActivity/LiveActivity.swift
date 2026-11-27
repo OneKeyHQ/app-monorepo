@@ -370,7 +370,8 @@ private struct SwapCompactStatus: View {
 
   private var statusLabel: String {
     if let label = context.remoteStatusLabel(strings: strings) { return label }
-    if sharedLabels == nil, let message = context.state.remoteMessage { return message }
+    if sharedLabels == nil, !context.state.isTerminal, context.state.status != .failed,
+       let message = context.state.remoteMessage { return message }
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"

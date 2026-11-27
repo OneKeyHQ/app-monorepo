@@ -112,15 +112,23 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
       }
 
       enum CodingKeys: String, CodingKey {
-        case status, progress, msg, crossChainStatus
+        case status, progress, msg, crossChainStatus, extraStatus
       }
 
       let status: Status
       let progress: Double
       let msg: String?
       let crossChainStatus: String?
+      let extraStatus: String?
 
       var displayStatus: SwapLiveActivityStatus {
+        // A provider's refund detail can override a coarse success status.
+        if status == .refunded || extraStatus == "REFUNDED" || crossChainStatus == "REFUNDED" {
+          return .refunded
+        }
+        if crossChainStatus == "REFUNDING" {
+          return .refunding
+        }
         switch status {
         case .pending:
           switch crossChainStatus {
@@ -138,10 +146,15 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
     }
 
     var isTerminal: Bool { status.isTerminal || isRefundFailed }
-    var isRefundFailed: Bool { failureDetail == .refundFailed || remote?.crossChainStatus == "REFUND_FAILED" }
-    var isPartiallyFilled: Bool { remote?.status == .partiallyFilled }
-    var isExpired: Bool { failureDetail == .expired || remote?.status == .expired }
-    var remoteMessage: String? { remote?.msg.flatMap { $0.isEmpty ? nil : $0 } }
+    var isRefundFailed: Bool {
+      status != .refunded && (failureDetail == .refundFailed || remote?.crossChainStatus == "REFUND_FAILED")
+    }
+    var isPartiallyFilled: Bool { status == .done && remote?.status == .partiallyFilled }
+    var isExpired: Bool { status == .failed && (failureDetail == .expired || remote?.status == .expired) }
+    var remoteMessage: String? {
+      if status == .refunding && remote?.status != .refunding { return nil }
+      return remote?.msg.flatMap { $0.isEmpty ? nil : $0 }
+    }
     var remoteProgress: Double? { remote?.progress }
 
     init(from decoder: Decoder) throws {
