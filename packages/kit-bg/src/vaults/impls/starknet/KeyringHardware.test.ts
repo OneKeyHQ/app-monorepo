@@ -126,6 +126,7 @@ function buildKeyring(encoding?: EAddressEncodings, syntheticSigner = '0x1') {
     );
   const keyring = Object.assign(Object.create(KeyringHardware.prototype), {
     walletId: 'hw-1',
+    hwSdkNetwork: 'starknet',
     vault: {
       getAccount: async () => account,
       getNetwork: async () => ({ chainId: CHAIN_ID }),
@@ -597,4 +598,48 @@ describe('Starknet hardware accounts', () => {
       });
     },
   );
+
+  it('derives address and preserves __hwExtraInfo__.rootFingerprint via allNetworkGetAddress', async () => {
+    const { keyring, sdk, account } = buildKeyring();
+    const allNetworkParams =
+      await keyring.buildHwAllNetworkPrepareAccountsParams({
+        path: PATH,
+        template: settings.accountDeriveInfo.default.template,
+        index: 0,
+      });
+    expect(allNetworkParams).toEqual({
+      network: 'starknet',
+      path: PATH,
+      showOnOneKey: false,
+    });
+
+    const accounts = await keyring.prepareAccounts({
+      walletId: 'hw-1',
+      networkId: 'starknet--mainnet',
+      indexes: [0],
+      deriveInfo: settings.accountDeriveInfo.default,
+      deriveType: 'default',
+      deviceParams,
+      hwAllNetworkPrepareAccountsResponse: {
+        getItem: jest.fn(async () => ({
+          success: true,
+          path: PATH,
+          network: 'starknet',
+          payload: {
+            pub: account.pub,
+            rootFingerprint: 0x12_34_56_78,
+          },
+        })),
+      },
+    } as unknown as IPrepareHardwareAccountsParams);
+
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0].address).toBe(account.address);
+    expect(accounts[0].pub).toBe(account.pub);
+    expect(accounts[0].__hwExtraInfo__).toEqual({
+      rootFingerprint: 0x12_34_56_78,
+    });
+    expect(sdk.starknetGetPublicKey).not.toHaveBeenCalled();
+    expect(sdk.starknetGetAddress).not.toHaveBeenCalled();
+  });
 });

@@ -225,6 +225,13 @@ const nativeDeviceUtilsFirstLaunchEntry = path.resolve(
   monorepoRoot,
   'node_modules/@onekeyfe/react-native-device-utils/lib/module/firstLaunch.native.js',
 );
+// starknet publishes `"browser": "dist/index.global.js"` (a browser IIFE with
+// no module.exports), which Metro otherwise picks while package exports are
+// disabled, causing `require('starknet')` to return `{}` on iOS/Android.
+const starknetCjsEntry = path.resolve(
+  monorepoRoot,
+  'node_modules/starknet/dist/index.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -266,6 +273,15 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     return {
       type: 'sourceFile',
       filePath: nativeDeviceUtilsFirstLaunchEntry,
+    };
+  }
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === 'starknet'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: starknetCjsEntry,
     };
   }
   if (
