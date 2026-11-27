@@ -95,6 +95,7 @@ type IPerpDepthChartProps = {
   targetKey: string;
   tickLabel: string;
   showHeader?: boolean;
+  interactionEnabled?: boolean;
   referenceMidPrice?: number;
 };
 
@@ -701,6 +702,7 @@ export function PerpDepthChart({
   targetKey,
   tickLabel,
   showHeader = true,
+  interactionEnabled = true,
   referenceMidPrice,
 }: IPerpDepthChartProps) {
   const intl = useIntl();
@@ -716,12 +718,16 @@ export function PerpDepthChart({
     );
   }, []);
 
-  const canPlot = status === 'ready' || status === 'stale';
+  const stale = status === 'stale';
+  const failed = status === 'error';
+  const canPlot =
+    status === 'ready' || stale || (failed && !interactionEnabled);
   const { domain, zoomByWheel } = usePerpDepthChartDomain({
     bids: canPlot ? bids : EMPTY_LEVELS,
     asks: canPlot ? asks : EMPTY_LEVELS,
     referenceMidPrice,
     targetKey,
+    updatesEnabled: interactionEnabled,
   });
   const plotWidth = width - PLOT_LEFT;
   const chartHeight = Math.max(
@@ -743,10 +749,10 @@ export function PerpDepthChart({
     [asks, bids, canPlot, chartHeight, domain, plotWidth, referenceMidPrice],
   );
   const midPrice = geometry?.midPrice;
-  const stale = status === 'stale';
+  const interactive = interactionEnabled && status === 'ready';
   const plotRef = useRef<ComponentRef<typeof YStack>>(null);
   const wheelEnabled =
-    status === 'ready' &&
+    interactive &&
     Boolean(geometry) &&
     !platformEnv.isNative &&
     !platformEnv.isWebMobile;
@@ -823,11 +829,12 @@ export function PerpDepthChart({
     id: ETranslations.market_chart_indicator_increment__label,
   });
   const tickDescription = `${incrementLabel} ${tickLabel} ${quoteSymbol}`;
-  const placeholderLabelId =
-    status === 'error'
-      ? ETranslations.global_network_error
-      : ETranslations.global_no_data;
-  const showsStatus = geometry ? stale : status !== 'loading' && plotWidth > 0;
+  const placeholderLabelId = failed
+    ? ETranslations.global_network_error
+    : ETranslations.global_no_data;
+  const showsStatus = geometry
+    ? stale || failed
+    : status !== 'loading' && plotWidth > 0;
   const statusLabel = showsStatus
     ? intl.formatMessage({
         id: stale ? ETranslations.global_updating : placeholderLabelId,
@@ -917,7 +924,10 @@ export function PerpDepthChart({
       >
         {geometry ? (
           <>
-            <Stack opacity={stale ? 0.55 : 1} pointerEvents="none">
+            <Stack
+              opacity={statusLabel === undefined ? 1 : 0.55}
+              pointerEvents="none"
+            >
               <DepthPlot
                 geometry={geometry}
                 width={width}
@@ -926,7 +936,7 @@ export function PerpDepthChart({
                 priceDecimals={priceDigits}
               />
             </Stack>
-            {stale ? (
+            {statusLabel !== undefined ? (
               <SizableText
                 position="absolute"
                 top="$3"
@@ -938,7 +948,8 @@ export function PerpDepthChart({
               >
                 {statusLabel}
               </SizableText>
-            ) : (
+            ) : null}
+            {interactive ? (
               <DepthChartInteraction
                 key={targetKey}
                 geometry={geometry}
@@ -948,7 +959,7 @@ export function PerpDepthChart({
                 priceDecimals={priceDigits}
                 sizeDecimals={sizeDigits}
               />
-            )}
+            ) : null}
           </>
         ) : (
           <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
