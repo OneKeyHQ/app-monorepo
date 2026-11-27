@@ -131,7 +131,22 @@ function createNobleOhttpSubtle(): Pick<
   };
 }
 
+const OHTTP_RESPONSE_CONTENT_TYPE = 'message/ohttp-res';
+
 let ohttpDecryptQueue: Promise<unknown> = Promise.resolve();
+let isOhttpSubtleShimActive = false;
+
+function hasOhttpSubtleMethods(subtle: unknown): subtle is SubtleCrypto {
+  if (!subtle || typeof subtle !== 'object') {
+    return false;
+  }
+  const candidate = subtle as Partial<SubtleCrypto>;
+  return (
+    typeof candidate.importKey === 'function' &&
+    typeof candidate.sign === 'function' &&
+    typeof candidate.decrypt === 'function'
+  );
+}
 
 /** DHKEM(X25519, HKDF-SHA256) / HKDF-SHA256 / AES-128-GCM, via @noble/*. */
 export function createPlatformHpkeSuite(): CipherSuite {
@@ -146,7 +161,14 @@ export async function decapsulateOhttpResponse(
   context: HttpClientContext,
   response: Response,
 ): Promise<Response> {
-  if (globalThis.crypto?.subtle) {
+  if (
+    !isOhttpSubtleShimActive &&
+    hasOhttpSubtleMethods(globalThis.crypto?.subtle)
+  ) {
+    return context.decapsulateResponse(response);
+  }
+  // Reject non-OHTTP responses before buffering the body, matching ohttp-ts.
+  if (response.headers.get('content-type') !== OHTTP_RESPONSE_CONTENT_TYPE) {
     return context.decapsulateResponse(response);
   }
   // Buffer the network body before entering the serialized crypto section so
@@ -158,22 +180,33 @@ export async function decapsulateOhttpResponse(
   } as Response;
 
   const run = async (): Promise<Response> => {
-    if (globalThis.crypto?.subtle) {
+    if (hasOhttpSubtleMethods(globalThis.crypto?.subtle)) {
       return context.decapsulateResponse(bufferedResponse);
     }
     const cryptoObj = globalThis.crypto as unknown as Record<string, unknown>;
+    const existingSubtle = globalThis.crypto?.subtle as
+      | Record<string, unknown>
+      | undefined;
     const previousDescriptor = Object.getOwnPropertyDescriptor(
       cryptoObj,
       'subtle',
     );
+    const shimmedSubtle = existingSubtle
+      ? Object.assign(
+          Object.create(existingSubtle) as Record<string, unknown>,
+          createNobleOhttpSubtle(),
+        )
+      : createNobleOhttpSubtle();
+    isOhttpSubtleShimActive = true;
     Object.defineProperty(cryptoObj, 'subtle', {
-      value: createNobleOhttpSubtle(),
+      value: shimmedSubtle,
       configurable: true,
       writable: true,
     });
     try {
       return await context.decapsulateResponse(bufferedResponse);
     } finally {
+      isOhttpSubtleShimActive = false;
       if (previousDescriptor) {
         Object.defineProperty(cryptoObj, 'subtle', previousDescriptor);
       } else {
