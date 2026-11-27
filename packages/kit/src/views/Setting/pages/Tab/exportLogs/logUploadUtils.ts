@@ -242,8 +242,9 @@ export async function withLogUploadTimeout<T>(
   }
 }
 
+// Only the opening quote can close a quoted path.
 const QUOTED_FILESYSTEM_PATH_PATTERN =
-  /(['"`])(?:[A-Za-z]:\\|\\\\[^\\'"`\s]+\\|\/(?:Users|home|var|private|tmp|etc|opt|Library|Volumes|mnt|AppData|ProgramData)\/)[^'"`]*\1/g;
+  /(['"`])(?:[A-Za-z]:\\|\\\\|\/)(?:(?!\1).)*\1/gs;
 
 const FILESYSTEM_PATH_PATTERN =
   /(?:[A-Za-z]:\\|\\\\[^\\'"`\s]+\\|\/(?:Users|home|var|private|tmp|etc|opt|Library|Volumes|mnt|AppData|ProgramData)\/)[^\s'"`,;)]*/g;

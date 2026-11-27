@@ -96,4 +96,21 @@ describe('formatManualExportToastMessage', () => {
     expect(macResult).not.toContain('Alice');
     expect(macResult).not.toContain('Application Support');
   });
+
+  it.each([
+    [
+      'a Windows path containing an apostrophe',
+      "C:\\Users\\Alice O'Connor\\AppData\\Roaming\\OneKey\\logs\\app.log",
+    ],
+    [
+      'a Linux path under a custom root',
+      '/srv/profiles/Alice Example/.config/OneKey/logs/app.log',
+    ],
+  ])('redacts %s from ADM-ZIP errors', (_description, path) => {
+    const error = new Error(`ADM-ZIP: File not found: "${path}"`);
+
+    expect(formatManualExportToastMessage(error)).toBe(
+      'ADM-ZIP: File not found: <path>',
+    );
+  });
 });
