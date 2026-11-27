@@ -61,10 +61,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import {
-  useCloudBackup,
-  watchRouteLeave,
-} from '../../../Onboardingv2/hooks/useCloudBackup';
+import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { useLanguageSearchKeywords } from '../../hooks/useLocaleOptions';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
@@ -244,8 +241,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [settings] = useSettingsPersistAtom();
   const { isPrimeActive } = useOneKeyAuth();
 
-  const { cloudBackupFeatureInfo, startBackup, goToPageBackupList } =
-    useCloudBackup();
+  const {
+    cloudBackupFeatureInfo,
+    startBackup,
+    goToPageBackupList,
+    watchRouteLeave,
+  } = useCloudBackup();
 
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
@@ -317,11 +318,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                           : ETranslations.backup_import_from_icloud,
                       }),
                       onPress: (navigation) => {
-                        // Leaving this screen, even briefly, cancels the
-                        // pending launch and any sign-in prompt it opened.
-                        const source = watchRouteLeave();
                         void goToPageBackupList({
-                          isActive: source.isActive,
+                          // Leaving this screen, even briefly, cancels the
+                          // pending launch and any sign-in prompt it opened.
+                          isActive: watchRouteLeave(),
                           beforeNavigate: () => navigation?.popStack(),
                         });
                       },
@@ -1310,6 +1310,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     isKeylessWalletExistsLocal,
     startBackup,
     goToPageBackupList,
+    watchRouteLeave,
     onPressAddressBook,
     helpCenterUrl,
     userAgreementUrl,

@@ -29,7 +29,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useBackUpWallet } from '../../../hooks/useBackUpWallet';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 
-import { useCloudBackup, watchRouteLeave } from './useCloudBackup';
+import { useCloudBackup } from './useCloudBackup';
 
 import type { ParamListBase } from '@react-navigation/routers';
 
@@ -355,11 +355,25 @@ describe.each(['Android', 'iOS', 'desktop'])(
       mockNavigationStateListeners.forEach((listener) => listener());
     }
 
+    it('shares one route listener across taps on the same screen', () => {
+      showRoute('settings-backup');
+      const { result } = renderHook(() => useCloudBackup());
+      const isActive = result.current.watchRouteLeave();
+      expect(result.current.watchRouteLeave()).toBe(isActive);
+      expect(mockNavigationStateListeners.size).toBe(1);
+      showRoute('settings-general');
+      expect(isActive()).toBe(false);
+      expect(mockNavigationStateListeners.size).toBe(0);
+      showRoute('settings-backup');
+      expect(result.current.watchRouteLeave()()).toBe(true);
+      expect(mockNavigationStateListeners.size).toBe(1);
+    });
+
     it('keeps a Settings handoff cancelled after the user leaves and comes back', async () => {
       showRoute('settings-backup');
-      const source = watchRouteLeave();
       const closeSettings = jest.fn();
       const { result } = renderHook(() => useCloudBackup());
+      const isActive = result.current.watchRouteLeave();
       const readAccount = service.getCloudAccountInfo.getMockImplementation();
       service.getCloudAccountInfo.mockImplementationOnce(async () => {
         // Another Settings pane, then back, while the account check runs.
@@ -370,7 +384,7 @@ describe.each(['Android', 'iOS', 'desktop'])(
       });
       await act(async () => {
         await result.current.goToPageBackupList({
-          isActive: source.isActive,
+          isActive,
           beforeNavigate: closeSettings,
         });
       });
@@ -383,7 +397,6 @@ describe.each(['Android', 'iOS', 'desktop'])(
     if (platform === 'Android') {
       it('keeps watching the route while the Google sign-in prompt is open', async () => {
         showRoute('settings-backup');
-        const source = watchRouteLeave();
         service.getCloudAccountInfo.mockResolvedValueOnce({
           userId: '',
           userEmail: '',
@@ -393,7 +406,7 @@ describe.each(['Android', 'iOS', 'desktop'])(
         const { result } = renderHook(() => useCloudBackup());
         await act(async () => {
           await result.current.goToPageBackupList({
-            isActive: source.isActive,
+            isActive: result.current.watchRouteLeave(),
             beforeNavigate: jest.fn(),
           });
         });
