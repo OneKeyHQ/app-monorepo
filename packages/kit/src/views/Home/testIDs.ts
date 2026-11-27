@@ -57,7 +57,8 @@ export const HomeTestIDs = {
     'home-prime-subscription-open-app-fallback-btn',
   primeSubscriptionDownloadFallbackBtn:
     'home-prime-subscription-download-fallback-btn',
-  primeDashboardOpenAppFallbackBtn: 'home-prime-dashboard-open-app-fallback-btn',
+  primeDashboardOpenAppFallbackBtn:
+    'home-prime-dashboard-open-app-fallback-btn',
   primeDashboardDownloadFallbackBtn:
     'home-prime-dashboard-download-fallback-btn',
   primePurchaseCompleteOpenAppFallbackBtn:
