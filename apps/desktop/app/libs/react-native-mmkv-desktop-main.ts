@@ -8,10 +8,21 @@ import Store from 'electron-store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const IPC_CHANNEL = 'mmkv:sync';
+const MMKV_SYNC_ERROR_KEY = '__onekeyMmkvSyncError';
 const PERSISTENT_IDS = new Set([
   'onekey-app-setting',
   'onekey-app-dev-setting',
 ]);
+
+function createMmkvSyncErrorReply(error: unknown) {
+  return {
+    [MMKV_SYNC_ERROR_KEY]: true,
+    message:
+      error instanceof Error && error.message
+        ? error.message
+        : 'Desktop MMKV storage operation failed',
+  };
+}
 
 const stores = new Map<string, Store>();
 
@@ -31,6 +42,23 @@ function getOrCreateStore(id: string): Store {
   return s;
 }
 
+function isTrustedMmkvSender(event: Electron.IpcMainEvent): boolean {
+  try {
+    if (!event?.sender || event.sender.isDestroyed?.()) {
+      return false;
+    }
+    return Boolean(
+      globalThis.$desktopMainAppFunctions?.isTrustedMainWindowSender?.(
+        event.sender.id,
+        event.senderFrame,
+        event.sender.mainFrame,
+      ),
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // IPC handler (synchronous) — renderer calls ipcRenderer.sendSync(IPC_CHANNEL, …)
 // ---------------------------------------------------------------------------
@@ -41,50 +69,80 @@ if (ipcMain) {
       event,
       args: { method: string; id: string; key?: string; value?: unknown },
     ) => {
-      const { method, id, key } = args || {};
-      if (!isValidStoreId(id)) {
+      if (!isTrustedMmkvSender(event)) {
         event.returnValue = undefined;
         return;
       }
-      const store = getOrCreateStore(id);
-      let result: unknown;
-      switch (method) {
-        case 'set':
-          store.set(key!, args.value);
-          break;
-        case 'getString': {
-          const v = store.get(key!);
-          result = typeof v === 'string' ? v : undefined;
-          break;
-        }
-        case 'getNumber': {
-          const v = store.get(key!);
-          result = typeof v === 'number' ? v : undefined;
-          break;
-        }
-        case 'getBoolean': {
-          const v = store.get(key!);
-          result = typeof v === 'boolean' ? v : undefined;
-          break;
-        }
-        case 'remove': {
-          result = store.has(key!);
-          store.delete(key!);
-          break;
-        }
-        case 'contains':
-          result = store.has(key!);
-          break;
-        case 'getAllKeys':
-          result = Object.keys(store.store);
-          break;
-        case 'clearAll':
-          store.clear();
-          break;
-        default:
-          break;
+      const { method, id, key } = args || {};
+      if (!isValidStoreId(id) || !PERSISTENT_IDS.has(id)) {
+        event.returnValue = undefined;
+        return;
       }
-      event.returnValue = result;
+      const hasValidKey = typeof key === 'string' && key.length > 0;
+      const isMutation =
+        method === 'set' || method === 'remove' || method === 'clearAll';
+      let result: unknown;
+      try {
+        const store = getOrCreateStore(id);
+        switch (method) {
+          case 'set':
+            if (hasValidKey) {
+              store.set(key, args.value);
+            }
+            break;
+          case 'getString': {
+            if (hasValidKey) {
+              const v = store.get(key);
+              result = typeof v === 'string' ? v : undefined;
+            }
+            break;
+          }
+          case 'getNumber': {
+            if (hasValidKey) {
+              const v = store.get(key);
+              result = typeof v === 'number' ? v : undefined;
+            }
+            break;
+          }
+          case 'getBoolean': {
+            if (hasValidKey) {
+              const v = store.get(key);
+              result = typeof v === 'boolean' ? v : undefined;
+            }
+            break;
+          }
+          case 'remove': {
+            if (hasValidKey) {
+              result = store.has(key);
+              store.delete(key);
+            }
+            break;
+          }
+          case 'contains':
+            result = hasValidKey ? store.has(key) : false;
+            break;
+          case 'getAllKeys':
+            result = Object.keys(store.store);
+            break;
+          case 'clearAll':
+            store.clear();
+            break;
+          default:
+            break;
+        }
+      } catch (error) {
+        if (isMutation) {
+          result = createMmkvSyncErrorReply(error);
+        } else if (method === 'contains') {
+          result = false;
+        } else if (method === 'getAllKeys') {
+          result = [];
+        } else {
+          result = undefined;
+        }
+      } finally {
+        event.returnValue = result;
+      }
     },
   );
 }
