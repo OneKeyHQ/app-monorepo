@@ -42,6 +42,24 @@ import type { ICloudBackupAvailabilityOptions } from './checkCloudBackupAvailabi
 
 let isBackupErrorDialogShowing = false;
 
+// Activity check for the screen that starts a launch. Until dispose(), it
+// turns false on the first navigation away and stays false, so coming back
+// cannot resume the launch. After dispose(), it only checks that the screen is
+// still current, which is all a lingering sign-in prompt needs.
+export function watchRouteLeave() {
+  const rootNavigation = rootNavigationRef.current;
+  if (!rootNavigation) return { isActive: () => true, dispose: () => {} };
+  const routeKey = rootNavigation.getCurrentRoute()?.key;
+  let left = false;
+  const dispose = rootNavigation.addListener('state', () => {
+    if (rootNavigation.getCurrentRoute()?.key !== routeKey) left = true;
+  });
+  return {
+    isActive: () => !left && rootNavigation.getCurrentRoute()?.key === routeKey,
+    dispose,
+  };
+}
+
 export function useCloudBackup() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -86,33 +104,6 @@ export function useCloudBackup() {
     },
     [intl, supportCloudBackup],
   );
-
-  const routeWatchRef = useRef<
-    { routeKey: string | undefined; isActive: () => boolean } | undefined
-  >(undefined);
-  // Returns a check that turns false on the first navigation away from the
-  // current screen and stays false, so coming back cannot resume a pending
-  // launch. Taps on the same screen share one listener. It outlives each
-  // launch because a sign-in prompt it opened can still be confirmed, and
-  // detaches on that first route change.
-  const watchRouteLeave = useCallback(() => {
-    const rootNavigation = rootNavigationRef.current;
-    if (!rootNavigation) return () => true;
-    const routeKey = rootNavigation.getCurrentRoute()?.key;
-    const current = routeWatchRef.current;
-    if (current && current.routeKey === routeKey && current.isActive()) {
-      return current.isActive;
-    }
-    let left = false;
-    const unsubscribe = rootNavigation.addListener('state', () => {
-      if (rootNavigation.getCurrentRoute()?.key === routeKey) return;
-      left = true;
-      unsubscribe();
-    });
-    const isActive = () => !left;
-    routeWatchRef.current = { routeKey, isActive };
-    return isActive;
-  }, []);
 
   const backupListLaunchPending = useRef(false);
   const goToPageBackupList = useCallback(
@@ -706,7 +697,6 @@ export function useCloudBackup() {
       startBackup,
       prepareBackup,
       goToPageBackupList,
-      watchRouteLeave,
       checkLoading,
       doBackup,
       doDeleteBackup,
@@ -718,7 +708,6 @@ export function useCloudBackup() {
       startBackup,
       prepareBackup,
       goToPageBackupList,
-      watchRouteLeave,
       checkLoading,
       doBackup,
       doDeleteBackup,

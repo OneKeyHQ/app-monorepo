@@ -29,7 +29,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useBackUpWallet } from '../../../hooks/useBackUpWallet';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 
-import { useCloudBackup } from './useCloudBackup';
+import { useCloudBackup, watchRouteLeave } from './useCloudBackup';
 
 import type { ParamListBase } from '@react-navigation/routers';
 
@@ -355,25 +355,30 @@ describe.each(['Android', 'iOS', 'desktop'])(
       mockNavigationStateListeners.forEach((listener) => listener());
     }
 
-    it('shares one route listener across taps on the same screen', () => {
+    it('releases the route listener when each attempt settles', async () => {
       showRoute('settings-backup');
       const { result } = renderHook(() => useCloudBackup());
-      const isActive = result.current.watchRouteLeave();
-      expect(result.current.watchRouteLeave()).toBe(isActive);
-      expect(mockNavigationStateListeners.size).toBe(1);
-      showRoute('settings-general');
-      expect(isActive()).toBe(false);
+      const tapImport = () => {
+        const source = watchRouteLeave();
+        return result.current
+          .goToPageBackupList({
+            isActive: source.isActive,
+            beforeNavigate: jest.fn(),
+          })
+          .finally(source.dispose);
+      };
+      await act(async () => {
+        // The second tap is ignored while the first is in flight.
+        await Promise.all([tapImport(), tapImport()]);
+      });
       expect(mockNavigationStateListeners.size).toBe(0);
-      showRoute('settings-backup');
-      expect(result.current.watchRouteLeave()()).toBe(true);
-      expect(mockNavigationStateListeners.size).toBe(1);
     });
 
     it('keeps a Settings handoff cancelled after the user leaves and comes back', async () => {
       showRoute('settings-backup');
       const closeSettings = jest.fn();
       const { result } = renderHook(() => useCloudBackup());
-      const isActive = result.current.watchRouteLeave();
+      const source = watchRouteLeave();
       const readAccount = service.getCloudAccountInfo.getMockImplementation();
       service.getCloudAccountInfo.mockImplementationOnce(async () => {
         // Another Settings pane, then back, while the account check runs.
@@ -383,19 +388,20 @@ describe.each(['Android', 'iOS', 'desktop'])(
         return readAccount();
       });
       await act(async () => {
-        await result.current.goToPageBackupList({
-          isActive,
-          beforeNavigate: closeSettings,
-        });
+        await result.current
+          .goToPageBackupList({
+            isActive: source.isActive,
+            beforeNavigate: closeSettings,
+          })
+          .finally(source.dispose);
       });
       expect(closeSettings).not.toHaveBeenCalled();
       expect(mockNavigation.navigate).not.toHaveBeenCalled();
-      // Detached on the first route change.
       expect(mockNavigationStateListeners.size).toBe(0);
     });
 
     if (platform === 'Android') {
-      it('keeps watching the route while the Google sign-in prompt is open', async () => {
+      it('lets a late Google sign-in prompt act only on its own screen', async () => {
         showRoute('settings-backup');
         service.getCloudAccountInfo.mockResolvedValueOnce({
           userId: '',
@@ -404,24 +410,31 @@ describe.each(['Android', 'iOS', 'desktop'])(
           googleDrive: { googlePlayServiceAvailable: true, userInfo: null },
         });
         const { result } = renderHook(() => useCloudBackup());
+        const source = watchRouteLeave();
         await act(async () => {
-          await result.current.goToPageBackupList({
-            isActive: result.current.watchRouteLeave(),
-            beforeNavigate: jest.fn(),
-          });
+          await result.current
+            .goToPageBackupList({
+              isActive: source.isActive,
+              beforeNavigate: jest.fn(),
+            })
+            .finally(source.dispose);
         });
-        // The launch has finished, but the sign-in prompt is still open.
-        expect(mockNavigationStateListeners.size).toBe(1);
+        // The attempt released its listener; the sign-in prompt is still open.
+        expect(mockNavigationStateListeners.size).toBe(0);
         const confirmSignIn = jest.mocked(Dialog).confirm.mock.calls[0]?.[0]
           ?.onConfirm as (() => Promise<void>) | undefined;
+        expect(confirmSignIn).toBeDefined();
         // An app link opens another screen before the user confirms.
         showRoute('market');
         await act(async () => {
           await confirmSignIn?.();
         });
-        expect(confirmSignIn).toBeDefined();
         expect(service.loginCloudIfNeed).not.toHaveBeenCalled();
-        expect(mockNavigationStateListeners.size).toBe(0);
+        showRoute('settings-backup');
+        await act(async () => {
+          await confirmSignIn?.();
+        });
+        expect(service.loginCloudIfNeed).toHaveBeenCalledTimes(1);
       });
     }
 
