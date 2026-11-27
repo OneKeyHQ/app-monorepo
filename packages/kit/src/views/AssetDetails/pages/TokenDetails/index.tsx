@@ -28,6 +28,7 @@ import {
   XStack,
   useClipboard,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -134,6 +135,44 @@ export type IProps = {
 
 // How long a privacy chain's page holds its spinner for whether privacy is on.
 const PRIVACY_CHAIN_LAYOUT_WAIT_MS = 300;
+
+function AggregateTokenExplorerButton({
+  networkId,
+  tokenAddress,
+  iconSize,
+}: {
+  networkId?: string;
+  tokenAddress: string;
+  iconSize: '$4' | '$5';
+}) {
+  const intl = useIntl();
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    // On iOS the popover is a native sheet and the explorer opens in
+    // SFSafariViewController, presented on the topmost view controller. If it
+    // is presented while the sheet is still dismissing, UIKit drops the
+    // presentation and the tap does nothing, so wait for the sheet to close.
+    await closePopover?.();
+    await openTokenDetailsUrl({
+      networkId: networkId ?? '',
+      tokenAddress,
+    });
+  }, [closePopover, networkId, tokenAddress]);
+  return (
+    <IconButton
+      testID={AssetDetailsTestIDs.openExplorerBtn}
+      title={intl.formatMessage({
+        id: ETranslations.global_view_in_blockchain_explorer,
+      })}
+      iconSize={iconSize}
+      variant="tertiary"
+      icon="OpenOutline"
+      iconColor="$iconSubdued"
+      size="small"
+      onPress={handlePress}
+    />
+  );
+}
 
 function TokenDetailsView() {
   const intl = useIntl();
@@ -367,120 +406,104 @@ function TokenDetailsView() {
       },
     );
 
-  const renderAggregateTokens = useCallback(
-    ({ closePopover }: { closePopover: () => void }) => {
-      return (
-        <ScrollView
-          contentContainerStyle={{
-            gap: '$5',
-            px: '$5',
-            pt: '$2',
-            pb: '$5',
-            $gtMd: {
-              px: '$3',
-              py: '$2.5',
-              gap: '$3',
-            },
+  const renderAggregateTokens = useCallback(() => {
+    return (
+      <ScrollView
+        contentContainerStyle={{
+          gap: '$5',
+          px: '$5',
+          pt: '$2',
+          pb: '$5',
+          $gtMd: {
+            px: '$3',
+            py: '$2.5',
+            gap: '$3',
+          },
+        }}
+      >
+        <SizableText
+          $md={{
+            display: 'none',
           }}
+          size="$headingSm"
         >
-          <SizableText
-            $md={{
-              display: 'none',
+          {intl.formatMessage({
+            id: ETranslations.global_contract_address,
+          })}
+        </SizableText>
+        {tokens.map((token) => (
+          <XStack
+            key={token.$key}
+            alignItems="center"
+            gap="$3"
+            $gtMd={{
+              gap: '$2',
             }}
-            size="$headingSm"
           >
-            {intl.formatMessage({
-              id: ETranslations.global_contract_address,
-            })}
-          </SizableText>
-          {tokens.map((token) => (
-            <XStack
-              key={token.$key}
-              alignItems="center"
-              gap="$3"
+            <NetworkAvatar
+              networkId={token.networkId}
+              size={gtMd ? '$4' : '$6'}
+            />
+            <SizableText
+              size="$bodyLg"
+              flex={1}
+              numberOfLines={1}
               $gtMd={{
-                gap: '$2',
+                size: '$bodyMd',
               }}
             >
-              <NetworkAvatar
-                networkId={token.networkId}
-                size={gtMd ? '$4' : '$6'}
-              />
-              <SizableText
-                size="$bodyLg"
-                flex={1}
-                numberOfLines={1}
-                $gtMd={{
-                  size: '$bodyMd',
-                }}
-              >
-                {token.networkName}
-              </SizableText>
-              {!token.address ? null : (
-                <XStack gap="$3" alignItems="center">
-                  <Button
-                    testID="asset-details-btn"
-                    size="small"
-                    variant="tertiary"
-                    // The children are a row, not a label. Wrapped in the
-                    // button's text they become an inline view that iOS
-                    // places on the text baseline, 3pt above the centre the
-                    // open-explorer button sits on (OK-67063).
-                    childrenAsText={false}
-                    onPress={() => copyText(token.address)}
-                  >
-                    <XStack alignItems="center" gap="$2">
-                      <SizableText
-                        fontFamily="$monoRegular"
-                        size="$bodyLg"
-                        $gtMd={{
-                          size: '$bodyMd',
-                        }}
-                        color="$textSubdued"
-                      >
-                        {accountUtils.shortenAddress({
-                          address: token.address,
-                          leadingLength: gtMd ? 6 : 4,
-                          trailingLength: 4,
-                        })}
-                      </SizableText>
-                      <Icon
-                        name="Copy3Outline"
-                        size="$5"
-                        color="$iconSubdued"
-                        $gtMd={{
-                          size: '$4',
-                        }}
-                      />
-                    </XStack>
-                  </Button>
-                  <IconButton
-                    testID={AssetDetailsTestIDs.openExplorerBtn}
-                    title={intl.formatMessage({
-                      id: ETranslations.global_view_in_blockchain_explorer,
-                    })}
-                    iconSize={gtMd ? '$4' : '$5'}
-                    variant="tertiary"
-                    icon="OpenOutline"
-                    iconColor="$iconSubdued"
-                    size="small"
-                    onPress={() => {
-                      closePopover();
-                      void openTokenDetailsUrl({
-                        networkId: token.networkId ?? '',
-                        tokenAddress: token.address,
-                      });
-                    }}
-                  />
-                </XStack>
-              )}
-            </XStack>
-          ))}
-        </ScrollView>
-      );
-    },
-    [intl, tokens, gtMd, copyText],
-  );
+              {token.networkName}
+            </SizableText>
+            {!token.address ? null : (
+              <XStack gap="$3" alignItems="center">
+                <Button
+                  testID="asset-details-btn"
+                  size="small"
+                  variant="tertiary"
+                  // The children are a row, not a label. Wrapped in the
+                  // button's text they become an inline view that iOS
+                  // places on the text baseline, 3pt above the centre the
+                  // open-explorer button sits on (OK-67063).
+                  childrenAsText={false}
+                  onPress={() => copyText(token.address)}
+                >
+                  <XStack alignItems="center" gap="$2">
+                    <SizableText
+                      fontFamily="$monoRegular"
+                      size="$bodyLg"
+                      $gtMd={{
+                        size: '$bodyMd',
+                      }}
+                      color="$textSubdued"
+                    >
+                      {accountUtils.shortenAddress({
+                        address: token.address,
+                        leadingLength: gtMd ? 6 : 4,
+                        trailingLength: 4,
+                      })}
+                    </SizableText>
+                    <Icon
+                      name="Copy3Outline"
+                      size="$5"
+                      color="$iconSubdued"
+                      $gtMd={{
+                        size: '$4',
+                      }}
+                    />
+                  </XStack>
+                </Button>
+                <AggregateTokenExplorerButton
+                  networkId={token.networkId}
+                  tokenAddress={token.address}
+                  iconSize={gtMd ? '$4' : '$5'}
+                />
+              </XStack>
+            )}
+          </XStack>
+        ))}
+      </ScrollView>
+    );
+  }, [intl, tokens, gtMd, copyText]);
 
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
