@@ -3,6 +3,7 @@ import { uploadLogBundle } from '.';
 import pRetry, { AbortError } from 'p-retry';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -24,18 +25,32 @@ import type { ILogUploadTokenCache } from './logUploadUtils';
 
 const LOG_UPLOAD_TOKEN_RATE_LIMIT_CODE = 12_001;
 
+function withErrorCode(error: Error, code: unknown) {
+  if (code !== undefined && (error as { code?: unknown }).code === undefined) {
+    (error as { code?: unknown }).code = code;
+  }
+  return error;
+}
+
+// A background-bridge error often arrives as a plain object. Keep `code` so
+// a rate-limit (12001) is still recognizable after it becomes an Error.
 export function resolveLogUploadError(error: unknown): Error {
-  const candidate = error as { originalError?: unknown; message?: unknown };
+  const candidate = error as {
+    originalError?: unknown;
+    message?: unknown;
+    code?: unknown;
+  };
   if (candidate?.originalError) {
     return resolveLogUploadError(candidate.originalError);
   }
   if (error instanceof Error) {
-    return error;
+    return withErrorCode(error, candidate?.code);
   }
-  if (typeof candidate?.message === 'string') {
-    return new Error(candidate.message);
-  }
-  return new Error(String(error));
+  const resolved =
+    typeof candidate?.message === 'string'
+      ? new Error(candidate.message)
+      : new Error(String(error));
+  return withErrorCode(resolved, candidate?.code);
 }
 
 // The token endpoint allows a few uploads per install every five minutes.
@@ -91,21 +106,31 @@ function watchAttemptProgress(
  *
  * `onProgress` gets the share of bytes sent, 0–100; at 100 the server is still
  * storing the file. It gets `undefined` when a retry starts over.
+ *
+ * `isCancelled` is checked before a token request and before the upload
+ * request. A cancel stops retries; it does not abort bytes already on the wire.
  */
 export async function uploadLogsWithRetry({
   state,
   collectDigest,
   onProgress,
+  isCancelled,
 }: {
   state: { digest?: ILogDigest };
   collectDigest: () => Promise<ILogDigest>;
   onProgress?: (progressPercent: number | undefined) => void;
+  isCancelled?: () => boolean;
 }): Promise<string> {
   let tokenCache: ILogUploadTokenCache | undefined;
   let attempt = 0;
   let tokenReused = false;
 
+  const stopIfCancelled = () => {
+    if (isCancelled?.()) throw new OneKeyLocalError('Log upload cancelled');
+  };
+
   const getUploadToken = async (digest: ILogDigest) => {
+    stopIfCancelled();
     if (isUploadTokenReusable(tokenCache, digest, Date.now())) {
       tokenReused = true;
       return tokenCache.uploadToken;
@@ -135,8 +160,10 @@ export async function uploadLogsWithRetry({
       : undefined;
     let uploadDispatched = false;
     try {
+      stopIfCancelled();
       state.digest ??= await collectDigest();
       const uploadToken = await getUploadToken(state.digest);
+      stopIfCancelled();
       uploadDispatched = true;
       const { result } = await uploadLogBundle({
         uploadToken,
@@ -145,6 +172,13 @@ export async function uploadLogsWithRetry({
       });
       return result.objectKey;
     } catch (error) {
+      if (isCancelled?.()) {
+        throw new AbortError(
+          error instanceof Error
+            ? error
+            : new OneKeyLocalError('Log upload cancelled'),
+        );
+      }
       if (uploadDispatched) {
         tokenCache = invalidateUploadTokenCacheAfterError(tokenCache, error);
       }

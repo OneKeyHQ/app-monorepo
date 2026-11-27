@@ -1,8 +1,16 @@
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { ILogDigest } from '@onekeyhq/shared/src/logger/types';
 
 import { LogUploadError } from './logUploadUtils';
-import { uploadLogsWithRetry } from './uploadLogsWithRetry';
+import {
+  isLogUploadRateLimitError,
+  uploadLogsWithRetry,
+} from './uploadLogsWithRetry';
+
+const mockTokenApi = {
+  requestUploadToken: jest.fn(async () => ({ uploadToken: 'token' })),
+};
 
 type IProgressEvent = {
   stage: ELogUploadStage;
@@ -33,7 +41,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceLogger: {
-      requestUploadToken: async () => ({ uploadToken: 'token' }),
+      requestUploadToken: (...args: unknown[]) =>
+        mockTokenApi.requestUploadToken(...args),
     },
   },
 }));
@@ -69,6 +78,8 @@ describe('uploadLogsWithRetry progress', () => {
   beforeEach(() => {
     mockUploads.length = 0;
     mockProgressHandlers.clear();
+    mockTokenApi.requestUploadToken.mockReset();
+    mockTokenApi.requestUploadToken.mockResolvedValue({ uploadToken: 'token' });
   });
 
   it('reports only its own attempt, from the bytes sent', async () => {
@@ -135,5 +146,47 @@ describe('uploadLogsWithRetry progress', () => {
 
     await expect(done).resolves.toBe('client-logs/b.zip');
     expect(onProgress.mock.calls).toEqual([[60], [undefined], [20]]);
+  });
+
+  it('does not request a token when cancelled while the archive is still being collected', async () => {
+    let finishCollect = () => undefined as void;
+    const collecting = new Promise<void>((resolve) => {
+      finishCollect = resolve;
+    });
+    let cancelled = false;
+    const done = uploadLogsWithRetry({
+      state: {},
+      collectDigest: async () => {
+        await collecting;
+        return digest;
+      },
+      isCancelled: () => cancelled,
+    });
+    cancelled = true;
+    finishCollect();
+
+    await expect(done).rejects.toThrow('Log upload cancelled');
+    expect(mockTokenApi.requestUploadToken).not.toHaveBeenCalled();
+    expect(mockUploads).toHaveLength(0);
+  });
+
+  it('keeps a plain 12001 payload recognizable as a rate limit', async () => {
+    mockTokenApi.requestUploadToken.mockRejectedValueOnce({
+      className: EOneKeyErrorClassNames.OneKeyServerApiError,
+      code: 12_001,
+      message: 'Rate limit exceeded',
+    });
+    let caught: unknown;
+    try {
+      await uploadLogsWithRetry({
+        state: {},
+        collectDigest: async () => digest,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(isLogUploadRateLimitError(caught)).toBe(true);
+    expect(mockUploads).toHaveLength(0);
   });
 });

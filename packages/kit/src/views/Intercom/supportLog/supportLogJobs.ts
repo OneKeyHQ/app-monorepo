@@ -109,6 +109,7 @@ async function uploadLogs(id: string) {
   try {
     await uploadLogsWithRetry({
       state: upload,
+      isCancelled: () => !isCurrent(),
       collectDigest: async () => {
         // Native and desktop always collect everything they keep; the
         // browser store keeps up to BROWSER_LOG_MAX_BYTES.
@@ -210,8 +211,9 @@ export function retrySupportLog(id: string) {
   if (stage === 'uploadFailed' || stage === 'rateLimited') void uploadLogs(id);
 }
 
-// Cancels, dismisses or clears a job. An upload already in flight finishes
-// on its own, but its message is never sent.
+// Cancels, dismisses or clears a job. A cancel before the request skips the
+// token and the upload. Bytes already on the wire still finish, and the
+// message is never sent.
 export function removeSupportLog(id: string) {
   if (jobs.delete(id)) listeners.forEach((listener) => listener());
 }
