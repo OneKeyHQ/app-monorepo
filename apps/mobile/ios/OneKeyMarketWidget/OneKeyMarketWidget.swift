@@ -339,14 +339,18 @@ struct MarketWidgetView: View {
       }
       .font(.system(size: size)).foregroundStyle(secondary)
       .lineLimit(1).minimumScaleFactor(0.7)
-      .accessibilityLabel(localized(row.cacheDate(at: entry.date) != nil
-        ? "market_widget_quote_cached__desc" : "market_widget_quote__desc",
-        arguments: [row.asset.displaySymbol, price(row.quote?.price, currency: false), row.quote?.change24h ?? "—"])
-        + " " + date.formatted(date: .abbreviated, time: .shortened))
+      .accessibilityLabel(quoteStatusAccessibilityLabel(row, date: date))
     } else if row.failed {
       Text(localized("wallet.price_unavailable"))
         .font(.system(size: size)).foregroundStyle(secondary).lineLimit(1).minimumScaleFactor(0.7)
     }
+  }
+
+  func quoteStatusAccessibilityLabel(_ row: MarketWidgetRow, date: Date) -> String {
+    localized(row.cacheDate(at: entry.date) != nil
+      ? "market_widget_quote_cached__desc" : "market_widget_quote__desc",
+      arguments: [row.asset.displaySymbol, price(row.quote?.price, currency: false), formattedChange(row.quote?.change24h)])
+      + " " + date.formatted(date: .abbreviated, time: .shortened)
   }
 
   private func localized(_ key: String, arguments: [CVarArg] = []) -> String {
@@ -369,14 +373,18 @@ struct MarketWidgetView: View {
     return green ? Color(red: 0.18, green: 0.74, blue: 0.54) : Color(red: 0.97, green: 0.27, blue: 0.39)
   }
 
-  private func change(_ text: String?, size: CGFloat, isStock: Bool = false) -> some View {
+  private func formattedChange(_ text: String?) -> String {
     let number = MarketWidgetQuote.decimal(text)
     let formatter = NumberFormatter()
     formatter.locale = locale
     formatter.minimumFractionDigits = 2
     formatter.maximumFractionDigits = 2
-    let label = number.flatMap { formatter.string(from: NSDecimalNumber(decimal: $0)) }
+    return number.flatMap { formatter.string(from: NSDecimalNumber(decimal: $0)) }
       .map { "\((number ?? 0) >= 0 ? "+" : "")\($0)%" } ?? "—"
+  }
+
+  private func change(_ text: String?, size: CGFloat, isStock: Bool = false) -> some View {
+    let label = formattedChange(text)
     return Text(label).font(.system(size: size, weight: .medium)).monospacedDigit()
       .foregroundStyle(changeColor(text)).lineLimit(1).minimumScaleFactor(0.75)
       .accessibilityLabel(isStock ? label : localized("market_widget_change__desc", arguments: [label]))

@@ -2,10 +2,12 @@ import SwiftUI
 import UIKit
 
 // Compile with the widget sources, omitting the WidgetBundle's @main attribute.
+// Include the widget's en/de Localizable.strings in the test executable's bundle.
 @main
 struct MarketWidgetViewTests {
   @MainActor static func main() throws {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
+    testQuoteAnnouncements(at: now)
     for size in [CGSize(width: 292, height: 141), CGSize(width: 305.5, height: 141),
                  CGSize(width: 321, height: 148), CGSize(width: 329, height: 155)] {
       for scheme in [ColorScheme.light, .dark] {
@@ -36,6 +38,28 @@ struct MarketWidgetViewTests {
       }
     }
     print("PASS: per-row daily change and timestamp at minimum, SE and regular sizes in both themes")
+  }
+
+  @MainActor private static func testQuoteAnnouncements(at now: Date) {
+    let asset = MarketWidgetAsset.defaults[0]
+    for (identifier, separator) in [("en-US", "."), ("de-DE", ",")] {
+      let configuration = MarketWidgetConfiguration(schemaVersion: 1, assets: [], greenUp: true, locale: identifier)
+      let cases: [(String?, String)] = [("2.5", "+2\(separator)50%"), ("-2.5", "-2\(separator)50%"),
+        ("0", "+0\(separator)00%"), (nil, "—"), ("NaN", "—")]
+      for (value, expected) in cases {
+        for (age, failed) in [(0.0, false), (1800.0, false), (0.0, true)] {
+          let date = now.addingTimeInterval(-age)
+          let quote = MarketWidgetQuote(asset: asset, price: "123.45", change24h: value, fetchedAt: date)
+          let row = MarketWidgetRow(asset: asset, quote: quote, failed: failed)
+          let entry = MarketWidgetEntry(date: now, configuration: configuration, rows: [row],
+            isWatchlist: true, selectionUnavailable: false)
+          let label = MarketWidgetView(entry: entry).quoteStatusAccessibilityLabel(row, date: date)
+          precondition(label.components(separatedBy: expected).count == 2,
+            "The \(identifier) quote announcement must contain \(expected) exactly once: \(label)")
+        }
+      }
+    }
+    print("PASS: localized quote announcements preserve percentage units, signs and unavailable values")
   }
 
   private static func rowImage(_ data: Data, index: Int, size: CGSize) -> Data {
