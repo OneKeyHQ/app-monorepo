@@ -4,6 +4,7 @@ import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  PRIME_DASHBOARD_LANDING_PATH,
   PRIME_REDEEM_LANDING_PATH,
   PRIME_SUBSCRIPTION_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
@@ -182,6 +183,28 @@ describe('getWebDappUrlFallback', () => {
           currentSearch: '?utm=test',
         }),
       ).toBe(PRIME_SUBSCRIPTION_LANDING_PATH);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('keeps the Prime dashboard landing path', () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const primeLandingAllowList = buildAllowList({}, true);
+
+      expect(primeLandingAllowList[PRIME_DASHBOARD_LANDING_PATH]).toEqual({
+        showUrl: true,
+        showParams: false,
+      });
+      expect(
+        getWebDappUrlFallback({
+          allowList: primeLandingAllowList,
+          allowListKeys: Object.keys(primeLandingAllowList),
+          currentPath: PRIME_DASHBOARD_LANDING_PATH,
+          currentSearch: '?utm_source=email',
+        }),
+      ).toBe(PRIME_DASHBOARD_LANDING_PATH);
     } finally {
       errorSpy.mockRestore();
     }
