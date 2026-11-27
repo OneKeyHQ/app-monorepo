@@ -1,6 +1,6 @@
 {
-  "version": "44.0.2-alpha.3",
-  "sourceCommit": "b13ecac4a865a5a51b6f55235f2966f57f3484b2",
-  "sourceRef": "refs/heads/fix/ok-68003-intel-preview-ci",
-  "inventorySha256": "cbc3b472cb56bf67145f1621af98c0e15126de1eda3907353bc355ff811843f6"
+  "version": "44.0.2-alpha.4",
+  "sourceCommit": "5d2da16d6da8e770f02c03bbf7e69a53bfc4e7e7",
+  "sourceRef": "refs/heads/chore/electron-44-11-5",
+  "inventorySha256": "f9f4ce60064869ac099b47d2507e0bd876e7a5823268f10182e6cc0075d1e4b4"
 }
