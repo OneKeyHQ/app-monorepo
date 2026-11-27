@@ -29,7 +29,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useBackUpWallet } from '../../../hooks/useBackUpWallet';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 
-import { useCloudBackup } from './useCloudBackup';
+import { useCloudBackup, watchRouteLeave } from './useCloudBackup';
 
 import type { ParamListBase } from '@react-navigation/routers';
 
@@ -66,7 +66,9 @@ const mockRootNavigation = {
     };
   }),
   navigate: jest.fn(),
-  getCurrentRoute: jest.fn(() => ({ name: 'source' })),
+  getCurrentRoute: jest.fn((): { key?: string; name: string } => ({
+    name: 'source',
+  })),
   getRootState: jest.fn(() => ({
     routes: [{ key: 'source', name: 'source' }],
     index: 0,
@@ -343,6 +345,38 @@ describe.each(['Android', 'iOS', 'desktop'])(
         expect(closeSettings).not.toHaveBeenCalled();
         expect(mockNavigation.navigate).not.toHaveBeenCalled();
       }
+    });
+
+    it('keeps a Settings handoff cancelled after the user leaves and comes back', async () => {
+      const showRoute = (key: string) => {
+        mockRootNavigation.getCurrentRoute.mockReturnValue({
+          key,
+          name: 'source',
+        });
+        mockNavigationStateListeners.forEach((listener) => listener());
+      };
+      showRoute('settings-backup');
+      const source = watchRouteLeave();
+      const closeSettings = jest.fn();
+      const { result } = renderHook(() => useCloudBackup());
+      const readAccount = service.getCloudAccountInfo.getMockImplementation();
+      service.getCloudAccountInfo.mockImplementationOnce(async () => {
+        // Another Settings pane, then back, while the account check runs.
+        showRoute('settings-general');
+        showRoute('settings-backup');
+        if (!readAccount) throw new OneKeyLocalError('Missing account mock');
+        return readAccount();
+      });
+      await act(async () => {
+        await result.current.goToPageBackupList({
+          isActive: source.isActive,
+          beforeNavigate: closeSettings,
+        });
+      });
+      source.stop();
+      expect(closeSettings).not.toHaveBeenCalled();
+      expect(mockNavigation.navigate).not.toHaveBeenCalled();
+      expect(mockNavigationStateListeners.size).toBe(0);
     });
 
     it('preserves the wallet hook navigation plus 100ms handoff after the source unmounts', async () => {

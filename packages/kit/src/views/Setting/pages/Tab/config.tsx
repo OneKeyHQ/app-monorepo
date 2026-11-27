@@ -10,7 +10,7 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { isNativeTablet, rootNavigationRef } from '@onekeyhq/components';
+import { isNativeTablet } from '@onekeyhq/components';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
@@ -61,7 +61,10 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import {
+  useCloudBackup,
+  watchRouteLeave,
+} from '../../../Onboardingv2/hooks/useCloudBackup';
 import { useLanguageSearchKeywords } from '../../hooks/useLocaleOptions';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
@@ -314,16 +317,13 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                           : ETranslations.backup_import_from_icloud,
                       }),
                       onPress: (navigation) => {
-                        const sourceRouteKey =
-                          rootNavigationRef.current?.getCurrentRoute()?.key;
+                        // Leaving this screen, even briefly, cancels the
+                        // pending launch.
+                        const source = watchRouteLeave();
                         void goToPageBackupList({
-                          // Stop if the user opened or closed another screen
-                          // while the cloud account check was pending.
-                          isActive: () =>
-                            rootNavigationRef.current?.getCurrentRoute()
-                              ?.key === sourceRouteKey,
+                          isActive: source.isActive,
                           beforeNavigate: () => navigation?.popStack(),
-                        });
+                        }).finally(source.stop);
                       },
                     }
                   : null,
