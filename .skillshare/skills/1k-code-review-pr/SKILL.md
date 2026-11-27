@@ -181,6 +181,32 @@ NEVER report or post comments about any of the following **unless the PR's expli
 4. **Product / scope second-guessing**: Do not ask the author to add extra chains, platforms, or features that are intentionally out of scope.
 5. **Follow-up review-fix spirals**: When reviewing subsequent commits on an already-reviewed PR, ONLY verify whether previous P0/P1 findings were fixed cleanly and whether the new diff introduced a P0/P1 regression. Do NOT invent new P2 edge cases on fix commits.
 
+## Script-Verified Characterization & Quantitative Score Gate
+
+Do not rely solely on prose discipline to enforce PR characterization, noise filtering, or comment caps. Emit structured findings and run the deterministic gate script `development/scripts/review-score-gate.js` to validate characterization, compute each finding's `SignalScore (0–100)`, and produce the final publishable review:
+
+```bash
+node development/scripts/review-score-gate.js evaluate \
+  --input /tmp/pr-<N>-review-draft.json \
+  --diff /tmp/pr-<N>.diff \
+  --repo . \
+  --out-json /tmp/pr-<N>-review-validated.json \
+  --out-md /tmp/pr-<N>-review-report.md \
+  --strict
+```
+
+### How the Gate Works
+1. **Verifiable PR Characterization**: Independently extracts an observed profile from PR title, files, diff hunks, and review round (`isRevert`, `isDepsOrCi`, `hasCrossPlatformSignals`, `hasSecurityCriticalSignals`, `isA11yTarget`, `isFollowUpRound`). Under `--strict`, claiming a type that contradicts observed signals (e.g., classifying a `revert:` PR as `core_feature`) exits with code `2`.
+2. **Quantitative Signal Scoring (`SignalScore = clamp(BaseImpact × TypeAlignment + EvidenceScore − NoisePenalty, 0, 100)`)**:
+   - **`BaseImpact × TypeAlignment`**: Looks up `PR type × finding category` alignment. On non-a11y PRs, `a11y_or_motion` (VoiceOver/TalkBack/Reduce Motion/focus ring/separating hinge) is automatically reclassified and down-weighted (`8 × 0.2`), naturally scoring below threshold without brittle prose bans; on explicit `a11y` PRs it is elevated (`30 × 1.5`).
+   - **`EvidenceScore` (0–40)**: Verifies `file:line` falls inside real `git diff` hunks (`+15`), non-speculative execution path (`+15`), and repository existence of `existingReuseTargets` via `fs.existsSync` (`+10`).
+   - **`NoisePenalty`**: Penalizes speculative `Confirm/Verify/Check` titles (`-25`), pre-existing/out-of-diff sites (`-30`), follow-up round P2 spirals (`-35`), and duplicate threads (`-40`).
+3. **Deterministic Output & Publishing**:
+   - `SignalScore >= 70` (or `P0 >= 55`), top 5 max → `PUBLISH` (written to `publishPayload.comments`)
+   - `50 <= SignalScore < 70` (or capped overflow) → `SUMMARY_ONLY` (report only, no inline comment)
+   - `SignalScore < 50` → `DROP` (filtered out with audit trail)
+   - Final verdict (`APPROVE` / `COMMENT` / `REQUEST_CHANGES`) and Markdown report are generated deterministically from the scored results.
+
 ## Triage: Which Checks to Run
 
 List changed files from the selected PR or local diff and match:
