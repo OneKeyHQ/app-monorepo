@@ -28,7 +28,11 @@ import { BrowserLogExport } from './logger/BrowserLogExport';
 import { createLogArchive } from './logger/createLogArchive';
 import createLogStore from './logger/createLogStore';
 import { notifyLogReset } from './logger/logReset';
+import { recentLogBytes } from './logger/recentLogBytes';
 import ServiceBase from './ServiceBase';
+
+const RESET_DIAGNOSTIC_LOG_MAX_BYTES = 256 * 1024;
+const RESET_DIAGNOSTIC_MESSAGE_LIMIT = 2048;
 
 @backgroundClass()
 class ServiceLogger extends ServiceBase {
@@ -44,12 +48,38 @@ class ServiceLogger extends ServiceBase {
 
   private resettingLogs = false;
 
+  private resetFailedDiagnosticExport = false;
+
+  // In-memory diagnostic ring for logs emitted after stopPersistenceForReset(),
+  // allowing post-failure export without touching disk or retaining pre-reset logs.
+  private resetDiagnosticBuffer: { message: string; bytes: number }[] = [];
+
+  private resetDiagnosticBytes = 0;
+
   // Circular buffer: O(1) insert, O(n) read (read is infrequent)
   private buffer: string[] = [];
 
   private writeIndex = 0;
 
   private isFull = false;
+
+  private appendResetDiagnosticMsg(message: string) {
+    if (!message) return;
+    const bounded =
+      message.length > RESET_DIAGNOSTIC_MESSAGE_LIMIT
+        ? `${message.slice(0, RESET_DIAGNOSTIC_MESSAGE_LIMIT - 16)}...(truncated)\r\n`
+        : message;
+    const bytes = new TextEncoder().encode(bounded).byteLength;
+    this.resetDiagnosticBuffer.push({ message: bounded, bytes });
+    this.resetDiagnosticBytes += bytes;
+    while (
+      this.resetDiagnosticBytes > RESET_DIAGNOSTIC_LOG_MAX_BYTES &&
+      this.resetDiagnosticBuffer.length > 1
+    ) {
+      const removed = this.resetDiagnosticBuffer.shift();
+      if (removed) this.resetDiagnosticBytes -= removed.bytes;
+    }
+  }
 
   @backgroundMethod()
   async getAllMsg() {
@@ -68,6 +98,10 @@ class ServiceLogger extends ServiceBase {
 
   @backgroundMethod()
   async addMsg(message: string) {
+    if (this.resettingLogs) {
+      this.appendResetDiagnosticMsg(message);
+      return true;
+    }
     if (this.persistentLogs) {
       await this.persistentLogs.add(message);
       return true;
@@ -84,8 +118,23 @@ class ServiceLogger extends ServiceBase {
     return Promise.resolve(true);
   }
 
+  beginResetAttempt() {
+    if (this.resettingLogs) {
+      this.resetFailedDiagnosticExport = false;
+    }
+  }
+
+  markResetFailed() {
+    if (this.resettingLogs) {
+      this.resetFailedDiagnosticExport = true;
+    }
+  }
+
   async stopPersistenceForReset(clear = true) {
     this.resettingLogs = true;
+    this.resetFailedDiagnosticExport = false;
+    this.resetDiagnosticBuffer = [];
+    this.resetDiagnosticBytes = 0;
     this.logExport.close();
     if (clear) notifyLogReset();
     // The general reset also clears all buckets/databases if explicit deletion fails.
@@ -96,9 +145,24 @@ class ServiceLogger extends ServiceBase {
   async beginLogExport({ scope = 'recent' }: { scope?: ILogExportScope } = {}) {
     if (scope !== 'recent' && scope !== 'full')
       throw new OneKeyLocalError('Invalid log export scope');
+    if (this.resettingLogs) {
+      if (!this.resetFailedDiagnosticExport) {
+        throw new OneKeyLocalError('Log export unavailable during app reset');
+      }
+      return this.logExport.begin(async (isCancelled) => {
+        await loggerUtils.flushPendingRepeat();
+        const encoded = new TextEncoder().encode(
+          this.resetDiagnosticBuffer.map((item) => item.message).join(''),
+        );
+        const maxBytes =
+          scope === 'full' ? BROWSER_LOG_MAX_BYTES : RECENT_LOG_EXPORT_BYTES;
+        const snapshot = new Blob([recentLogBytes(encoded, maxBytes)], {
+          type: 'text/plain',
+        });
+        return createLogArchive(snapshot, isCancelled);
+      });
+    }
     const store = this.persistentLogs;
-    if (this.resettingLogs)
-      throw new OneKeyLocalError('Log export unavailable during app reset');
     if (!store)
       throw new OneKeyLocalError(
         'Log export unavailable: persistent logger not initialized',
