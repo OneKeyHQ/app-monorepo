@@ -1596,7 +1596,7 @@ function runCli(argv) {
         prContext = parsedCtx;
         if (
           mode === 'strict' &&
-          ((parsedCtx.prNumber ?? parsedCtx.number) == null ||
+          (!(parsedCtx.prNumber ?? parsedCtx.number) ||
             !(parsedCtx.headSha ?? parsedCtx.headRefOid))
         ) {
           process.stderr.write(
