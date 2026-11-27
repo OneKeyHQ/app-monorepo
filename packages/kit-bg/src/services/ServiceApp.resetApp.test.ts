@@ -1607,7 +1607,7 @@ describe('ServiceApp privacy database reset ordering', () => {
     }
   });
 
-  it('does not count a failed wallet snapshot sweep as reset success', async () => {
+  it('continues reset when the UI snapshot database cannot be cleared', async () => {
     jest
       .spyOn(globalThis.indexedDB, 'databases')
       .mockResolvedValue([{ name: 'onekey-ui-snapshot' }]);
@@ -1617,8 +1617,14 @@ describe('ServiceApp privacy database reset ordering', () => {
     const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
       clearRemainingBrowserData: (logger: () => void) => Promise<void>;
     };
-    await expect(service.clearRemainingBrowserData(() => {})).rejects.toThrow(
-      'snapshot storage busy',
+    const log = jest.fn();
+    await expect(
+      service.clearRemainingBrowserData(log),
+    ).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith(
+      'optionalIndexedDB:onekey-ui-snapshot',
+      'failed',
+      expect.objectContaining({ detail: 'snapshot storage busy' }),
     );
   });
 

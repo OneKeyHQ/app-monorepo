@@ -87,13 +87,18 @@ const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 const WORKBOX_EXPIRATION_INDEXED_DB_NAME = 'workbox-expiration';
+const UI_SNAPSHOT_DATABASE = 'onekey-ui-snapshot';
 const BROWSER_LOG_DATABASE = 'OneKeyDiagnosticLogs';
 const OPTIONAL_RESET_DATABASES = new Set([
   WORKBOX_EXPIRATION_INDEXED_DB_NAME,
   BROWSER_LOG_DATABASE,
+  UI_SNAPSHOT_DATABASE,
   'sentry-offline',
 ]);
-const OPTIONAL_RESET_BUCKETS = new Set(['diagnostic-logs_onekey-bucket']);
+const OPTIONAL_RESET_BUCKETS = new Set([
+  'diagnostic-logs_onekey-bucket',
+  UI_SNAPSHOT_DATABASE,
+]);
 
 type IResetStageLogger = (
   stage: string,
@@ -289,22 +294,15 @@ class ServiceApp extends ServiceBase {
         }
       });
     }
-    const clearSnapshots = async () => {
-      const { clearAllSnapshotCaches } =
-        await import('@onekeyhq/shared/src/storage/SnapshotCache');
-      await clearAllSnapshotCaches();
-    };
-    const sweepsBrowserStorage =
-      platformEnv.isRuntimeBrowser ||
-      platformEnv.isDesktop ||
-      platformEnv.isExtensionBackground;
-    if (sweepsBrowserStorage && !globalThis.indexedDB?.databases) {
-      // Without enumeration, the dedicated wipe must verify snapshot erasure.
-      await runCleanup('snapshotCaches', clearSnapshots);
-    } else {
-      // The required database/bucket sweep below confirms on-disk erasure.
-      await this.runOptionalResetCleanup(log, 'snapshotCaches', clearSnapshots);
-    }
+    await this.runOptionalResetCleanup(
+      log,
+      'snapshotCaches',
+      async (canContinue) => {
+        const { clearAllSnapshotCaches } =
+          await import('@onekeyhq/shared/src/storage/SnapshotCache');
+        if (canContinue()) await clearAllSnapshotCaches();
+      },
+    );
     await runCleanup('legacyAppStorage', () => v4appStorage.clear());
     await runCleanup('walletEncryptionKeys', () =>
       this.resetNativeLocalSecretEnvelopeKeys(),
@@ -411,7 +409,7 @@ class ServiceApp extends ServiceBase {
     if (indexedDB?.databases) {
       databases = await indexedDB.databases();
     } else if (indexedDB) {
-      databases = ['onekey-ui-snapshot', BROWSER_LOG_DATABASE].map((name) => ({
+      databases = [UI_SNAPSHOT_DATABASE, BROWSER_LOG_DATABASE].map((name) => ({
         name,
       }));
     }
