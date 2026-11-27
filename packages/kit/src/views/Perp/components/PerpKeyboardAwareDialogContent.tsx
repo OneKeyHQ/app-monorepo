@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo } from 'react';
 
-import { useWindowDimensions } from 'react-native';
+import { ScrollView, useWindowDimensions } from 'react-native';
 
 import {
   Keyboard,
@@ -44,11 +44,16 @@ export function PerpKeyboardAwareDialogContent({
     return children;
   }
 
+  // Animate the scroll insets with UIKit's keyboard transition in the fitted iOS sheet.
+  const ScrollContainer = resizeOnKeyboard
+    ? Keyboard.AwareScrollView
+    : ScrollView;
   return (
-    <Keyboard.AwareScrollView
+    <ScrollContainer
       style={{ maxHeight: contentMaxHeight }}
-      // Cancel the scroll inset when maxHeight already reserves keyboard space.
-      extraKeyboardSpace={-keyboardHeight}
+      {...(resizeOnKeyboard
+        ? { extraKeyboardSpace: -keyboardHeight }
+        : { automaticallyAdjustKeyboardInsets: true })}
       bounces={false}
       keyboardDismissMode="none"
       keyboardShouldPersistTaps="handled"
@@ -57,6 +62,6 @@ export function PerpKeyboardAwareDialogContent({
       <YStack width="100%" pb={keyboardHeight > 0 ? 0 : '$5'}>
         {children}
       </YStack>
-    </Keyboard.AwareScrollView>
+    </ScrollContainer>
   );
 }
