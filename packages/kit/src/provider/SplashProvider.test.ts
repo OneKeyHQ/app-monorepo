@@ -72,6 +72,17 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
   return { __esModule: true, appEventBus, EAppEventBusNames };
 });
 
+jest.mock('../routes/config/coldStartOnboardingState', () => {
+  const React = require('react');
+  const startup = { state: { phase: 'resolving' }, dispatch: jest.fn() };
+  (globalThis as any).__mockColdStart = startup;
+  return {
+    __esModule: true,
+    ColdStartContext: React.createContext(undefined),
+    useNativeColdStart: () => startup,
+  };
+});
+
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: {
@@ -524,5 +535,39 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
       g.__mockAppEventBusNames.HomePageReady,
       expect.any(Function),
     );
+  });
+});
+
+describe('Native startup splash', () => {
+  test('holds splash while resolving or laying out onboarding and releases on ready', () => {
+    const { SplashProvider } = freshSplash();
+    g.__mockPlatformEnv.isNative = true;
+    const splash = React.createElement(
+      SplashProvider,
+      {},
+      React.createElement('div', { 'data-testid': 'startup-content' }),
+    );
+
+    g.__mockColdStart.state = { phase: 'resolving' };
+    const { rerender } = render(splash);
+    expect(g.__lastCanDismissSplash).toBe(false);
+    expect(screen.queryByTestId('startup-content')).toBeNull();
+
+    g.__mockColdStart.state = { phase: 'waiting-for-onboarding' };
+    rerender(React.cloneElement(splash));
+    expect(g.__lastCanDismissSplash).toBe(false);
+    expect(screen.getByTestId('startup-content')).toBeTruthy();
+
+    g.__mockColdStart.state = { phase: 'ready', entry: 'onboarding' };
+    rerender(React.cloneElement(splash));
+    expect(g.__lastCanDismissSplash).toBe(true);
+  });
+
+  test('releases locked or superseded startup without onboarding', () => {
+    const { SplashProvider } = freshSplash();
+    g.__mockPlatformEnv.isNative = true;
+    g.__mockColdStart.state = { phase: 'ready', entry: 'locked' };
+    render(React.createElement(SplashProvider));
+    expect(g.__lastCanDismissSplash).toBe(true);
   });
 });

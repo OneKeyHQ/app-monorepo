@@ -23,6 +23,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '../components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { buildReceiveNetworkSecondaryTab } from '../views/Receive/components/ReceiveNetworkList';
 
 import { useAccountData } from './useAccountData';
@@ -92,6 +93,14 @@ function useReceiveToken({
       // Analytics: the entry that opened the flow.
       source?: IWalletActionSource;
     }) => {
+      if (
+        await blockIfWalletLocalSecretEnvelopeUnavailable({
+          walletId,
+          accountId,
+        })
+      ) {
+        return;
+      }
       // Home mode. Callers whose own networkId is a single chain while the
       // home is under All Networks (token details member tab) say so.
       const isAllNetworksMode =

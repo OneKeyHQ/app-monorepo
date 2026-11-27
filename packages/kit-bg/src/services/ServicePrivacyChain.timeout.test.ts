@@ -1155,7 +1155,7 @@ describe('Privacy page reads while the runtime is held', () => {
     mockGetChainOnlyVault.mockReset();
   });
 
-  function createService() {
+  function createService(custom?: { enabled: boolean; rpc: string }) {
     const never = () => new Promise<never>(() => {});
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
@@ -1171,7 +1171,8 @@ describe('Privacy page reads while the runtime is held', () => {
       {
         backgroundApi: {
           serviceCustomRpc: {
-            resolveDefaultRpcUrl: async () => 'https://node.example',
+            resolveDefaultRpcUrl: async () => 'https://new-default.example',
+            getCustomRpcForNetwork: async () => custom,
           },
         },
       },
@@ -1196,6 +1197,17 @@ describe('Privacy page reads while the runtime is held', () => {
     await expect(info).resolves.toMatchObject({
       storageBytes: null,
       endpointUrl: 'https://node.example',
+      endpointDefaultUrl: 'https://new-default.example',
+      endpointIsCustom: false,
     });
+  });
+
+  it('recognizes an enabled equivalent custom RPC address', async () => {
+    const info = createService({
+      enabled: true,
+      rpc: 'https://node.example:443/',
+    }).getLocalWalletNetworkInfo({ networkId: 'zec--custom' });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(info).resolves.toMatchObject({ endpointIsCustom: true });
   });
 });

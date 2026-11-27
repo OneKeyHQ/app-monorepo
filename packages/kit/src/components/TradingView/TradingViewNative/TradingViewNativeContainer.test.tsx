@@ -98,6 +98,14 @@ let mockChartAreaOnLayout:
 const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
   () => null,
 );
+interface IMockIntervalDropdownProps {
+  intervalConfig: { activeInterval: string } | null;
+  onIntervalChange: (interval: string) => void;
+}
+const mockTradingViewNativeIntervalDropdown = jest.fn<
+  null,
+  [IMockIntervalDropdownProps]
+>(() => null);
 const mockTradingViewNativeChart = jest.fn<null, [unknown]>(() => null);
 const mockTradingViewNativeChartSettingsButton = jest.fn<
   null,
@@ -417,6 +425,14 @@ jest.mock('./TradingViewNativeChartControlsContainer', () => ({
     mockTradingViewNativeChartControlsContainer(props),
 }));
 
+jest.mock(
+  '../TradingViewChartControls/intervalSelector/NativeIntervalDropdown',
+  () => ({
+    TradingViewNativeIntervalDropdown: (props: IMockIntervalDropdownProps) =>
+      mockTradingViewNativeIntervalDropdown(props),
+  }),
+);
+
 jest.mock('./TradingViewNativeChartSettingsButton', () => ({
   TradingViewNativeChartSettingsButton: (props: {
     priceAxisWidth: number;
@@ -462,11 +478,19 @@ const mockShownControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
     mockPlacedControls.push(controls);
     return controls;
   },
+  renderIntervalControl: () => null,
   drawingTools: mockDrawingTools,
 };
 const mockHiddenControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
   renderControls: () => null,
+  renderIntervalControl: () => null,
   drawingTools: mockDrawingTools,
+};
+// A panel that is not selected, whose host shows its interval, e.g. in a
+// header: the controls row is the selected panel's.
+const mockIntervalOnlySlot: ITradingViewNativeMultiChartControlsSlot = {
+  ...mockHiddenControlsSlot,
+  renderIntervalControl: (control) => control,
 };
 
 describe('TradingViewNativeContainer', () => {
@@ -750,6 +774,47 @@ describe('TradingViewNativeContainer', () => {
     );
     expect(mockPlacedControls.length).toBeGreaterThan(0);
     expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalled();
+  });
+
+  it('hands its own interval picker to the split view, selected or not', () => {
+    const handleIntervalChange = jest.fn();
+    const handleIntervalSelect = jest.fn();
+    render(
+      <TradingViewNativeMultiChartControlsContext.Provider
+        value={mockIntervalOnlySlot}
+      >
+        <TradingViewNativeContainer
+          source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+          storageNamespace="perps"
+          onIntervalChange={handleIntervalChange}
+          onIntervalSelect={handleIntervalSelect}
+        />
+      </TradingViewNativeMultiChartControlsContext.Provider>,
+    );
+    expect(mockTradingViewNativeChartControlsContainer).not.toHaveBeenCalled();
+    const picker = mockTradingViewNativeIntervalDropdown.mock.calls.at(-1)?.[0];
+    expect(picker?.intervalConfig?.activeInterval).toBe('60');
+
+    // A pick there is the chart's own, as one in its controls row.
+    act(() => picker?.onIntervalChange('15'));
+    expect(mockHandleIntervalChange).toHaveBeenCalledWith('15', undefined);
+    expect(handleIntervalChange).toHaveBeenCalledWith({
+      fromInterval: '60',
+      toInterval: '15',
+    });
+    expect(handleIntervalSelect).toHaveBeenCalledWith('15');
+  });
+
+  it('keeps its interval in its controls row outside a split view', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+        storageNamespace="perps"
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalled();
+    expect(mockTradingViewNativeIntervalDropdown).not.toHaveBeenCalled();
   });
 
   it('passes account trade marks to the renderer alongside custom chart components', async () => {
@@ -2679,6 +2744,54 @@ describe('TradingViewNativeContainer', () => {
       from: timestamp - halfSevenDays,
       to: timestamp + halfSevenDays,
     });
+  });
+
+  it('reports only interval picks from the chart controls as selections', () => {
+    const timestamp = 1_751_328_000;
+    const handleIntervalSelect = jest.fn();
+    mockActiveInterval = '1';
+    mockDataState = { status: 'stale' };
+    mockPoints = [{ o: 100, h: 101, l: 99, c: 100, v: 10, t: timestamp }];
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market' as const,
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled' as const,
+        }}
+        onIntervalSelect={handleIntervalSelect}
+      />,
+    );
+    const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+      .calls[0][0] as {
+      onIntervalChange: (interval: string) => void;
+      onCalendarPanelSubmit: (payload: {
+        panel: 'goToDate';
+        timestamp: number;
+      }) => void;
+    };
+
+    // The calendar picks its own interval; that is not a user selection.
+    act(() => {
+      controlsProps.onCalendarPanelSubmit({ panel: 'goToDate', timestamp });
+    });
+    expect(mockHandleIntervalChange).toHaveBeenCalledTimes(1);
+    expect(handleIntervalSelect).not.toHaveBeenCalled();
+
+    // Re-picking the active interval changes nothing.
+    act(() => {
+      controlsProps.onIntervalChange('1');
+    });
+    expect(handleIntervalSelect).not.toHaveBeenCalled();
+
+    act(() => {
+      controlsProps.onIntervalChange('15');
+    });
+    expect(handleIntervalSelect).toHaveBeenCalledTimes(1);
+    expect(handleIntervalSelect).toHaveBeenCalledWith('15');
   });
 
   it('switches to the V2 adaptive interval before navigating a large time range', () => {

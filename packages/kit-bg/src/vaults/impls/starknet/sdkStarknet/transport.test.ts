@@ -130,4 +130,36 @@ describe('ClientStarknet transport selection', () => {
     expect(client.rpcUrl).toBe('');
     expect(sendProxyRequest).toHaveBeenCalledTimes(1);
   });
+
+  it('backs off briefly after spec-version probe failure and retries after the TTL', async () => {
+    const { client, sendProxyRequest } = buildProxyClient();
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    try {
+      sendProxyRequest.mockRejectedValueOnce(new Error('probe timeout'));
+      await expect(client.getPreConfirmedBlockTag()).resolves.toBe(
+        'pre_confirmed',
+      );
+      expect(sendProxyRequest).toHaveBeenCalledTimes(1);
+
+      // Within the 30s backoff window, return pre_confirmed immediately without re-probing.
+      now.mockReturnValue(1_029_999);
+      await expect(client.getPreConfirmedBlockTag()).resolves.toBe(
+        'pre_confirmed',
+      );
+      expect(sendProxyRequest).toHaveBeenCalledTimes(1);
+
+      // After the backoff window elapses, retry probing and cache the resolved tag.
+      now.mockReturnValue(1_030_000);
+      sendProxyRequest.mockResolvedValueOnce(['0.8.1']);
+      await expect(client.getPreConfirmedBlockTag()).resolves.toBe('pending');
+      expect(sendProxyRequest).toHaveBeenCalledTimes(2);
+
+      // Subsequent calls use the cached resolved tag without re-probing.
+      now.mockReturnValue(1_100_000);
+      await expect(client.getPreConfirmedBlockTag()).resolves.toBe('pending');
+      expect(sendProxyRequest).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
 });

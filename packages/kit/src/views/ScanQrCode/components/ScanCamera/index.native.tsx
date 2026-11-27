@@ -18,6 +18,7 @@ import type {
   IScanCameraProps,
   IScanCameraRef,
 } from './types';
+import type { IMultiQrSymbol } from '../../utils/multiQrSymbols';
 import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParamListBase } from '@react-navigation/routers';
@@ -103,6 +104,11 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     {
       children,
       handleScanResult,
+      onFrameSymbols,
+      multiSymbol,
+      frozen,
+      focusRequest,
+      onPreviewTap,
       onCameraError,
       onCameraReady,
       cameraId,
@@ -118,8 +124,22 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     // Navigation events retire capture before React commits the next view.
     const requestedActivity = useRef(activity);
     const mountedRef = useRef(true);
-    const handlers = useRef({ handleScanResult, onCameraError, onCameraReady });
-    handlers.current = { handleScanResult, onCameraError, onCameraReady };
+    const hasOnPreviewTap = typeof onPreviewTap === 'function';
+    const hasOnFrameSymbols = typeof onFrameSymbols === 'function';
+    const handlers = useRef({
+      handleScanResult,
+      onFrameSymbols,
+      onCameraError,
+      onCameraReady,
+      onPreviewTap,
+    });
+    handlers.current = {
+      handleScanResult,
+      onFrameSymbols,
+      onCameraError,
+      onCameraReady,
+      onPreviewTap,
+    };
 
     const onActiveChange = useCallback((active: boolean) => {
       const current = requestedActivity.current;
@@ -157,29 +177,22 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     }, []);
 
     const { epoch } = activity;
-    const nativeCallbacks = useMemo(() => {
+    const nativeCapture = useMemo(() => {
       let current: { generation: number; ready: boolean } | undefined;
       const isCurrent = (generation: number) =>
         mountedRef.current &&
         requestedActivity.current.status === 'active' &&
         requestedActivity.current.epoch === epoch &&
         generation >= (current?.generation ?? 0);
-
       return {
+        acceptsFrame: (generation: number) =>
+          isCurrent(generation) &&
+          current?.ready &&
+          generation === current.generation,
         onReady: callback((generation: number, activeCameraId?: string) => {
           if (!isCurrent(generation)) return;
           current = { generation, ready: true };
           handlers.current.onCameraReady?.(activeCameraId);
-        }),
-        onFrameText: callback((text: string, generation: number) => {
-          if (
-            !isCurrent(generation) ||
-            !current?.ready ||
-            generation !== current.generation
-          ) {
-            return;
-          }
-          handlers.current.handleScanResult?.(text);
         }),
         onError: callback(
           (code: string, _message: string, generation: number) => {
@@ -190,6 +203,57 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         ),
       };
     }, [epoch]);
+
+    const isFrozen = frozen === true;
+    const frameIdentity = useMemo(() => ({ frozen: isFrozen }), [isFrozen]);
+    const committedFrame = useRef<object | undefined>(undefined);
+    useLayoutEffect(() => {
+      committedFrame.current = frameIdentity.frozen ? undefined : frameIdentity;
+      return () => {
+        committedFrame.current = undefined;
+      };
+    }, [frameIdentity]);
+
+    const nativeCallbacks = useMemo(() => {
+      const acceptsFrame = (generation: number) =>
+        committedFrame.current === frameIdentity &&
+        nativeCapture.acceptsFrame(generation);
+      return {
+        onReady: nativeCapture.onReady,
+        onError: nativeCapture.onError,
+        onFrameText: callback((text: string, generation: number) => {
+          if (acceptsFrame(generation))
+            handlers.current.handleScanResult?.(text);
+        }),
+        ...(hasOnFrameSymbols
+          ? {
+              onFrameSymbols: callback(
+                (symbols: IMultiQrSymbol[], generation: number) => {
+                  if (acceptsFrame(generation)) {
+                    handlers.current.onFrameSymbols?.({
+                      symbols,
+                      coordinateSpace: 'view',
+                    });
+                  }
+                },
+              ),
+            }
+          : null),
+        ...(hasOnPreviewTap
+          ? {
+              onPreviewTap: callback((generation: number) => {
+                if (acceptsFrame(generation)) handlers.current.onPreviewTap?.();
+              }),
+            }
+          : null),
+      };
+    }, [frameIdentity, hasOnFrameSymbols, hasOnPreviewTap, nativeCapture]);
+
+    const extraNativeProps = {
+      ...(multiSymbol !== undefined ? { multiSymbol } : null),
+      ...(frozen !== undefined ? { frozen } : null),
+      ...(focusRequest ? { focusRequest } : null),
+    };
 
     return (
       <>
@@ -202,6 +266,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
             key={epoch}
             active={activity.status === 'active'}
             cameraId={cameraId}
+            {...extraNativeProps}
             {...nativeCallbacks}
           />
         ) : null}

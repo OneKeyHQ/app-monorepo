@@ -2,7 +2,6 @@ import type { RefObject } from 'react';
 import { createRef } from 'react';
 
 import { overlayToastStore } from '@onekeyfe/react-native-native-overlay';
-import { Platform } from 'react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -178,16 +177,6 @@ function withRecoveryAction({
 
 const toastIdMap = new Map<string, [number, number]>();
 
-const DEFAULT_MESSAGE_DURATION = 5000;
-
-function validateToastTitle(title: string) {
-  if (platformEnv.isDev && title?.length === 0) {
-    throw new OneKeyLocalError(
-      `The parameter 'title' cannot be an empty string`,
-    );
-  }
-}
-
 const handleToastId = ({
   title,
   toastId,
@@ -207,7 +196,13 @@ const handleToastId = ({
     }
     onClose?.();
   };
-  validateToastTitle(title);
+  if (platformEnv.isDev) {
+    if (title?.length === 0) {
+      throw new OneKeyLocalError(
+        `The parameter 'title' cannot be an empty string`,
+      );
+    }
+  }
   if (toastId) {
     const existing = toastIdMap.get(toastId);
     if (existing) {
@@ -224,7 +219,6 @@ const handleToastId = ({
 };
 
 interface IActiveToast {
-  renderId: string;
   build: (context: IToastStyleContext) => IOverlayToastSpec;
   /** The row as last built, for routing a press to its handler. */
   actions: () => IToastAction[];
@@ -233,8 +227,6 @@ interface IActiveToast {
   /** False while it waits for the style context to draw with. */
   shown: boolean;
   closed: boolean;
-  dismissed?: boolean;
-  restartLifetime?: boolean;
 }
 
 // The toasts this module has on screen or waiting, so a theme or layout
@@ -269,13 +261,13 @@ function reconcileActiveToasts() {
   }
   const liveIds = new Set(snapshot.items.map((item) => item.spec.id));
   const evicted = [...activeToasts.entries()].filter(
-    ([, toast]) => toast.shown && !liveIds.has(toast.renderId),
+    ([id, toast]) => toast.shown && !liveIds.has(id),
   );
   evicted.forEach(([id, toast]) => {
     if (
       !toast.closed &&
       activeToasts.get(id) === toast &&
-      !isToastLiveInStore(toast.renderId)
+      !isToastLiveInStore(id)
     ) {
       finishToast(id, toast);
     }
@@ -294,23 +286,19 @@ function ensureToastStoreSubscription() {
 
 function presentToast(id: string, toast: IActiveToast) {
   const context = getToastStyleContext();
-  if (!context || toast.dismissed || toast.closed) {
+  if (!context) {
     return;
   }
   ensureToastStoreSubscription();
   const spec = toast.build(context);
-  if (toast.shown && !toast.restartLifetime) {
+  if (toast.shown) {
     overlayToastStore.update(spec);
     return;
   }
   toast.shown = true;
-  toast.restartLifetime = false;
   overlayToastStore.show(spec, {
-    onDismiss: () => {
-      if (toast.renderId === spec.id) toast.dismissed = true;
-    },
     onClose: () => {
-      if (toast.renderId === spec.id) finishToast(id, toast);
+      finishToast(id, toast);
     },
     onAction: (actionId) => {
       const action = toast
@@ -341,33 +329,13 @@ function closeToast(id: string, toast: IActiveToast) {
     finishToast(id, toast);
     return;
   }
-  toast.dismissed = true;
-  overlayToastStore.dismiss(toast.renderId);
-}
-
-function retireToastCard(id: string) {
-  const item = overlayToastStore
-    .getSnapshot()
-    .items.find(({ spec }) => spec.id === id);
-  if (!item) return;
-
-  // A dismissed card still occupies its queue slot during the exit.
   overlayToastStore.dismiss(id);
-  overlayToastStore.handleEvent({
-    type: 'close',
-    id,
-    generation: item.generation,
-    reason: 'programmatic',
-  });
 }
 
 function showToast(id: string, toast: IActiveToast) {
   const previous = activeToasts.get(id);
   if (previous) {
     finishToast(id, previous);
-    if (previous.shown && previous.renderId !== toast.renderId) {
-      retireToastCard(previous.renderId);
-    }
   }
   activeToasts.set(id, toast);
   presentToast(id, toast);
@@ -376,21 +344,23 @@ function showToast(id: string, toast: IActiveToast) {
   };
 }
 
-function createMessageContent(
-  {
-    title,
-    message,
-    icon,
-    duration = DEFAULT_MESSAGE_DURATION,
-    haptic,
-    actions,
-    actionsAlign = 'right',
-    position,
-    nativeStorageRecoveryTestSessionId,
-  }: IToastBaseProps,
-  id: string,
-  close: () => void,
-): Pick<IActiveToast, 'build' | 'actions'> {
+function toastMessage({
+  toastId,
+  title,
+  message,
+  icon,
+  duration = 5000,
+  haptic,
+  actions,
+  actionsAlign = 'right',
+  position,
+  onClose,
+  nativeStorageRecoveryTestSessionId,
+}: IToastBaseProps) {
+  const handleClose = handleToastId({ title, toastId, duration, onClose });
+  if (!handleClose) return;
+  const id = toastId ?? overlayToastStore.createId();
+  let close = () => {};
   const callerActions = toActionList(actions);
   let resolvedActions: IToastAction[] | undefined;
   // The retry label needs the app's locale, which arrives with the context.
@@ -400,12 +370,12 @@ function createMessageContent(
       message,
       actions: callerActions,
       testSessionId: nativeStorageRecoveryTestSessionId,
-      close,
+      close: () => close(),
       intl: context.intl,
     });
     return resolvedActions;
   };
-  return {
+  const instance = showToast(id, {
     build: (context) =>
       buildMessageToastSpec(context, {
         id,
@@ -420,208 +390,12 @@ function createMessageContent(
         actionsAlign,
       }),
     actions: () => resolvedActions ?? callerActions,
-  };
-}
-
-function showMessageToast(props: IToastBaseProps) {
-  const {
-    title,
-    toastId,
-    duration = DEFAULT_MESSAGE_DURATION,
-    onClose,
-  } = props;
-  const handleClose = handleToastId({ title, toastId, duration, onClose });
-  if (!handleClose) return;
-  const id = toastId ?? overlayToastStore.createId();
-  const toast: IActiveToast = {
-    ...createMessageContent(props, id, () => closeToast(id, toast)),
-    renderId: id,
     onClose: handleClose,
     shown: false,
     closed: false,
-  };
-  return { id, toast, handle: showToast(id, toast) };
-}
-
-function toastMessage(props: IToastBaseProps) {
-  return showMessageToast(props)?.handle;
-}
-
-export type IToastSettleStatus = 'success' | 'error' | 'warning' | 'info';
-
-export interface IToastLoadingResult {
-  close: () => void;
-  /** Shows the result and starts its timeout. Returns false if the caller must show it separately. */
-  settle: (
-    status: IToastSettleStatus,
-    props: Omit<IToastBaseProps, 'toastId' | 'onClose' | 'haptic' | 'preset'>,
-    options?: { showAtFrontOnWeb?: boolean },
-  ) => boolean;
-}
-
-export interface IToastPromiseMessages<T> {
-  loading: string | Omit<IToastBaseProps, 'haptic' | 'preset'>;
-  success:
-    | string
-    | Omit<IToastBaseProps, 'toastId' | 'onClose' | 'haptic' | 'preset'>
-    | ((
-        data: T,
-      ) =>
-        | string
-        | Omit<IToastBaseProps, 'toastId' | 'onClose' | 'haptic' | 'preset'>);
-  error:
-    | string
-    | Omit<IToastBaseProps, 'toastId' | 'onClose' | 'haptic' | 'preset'>
-    | ((
-        error: unknown,
-      ) =>
-        | string
-        | Omit<IToastBaseProps, 'toastId' | 'onClose' | 'haptic' | 'preset'>);
-}
-
-function normalizeToastProps<T extends { title: string }>(
-  value: string | T,
-): T {
-  return typeof value === 'string' ? ({ title: value } as T) : value;
-}
-
-function isCoveredOnWeb(
-  id: string,
-  position: IOverlayToastPosition | undefined,
-) {
-  const snapshot = overlayToastStore.getSnapshot();
-  const defaultPosition = snapshot.config.position ?? 'bottom-right';
-  const first = snapshot.items.find(
-    ({ spec, visible }) =>
-      spec.id === id ||
-      (visible &&
-        (spec.position ?? defaultPosition) === (position ?? defaultPosition)),
-  );
-  return first !== undefined && first.spec.id !== id;
-}
-
-function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
-  const instance = showMessageToast({ haptic: 'loading', ...props });
-  if (!instance) return;
-  const { id, toast, handle } = instance;
-  const entry = props.toastId ? toastIdMap.get(props.toastId) : undefined;
-  let settled = false;
-
-  return {
-    close: handle.close,
-    settle: (status, result, { showAtFrontOnWeb } = {}) => {
-      if (
-        settled ||
-        toast.dismissed ||
-        toast.closed ||
-        activeToasts.get(id) !== toast
-      ) {
-        return false;
-      }
-      const position = result.position ?? props.position;
-      validateToastTitle(result.title);
-      const previousRenderId = toast.renderId;
-      // Native renderers announce on attachment. On web, replace only when
-      // the caller requested a front card and a newer toast covers the result.
-      const isNative = Platform.select({
-        native: true,
-        default: false,
-      });
-      const replaceCard =
-        toast.shown &&
-        (isNative ||
-          (showAtFrontOnWeb && isCoveredOnWeb(previousRenderId, position)));
-      const renderId = replaceCard
-        ? overlayToastStore.createId()
-        : previousRenderId;
-      const content = createMessageContent(
-        {
-          ...result,
-          position,
-          haptic: status,
-        },
-        renderId,
-        handle.close,
-      );
-      settled = true;
-      if (entry) {
-        entry[0] = Date.now();
-        entry[1] = (result.duration ?? DEFAULT_MESSAGE_DURATION) + 500;
-      }
-      Object.assign(toast, content);
-      // Theme redraws keep the existing timeout.
-      toast.restartLifetime = true;
-      if (replaceCard) {
-        toast.renderId = renderId;
-        toast.shown = false;
-        retireToastCard(previousRenderId);
-      }
-      presentToast(id, toast);
-      return true;
-    },
-  };
-}
-
-/** An active toast ID owns the feedback for one task. Other tasks still run. */
-function toastPromise<T>(
-  task: Promise<T> | (() => Promise<T>),
-  messages: IToastPromiseMessages<T>,
-  options: Pick<
-    IToastBaseProps,
-    'toastId' | 'duration' | 'position' | 'onClose'
-  > = {},
-): Promise<T> {
-  const loadingProps = normalizeToastProps(messages.loading);
-  const loadingPosition = loadingProps.position ?? options.position;
-  const loading = toastLoading({
-    ...options,
-    ...loadingProps,
-    position: loadingPosition,
-    duration: Infinity,
   });
-  const showResult = (
-    status: 'success' | 'error',
-    resolveProps: () => string | IToastBaseProps,
-  ) => {
-    if (!loading) return;
-    try {
-      const props = normalizeToastProps(resolveProps());
-      const resultProps = {
-        duration: options.duration,
-        ...props,
-        position: props.position ?? loadingPosition,
-      };
-      if (!loading.settle(status, resultProps)) {
-        toastMessage({ haptic: status, ...resultProps });
-      }
-    } catch {
-      try {
-        loading.close();
-      } catch {
-        // Toast presentation and cleanup must preserve the task outcome.
-      }
-    }
-  };
-  const pending =
-    typeof task === 'function' ? Promise.resolve().then(task) : task;
-  return pending.then(
-    (data) => {
-      showResult('success', () =>
-        typeof messages.success === 'function'
-          ? messages.success(data)
-          : messages.success,
-      );
-      return data;
-    },
-    (error) => {
-      showResult('error', () =>
-        typeof messages.error === 'function'
-          ? messages.error(error)
-          : messages.error,
-      );
-      throw error;
-    },
-  );
+  close = instance.close;
+  return instance;
 }
 
 function toastNotification({
@@ -666,7 +440,6 @@ function toastNotification({
     return resolvedActions;
   };
   const instance = showToast(id, {
-    renderId: id,
     build: (context) =>
       buildNotificationToastSpec(context, {
         id,
@@ -711,8 +484,9 @@ export const Toast = {
   message: (props: IToastProps) => {
     return toastMessage({ haptic: 'info', preset: 'none', ...props });
   },
-  loading: toastLoading,
-  promise: toastPromise,
+  loading: (props: IToastProps) => {
+    return toastMessage({ haptic: 'loading', ...props });
+  },
   notification: (props: IToastNotificationProps) => {
     return toastNotification({ haptic: 'info', preset: 'none', ...props });
   },

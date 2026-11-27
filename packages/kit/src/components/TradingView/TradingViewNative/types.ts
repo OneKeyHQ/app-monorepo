@@ -210,6 +210,9 @@ export interface ITradingViewNativeProps {
   onChartSwitch?: () => void;
   onDataStateChange?: (state: ITradingViewNativeDataState) => void;
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;
+  // Only an interval the user picks in the chart controls, never a synced,
+  // restored or calendar-driven change.
+  onIntervalSelect?: (interval: ITradingViewNativeChartInterval) => void;
   onNativeChartClose?: () => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;
   onNativeIndicatorQuickBarChange?: (

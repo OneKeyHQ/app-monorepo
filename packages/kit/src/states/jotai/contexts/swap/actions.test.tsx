@@ -6038,6 +6038,54 @@ describe('useSwapActions', () => {
     expect(readVerifiedBalance()).toBe('0');
   });
 
+  it('clears an XMR spendable snapshot when the local balance becomes unknown', async () => {
+    const accountAddress = 'XmrAddress';
+    const xmrToken: ISwapToken = {
+      networkId: 'xmr--0',
+      contractAddress: '',
+      symbol: 'XMR',
+      decimals: 12,
+      isNative: true,
+    };
+    mockFetchSwapTokenDetails
+      .mockResolvedValueOnce([
+        { ...xmrToken, accountAddress, balanceParsed: '7' },
+      ])
+      .mockResolvedValueOnce([xmrToken]);
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapSelectFromTokenAtom(), xmrToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const addressInfo = {
+      ...fromAddressInfo,
+      networkId: xmrToken.networkId,
+      address: accountAddress,
+    };
+    await act(async () => {
+      await result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        addressInfo,
+        true,
+      );
+    });
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('7');
+
+    await act(async () => {
+      await result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        addressInfo,
+        true,
+      );
+    });
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapSelectFromTokenAtom())?.balanceParsed).toBeUndefined();
+    expect(
+      store.get(swapSelectedTokenBalanceMetaAtom()).from.accountAddress,
+    ).toBeUndefined();
+  });
+
   it('still records a fallback as unverified when the first load fails', async () => {
     mockFetchSwapTokenDetails.mockRejectedValueOnce(new Error('network down'));
     const { store, Wrapper } = createWrapperWithStore();

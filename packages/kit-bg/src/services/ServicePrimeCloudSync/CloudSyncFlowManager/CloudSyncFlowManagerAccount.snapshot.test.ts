@@ -9,6 +9,7 @@ import type {
   ICloudSyncTargetAccount,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import { ELocalDBStoreNames } from '../../../dbs/local/localDBStoreNames';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import { withPublicAccountCreationContext } from '../publicAccountCreationContext';
 import {
@@ -97,6 +98,19 @@ function harness() {
       getWalletSafe,
       getDeviceSafe,
       getAllWallets: jest.fn(async () => ({ wallets: [wallet] })),
+      getAllIndexedAccounts: jest.fn(async () => ({
+        indexedAccounts: [0, 1].map((index) => ({
+          id: publicAccountSnapshotToAccount(
+            publicAccountTestSnapshot(index),
+            wallet.id,
+          ).indexedAccountId,
+        })),
+      })),
+      getRecordsByIds: jest.fn(
+        async ({ ids }: { ids: string[]; name: ELocalDBStoreNames }) => ({
+          records: ids.map((id): { id: string } | undefined => ({ id })),
+        }),
+      ),
       getSyncItemSafe: jest.fn(async ({ id }: { id: string }) => pool.get(id)),
       getAccountSafe: jest.fn(async () => undefined),
       updateSyncItem,
@@ -197,6 +211,7 @@ describe('public account snapshot Cloud scene integration', () => {
         added: action === 'delete' ? 0 : snapshots.length,
         deleted: action === 'delete' ? snapshots.length : 0,
         skippedSnapshotIds: [],
+        updated: 0,
         indexedAccountsChanged: false,
         issuesBySnapshotId: {},
         unchanged: 0,
@@ -304,6 +319,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [matchingId],
       skippedSnapshotIds: [missingId],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 1,
       deleted: 0,
@@ -354,6 +370,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [],
       skippedSnapshotIds: [id],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 0,
       deleted: 0,
@@ -385,6 +402,7 @@ describe('public account snapshot Cloud scene integration', () => {
         getPublicAccountSnapshotId(publicAccountTestSnapshot()),
       ],
       skippedSnapshotIds: [],
+      updated: 0,
       indexedAccountsChanged: true,
       added: 0,
       deleted: 0,
@@ -502,6 +520,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [],
       skippedSnapshotIds: [],
+      updated: 0,
       indexedAccountsChanged: false,
       added: 0,
       deleted: 0,
@@ -777,6 +796,63 @@ describe('public account snapshot Cloud scene integration', () => {
     await expect(h.manager.buildInitSyncDBItems(params)).resolves.toEqual([]);
     expect(getDataTime).toHaveBeenCalledTimes(1);
   });
+
+  test.each([undefined, PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME])(
+    'initialization skips a legacy deleted account before cleanup (time: %s)',
+    async (initDataTime) => {
+      const h = harness();
+      const lookupIndexedAccountsById = initDataTime !== undefined;
+      const [second, deleted, tenth] = [1, 4, 9].map((index) =>
+        publicAccountSnapshotToAccount(
+          publicAccountTestSnapshot(index),
+          h.wallet.id,
+        ),
+      );
+      h.bg.localDb.getAllIndexedAccounts.mockResolvedValue({
+        indexedAccounts: [second, tenth].map(({ indexedAccountId }) => ({
+          id: indexedAccountId,
+        })),
+      });
+
+      h.bg.localDb.getRecordsByIds.mockResolvedValue({
+        records: [
+          { id: second.indexedAccountId ?? '' },
+          undefined,
+          { id: tenth.indexedAccountId ?? '' },
+        ],
+      });
+      const items = await h.manager.buildInitSyncDBItems({
+        dbRecords: [second, deleted, tenth, deleted],
+        initDataTime,
+        syncCredential: credential,
+        lookupIndexedAccountsById,
+      });
+
+      const keys = [1, 9].map((index) =>
+        h.manager.rawKeyToHashKey(
+          `${EPrimeCloudSyncDataType.Account} >> ${getPublicAccountSnapshotId(
+            publicAccountTestSnapshot(index),
+          )}`,
+        ),
+      );
+      expect(items.map(({ id }) => id)).toEqual(keys);
+      if (lookupIndexedAccountsById) {
+        expect(h.bg.localDb.getAllIndexedAccounts).not.toHaveBeenCalled();
+        expect(h.bg.localDb.getRecordsByIds).toHaveBeenCalledTimes(1);
+        expect(h.bg.localDb.getRecordsByIds).toHaveBeenCalledWith({
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: [
+            second.indexedAccountId,
+            deleted.indexedAccountId,
+            tenth.indexedAccountId,
+          ],
+        });
+      } else {
+        expect(h.bg.localDb.getAllIndexedAccounts).toHaveBeenCalledTimes(1);
+        expect(h.bg.localDb.getRecordsByIds).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   test('stops the recovery scan on cancellation before processing the next account', async () => {
     const h = harness();

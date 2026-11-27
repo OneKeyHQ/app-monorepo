@@ -291,6 +291,23 @@ describe('analytics', () => {
     expect(mockToDetailPage).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the symbol of a stock row as its stock preview symbol', () => {
+    const view = render(<MarketHighlightsPage />);
+    fireEvent.click(view.getByTestId('market-highlights-asset-stock:AAPL'));
+    expect(mockToDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        symbol: 'AAPL',
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+      }),
+    );
+    fireEvent.click(view.getByTestId('market-highlights-asset-evm--1:'));
+    expect(mockToDetailPage.mock.calls[1][0]).toMatchObject({
+      symbol: 'ETH',
+      stockPreviewSymbol: undefined,
+    });
+  });
+
   it('reports a perp asset press before navigating to Perps', () => {
     const view = render(<MarketHighlightsPage />);
     fireEvent.click(view.getByTestId('market-highlights-asset-perps:BTC'));

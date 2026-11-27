@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 
 import { fn } from 'storybook/test';
 
@@ -27,11 +27,7 @@ function ToastTrigger({ label, method, ...toastProps }: IToastTriggerProps) {
     Toast[method](toastProps);
   }, [method, toastProps]);
   return (
-    <Button
-      alignSelf="flex-start"
-      onPress={handlePress}
-      testID={`toast-story-${method}`}
-    >
+    <Button alignSelf="flex-start" onPress={handlePress}>
       {label}
     </Button>
   );
@@ -86,91 +82,6 @@ export const Presets: Story = {
       {METHODS.map((m) => (
         <ToastTrigger {...args} key={m} method={m} label={m} />
       ))}
-    </XStack>
-  ),
-};
-
-function StatusTransitionTrigger({ status }: { status: 'success' | 'error' }) {
-  const pending = useRef<ReturnType<typeof Toast.loading>>(undefined);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const clearPreview = useCallback(() => {
-    clearTimeout(timer.current);
-    pending.current?.close();
-  }, []);
-  useEffect(() => clearPreview, [clearPreview]);
-
-  const handlePress = useCallback(() => {
-    clearPreview();
-    const loading = Toast.loading({
-      title: 'Submitting transaction',
-      duration: Infinity,
-    });
-    pending.current = loading;
-    timer.current = setTimeout(() => {
-      loading?.settle(status, {
-        title: status === 'success' ? 'Transaction sent' : 'Transaction failed',
-      });
-    }, 1200);
-  }, [clearPreview, status]);
-
-  return (
-    <Button onPress={handlePress} testID={`toast-story-loading-to-${status}`}>
-      {status === 'success' ? 'Loading to success' : 'Loading to error'}
-    </Button>
-  );
-}
-
-export const LoadingResult: Story = {
-  render: () => (
-    <XStack gap="$3" flexWrap="wrap">
-      <StatusTransitionTrigger status="success" />
-      <StatusTransitionTrigger status="error" />
-    </XStack>
-  ),
-};
-
-function PromiseTrigger({ shouldFail }: { shouldFail: boolean }) {
-  const handlePress = useCallback(() => {
-    void Toast.promise(
-      () =>
-        new Promise<string>((resolve, reject) => {
-          setTimeout(() => {
-            if (shouldFail) {
-              reject(new Error('Insufficient gas'));
-            } else {
-              resolve('Confirmed in block #21,492,108');
-            }
-          }, 1200);
-        }),
-      {
-        loading: {
-          title: 'Signing transaction',
-          message: 'Confirm on your OneKey device',
-        },
-        success: (summary) => ({
-          title: 'Transaction confirmed',
-          message: summary,
-        }),
-        error: (err) => ({
-          title: 'Transaction failed',
-          message: err instanceof Error ? err.message : 'Unknown error',
-        }),
-      },
-    ).catch(() => undefined);
-  }, [shouldFail]);
-
-  return (
-    <Button onPress={handlePress}>
-      {shouldFail ? 'Promise (error)' : 'Promise (success)'}
-    </Button>
-  );
-}
-
-export const PromiseFlow: Story = {
-  render: () => (
-    <XStack gap="$3" flexWrap="wrap">
-      <PromiseTrigger shouldFail={false} />
-      <PromiseTrigger shouldFail />
     </XStack>
   ),
 };

@@ -284,6 +284,8 @@ export function SwapPanel({
           importToToken: swapEntry.toToken,
           swapTabSwitchType: swapEntry.swapType,
           swapSource: ESwapSource.MARKET,
+          ...(detailKind === 'stock' && { marketStockTrade: true }),
+          ...(tradeDestination === 'swap' && { marketNonStockTrade: true }),
           marketSwapDirection:
             tradeDestination === 'stock' ? undefined : direction,
         },

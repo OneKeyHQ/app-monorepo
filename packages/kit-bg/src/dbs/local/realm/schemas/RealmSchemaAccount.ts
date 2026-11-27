@@ -20,11 +20,11 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public path?: string;
 
-  public pathIndex?: number;
+  public pathIndex?: number | null;
 
-  public relPath?: string;
+  public relPath?: string | null;
 
-  public indexedAccountId?: string;
+  public indexedAccountId?: string | null;
 
   public coinType!: string;
 
@@ -32,7 +32,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public networks?: string[];
 
-  public createAtNetwork?: string;
+  public createAtNetwork?: string | null;
 
   public pub?: string;
 
@@ -56,7 +56,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public connectionInfoRaw?: string;
 
-  public accountOrderSaved?: number; // db field
+  public accountOrderSaved?: number | null; // db field
 
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Account,
@@ -110,17 +110,17 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       name: this.name,
       type: this.type,
       path: this.path || '',
-      pathIndex: this.pathIndex,
-      relPath: this.relPath,
-      indexedAccountId: this.indexedAccountId,
+      pathIndex: this.pathIndex ?? undefined,
+      relPath: this.relPath ?? undefined,
+      indexedAccountId: this.indexedAccountId ?? undefined,
       coinType: this.coinType,
       address: this.address || '',
       template: this.template || '',
       pub: '',
       impl: this.impl,
       networks: Array.from(this.networks || []),
-      createAtNetwork: this.createAtNetwork,
-      accountOrderSaved: this.accountOrderSaved,
+      createAtNetwork: this.createAtNetwork ?? undefined,
+      accountOrderSaved: this.accountOrderSaved ?? undefined,
     };
     if (this.type === EDBAccountType.SIMPLE) {
       ret.pub = this.pub || '';

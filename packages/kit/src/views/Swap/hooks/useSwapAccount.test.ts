@@ -108,6 +108,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapProSelectTokenAtom: () => [mockProToken],
   useSwapProUseSelectBuyTokenAtom: () => [undefined],
   useSwapProSellToTokenAtom: () => [undefined],
+  useSwapStockFromAccountRefreshAtom: () => [undefined],
   useSwapToAnotherAccountAddressAtom: () => [mockRecipient, mockSetRecipient],
 }));
 jest.mock('react-intl', () => ({
@@ -220,6 +221,39 @@ describe('useSwapAddressInfo recipient validation context', () => {
   afterEach(() => {
     jest.useRealTimers();
     Object.assign(platformEnv, { isNative: false });
+  });
+
+  it('uses the selected wallet primary address for XMR despite a saved custom recipient', async () => {
+    const primaryAddress = `4${'aB'.repeat(47)}`;
+    mockTargetNetwork = 'xmr--0';
+    mockSettings = { swapToAnotherAccountSwitchOn: true };
+    mockRecipient = {
+      address: `4${'Cd'.repeat(47)}`,
+      networkId: mockTargetNetwork,
+    };
+    mockGetNetworkAccount.mockResolvedValue(
+      buildNetworkAccount('xmr-account', primaryAddress),
+    );
+
+    const { result } = renderAddressContexts();
+
+    await waitFor(() => {
+      expect(result.current.execution).toEqual(
+        expect.objectContaining({
+          address: primaryAddress,
+          networkId: mockTargetNetwork,
+          accountInfo: expect.objectContaining({
+            account: expect.objectContaining({ id: 'xmr-account' }),
+          }),
+        }),
+      );
+    });
+    expect(mockGetNetworkAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'source',
+        networkId: mockTargetNetwork,
+      }),
+    );
   });
 
   it('preserves the prior custom recipient on native LIMIT when the active account network remains compatible', () => {
