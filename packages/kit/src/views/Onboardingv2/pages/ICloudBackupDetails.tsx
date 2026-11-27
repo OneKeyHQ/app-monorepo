@@ -21,6 +21,7 @@ import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBack
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPagesV2,
   IOnboardingParamListV2,
@@ -69,30 +70,43 @@ export default function ICloudBackupDetails({
   } = useCloudBackup();
 
   const {
-    result: backupData,
+    result: loadResult,
     isLoading: fetchLoading,
     run: reloadBackupData,
   } = usePromiseResult<
-    IPrimeTransferData | IBackupDataEncryptedPayload | undefined
+    | {
+        data?: IPrimeTransferData | IBackupDataEncryptedPayload;
+        offerCloudImport?: boolean;
+      }
+    | undefined
   >(
     async () => {
       await timerUtils.wait(300);
       if (actionType === 'backup') {
         if (!isMountedRef.current) return undefined;
+        let cloudReady = false;
         try {
-          const data = await prepareBackup();
+          const data = await prepareBackup({
+            onCloudReady: () => {
+              cloudReady = true;
+            },
+          });
           if (!isMountedRef.current) return undefined;
           if (data) setAccountRefreshNonce((nonce) => nonce + 1);
-          return data;
+          return { data };
         } catch (error) {
           if (!isMountedRef.current) return undefined;
-          if (!errorToastUtils.isUserCancelStyleError(error)) {
+          const isUserCancel = errorToastUtils.isUserCancelStyleError(error);
+          if (!isUserCancel) {
             errorToastUtils.toastIfError(error);
             errorToastUtils.showToastOfError(error);
           }
           // Settle both automatic loading and Retry into the retryable empty
           // result. User cancellation must not escape as an unhandled rejection.
-          return undefined;
+          // When the cloud account is ready but local wallet data cannot be
+          // read (e.g. after moving to a new phone), existing cloud backups
+          // can still be restored.
+          return { offerCloudImport: cloudReady && !isUserCancel };
         }
       }
       if (actionType === 'restore') {
@@ -105,7 +119,7 @@ export default function ICloudBackupDetails({
         const data = await backgroundApiProxy.serviceCloudBackupV2.download({
           recordId: route.params?.backupId,
         });
-        return data?.payload;
+        return { data: data?.payload };
       }
       return undefined;
     },
@@ -114,6 +128,7 @@ export default function ICloudBackupDetails({
       watchLoading: true,
     },
   );
+  const backupData = loadResult?.data;
 
   const walletDataFromBackup = useMemo(() => {
     return backupData?.publicData?.walletDetails ?? [];
@@ -211,12 +226,26 @@ export default function ICloudBackupDetails({
     }
     if (actionType === 'backup' && !backupData) {
       return (
-        <Button
-          testID={OnboardingTestIDs.iCloudBackupDetailsRetryBtn}
-          onPress={() => reloadBackupData()}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
+        <>
+          <Button
+            testID={OnboardingTestIDs.iCloudBackupDetailsRetryBtn}
+            onPress={() => reloadBackupData()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+          {loadResult?.offerCloudImport ? (
+            <Button
+              testID={OnboardingTestIDs.iCloudBackupDetailsImportFromCloudBtn}
+              onPress={() => goToPageBackupList()}
+            >
+              {intl.formatMessage({
+                id: platformEnv.isNativeAndroid
+                  ? ETranslations.backup_import_from_google_drive
+                  : ETranslations.backup_import_from_icloud,
+              })}
+            </Button>
+          ) : null}
+        </>
       );
     }
     if (!walletData?.length) {
