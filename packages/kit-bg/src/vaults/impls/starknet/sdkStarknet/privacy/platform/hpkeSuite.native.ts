@@ -9,7 +9,8 @@
 // (HMAC-SHA256/384/512 + AES-GCM) serialized around the in-memory decryption step.
 import { gcm } from '@noble/ciphers/aes';
 import { hmac } from '@noble/hashes/hmac';
-import { sha256, sha384, sha512 } from '@noble/hashes/sha2';
+import { sha256 } from '@noble/hashes/sha256';
+import { sha384, sha512 } from '@noble/hashes/sha512';
 import {
   AEAD_AES_128_GCM,
   KDF_HKDF_SHA256,
@@ -21,7 +22,7 @@ import { StarknetPrivacySdkPlatformError } from './errors';
 
 import type { HttpClientContext } from 'ohttp-ts';
 
-type IHashFn = typeof sha256;
+type IHashFn = Parameters<typeof hmac>[0];
 
 const HASH_ALGORITHMS: Record<string, IHashFn> = {
   'SHA-256': sha256,
