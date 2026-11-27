@@ -82,7 +82,7 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 
 const RESET_REMOTE_DEADLINE_MS = 10_000;
 const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
-const RESET_OPTIONAL_CLEANUP_DEADLINE_MS = 1_000;
+const RESET_OPTIONAL_CLEANUP_DEADLINE_MS = 1000;
 const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
@@ -399,12 +399,12 @@ class ServiceApp extends ServiceBase {
       cacheCleanup,
       ...databases.map(async ({ name }) => {
         if (!name || name === APP_RESET_CONTROL_NAME) return;
-        const stage =
-          name === WALLET_CONNECT_INDEXED_DB_NAME
-            ? 'walletConnectIndexedDB'
-            : name === WORKBOX_EXPIRATION_INDEXED_DB_NAME
-              ? 'workboxExpirationIndexedDB'
-              : 'otherIndexedDBs';
+        let stage = 'otherIndexedDBs';
+        if (name === WALLET_CONNECT_INDEXED_DB_NAME) {
+          stage = 'walletConnectIndexedDB';
+        } else if (name === WORKBOX_EXPIRATION_INDEXED_DB_NAME) {
+          stage = 'workboxExpirationIndexedDB';
+        }
         try {
           if (name === WORKBOX_EXPIRATION_INDEXED_DB_NAME) {
             // Give the matching cached assets a chance to be removed first.

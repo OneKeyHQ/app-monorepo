@@ -1579,7 +1579,7 @@ describe('ServiceApp privacy database reset ordering', () => {
         clearBrowserCacheStorage: (logger: typeof log) => Promise<void>;
       };
       const stalledEnumeration = service.clearBrowserCacheStorage(log);
-      await jest.advanceTimersByTimeAsync(1_000);
+      await jest.advanceTimersByTimeAsync(1000);
       await expect(stalledEnumeration).resolves.toBeUndefined();
       resolveNames(['new-cache']);
       await jest.advanceTimersByTimeAsync(0);
@@ -1587,11 +1587,11 @@ describe('ServiceApp privacy database reset ordering', () => {
 
       keys.mockResolvedValueOnce(['old-cache']);
       const stalledDeletion = service.clearBrowserCacheStorage(log);
-      await jest.advanceTimersByTimeAsync(1_000);
+      await jest.advanceTimersByTimeAsync(1000);
       await expect(stalledDeletion).resolves.toBeUndefined();
       expect(deleteCache).toHaveBeenCalledWith('old-cache');
       expect(log).toHaveBeenCalledWith('cacheStorage', 'timeout', {
-        deadlineMs: 1_000,
+        deadlineMs: 1000,
       });
     } finally {
       jest.useRealTimers();
