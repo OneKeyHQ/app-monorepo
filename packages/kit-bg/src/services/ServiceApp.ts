@@ -70,10 +70,6 @@ import {
   writeAppResetMarker,
   writeAppResetPrivacyCleanup,
 } from './appResetState';
-import {
-  BrowserLogDatabase,
-  BROWSER_LOG_DATABASE,
-} from './logger/BrowserLogDatabase';
 import { takeRecoveryTestFault } from './recoveryTestFaults';
 import ServiceBase from './ServiceBase';
 import { RecoveryCacheErasureError } from './ServiceCloudBackupV2/RecoveryCacheErasureError';
@@ -91,6 +87,7 @@ const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 const WORKBOX_EXPIRATION_INDEXED_DB_NAME = 'workbox-expiration';
+const BROWSER_LOG_DATABASE = 'OneKeyDiagnosticLogs';
 const OPTIONAL_RESET_DATABASES = new Set([
   WORKBOX_EXPIRATION_INDEXED_DB_NAME,
   BROWSER_LOG_DATABASE,
@@ -438,20 +435,21 @@ class ServiceApp extends ServiceBase {
           // would block new opens while another connection remains active.
           const clear = async (canClear?: () => boolean) => {
             const onBlocked = () => log(stage, 'blocked', { detail: name });
-            if (name === BROWSER_LOG_DATABASE) {
-              await BrowserLogDatabase.clearForReset(
-                indexedDB,
-                onBlocked,
-                canClear,
-              );
-            } else {
-              await IndexedDBPromised.clearDatabaseForReset(
-                indexedDB,
-                name,
-                onBlocked,
-                canClear,
-              );
-            }
+            await IndexedDBPromised.clearDatabaseForReset(
+              indexedDB,
+              name,
+              onBlocked,
+              canClear,
+              name === BROWSER_LOG_DATABASE
+                ? (transaction) => {
+                    // Keep the retained logger schema ready for fresh writes.
+                    transaction.objectStore('meta').put(
+                      { nextId: 1, bytes: 0, count: 0 },
+                      'state',
+                    );
+                  }
+                : undefined,
+            );
             if (!canClear || canClear()) {
               log(stage, 'cleared', { detail: name });
             }

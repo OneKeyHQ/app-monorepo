@@ -305,4 +305,3 @@ class ServiceLogger extends ServiceBase {
 }
 
 export default ServiceLogger;
-

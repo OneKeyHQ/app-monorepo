@@ -1,5 +1,4 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { BROWSER_LOG_MAX_BYTES } from '@onekeyhq/shared/src/logger/types';
 
 import { recentLogBytes } from './recentLogBytes';
@@ -79,27 +78,6 @@ export class BrowserLogDatabase implements IBrowserLogDatabase {
     private readonly getFactory: () => Promise<IDBFactory> = openLogFactory,
     private readonly maxBytes = BROWSER_LOG_MAX_BYTES,
   ) {}
-
-  static clearForReset(
-    factory: IDBFactory,
-    onBlocked?: () => void,
-    canClear?: () => boolean,
-  ): Promise<void> {
-    return IndexedDBPromised.clearDatabaseForReset(
-      factory,
-      BROWSER_LOG_DATABASE,
-      onBlocked,
-      canClear,
-      (transaction) => {
-        transaction
-          .objectStore('meta')
-          .put(
-            { nextId: 1, bytes: 0, count: 0 } satisfies ILogMetadata,
-            'state',
-          );
-      },
-    );
-  }
 
   private async open(): Promise<IDBDatabase> {
     if (this.closed) throw new OneKeyLocalError('Log database closed');

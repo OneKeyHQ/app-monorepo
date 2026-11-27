@@ -1607,7 +1607,7 @@ describe('ServiceApp privacy database reset ordering', () => {
       .spyOn(globalThis.indexedDB, 'databases')
       .mockResolvedValue([{ name: 'onekey-ui-snapshot' }]);
     jest.spyOn(globalThis.indexedDB, 'open').mockImplementation(() => {
-      throw new Error('snapshot storage busy');
+      throw new OneKeyLocalError('snapshot storage busy');
     });
     const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
       clearRemainingBrowserData: (logger: () => void) => Promise<void>;
@@ -1615,6 +1615,40 @@ describe('ServiceApp privacy database reset ordering', () => {
     await expect(service.clearRemainingBrowserData(() => {})).rejects.toThrow(
       'snapshot storage busy',
     );
+  });
+
+  it('clears the diagnostic history and restores metadata with a held connection', async () => {
+    const indexedDB = globalThis.indexedDB;
+    const held = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('OneKeyDiagnosticLogs');
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore('chunks').put('old message', 1);
+        request.result.createObjectStore('meta').put({ nextId: 2 }, 'state');
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
+    try {
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearRemainingBrowserData: (logger: () => void) => Promise<void>;
+      };
+      await service.clearRemainingBrowserData(() => {});
+      const transaction = held.transaction(['chunks', 'meta']);
+      const count = transaction.objectStore('chunks').count();
+      const state = transaction.objectStore('meta').get('state');
+      await expect(
+        new Promise<void>((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onabort = () => reject(transaction.error);
+        }),
+      ).resolves.toBeUndefined();
+      expect(count.result).toBe(0);
+      expect(state.result).toEqual({ nextId: 1, bytes: 0, count: 0 });
+      expect(deletion).not.toHaveBeenCalled();
+    } finally {
+      held.close();
+    }
   });
 
   it('starts a fresh optional database cleanup on retry', async () => {
