@@ -26,6 +26,7 @@ import {
   EStrk20ErrorCode,
   EStrk20ErrorRetry,
   EStrk20SequencingStatus,
+  type IStrk20ErrorMapping,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -66,6 +67,9 @@ export function useStarknetPrivacyOptIn({
   const [errorKey, setErrorKey] = useState<
     ETranslations | ETranslationsMock | undefined
   >();
+  const [errorValues, setErrorValues] = useState<
+    Record<string, string | number> | undefined
+  >();
   // No retry action reads this until a failed attempt sets it, so `No` (hide
   // the retry) is the safe default rather than `Yes`.
   const [retryable, setRetryable] = useState<EStrk20ErrorRetry>(
@@ -76,6 +80,7 @@ export function useStarknetPrivacyOptIn({
     inFlight.current = false;
     setIsOptingIn(false);
     setErrorKey(undefined);
+    setErrorValues(undefined);
     setRetryable(EStrk20ErrorRetry.No);
   }, [networkId, accountId]);
 
@@ -93,6 +98,7 @@ export function useStarknetPrivacyOptIn({
     inFlight.current = true;
     setIsOptingIn(true);
     setErrorKey(undefined);
+    setErrorValues(undefined);
     setRetryable(EStrk20ErrorRetry.No);
     let stage = 'recordConsent';
     try {
@@ -185,6 +191,7 @@ export function useStarknetPrivacyOptIn({
           if (!isCurrent()) return;
           const mapped = mapStrk20Error(error);
           setErrorKey(mapped.translationKey);
+          setErrorValues(mapped.translationValues);
           setRetryable(mapped.retryable);
           onRegisterSubmitted?.();
         },
@@ -200,7 +207,7 @@ export function useStarknetPrivacyOptIn({
       ) {
         return;
       }
-      const mapped =
+      const mapped: IStrk20ErrorMapping =
         error instanceof TransactionConfirmationPendingError
           ? STRK20_LOCAL_ERRORS[EStrk20ErrorCode.Waiting]
           : mapStrk20Error(error);
@@ -212,10 +219,17 @@ export function useStarknetPrivacyOptIn({
       // for unclassified failures; known-permanent failures hide it.
       const isUnclassified = mapped.code === EStrk20ErrorCode.Unknown;
       setErrorKey(mapped.translationKey);
+      setErrorValues(mapped.translationValues);
       setRetryable(isUnclassified ? EStrk20ErrorRetry.Yes : mapped.retryable);
       onRegisterSubmitted?.();
       // Never log the original error: proving failures may carry a viewing key.
-      Toast.error({ title: formatMockMessage(intl, mapped.translationKey) });
+      Toast.error({
+        title: formatMockMessage(
+          intl,
+          mapped.translationKey,
+          mapped.translationValues,
+        ),
+      });
     } finally {
       if (requestIdRef.current === requestId) {
         inFlight.current = false;
@@ -237,6 +251,7 @@ export function useStarknetPrivacyOptIn({
     optIn,
     isOptingIn,
     optInErrorKey: errorKey,
+    optInErrorValues: errorValues,
     // Whether the same optIn() call is worth letting the user retry, per the
     // last failure. Callers should hide/disable the retry action otherwise.
     optInRetryable: errorKey ? retryable : undefined,

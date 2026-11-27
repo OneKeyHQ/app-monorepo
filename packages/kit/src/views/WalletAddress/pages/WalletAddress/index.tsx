@@ -34,6 +34,7 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
@@ -204,6 +205,16 @@ export function SingleWalletAddressListItem({
 
     if (isBotWalletAddressBlocked) {
       showBotWalletDisabledToast(account ? 'copyAddress' : 'receive');
+      return;
+    }
+
+    if (
+      actionType !== EWalletAddressActionType.ViewInExplorer &&
+      (await blockIfWalletLocalSecretEnvelopeUnavailable({
+        walletId,
+        accountId: account?.accountId,
+      }))
+    ) {
       return;
     }
 

@@ -11,9 +11,6 @@ on:
       - ready_for_review
       - labeled
       - unlabeled
-  pull_request_review:
-    types:
-      - submitted
 
 permissions:
   contents: read
@@ -64,8 +61,21 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           git fetch origin "$PR_BASE" --no-tags
-          git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > /tmp/check-bloat.mjs
-          node /tmp/check-bloat.mjs \
+          CHECKER_DIR=$(mktemp -d "$RUNNER_TEMP/bloat-checker.XXXXXX")
+          git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > "$CHECKER_DIR/check-bloat.mjs"
+          PARSER_VERSION=$(git show "origin/$PR_BASE:package.json" | node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).devDependencies["oxc-parser"] || ""')
+          if [[ -n "$PARSER_VERSION" ]]; then
+            if [[ ! "$PARSER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "The base branch must pin an exact Oxc parser version." >&2
+              exit 1
+            fi
+            (
+              cd "$CHECKER_DIR"
+              npm install --include=optional --ignore-scripts --no-audit --no-fund \
+                --no-save --no-package-lock "oxc-parser@$PARSER_VERSION"
+            )
+          fi
+          node "$CHECKER_DIR/check-bloat.mjs" \
             --pr "$PR_NUMBER" \
             --repo "$REPO" \
             --base "origin/$PR_BASE" \
@@ -103,7 +113,8 @@ jobs:
           script: |
             const fs = require('fs');
             const marker = '<!-- onekey-pr-review-bloat-gate -->';
-            const prNumber = context.payload.pull_request.number;
+            const pullRequest = context.payload.pull_request;
+            const prNumber = pullRequest.number;
             const { owner, repo } = context.repo;
 
             let existing = null;
@@ -125,6 +136,15 @@ jobs:
 
             const upsertComment = async (body) => {
               try {
+                const { data: currentPr } = await github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                });
+                if (currentPr.head.sha !== pullRequest.head.sha) {
+                  core.info('Skipping PR comment because the head commit changed.');
+                  return;
+                }
                 if (existing) {
                   await github.rest.issues.updateComment({
                     owner,

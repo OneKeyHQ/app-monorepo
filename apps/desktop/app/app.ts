@@ -35,7 +35,6 @@ import contextMenu from 'electron-context-menu';
 import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
 import {
   getFiatPaySiteWhitelistDomainKeys,
   getFiatPaySiteWhitelistOrigins,
@@ -1041,8 +1040,31 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     return { action: 'deny' };
   });
 
+  const isTrustedMainSender = (
+    event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent,
+  ): boolean => {
+    try {
+      if (!event?.sender || event.sender.isDestroyed()) {
+        return false;
+      }
+      return Boolean(
+        globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+          event.sender.id,
+          event.senderFrame,
+          event.sender.mainFrame,
+        ),
+      );
+    } catch {
+      return false;
+    }
+  };
+
   ipcMain.removeAllListeners(ipcMessageKeys.APP_READY);
-  ipcMain.on(ipcMessageKeys.APP_READY, () => {
+  ipcMain.on(ipcMessageKeys.APP_READY, (event) => {
+    if (!isTrustedMainSender(event)) {
+      logger.warn('[APP_READY] Rejected call from non-main renderer');
+      return;
+    }
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
     emitter.emit('ready');
@@ -1055,13 +1077,22 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
 
   ipcMain.removeAllListeners(ipcMessageKeys.APP_SET_IDLE_TIME);
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
+    if (!isTrustedMainSender(event)) {
+      logger.warn('[APP_SET_IDLE_TIME] Rejected call from non-main renderer');
+      return;
+    }
     systemIdleHandler(setIdleTime, event);
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.APP_TEST_CRASH);
-  ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
-    throw new OneKeyLocalError('Test Electron Native crash 996');
-  });
+  if (isDevServer && !app.isPackaged) {
+    ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, (event) => {
+      if (!isDevServer || app.isPackaged || !isTrustedMainSender(event)) {
+        return;
+      }
+      throw new OneKeyLocalError('Test Electron Native crash 996');
+    });
+  }
 
   // Dev-only backdoor: force the CPU watchdog dialog to appear immediately,
   // bypassing the sustained-CPU threshold and 30-minute cooldown. Used by
@@ -1114,7 +1145,12 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
-  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async (event) => {
+    if (!isTrustedMainSender(event)) {
+      throw new OneKeyLocalError(
+        'SYSTEM_GET_CPU_USAGE is only allowed from the main window',
+      );
+    }
     try {
       const cpuUsage = process.getCPUUsage();
       // Calculate CPU usage percentage
@@ -1128,7 +1164,12 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     }
   });
 
-  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE, async () => {
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE, async (event) => {
+    if (!isTrustedMainSender(event)) {
+      throw new OneKeyLocalError(
+        'SYSTEM_GET_MEMORY_USAGE is only allowed from the main window',
+      );
+    }
     try {
       const memoryUsage = await process.getProcessMemoryInfo();
       const blinkMemory = process.getBlinkMemoryInfo();
@@ -1167,7 +1208,11 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
 
   // === Boot Recovery IPC Handlers ===
   ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
-  ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
+  ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, (event) => {
+    if (!isTrustedMainSender(event)) {
+      logger.warn('[MARK_BOOT_SUCCESS] Rejected call from non-main renderer');
+      return;
+    }
     store.resetConsecutiveBootFailCount();
     mainRendererRecoveryState.bootFailed = false;
     logger.info('Boot success confirmed, crash counter reset');
@@ -1176,14 +1221,17 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   ipcMain.removeAllListeners(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT);
   ipcMain.on(
     ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT,
-    (_event: unknown, count: number) => {
+    (event, count: number) => {
+      if (!isTrustedMainSender(event)) {
+        logger.warn(
+          '[SET_CONSECUTIVE_BOOT_FAIL_COUNT] Rejected call from non-main renderer',
+        );
+        return;
+      }
       store.setConsecutiveBootFailCount(count);
       logger.info('Consecutive boot fail count set to', count);
     },
   );
-
-  ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
-  desktopApi.desktopApiSetup();
 
   // New invoke-based handler for contextIsolation-compatible API calls
   ipcMain.removeHandler('DESKTOP_API_CALL');

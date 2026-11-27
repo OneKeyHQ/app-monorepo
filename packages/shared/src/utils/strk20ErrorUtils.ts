@@ -263,14 +263,39 @@ export const STRK20_LOCAL_ERRORS = {
   },
 } satisfies Partial<Record<EStrk20ErrorCode, IStrk20ErrorMapping>>;
 
+function normalizeEstimatedSeconds(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return undefined;
+  }
+  return Math.max(1, Math.ceil(value));
+}
+
 /**
  * `new OneKeyLocalError({ key })` alone is not translated — it surfaces the raw
  * key string — so background errors have to carry a formatted message.
  */
 export function strk20Error(
   code: keyof typeof STRK20_LOCAL_ERRORS,
+  options?: { estimatedSecondsRemaining?: number },
 ): OneKeyLocalError {
   const mapping = STRK20_LOCAL_ERRORS[code];
+  const seconds =
+    code === EStrk20ErrorCode.Waiting
+      ? normalizeEstimatedSeconds(options?.estimatedSecondsRemaining)
+      : undefined;
+  if (seconds !== undefined) {
+    const key = ETranslations.starknet_privacy_error_confirming_wait__msg;
+    const info = { seconds };
+    return new OneKeyLocalError({
+      key,
+      info,
+      message: appLocale.intl.formatMessage({ id: key }, info),
+      data: {
+        starknetPrivacyErrorCode: code,
+        estimatedSecondsRemaining: seconds,
+      },
+    });
+  }
   return new OneKeyLocalError({
     key: mapping.translationKey,
     message: appLocale.intl.formatMessage({ id: mapping.translationKey }),
@@ -279,13 +304,43 @@ export function strk20Error(
 }
 
 export function mapStrk20Error(error: unknown): IStrk20ErrorMapping {
+  const localErr = error as
+    | { key?: unknown; info?: Record<string, string | number> }
+    | undefined;
+  if (localErr?.key === ETranslations.send_error_insufficient_balance) {
+    return {
+      code: EStrk20ErrorCode.InvalidAmount,
+      translationKey: ETranslations.send_error_insufficient_balance,
+      ...(localErr.info ? { translationValues: localErr.info } : {}),
+      retryable: EStrk20ErrorRetry.Yes,
+    };
+  }
   const data = (error as IUnknownError | undefined)?.data;
-  const localCode = (data as { starknetPrivacyErrorCode?: unknown } | undefined)
-    ?.starknetPrivacyErrorCode;
+  const localData = data as
+    | {
+        starknetPrivacyErrorCode?: unknown;
+        estimatedSecondsRemaining?: unknown;
+      }
+    | undefined;
+  const localCode = localData?.starknetPrivacyErrorCode;
   if (
     typeof localCode === 'string' &&
     Object.prototype.hasOwnProperty.call(STRK20_LOCAL_ERRORS, localCode)
   ) {
+    if (localCode === EStrk20ErrorCode.Waiting) {
+      const seconds = normalizeEstimatedSeconds(
+        localData?.estimatedSecondsRemaining,
+      );
+      if (seconds !== undefined) {
+        return {
+          code: EStrk20ErrorCode.Waiting,
+          translationKey:
+            ETranslations.starknet_privacy_error_confirming_wait__msg,
+          translationValues: { seconds },
+          retryable: EStrk20ErrorRetry.Yes,
+        };
+      }
+    }
     return STRK20_LOCAL_ERRORS[localCode as keyof typeof STRK20_LOCAL_ERRORS];
   }
   const name = readErrorName(error);

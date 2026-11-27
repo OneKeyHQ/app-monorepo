@@ -83,7 +83,9 @@ export class PrivacyTxBuilder {
       throw strk20Error(EStrk20ErrorCode.Unavailable);
     }
     if (sequencing.status !== EStrk20SequencingStatus.Ready) {
-      throw strk20Error(EStrk20ErrorCode.Waiting);
+      throw strk20Error(EStrk20ErrorCode.Waiting, {
+        estimatedSecondsRemaining: sequencing.estimatedSecondsRemaining,
+      });
     }
     if (sequencing.provingBlockId === undefined) {
       throw new OneKeyLocalError(
@@ -91,6 +93,41 @@ export class PrivacyTxBuilder {
       );
     }
     return { ...sequencing, provingBlockId: sequencing.provingBlockId };
+  }
+
+  private async assertPublicStrkBalance(p: {
+    client: {
+      getPoolFeeAmount: (poolAddress: string) => Promise<string>;
+      getTokenBalance: (params: {
+        tokenAddress: string;
+        accountAddress: string;
+      }) => Promise<[string, string]>;
+    };
+    poolAddress: string;
+    accountAddress: string;
+    extraStrkAmount?: string;
+  }): Promise<void> {
+    const { STRK_TOKEN_ADDRESS } =
+      await import('../../vaults/impls/starknet/sdkStarknet/consts');
+    const { u256ToDecimalString } =
+      await import('../../vaults/impls/starknet/utils');
+    const [fee, [strkLow, strkHigh]] = await Promise.all([
+      p.client.getPoolFeeAmount(p.poolAddress),
+      p.client.getTokenBalance({
+        tokenAddress: STRK_TOKEN_ADDRESS,
+        accountAddress: p.accountAddress,
+      }),
+    ]);
+    const requiredStrk = new BigNumber(fee).plus(p.extraStrkAmount ?? 0);
+    if (requiredStrk.gt(u256ToDecimalString(strkLow, strkHigh))) {
+      const key = ETranslations.send_error_insufficient_balance;
+      const info = { token: 'STRK' };
+      throw new OneKeyLocalError({
+        key,
+        info,
+        message: appLocale.intl.formatMessage({ id: key }, info),
+      });
+    }
   }
 
   /**
@@ -106,6 +143,9 @@ export class PrivacyTxBuilder {
     | { alreadyRegistered: true }
     | { alreadyRegistered: false; unsignedTx: IUnsignedTxPro }
   > {
+    if (await this.deps.isDisabledByServer(p.networkId)) {
+      throw strk20Error(EStrk20ErrorCode.Unavailable);
+    }
     const current = await this.deps.getAccountPrivacyState(p);
     if (current.optInStatus === EStrk20OptInStatus.None) {
       throw strk20Error(EStrk20ErrorCode.Unavailable);
@@ -116,15 +156,42 @@ export class PrivacyTxBuilder {
     if (current.optInStatus === EStrk20OptInStatus.Mismatch) {
       throw strk20Error(EStrk20ErrorCode.KeyMismatch);
     }
+    const poolAddress = await this.deps.resolvePoolAddress(p.networkId);
+    const vault = await this.deps.getStarknetVault(p);
+    const client = await vault.getClient();
+    const accountAddress = await vault.getAccountAddress();
+    const registeredBeforeAuth = await client.getPoolRegisteredPublicKey({
+      poolAddress,
+      accountAddress,
+    });
+    let sequencing:
+      | (IStrk20SequencingState & { provingBlockId: number })
+      | undefined;
+    if (!registeredBeforeAuth) {
+      if (p.resumeOnly) throw strk20Error(EStrk20ErrorCode.Unavailable);
+      sequencing = await this.assertBuildable({
+        ...p,
+        poolAddress,
+        client,
+      });
+      await this.assertPublicStrkBalance({
+        client,
+        poolAddress,
+        accountAddress,
+      });
+    }
+
     const ctx = await this.deps.getPrivacyContext({
       ...p,
       allowPrompt: true,
       purpose: 'register',
     });
-    const registered = await ctx.client.getPoolRegisteredPublicKey({
-      poolAddress: ctx.poolAddress,
-      accountAddress: ctx.account.address,
-    });
+    const registered =
+      registeredBeforeAuth ??
+      (await ctx.client.getPoolRegisteredPublicKey({
+        poolAddress: ctx.poolAddress,
+        accountAddress: ctx.account.address,
+      }));
     ctx.assertSession();
     if (registered && registered === ctx.viewing.publicKeyX) {
       const updated = await simpleDb.starknetPrivacy.patchRecord({
@@ -162,7 +229,7 @@ export class PrivacyTxBuilder {
 
     if (p.resumeOnly) throw strk20Error(EStrk20ErrorCode.Unavailable);
 
-    const sequencing = await this.assertBuildable({
+    sequencing ??= await this.assertBuildable({
       ...p,
       poolAddress: ctx.poolAddress,
       client: ctx.client,
@@ -241,7 +308,6 @@ export class PrivacyTxBuilder {
           })
         : Promise.resolve(undefined),
     ]);
-    const protocolFee = fee;
     const requiredStrk = new BigNumber(fee).plus(
       p.kind === 'deposit' && isStrk ? amountBase : 0,
     );
@@ -288,7 +354,6 @@ export class PrivacyTxBuilder {
       transfers: await ctx.buildTransfers(),
       assertSession: ctx.assertSession,
       provingBlockId: sequencing.provingBlockId,
-      protocolFee,
     });
     ctx.assertSession();
     return built;

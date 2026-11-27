@@ -29,6 +29,7 @@ function renderPanel(
   const scope: { current: ITradingViewNativeMultiChartSyncScope } = {
     current: {
       isMain,
+      panelId: isMain ? 'main' : 'panel-2',
       reportInterval,
       instrumentKey: 'BTC',
       crosshair: null,

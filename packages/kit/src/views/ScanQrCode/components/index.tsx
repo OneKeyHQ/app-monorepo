@@ -45,12 +45,14 @@ import { useScanCameraIsActive } from './ScanCamera/useScanCameraIsActive';
 import { useScanCameras } from './ScanCamera/useScanCameras';
 
 import type { IScanCameraRef } from './ScanCamera';
+import type { IScanFocusRequest } from './ScanCamera/types';
 import type {
   IDimensions2D,
   IMultiQrFrameEvent,
   IMultiQrSymbol,
   IMultiSymbolCommitResult,
   IMultiSymbolCoordinator,
+  IPoint2D,
 } from '../utils/multiQrSymbols';
 import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner/web';
 import type { LayoutChangeEvent } from 'react-native';
@@ -62,6 +64,8 @@ export type IScanQrCodeProps = {
   handleBarCodeScanned: (
     value: string,
   ) => Promise<{ progress?: number; retry?: boolean }>;
+  /** A drain starts a new reset. Omitting it retries a failed reset. */
+  onResetAnimationData?: (drain?: Promise<void>) => Promise<void>;
   qrWalletScene?: boolean;
   /** The album picker is covering the live selection. */
   selectionCovered?: boolean;
@@ -73,6 +77,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
   function ScanQrCode(
     {
       handleBarCodeScanned,
+      onResetAnimationData,
       qrWalletScene,
       selectionCovered,
       disableNavigationGuard,
@@ -125,7 +130,11 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
           revision: (previous?.revision ?? 0) + 1,
         }));
         if (activeId) {
-          void appStorage.syncStorage.set(cameraPreferenceKey, activeId);
+          try {
+            void appStorage.syncStorage.set(cameraPreferenceKey, activeId);
+          } catch {
+            // ignore optional camera preference write failure
+          }
         }
         setCameraError(undefined);
       },
@@ -133,10 +142,17 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     );
     const isFocused = useIsFocused();
     const [progress, setProgress] = useState<number | undefined>();
-    const isHandlingFrame = useRef(false);
+    const handlingFrame = useRef<
+      ReturnType<IScanQrCodeProps['handleBarCodeScanned']> | undefined
+    >(undefined);
+    const decoderReset = useRef<Promise<void> | 'retry' | undefined>(undefined);
+    const onResetAnimationDataRef = useRef(onResetAnimationData);
+    onResetAnimationDataRef.current = onResetAnimationData;
     const [multiSymbolEnabled, setMultiSymbolEnabled] =
       useState(supportsMultiSymbol);
     const [frozen, setFrozen] = useState(false);
+    const [focusRequest, setFocusRequest] = useState<IScanFocusRequest>();
+    const focusRequestId = useRef(0);
     const [selectingSymbols, setSelectingSymbols] = useState<IMultiQrSymbol[]>(
       [],
     );
@@ -148,22 +164,60 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       viewSizeRef.current = { width, height };
     }, []);
 
-    useLayoutEffect(() => {
-      if (isFocused) {
+    const resetAbandonedUr = useCallback(() => {
+      const currentReset = decoderReset.current;
+      if (currentReset !== undefined && currentReset !== 'retry') return;
+      setProgress(undefined);
+      const drain =
+        currentReset === 'retry'
+          ? undefined
+          : (handlingFrame.current?.then(
+              () => {},
+              () => {},
+            ) ?? Promise.resolve());
+      const reset = (async () => {
+        await (onResetAnimationDataRef.current?.(drain) ?? drain);
         frameGate.current.reset();
-        coordinatorRef.current?.reset();
-      }
+      })();
+      decoderReset.current = reset;
+      void reset.then(
+        () => {
+          decoderReset.current = undefined;
+        },
+        () => {
+          decoderReset.current = 'retry';
+        },
+      );
+    }, []);
+
+    useLayoutEffect(() => {
+      setFocusRequest(undefined);
+      coordinatorRef.current?.reset();
+    }, [cameraActive, isFocused]);
+
+    useLayoutEffect(() => {
+      setFocusRequest(undefined);
+      if (coordinatorRef.current?.resetCapture()) resetAbandonedUr();
+    }, [cameraId, resetAbandonedUr, useWebCamera]);
+
+    useLayoutEffect(() => {
+      if (isFocused) frameGate.current.reset();
     }, [isFocused]);
 
     const reloadHandleBarCodeScanned = useCallback(
       async (data: string): Promise<IMultiSymbolCommitResult> => {
-        if (isHandlingFrame.current) return 'ignored';
+        if (
+          handlingFrame.current !== undefined ||
+          decoderReset.current !== undefined
+        )
+          return 'ignored';
         if (!frameGate.current.admit(data)) return 'duplicate';
 
-        isHandlingFrame.current = true;
         try {
-          const { progress: progressValue, retry } =
-            await handleBarCodeScanned(data);
+          const result = handleBarCodeScanned(data);
+          handlingFrame.current = result;
+          const { progress: progressValue, retry } = await result;
+          if (decoderReset.current !== undefined) return 'ignored';
           if (retry) {
             frameGate.current.release(data);
             return 'retry';
@@ -174,7 +228,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
           }
           return 'ignored';
         } finally {
-          isHandlingFrame.current = false;
+          handlingFrame.current = undefined;
         }
       },
       [handleBarCodeScanned],
@@ -211,53 +265,71 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
 
     const handleFrameText = useCallback(
       (text: string) => {
+        if (decoderReset.current !== undefined) {
+          resetAbandonedUr();
+          return;
+        }
         if (supportsMultiSymbol) {
           coordinatorRef.current?.receiveFastPathText(text);
         } else {
           void reloadHandleBarCodeScanned(text);
         }
       },
-      [reloadHandleBarCodeScanned, supportsMultiSymbol],
+      [reloadHandleBarCodeScanned, resetAbandonedUr, supportsMultiSymbol],
     );
 
-    const handleFrameSymbols = useCallback(function receiveFrame(
-      event: IMultiQrFrameEvent,
-      finishVerification?: ReturnType<
-        IMultiSymbolCoordinator['beginPreviewVerification']
-      >,
-    ): boolean | void {
-      const coordinator = coordinatorRef.current;
-      if (!coordinator) return;
-      let symbols = event.symbols;
-      if (event.coordinateSpace === 'frame') {
-        const viewSize = viewSizeRef.current;
-        const frameWidth = event.frameWidth ?? 0;
-        const frameHeight = event.frameHeight ?? 0;
-        if (!viewSize.width || !viewSize.height || !frameWidth || !frameHeight)
+    const handleFrameSymbols = useCallback(
+      function receiveFrame(
+        event: IMultiQrFrameEvent,
+        finishVerification?: ReturnType<
+          IMultiSymbolCoordinator['beginPreviewVerification']
+        >,
+      ): boolean | void {
+        if (decoderReset.current !== undefined) {
+          resetAbandonedUr();
           return;
-        symbols = symbols.map((sym) => {
-          const pt = mapFramePointToCoverView(
-            { x: sym.centerX, y: sym.centerY },
-            { width: frameWidth, height: frameHeight },
-            viewSize,
-            false,
-          );
-          return { ...sym, centerX: pt.x, centerY: pt.y };
-        });
-      }
-      if (finishVerification) return finishVerification(symbols);
-      if (event.verifyPreview && coordinator.needsSelection(symbols)) {
-        const finish = coordinator.beginPreviewVerification();
-        void event
-          .verifyPreview((verifiedFrame) => receiveFrame(verifiedFrame, finish))
-          .then(
-            () => finish(),
-            () => finish(),
-          );
-        return;
-      }
-      return coordinator.receiveFrame(symbols);
-    }, []);
+        }
+        const coordinator = coordinatorRef.current;
+        if (!coordinator) return;
+        let symbols = event.symbols;
+        if (event.coordinateSpace === 'frame') {
+          const viewSize = viewSizeRef.current;
+          const frameWidth = event.frameWidth ?? 0;
+          const frameHeight = event.frameHeight ?? 0;
+          if (
+            !viewSize.width ||
+            !viewSize.height ||
+            !frameWidth ||
+            !frameHeight
+          )
+            return;
+          symbols = symbols.map((sym) => {
+            const pt = mapFramePointToCoverView(
+              { x: sym.centerX, y: sym.centerY },
+              { width: frameWidth, height: frameHeight },
+              viewSize,
+              false,
+            );
+            return { ...sym, centerX: pt.x, centerY: pt.y };
+          });
+        }
+        if (finishVerification) return finishVerification(symbols);
+        if (event.verifyPreview && coordinator.needsSelection(symbols)) {
+          const finish = coordinator.beginPreviewVerification();
+          void event
+            .verifyPreview((verifiedFrame) =>
+              receiveFrame(verifiedFrame, finish),
+            )
+            .then(
+              () => finish(),
+              () => finish(),
+            );
+          return;
+        }
+        return coordinator.receiveFrame(symbols);
+      },
+      [resetAbandonedUr],
+    );
 
     const handleSelectMultiSymbol = useCallback((symbol: IMultiQrSymbol) => {
       coordinatorRef.current?.selectSymbol(symbol);
@@ -266,6 +338,21 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const handleCancelMultiSelection = useCallback(() => {
       coordinatorRef.current?.cancelSelection();
     }, []);
+
+    const handlePreviewTap = useCallback(() => {
+      coordinatorRef.current?.refocus();
+    }, []);
+
+    const handleRefocusSelection = useCallback(
+      (point?: IPoint2D) => {
+        handlePreviewTap();
+        if (point) {
+          focusRequestId.current += 1;
+          setFocusRequest({ ...point, id: focusRequestId.current });
+        }
+      },
+      [handlePreviewTap],
+    );
 
     const showPermissionDeniedDialog = useCallback(() => {
       const canRequestExpandView =
@@ -389,6 +476,8 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         onFrameSymbols={supportsMultiSymbol ? handleFrameSymbols : undefined}
         multiSymbol={supportsMultiSymbol ? multiSymbolEnabled : false}
         frozen={supportsMultiSymbol ? frozen : false}
+        focusRequest={focusRequest}
+        onPreviewTap={supportsMultiSymbol ? handlePreviewTap : undefined}
         onCameraError={onCameraError}
         onCameraReady={onCameraReady}
         useWebCamera={useWebCamera}
@@ -439,6 +528,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
             symbols={selectingSymbols}
             onSelect={handleSelectMultiSymbol}
             onCancel={handleCancelMultiSelection}
+            onRefocus={handleRefocusSelection}
           />
         ) : null}
       </ScanCamera>

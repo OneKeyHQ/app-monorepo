@@ -1031,9 +1031,9 @@ function SendAmountInputContainer({
               : ETranslations.global_retry,
         })
       : undefined;
-  const canUseMax =
-    !isPrivateBalanceUnavailable &&
-    !(starknetPrivacyKind === 'deposit' && token?.isNative);
+  const isStarknetNativeDeposit =
+    starknetPrivacyKind === 'deposit' && Boolean(token?.isNative);
+  const canUseMax = !isPrivateBalanceUnavailable && !isStarknetNativeDeposit;
   const hasAmountError = !!form.formState.errors.amount;
   const amountErrorMessage = form.formState.errors.amount?.message;
   const txMessage = form.watch('txMessage');
@@ -4961,40 +4961,42 @@ function SendAmountInputContainer({
         </YStack>
 
         {/* Max button */}
-        <Button
-          testID={SendTestIDs.maxButton}
-          variant="secondary"
-          size="small"
-          ml="$2"
-          disabled={
-            !canUseMax ||
-            (isPrivateSendNativeToken &&
-              privateSendMaxInputAmount === undefined)
-          }
-          loading={
-            isPrivateSendNativeToken
-              ? isPrivateSendNativeTokenConfigLoading ||
-                !isPrivateSendNativeTokenConfigReady
-              : null
-          }
-          onPress={() => {
-            let maxInputAmount: string | undefined = isUseFiat
-              ? maxBalanceFiat
-              : maxBalance;
-            if (isPrivateSendNativeToken) {
-              maxInputAmount = privateSendMaxInputAmount;
+        {isStarknetNativeDeposit ? null : (
+          <Button
+            testID={SendTestIDs.maxButton}
+            variant="secondary"
+            size="small"
+            ml="$2"
+            disabled={
+              !canUseMax ||
+              (isPrivateSendNativeToken &&
+                privateSendMaxInputAmount === undefined)
             }
-            if (maxInputAmount === undefined) {
-              return;
+            loading={
+              isPrivateSendNativeToken
+                ? isPrivateSendNativeTokenConfigLoading ||
+                  !isPrivateSendNativeTokenConfigReady
+                : null
             }
-            form.setValue('amount', maxInputAmount, {
-              shouldValidate: true,
-            });
-            setIsMaxSend(!starknetPrivacyKind);
-          }}
-        >
-          {intl.formatMessage({ id: ETranslations.send_max })}
-        </Button>
+            onPress={() => {
+              let maxInputAmount: string | undefined = isUseFiat
+                ? maxBalanceFiat
+                : maxBalance;
+              if (isPrivateSendNativeToken) {
+                maxInputAmount = privateSendMaxInputAmount;
+              }
+              if (maxInputAmount === undefined) {
+                return;
+              }
+              form.setValue('amount', maxInputAmount, {
+                shouldValidate: true,
+              });
+              setIsMaxSend(!starknetPrivacyKind);
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.send_max })}
+          </Button>
+        )}
       </>
     );
   }, [
@@ -5007,6 +5009,7 @@ function SendAmountInputContainer({
     isSendPoolReady,
     isPrivateBalanceUnavailable,
     isPrivateBalanceLoading,
+    isStarknetNativeDeposit,
     starknetPrivacyKind,
     canUseMax,
     isPrivateSendNativeToken,

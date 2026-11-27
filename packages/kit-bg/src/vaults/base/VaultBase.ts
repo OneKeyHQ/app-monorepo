@@ -1006,6 +1006,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
 
+        ...(onChainHistoryTx.protocolFeeInNative !== undefined
+          ? { protocolFeeInNative: onChainHistoryTx.protocolFeeInNative }
+          : {}),
+
         nativeAmount: vaultSettings.isUtxo ? historyValue : undefined,
 
         extraInfo: await this.buildOnChainHistoryTxExtraInfo({
@@ -1701,6 +1705,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   ): Promise<IFetchServerAccountDetailsResponse> {
     throw new NotImplemented();
   }
+
+  /**
+   * Optional non-persistent overlay hook called by `ServiceToken` AFTER public
+   * token data has been persisted to `simpleDb.localTokens`. Used by privacy
+   * chains (e.g. Starknet STRK20) so decrypted private balances only enter the
+   * session-scoped display response and never hit unencrypted disk caches.
+   */
+  overlaySessionTokenListResponse?(
+    response: IFetchServerTokenListResponse,
+    params: IFetchServerTokenListParams,
+  ): Promise<void>;
 
   async fetchTokenList(
     params: IFetchServerTokenListParams,

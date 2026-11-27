@@ -1,3 +1,7 @@
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { strk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import {
   EStrk20ErrorCode,
@@ -17,6 +21,27 @@ import type {
 } from './types';
 
 const PRIVATE_BALANCE_REFRESH_INTERVAL_MS = 60_000;
+
+function hasNonZeroPrivateBalance(byToken: Record<string, string>): boolean {
+  return Object.values(byToken).some(
+    (amount) => amount !== '0' && amount !== '',
+  );
+}
+
+function didPrivateBalancesChange(
+  previous: Record<string, string> | undefined,
+  next: Record<string, string>,
+): boolean {
+  if (!previous) {
+    return hasNonZeroPrivateBalance(next);
+  }
+  const prevKeys = Object.keys(previous);
+  const nextKeys = Object.keys(next);
+  if (prevKeys.length !== nextKeys.length) {
+    return true;
+  }
+  return nextKeys.some((token) => previous[token] !== next[token]);
+}
 
 type IPrivacyBalanceStoreDeps = {
   getGeneration: () => number;
@@ -84,6 +109,42 @@ export class PrivacyBalanceStore {
     return this.readCachedPrivateBalances(p, key);
   }
 
+  /**
+   * Low-cost, non-blocking read for Home token list composition:
+   * - Returns the in-memory cached account-wide snapshot immediately (<1ms).
+   * - Never prompts for password and never waits on network Discovery.
+   * - Triggers a silent background refresh when missing or stale; if balances
+   *   change, `RefreshTokenList` notifies Home to re-merge.
+   */
+  async getHomePrivateBalances(
+    p: IStrk20AccountKey,
+  ): Promise<IPrivateBalanceSnapshot | undefined> {
+    let key: string;
+    try {
+      key = await this.getPrivateBalanceKey(p);
+    } catch {
+      return undefined;
+    }
+    // Pure in-memory read: never await `getAccountPrivacyState` here because
+    // reconciling a pending transfer performs a receipt RPC and would stall Home.
+    const { isLocalWalletPrivacyDisabled } =
+      await import('../../vaults/localWallet/remoteConfig');
+    if (isLocalWalletPrivacyDisabled(p.networkId)) {
+      return undefined;
+    }
+    const cached = this.privateBalances.get(key);
+    if (
+      cached &&
+      Date.now() - cached.lastSyncedAt < PRIVATE_BALANCE_REFRESH_INTERVAL_MS
+    ) {
+      return cached;
+    }
+    void this.refreshPrivateBalances({ ...p, allowPrompt: false }).catch(
+      () => undefined,
+    );
+    return cached;
+  }
+
   private async readCachedPrivateBalances(
     p: IPrivateBalanceQuery,
     key: string,
@@ -140,6 +201,43 @@ export class PrivacyBalanceStore {
         return previous;
       }
       this.privateBalances.set(key, snapshot);
+      if (!p.tokenAddresses?.length) {
+        if (didPrivateBalancesChange(previous?.byToken, snapshot.byToken)) {
+          appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        }
+      } else {
+        // Keep an already-cached account-wide Home snapshot in sync when a
+        // token-scoped refresh (e.g. from TokenDetails) finishes with newer data.
+        const scopePrefix = key.slice(0, key.lastIndexOf('|'));
+        const allTokensKey = `${scopePrefix}|*`;
+        const allSnapshot = this.privateBalances.get(allTokensKey);
+        if (allSnapshot && snapshot.blockNumber >= allSnapshot.blockNumber) {
+          const nextByToken = { ...allSnapshot.byToken };
+          for (const rawToken of p.tokenAddresses) {
+            const normalized = `0x${BigInt(rawToken).toString(16).padStart(64, '0')}`;
+            const updatedAmount = snapshot.byToken[normalized];
+            if (updatedAmount !== undefined) {
+              nextByToken[normalized] = updatedAmount;
+            } else {
+              delete nextByToken[normalized];
+            }
+          }
+          if (didPrivateBalancesChange(allSnapshot.byToken, nextByToken)) {
+            // Keep the account-wide snapshot's blockNumber tied to full reads so
+            // other tokens are not relabeled as fresh at the scoped block height.
+            this.privateBalances.set(allTokensKey, {
+              ...allSnapshot,
+              byToken: nextByToken,
+            });
+            appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+            void this.refreshPrivateBalances({
+              networkId: p.networkId,
+              accountId: p.accountId,
+              allowPrompt: false,
+            }).catch(() => undefined);
+          }
+        }
+      }
       return snapshot;
     });
     this.privateBalanceRequests.set(requestKey, request);

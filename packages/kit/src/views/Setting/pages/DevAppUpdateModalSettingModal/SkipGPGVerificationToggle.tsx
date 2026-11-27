@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   ESwitchSize,
@@ -15,28 +15,43 @@ function SkipGPGVerificationToggle() {
   const [isSkipGpgVerificationAllowed, setIsSkipGpgVerificationAllowed] =
     useState<boolean | null>(null);
 
+  const isMountedRef = useRef(true);
+  const requestSeqRef = useRef(0);
+
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
+    const seq = requestSeqRef.current;
     void Promise.all([
       backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
       BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false),
     ]).then(([skipEnabled, skipAllowed]) => {
-      if (!isMounted) {
+      if (!isMountedRef.current) {
         return;
       }
-      setEnabled(skipEnabled);
+      if (requestSeqRef.current === seq) {
+        setEnabled(skipEnabled);
+      }
       setIsSkipGpgVerificationAllowed(Boolean(skipAllowed));
     });
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
   }, []);
 
   const handleChange = useCallback((value: boolean) => {
+    requestSeqRef.current += 1;
+    const seq = requestSeqRef.current;
     setEnabled(value);
-    void backgroundApiProxy.serviceDevSetting.setSkipBundleGPGVerification(
-      value,
-    );
+    void backgroundApiProxy.serviceDevSetting
+      .setSkipBundleGPGVerification(value)
+      .catch(async () => {
+        const persisted = await backgroundApiProxy.serviceDevSetting
+          .getSkipBundleGPGVerification()
+          .catch(() => !value);
+        if (isMountedRef.current && requestSeqRef.current === seq) {
+          setEnabled(persisted);
+        }
+      });
   }, []);
 
   if (isSkipGpgVerificationAllowed === null) {

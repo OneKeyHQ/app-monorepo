@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { overlayStore } from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
-import { Image, Pressable } from 'react-native';
+import { Image, Platform, Pressable } from 'react-native';
 
 import {
   Button,
@@ -22,8 +22,17 @@ import {
   resolveRepelledAnchorPositions,
 } from '../utils/multiQrSymbols';
 
-import type { IDimensions2D, IMultiQrSymbol } from '../utils/multiQrSymbols';
-import type { ImageStyle, LayoutChangeEvent, ViewStyle } from 'react-native';
+import type {
+  IDimensions2D,
+  IMultiQrSymbol,
+  IPoint2D,
+} from '../utils/multiQrSymbols';
+import type {
+  GestureResponderEvent,
+  ImageStyle,
+  LayoutChangeEvent,
+  ViewStyle,
+} from 'react-native';
 
 const DOT_SIZE = 36;
 const DOT_BRAND_GREEN = '#00B812';
@@ -33,6 +42,7 @@ export type IMultiQrSelectionOverlayProps = {
   symbols: readonly IMultiQrSymbol[];
   onSelect: (symbol: IMultiQrSymbol) => void;
   onCancel: () => void;
+  onRefocus?: (point?: IPoint2D) => void;
   /** Optional picked album image URI rendered behind the overlay in `contain` mode. */
   imageUri?: string;
   /** Natural EXIF-oriented dimensions of `imageUri` for `contain` coordinate mapping. */
@@ -100,6 +110,7 @@ export function MultiQrSelectionOverlay({
   symbols,
   onSelect,
   onCancel,
+  onRefocus,
   imageUri,
   imageSize,
 }: IMultiQrSelectionOverlayProps) {
@@ -161,6 +172,44 @@ export function MultiQrSelectionOverlay({
     );
   }, []);
 
+  const onBackdropPress = (event: GestureResponderEvent) => {
+    if (!onRefocus) {
+      onCancel();
+      return;
+    }
+    const { nativeEvent, currentTarget } = event;
+    let { locationX, locationY } = nativeEvent;
+    let { width, height } = layout;
+    if (Platform.select({ native: false, default: true })) {
+      // React Native Web delivers a DOM click. Keyboard clicks have no position.
+      if (
+        !(nativeEvent instanceof MouseEvent) ||
+        nativeEvent.detail === 0 ||
+        !(currentTarget instanceof HTMLElement)
+      ) {
+        onRefocus();
+        return;
+      }
+      const rect = currentTarget.getBoundingClientRect();
+      ({ width, height } = rect);
+      locationX = nativeEvent.clientX - rect.left;
+      locationY = nativeEvent.clientY - rect.top;
+    }
+    if (
+      width <= 0 ||
+      height <= 0 ||
+      !Number.isFinite(locationX) ||
+      !Number.isFinite(locationY)
+    ) {
+      onRefocus();
+      return;
+    }
+    onRefocus({
+      x: Math.max(0, Math.min(1, locationX / width)),
+      y: Math.max(0, Math.min(1, locationY / height)),
+    });
+  };
+
   const placedAnchors = useMemo(() => {
     if (!visible || layout.width <= 0 || layout.height <= 0) return [];
     const mappedSymbols =
@@ -200,10 +249,12 @@ export function MultiQrSelectionOverlay({
 
       <Pressable
         style={backdropStyle}
-        onPress={onCancel}
+        onPress={onBackdropPress}
         accessibilityRole="button"
         accessibilityLabel={intl.formatMessage({
-          id: ETranslations.global_cancel,
+          id: onRefocus
+            ? ETranslations.global_retry
+            : ETranslations.global_cancel,
         })}
         testID="multi-qr-selection-backdrop"
       />

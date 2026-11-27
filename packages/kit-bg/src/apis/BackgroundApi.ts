@@ -705,10 +705,62 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceStarknetPrivacy(): ILazyServiceProxy<ServiceStarknetPrivacy> {
-    return this.buildLazyService(
-      'serviceStarknetPrivacy',
-      () => import('../services/ServiceStarknetPrivacy'),
-    );
+    let loadedService: ServiceStarknetPrivacy | undefined;
+    let loadingPromise: Promise<ServiceStarknetPrivacy> | undefined;
+    const value = createLazyServiceProxy<
+      ServiceStarknetPrivacy,
+      Pick<
+        ServiceStarknetPrivacy,
+        'clearViewingKeyCache' | 'invalidatePendingAuthorizations'
+      >
+    >({
+      serviceName: 'serviceStarknetPrivacy',
+      loader: () => {
+        loadingPromise = import('../services/ServiceStarknetPrivacy')
+          .then(({ default: Service }) => {
+            const instance = new Service({
+              backgroundApi: this,
+            });
+            loadedService = instance;
+            return instance;
+          })
+          .catch((error: unknown) => {
+            loadingPromise = undefined;
+            throw error;
+          });
+        return loadingPromise;
+      },
+      createImmediateMembers: () => ({
+        // Skip loading the lazy privacy chunk on lock/timeout when the service
+        // was never loaded, while still clearing synchronously once loaded.
+        invalidatePendingAuthorizations: () => {
+          if (loadedService) {
+            loadedService.invalidatePendingAuthorizations();
+            return;
+          }
+          if (loadingPromise) {
+            void loadingPromise.then(
+              (service) => service.invalidatePendingAuthorizations(),
+              () => undefined,
+            );
+          }
+        },
+        clearViewingKeyCache: () => {
+          if (loadedService) {
+            return loadedService.clearViewingKeyCache();
+          }
+          if (loadingPromise) {
+            return loadingPromise.then(
+              (service) => service.clearViewingKeyCache(),
+              () => undefined,
+            );
+          }
+          return Promise.resolve();
+        },
+      }),
+    });
+    Object.defineProperty(this, 'serviceStarknetPrivacy', { value });
+    return value;
   }
 
   get serviceLogger() {

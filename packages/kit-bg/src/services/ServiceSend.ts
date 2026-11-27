@@ -168,14 +168,57 @@ const withSignedTxPayload = (
   if (!encodedTx) {
     return unsignedTx;
   }
+  // Preserve in-memory clear privacy intent (`amount`, `recipient`, `tokenAddress`)
+  // when replaying a persisted broadcast record whose `encodedTx.privacy` was
+  // redacted before writing to disk.
+  let mergedEncodedTx = encodedTx;
+  if (
+    typeof encodedTx === 'object' &&
+    encodedTx !== null &&
+    !Array.isArray(encodedTx) &&
+    typeof unsignedTx.encodedTx === 'object' &&
+    unsignedTx.encodedTx !== null &&
+    !Array.isArray(unsignedTx.encodedTx)
+  ) {
+    const storedPrivacy = (encodedTx as { privacy?: Record<string, unknown> })
+      .privacy;
+    const memoryPrivacy = (
+      unsignedTx.encodedTx as { privacy?: Record<string, unknown> }
+    ).privacy;
+    if (
+      storedPrivacy &&
+      memoryPrivacy &&
+      storedPrivacy.kind === memoryPrivacy.kind &&
+      storedPrivacy.poolAddress === memoryPrivacy.poolAddress
+    ) {
+      mergedEncodedTx = {
+        ...encodedTx,
+        privacy: {
+          ...storedPrivacy,
+          ...(storedPrivacy.tokenAddress === undefined &&
+          memoryPrivacy.tokenAddress !== undefined
+            ? { tokenAddress: memoryPrivacy.tokenAddress }
+            : {}),
+          ...(storedPrivacy.amount === undefined &&
+          memoryPrivacy.amount !== undefined
+            ? { amount: memoryPrivacy.amount }
+            : {}),
+          ...(storedPrivacy.recipient === undefined &&
+          memoryPrivacy.recipient !== undefined
+            ? { recipient: memoryPrivacy.recipient }
+            : {}),
+        },
+      } as IEncodedTx;
+    }
+  }
   const nonce = new BigNumber(
-    (typeof encodedTx === 'object'
-      ? (encodedTx as { nonce?: number | string }).nonce
+    (typeof mergedEncodedTx === 'object'
+      ? (mergedEncodedTx as { nonce?: number | string }).nonce
       : undefined) ?? NaN,
   );
   return {
     ...unsignedTx,
-    encodedTx,
+    encodedTx: mergedEncodedTx,
     ...(nonce.isInteger() ? { nonce: nonce.toNumber() } : {}),
   };
 };
@@ -570,6 +613,38 @@ class ServiceSend extends ServiceBase {
     }
   }
 
+  private redactSignedTxForBroadcastStore(
+    signedTx: ISignedTxPro,
+  ): ISignedTxPro {
+    const rawEncodedTx = signedTx.encodedTx;
+    if (
+      !rawEncodedTx ||
+      typeof rawEncodedTx !== 'object' ||
+      Array.isArray(rawEncodedTx)
+    ) {
+      return signedTx;
+    }
+    const encodedTx = rawEncodedTx as Record<string, unknown> & {
+      privacy?: Record<string, unknown>;
+    };
+    if (!encodedTx.privacy) {
+      return signedTx;
+    }
+    const {
+      amount: _amount,
+      recipient: _recipient,
+      tokenAddress: _tokenAddress,
+      ...publicPrivacy
+    } = encodedTx.privacy;
+    return {
+      ...signedTx,
+      encodedTx: {
+        ...encodedTx,
+        privacy: publicPrivacy,
+      } as IEncodedTx,
+    };
+  }
+
   private async rememberBroadcastAttempt({
     unsignedTx,
     signedTx,
@@ -584,6 +659,7 @@ class ServiceSend extends ServiceBase {
     if (!unsignedTx.uuid) {
       return;
     }
+    const sanitizedSignedTx = this.redactSignedTxForBroadcastStore(signedTx);
     // A payload signed earlier under this uuid stays on record until the
     // chain settles it. Replacing it here would forget a tx that may still
     // land: the chain taking at most one of the two does not say which.
@@ -593,12 +669,12 @@ class ServiceSend extends ServiceBase {
         ? [...(previous.supersededSignedTxs ?? []), previous.signedTx]
         : [],
       (tx) => tx.rawTx,
-    ).filter((tx) => tx.rawTx !== signedTx.rawTx);
+    ).filter((tx) => tx.rawTx !== sanitizedSignedTx.rawTx);
     await this.broadcastRecords.upsertRecord({
       uuid: unsignedTx.uuid,
       networkId,
       accountId,
-      signedTx,
+      signedTx: sanitizedSignedTx,
       attemptedAt: Date.now(),
       isBroadcast: false,
       isSettled: false,
@@ -622,8 +698,9 @@ class ServiceSend extends ServiceBase {
     if (!unsignedTx.uuid) {
       return;
     }
+    const sanitizedSignedTx = this.redactSignedTxForBroadcastStore(signedTx);
     await this.broadcastRecords.updateRecord(unsignedTx.uuid, {
-      signedTx,
+      signedTx: sanitizedSignedTx,
       isBroadcast: true,
       ...(isSettled ? { isSettled: true } : {}),
     });
@@ -1133,11 +1210,21 @@ class ServiceSend extends ServiceBase {
       const { networkId, feeAmount, feeTokenSymbol, encodedTx } = params;
       const privateTx = isStarknetPrivateTransaction(networkId, encodedTx);
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      // Redact address/payload for Starknet privacy txs while supplying the
+      // required schema placeholders so the backend's real fee check runs.
       const resp = await client.post<{
         data: { success: boolean };
       }>(
         '/wallet/v1/account/pre-send-transaction',
-        privateTx ? { networkId, feeTokenSymbol, feeAmount } : params,
+        privateTx
+          ? {
+              networkId,
+              feeTokenSymbol,
+              feeAmount,
+              accountAddress: '0x0',
+              encodedTx: {},
+            }
+          : params,
         privateTx
           ? undefined
           : { headers: await this.getOneKeyIdAuthHeaders() },

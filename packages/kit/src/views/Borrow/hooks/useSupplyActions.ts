@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
@@ -192,6 +193,15 @@ export const useSupplyActions = ({
     async (item: IAssetWithToken) => {
       if (!networkId || !accountId || !walletId) {
         console.warn('Network ID, Account ID, or Wallet ID not defined');
+        return;
+      }
+
+      if (
+        await blockIfWalletLocalSecretEnvelopeUnavailable({
+          walletId,
+          accountId,
+        })
+      ) {
         return;
       }
 

@@ -71,6 +71,10 @@ function readRpcUintOrU256Decimal(result: string[]): string {
   return u256ToDecimalString(...requireU256(result));
 }
 
+const SPEC_VERSION_PROBE_FAILURE_BACKOFF_MS = timerUtils.getTimeDurationMs({
+  seconds: 30,
+});
+
 /**
  * Flat JSON-RPC client for the calls kit-bg needs. Deliberately not starknet.js
  * RpcProvider: that pulls the account/contract/abi stack into the background
@@ -86,6 +90,8 @@ export default class ClientStarknet {
   readonly transport: IStarknetTransport;
 
   private preConfirmedBlockTagCache: Promise<string> | undefined;
+
+  private preConfirmedProbeRetryAfter = 0;
 
   constructor({
     networkId,
@@ -145,28 +151,36 @@ export default class ClientStarknet {
    * working.
    */
   async getPreConfirmedBlockTag(): Promise<string> {
-    if (!this.preConfirmedBlockTagCache) {
-      const pending = this.getSpecVersion()
-        .then((version) => {
-          const [major, minor] = version
-            .split('.')
-            .map((part) => Number.parseInt(part, 10));
-          const isPreConfirmed =
-            major > SPEC_VERSION_PRE_CONFIRMED.major ||
-            (major === SPEC_VERSION_PRE_CONFIRMED.major &&
-              minor >= SPEC_VERSION_PRE_CONFIRMED.minor);
-          return isPreConfirmed ? BLOCK_TAG_PRE_CONFIRMED : BLOCK_TAG_PENDING;
-        })
-        .catch(() => {
-          // Clear the cache on transient failure so subsequent calls retry
-          // spec-version detection once the endpoint recovers.
-          if (this.preConfirmedBlockTagCache === pending) {
-            this.preConfirmedBlockTagCache = undefined;
-          }
-          return BLOCK_TAG_PRE_CONFIRMED;
-        });
-      this.preConfirmedBlockTagCache = pending;
+    if (this.preConfirmedBlockTagCache) {
+      return this.preConfirmedBlockTagCache;
     }
+    if (Date.now() < this.preConfirmedProbeRetryAfter) {
+      return BLOCK_TAG_PRE_CONFIRMED;
+    }
+    const pending = this.getSpecVersion()
+      .then((version) => {
+        const [major, minor] = version
+          .split('.')
+          .map((part) => Number.parseInt(part, 10));
+        const isPreConfirmed =
+          major > SPEC_VERSION_PRE_CONFIRMED.major ||
+          (major === SPEC_VERSION_PRE_CONFIRMED.major &&
+            minor >= SPEC_VERSION_PRE_CONFIRMED.minor);
+        this.preConfirmedProbeRetryAfter = 0;
+        return isPreConfirmed ? BLOCK_TAG_PRE_CONFIRMED : BLOCK_TAG_PENDING;
+      })
+      .catch(() => {
+        // Back off briefly on transient failure so subsequent calls do not
+        // stall on repeated spec-version timeouts before retrying.
+        if (this.preConfirmedBlockTagCache === pending) {
+          this.preConfirmedBlockTagCache = undefined;
+          this.preConfirmedProbeRetryAfter =
+            Date.now() + SPEC_VERSION_PROBE_FAILURE_BACKOFF_MS;
+          void this.getSpecVersion.clear();
+        }
+        return BLOCK_TAG_PRE_CONFIRMED;
+      });
+    this.preConfirmedBlockTagCache = pending;
     return this.preConfirmedBlockTagCache;
   }
 
@@ -201,13 +215,59 @@ export default class ClientStarknet {
     },
   );
 
+  private isRejectedPreConfirmedError(error: unknown): boolean {
+    if (parseRpcErrorCode(error) === EStarknetRpcErrorCode.InvalidParams) {
+      return true;
+    }
+    let msg = '';
+    if (error instanceof Error) {
+      msg = error.message;
+    } else if (typeof error === 'string') {
+      msg = error;
+    }
+    return /pre_confirmed/i.test(msg);
+  }
+
+  private async callWithOpenBlockTag<T>(
+    blockId: IStarknetBlockId | undefined,
+    exec: (resolvedTag: IStarknetBlockId) => Promise<T>,
+  ): Promise<T> {
+    if (blockId !== undefined) {
+      return exec(blockId);
+    }
+    const tag = await this.getPreConfirmedBlockTag();
+    try {
+      return await exec(tag);
+    } catch (error) {
+      if (
+        tag === BLOCK_TAG_PRE_CONFIRMED &&
+        this.isRejectedPreConfirmedError(error)
+      ) {
+        try {
+          const result = await exec(BLOCK_TAG_PENDING);
+          this.preConfirmedBlockTagCache = Promise.resolve(BLOCK_TAG_PENDING);
+          this.preConfirmedProbeRetryAfter = 0;
+          return result;
+        } catch (retryError) {
+          if (!this.isRejectedPreConfirmedError(retryError)) {
+            this.preConfirmedBlockTagCache = Promise.resolve(BLOCK_TAG_PENDING);
+            this.preConfirmedProbeRetryAfter = 0;
+          }
+          throw retryError;
+        }
+      }
+      throw error;
+    }
+  }
+
   /** Next usable nonce, read from the open block so back-to-back sends differ. */
   async getNonce(address: string, blockId?: IStarknetBlockId): Promise<string> {
-    const blockTag = blockId ?? (await this.getPreConfirmedBlockTag());
-    return this.call<string>('starknet_getNonce', [
-      blockTag,
-      sdkStarknet.toFelt(address),
-    ]);
+    return this.callWithOpenBlockTag(blockId, (blockTag) =>
+      this.call<string>('starknet_getNonce', [
+        blockTag,
+        sdkStarknet.toFelt(address),
+      ]),
+    );
   }
 
   /**
@@ -219,12 +279,13 @@ export default class ClientStarknet {
     address: string,
     blockId?: IStarknetBlockId,
   ): Promise<boolean> {
-    const blockTag = blockId ?? (await this.getPreConfirmedBlockTag());
     try {
-      await this.call<string>('starknet_getClassHashAt', [
-        blockTag,
-        sdkStarknet.toFelt(address),
-      ]);
+      await this.callWithOpenBlockTag(blockId, (blockTag) =>
+        this.call<string>('starknet_getClassHashAt', [
+          blockTag,
+          sdkStarknet.toFelt(address),
+        ]),
+      );
       return true;
     } catch (error) {
       if (parseRpcErrorCode(error) === EStarknetRpcErrorCode.ContractNotFound) {

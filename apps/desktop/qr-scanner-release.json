@@ -1,6 +1,6 @@
 {
-  "version": "44.0.2-alpha.2",
-  "sourceCommit": "3a0d39a462cfc312a1d8f89568c20dcdfcb06722",
-  "sourceRef": "refs/heads/main",
-  "inventorySha256": "8f27291fe579328f868965c2b14bfa544880c47ca19df9f12f3d88408a8b3612"
+  "version": "44.0.2-alpha.4",
+  "sourceCommit": "5d2da16d6da8e770f02c03bbf7e69a53bfc4e7e7",
+  "sourceRef": "refs/heads/chore/electron-44-11-5",
+  "inventorySha256": "f9f4ce60064869ac099b47d2507e0bd876e7a5823268f10182e6cc0075d1e4b4"
 }

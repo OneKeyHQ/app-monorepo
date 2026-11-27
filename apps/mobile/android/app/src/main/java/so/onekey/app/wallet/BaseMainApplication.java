@@ -33,6 +33,7 @@ import com.tencent.mmkv.MMKV;
 import cn.jiguang.plugins.push.JPushModule;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
+import com.margelo.nitro.reactnativedeviceutils.DeviceUtilsFirstLaunch;
 import com.margelo.nitro.reactnativedeviceutils.ReactNativeDeviceUtils;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ExpoReactHostFactory;
@@ -493,6 +494,51 @@ public class BaseMainApplication extends Application implements ReactApplication
     }
   }
 
+  private void initializeFirstLaunch() {
+    File filesDir = getFilesDir();
+    File resetMarker = new File(filesDir, ".onekey_first_launch_reset");
+    boolean wasExplicitReset = resetMarker.exists();
+    if (wasExplicitReset) {
+      //noinspection ResultOfMethodCallIgnored
+      resetMarker.delete();
+    }
+
+    if (DeviceUtilsFirstLaunch.hasPersistedState(this)) {
+      DeviceUtilsFirstLaunch.initialize(this);
+      return;
+    }
+
+    if (wasExplicitReset) {
+      DeviceUtilsFirstLaunch.initialize(this, false, null);
+      return;
+    }
+
+    boolean isUpdatedPackage = false;
+    try {
+      android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+      isUpdatedPackage = info.firstInstallTime > 0 && info.lastUpdateTime > info.firstInstallTime;
+    } catch (Exception ignored) {}
+
+    boolean hasV5Realm = new File(filesDir, "OneKeyV5").exists();
+    boolean hasV4Realm = new File(filesDir, "default.realm").exists();
+    boolean hasMmkvSettings = new File(new File(filesDir, "mmkv"), "onekey-app-setting").exists();
+
+    SharedPreferences recoveryPrefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
+    String storedRecoveryVersion = recoveryPrefs.getString(BootRecoveryKeys.BOOT_FAIL_APP_VERSION, "");
+    boolean hasRecoveryVersion = storedRecoveryVersion != null && !storedRecoveryVersion.isEmpty();
+
+    boolean isLegacyInstall = isUpdatedPackage
+      || hasV5Realm
+      || hasV4Realm
+      || hasMmkvSettings
+      || hasRecoveryVersion;
+    DeviceUtilsFirstLaunch.initialize(
+      this,
+      isLegacyInstall,
+      hasRecoveryVersion ? storedRecoveryVersion : null
+    );
+  }
+
   @Override
   public void onCreate() {
     appLaunchMs = System.currentTimeMillis();
@@ -505,6 +551,8 @@ public class BaseMainApplication extends Application implements ReactApplication
     if (!isDefaultMainProcess) {
       return;
     }
+    // Must run before boot-recovery prefs writes and MMKV.initialize.
+    initializeFirstLaunch();
     // Single-process app: every WebView lives here. A future android:process
     // component that hosts a WebView would need its own install() call.
     so.onekey.app.wallet.webview.WebEmbedLocalOrigin.install(this);
