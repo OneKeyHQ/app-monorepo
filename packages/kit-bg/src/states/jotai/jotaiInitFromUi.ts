@@ -77,7 +77,13 @@ export async function jotaiInitFromUi({
   states: Partial<Record<EAtomNames, any>>;
   useSnapshotInjection?: boolean;
 }) {
-  if (EAtomNames.jotaiContextStoreMapAtom in states) {
+  // Native main owns the mounted mirrors' reference counts. A background RPC
+  // snapshot can predate a mount, but still needs to hydrate the render atom below.
+  const isNativeRpcHydration =
+    platformEnv.isNativeMainThread &&
+    platformEnv.enableNativeBackgroundThread &&
+    !useSnapshotInjection;
+  if (!isNativeRpcHydration && EAtomNames.jotaiContextStoreMapAtom in states) {
     await syncJotaiContextStoreMemoMap(
       states[EAtomNames.jotaiContextStoreMapAtom],
     );
