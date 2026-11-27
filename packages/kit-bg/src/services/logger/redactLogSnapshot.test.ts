@@ -27,6 +27,15 @@ describe('redactLogSnapshot', () => {
     expect(output[5]).toBe(lines[5]);
   });
 
+  it('keeps a public transaction id and still redacts a raw key on the same line', async () => {
+    const txid = 'ab'.repeat(32);
+    const line = `transaction => send => rawTxFetchFailed : {"network":"btc--0","txids":["${txid}"],"key":"${PRIVATE_KEY}"}`;
+    const output = await redact(line);
+    expect(output).toContain(txid);
+    expect(output).not.toContain(PRIVATE_KEY);
+    expect(output).toContain('"key":"[REDACTED]"');
+  });
+
   it('matches a secret that crosses a read page boundary', async () => {
     const filler = 'log line\n'.repeat(Math.floor(65_520 / 9));
     const text = `${filler}key=${PRIVATE_KEY}\nnext line\n`;

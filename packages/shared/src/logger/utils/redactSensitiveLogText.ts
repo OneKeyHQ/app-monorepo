@@ -11,16 +11,36 @@ const SENSITIVE_LOG_PATTERNS: RegExp[] = [
 ];
 
 const REDACTED = '[REDACTED]';
+const PUBLIC_TX_ID = '(?:0x)?[0-9a-fA-F]{64}';
+// Public transaction ids share the 64-hex shape of a raw private key. Keep
+// them when they sit in a known transaction field; every other 64-hex value
+// is still redacted.
+const PUBLIC_TX_ID_FIELD = new RegExp(
+  `("(?:txid|txId|txHash|transactionHash|transactionId|txids)"\\s*:\\s*)((?:"${PUBLIC_TX_ID}")|(?:\\[\\s*(?:"${PUBLIC_TX_ID}"\\s*,\\s*)*"${PUBLIC_TX_ID}"\\s*\\]))`,
+  'g',
+);
+
+function redactLine(line: string) {
+  const saved: string[] = [];
+  const shielded = line.replace(PUBLIC_TX_ID_FIELD, (_match, key, value) => {
+    const token = `\u0000TX${saved.length}\u0000`;
+    saved.push(value as string);
+    return `${key as string}${token}`;
+  });
+  const redacted = SENSITIVE_LOG_PATTERNS.reduce(
+    (result, pattern) => result.replace(pattern, REDACTED),
+    shielded,
+  );
+  return saved.reduce(
+    (result, value, index) => result.replace(`\u0000TX${index}\u0000`, value),
+    redacted,
+  );
+}
 
 // Applied line by line so a pattern never spans two log entries.
 export function redactSensitiveLogText(text: string): string {
   return text
     .split('\n')
-    .map((line) =>
-      SENSITIVE_LOG_PATTERNS.reduce(
-        (result, pattern) => result.replace(pattern, REDACTED),
-        line,
-      ),
-    )
+    .map((line) => redactLine(line))
     .join('\n');
 }
