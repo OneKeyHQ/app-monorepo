@@ -48,6 +48,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { downloadLogDigest } from './downloadLogDigest';
 import {
   LOG_UPLOAD_MAX_RETRIES,
+  formatManualExportToastMessage,
   invalidateUploadTokenCacheAfterError,
   isRetryableLogUploadError,
   isUploadTokenReusable,
@@ -184,12 +185,12 @@ function UploadLogsDialogContent({
       void dialog.close();
     } catch (error) {
       setDialogStage('idle');
-      const detail = resolveError(error).message;
+      const detail = formatManualExportToastMessage(resolveError(error));
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.settings_export_logs_failed_title,
         }),
-        message: detail || undefined,
+        message: detail,
       });
     } finally {
       isActiveRef.current = false;

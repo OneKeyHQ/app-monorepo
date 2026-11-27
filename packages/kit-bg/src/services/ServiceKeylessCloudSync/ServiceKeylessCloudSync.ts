@@ -3313,7 +3313,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
       );
       if (!currentCloudSyncKeylessWalletId) {
         if (resetUtils.getIsResetting()) return;
-        await keylessSyncCredentialStorage.removeAllCredentials();
+        try {
+          await keylessSyncCredentialStorage.removeAllCredentials();
+        } catch (error) {
+          if (resetUtils.isResettingError(error)) return;
+          throw error;
+        }
       }
     });
   }
