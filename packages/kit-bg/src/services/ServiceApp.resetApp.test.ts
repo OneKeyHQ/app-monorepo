@@ -886,9 +886,9 @@ describe('ServiceApp.resetApp', () => {
         const log = jest.fn();
         const makeService = () =>
           new ServiceApp({ backgroundApi: {} }) as unknown as {
-            clearOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+            clearRemainingBrowserData: (logger: typeof log) => Promise<void>;
           };
-        await makeService().clearOtherIndexedDBs(log);
+        await makeService().clearRemainingBrowserData(log);
 
         expect(log).toHaveBeenCalledWith(expect.any(String), 'cleared', {
           detail: name,
@@ -919,9 +919,9 @@ describe('ServiceApp.resetApp', () => {
           return clearRequest;
         });
         try {
-          await expect(makeService().clearOtherIndexedDBs(log)).rejects.toThrow(
-            `${name} clear aborted`,
-          );
+          await expect(
+            makeService().clearRemainingBrowserData(log),
+          ).rejects.toThrow(`${name} clear aborted`);
           expect(deletion).not.toHaveBeenCalled();
         } finally {
           clear.mockRestore();
@@ -1450,6 +1450,7 @@ describe('ServiceApp privacy database reset ordering', () => {
       'caches',
     );
     const deleteCache = jest.fn().mockResolvedValue(true);
+    const keys = jest.fn().mockResolvedValue(['static-assets', 'runtime-v2']);
     const wasDesktop = platformEnv.isDesktop;
     const name = 'workbox-expiration';
     const store = 'cache-entries';
@@ -1461,7 +1462,10 @@ describe('ServiceApp privacy database reset ordering', () => {
       open.onsuccess = () => resolve(open.result);
       open.onerror = () => reject(open.error);
     });
-    Object.assign(globalThis, { indexedDB, caches: { delete: deleteCache } });
+    Object.assign(globalThis, {
+      indexedDB,
+      caches: { keys, delete: deleteCache },
+    });
     platformEnv.isDesktop = false;
 
     try {
@@ -1470,11 +1474,13 @@ describe('ServiceApp privacy database reset ordering', () => {
       const service = new ServiceApp({ backgroundApi: {} });
       await (
         service as unknown as {
-          clearOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+          clearRemainingBrowserData: (logger: typeof log) => Promise<void>;
         }
-      ).clearOtherIndexedDBs(log);
+      ).clearRemainingBrowserData(log);
 
+      expect(keys).toHaveBeenCalledTimes(1);
       expect(deleteCache).toHaveBeenCalledWith('static-assets');
+      expect(deleteCache).toHaveBeenCalledWith('runtime-v2');
       expect(log).toHaveBeenCalledWith(
         'workboxExpirationIndexedDB',
         'cleared',
@@ -1500,6 +1506,41 @@ describe('ServiceApp privacy database reset ordering', () => {
       }
       if (cachesDescriptor) {
         Object.defineProperty(globalThis, 'caches', cachesDescriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'caches');
+      }
+    }
+  });
+
+  it('clears all Cache Storage even without a Workbox database', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    const keys = jest.fn().mockResolvedValue(['future-cache', 'another-cache']);
+    const deleteCache = jest.fn().mockResolvedValue(true);
+    Object.assign(globalThis, { caches: { keys, delete: deleteCache } });
+
+    try {
+      const log = jest.fn();
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearRemainingBrowserData: (logger: typeof log) => Promise<void>;
+      };
+      await service.clearRemainingBrowserData(log);
+      expect(deleteCache.mock.calls).toEqual([
+        ['future-cache'],
+        ['another-cache'],
+      ]);
+      expect(log).toHaveBeenCalledWith('cacheStorage', 'cleared');
+
+      deleteCache.mockReset();
+      deleteCache
+        .mockRejectedValueOnce(new Error('blocked'))
+        .mockResolvedValueOnce(true);
+      await expect(service.clearRemainingBrowserData(log)).rejects.toThrow(
+        'Unable to clear browser cache future-cache',
+      );
+      expect(deleteCache).toHaveBeenCalledTimes(2);
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'caches', descriptor);
       } else {
         Reflect.deleteProperty(globalThis, 'caches');
       }

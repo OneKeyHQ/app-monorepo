@@ -86,7 +86,6 @@ const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 const WORKBOX_EXPIRATION_INDEXED_DB_NAME = 'workbox-expiration';
-const WORKBOX_STATIC_ASSETS_CACHE_NAME = 'static-assets';
 
 type IResetStageLogger = (
   stage: string,
@@ -324,7 +323,7 @@ class ServiceApp extends ServiceBase {
         });
         if (!platformEnv.isDesktop) {
           await runCleanup('otherIndexedDBs', () =>
-            this.clearOtherIndexedDBs(log),
+            this.clearRemainingBrowserData(log),
           );
         }
       }
@@ -373,11 +372,13 @@ class ServiceApp extends ServiceBase {
     }
   }
 
-  private async clearOtherIndexedDBs(log: IResetStageLogger) {
+  private async clearRemainingBrowserData(log: IResetStageLogger) {
     const indexedDB = globalThis.indexedDB;
     const databases = (await indexedDB?.databases?.()) ?? [];
-    const results = await Promise.allSettled(
-      databases.map(async ({ name }) => {
+    const cacheCleanup = this.clearBrowserCacheStorage(log);
+    const results = await Promise.allSettled([
+      cacheCleanup,
+      ...databases.map(async ({ name }) => {
         if (!name || name === APP_RESET_CONTROL_NAME) return;
         const stage =
           name === WALLET_CONNECT_INDEXED_DB_NAME
@@ -387,8 +388,9 @@ class ServiceApp extends ServiceBase {
               : 'otherIndexedDBs';
         try {
           if (name === WORKBOX_EXPIRATION_INDEXED_DB_NAME) {
-            // Clear cached assets together with their expiration metadata.
-            await globalThis.caches?.delete(WORKBOX_STATIC_ASSETS_CACHE_NAME);
+            // Don't orphan cached assets by clearing their expiration records
+            // before the Cache Storage sweep has succeeded.
+            await cacheCleanup;
           }
           // Keep the empty schema. An uncancellable delete queued behind a
           // live handle would block new opens after reset.
@@ -403,9 +405,34 @@ class ServiceApp extends ServiceBase {
           throw error;
         }
       }),
-    );
+    ]);
     const failure = results.find((result) => result.status === 'rejected');
     if (failure) throw failure.reason;
+  }
+
+  private async clearBrowserCacheStorage(log: IResetStageLogger) {
+    const { caches } = globalThis;
+    if (!caches) return;
+    try {
+      const names = await caches.keys();
+      const results = await Promise.allSettled(
+        names.map(async (name) => caches.delete(name)),
+      );
+      const failed = results.findIndex(
+        (result) => result.status === 'rejected',
+      );
+      if (failed >= 0) {
+        throw new OneKeyLocalError(
+          `Unable to clear browser cache ${names[failed]}`,
+        );
+      }
+      log('cacheStorage', 'cleared');
+    } catch (error) {
+      log('cacheStorage', 'clear_failed', {
+        detail: this.formatResetErrorDetail(error),
+      });
+      throw error;
+    }
   }
 
   private async markPrivacyResetFailures(
@@ -611,7 +638,7 @@ class ServiceApp extends ServiceBase {
         resetUtils.startResetting();
         const log = this.buildResetLogger(marker);
         await this.runResetStage(log, 'otherIndexedDBs', () =>
-          this.clearOtherIndexedDBs(log),
+          this.clearRemainingBrowserData(log),
         );
         await this.finishAppReset(log);
         resetUtils.endResetting();
