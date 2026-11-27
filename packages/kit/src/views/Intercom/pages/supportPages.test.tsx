@@ -13,6 +13,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -217,13 +218,20 @@ jest.mock('@onekeyhq/components', () => {
     children,
     testID,
     onPress,
-  }: PropsWithChildren<{ testID?: string; onPress?: () => void }>) =>
+    numberOfLines,
+  }: PropsWithChildren<{
+    testID?: string;
+    onPress?: () => void;
+    numberOfLines?: number;
+  }>) =>
     onPress ? (
       <button type="button" data-testid={testID} onClick={onPress}>
         {children}
       </button>
     ) : (
-      <div data-testid={testID}>{children}</div>
+      <div data-testid={testID} data-number-of-lines={numberOfLines}>
+        {children}
+      </div>
     );
   const Button = ({
     children,
@@ -483,6 +491,41 @@ it.each([true, false])(
     await act(async () => finish());
   },
 );
+
+it('keeps each link label in a message on one line', () => {
+  const url = 'https://www.youtube.com/shorts/lqFEoAhMQys';
+  render(
+    <MessagePart
+      part={{
+        id: 'links',
+        createdAt: 0,
+        isAdmin: true,
+        author: 'Support',
+        blocks: [
+          { type: 'paragraph', text: url, links: [{ text: url, url }] },
+          { type: 'link', title: 'Unboxing walkthrough', url },
+          {
+            type: 'attachmentList',
+            attachments: [{ name: 'setup_checklist_v2.pdf', url }],
+          },
+        ],
+        replies: [],
+        hasUnsupportedContent: false,
+      }}
+    />,
+  );
+  for (const [testID, label] of [
+    ['support-inline-link-links', url],
+    ['support-link-links-1', 'Unboxing walkthrough'],
+    ['support-attachment-links', 'setup_checklist_v2.pdf'],
+  ]) {
+    expect(
+      within(screen.getByTestId(testID)).getByText(label).dataset.numberOfLines,
+    ).toBe('1');
+  }
+  fireEvent.click(screen.getByTestId('support-inline-link-links'));
+  expect(openUrlExternal).toHaveBeenLastCalledWith(url);
+});
 
 it.each([false, true])(
   'retains a saved form after GET failure and respects newer local edits=%s on recovery',

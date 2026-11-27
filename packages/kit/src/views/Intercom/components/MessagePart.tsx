@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   Image,
   Input,
   SizableText,
@@ -11,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IIntercomPart } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import dateUtils from '@onekeyhq/shared/src/utils/dateUtils';
@@ -39,6 +41,67 @@ export function MessagePartSkeleton({
       ) : null}
       <Skeleton w={width} h={48} radius={20} flexShrink={1} />
     </XStack>
+  );
+}
+
+// A link or attachment in a bubble, drawn as a tappable gray area. Labels are
+// often bare URLs or file names with nowhere to wrap, so they truncate to one
+// line. The label shrinks instead of taking `flex={1}`: on native a growing
+// label would stretch every bubble that holds a link to its maximum width.
+function MessageLink({
+  testID,
+  icon,
+  label,
+  url,
+  inverse,
+  subdued = false,
+}: {
+  testID: string;
+  icon: IKeyOfIcons;
+  label: string;
+  url: string;
+  // The user's own bubble is drawn in the inverse colors.
+  inverse: boolean;
+  // Inline link text is usually the URL the message already shows, so it is
+  // quieter than a file name or link title.
+  subdued?: boolean;
+}) {
+  let labelColor: ColorTokens = inverse ? '$textInverse' : '$text';
+  if (subdued) {
+    labelColor = inverse ? '$textInverseSubdued' : '$textSubdued';
+  }
+  return (
+    <Button
+      testID={testID}
+      variant="secondary"
+      childrenAsText={false}
+      justifyContent="flex-start"
+      gap="$2"
+      px="$3"
+      py="$2.5"
+      borderRadius="$3"
+      {...(inverse && {
+        bg: '$bgInverseHover',
+        hoverStyle: { bg: '$bgInverseActive' },
+        pressStyle: { bg: '$bgInverseActive' },
+      })}
+      onPress={() => openUrlExternal(url)}
+    >
+      <Icon
+        name={icon}
+        size="$5"
+        color={inverse ? '$textInverseSubdued' : '$iconSubdued'}
+        flexShrink={0}
+      />
+      <SizableText
+        size={subdued ? '$bodyLg' : '$bodyLgMedium'}
+        color={labelColor}
+        numberOfLines={1}
+        flexShrink={1}
+      >
+        {label}
+      </SizableText>
+    </Button>
   );
 }
 
@@ -127,37 +190,43 @@ export function MessagePart({
                 >{`${block.type === 'orderedList' ? `${itemIndex + 1}.` : '•'} ${item}`}</SizableText>
               ))}
               {block.url && block.type !== 'image' ? (
-                <Button
+                <MessageLink
                   testID={`support-link-${part.id}-${index}`}
-                  variant="tertiary"
-                  onPress={() => openUrlExternal(block.url || '')}
-                >
-                  {block.title ||
-                    intl.formatMessage({ id: ETranslations.global_view })}
-                </Button>
+                  icon="LinkOutline"
+                  label={
+                    block.title ||
+                    intl.formatMessage({ id: ETranslations.global_view })
+                  }
+                  url={block.url}
+                  inverse={!part.isAdmin}
+                />
               ) : null}
               {block.attachments?.map((attachment) => (
-                <Button
+                <MessageLink
                   key={attachment.url}
                   testID={`support-attachment-${part.id}`}
                   icon="AttachmentOutline"
-                  variant="tertiary"
-                  onPress={() => openUrlExternal(attachment.url)}
-                >
-                  {attachment.name ||
-                    intl.formatMessage({ id: ETranslations.global_view })}
-                </Button>
+                  label={
+                    attachment.name ||
+                    intl.formatMessage({ id: ETranslations.global_view })
+                  }
+                  url={attachment.url}
+                  inverse={!part.isAdmin}
+                />
               ))}
               {block.links?.map((link) => (
-                <Button
+                <MessageLink
                   key={link.url}
                   testID={`support-inline-link-${part.id}`}
-                  variant="tertiary"
-                  onPress={() => openUrlExternal(link.url)}
-                >
-                  {link.text ||
-                    intl.formatMessage({ id: ETranslations.global_view })}
-                </Button>
+                  icon="LinkOutline"
+                  label={
+                    link.text ||
+                    intl.formatMessage({ id: ETranslations.global_view })
+                  }
+                  url={link.url}
+                  inverse={!part.isAdmin}
+                  subdued
+                />
               ))}
             </YStack>
           ))}
