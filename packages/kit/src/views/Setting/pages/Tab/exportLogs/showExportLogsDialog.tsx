@@ -48,6 +48,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { downloadLogDigest } from './downloadLogDigest';
 import {
   LOG_UPLOAD_MAX_RETRIES,
+  formatManualExportToastMessage,
   invalidateUploadTokenCacheAfterError,
   isRetryableLogUploadError,
   isUploadTokenReusable,
@@ -182,17 +183,19 @@ function UploadLogsDialogContent({
         }),
       });
       void dialog.close();
-    } catch (_error) {
+    } catch (error) {
       setDialogStage('idle');
+      const detail = formatManualExportToastMessage(resolveError(error));
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.settings_export_logs_failed_title,
         }),
+        message: detail,
       });
     } finally {
       isActiveRef.current = false;
     }
-  }, [generateFileBaseName, intl, dialog, exportScope]);
+  }, [generateFileBaseName, intl, dialog, exportScope, resolveError]);
 
   const handleUpload = useCallback(
     async ({ preventClose }: { preventClose: () => void }) => {
