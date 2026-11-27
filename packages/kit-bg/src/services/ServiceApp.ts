@@ -232,9 +232,12 @@ class ServiceApp extends ServiceBase {
   ) {
     const runCleanup = (stage: string, task: () => unknown) =>
       this.runResetCleanup(log, failedStages, stage, task);
-    await this.runOptionalResetCleanup(log, 'logPersistence', () =>
-      this.backgroundApi.serviceLogger.stopPersistenceForReset(),
-    );
+    if (!this.completedResetCleanups.has('logPersistence')) {
+      await this.runOptionalResetCleanup(log, 'logPersistence', async () => {
+        await this.backgroundApi.serviceLogger.stopPersistenceForReset();
+        this.completedResetCleanups.add('logPersistence');
+      });
+    }
 
     // Client-scanned chains keep state in their own databases, outside every store cleared below; failures
     // come back as networks to retry and must not take App Reset down.
@@ -410,8 +413,8 @@ class ServiceApp extends ServiceBase {
             // Give the matching cached assets a chance to be removed first.
             await cacheCleanup;
           }
-          // Keep the empty schema. An uncancellable delete queued behind a
-          // live handle would block new opens after reset.
+          // Keep the empty schema. A queued delete cannot be canceled and
+          // would block new opens while another connection remains active.
           const clear = async () => {
             await IndexedDBPromised.clearDatabaseForReset(indexedDB, name, () =>
               log(stage, 'blocked', { detail: name }),
