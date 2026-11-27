@@ -29,6 +29,10 @@ private struct SwapLocalizedContent<Content: View>: View {
 }
 
 private extension ActivityViewContext where Attributes == SwapLiveActivityAttributes {
+  var isNearCompletion: Bool {
+    state.almostDone == true || attributes.order.nearCompletionDate.timeIntervalSinceNow < 0
+  }
+
   func remoteStatusLabel(strings: SwapLiveActivityStrings?) -> String? {
     if state.isRefundFailed { return strings?.refundFailed ?? "Refund failed" }
     if state.isPartiallyFilled { return strings?.partiallyFilled ?? "Partially filled" }
@@ -104,10 +108,19 @@ private struct SwapActivityETA: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
   let strings: SwapLiveActivityStrings?
   var compact = false
+  var pendingRingLabel: String?
 
   private var status: SwapLiveActivityStatus { context.state.status }
   private var order: SwapLiveActivityOrder { context.attributes.order }
   private var etaLocale: Locale { strings?.locale.map { Locale(identifier: $0) } ?? .current }
+  private var estimatedMinutes: String {
+    let duration = order.estimatedEndAt.timeIntervalSince(order.startedAt)
+    return Int(ceil(duration / 60)).formatted(.number.locale(etaLocale))
+  }
+  private var fullEstimate: String {
+    (strings?.etaTemplate ?? "~{number} min").replacingOccurrences(of: "{number}", with: estimatedMinutes)
+  }
+  private var nearCompletionText: String { strings?.almostDone ?? "~Almost done" }
 
   var body: some View {
     Group {
@@ -134,59 +147,118 @@ private struct SwapActivityETA: View {
 
   @ViewBuilder
   private var pendingETA: some View {
-    if context.attributes.usesRemoteUpdates {
-      if #available(iOSApplicationExtension 18.0, *) {
-        remoteETA
-      }
-    } else if context.state.almostDone == true {
-      Text(strings?.almostDone ?? "~Almost done")
-    } else if let minutes = context.state.etaMinutes {
-      minuteETA(minutes)
-    }
-  }
-
-  @available(iOSApplicationExtension 18.0, *)
-  @ViewBuilder
-  private var remoteETA: some View {
-    let now = Date()
-    let end = order.estimatedEndAt
-    if end.timeIntervalSince(now) < 10 {
-      Text(strings?.almostDone ?? "Almost done")
+    if context.isNearCompletion {
+      nearCompletionLabel
     } else {
-      let format = SystemFormatStyle.Timer(
-        countingDownIn: now..<end,
-        showsHours: false,
-        maxFieldCount: 1,
-        maxPrecision: .seconds(60)
-      ).locale(etaLocale)
-      let timer = Text(.currentDate, format: format)
+      let threshold = order.nearCompletionDate
+      // WidgetKit advances timer progress in its archived view even while the App is suspended.
+      // A nonempty interval shorter than a frame switches the two labels without a visible wipe.
+      let transition = threshold...threshold.addingTimeInterval(0.001)
+      let estimate = initialETA.mask { clockMask(transition, countsDown: true) }
+      let almostDone = nearCompletionLabel.mask { clockMask(transition, countsDown: false) }
       Group {
         if compact {
-          timer
+          // Keep the island at the original ETA or ring width until its next system layout.
+          estimate.overlay { almostDone }
         } else {
-          Text("≈\(timer)")
+          ZStack(alignment: .trailing) {
+            estimate
+            almostDone
+          }
         }
       }
+      // The system advances the masks independently of the archived accessibility tree.
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text(verbatim: pendingRingLabel ?? fullEstimate))
+      .accessibilityValue(Text(order.estimatedEndAt, style: .time))
+      .accessibilityCustomContent(Text(verbatim: nearCompletionText), Text(threshold, style: .time))
       .environment(\.locale, etaLocale)
     }
   }
 
   @ViewBuilder
-  private func minuteETA(_ minutes: Int) -> some View {
-    let number = minutes.formatted(.number.locale(etaLocale))
+  private var initialETA: some View {
+    if let pendingRingLabel {
+      Image("SwapPendingRing").renderingMode(.original).resizable().scaledToFit()
+        .frame(width: 22, height: 22)
+        .accessibilityLabel(Text(pendingRingLabel))
+    } else {
+      minuteETA
+    }
+  }
+
+  private func clockMask(_ interval: ClosedRange<Date>, countsDown: Bool) -> some View {
+    GeometryReader { geometry in
+      ProgressView(timerInterval: interval, countsDown: countsDown) {
+        EmptyView()
+      } currentValueLabel: {
+        EmptyView()
+      }
+      .progressViewStyle(.linear)
+      .tint(.white)
+      // Extend the rounded ends beyond the label and cover both lines of a compact ETA.
+      .frame(width: geometry.size.width + 12, height: 6)
+      .scaleEffect(x: 1, y: 20)
+      .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+    }
+    .background(.black)
+    .compositingGroup()
+    .contrast(15)
+    .luminanceToAlpha()
+    .accessibilityHidden(true)
+  }
+
+  @ViewBuilder
+  private var nearCompletionLabel: some View {
+    let label = nearCompletionText
+    if compact {
+      ViewThatFits(in: .horizontal) {
+        Text(label).fixedSize(horizontal: true, vertical: false)
+        Image(systemName: "hourglass.bottomhalf.filled")
+      }
+      .accessibilityLabel(Text(label))
+    } else {
+      Text(label)
+    }
+  }
+
+  @ViewBuilder
+  private var minuteETA: some View {
+    let number = estimatedMinutes
     if let template = strings?.etaTemplate {
-      let localizedTemplate = template.replacingOccurrences(of: "~", with: compact ? "" : "≈", options: .anchored)
-      Text(localizedTemplate.replacingOccurrences(of: "{number}", with: number))
+      let localizedTemplate = compact ? template.replacingOccurrences(of: "~", with: "", options: .anchored) : template
+      if compact, let range = localizedTemplate.range(of: "{number}") {
+        let prefix = String(localizedTemplate[..<range.lowerBound])
+        let suffix = String(localizedTemplate[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        let value = Text(number).font(.system(size: 13, weight: .heavy))
+        let before = Text(suffix.isEmpty ? prefix.trimmingCharacters(in: .whitespaces) : prefix)
+          .font(.system(size: 11, weight: .regular))
+        let after = Text(suffix).font(.system(size: 11, weight: .regular))
+        Group {
+          if suffix.isEmpty {
+            before + Text("\n") + value
+          } else {
+            before + value + Text("\n") + after
+          }
+        }
+        .lineLimit(2)
+        .multilineTextAlignment(.center)
+        .frame(height: 25)
+        .padding(.trailing, 3)
+      } else {
+        Text(localizedTemplate.replacingOccurrences(of: "{number}", with: number))
+      }
     } else if compact {
       VStack(spacing: -4) {
         Text(number)
           .font(.system(size: 13, weight: .heavy))
         Text("min")
-          .font(.system(size: 9, weight: .regular))
+          .font(.system(size: 11, weight: .regular))
       }
       .frame(height: 25)
+      .padding(.trailing, 3)
     } else {
-      Text("≈\(number) min")
+      Text("~\(number) min")
     }
   }
 }
@@ -367,18 +439,13 @@ private struct SwapCompactStatus: View {
 
   private var strings: SwapLiveActivityStrings? { sharedLabels ?? context.state.strings ?? context.attributes.strings }
 
-  private var showsETA: Bool {
-    guard !context.isStale else { return false }
-    if context.attributes.usesRemoteUpdates, !context.state.status.isError {
-      if #available(iOSApplicationExtension 18.0, *) { return true }
-      return false
-    }
-    return context.state.displayPhase == "eta"
-  }
-
   private var statusLabel: String {
     if let label = context.remoteStatusLabel(strings: strings) { return label }
-    if sharedLabels == nil, let message = context.state.remoteMessage { return message }
+    if sharedLabels == nil, let message = context.state.remoteMessage {
+      // The sender may have localized its success message using an older order language.
+      if context.state.status == .done { return strings?.done ?? message }
+      return message
+    }
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
@@ -399,8 +466,10 @@ private struct SwapCompactStatus: View {
         .renderingMode(.original).resizable().scaledToFit()
         .frame(width: 22, height: 22)
         .accessibilityLabel(Text(statusLabel))
-    } else if showsETA {
-      SwapActivityETA(context: context, strings: strings, compact: true)
+    } else if !context.isStale && (!context.state.status.isError || context.state.displayPhase == "eta") {
+      let showsLocalRing = !context.attributes.usesRemoteUpdates && context.state.displayPhase != "eta"
+      SwapActivityETA(context: context, strings: strings, compact: true,
+                      pendingRingLabel: showsLocalRing ? statusLabel : nil)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")
       .renderingMode(.original).resizable().scaledToFit()
