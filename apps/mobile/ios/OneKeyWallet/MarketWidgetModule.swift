@@ -278,7 +278,7 @@ final class MarketWidgetModule: NSObject {
             catch { MarketWidgetDiagnostics.event("instance.reconciliation_failed", error: error) }
           }
           let widgets = try await installedMarketWidgets()
-          let assets = try MarketWidgetQuoteReloader.assetsForForegroundRefresh(configurations: widgets, store: store)
+          let assets = MarketWidgetQuoteReloader.assetsForForegroundRefresh(configurations: widgets, store: store)
           guard !assets.isEmpty, let configuration = store.configuration().configuration,
                 configuration.privacyMasked != true else { return }
           await MarketWidgetService.shared.refreshPrices(assets: assets, locale: configuration.locale)

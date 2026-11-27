@@ -130,11 +130,12 @@ final class MarketWidgetQuoteReloader {
   }
 
   nonisolated static func assetsForForegroundRefresh<C: MarketWidgetQuoteConfiguration>(configurations: [C],
-    store: MarketWidgetStore) throws -> [MarketWidgetAsset] {
-    try configurations.flatMap { info in
+    store: MarketWidgetStore) -> [MarketWidgetAsset] {
+    configurations.flatMap { info in
       let assets = selectedAssets(for: info, store: store)
       if info.kind.hasPrefix("OneKeyMarketLockScreen"), !assets.isEmpty {
-        try store.rememberLockScreenAssets(assets)
+        do { try store.rememberLockScreenAssets(assets) }
+        catch { MarketWidgetDiagnostics.event("quote.lock_screen_registration_failed", error: error) }
       }
       return assets
     }

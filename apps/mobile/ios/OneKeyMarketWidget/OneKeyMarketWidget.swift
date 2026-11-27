@@ -314,12 +314,11 @@ struct MarketWidgetView: View {
         VStack(alignment: .trailing, spacing: 0) {
           Text(price(row.quote?.price)).font(.system(size: 14, weight: .medium))
             .monospacedDigit().lineLimit(1).minimumScaleFactor(0.65)
-          HStack(spacing: 3) {
-            if row.cacheDate(at: entry.date) != nil || row.quote == nil {
-              quoteStatus(row, size: 9)
-            } else {
-              change(row.quote?.change24h, size: 12, isStock: asset.kind == .stock)
-            }
+          if row.quote != nil {
+            change(row.quote?.change24h, size: 12, isStock: asset.kind == .stock)
+          }
+          if row.cacheDate(at: entry.date) != nil || row.quote == nil {
+            quoteStatus(row, size: 9)
           }
         }
         .padding(.trailing, 1)
