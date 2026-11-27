@@ -63,9 +63,34 @@ jest.mock('../../utils/deepLinkLaunchUtils', () => {
 });
 
 describe('PrimeDashboardLandingPage', () => {
+  let visibilityState: DocumentVisibilityState = 'visible';
+
+  function setVisibility(state: DocumentVisibilityState) {
+    visibilityState = state;
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+  }
+
+  function queryFallbackButton() {
+    return screen.queryByTestId(HomeTestIDs.primeDashboardOpenAppFallbackBtn);
+  }
+
+  beforeAll(() => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => visibilityState,
+    });
+  });
+
+  afterAll(() => {
+    delete (document as { visibilityState?: unknown }).visibilityState;
+  });
+
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    visibilityState = 'visible';
   });
 
   afterEach(() => {
@@ -107,6 +132,80 @@ describe('PrimeDashboardLandingPage', () => {
     unmount();
     jest.advanceTimersByTime(5000);
     expect(mockOpenAppViaDeepLink).not.toHaveBeenCalled();
+  });
+
+  it('offers the controls when the reader returns from the opened app', async () => {
+    render(<PrimeDashboardLandingPage />);
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+    expect(mockOpenAppViaDeepLink).toHaveBeenCalledTimes(1);
+
+    // The app (possibly an older build that ignores the path) takes over.
+    setVisibility('hidden');
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(queryFallbackButton()).toBeNull();
+
+    setVisibility('visible');
+    expect(queryFallbackButton()).not.toBeNull();
+    // The automatic launch stays one-shot.
+    expect(mockOpenAppViaDeepLink).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers the controls when a background tab is brought forward', async () => {
+    visibilityState = 'hidden';
+    render(<PrimeDashboardLandingPage />);
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(mockOpenAppViaDeepLink).toHaveBeenCalledTimes(1);
+    expect(queryFallbackButton()).toBeNull();
+
+    setVisibility('visible');
+    expect(queryFallbackButton()).not.toBeNull();
+  });
+
+  it('keeps the loading state when the reader returns before the launch', async () => {
+    render(<PrimeDashboardLandingPage />);
+    setVisibility('hidden');
+    setVisibility('visible');
+    expect(queryFallbackButton()).toBeNull();
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+    expect(mockOpenAppViaDeepLink).toHaveBeenCalledTimes(1);
+    expect(queryFallbackButton()).toBeNull();
+  });
+
+  it('removes its return listeners on unmount', () => {
+    const removeDocumentListener = jest.spyOn(document, 'removeEventListener');
+    const removeWindowListener = jest.spyOn(
+      globalThis as unknown as Window,
+      'removeEventListener',
+    );
+    try {
+      const { unmount } = render(<PrimeDashboardLandingPage />);
+      unmount();
+
+      expect(removeDocumentListener).toHaveBeenCalledWith(
+        'visibilitychange',
+        expect.any(Function),
+      );
+      expect(removeWindowListener).toHaveBeenCalledWith(
+        'pageshow',
+        expect.any(Function),
+      );
+    } finally {
+      removeDocumentListener.mockRestore();
+      removeWindowListener.mockRestore();
+    }
   });
 
   it('opens the app even when the extension provider is present', async () => {

@@ -31,18 +31,40 @@ function PrimeDashboardLandingPage() {
       return undefined;
     }
 
+    const showFallback = () => setIsFallbackVisible(true);
+    let didAttemptOpen = false;
     let fallbackCleanup: (() => void) | undefined;
     const autoOpenTimerId = setTimeout(() => {
+      didAttemptOpen = true;
       fallbackCleanup = scheduleDeepLinkFallbackHint({
         delay: PRIME_DASHBOARD_DEEP_LINK_FALLBACK_DELAY_MS,
-        onFallback: () => setIsFallbackVisible(true),
+        onFallback: showFallback,
       });
       openAppViaDeepLink(PRIME_DASHBOARD_DEEP_LINK);
     }, AUTO_OPEN_DELAY_MS);
 
+    // The hint stops once the page is hidden (app opened, tab switched or
+    // opened in the background). An older app can open and ignore this path,
+    // so offer the controls when the reader returns; never relaunch on its own.
+    const showFallbackOnReturn = () => {
+      if (didAttemptOpen && globalThis.document.visibilityState === 'visible') {
+        showFallback();
+      }
+    };
+    globalThis.document?.addEventListener(
+      'visibilitychange',
+      showFallbackOnReturn,
+    );
+    globalThis.addEventListener?.('pageshow', showFallbackOnReturn);
+
     return () => {
       clearTimeout(autoOpenTimerId);
       fallbackCleanup?.();
+      globalThis.document?.removeEventListener(
+        'visibilitychange',
+        showFallbackOnReturn,
+      );
+      globalThis.removeEventListener?.('pageshow', showFallbackOnReturn);
     };
   }, []);
 
