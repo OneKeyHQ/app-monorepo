@@ -11,9 +11,6 @@ on:
       - ready_for_review
       - labeled
       - unlabeled
-  pull_request_review:
-    types:
-      - submitted
 
 permissions:
   contents: read
@@ -116,7 +113,8 @@ jobs:
           script: |
             const fs = require('fs');
             const marker = '<!-- onekey-pr-review-bloat-gate -->';
-            const prNumber = context.payload.pull_request.number;
+            const pullRequest = context.payload.pull_request;
+            const prNumber = pullRequest.number;
             const { owner, repo } = context.repo;
 
             let existing = null;
@@ -138,6 +136,15 @@ jobs:
 
             const upsertComment = async (body) => {
               try {
+                const { data: currentPr } = await github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                });
+                if (currentPr.head.sha !== pullRequest.head.sha) {
+                  core.info('Skipping PR comment because the head commit changed.');
+                  return;
+                }
                 if (existing) {
                   await github.rest.issues.updateComment({
                     owner,
