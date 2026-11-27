@@ -113,7 +113,6 @@ export async function buildStrk20UnsignedTx(params: {
       };
   transfers: PrivateTransfersInterface;
   provingBlockId: number;
-  protocolFee?: string;
   assertSession: () => void;
 }): Promise<{ unsignedTx: IUnsignedTxPro; warnings: IStrk20Warning[] }> {
   const {
@@ -157,9 +156,10 @@ export async function buildStrk20UnsignedTx(params: {
     warnings = [],
   } = await transfers.executeWithInvocation(invocation, params.provingBlockId);
   params.assertSession();
-  const protocolFee =
-    params.protocolFee ??
-    (await params.client.getPoolFeeAmount(params.poolAddress));
+  // Always refresh the live pool fee after proving so a fee increase during
+  // proving cannot leave STRK.approve or confirmation metadata stale.
+  const protocolFee = await params.client.getPoolFeeAmount(params.poolAddress);
+  params.assertSession();
   // Depositing STRK needs one allowance covering the fee AND the deposit, and
   // approve overwrites rather than adds, so the two are summed here.
   const depositsStrk =

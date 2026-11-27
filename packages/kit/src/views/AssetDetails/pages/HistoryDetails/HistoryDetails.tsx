@@ -42,6 +42,7 @@ import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Bro
 import {
   formatMockMessage,
   getStarknetHistoryOperationTitle,
+  readStarknetPrivacyBlock,
 } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import {
   isPrivateSendHistoryTx,
@@ -579,7 +580,9 @@ function HistoryDetails() {
       swrKey: txid
         ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
         : undefined,
-      swrShouldPersist: () => !isLocalWalletHistory,
+      swrShouldPersist: () =>
+        !isLocalWalletHistory &&
+        !readStarknetPrivacyBlock(historyTxParam?.decodedTx.extraInfo),
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
