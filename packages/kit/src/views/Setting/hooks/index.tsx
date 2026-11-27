@@ -102,11 +102,17 @@ export function useResetApp(
           await doReset();
         } catch (error) {
           preventClose();
+          let message: string | undefined;
+          if (error instanceof Error) {
+            message = error.message;
+          } else if (error !== null && error !== undefined) {
+            message = String(error);
+          }
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.global_an_error_occurred,
             }),
-            message: error instanceof Error ? error.message : undefined,
+            message,
           });
         }
       },
