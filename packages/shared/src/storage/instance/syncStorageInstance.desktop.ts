@@ -46,7 +46,20 @@ function ipc(
     }
     return undefined;
   }
-  return bridge({ method, id, key, value });
+  const result = bridge({ method, id, key, value });
+  if (
+    result &&
+    typeof result === 'object' &&
+    (result as { __onekeyMmkvSyncError?: unknown }).__onekeyMmkvSyncError ===
+      true
+  ) {
+    const message =
+      typeof (result as { message?: unknown }).message === 'string'
+        ? (result as { message: string }).message
+        : `Desktop MMKV ${method} failed`;
+    throw new OneKeyLocalError(message);
+  }
+  return result;
 }
 
 function createDesktopSyncStorage({

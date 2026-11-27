@@ -403,7 +403,7 @@ describe('OneKey ID environment switching', () => {
         Boolean(
           mockSettings.enabled && mockSettings.settings?.enableTestEndpoint,
         ),
-      ).toBe(!wasTest);
+      ).toBe(transition === 'disable-dev' ? wasTest : !wasTest);
       const staleLoginCommit = jest.fn();
       await expect(
         identityLifecycleMutex.runExclusive(staleLoginCommit),
