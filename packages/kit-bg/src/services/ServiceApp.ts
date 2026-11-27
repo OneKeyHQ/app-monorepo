@@ -91,6 +91,17 @@ type IResetStageLogger = (
   details?: { elapsedMs?: number; deadlineMs?: number },
 ) => void;
 
+const resetStageErrorDetails = new WeakMap<Error, string>();
+
+function createResetStageError(
+  message: string,
+  stageDetail: string,
+): OneKeyLocalError {
+  const error = new OneKeyLocalError(message);
+  resetStageErrorDetails.set(error, stageDetail);
+  return error;
+}
+
 type IExtensionPrimeWebCheckoutParams = Pick<
   IPrimeWebCheckoutPendingSession,
   'onekeyUserId' | 'checkoutId'
@@ -477,8 +488,11 @@ class ServiceApp extends ServiceBase {
   }
 
   private formatResetErrorDetail(error: unknown): string {
+    if (error instanceof Error && resetStageErrorDetails.has(error)) {
+      return resetStageErrorDetails.get(error) ?? '';
+    }
     if (error instanceof Error) {
-      const message = error.message?.trim();
+      const message = error.message?.trim().replace(/\.+$/, '');
       const name = error.name?.trim();
       if (
         name &&
@@ -491,7 +505,9 @@ class ServiceApp extends ServiceBase {
       }
       return message || name || '';
     }
-    return error === null || error === undefined ? '' : String(error).trim();
+    return error === null || error === undefined
+      ? ''
+      : String(error).trim().replace(/\.+$/, '');
   }
 
   private async runResetStage<T>(
@@ -527,8 +543,9 @@ class ServiceApp extends ServiceBase {
               deadlineMs,
             });
             reject(
-              new OneKeyLocalError(
+              createResetStageError(
                 `App reset timed out at ${stage}. Retry Reset App.`,
+                'timed out',
               ),
             );
           }, deadlineMs);
@@ -540,10 +557,11 @@ class ServiceApp extends ServiceBase {
       log(stage, 'failed', { elapsedMs: Date.now() - start, deadlineMs });
       if (error instanceof RecoveryCacheErasureError || timedOut) throw error;
       const detail = this.formatResetErrorDetail(error);
-      throw new OneKeyLocalError(
+      throw createResetStageError(
         detail
           ? `App reset could not complete ${stage}: ${detail}. Retry Reset App.`
           : `App reset could not complete ${stage}. Retry Reset App.`,
+        detail,
       );
     } finally {
       clearTimeout(timer);

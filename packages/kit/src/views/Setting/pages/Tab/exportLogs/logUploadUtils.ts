@@ -242,8 +242,25 @@ export async function withLogUploadTimeout<T>(
   }
 }
 
+const QUOTED_FILESYSTEM_PATH_PATTERN =
+  /(['"`])(?:[A-Za-z]:\\|\\\\[^\\'"`\s]+\\|\/(?:Users|home|var|private|tmp|etc|opt|Library|Volumes|mnt|AppData|ProgramData)\/)[^'"`]*\1/g;
+
 const FILESYSTEM_PATH_PATTERN =
-  /['"`]?(?:[A-Za-z]:\\|\/(?:Users|home|var|private|tmp|etc|opt|Library|AppData|ProgramData)\/)[^\s'"`,;)]*['"`]?/g;
+  /(?:[A-Za-z]:\\|\\\\[^\\'"`\s]+\\|\/(?:Users|home|var|private|tmp|etc|opt|Library|Volumes|mnt|AppData|ProgramData)\/)[^\s'"`,;)]*/g;
+
+const MANUAL_EXPORT_ERRNO_MESSAGES: Record<string, string> = {
+  EACCES: 'Permission denied while exporting logs.',
+  EPERM: 'Permission denied while exporting logs.',
+  ENOSPC: 'Not enough disk space to export logs.',
+  ENOENT: 'Log directory or file was not found.',
+  EROFS: 'Export destination is read-only.',
+  EBUSY: 'Log file is busy or temporarily unavailable.',
+  EMFILE: 'Log file is busy or temporarily unavailable.',
+  ENFILE: 'Log file is busy or temporarily unavailable.',
+};
+
+const ERRNO_TOKEN_PATTERN =
+  /(?:^|:\s*)(EACCES|EPERM|ENOSPC|ENOENT|EROFS|EBUSY|EMFILE|ENFILE)\b/i;
 
 /**
  * Formats a manual log export failure into a short, path-free toast message
@@ -257,52 +274,39 @@ export function formatManualExportToastMessage(
   if (!raw) return undefined;
 
   const code = (error as { code?: unknown }).code;
-  const codeStr = typeof code === 'string' ? code.toUpperCase() : '';
-  const upper = raw.toUpperCase();
-
-  if (
-    codeStr === 'EACCES' ||
-    codeStr === 'EPERM' ||
-    upper.includes('EACCES') ||
-    upper.includes('EPERM') ||
-    upper.includes('PERMISSION DENIED')
-  ) {
-    return 'Permission denied while exporting logs.';
-  }
-  if (
-    codeStr === 'ENOSPC' ||
-    upper.includes('ENOSPC') ||
-    upper.includes('NO SPACE LEFT')
-  ) {
-    return 'Not enough disk space to export logs.';
-  }
-  if (
-    codeStr === 'ENOENT' ||
-    upper.includes('ENOENT') ||
-    upper.includes('NO SUCH FILE OR DIRECTORY')
-  ) {
-    return 'Log directory or file was not found.';
-  }
-  if (
-    codeStr === 'EROFS' ||
-    upper.includes('EROFS') ||
-    upper.includes('READ-ONLY FILE SYSTEM')
-  ) {
-    return 'Export destination is read-only.';
-  }
-  if (
-    codeStr === 'EBUSY' ||
-    codeStr === 'EMFILE' ||
-    codeStr === 'ENFILE' ||
-    upper.includes('EBUSY') ||
-    upper.includes('EMFILE') ||
-    upper.includes('ENFILE')
-  ) {
-    return 'Log file is busy or temporarily unavailable.';
+  const codeStr = typeof code === 'string' ? code.trim().toUpperCase() : '';
+  if (codeStr && MANUAL_EXPORT_ERRNO_MESSAGES[codeStr]) {
+    return MANUAL_EXPORT_ERRNO_MESSAGES[codeStr];
   }
 
-  const sanitized = raw
-    .replace(FILESYSTEM_PATH_PATTERN, '<path>')
+  // Redact paths before classifying by message text so directory or user names
+  // containing an errno substring cannot trigger false errno/phrase matches.
+  const pathRedacted = raw
+    .replace(QUOTED_FILESYSTEM_PATH_PATTERN, '<path>')
+    .replace(FILESYSTEM_PATH_PATTERN, '<path>');
+
+  const parsedErrno = pathRedacted
+    .match(ERRNO_TOKEN_PATTERN)?.[1]
+    ?.toUpperCase();
+  if (parsedErrno && MANUAL_EXPORT_ERRNO_MESSAGES[parsedErrno]) {
+    return MANUAL_EXPORT_ERRNO_MESSAGES[parsedErrno];
+  }
+
+  const upper = pathRedacted.toUpperCase();
+  if (upper.includes('PERMISSION DENIED')) {
+    return MANUAL_EXPORT_ERRNO_MESSAGES.EACCES;
+  }
+  if (upper.includes('NO SPACE LEFT')) {
+    return MANUAL_EXPORT_ERRNO_MESSAGES.ENOSPC;
+  }
+  if (upper.includes('NO SUCH FILE OR DIRECTORY')) {
+    return MANUAL_EXPORT_ERRNO_MESSAGES.ENOENT;
+  }
+  if (upper.includes('READ-ONLY FILE SYSTEM')) {
+    return MANUAL_EXPORT_ERRNO_MESSAGES.EROFS;
+  }
+
+  const sanitized = pathRedacted
     .replaceAll('{', '(')
     .replaceAll('}', ')')
     .trim();
