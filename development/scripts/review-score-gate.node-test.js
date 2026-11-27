@@ -485,15 +485,16 @@ test('handles gh pr view number field, auto-corrects mismatched feature characte
     prContext,
   );
 
-  // 1. prContext.number wins and mismatch is recorded
+  // 1. prContext.number wins, mismatch is recorded, and inline publish is demoted to summaryOnly (never post stale/wrong-PR inline comments)
   assert.equal(result.prNumber, 15_004);
   assert.ok(result.gateErrors.some((e) => e.code === 'E_CONTEXT_MISMATCH'));
   // 2. Characterization auto-corrects from 'revert' to 'core_feature'
   assert.equal(result.characterizationCheck.effectiveType, 'core_feature');
-  // 3. Proven imperative 'Verify ...' P0 is NOT dropped as speculative and NOT hijacked by empty existing thread
-  assert.equal(result.counts.published, 1);
-  assert.equal(result.published[0].publishAction, 'NEW_THREAD');
-  assert.equal(result.published[0].duplicateOfThreadId, null);
+  // 3. Proven imperative 'Verify ...' P0 is NOT dropped as speculative, NOT hijacked by empty existing thread, and still blocks verdict
+  assert.equal(result.counts.published, 0);
+  assert.equal(result.counts.summaryOnly, 1);
+  assert.equal(result.summaryOnly[0].publishAction, 'NEW_THREAD');
+  assert.equal(result.summaryOnly[0].duplicateOfThreadId, null);
   assert.equal(result.verdict, 'REQUEST_CHANGES');
 });
 
@@ -1054,4 +1055,243 @@ test('addresses unresolved PR review threads: exact confidence, proven Check-tha
     ),
   );
   assert.ok(md.includes('Handle raw \\\\\\| pipe escape safely'));
+});
+
+test('hardens stale-SHA publish guard, LEFT-without-anchor safety, pre-existing P0 isolation, line-based fence recovery, docs cross-platform PRs, file-level/emptied-file diff evidence, and strict empty context', () => {
+  // 1. Fence scanner handles preceding ```bash block with {braces} AND indented list ```json fence
+  const bashBeforeJson = [
+    'Before:',
+    '```bash',
+    'echo {status}',
+    '```',
+    '- Result:',
+    '  ```json',
+    '  {"prNumber": 15030, "findings": []}',
+    '  ```',
+  ].join('\n');
+  const parsedFence = parseReviewDraftSafely(bashBeforeJson);
+  assert.equal(parsedFence.ok, true);
+  assert.equal(parsedFence.recoveredFromFence, true);
+  assert.equal(parsedFence.draft.prNumber, 15_030);
+
+  // 2. Docs-only PR mentioning cross-platform keeps 'general' valid
+  const docsObserved = extractObservedProfile({
+    number: 15_031,
+    headRefOid: 'sha_docs',
+    title: 'docs: update cross-platform setup guide',
+    files: ['docs/cross-platform-guide.md'],
+  });
+  assert.equal(docsObserved.hasCrossPlatformSignals, false);
+  assert.ok(docsObserved.expectedTypes.includes('general'));
+
+  // 3. Combined diff: surviving file + emptied file (pure deletion hunk without /dev/null)
+  const diff = [
+    'diff --git a/packages/kit/src/shared/auth.ts b/packages/kit/src/shared/auth.ts',
+    '--- a/packages/kit/src/shared/auth.ts',
+    '+++ b/packages/kit/src/shared/auth.ts',
+    '@@ -10,4 +10,3 @@',
+    ' const a = 1;',
+    '-verifyOrigin(req);',
+    ' const b = 2;',
+    ' const c = 3;',
+    'diff --git a/packages/kit/src/shared/emptied.ts b/packages/kit/src/shared/emptied.ts',
+    '--- a/packages/kit/src/shared/emptied.ts',
+    '+++ b/packages/kit/src/shared/emptied.ts',
+    '@@ -1,3 +0,0 @@',
+    '-export const mustExist = 1;',
+    '-export const mustExist2 = 2;',
+    '-export const mustExist3 = 3;',
+  ].join('\n');
+
+  // 3a. LEFT finding without explicit anchorLine cannot attach to RIGHT hunk; pre-existing P0 cannot block;
+  //     file-level (line: null) & emptied-file findings get diff credit without pre_existing penalty
+  const evalResult = evaluateReview(
+    {
+      prNumber: 15_032,
+      headSha: 'sha_15032',
+      characterization: {
+        type: 'targeted_bugfix',
+        summary: 'Update auth and clean emptied helper',
+        focusAreas: ['security', 'crash'],
+      },
+      findings: [
+        {
+          severity: 'P0',
+          confidence: 'high',
+          category: 'security',
+          file: 'packages/kit/src/shared/auth.ts',
+          line: 11,
+          side: 'LEFT',
+          // no anchorLine -> must NOT attach to surviving RIGHT line 11
+          title: 'Restoring removed verifyOrigin check',
+          problem: 'Origin check was removed at base line 11.',
+          autoFix: 'verifyOrigin(req);',
+          evidence: { executionPath: 'sign() bypasses origin guard' },
+        },
+        {
+          severity: 'P1',
+          confidence: 'high',
+          category: 'data_corruption',
+          file: 'packages/kit/src/shared/auth.ts',
+          line: null,
+          title: 'File-level auth state corruption',
+          problem: 'Module-wide cache is not cleared on logout.',
+          evidence: { executionPath: 'logout() leaves module cache populated' },
+        },
+        {
+          severity: 'P1',
+          confidence: 'high',
+          category: 'crash',
+          file: 'packages/kit/src/shared/emptied.ts',
+          line: 1,
+          // omits side:'LEFT' on emptied file with 0 right hunks
+          title: 'Emptied module still imported by boot loader',
+          problem: 'Boot loader crashes reading undefined export.',
+          evidence: { executionPath: 'boot() reads mustExist from emptied.ts' },
+        },
+      ],
+    },
+    {
+      number: 15_032,
+      headRefOid: 'sha_15032',
+      title: 'fix: update auth guard',
+      files: [
+        'packages/kit/src/shared/auth.ts',
+        'packages/kit/src/shared/emptied.ts',
+      ],
+      diffText: diff,
+    },
+    { mode: 'soft' },
+  );
+
+  // LEFT finding without explicit anchorLine stays in summaryOnly (hasValidInlineAnchor = false)
+  assert.equal(evalResult.counts.published, 0);
+  assert.equal(evalResult.counts.summaryOnly, 3);
+  const leftFinding = evalResult.summaryOnly.find(
+    (f) => f.title === 'Restoring removed verifyOrigin check',
+  );
+  assert.equal(leftFinding.scoreBreakdown.hasValidInlineAnchor, false);
+  const fileLevelFinding = evalResult.summaryOnly.find((f) => f.line === null);
+  assert.ok(
+    fileLevelFinding.scoreBreakdown.evidenceNotes.includes('in_diff_file(+15)'),
+  );
+  const emptiedFinding = evalResult.summaryOnly.find(
+    (f) => f.file === 'packages/kit/src/shared/emptied.ts',
+  );
+  assert.ok(
+    emptiedFinding.scoreBreakdown.evidenceNotes.includes(
+      'in_deletion_diff(+15)',
+    ),
+  );
+
+  // 3b. Explicitly pre-existing P0 must NOT trigger safety valve or REQUEST_CHANGES
+  const preExistingResult = evaluateReview(
+    {
+      prNumber: 15_033,
+      headSha: 'sha_15033',
+      characterization: {
+        type: 'revert',
+        summary: 'Revert unrelated toast',
+        focusAreas: ['revert'],
+      },
+      findings: [
+        {
+          severity: 'P0',
+          confidence: 'low',
+          category: 'security',
+          file: 'packages/kit/src/shared/auth.ts',
+          line: 99,
+          isPreExisting: true,
+          title: 'Pre-existing legacy auth issue',
+          problem: 'Untouched legacy function lacks check.',
+          evidence: {},
+        },
+      ],
+    },
+    {
+      number: 15_033,
+      headRefOid: 'sha_15033',
+      title: 'revert: toast change',
+      files: ['packages/kit/src/shared/auth.ts'],
+      diffText: diff,
+    },
+    { mode: 'soft' },
+  );
+  assert.equal(preExistingResult.counts.dropped, 1);
+  assert.equal(
+    preExistingResult.dropped[0].scoreBreakdown.safetyValveApplied,
+    false,
+  );
+  assert.equal(preExistingResult.verdict, 'APPROVE');
+
+  // 3c. Stale headSha draft must NOT emit inline publishPayload.comments
+  const staleResult = evaluateReview(
+    {
+      prNumber: 15_034,
+      headSha: 'old_sha_111',
+      characterization: {
+        type: 'targeted_bugfix',
+        summary: 'Fix auth',
+        focusAreas: ['security'],
+      },
+      findings: [
+        {
+          severity: 'P0',
+          confidence: 'high',
+          category: 'security',
+          file: 'packages/kit/src/shared/auth.ts',
+          line: 10,
+          title: 'Stale finding on old commit',
+          problem: 'Would attach to wrong commit if published.',
+          evidence: { inDiff: true, executionPath: 'concrete path' },
+        },
+      ],
+    },
+    {
+      number: 15_034,
+      headRefOid: 'new_sha_222',
+      title: 'fix: auth',
+      files: ['packages/kit/src/shared/auth.ts'],
+      diffText: diff,
+    },
+    { mode: 'soft' },
+  );
+  assert.equal(staleResult.counts.published, 0);
+  assert.equal(buildPublishPayload(staleResult).comments.length, 0);
+
+  // 4. CLI --mode strict rejects empty {} --context with exit 2
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-gate-strict-'));
+  try {
+    const scriptPath = path.join(__dirname, 'review-score-gate.js');
+    const draftPath = path.join(tmpDir, 'draft.json');
+    const emptyCtxPath = path.join(tmpDir, 'empty-ctx.json');
+    fs.writeFileSync(
+      draftPath,
+      JSON.stringify({
+        prNumber: 15_035,
+        headSha: 'sha_15035',
+        characterization: { type: 'general', summary: 'ok', focusAreas: ['x'] },
+        findings: [],
+      }),
+    );
+    fs.writeFileSync(emptyCtxPath, '{}');
+    const run = spawnSync(
+      process.execPath,
+      [
+        scriptPath,
+        'evaluate',
+        '--input',
+        draftPath,
+        '--context',
+        emptyCtxPath,
+        '--mode',
+        'strict',
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.equal(run.status, 2);
+    assert.match(run.stderr, /non-empty PR identity/i);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });

@@ -343,18 +343,34 @@ function parseReviewDraftSafely(rawText) {
     }
     return { ok: true, draft: direct, error: null, recoveredFromFence: false };
   } catch {
-    // Scan all fenced blocks, prioritizing ```json blocks first
-    const fenceRe = /^```(json)?\s*\r?\n([\s\S]*?)^\s*```\s*$/gim;
+    // Scan all fenced blocks line-by-line (handles indented fences and preceding non-json blocks)
     const jsonBlocks = [];
     const otherBlocks = [];
-    let match = fenceRe.exec(text);
-    while (match !== null) {
-      if (match[1]) {
-        jsonBlocks.push(match[2].trim());
+    const rawLines = text.split(/\r?\n/);
+    let inFence = false;
+    let fenceLang = '';
+    let blockLines = [];
+    for (const rawLine of rawLines) {
+      if (!inFence) {
+        const openMatch = rawLine.match(/^[ \t]*```([a-zA-Z0-9_-]*)[ \t]*$/);
+        if (openMatch) {
+          inFence = true;
+          fenceLang = (openMatch[1] || '').toLowerCase();
+          blockLines = [];
+        }
+      } else if (/^[ \t]*```[ \t]*$/.test(rawLine)) {
+        const content = blockLines.join('\n').trim();
+        if (fenceLang === 'json') {
+          jsonBlocks.push(content);
+        } else {
+          otherBlocks.push(content);
+        }
+        inFence = false;
+        fenceLang = '';
+        blockLines = [];
       } else {
-        otherBlocks.push(match[2].trim());
+        blockLines.push(rawLine);
       }
-      match = fenceRe.exec(text);
     }
 
     for (const candidate of [...jsonBlocks, ...otherBlocks]) {
@@ -598,11 +614,15 @@ function extractObservedProfile(prContext = {}) {
   const isDepsOrCiTitle = !isRevert && DEPS_OR_CI_TITLE_RE.test(title);
 
   const platformFiles = files.filter((f) => PLATFORM_SUFFIX_RE.test(f));
+  const hasNonDocFiles = files.some(
+    (f) => !/\.(md|mdx|txt|rst)$/i.test(f) && !/(^|\/)docs\//i.test(f),
+  );
   const hasCrossPlatformSignals =
     !isRevert &&
     (platformFiles.length > 0 ||
-      CROSS_PLATFORM_TITLE_RE.test(title) ||
-      CROSS_PLATFORM_MIGRATION_HINT_RE.test(title) ||
+      (hasNonDocFiles &&
+        (CROSS_PLATFORM_TITLE_RE.test(title) ||
+          CROSS_PLATFORM_MIGRATION_HINT_RE.test(title))) ||
       files.some((f) => CROSS_PLATFORM_MIGRATION_HINT_RE.test(f)) ||
       CROSS_PLATFORM_MIGRATION_HINT_RE.test(diffText));
 
@@ -763,12 +783,11 @@ function scoreFinding(finding, options = {}) {
     typeof finding.line === 'number' && Number.isFinite(finding.line)
       ? finding.line
       : null;
-  const anchorFile = normalizePath(finding.anchorFile || finding.file);
-  const anchorLine =
+  const hasExplicitAnchorLine =
     typeof finding.anchorLine === 'number' &&
-    Number.isFinite(finding.anchorLine)
-      ? finding.anchorLine
-      : line;
+    Number.isFinite(finding.anchorLine);
+  const anchorFile = normalizePath(finding.anchorFile || finding.file);
+  const anchorLine = hasExplicitAnchorLine ? finding.anchorLine : line;
 
   const severity = SEVERITIES.has(finding.severity) ? finding.severity : 'P2';
   const confidence = parseConfidence(finding.confidence);
@@ -819,26 +838,53 @@ function scoreFinding(finding, options = {}) {
 
   // Evidence verification (0-40)
   const evidence = isPlainObject(finding.evidence) ? finding.evidence : {};
+  const isExplicitLeftSide =
+    String(finding.side || evidence.side || '').toUpperCase() === 'LEFT';
   const hasAnchorLine =
     typeof anchorLine === 'number' &&
     Number.isFinite(anchorLine) &&
     anchorLine >= 1;
-  let inDiffVerified = Boolean(evidence.inDiff) && hasAnchorLine;
+  // A LEFT-side finding without an explicit right-side anchorLine cannot attach to a RIGHT hunk
+  const canCheckRightAnchor = !isExplicitLeftSide || hasExplicitAnchorLine;
+  let inDiffVerified =
+    Boolean(evidence.inDiff) && hasAnchorLine && canCheckRightAnchor;
   let inDeletionHunk = false;
+  let inModifiedFileWithoutLine = false;
   if (hasDiff) {
-    inDiffVerified = isLineInDiffHunks(fileHunks, anchorFile, anchorLine);
+    inDiffVerified =
+      canCheckRightAnchor &&
+      isLineInDiffHunks(fileHunks, anchorFile, anchorLine);
+    const hasOnlyDeletionsFor = (targetPath) => {
+      const norm = normalizePath(targetPath);
+      return (
+        Boolean(norm) &&
+        !(fileHunks[norm] && fileHunks[norm].length > 0) &&
+        Boolean(deletionHunks[norm] && deletionHunks[norm].length > 0)
+      );
+    };
     const isBaseSideLocation =
-      String(finding.side || evidence.side || '').toUpperCase() === 'LEFT' ||
+      isExplicitLeftSide ||
       deletedFiles.has(file) ||
-      deletedFiles.has(anchorFile);
+      deletedFiles.has(anchorFile) ||
+      hasOnlyDeletionsFor(file) ||
+      hasOnlyDeletionsFor(anchorFile);
     inDeletionHunk =
       isBaseSideLocation &&
       (isLineInDiffHunks(deletionHunks, file, line) ||
         isLineInDiffHunks(deletionHunks, anchorFile, anchorLine));
+    if (line === null && !hasExplicitAnchorLine && file) {
+      inModifiedFileWithoutLine =
+        Boolean(fileHunks[file] && fileHunks[file].length > 0) ||
+        Boolean(deletionHunks[file] && deletionHunks[file].length > 0);
+    }
   }
   const hasValidInlineAnchor =
-    Boolean(anchorFile) && hasAnchorLine && inDiffVerified;
-  const inDiffEvidence = inDiffVerified || inDeletionHunk;
+    Boolean(anchorFile) &&
+    hasAnchorLine &&
+    canCheckRightAnchor &&
+    inDiffVerified;
+  const inDiffEvidence =
+    inDiffVerified || inDeletionHunk || inModifiedFileWithoutLine;
 
   const hasRawProof =
     Boolean(String(evidence.executionPath || '').trim()) ||
@@ -869,9 +915,13 @@ function scoreFinding(finding, options = {}) {
   const evidenceNotes = [];
   if (inDiffEvidence) {
     evidenceScore += 15;
-    evidenceNotes.push(
-      inDiffVerified ? 'in_diff(+15)' : 'in_deletion_diff(+15)',
-    );
+    let diffNote = 'in_deletion_diff(+15)';
+    if (inDiffVerified) {
+      diffNote = 'in_diff(+15)';
+    } else if (inModifiedFileWithoutLine) {
+      diffNote = 'in_diff_file(+15)';
+    }
+    evidenceNotes.push(diffNote);
   }
   if (hasConcreteProof) {
     evidenceScore += 15;
@@ -969,12 +1019,13 @@ function scoreFinding(finding, options = {}) {
     }
   }
 
-  // High-risk P0 safety valve in pilot modes (shadow/soft): preserve non-speculative high-risk P0s
+  // High-risk P0 safety valve in pilot modes (shadow/soft): preserve non-speculative, non-pre-existing high-risk P0s
   let safetyValveApplied = false;
   if (
     preliminaryDecision === 'DROP' &&
     mode !== 'strict' &&
     !isSpeculative &&
+    finding.isPreExisting !== true &&
     severity === 'P0' &&
     HIGH_RISK_SAFETY_CATEGORIES.has(effectiveCategory)
   ) {
@@ -1130,6 +1181,19 @@ function evaluateReview(draft, prContext = {}, options = {}) {
     return b.signalScore - a.signalScore;
   });
 
+  // Block inline publication when draft PR/SHA contradicts independently collected context
+  const hasContextMismatch = inputErrors.some(
+    (err) => err.code === 'E_CONTEXT_MISMATCH',
+  );
+  if (hasContextMismatch) {
+    for (const item of scored) {
+      if (item.decision === 'PUBLISH') {
+        item.decision = 'SUMMARY_ONLY';
+        item.scoreBreakdown.penaltyReasons.push('stale_context_mismatch');
+      }
+    }
+  }
+
   // Score-driven publishing: publish all qualifying findings by default; optional caller cap if explicitly set
   const maxInlineComments =
     typeof options.maxInlineComments === 'number' &&
@@ -1159,10 +1223,11 @@ function evaluateReview(draft, prContext = {}, options = {}) {
     ...(characterizationCheck.valid ? [] : characterizationCheck.errors),
   ];
 
-  // Compute merge verdict from all verified non-speculative blockers
+  // Compute merge verdict from all verified non-speculative, non-pre-existing blockers
   const verifiedBlockers = [...published, ...summaryOnly].filter(
     (f) =>
       !f.scoreBreakdown.isSpeculative &&
+      f.isPreExisting !== true &&
       ((f.severity === 'P0' &&
         (f.decision === 'PUBLISH' ||
           f.signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE ||
@@ -1213,9 +1278,13 @@ function evaluateReview(draft, prContext = {}, options = {}) {
 }
 
 function formatInlineBody(f) {
-  const isAlternateAnchor = f.anchorFile !== f.file || f.anchorLine !== f.line;
+  const isBaseSide =
+    String(f.side || (f.evidence && f.evidence.side) || '').toUpperCase() ===
+    'LEFT';
+  const isAlternateAnchor =
+    isBaseSide || f.anchorFile !== f.file || f.anchorLine !== f.line;
   const locationNote = isAlternateAnchor
-    ? `> 实际缺陷位置：\`${f.file}${f.line ? `:${f.line}` : ''}\`\n`
+    ? `> 实际缺陷位置：\`${f.file}${f.line ? `:${f.line}` : ''}\`${isBaseSide ? '（base/LEFT 删除行）' : ''}\n`
     : '';
   let suggestionBlock = '';
   if (f.autoFix) {
@@ -1525,6 +1594,16 @@ function runCli(argv) {
         prContext = {};
       } else {
         prContext = parsedCtx;
+        if (
+          mode === 'strict' &&
+          ((parsedCtx.prNumber ?? parsedCtx.number) == null ||
+            !(parsedCtx.headSha ?? parsedCtx.headRefOid))
+        ) {
+          process.stderr.write(
+            'Strict mode requires non-empty PR identity (prNumber/number and headSha/headRefOid) in --context.\n',
+          );
+          process.exit(2);
+        }
       }
     } catch (ctxErr) {
       const message = `Context JSON parse failed: ${ctxErr.message}`;
