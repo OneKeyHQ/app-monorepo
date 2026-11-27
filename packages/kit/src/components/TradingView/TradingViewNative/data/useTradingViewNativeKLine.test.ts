@@ -4236,6 +4236,128 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(4));
   });
 
+  it('loads newer history on to the time a split view chart follows in one page', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_000_000_000);
+    mockHistoryBatchSize = 200;
+    mockHistoryRequestCandleCount = 2000;
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 990_000))
+      .mockResolvedValueOnce(
+        buildMultiPointResponse(
+          Array.from({ length: 100 }, (_, index) => ({
+            close: 70 + index,
+            timestamp: 100_000 + index * 900,
+          })),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildMultiPointResponse(
+          Array.from({ length: 445 }, (_, index) => ({
+            close: 170 + index,
+            timestamp: 190_000 + index * 900,
+          })),
+        ),
+      );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    act(() =>
+      result.current.handleIntervalChange('15', {
+        skipNextHistoryRequest: true,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.intervalConfig.activeInterval).toBe('15'),
+    );
+    // A picked date range leaves the chart with that range's candles only.
+    await act(async () => {
+      await result.current.handleViewportTargetChange({
+        kind: 'timeRange',
+        from: 100_000,
+        to: 189_100,
+      });
+    });
+    act(() =>
+      result.current.handleViewportRequestApplied(
+        result.current.viewportRequest?.requestId ?? 0,
+      ),
+    );
+    // The chart lines up with another one of the split view, much further on.
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 100,
+        startIndex: 80,
+        followedTimeRange: { from: 480_000, to: 500_000 },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(545));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+    // Past the followed time at once, instead of 100 candles a page.
+    expect(mockFetchHistory.mock.calls[2]?.[0]).toEqual(
+      expect.objectContaining({
+        interval: expect.objectContaining({ value: '15' }),
+        timeFrom: 189_101,
+        timeTo: 590_000,
+      }),
+    );
+  });
+
+  it('fills a history gap on to the time a split view chart follows in one page', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_036_000_000);
+    mockHistoryBatchSize = 1000;
+    mockHistoryRequestCandleCount = 1000;
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildSequentialResponse({ count: 10, firstTimestamp: 1_000_000 }),
+      )
+      .mockResolvedValueOnce(
+        buildSequentialResponse({ count: 3, firstTimestamp: 100_000 }),
+      )
+      .mockResolvedValueOnce(
+        buildSequentialResponse({ count: 200, firstTimestamp: 110_800 }),
+      );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(10));
+    // A picked date range on the same interval leaves a gap before the
+    // latest candles.
+    await act(async () => {
+      await result.current.handleViewportTargetChange({
+        kind: 'timeRange',
+        from: 100_000,
+        to: 107_200,
+      });
+    });
+    expect(result.current.points).toHaveLength(13);
+    act(() =>
+      result.current.handleViewportRequestApplied(
+        result.current.viewportRequest?.requestId ?? 0,
+      ),
+    );
+    // Another chart of the split view leads, at a time inside the gap.
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 4,
+        startIndex: 0,
+        followedTimeRange: { from: 500_000, to: 520_000 },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(213));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+    expect(mockFetchHistory.mock.calls[2]?.[0]).toEqual(
+      expect.objectContaining({
+        timeFrom: 107_201,
+        timeTo: 880_000,
+      }),
+    );
+  });
+
   it('loads newer pages without recentering an empty future viewport', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(1_000_000_000);
     mockHistoryBatchSize = 200;

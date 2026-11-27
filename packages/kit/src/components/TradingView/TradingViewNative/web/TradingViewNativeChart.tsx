@@ -275,8 +275,12 @@ export const TradingViewNativeChart = memo(
     const syncRedrawRef = useRef<() => void>(() => undefined);
     const { getSyncedCrosshair, publishCrosshair } =
       useChartCrosshairSync(syncRedrawRef);
-    const { getFollowedViewport, leadViewport, publishViewport } =
-      useChartViewportSync(syncRedrawRef);
+    const {
+      getFollowedTimeRange,
+      getFollowedViewport,
+      leadViewport,
+      publishViewport,
+    } = useChartViewportSync(syncRedrawRef);
     const priceSelectionLeaveRef = useRef<() => void>(() => undefined);
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
@@ -1110,14 +1114,16 @@ export const TradingViewNativeChart = memo(
       if (measuredChartWidth <= 0 || pointCount <= 0) {
         return;
       }
-      onVisiblePointRangeChange?.(
-        getTradingViewNativeChartRuntimeVisiblePointRange({
+      onVisiblePointRangeChange?.({
+        ...getTradingViewNativeChartRuntimeVisiblePointRange({
           chartWidth: measuredChartWidth,
           pointCount,
           state: runtimeStateRef.current,
         }),
-      );
+        followedTimeRange: getFollowedTimeRange(),
+      });
     }, [
+      getFollowedTimeRange,
       measuredChartWidth,
       onVisiblePointRangeChange,
       panOffset,

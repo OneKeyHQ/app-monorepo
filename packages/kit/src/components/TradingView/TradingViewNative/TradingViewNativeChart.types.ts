@@ -20,7 +20,7 @@ import type {
 } from './utils/chartIndicators';
 import type {
   ITradingViewNativeViewportRequest,
-  ITradingViewNativeVisiblePointRange,
+  ITradingViewNativeVisiblePointRangeChange,
 } from './utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorRenderPane } from './utils/subIndicatorRender';
 import type { SharedValue } from 'react-native-reanimated';
@@ -84,7 +84,7 @@ export interface ITradingViewNativeChartProps {
   ) => void;
   onViewportRequestApplied?: (requestId: number) => void;
   onVisiblePointRangeChange?: (
-    range: ITradingViewNativeVisiblePointRange,
+    range: ITradingViewNativeVisiblePointRangeChange,
   ) => void;
   candleLabels: ITradingViewNativeCandleLabels;
   points: IMarketTokenKLineDataPoint[];

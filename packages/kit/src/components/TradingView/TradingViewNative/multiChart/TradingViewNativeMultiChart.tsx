@@ -272,8 +272,8 @@ const Panel = memo(
       [id, onIntervalReport],
     );
     const syncScope = useMemo<ITradingViewNativeMultiChartSyncScope>(
-      () => ({ ...sync, isMain, reportInterval, instrumentKey }),
-      [instrumentKey, isMain, reportInterval, sync],
+      () => ({ ...sync, isMain, panelId: id, reportInterval, instrumentKey }),
+      [id, instrumentKey, isMain, reportInterval, sync],
     );
     // Where the host placed `intervalControl`. It generates no box, so the
     // picker lays out as one of the host's own items, e.g. in its header row.
@@ -457,6 +457,12 @@ export function TradingViewNativeMultiChart({
   // option turned on and then off again, is not the page's choice either.
   const [intervalSyncIntent, setIntervalSyncIntent] =
     useState<IIntervalSyncIntent | null>(null);
+  // Time and date range follow one chart. Turned on here, they start from the
+  // selected chart, which the user may have just moved, e.g. to a picked date
+  // range; a split view that opens with either on starts from the first panel.
+  const [viewportSyncChannel, setViewportSyncChannel] = useState(() =>
+    createTradingViewNativeViewportSyncChannel(),
+  );
   // A write is on its way until the saved layout has it: the write came back,
   // or a newer revision was saved over it, e.g. by another window.
   useEffect(() => {
@@ -984,6 +990,15 @@ export function TradingViewNativeMultiChart({
           isSynced ? { isSynced, start: intervalStart } : { isSynced },
         );
       }
+      if (isSynced && (option === 'time' || option === 'dateRange')) {
+        // Started anew, so the selected chart leads as the charts join it,
+        // before any of them lines up with another one.
+        setViewportSyncChannel(
+          createTradingViewNativeViewportSyncChannel(
+            getTradingViewNativeMultiChartActivePanelId(state.layout),
+          ),
+        );
+      }
       // The host can have answered since the last render.
       const latestSelection = selectionRef.current;
       if (option === 'symbol' && isSynced && latestSelection) {
@@ -1053,10 +1068,6 @@ export function TradingViewNativeMultiChart({
   );
   const crosshairSyncChannel = useMemo(
     () => createTradingViewNativeCrosshairSyncChannel(),
-    [],
-  );
-  const viewportSyncChannel = useMemo(
-    () => createTradingViewNativeViewportSyncChannel(),
     [],
   );
   // What every panel shares with the others. A part is rebuilt only when its
