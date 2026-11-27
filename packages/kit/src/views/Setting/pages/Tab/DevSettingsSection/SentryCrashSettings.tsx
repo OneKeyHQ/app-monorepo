@@ -40,14 +40,17 @@ export function SentryCrashSettings() {
         }}
       />,
     );
-  } else if (platformEnv.isDesktop) {
+  } else if (
+    platformEnv.isDesktop &&
+    typeof globalThis.desktopApi?.testCrash === 'function'
+  ) {
     sections.push(
       <SectionPressItem
         icon="SendOutline"
         key="SentryCrashTest4"
         title="Sentry Native Crash"
         onPress={() => {
-          globalThis.desktopApi.testCrash();
+          globalThis.desktopApi?.testCrash?.();
         }}
       />,
     );

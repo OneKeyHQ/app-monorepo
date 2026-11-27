@@ -42,8 +42,18 @@ jest.mock('./desktopPlatformInfo', () => ({
   getDesktopPlatformInfo: () => ({}),
 }));
 
+const defaultMainFrame = { url: 'file:///opt/onekey/index.html' };
+
 function send(channel: string, stage: unknown): unknown {
-  const event = { returnValue: undefined as unknown };
+  const event = {
+    returnValue: undefined as unknown,
+    sender: {
+      getType: () => 'window',
+      isDestroyed: () => false,
+      mainFrame: defaultMainFrame,
+    },
+    senderFrame: defaultMainFrame,
+  };
   const listener = mockListeners.get(channel);
   if (!listener) throw new OneKeyLocalError(`Missing IPC handler: ${channel}`);
   listener(event, stage);
@@ -277,4 +287,111 @@ describe('desktop process startup timing claims', () => {
       );
     },
   );
+
+  it('blocks webview guest and child frame senders from info IPC handlers', () => {
+    const sendWithEvent = (
+      channel: string,
+      event: Record<string, unknown>,
+      arg?: unknown,
+    ) => {
+      const listener = mockListeners.get(channel);
+      if (!listener) {
+        throw new OneKeyLocalError(`Missing IPC handler: ${channel}`);
+      }
+      const mutableEvent = { returnValue: undefined as unknown, ...event };
+      listener(mutableEvent, arg);
+      return mutableEvent.returnValue;
+    };
+
+    const webviewEvent = {
+      sender: {
+        getType: () => 'webview',
+        isDestroyed: () => false,
+        mainFrame: { url: 'https://evil.example/' },
+      },
+      senderFrame: { url: 'https://evil.example/' },
+    };
+    expect(sendWithEvent(ipcMessageKeys.IS_DEV, webviewEvent)).toBe(false);
+    expect(
+      sendWithEvent(ipcMessageKeys.GET_PLATFORM_INFO, webviewEvent),
+    ).toBeUndefined();
+    expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, webviewEvent)).toBe('');
+    expect(sendWithEvent(ipcMessageKeys.APP_IS_FOCUSED, webviewEvent)).toBe(
+      false,
+    );
+    expect(
+      sendWithEvent(
+        ipcMessageKeys.CLAIM_STARTUP_TIMING,
+        webviewEvent,
+        'jsReadyTime',
+      ),
+    ).toBe(false);
+
+    const mainFrame = { url: 'file:///opt/onekey/index.html' };
+    const childFrameEvent = {
+      sender: {
+        getType: () => 'window',
+        isDestroyed: () => false,
+        mainFrame,
+      },
+      senderFrame: { url: 'https://child-frame.example/' },
+    };
+    expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, childFrameEvent)).toBe(
+      '',
+    );
+
+    const nullFrameEvent = {
+      sender: {
+        getType: () => 'window',
+        isDestroyed: () => false,
+        mainFrame,
+      },
+      senderFrame: null,
+    };
+    expect(sendWithEvent(ipcMessageKeys.IS_DEV, nullFrameEvent)).toBe(false);
+    expect(
+      sendWithEvent(ipcMessageKeys.GET_PLATFORM_INFO, nullFrameEvent),
+    ).toBeUndefined();
+    expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, nullFrameEvent)).toBe(
+      '',
+    );
+    expect(sendWithEvent(ipcMessageKeys.APP_IS_FOCUSED, nullFrameEvent)).toBe(
+      false,
+    );
+    expect(
+      sendWithEvent(
+        ipcMessageKeys.CLAIM_STARTUP_TIMING,
+        nullFrameEvent,
+        'jsReadyTime',
+      ),
+    ).toBe(false);
+    expect(
+      sendWithEvent(
+        ipcMessageKeys.RELEASE_STARTUP_TIMING,
+        nullFrameEvent,
+        'jsReadyTime',
+      ),
+    ).toBe(false);
+
+    const missingSenderEvent = {};
+    expect(
+      sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, missingSenderEvent),
+    ).toBe('');
+
+    const windowEvent = {
+      sender: {
+        getType: () => 'window',
+        isDestroyed: () => false,
+        mainFrame,
+      },
+      senderFrame: mainFrame,
+    };
+    expect(sendWithEvent(ipcMessageKeys.IS_DEV, windowEvent)).toBe(true);
+    expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, windowEvent)).toBe(
+      '/tmp',
+    );
+    expect(sendWithEvent(ipcMessageKeys.APP_IS_FOCUSED, windowEvent)).toBe(
+      true,
+    );
+  });
 });
