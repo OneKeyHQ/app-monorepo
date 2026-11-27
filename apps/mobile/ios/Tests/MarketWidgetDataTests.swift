@@ -504,6 +504,14 @@ struct MarketWidgetDataTests {
   static func main() async throws {
     try await testFirstSnapshotAndForegroundPrices()
     try testHomeQuoteExpiry()
+    for isWatchlist in [false, true] {
+      let preview = MarketWidgetEntry.preview(isWatchlist: isWatchlist)
+      expect(preview.isGalleryPreview && preview.rows.count == (isWatchlist ? 3 : 1),
+        "Offline gallery previews contain public sample assets for each home widget size")
+      expect(preview.rows.allSatisfy { $0.asset.previewIconName != nil && $0.quote != nil },
+        "Gallery sample prices and bundled brand icons do not depend on a prior quote or image download")
+      expect(preview.editorURL == nil, "Gallery previews do not display a settings link")
+    }
     try testQuotePermissionReads()
     try testLockScreenPermissionDuringMasking()
     try testIndependentListSettings()
@@ -512,6 +520,9 @@ struct MarketWidgetDataTests {
     try await testDesktopStockSearchNetwork()
     try await testIncompleteSearchCanRetry()
     try await testDesktopAssetSearchAndFullLists()
+    try await testMissingListIcons()
+    try await testMissingIconMetadataRetry()
+    try await testCachedQuoteMissingIcon()
     try testAppQuoteSync()
     try testStocks()
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -1312,8 +1323,12 @@ struct MarketWidgetDataTests {
     expect(snapshot.rows.first?.asset.id == ethereum.id && !snapshot.profileUnavailable,
            "A desktop snapshot reads shared settings despite an obsolete binding and selection")
     let link = URLComponents(url: snapshot.editorURL!, resolvingAgainstBaseURL: false)?.queryItems
-    expect(link == [URLQueryItem(name: "setup", value: "1")],
-           "An unbound desktop gear opens binding instructions")
+    expect(link == [URLQueryItem(name: "kind", value: "single")],
+           "An unbound single-coin gear opens its editable default settings")
+    let listLink = URLComponents(url: MarketWidgetEntry.snapshot(isWatchlist: true, store: store).editorURL!,
+      resolvingAgainstBaseURL: false)?.queryItems
+    expect(listLink == [URLQueryItem(name: "kind", value: "list")],
+           "An unbound list gear opens its own default settings without affecting single-coin settings")
     _ = try store.saveSettings(json: settingsJSON(source: .hot, asset: bitcoin))
     try store.saveTrending(MarketWidgetCatalog(assets: [ethereum], fetchedAt: Date()))
     let retained = try store.saveSettings(json: settingsJSON(asset: bitcoin))
@@ -1370,13 +1385,121 @@ struct MarketWidgetDataTests {
            "Migrating a desktop kind leaves legacy profile data intact")
   }
 
+  private static func testMissingListIcons() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    let assets = MarketWidgetAsset.defaults
+    try store.saveTrending(MarketWidgetCatalog(assets: assets, fetchedAt: Date()))
+    let binding = MarketWidgetInstanceBinding(id: UUID(), kind: .list)
+    try store.bindInstance(binding)
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: assets), instance: binding)
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: [assets[0], assets[0], assets[0]]))
+    try store.saveTrending(MarketWidgetCatalog(assets: [assets[0]], fetchedAt: Date()))
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    MarketWidgetTestURLProtocol.configure { request in
+      let id = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?
+        .first { $0.name == "assetId" }?.value ?? ""
+      return json("""
+      {"code":0,"data":{"asset":{"assetId":"\(id)","symbol":"\(id.uppercased())","name":"\(id)","logoUrl":"https://coin-images.coingecko.com/\(id).png"},"market":{"price":"1"}}}
+      """)
+    }
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    let selected = try store.editorState(instance: binding).settings.first?.assets
+    expect(selected?.last?.assetId == "sol" && selected?.last?.logoURL?.hasSuffix("sol.png") == true,
+      "A named SOL selection receives its missing icon even when only an independent list retains it")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.allSatisfy { $0.hasSuffix("/detail") },
+      "Editor icon metadata does not request prices, charts or image bytes separately")
+    MarketWidgetTestURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.isEmpty,
+      "Complete icon metadata is reused without a request on the next editor refresh")
+  }
+
+  private static func testCachedQuoteMissingIcon() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    var asset = MarketWidgetAsset.defaults[0]
+    asset.logoURL = "https://coin-images.coingecko.com/bitcoin.png"
+    let configuration = MarketWidgetConfiguration(schemaVersion: 1, assets: [asset], greenUp: true, locale: "en-US")
+    try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(configuration), as: UTF8.self))
+    let quote = MarketWidgetQuote(asset: MarketWidgetAsset.defaults[0], price: "100", change24h: "1", fetchedAt: Date())
+    try store.saveQuote(quote)
+    let sessionConfiguration = URLSessionConfiguration.ephemeral
+    sessionConfiguration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    let session = URLSession(configuration: sessionConfiguration)
+    defer { session.invalidateAndCancel() }
+    MarketWidgetTestURLProtocol.configure { _ in
+      Thread.sleep(forTimeInterval: 0.05)
+      return Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5WQAAAAASUVORK5CYII=")!
+    }
+    let service = MarketWidgetService(store: store, session: session)
+    let results = try await withThrowingTaskGroup(of: MarketWidgetQuote.self) { group in
+      for _ in 0..<3 {
+        group.addTask { try await service.quote(for: asset, locale: "en-US") }
+      }
+      var results: [MarketWidgetQuote] = []
+      for try await result in group { results.append(result) }
+      return results
+    }
+    expect(results.count == 3 && results.allSatisfy { $0.price == quote.price }
+      && MarketWidgetTestURLProtocol.recordedPaths == ["/bitcoin.png"],
+      "Concurrent cached quotes use the selected asset's logo and download it once without fetching prices")
+    expect(store.icon(for: asset) != nil, "The recovered icon is available to WidgetKit rendering")
+  }
+
+  private static func testMissingIconMetadataRetry() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let asset = MarketWidgetAsset.defaults[0]
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    try store.saveTrending(MarketWidgetCatalog(assets: [asset], fetchedAt: Date()))
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    MarketWidgetTestURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2,
+      "Failed detail requests remain retryable on the next editor refresh")
+    MarketWidgetTestURLProtocol.configure { _ in
+      json(#"{"code":0,"data":{"asset":{"assetId":"btc","symbol":"BTC","name":"Bitcoin"},"market":{"price":"1"}}}"#)
+    }
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    await MarketWidgetService.prepareEditorMetadata(store: MarketWidgetStore(directory: directory), session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1,
+      "Successful details without a logo are reused across editor refreshes and store instances")
+    let metadataFile = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+      .first { $0.lastPathComponent.hasPrefix("metadata-") }!
+    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(3600)], ofItemAtPath: metadataFile.path)
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2,
+      "Moving the device clock backward cannot extend the missing-logo retry interval")
+    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-301)], ofItemAtPath: metadataFile.path)
+    MarketWidgetTestURLProtocol.configure { _ in
+      json(#"{"code":0,"data":{"asset":{"assetId":"btc","symbol":"BTC","name":"Bitcoin","logoUrl":"https://coin-images.coingecko.com/bitcoin.png"},"market":{"price":"1"}}}"#)
+    }
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1
+      && store.assetWithMetadata(asset).logoURL?.hasSuffix("bitcoin.png") == true,
+      "Missing logos can recover after the five-minute metadata retry interval")
+  }
+
   private static func checkEditorMetadata() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let store = MarketWidgetStore(directory: directory)
     let assets = (0..<6).map { index in
       MarketWidgetAsset(kind: .asset, assetId: "coin\(index)", chainId: nil,
-        contractAddress: nil, isNative: nil, symbol: "", name: "")
+        contractAddress: nil, isNative: nil,
+        symbol: index == 4 ? "COIN4" : "", name: index == 4 ? "Name coin4" : "")
     }
     func configure(_ values: [MarketWidgetAsset], masked: Bool = false) throws {
       let configuration = MarketWidgetConfiguration(schemaVersion: 1, assets: values,
@@ -1405,7 +1528,7 @@ struct MarketWidgetDataTests {
            "Editor resolves names, symbols and logo URLs beyond the three visible widget rows")
     expect(editor.watchlist[5].symbol == "coin5" && !editor.watchlist[5].name.isEmpty,
            "Failed metadata requests retain a recognizable, searchable identity fallback")
-    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 6
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 9
       && MarketWidgetTestURLProtocol.recordedPaths.allSatisfy { $0.hasSuffix("/detail") },
            "Editor metadata fetches details only, never charts or image files")
     expect(store.quote(for: assets[4]) == nil,
@@ -1664,14 +1787,16 @@ struct MarketWidgetDataTests {
       contractAddress: "", isNative: true, requestTokenAddress: "catalog-address", symbol: "SOL", name: "Solana",
       logoURL: "https://coin-images.coingecko.com/sol.png")
     let localBitcoin = MarketWidgetAsset(kind: .asset, assetId: "btc", chainId: nil,
-      contractAddress: nil, isNative: nil, symbol: "LOCAL", name: "Local Bitcoin")
+      contractAddress: nil, isNative: nil, symbol: "LOCAL", name: "Local Bitcoin",
+      logoURL: "https://coin-images.coingecko.com/bitcoin.png")
     let token = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "evm--1",
       contractAddress: "0xabc", isNative: false, symbol: "", name: "")
     let anotherNetwork = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "evm--10",
-      contractAddress: "0xabc", isNative: false, symbol: "WRONG", name: "Another Network")
+      contractAddress: "0xabc", isNative: false, symbol: "WRONG", name: "Another Network",
+      logoURL: "https://coin-images.coingecko.com/other.png")
     let config = MarketWidgetConfiguration(schemaVersion: 1, assets: [native, localBitcoin, token], greenUp: true, locale: "en-US")
     try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(config), as: UTF8.self))
-    try store.saveTrending(MarketWidgetCatalog(assets: [catalogNative, MarketWidgetAsset.defaults[0], anotherNetwork], fetchedAt: Date()))
+    try store.saveTrending(MarketWidgetCatalog(assets: [catalogNative, localBitcoin, anotherNetwork], fetchedAt: Date()))
     let enriched = store.assetWithMetadata(native)
     expect(enriched.symbol == "SOL" && enriched.name == "Solana" && enriched.logoURL == catalogNative.logoURL,
            "An exact catalog identity supplies missing editor metadata without another detail request")
@@ -1695,7 +1820,7 @@ struct MarketWidgetDataTests {
     let session = URLSession(configuration: configuration)
     defer { session.invalidateAndCancel() }
     MarketWidgetTestURLProtocol.configure { _ in
-      json(#"{"code":0,"data":{"token":{"networkId":"evm--1","address":"0xabc","symbol":"ACTUAL","name":"Actual Token","price":"1"}}}"#)
+      json(#"{"code":0,"data":{"token":{"networkId":"evm--1","address":"0xabc","symbol":"ACTUAL","name":"Actual Token","logoUrl":"https://coin-images.coingecko.com/token.png","price":"1"}}}"#)
     }
     await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
     expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1

@@ -31,6 +31,7 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
     useRef<IMarketWidgetQuoteUpdate['quote']>(undefined);
   const lastQueuedDetailQuote = useRef<{
     detail: IMarketTokenDetail['widgetDetailQuote'];
+    assetKey: string;
     proFallback: boolean;
   }>(undefined);
   const { isStockRoute, stockDetail, stockQuoteFetchedAt } = useStockDetail();
@@ -92,7 +93,14 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
     };
   }, []);
 
-  const { active, assetId, networkId, tokenAddress, isNative } = target;
+  const {
+    active,
+    assetId,
+    networkId,
+    tokenAddress,
+    isNative,
+    marketWidgetToken,
+  } = target;
   useEffect(() => {
     if (!marketWidget.supportsQuoteSync()) return;
     if (!active) {
@@ -112,6 +120,7 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
     if (!detailQuote || !tokenDetail) return;
     const update = buildMarketWidgetTokenQuote({
       assetId,
+      marketWidgetToken,
       networkId,
       tokenAddress,
       isNative,
@@ -149,12 +158,18 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
         mode === 'pro' &&
         tokenDetail.chartPriceMode === undefined;
       const previous = lastQueuedDetailQuote.current;
+      const assetKey = getMarketWidgetAssetKey(update.quote.asset);
       if (
         previous?.detail === detailQuote &&
+        previous.assetKey === assetKey &&
         (!proFallback || previous.proFallback)
       )
         return;
-      lastQueuedDetailQuote.current = { detail: detailQuote, proFallback };
+      lastQueuedDetailQuote.current = {
+        detail: detailQuote,
+        proFallback,
+        assetKey,
+      };
       if (proFallback) update.quote.proFallbackAt = detailQuote.fetchedAt;
       sync.detail(update);
     }
@@ -164,6 +179,7 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
     networkId,
     tokenAddress,
     isNative,
+    marketWidgetToken,
     mode,
     simpleRange,
     tokenDetail,
