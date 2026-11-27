@@ -23,17 +23,25 @@ const suspendSnapshotWrites = () => {
 
 const isSnapshotWriteSuspended = () => isResetting || snapshotWritesSuspended;
 
+const RESETTING_ERROR_MESSAGE = 'Cannot perform operation while resetting';
+
 const checkNotInResetting = () => {
   if (isResetting) {
-    throw new OneKeyLocalError('Cannot perform operation while resetting');
+    throw new OneKeyLocalError(RESETTING_ERROR_MESSAGE);
   }
 };
+
+const isResettingError = (error: unknown) =>
+  isResetting &&
+  error instanceof OneKeyLocalError &&
+  error.message === RESETTING_ERROR_MESSAGE;
 
 export default {
   startResetting,
   endResetting,
   getIsResetting,
   checkNotInResetting,
+  isResettingError,
   suspendSnapshotWrites,
   isSnapshotWriteSuspended,
 };
