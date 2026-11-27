@@ -1,3 +1,9 @@
+/** @jest-environment jsdom */
+
+import type { ReactNode, Ref } from 'react';
+
+import { act, fireEvent, render, screen } from '@testing-library/react';
+
 import { toAssetId } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import type {
   IPerpsAssetCtx,
@@ -5,30 +11,132 @@ import type {
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 
-import { getPerpChartTokenItems } from './PerpChartTokenSelector';
+import {
+  PerpChartTokenSelector,
+  getPerpChartTokenItems,
+} from './PerpChartTokenSelector';
 
 import type { IPerpChartTokenUniverse } from './PerpChartTokenSelector';
 
-// The picker's view code is not under test here.
-jest.mock('@onekeyhq/components', () => ({}));
+type IMockStackProps = {
+  children?: ReactNode;
+  ref?: Ref<HTMLDivElement>;
+  testID?: string;
+  role?: string;
+  'aria-selected'?: boolean;
+};
+let mockPopover: { onOpenChange: (open: boolean) => void } | undefined;
+const mockScrollTo = jest.fn();
+const mockSelectToken = jest.fn();
+// T0 to T59 on the main dex, T0 trading the most.
+const mockPickerUniverse = {
+  perpsByDex: [
+    Array.from({ length: 60 }, (_, index) => ({
+      name: `T${index}`,
+      assetId: index,
+    })),
+  ],
+  spot: [],
+};
+const mockPickerCtxs = [
+  Array.from({ length: 60 }, (_, index) => ({ dayNtlVlm: String(60 - index) })),
+];
+
+jest.mock('@onekeyhq/components', () => {
+  const { useImperativeHandle } =
+    jest.requireActual<typeof import('react')>('react');
+  const Stack = ({
+    children,
+    ref,
+    testID,
+    role,
+    'aria-selected': selected,
+  }: IMockStackProps) => (
+    <div ref={ref} data-testid={testID} role={role} aria-selected={selected}>
+      {children}
+    </div>
+  );
+  return {
+    Divider: () => null,
+    Icon: () => null,
+    Spinner: () => null,
+    SizableText: ({ children }: { children?: ReactNode }) => children,
+    XStack: Stack,
+    YStack: Stack,
+    ScrollView: ({
+      children,
+      ref,
+    }: {
+      children?: ReactNode;
+      ref?: Ref<{ scrollTo: typeof mockScrollTo }>;
+    }) => {
+      useImperativeHandle(ref, () => ({ scrollTo: mockScrollTo }));
+      return <div>{children}</div>;
+    },
+    SearchBar: ({
+      value,
+      onSearchTextChange,
+      onKeyPress,
+      onSubmitEditing,
+    }: {
+      value: string;
+      onSearchTextChange: (text: string) => void;
+      onKeyPress: (event: unknown) => void;
+      onSubmitEditing: () => void;
+    }) => (
+      <input
+        data-testid="search"
+        value={value}
+        onChange={(event) => onSearchTextChange(event.target.value)}
+        onKeyDown={(event) =>
+          event.key === 'Enter' ? onSubmitEditing() : onKeyPress(event)
+        }
+      />
+    ),
+    Popover: (props: {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      renderTrigger: ReactNode;
+      renderContent: ReactNode;
+    }) => {
+      mockPopover = props;
+      return (
+        <>
+          {props.renderTrigger}
+          {props.open ? props.renderContent : null}
+        </>
+      );
+    },
+  };
+});
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {},
 }));
-jest.mock('@onekeyhq/kit/src/components/Token', () => ({}));
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
 jest.mock('@onekeyhq/kit/src/hooks/useListenTabFocusState', () => ({
   __esModule: true,
   default: () => undefined,
 }));
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({}));
-jest.mock(
-  '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms',
-  () => ({}),
-);
-jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({}));
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({}));
-jest.mock('@react-navigation/native', () => ({}));
-jest.mock('./PerpTokenSelectorRow', () => ({}));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: () => ({ result: mockPickerUniverse }),
+}));
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
+  usePerpsAllAssetCtxsAtom: () => [{ assetCtxsByDex: mockPickerCtxs }],
+}));
+jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
+  PerpDexBadge: () => null,
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  usePerpTokenFavoritesPersistAtom: () => [{ favorites: [] }],
+  useSpotTokenFavoritesPersistAtom: () => [{ favorites: [] }],
+  usePerpsFavoritesOrderPersistAtom: () => [{ sequence: [] }],
+}));
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('./PerpTokenSelectorRow', () => ({ TradingModeBadge: () => null }));
 
 function perp(name: string, assetId: number, isDelisted?: boolean) {
   return { name, assetId, isDelisted } as IPerpsUniverse;
@@ -183,4 +291,71 @@ it('stops at 50 rows', () => {
   });
   expect(items).toHaveLength(50);
   expect(items[0].label).toBe('T0USDC');
+});
+
+describe('picker', () => {
+  // The panel is on T30, far down the default list.
+  function openPicker() {
+    render(
+      <PerpChartTokenSelector
+        coin="T30"
+        display={{ label: 'T30USDC', tokenImageUris: [] }}
+        onSelectToken={mockSelectToken}
+        testID="picker"
+      />,
+    );
+    act(() => mockPopover?.onOpenChange(true));
+  }
+
+  function activeRow() {
+    return screen
+      .getAllByRole('option')
+      .findIndex((row) => row.getAttribute('aria-selected') === 'true');
+  }
+
+  function search(text: string) {
+    fireEvent.change(screen.getByTestId('search'), {
+      target: { value: text },
+    });
+  }
+
+  beforeAll(() => {
+    // jsdom has no scrolling; the keyboard path scrolls rows into view.
+    Element.prototype.scrollIntoView = jest.fn();
+  });
+
+  beforeEach(() => {
+    mockScrollTo.mockClear();
+    mockSelectToken.mockClear();
+  });
+
+  it('shows the first result of a query, not the scroll it opened with', () => {
+    openPicker();
+    // Opens on the panel's token, mid-list.
+    expect(activeRow()).toBe(30);
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 832, animated: false });
+
+    // A query keeping the same rows in the same order: the list must go back
+    // to the top, or Enter picks a row out of view.
+    search('usdc');
+    expect(activeRow()).toBe(0);
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 0, animated: false });
+
+    fireEvent.keyDown(screen.getByTestId('search'), { key: 'Enter' });
+    expect(mockSelectToken).toHaveBeenCalledWith({ mode: 'perp', coin: 'T0' });
+  });
+
+  it('starts every edit of the query from its first result', () => {
+    openPicker();
+    search('t1');
+    for (let i = 0; i < 3; i += 1) {
+      fireEvent.keyDown(screen.getByTestId('search'), { key: 'ArrowDown' });
+    }
+    expect(activeRow()).toBe(3);
+
+    // Back to the earlier query: its old row must not come back.
+    search('t');
+    search('t1');
+    expect(activeRow()).toBe(0);
+  });
 });

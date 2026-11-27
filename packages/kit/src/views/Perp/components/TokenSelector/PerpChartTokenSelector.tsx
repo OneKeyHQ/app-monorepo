@@ -324,25 +324,25 @@ function PerpChartTokenSearch({
       universe,
     ],
   );
-  // The row the keyboard and the pointer act on: the panel's own token until
-  // a query or a move picks another.
-  const [cursor, setCursor] = useState<{ query: string; index: number }>();
-  let activeIndex = query
-    ? 0
-    : (items?.findIndex((item) => item.coin === coin) ?? -1);
-  if (cursor?.query === query) activeIndex = cursor.index;
-  const activate = useCallback(
-    (index: number) => setCursor({ query, index }),
-    [query],
-  );
-  // The panel's own token mid-list when the list first shows, before it
-  // paints, so a token further down is in view without a scroll after.
+  // The row the keyboard and the pointer act on. A move sets it; every edit
+  // of the query clears it, back to the first result or, without a query,
+  // the panel's own token.
+  const [cursor, setCursor] = useState<number>();
+  const handleQueryChange = useCallback((text: string) => {
+    setQuery(text);
+    setCursor(undefined);
+  }, []);
+  const activeIndex =
+    cursor ??
+    (query ? 0 : (items?.findIndex((item) => item.coin === coin) ?? -1));
+  // Each list a query shows starts from its active row, the top for a query
+  // and the panel's own token mid-list without one. Set before it paints, so
+  // Enter never picks a row out of view and nothing scrolls after.
   const scrollRef = useRef<IScrollViewRef>(null);
-  const didScroll = useRef(false);
+  const positionedQuery = useRef<string>(undefined);
   useLayoutEffect(() => {
-    if (didScroll.current || !items?.length) return;
-    didScroll.current = true;
-    if (query || activeIndex < 1) return;
+    if (!items?.length || positionedQuery.current === query) return;
+    positionedQuery.current = query;
     const viewport = listMaxHeight - LIST_PADDING * 2;
     scrollRef.current?.scrollTo({
       y: Math.max(0, (activeIndex + 0.5) * ROW_HEIGHT - viewport / 2),
@@ -372,10 +372,10 @@ function PerpChartTokenSearch({
       let index = activeIndex + step;
       if (activeIndex < 0) index = step > 0 ? 0 : items.length - 1;
       index = Math.min(items.length - 1, Math.max(0, index));
-      setCursor({ query, index });
+      setCursor(index);
       rows.current.get(index)?.scrollIntoView({ block: 'nearest' });
     },
-    [activeIndex, items, query],
+    [activeIndex, items],
   );
   const handleSubmit = useCallback(() => {
     const item = items?.[activeIndex];
@@ -427,7 +427,7 @@ function PerpChartTokenSearch({
             index={index}
             isActive={index === activeIndex}
             item={item}
-            onActivate={activate}
+            onActivate={setCursor}
             onSelect={onSelect}
             registerRow={registerRow}
             testID={testID ? `${testID}-option-${item.coin}` : undefined}
@@ -442,7 +442,7 @@ function PerpChartTokenSearch({
         testID={testID ? `${testID}-search` : undefined}
         size="small"
         value={query}
-        onSearchTextChange={setQuery}
+        onSearchTextChange={handleQueryChange}
         placeholder={display.label}
         onKeyPress={handleKeyPress}
         onSubmitEditing={handleSubmit}
