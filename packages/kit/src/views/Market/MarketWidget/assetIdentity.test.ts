@@ -100,6 +100,60 @@ describe('widget draft display enrichment', () => {
     },
   );
 
+  const blankSolAssets: IMarketWidgetAsset[] = [
+    {
+      kind: 'asset',
+      assetId: 'sol',
+      symbol: 'SOL',
+      name: 'Solana',
+      logoURL: '   ',
+    },
+    {
+      kind: 'token',
+      chainId: 'sol--101',
+      contractAddress: '',
+      requestTokenAddress: '',
+      isNative: true,
+      symbol: 'SOL',
+      name: 'Solana',
+      logoURL: '   ',
+    },
+  ];
+  it.each(blankSolAssets)(
+    'uses the preset SOL logo when row and catalog URLs are blank: $kind',
+    (asset) => {
+      expect(
+        getMarketWidgetAssetLogoUrls({
+          asset,
+          state: { ...state, hot: [{ ...asset, logoURL: '\t' }] },
+          source: 'hot',
+          kind: 'list',
+        }),
+      ).toEqual(['https://uni.onekey-asset.com/static/chain/sol.png']);
+    },
+  );
+
+  it('keeps a valid native row logo when the catalog logo is blank', () => {
+    const asset: IMarketWidgetAsset = {
+      kind: 'token',
+      chainId: 'sol--101',
+      contractAddress: '',
+      requestTokenAddress: '',
+      isNative: true,
+      symbol: 'SOL',
+      name: 'Solana',
+      logoURL: enriched.logoURL,
+    };
+    expect(
+      getMarketWidgetDisplayAsset({
+        asset,
+        state: { ...state, hot: [{ ...asset, logoURL: '   ' }] },
+        source: 'hot',
+        kind: 'list',
+      })?.logoURL,
+    ).toBe(enriched.logoURL);
+  });
+
   it('shows the public SOL logo before the native catalog resolves its identity', () => {
     const draft: IMarketWidgetAsset = {
       kind: 'asset',

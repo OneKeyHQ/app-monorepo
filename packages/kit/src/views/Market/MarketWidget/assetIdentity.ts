@@ -55,7 +55,7 @@ export function getMarketWidgetDisplayAsset({
         ...asset,
         symbol: latest.symbol.trim() ? latest.symbol : asset.symbol,
         name: latest.name.trim() ? latest.name : asset.name,
-        logoURL: latest.logoURL || asset.logoURL,
+        logoURL: latest.logoURL?.trim() || asset.logoURL?.trim(),
       }
     : asset;
   // Public defaults can precede the native catalog's chain-specific identities.
@@ -66,7 +66,7 @@ export function getMarketWidgetDisplayAsset({
     networkId = asset.chainId;
   }
   const logoURL =
-    display.logoURL ||
+    display.logoURL?.trim() ||
     (networkId
       ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
       : undefined);
