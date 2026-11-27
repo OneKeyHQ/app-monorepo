@@ -33,6 +33,7 @@ import { isSameServiceBaseURL } from '@onekeyhq/shared/src/request/helpers/servi
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
@@ -3282,6 +3283,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       whenNoKeyless?: 'clear' | 'skip';
     },
   ): Promise<void> {
+    if (resetUtils.getIsResetting()) return;
     const config = await primeCloudSyncPersistAtom.get();
     if (config.hardwareCloudSyncKeySource) return;
     const whenNoKeyless = options?.whenNoKeyless ?? 'clear';
@@ -3303,13 +3305,20 @@ class ServiceKeylessCloudSync extends ServiceBase {
       return;
     }
     await this.repairCredentialMutex.runExclusive(async () => {
+      if (resetUtils.getIsResetting()) return;
       if (!(await this.isCloudSyncStorageScopeCurrent())) return;
       if (await this.shouldPreserveHardwareCloudKey()) return;
       await this.setPersistedCurrentCloudSyncKeylessWalletId(
         currentCloudSyncKeylessWalletId,
       );
       if (!currentCloudSyncKeylessWalletId) {
-        await keylessSyncCredentialStorage.removeAllCredentials();
+        if (resetUtils.getIsResetting()) return;
+        try {
+          await keylessSyncCredentialStorage.removeAllCredentials();
+        } catch (error) {
+          if (resetUtils.isResettingError(error)) return;
+          throw error;
+        }
       }
     });
   }

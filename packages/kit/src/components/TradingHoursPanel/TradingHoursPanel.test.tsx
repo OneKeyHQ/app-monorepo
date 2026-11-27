@@ -4,12 +4,14 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 import { TradingHoursTrigger } from '.';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFetchUSMarketStatusResult } from '@onekeyhq/shared/types/swap/types';
 
 let mockStatus: IFetchUSMarketStatusResult | undefined;
+let mockMediaMd = false;
+let mockDialogContent: ReactNode;
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en',
@@ -42,8 +44,11 @@ jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
   useWindowDimensions: () => ({ width: 1280, height: 800 }),
 }));
+let mockIntervalTick: (() => void) | undefined;
 jest.mock('@onekeyhq/kit/src/hooks/useInterval', () => ({
-  useInterval: () => undefined,
+  useInterval: (tick: () => void) => {
+    mockIntervalTick = tick;
+  },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useUSMarketStatus', () => ({
   useUSMarketStatus: () => mockStatus,
@@ -58,11 +63,21 @@ jest.mock('@onekeyhq/components', () => {
   const Frame = ({
     children: frameChildren,
     bg,
+    left,
     opacity,
     testID,
     onPress,
+    role,
+    accessible,
+    'aria-label': ariaLabel,
+    'aria-valuenow': ariaValueNow,
   }: PropsWithChildren<{
     bg?: string;
+    left?: string | number;
+    role?: string;
+    accessible?: boolean;
+    'aria-label'?: string;
+    'aria-valuenow'?: number;
     opacity?: number;
     testID?: string;
     onPress?: (event: unknown) => void;
@@ -73,7 +88,15 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </button>
     ) : (
-      <div data-bg={bg} data-testid={testID}>
+      <div
+        data-bg={bg}
+        data-left={left}
+        data-testid={testID}
+        role={role}
+        data-accessible={accessible}
+        aria-label={ariaLabel}
+        aria-valuenow={ariaValueNow}
+      >
         {children}
       </div>
     );
@@ -146,13 +169,22 @@ jest.mock('@onekeyhq/components', () => {
         {renderContent}
       </div>
     ),
-    useMedia: () => ({ md: false }),
+    Dialog: {
+      show: ({ renderContent }: { renderContent: ReactNode }) => {
+        mockDialogContent = renderContent;
+      },
+      Header: ({ children }: PropsWithChildren) => <>{children}</>,
+    },
+    ScrollView: Frame,
+    useMedia: () => ({ md: mockMediaMd }),
   };
 });
 
 afterEach(() => {
   jest.useRealTimers();
   mockStatus = undefined;
+  mockMediaMd = false;
+  mockDialogContent = undefined;
 });
 
 const CLOSED_NOTE = 'Closed on weekends and US market holidays.';
@@ -163,6 +195,15 @@ const sessionRowBg = () =>
   screen
     .getByTestId('trading-hours-session-row-content')
     .getAttribute('data-bg');
+const timelineLabels = () =>
+  within(screen.getByTestId('trading-hours-timeline-labels'))
+    .getAllByText(/\S/)
+    .map((node) => node.textContent);
+const nowLinePercent = () =>
+  parseFloat(
+    screen.getByTestId('trading-hours-now-line').parentElement?.dataset.left ??
+      '',
+  );
 
 it.each(['ondo', 'xstock', 'bstock'])(
   'updates %s trading hours when the backend reports a weekday closure',
@@ -214,7 +255,11 @@ it.each(['ondo', 'xstock', 'bstock'])(
     expect(sessionRowBg()).toBe('$bgSubdued');
     // A weekday closure the clock cannot see has no reopen time to count to.
     expect(screen.queryByTestId('trading-hours-countdown')).toBeNull();
-    expect(screen.queryByTestId('trading-hours-now-line')).toBeNull();
+    // A weekday closure with no reopen time names no next session.
+    expect(timelineLabels()).toEqual([ETranslations.market_status_closed]);
+    expect(
+      screen.queryByText(ETranslations.trading_hours_regular_market_now),
+    ).toBeNull();
     expect(
       screen.getByText(ETranslations.trading_hours_closed_tradable_description),
     ).toBeTruthy();
@@ -412,8 +457,163 @@ it('points a halt at no session through a market-wide closure', () => {
   expect(
     screen.getByText(ETranslations.trading_hours_trading_halts),
   ).toBeTruthy();
-  expect(screen.queryByTestId('trading-hours-now-line')).toBeNull();
+  expect(timelineLabels()).toEqual([ETranslations.market_status_closed]);
   expect(sessionRowBg()).toBe('$bgSubdued');
+});
+
+const renderClosedUSListing = (nextOpenTime?: string) =>
+  render(
+    <TradingHoursTrigger
+      stock={{
+        title: 'AAPL',
+        subtitle: 'Apple',
+        source: 'bstock',
+        sourceLogoUri: '',
+        isUSListing: true,
+        isOpen: false,
+        nextOpenTime,
+      }}
+      renderTrigger={<span>status</span>}
+    />,
+  );
+
+describe('closed timeline', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockStatus = { open: false, session: 'CLOSED', reason: 'holiday' };
+  });
+
+  it('falls back to the cycle without naming a next session', () => {
+    // Thu 10:00 EST, no reopen time: 5h59m into the 04:01 → 03:56 cycle
+    jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+    renderClosedUSListing();
+
+    expect(timelineLabels()).toEqual([ETranslations.market_status_closed]);
+    expect(nowLinePercent()).toBeCloseTo((359 / 1435) * 100, 6);
+    expect(
+      screen.queryByText(ETranslations.trading_hours_regular_market_now),
+    ).toBeNull();
+    // The cycle position is no closure progress: the bar stays indeterminate.
+    expect(
+      screen
+        .getByRole('progressbar', { name: ETranslations.market_status_closed })
+        .hasAttribute('aria-valuenow'),
+    ).toBe(false);
+  });
+
+  it('runs a holiday to the next pre-market', () => {
+    // Thu 10:00 EST; reopens Fri 04:01 EST — 5h59m of 24h
+    jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+    renderClosedUSListing('2026-11-27T09:01:00Z');
+
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      'Pre',
+    ]);
+    expect(nowLinePercent()).toBeCloseTo((359 / 1440) * 100, 6);
+    const progress = screen.getByRole('progressbar', {
+      name: ETranslations.market_status_closed,
+    });
+    expect(progress.getAttribute('aria-valuenow')).toBe('25');
+    expect(progress.getAttribute('data-accessible')).toBe('true');
+  });
+
+  it('updates an open sheet when a refresh brings the reopen time', () => {
+    mockMediaMd = true;
+    // Thu 10:00 EST, weekday closure with no reopen time yet
+    jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+    const stock = {
+      title: 'AAPL',
+      subtitle: 'Apple',
+      source: 'bstock',
+      sourceLogoUri: '',
+      isUSListing: true,
+      isOpen: false,
+    };
+    const { rerender } = render(
+      <TradingHoursTrigger stock={stock} renderTrigger={<span>status</span>} />,
+    );
+    // The sheet trigger is the only button before the sheet mounts.
+    fireEvent.click(screen.getByRole('button'));
+    render(<>{mockDialogContent}</>);
+    expect(timelineLabels()).toEqual([ETranslations.market_status_closed]);
+
+    act(() => {
+      rerender(
+        <TradingHoursTrigger
+          stock={{ ...stock, nextOpenTime: '2026-11-27T09:01:00Z' }}
+          renderTrigger={<span>status</span>}
+        />,
+      );
+    });
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      'Pre',
+    ]);
+    expect(screen.getByText('Pre-market starts in')).toBeTruthy();
+  });
+
+  it('runs a holiday to the same evening overnight', () => {
+    // Thu 10:00 EST; reopens Thu 20:05 EST — 5h59m of 16h04m
+    jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+    renderClosedUSListing('2026-11-27T01:05:00Z');
+
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      ETranslations.trading_hours_overnight,
+    ]);
+    expect(nowLinePercent()).toBeCloseTo((359 / 964) * 100, 6);
+  });
+
+  it.each([
+    // Sat 10:00 EST — 14h into the Fri 20:00 → Sun 20:05 closure
+    ['Saturday', '2026-11-28T15:00:00Z', 840],
+    // Sun 10:00 EST — 38h in; the cycle rolled over at 04:01, the line not
+    ['Sunday', '2026-11-29T15:00:00Z', 2280],
+  ])('tracks the whole weekend on %s', (_day, now, elapsedMinutes) => {
+    mockStatus = { open: false, session: 'CLOSED', reason: 'weekend' };
+    jest.setSystemTime(new Date(now));
+    renderClosedUSListing();
+
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      ETranslations.trading_hours_overnight,
+    ]);
+    expect(nowLinePercent()).toBeCloseTo((elapsedMinutes / 2885) * 100, 6);
+  });
+
+  it('never announces a finished closure before the reopen', () => {
+    mockStatus = { open: false, session: 'CLOSED', reason: 'weekend' };
+    // Sun 19:55 EST: 2875 of the 2885 weekend minutes, ten before overnight
+    jest.setSystemTime(new Date('2026-11-30T00:55:00Z'));
+    renderClosedUSListing();
+
+    expect(
+      screen
+        .getByRole('progressbar', { name: ETranslations.market_status_closed })
+        .getAttribute('aria-valuenow'),
+    ).toBe('99');
+  });
+
+  it('keeps the closure start across the 04:01 cycle rollover', () => {
+    // Fri 03:59 EST, closed until the Fri 09:31 EST regular open: 23h58m
+    // into the closure that started Thu 04:01 (29h30m long)
+    jest.setSystemTime(new Date('2026-11-27T08:59:00Z'));
+    renderClosedUSListing('2026-11-27T14:31:00Z');
+    expect(timelineLabels()).toEqual([
+      ETranslations.market_status_closed,
+      'Regular',
+    ]);
+    expect(nowLinePercent()).toBeCloseTo((1438 / 1770) * 100, 6);
+
+    // Fri 04:02 EST: the clock's cycle now starts Fri 04:01, but the marker
+    // keeps measuring from Thu 04:01 instead of dropping back to the start.
+    act(() => {
+      jest.setSystemTime(new Date('2026-11-27T09:02:00Z'));
+      mockIntervalTick?.();
+    });
+    expect(nowLinePercent()).toBeCloseTo((1441 / 1770) * 100, 6);
+  });
 });
 
 it('counts the cycle-edge gap down to the next pre-market', () => {

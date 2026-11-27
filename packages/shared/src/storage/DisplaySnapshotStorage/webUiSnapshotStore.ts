@@ -397,6 +397,16 @@ export function writeUiSnapshotMeta(key: string, value: string): void {
   scheduleFlush(recordKey);
 }
 
+async function closeAndResetDatabase(): Promise<void> {
+  const pending = databasePromise;
+  databasePromise = undefined;
+  if (!pending) {
+    return;
+  }
+  const database = await pending.catch(() => undefined);
+  database?.close?.();
+}
+
 /** Wipe every namespace. Used by the app's own "clear data", which restarts
  *  afterwards, and by a build whose stored shapes no longer match. */
 export async function resetWebUiSnapshotStore(): Promise<void> {
@@ -411,14 +421,28 @@ export async function resetWebUiSnapshotStore(): Promise<void> {
     flushFailureStreak = 0;
     getMap().clear();
     await flushPromise?.catch(() => undefined);
-    const database = await getDatabase();
-    const transaction = await database.createBucketTransaction(
-      [RECORD_STORE],
-      'readwrite',
-      { allowWhenStorageFull: true },
-    );
-    await transaction.objectStore(RECORD_STORE).clear();
-    await transaction.done;
+    const clearDatabase = async () => {
+      const database = await getDatabase();
+      const transaction = await database.createBucketTransaction(
+        [RECORD_STORE],
+        'readwrite',
+        { allowWhenStorageFull: true },
+      );
+      await transaction.objectStore(RECORD_STORE).clear();
+      await transaction.done;
+    };
+    try {
+      await clearDatabase();
+    } catch {
+      // A cached handle may belong to a Storage Bucket deleted by another tab
+      // or an earlier reset attempt. Drop it and retry once on a fresh bucket.
+      await closeAndResetDatabase();
+      await clearDatabase();
+    } finally {
+      // Close before later reset stages delete the origin's Storage Buckets so
+      // retries never reuse an invalidated handle.
+      await closeAndResetDatabase();
+    }
   } finally {
     isClearing = false;
   }

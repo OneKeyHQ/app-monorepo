@@ -42,7 +42,7 @@ import { hideNativeStorageBootstrapSplash } from './nativeStorageBootstrapSplash
 
 import type { INativeStorageBootstrapErrorScreenProps } from './NativeStorageBootstrapErrorScreen';
 
-let AppComponent: ComponentType | undefined;
+let AppComponent: ComponentType<Record<string, unknown>> | undefined;
 let bootstrapError: Error | undefined;
 let bootstrapErrorTitle = 'Storage initialization failed';
 let bootstrapRecoveryTarget: INativeStorageMigrationRecoveryTarget | undefined;
@@ -742,7 +742,7 @@ function returnFromStorageRecovery() {
   }
 }
 
-export function NativeStorageBootstrapRoot() {
+export function NativeStorageBootstrapRoot(props: Record<string, unknown>) {
   const backRequestRef = useRef<(() => void) | null>(null);
   useSyncExternalStore(subscribeBootstrapState, getBootstrapStateVersion);
   const requestedRecoveryTarget = useSyncExternalStore(
@@ -857,7 +857,7 @@ export function NativeStorageBootstrapRoot() {
           importantForAccessibility={showError ? 'no-hide-descendants' : 'auto'}
           testID="native-storage-retained-app"
         >
-          <App />
+          <App {...props} />
         </View>
       ) : null}
       {showError && App ? (

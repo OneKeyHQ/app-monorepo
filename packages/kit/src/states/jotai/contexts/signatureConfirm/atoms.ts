@@ -19,12 +19,14 @@ import { createJotaiContext } from '../../utils/createJotaiContext';
 const {
   Provider: ProviderJotaiContextSignatureConfirm,
   withProvider: withSignatureConfirmProvider,
+  useContextData: useSignatureConfirmContextData,
   contextAtom,
   contextAtomMethod,
 } = createJotaiContext();
 export {
   ProviderJotaiContextSignatureConfirm,
   withSignatureConfirmProvider,
+  useSignatureConfirmContextData,
   contextAtomMethod,
 };
 

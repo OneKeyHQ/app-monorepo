@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type {
+  IDecodedTxExtraStarknet,
   IEncodedTxStarknet,
   IEncodedTxStarknetPrivacy,
 } from '@onekeyhq/core/src/chains/starknet/types';
@@ -8,6 +9,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { starknetPrivacyOperationTitles } from '@onekeyhq/shared/src/locale/starknetPrivacy';
+import type {
+  IAccountHistoryTx,
+  IOnChainHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import { EStrk20ErrorCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import {
   EDecodedTxActionType,
@@ -15,7 +20,10 @@ import {
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
-import { STRK20_SCREENING_WINDOW_MS } from './sdkStarknet';
+import {
+  STRK20_PRIVACY_CONFIG,
+  STRK20_SCREENING_WINDOW_MS,
+} from './sdkStarknet';
 import { normalizeStarknetAddress, normalizeTokenAddress } from './utils';
 
 import type { ClientStarknet } from './sdkStarknet';
@@ -209,6 +217,9 @@ export async function noteStarknetPrivacyBroadcastSubmitted(params: {
       accountId,
       poolAddress: privacy.poolAddress,
       txid,
+      ...(typeof privacy.provingBlockId === 'number'
+        ? { provingBlockId: privacy.provingBlockId }
+        : {}),
     };
     if (privacy.kind === 'register') {
       await backgroundApi.serviceStarknetPrivacy.noteRegisterSubmitted(key);
@@ -222,4 +233,177 @@ export async function noteStarknetPrivacyBroadcastSubmitted(params: {
   } catch {
     // Broadcast already succeeded; recording its public status must not change the result.
   }
+}
+
+/**
+ * Strips sensitive private transfer details (`amount`, `recipient`, `tokenAddress`,
+ * and clear `ASSET_TRANSFER` actions) before a history row is persisted to
+ * `simpleDb.localHistory`. Public on-chain fields (txid, status, block, fees,
+ * poolAddress, kind) are preserved so Discovery rows can still merge local fees.
+ */
+export function redactStarknetPrivacyHistoryTx(
+  tx: IAccountHistoryTx,
+): IAccountHistoryTx {
+  const extraInfo = tx.decodedTx.extraInfo as
+    | IDecodedTxExtraStarknet
+    | undefined;
+  const encodedTx = tx.decodedTx.encodedTx as IEncodedTxStarknet | undefined;
+  const privacy = extraInfo?.privacy ?? encodedTx?.privacy;
+  if (!privacy || privacy.kind === 'register') {
+    return tx;
+  }
+
+  const stripSensitiveFields = <
+    T extends { amount?: string; recipient?: string; tokenAddress?: string },
+  >(
+    value: T,
+  ): Omit<T, 'amount' | 'recipient' | 'tokenAddress'> => {
+    const {
+      amount: _amount,
+      recipient: _recipient,
+      tokenAddress: _tokenAddress,
+      ...publicFields
+    } = value;
+    return publicFields;
+  };
+
+  const pool = normalizeStarknetAddress(privacy.poolAddress);
+  const publicAction: IDecodedTxAction = {
+    type: EDecodedTxActionType.FUNCTION_CALL,
+    functionCall: {
+      from: tx.decodedTx.owner || tx.decodedTx.signer,
+      to: pool,
+      functionName: appLocale.intl.formatMessage({
+        id: starknetPrivacyOperationTitles[privacy.kind],
+      }),
+      args: [],
+    },
+  };
+
+  return {
+    ...tx,
+    decodedTx: {
+      ...tx.decodedTx,
+      actions: [publicAction],
+      outputActions: undefined,
+      txDisplay: undefined,
+      ...(encodedTx?.privacy
+        ? {
+            encodedTx: {
+              ...encodedTx,
+              privacy: stripSensitiveFields(encodedTx.privacy),
+            },
+          }
+        : {}),
+      ...(extraInfo?.privacy
+        ? {
+            extraInfo: {
+              ...extraInfo,
+              privacy: stripSensitiveFields(extraInfo.privacy),
+            },
+          }
+        : {}),
+    },
+  };
+}
+
+const STARKNET_ON_CHAIN_PRIVACY_KINDS: Record<
+  string,
+  IEncodedTxStarknetPrivacy['kind']
+> = {
+  strk20_register: 'register',
+  strk20_deposit: 'deposit',
+  strk20_withdraw: 'withdraw',
+  strk20_transfer: 'transfer',
+};
+
+function matchStarknetOnChainTag(
+  onChainHistoryTx: IOnChainHistoryTx,
+): string | undefined {
+  for (const candidate of [onChainHistoryTx.type, onChainHistoryTx.label]) {
+    if (candidate) {
+      const normalized = String(candidate).toLowerCase();
+      if (
+        normalized === 'deploy_account' ||
+        normalized in STARKNET_ON_CHAIN_PRIVACY_KINDS
+      ) {
+        return normalized;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Maps backend Starknet history tags (`deploy_account`, `strk20_*`) to
+ * structured `IDecodedTxExtraStarknet` so list/detail titles and public-tab
+ * visibility work consistently without requiring local history records.
+ */
+export function resolveStarknetOnChainHistoryExtraInfo(params: {
+  networkId: string;
+  onChainHistoryTx: IOnChainHistoryTx;
+}): IDecodedTxExtraStarknet | null {
+  const { networkId, onChainHistoryTx } = params;
+  const tag = matchStarknetOnChainTag(onChainHistoryTx);
+  if (!tag) {
+    return null;
+  }
+  if (tag === 'deploy_account') {
+    return { accountDeployment: true };
+  }
+  const kind = STARKNET_ON_CHAIN_PRIVACY_KINDS[tag];
+  if (!kind) {
+    return null;
+  }
+  const poolAddress =
+    STRK20_PRIVACY_CONFIG[networkId]?.poolAddress ||
+    onChainHistoryTx.to ||
+    onChainHistoryTx.from ||
+    '';
+  return {
+    privacy: {
+      kind,
+      poolAddress: poolAddress ? normalizeStarknetAddress(poolAddress) : '',
+    },
+  };
+}
+
+/**
+ * Replaces raw backend snake_case Starknet tags on decoded actions with
+ * localized titles so fallback UI surfaces never render raw identifiers.
+ */
+export function localizeStarknetOnChainHistoryAction(params: {
+  action: IDecodedTxAction;
+  extraInfo: IDecodedTxExtraStarknet | null;
+}): IDecodedTxAction {
+  const { action, extraInfo } = params;
+  let titleKey: ETranslations | undefined;
+  if (extraInfo?.accountDeployment) {
+    titleKey = ETranslations.starknet_account_activation__title;
+  } else if (extraInfo?.privacy?.kind) {
+    titleKey = starknetPrivacyOperationTitles[extraInfo.privacy.kind];
+  }
+  if (!titleKey) {
+    return action;
+  }
+  const localizedTitle = appLocale.intl.formatMessage({ id: titleKey });
+  if (action.functionCall) {
+    return {
+      ...action,
+      functionCall: {
+        ...action.functionCall,
+        functionName: localizedTitle,
+      },
+    };
+  }
+  if (action.assetTransfer) {
+    return {
+      ...action,
+      assetTransfer: {
+        ...action.assetTransfer,
+        label: localizedTitle,
+      },
+    };
+  }
+  return action;
 }

@@ -33,6 +33,7 @@ import appStorage, {
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { resetFirstLaunchState } from '@onekeyhq/shared/src/utils/freshInstallDetector';
 import { storeExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -253,6 +254,13 @@ class ServiceApp extends ServiceBase {
           await import('../states/jotai/jotaiStorage');
         await clearNativeJotaiStorageForReset();
       });
+      await runCleanup('firstLaunchState', async () => {
+        if (!(await resetFirstLaunchState())) {
+          throw new OneKeyLocalError(
+            'Failed to reset native first-launch state',
+          );
+        }
+      });
     }
     // A retry must clear snapshots again even if the first attempt cleared them.
     this.completedResetCleanups.delete('snapshotCaches');
@@ -297,9 +305,10 @@ class ServiceApp extends ServiceBase {
         }
       }
       if (platformEnv.isRuntimeBrowser) {
-        await runCleanup('browserStorage', () =>
-          globalThis.localStorage.clear(),
-        );
+        await runCleanup('browserStorage', async () => {
+          globalThis.localStorage.clear();
+          await resetFirstLaunchState();
+        });
         await runCleanup('browserSessionStorage', () =>
           globalThis.sessionStorage.clear(),
         );
@@ -328,8 +337,14 @@ class ServiceApp extends ServiceBase {
     }
     if (failedStages.size === 1) throw failedStages.values().next().value;
     if (failedStages.size > 1) {
+      const details = [...failedStages.entries()]
+        .map(([stage, err]) => {
+          const detail = this.formatResetErrorDetail(err);
+          return detail ? `${stage} (${detail})` : stage;
+        })
+        .join(', ');
       throw new OneKeyLocalError(
-        `App reset could not complete ${[...failedStages.keys()].join(', ')}. Retry Reset App.`,
+        `App reset could not complete ${details}. Retry Reset App.`,
       );
     }
   }
@@ -461,6 +476,24 @@ class ServiceApp extends ServiceBase {
     }
   }
 
+  private formatResetErrorDetail(error: unknown): string {
+    if (error instanceof Error) {
+      const message = error.message?.trim();
+      const name = error.name?.trim();
+      if (
+        name &&
+        name !== 'Error' &&
+        name !== 'OneKeyLocalError' &&
+        message &&
+        !message.startsWith(name)
+      ) {
+        return `${name}: ${message}`;
+      }
+      return message || name || '';
+    }
+    return error === null || error === undefined ? '' : String(error).trim();
+  }
+
   private async runResetStage<T>(
     log: IResetStageLogger,
     stage: string,
@@ -469,6 +502,7 @@ class ServiceApp extends ServiceBase {
   ): Promise<T> {
     const start = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
     log(stage, 'start', { deadlineMs });
     try {
       // Rejoin a native or database operation after its deadline.
@@ -487,6 +521,7 @@ class ServiceApp extends ServiceBase {
         pending,
         new Promise<never>((_resolve, reject) => {
           timer = setTimeout(() => {
+            timedOut = true;
             log(stage, 'timeout', {
               elapsedMs: Date.now() - start,
               deadlineMs,
@@ -503,9 +538,12 @@ class ServiceApp extends ServiceBase {
       return result;
     } catch (error) {
       log(stage, 'failed', { elapsedMs: Date.now() - start, deadlineMs });
-      if (error instanceof RecoveryCacheErasureError) throw error;
+      if (error instanceof RecoveryCacheErasureError || timedOut) throw error;
+      const detail = this.formatResetErrorDetail(error);
       throw new OneKeyLocalError(
-        `App reset could not complete ${stage}. Retry Reset App.`,
+        detail
+          ? `App reset could not complete ${stage}: ${detail}. Retry Reset App.`
+          : `App reset could not complete ${stage}. Retry Reset App.`,
       );
     } finally {
       clearTimeout(timer);
@@ -707,8 +745,11 @@ class ServiceApp extends ServiceBase {
       );
     } catch (error) {
       if (!(error instanceof RecoveryCacheErasureError)) {
+        const detail = this.formatResetErrorDetail(error);
         throw new OneKeyLocalError(
-          'App reset could not drain recovery tasks. Retry Reset App.',
+          detail
+            ? `App reset could not drain recovery tasks: ${detail}. Retry Reset App.`
+            : 'App reset could not drain recovery tasks. Retry Reset App.',
         );
       }
       recoveryErasureFailed = true;

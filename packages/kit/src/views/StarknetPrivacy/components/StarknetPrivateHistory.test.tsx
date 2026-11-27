@@ -13,7 +13,12 @@ import { StarknetPrivateHistory } from './StarknetPrivateHistory';
 import type { useStarknetPrivateHistory } from '../hooks/useStarknetPrivateHistory';
 
 const mockObserver = jest.fn(
-  (_props: { enabled: boolean; onEndReached: () => void }) => null,
+  (_props: {
+    enabled: boolean;
+    hasMore?: boolean;
+    progressKey: string;
+    onEndReached: () => void;
+  }) => null,
 );
 jest.mock(
   '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsPager',
@@ -115,6 +120,7 @@ beforeEach(() => {
     txs: [],
     isEnabled: undefined,
     hasMore: false,
+    cursorId: undefined,
     initialized: true,
     errorKey: ETranslations.privacy_balance_verification_pending__msg,
     errorCode: EStrk20ErrorCode.Locked,
@@ -189,4 +195,21 @@ it('pages an empty filtered web tab using the shared observer', () => {
     expect.objectContaining({ enabled: false }),
   );
   expect(ui.getByTestId('history-error')).not.toBeNull();
+});
+
+it('advances observer progressKey across consecutive empty filtered pages via cursorId', () => {
+  mockHistory.errorKey = undefined;
+  mockHistory.errorCode = undefined;
+  mockHistory.hasMore = true;
+  mockHistory.cursorId = 'cursor-page-1';
+
+  const ui = render(<StarknetPrivateHistory {...props} isTabView />);
+  const firstProgressKey = mockObserver.mock.lastCall?.[0].progressKey;
+  expect(firstProgressKey).toContain('cursor-page-1');
+
+  mockHistory = { ...mockHistory, cursorId: 'cursor-page-2' };
+  ui.rerender(<StarknetPrivateHistory {...props} isTabView />);
+  const secondProgressKey = mockObserver.mock.lastCall?.[0].progressKey;
+  expect(secondProgressKey).toContain('cursor-page-2');
+  expect(secondProgressKey).not.toBe(firstProgressKey);
 });

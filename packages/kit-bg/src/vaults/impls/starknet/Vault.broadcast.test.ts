@@ -233,6 +233,7 @@ describe('StarknetVault privacy build freshness', () => {
       accountId: 'hd-1--a',
       poolAddress: POOL,
       txid: '0xreg1',
+      provingBlockId: 991,
     });
   });
 
@@ -325,6 +326,7 @@ describe('StarknetVault register submission', () => {
       accountId: 'hd-1--a',
       poolAddress: POOL,
       txid: '0xabc',
+      provingBlockId: 991,
     });
   });
 

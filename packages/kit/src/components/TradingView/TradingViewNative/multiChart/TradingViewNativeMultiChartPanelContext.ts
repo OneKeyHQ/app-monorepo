@@ -34,13 +34,34 @@ export interface ITradingViewNativeMultiChartDrawingTools {
   getCollapseGain: () => number;
 }
 
+export interface ITradingViewNativeMultiChartMaximize {
+  /** The panel fills the grid and the other panels are out of sight. */
+  isMaximized: boolean;
+  /**
+   * Fills the grid with the panel, selecting it as a press on it would, or
+   * brings the other panels back.
+   */
+  toggle: () => void;
+}
+
 export interface ITradingViewNativeMultiChartControlsSlot {
   /**
    * Places the chart's controls row. The grid shows one row above all panels,
    * the selected panel's, so the other panels leave theirs out.
    */
   renderControls: (controls: ReactNode) => ReactNode;
+  /**
+   * Places the chart's own interval picker where the host put the panel's
+   * `intervalControl`, e.g. in its header, so every panel shows and picks its
+   * interval, the selected one or not. Nothing while the host shows none.
+   */
+  renderIntervalControl: (control: ReactNode) => ReactNode;
   drawingTools: ITradingViewNativeMultiChartDrawingTools;
+  /**
+   * Maximizing the panel, from the chart's corner button or a double click on
+   * its plot. Absent while the grid shows a single chart.
+   */
+  maximize?: ITradingViewNativeMultiChartMaximize;
 }
 
 // Set around every split-view panel, the first one included.

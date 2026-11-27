@@ -2,6 +2,7 @@
 
 import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ONBOARDING_ROUTE_DISABLE_ANIMATION_PARAM } from '@onekeyhq/shared/src/routes/onboardingv2';
 
 import { EPageType } from '../../hocs';
 
@@ -207,13 +208,21 @@ export function makeFullScreenOptions(
   };
 }
 
-export function makeOnboardingScreenOptions(): IStackNavigationOptions {
+export function makeOnboardingScreenOptions(info?: {
+  isVerticalLayout?: boolean;
+  optionsInfo?: IScreenOptionsInfo<any>;
+}): IStackNavigationOptions {
+  const routeParams = info?.optionsInfo?.route?.params as
+    | Record<string, unknown>
+    | undefined;
+  const disableAnimation =
+    routeParams?.[ONBOARDING_ROUTE_DISABLE_ANIMATION_PARAM] === true;
   const options: IStackNavigationOptions = {
     headerShown: false,
     presentation: 'card',
     gestureEnabled: platformEnv.isNativeIOS,
     gestureDirection: 'horizontal',
-    animation: 'slide_from_right',
+    animation: disableAnimation ? 'none' : 'slide_from_right',
   };
   return options;
 }

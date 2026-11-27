@@ -74,6 +74,7 @@ export type IParseQRCodeRuntimeDeps = {
   intl: ReturnType<typeof useIntl>;
   scanRequestId?: string;
   scanRouteKey?: string;
+  isCaptureCurrent?: () => boolean;
   onResultDismiss?: () => boolean;
 };
 
@@ -86,6 +87,7 @@ export async function parseQRCodeWithDeps(
     intl,
     scanRequestId,
     scanRouteKey,
+    isCaptureCurrent,
     onResultDismiss,
   }: IParseQRCodeRuntimeDeps,
 ) {
@@ -188,10 +190,11 @@ export async function parseQRCodeWithDeps(
   }
 
   if (
-    (onResultDismiss ||
+    isCaptureCurrent?.() === false ||
+    ((onResultDismiss ||
       result.type === EQRCodeHandlerType.LIGHTNING_NETWORK ||
       hasLightningUriScheme(value)) &&
-    !isScannerCurrent()
+      !isScannerCurrent())
   ) {
     throw new OneKeyErrorScanQrCodeCancel();
   }

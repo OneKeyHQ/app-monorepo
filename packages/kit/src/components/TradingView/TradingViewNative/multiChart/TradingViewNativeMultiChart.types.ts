@@ -27,6 +27,12 @@ export interface ITradingViewNativeMultiChartPanel {
   /** Layout picker for the selected panel's controls; null for the others. */
   layoutControl: ReactNode;
   /**
+   * Where the panel's chart shows its own interval picker, for the host to
+   * place in the panel's header, e.g. after the token's quote. A chart left
+   * without it shows none there.
+   */
+  intervalControl: ReactNode;
+  /**
    * Selects the panel with another token, e.g. one picked in its header: the
    * host switches to it once, and that switch decides the selection like a
    * press on the panel would.

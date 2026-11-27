@@ -61,8 +61,21 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           git fetch origin "$PR_BASE" --no-tags
-          git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > /tmp/check-bloat.mjs
-          node /tmp/check-bloat.mjs \
+          CHECKER_DIR=$(mktemp -d "$RUNNER_TEMP/bloat-checker.XXXXXX")
+          git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > "$CHECKER_DIR/check-bloat.mjs"
+          PARSER_VERSION=$(git show "origin/$PR_BASE:package.json" | node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).devDependencies["oxc-parser"] || ""')
+          if [[ -n "$PARSER_VERSION" ]]; then
+            if [[ ! "$PARSER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "The base branch must pin an exact Oxc parser version." >&2
+              exit 1
+            fi
+            (
+              cd "$CHECKER_DIR"
+              npm install --include=optional --ignore-scripts --no-audit --no-fund \
+                --no-save --no-package-lock "oxc-parser@$PARSER_VERSION"
+            )
+          fi
+          node "$CHECKER_DIR/check-bloat.mjs" \
             --pr "$PR_NUMBER" \
             --repo "$REPO" \
             --base "origin/$PR_BASE" \

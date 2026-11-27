@@ -130,9 +130,17 @@ jest.mock('./nativeStorageBootstrapSplash', () => ({
 
 jest.mock(
   '../../App',
-  (): { __esModule: boolean; default: () => ReactNode } => ({
+  (): {
+    __esModule: boolean;
+    default: (props: Record<string, unknown>) => ReactNode;
+  } => ({
     __esModule: true,
-    default: () => <div data-testid="business-app" />,
+    default: (props) => (
+      <div
+        data-testid="business-app"
+        data-launch-props={JSON.stringify(props)}
+      />
+    ),
   }),
 );
 
@@ -147,7 +155,12 @@ describe('NativeStorageBootstrapRoot', () => {
   });
 
   it('renders a waiting surface and turns a hung bootstrap into a retryable error', async () => {
-    render(<NativeStorageBootstrapRoot />);
+    const launchProps = {
+      onekeyColdStartLocalNotification: {
+        notificationId: 'scene-notification',
+      },
+    };
+    render(<NativeStorageBootstrapRoot {...launchProps} />);
 
     expect(screen.getByTestId('native-storage-bootstrap-waiting')).toBeTruthy();
 
@@ -290,6 +303,8 @@ describe('NativeStorageBootstrapRoot', () => {
     ).toBeLessThan(
       mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
     );
-    expect(screen.getByTestId('business-app')).toBeTruthy();
+    expect(
+      screen.getByTestId('business-app').getAttribute('data-launch-props'),
+    ).toBe(JSON.stringify(launchProps));
   });
 });

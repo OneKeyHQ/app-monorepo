@@ -5,6 +5,7 @@ import {
   IMPL_DNX,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
+  IMPL_STARKNET,
   IMPL_STELLAR,
   IMPL_TON,
   IMPL_TRON,
@@ -24,6 +25,7 @@ import {
   LightningTxAttributes,
   LightningTxFlow,
 } from './pages/HistoryDetails/components/LigntningTxMeta';
+import { StarknetAttributes } from './pages/HistoryDetails/components/StarknetTxMeta';
 import { StellarTxAttributes } from './pages/HistoryDetails/components/StellarTxMeta';
 import { TonTxAttributes } from './pages/HistoryDetails/components/TonTxMeta';
 import { TronAttributes } from './pages/HistoryDetails/components/TronTxMeta';
@@ -78,6 +80,11 @@ export function getHistoryTxMeta({ impl }: { impl: string }) {
     case IMPL_STELLAR:
       components = {
         [EHistoryTxDetailsBlock.Attributes]: StellarTxAttributes,
+      };
+      break;
+    case IMPL_STARKNET:
+      components = {
+        [EHistoryTxDetailsBlock.Attributes]: StarknetAttributes,
       };
       break;
     default:

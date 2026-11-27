@@ -241,3 +241,71 @@ export async function withLogUploadTimeout<T>(
     clearTimeout(timer);
   }
 }
+
+const FILESYSTEM_PATH_PATTERN =
+  /['"`]?(?:[A-Za-z]:\\|\/(?:Users|home|var|private|tmp|etc|opt|Library|AppData|ProgramData)\/)[^\s'"`,;)]*['"`]?/g;
+
+/**
+ * Formats a manual log export failure into a short, path-free toast message
+ * that preserves the underlying cause without leaking local filesystem paths
+ * or introducing unescaped ICU brace syntax.
+ */
+export function formatManualExportToastMessage(
+  error: Error,
+): string | undefined {
+  const raw = error.message?.trim() ?? '';
+  if (!raw) return undefined;
+
+  const code = (error as { code?: unknown }).code;
+  const codeStr = typeof code === 'string' ? code.toUpperCase() : '';
+  const upper = raw.toUpperCase();
+
+  if (
+    codeStr === 'EACCES' ||
+    codeStr === 'EPERM' ||
+    upper.includes('EACCES') ||
+    upper.includes('EPERM') ||
+    upper.includes('PERMISSION DENIED')
+  ) {
+    return 'Permission denied while exporting logs.';
+  }
+  if (
+    codeStr === 'ENOSPC' ||
+    upper.includes('ENOSPC') ||
+    upper.includes('NO SPACE LEFT')
+  ) {
+    return 'Not enough disk space to export logs.';
+  }
+  if (
+    codeStr === 'ENOENT' ||
+    upper.includes('ENOENT') ||
+    upper.includes('NO SUCH FILE OR DIRECTORY')
+  ) {
+    return 'Log directory or file was not found.';
+  }
+  if (
+    codeStr === 'EROFS' ||
+    upper.includes('EROFS') ||
+    upper.includes('READ-ONLY FILE SYSTEM')
+  ) {
+    return 'Export destination is read-only.';
+  }
+  if (
+    codeStr === 'EBUSY' ||
+    codeStr === 'EMFILE' ||
+    codeStr === 'ENFILE' ||
+    upper.includes('EBUSY') ||
+    upper.includes('EMFILE') ||
+    upper.includes('ENFILE')
+  ) {
+    return 'Log file is busy or temporarily unavailable.';
+  }
+
+  const sanitized = raw
+    .replace(FILESYSTEM_PATH_PATTERN, '<path>')
+    .replaceAll('{', '(')
+    .replaceAll('}', ')')
+    .trim();
+
+  return sanitized || undefined;
+}
