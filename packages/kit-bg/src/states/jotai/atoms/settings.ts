@@ -75,6 +75,8 @@ export type ISettingsPersistAtom = {
   // (default-on for back-compat). Toggling triggers app restart.
   enableSplitView?: boolean;
   newBrowserTabPosition?: INewBrowserTabPosition;
+  // Desktop sidebar text under each icon; undefined means shown.
+  sidebarShowLabels?: boolean;
   // Pay eligible network fees from Gas Account (sponsored gas) when available;
   // turning this off makes ServiceGas.estimateFee force gasAccountEnabled=false
   // for every caller (Send / Swap / Perps / Earn / dApp ...).

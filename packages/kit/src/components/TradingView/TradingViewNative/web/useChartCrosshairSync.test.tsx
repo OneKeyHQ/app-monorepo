@@ -21,6 +21,8 @@ function renderChart(
   const scope: { current: ITradingViewNativeMultiChartSyncScope } = {
     current: {
       isMain: false,
+      panelId: 'panel-2',
+      reportInterval: () => {},
       instrumentKey,
       crosshair: channel,
       interval: null,

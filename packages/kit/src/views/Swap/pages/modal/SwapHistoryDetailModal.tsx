@@ -48,6 +48,7 @@ import {
 } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
+import { getSwapLiveActivityOrderKey } from '@onekeyhq/shared/src/utils/liveActivityUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
@@ -56,6 +57,7 @@ import {
   getSwapHistoryLongPendingWarningDelayMs,
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -108,6 +110,7 @@ import {
   getSwapHistoryStatusTextProps,
 } from '../../utils/utils';
 import { waitForSwapHistoryRecipientReset } from '../../utils/waitForSwapHistoryRecipientReset';
+import { useSwapHistoryTradeAgainAllowed } from '../components/SwapHistoryTradeAgainContext';
 
 import { SwapHistoryFooter } from './SwapHistoryFooter';
 
@@ -813,7 +816,15 @@ const SwapHistoryDetailModal = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
     >();
   const intl = useIntl();
-  const { txHistoryOrderId, txHistoryList } = route.params ?? {};
+  const { txHistoryOrderId, txHistoryList, liveActivityOrderKey } =
+    route.params ?? {};
+  const matchesOrder = useCallback(
+    (item: ISwapTxHistory) =>
+      liveActivityOrderKey
+        ? getSwapLiveActivityOrderKey(item) === liveActivityOrderKey
+        : item.swapInfo.orderId === txHistoryOrderId,
+    [liveActivityOrderKey, txHistoryOrderId],
+  );
   const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -852,14 +863,10 @@ const SwapHistoryDetailModal = () => {
       return;
     }
     if (!swapTxHistoryList?.length) return;
-    const routeTxHistory = txHistoryList?.find(
-      (item) => item.swapInfo.orderId === txHistoryOrderId,
-    );
+    const routeTxHistory = txHistoryList?.find(matchesOrder);
     if (
-      txHistoryOrderId &&
-      !swapTxHistoryList.some(
-        (item) => item.swapInfo.orderId === txHistoryOrderId,
-      )
+      (txHistoryOrderId || liveActivityOrderKey) &&
+      !swapTxHistoryList.some(matchesOrder)
     ) {
       return;
     }
@@ -906,15 +913,15 @@ const SwapHistoryDetailModal = () => {
     txHistoryList,
     txHistoryListState,
     txHistoryOrderId,
+    liveActivityOrderKey,
+    matchesOrder,
   ]);
   const txHistory = useMemo(
     () =>
       shouldShowSwapLocalData
-        ? txHistoryListState?.find(
-            (item) => item.swapInfo.orderId === txHistoryOrderId,
-          )
+        ? txHistoryListState?.find(matchesOrder)
         : undefined,
-    [shouldShowSwapLocalData, txHistoryListState, txHistoryOrderId],
+    [shouldShowSwapLocalData, txHistoryListState, matchesOrder],
   );
   const transactionIdRows = useMemo(
     () => (txHistory ? getSwapHistoryTransactionIdRows(txHistory) : []),
@@ -1002,16 +1009,20 @@ const SwapHistoryDetailModal = () => {
         currencyMap,
       });
     }, [currencyMap, displayCurrencyId, isPrivateSendHistory, txHistory]);
-  // Only show Order ID when the provider has a third-party order explorer
-  // (e.g. CowSwap explorer.cow.fi); providers without orderSupportUrl keep it
-  // hidden per OK-57251. (OK-59978)
   const providerOrderId = txHistory
     ? getSwapHistoryProviderOrderId(txHistory)
     : undefined;
+  const hasXmrSwapOrder =
+    isXmrSwapNetwork(txHistory?.baseInfo.fromToken.networkId) ||
+    isXmrSwapNetwork(txHistory?.baseInfo.toToken.networkId);
   const shouldRenderOrderId =
     !!providerOrderId &&
-    !!txHistory?.swapInfo.orderSupportUrl &&
+    (hasXmrSwapOrder || !!txHistory?.swapInfo.orderSupportUrl) &&
     !isPrivateSendHistory;
+  const providerOrderExplorerUrl = buildSwapHistoryOrderExplorerUrl({
+    orderSupportUrl: txHistory?.swapInfo.orderSupportUrl,
+    orderId: providerOrderId,
+  });
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
@@ -1768,13 +1779,10 @@ const SwapHistoryDetailModal = () => {
                 renderContent={shortenSwapOrderId(providerOrderId)}
                 copyContent={providerOrderId}
                 showCopy
-                openWithUrl={() =>
-                  onViewInBrowser(
-                    buildSwapHistoryOrderExplorerUrl({
-                      orderSupportUrl: txHistory.swapInfo.orderSupportUrl,
-                      orderId: providerOrderId,
-                    }) ?? '',
-                  )
+                openWithUrl={
+                  providerOrderExplorerUrl
+                    ? () => onViewInBrowser(providerOrderExplorerUrl)
+                    : undefined
                 }
               />
             ) : null}
@@ -1824,6 +1832,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapTransactionIdRows,
     shouldRenderOrderId,
     providerOrderId,
+    providerOrderExplorerUrl,
     onViewInBrowser,
     isPrivateSendHistory,
     txHistory,
@@ -1875,6 +1884,10 @@ const SwapHistoryDetailModal = () => {
     [txHistory],
   );
   const onTradeAgainFromSource = route.params?.onTradeAgain;
+  const canTradeAgain = useSwapHistoryTradeAgainAllowed(
+    tradeAgainParams,
+    onTradeAgainFromSource,
+  );
   const latestTradeAgainParamsRef = useRef(tradeAgainParams);
   latestTradeAgainParamsRef.current = tradeAgainParams;
   const onSupport = useCallback(() => {
@@ -1890,6 +1903,7 @@ const SwapHistoryDetailModal = () => {
     if (
       !txHistory ||
       !tradeAgainParams ||
+      !canTradeAgain ||
       tradeAgainNavigationPendingRef.current
     )
       return;
@@ -1919,8 +1933,14 @@ const SwapHistoryDetailModal = () => {
         cancelTradeAgainResetRef.current = reset.cancel;
         const ready = await reset.promise;
         const latestParams = latestTradeAgainParamsRef.current;
-        if (!ready || !routeNavigation.isFocused() || !latestParams) return;
-        if (onTradeAgainFromSource?.(latestParams)) {
+        if (
+          !ready ||
+          !routeNavigation.isFocused() ||
+          !latestParams ||
+          onTradeAgainFromSource?.isAllowed(latestParams) === false
+        )
+          return;
+        if (onTradeAgainFromSource?.handle(latestParams)) {
           navigation.popStack();
         } else {
           navigation.replace(EModalSwapRoutes.SwapMainLand, latestParams);
@@ -1940,6 +1960,7 @@ const SwapHistoryDetailModal = () => {
       }
     })();
   }, [
+    canTradeAgain,
     intl,
     navigation,
     onTradeAgainFromSource,
@@ -1960,7 +1981,7 @@ const SwapHistoryDetailModal = () => {
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
       <SwapHistoryFooter
-        canTradeAgain={Boolean(tradeAgainParams)}
+        canTradeAgain={canTradeAgain}
         hasSupport={Boolean(txHistory?.swapInfo.supportUrl)}
         onTradeAgain={onTradeAgain}
         onSupport={onSupport}

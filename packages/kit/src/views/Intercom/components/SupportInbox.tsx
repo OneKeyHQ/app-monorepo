@@ -23,6 +23,7 @@ import {
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
+import { getIntercomResponseCache } from '@onekeyhq/kit/src/views/Intercom/client';
 import { prepareNewSupportConversation } from '@onekeyhq/kit/src/views/Intercom/supportLog/supportRequest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -86,21 +87,35 @@ export function SupportInbox({
   const unread = useIntercomUnreadCount();
   // Unread replies can open the message list as the first support screen.
   const isFirstScreen = useNavigationState((state) => state.index === 0);
+  // Each section starts from the live session's last answer, so a support
+  // screen that opens again renders at once and refreshes in place.
   const load = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.listConversations();
   }, [session]);
-  const inbox = useSupportResource(load, active, true);
+  const inboxCache = useMemo(
+    () => getIntercomResponseCache(session, 'inbox'),
+    [session],
+  );
+  const inbox = useSupportResource(load, active, true, inboxCache);
   const loadOpen = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.getOpen();
   }, [session]);
-  const open = useSupportResource(loadOpen, active);
+  const openCache = useMemo(
+    () => getIntercomResponseCache(session, 'open'),
+    [session],
+  );
+  const open = useSupportResource(loadOpen, active, false, openCache);
   const loadHome = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.getHome();
   }, [session]);
-  const homeContent = useSupportResource(loadHome, active);
+  const homeCache = useMemo(
+    () => getIntercomResponseCache(session, 'home'),
+    [session],
+  );
+  const homeContent = useSupportResource(loadHome, active, false, homeCache);
   const refreshHome = homeContent.refresh;
   const refreshInbox = inbox.refresh;
   const refreshOpen = open.refresh;
@@ -138,9 +153,19 @@ export function SupportInbox({
       morePending.current = false;
     };
   }, [active, session]);
+  const inboxFresh = inbox.fresh;
   const loadMore = useCallback(async () => {
     const page = older ?? inbox.data;
-    if (!session || !active || !page?.hasMore || morePending.current) return;
+    // A cached first page may be stale. Paging continues from this screen's
+    // own first page, so a row the refresh drops cannot stay in `older`.
+    if (
+      !session ||
+      !active ||
+      !inboxFresh ||
+      !page?.hasMore ||
+      morePending.current
+    )
+      return;
     morePending.current = true;
     moreRevision.current += 1;
     const revision = moreRevision.current;
@@ -164,7 +189,7 @@ export function SupportInbox({
         setMoreLoading(false);
       }
     }
-  }, [active, older, inbox.data, session]);
+  }, [active, older, inbox.data, inboxFresh, session]);
   const conversations = useMemo(() => {
     const values = new Map<string, IIntercomConversation>();
     for (const item of [
@@ -593,6 +618,7 @@ export function SupportInbox({
                 <Button
                   testID="support-load-more"
                   loading={moreLoading}
+                  disabled={!inboxFresh}
                   onPress={() => {
                     void loadMore();
                   }}

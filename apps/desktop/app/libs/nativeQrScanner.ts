@@ -3,6 +3,7 @@ import { ipcMain, sharedTexture } from 'electron';
 import { desktopQrScannerChannel } from '@onekeyhq/shared/types/desktopQrScanner';
 import type {
   IDesktopQrCamera,
+  IDesktopQrDetectedSymbol,
   IDesktopQrError,
   IDesktopQrEvent,
 } from '@onekeyhq/shared/types/desktopQrScanner';
@@ -31,15 +32,28 @@ type INativeScanner = {
   listCameras(): INativeCamera[] | Promise<INativeCamera[]>;
   createCapture(options: {
     source: { kind: 'camera'; deviceId?: string };
+    multiSymbol?: boolean;
     onReady(
       generation: number,
       deviceOrInfo?: string | object,
       windowsDeviceId?: string,
     ): void;
     onText(text: string, generation: number): void;
+    onSymbols?(
+      symbols: IDesktopQrDetectedSymbol[],
+      frameWidth: number,
+      frameHeight: number,
+      generation: number,
+    ): void;
     onError(error: { code?: string }, generation: number): void;
     onFrame(frame: INativeQrFrame): void;
-  }): { start(): void; dispose(): void };
+  }): {
+    start(): void;
+    focus?(x?: number, y?: number): boolean;
+    setMultiSymbol?(enabled: boolean): void;
+    setPaused?(paused: boolean): void;
+    dispose(): void;
+  };
 };
 
 function loadNativeScanner(): INativeScanner | undefined {
@@ -68,6 +82,9 @@ type ILease = {
   frame: WebFrameMain;
   capture?: ReturnType<INativeScanner['createCapture']>;
   generation?: number;
+  multiSymbol: boolean;
+  paused: boolean;
+  analysisRevision: number;
 };
 
 export function installNativeQrScanner(
@@ -103,6 +120,7 @@ export function installNativeQrScanner(
     if (
       lease !== active ||
       frame.generation !== active.generation ||
+      active.paused ||
       textureInFlight ||
       !trusted(active.frame) ||
       !window.isVisible() ||
@@ -134,6 +152,7 @@ export function installNativeQrScanner(
       await sharedTexture.sendSharedTexture(
         { frame: active.frame, importedSharedTexture: imported },
         active.sessionId,
+        active.analysisRevision,
       );
     } catch {
       fail(active, 'preview-unavailable');
@@ -152,8 +171,14 @@ export function installNativeQrScanner(
     event: IpcMainInvokeEvent,
     sessionId: unknown,
     cameraId: unknown,
+    rawOptions?: unknown,
   ) => {
     const frame = event.senderFrame;
+    const multiSymbol =
+      typeof rawOptions === 'object' &&
+      rawOptions !== null &&
+      'multiSymbol' in rawOptions &&
+      Boolean((rawOptions as { multiSymbol?: unknown }).multiSymbol);
     if (
       !frame ||
       !trustedInvoke(event) ||
@@ -171,7 +196,13 @@ export function installNativeQrScanner(
     if (!scanner) return false;
 
     stop();
-    const active: ILease = { sessionId, frame };
+    const active: ILease = {
+      sessionId,
+      frame,
+      multiSymbol,
+      paused: false,
+      analysisRevision: 0,
+    };
     lease = active;
     try {
       const cameras = await scanner.listCameras();
@@ -183,16 +214,36 @@ export function installNativeQrScanner(
       const selected = cameras.find((camera) => camera.id === cameraId);
       active.capture = scanner.createCapture({
         source: { kind: 'camera', deviceId: selected?.id },
+        multiSymbol: active.multiSymbol,
         onReady(generation, deviceOrInfo, windowsDeviceId) {
           if (lease !== active) return;
           active.generation = generation;
           const openedCameraId =
-            typeof deviceOrInfo === 'string' ? deviceOrInfo : windowsDeviceId;
+            (typeof deviceOrInfo === 'string' && deviceOrInfo) ||
+            windowsDeviceId ||
+            selected?.id;
           send(active, { type: 'ready', sessionId, cameraId: openedCameraId });
         },
         onText(text, generation) {
-          if (generation === active.generation)
-            send(active, { type: 'text', sessionId, text });
+          if (!active.paused && generation === active.generation)
+            send(active, {
+              type: 'text',
+              sessionId,
+              text,
+              analysisRevision: active.analysisRevision,
+            });
+        },
+        onSymbols(symbols, frameWidth, frameHeight, generation) {
+          if (!active.paused && generation === active.generation) {
+            send(active, {
+              type: 'symbols',
+              sessionId,
+              analysisRevision: active.analysisRevision,
+              symbols,
+              frameWidth,
+              frameHeight,
+            });
+          }
         },
         onError(error) {
           fail(active, cameraErrorCode(error.code));
@@ -201,6 +252,7 @@ export function installNativeQrScanner(
           void sendPreview(active, previewFrame);
         },
       });
+      if (active.paused) active.capture.setPaused?.(true);
       active.capture.start();
       return true;
     } catch {
@@ -215,6 +267,70 @@ export function installNativeQrScanner(
   ipcMain.handle(desktopQrScannerChannel.stop, (event, sessionId: unknown) => {
     if (trustedInvoke(event) && lease?.sessionId === sessionId) stop();
   });
+  ipcMain.removeHandler(desktopQrScannerChannel.setMultiSymbol);
+  ipcMain.handle(
+    desktopQrScannerChannel.setMultiSymbol,
+    (event, sessionId: unknown, enabled: unknown) => {
+      const activeLease = lease;
+      if (
+        trustedInvoke(event) &&
+        activeLease &&
+        activeLease.sessionId === sessionId &&
+        typeof enabled === 'boolean'
+      ) {
+        activeLease.multiSymbol = enabled;
+        activeLease.capture?.setMultiSymbol?.(enabled);
+      }
+    },
+  );
+  ipcMain.removeHandler(desktopQrScannerChannel.setPaused);
+  ipcMain.handle(
+    desktopQrScannerChannel.setPaused,
+    (event, sessionId: unknown, paused: unknown, revision: unknown) => {
+      const activeLease = lease;
+      if (
+        trustedInvoke(event) &&
+        activeLease &&
+        activeLease.sessionId === sessionId &&
+        typeof paused === 'boolean' &&
+        (revision === undefined ||
+          (typeof revision === 'number' &&
+            Number.isSafeInteger(revision) &&
+            revision >= activeLease.analysisRevision))
+      ) {
+        if (typeof revision === 'number')
+          activeLease.analysisRevision = revision;
+        activeLease.paused = paused;
+        activeLease.capture?.setPaused?.(paused);
+      }
+    },
+  );
+  ipcMain.removeHandler(desktopQrScannerChannel.focus);
+  ipcMain.handle(
+    desktopQrScannerChannel.focus,
+    (event, sessionId: unknown, x: unknown, y: unknown) => {
+      const activeLease = lease;
+      if (
+        !trustedInvoke(event) ||
+        !activeLease ||
+        activeLease.sessionId !== sessionId ||
+        activeLease.generation === undefined ||
+        typeof x !== 'number' ||
+        typeof y !== 'number' ||
+        !Number.isFinite(x) ||
+        !Number.isFinite(y)
+      ) {
+        return false;
+      }
+      const clampedX = Math.min(1, Math.max(0, x));
+      const clampedY = Math.min(1, Math.max(0, y));
+      try {
+        return activeLease.capture?.focus?.(clampedX, clampedY) === true;
+      } catch {
+        return false;
+      }
+    },
+  );
   ipcMain.removeHandler(desktopQrScannerChannel.listCameras);
   ipcMain.handle(desktopQrScannerChannel.listCameras, async (event) => {
     if (!trustedInvoke(event)) return null;

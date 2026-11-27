@@ -79,6 +79,10 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { getSwapDefaultCounterpartToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
+import {
+  hasXmrMainnetPrimaryAddressShape,
+  isXmrSwapNetwork,
+} from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildSwapAllNetworkTokenListCacheKey,
@@ -210,6 +214,7 @@ import {
   swapStockExecutionTokensAtom,
   swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
+  swapTabPrefillEditRevisionAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenListRequestsAtom,
@@ -220,6 +225,7 @@ import {
 } from './atoms';
 import {
   ESwapQuoteRefreshAction,
+  type ISwapQuoteSelectionIntent,
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   buildSwapQuoteProviderKey,
   getSwapQuoteEventProgressTotalCount,
@@ -259,7 +265,7 @@ function isIndependentSwapInputAmountType(
   );
 }
 
-function buildSwapInputAmountDraft({
+export function buildSwapInputAmountDraft({
   fromTokenAmount,
   toTokenAmount,
   fromToken,
@@ -306,7 +312,7 @@ function isSameOptionalSwapToken({
   );
 }
 
-function isSwapInputAmountDraftForTokenPair({
+export function isSwapInputAmountDraftForTokenPair({
   draft,
   fromToken,
   toToken,
@@ -1214,6 +1220,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
     ) => {
+      this.advanceSwapTabPrefillEditRevision.call(set);
       // Any token pick ends a "Recent trades" attribution; selectRecentTokenPair
       // records a new one after its own picks.
       this.endRecentTokenPairAttribution.call(set);
@@ -1270,6 +1277,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
     ) => {
+      this.advanceSwapTabPrefillEditRevision.call(set);
       this.endRecentTokenPairAttribution.call(set);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
@@ -1321,6 +1329,82 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ]);
       set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
       await picks;
+    },
+  );
+
+  applySwapTabPrefill = contextAtomMethod(
+    (_get, set, { fromToken, toToken }: ISwapTokenPair) => {
+      // A committed prefill supersedes an older, still-pending draft restore.
+      this.advanceSwapTabPrefillEditRevision.call(set);
+      this.endRecentTokenPairAttribution.call(set);
+      set(swapProUserSelectedTokenAtom(), undefined);
+      set(swapDeferredQuoteAtom(), undefined);
+      set(swapSelectFromTokenAtom(), fromToken);
+      set(swapSelectToTokenAtom(), toToken);
+      set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+      set(swapToTokenAmountAtom(), { value: '', isInput: false });
+      set(swapInputAmountDraftsAtom(), (drafts) => ({
+        ...drafts,
+        [ESwapTabSwitchType.SWAP]: undefined,
+      }));
+      void this.resetQuoteAction.call(set);
+      void this.syncNetworksSort.call(set, fromToken.networkId);
+    },
+  );
+
+  advanceSwapTabPrefillEditRevision = contextAtomMethod((get, set) => {
+    const revision = get(swapTabPrefillEditRevisionAtom()) + 1;
+    set(swapTabPrefillEditRevisionAtom(), revision);
+    return revision;
+  });
+
+  restoreApprovedSwapDraft = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        editRevision,
+        providerIntent,
+        fromToken,
+        toToken,
+        direction,
+        amount,
+      }: ISwapTokenPair & {
+        editRevision: number;
+        providerIntent: ISwapQuoteSelectionIntent | undefined;
+        direction: ESwapDirectionType;
+        amount: string;
+      },
+    ) => {
+      if (get(swapTabPrefillEditRevisionAtom()) !== editRevision) {
+        return;
+      }
+      const input = { value: amount, isInput: true };
+      const emptyAmount = { value: '', isInput: false };
+      const isFromInput = direction === ESwapDirectionType.FROM;
+      set(swapSelectFromTokenAtom(), fromToken);
+      set(swapSelectToTokenAtom(), toToken);
+      set(swapFromTokenAmountAtom(), isFromInput ? input : emptyAmount);
+      set(swapToTokenAmountAtom(), isFromInput ? emptyAmount : input);
+      set(swapManualSelectQuoteProvidersAtom(), providerIntent);
+      void this.syncNetworksSort.call(set, fromToken.networkId);
+    },
+  );
+
+  setSwapUserInputAmount = contextAtomMethod(
+    (
+      _get,
+      set,
+      direction: ESwapDirectionType,
+      amount: ISwapTokenAmountState,
+    ) => {
+      this.advanceSwapTabPrefillEditRevision.call(set);
+      set(
+        direction === ESwapDirectionType.FROM
+          ? swapFromTokenAmountAtom()
+          : swapToTokenAmountAtom(),
+        amount,
+      );
     },
   );
 
@@ -1493,6 +1577,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     if (!fromToken && !toToken) {
       return;
     }
+    this.advanceSwapTabPrefillEditRevision.call(set);
     set(swapSelectedTokensColdStartContextAtom(), (context) =>
       context?.defaultTokenSeed
         ? { ...context, defaultTokenSeed: undefined }
@@ -2824,6 +2909,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapShouldRefreshQuoteAtom(), false);
 
       if (!hasValidQuoteInput || !fromToken || !toToken) {
+        void this.resetQuoteAction.call(set);
+        return;
+      }
+      const isXmrFrom = isXmrSwapNetwork(fromToken.networkId);
+      const isXmrTo = isXmrSwapNetwork(toToken.networkId);
+      if (
+        (isXmrFrom || isXmrTo) &&
+        (!isSwapOrBridgeQuoteType(swapTabSwitchType) ||
+          (isXmrFrom &&
+            (!accountId || !hasXmrMainnetPrimaryAddressShape(address))) ||
+          (isXmrTo && !hasXmrMainnetPrimaryAddressShape(receivingAddress)))
+      ) {
         void this.resetQuoteAction.call(set);
         return;
       }
@@ -4167,10 +4264,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
-      const token =
+      const selectedTokenAtom =
         type === ESwapDirectionType.FROM
-          ? get(swapSelectFromTokenAtom())
-          : get(swapSelectToTokenAtom());
+          ? swapSelectFromTokenAtom()
+          : swapSelectToTokenAtom();
+      const token = get(selectedTokenAtom);
+      const isXmr = isXmrSwapNetwork(token?.networkId);
       const needsMultiplier = Boolean(
         token &&
         currentSwapType !== ESwapTabSwitchType.PRIVATE_SEND &&
@@ -4289,6 +4388,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         (token && (needsMultiplier || verifyingMultiplier || !token.price))
       ) {
         if (
+          !isXmr &&
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
@@ -4340,6 +4440,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                 networkId: token.networkId,
                 accountAddress,
+                ...(isXmr || isXmrSwapNetwork(accountNetworkId)
+                  ? { accountNetworkId }
+                  : {}),
                 accountId,
                 contractAddress,
                 direction: type,
@@ -4365,11 +4468,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 )
               : detailInfo?.[0];
             if (detail) {
-              const balanceParsedBN = new BigNumber(detail.balanceParsed ?? 0);
-              balanceDisplay = balanceParsedBN.isNaN()
-                ? '0.0'
-                : balanceParsedBN.toFixed();
-              hasAuthoritativeBalance = detail.balanceParsed !== undefined;
+              const balanceParsedBN = new BigNumber(
+                detail.balanceParsed ?? (isXmr ? '' : 0),
+              );
+              hasAuthoritativeBalance =
+                detail.balanceParsed !== undefined &&
+                (!isXmr ||
+                  (balanceParsedBN.isFinite() && balanceParsedBN.gte(0)));
+              if (!isXmr || hasAuthoritativeBalance) {
+                balanceDisplay = balanceParsedBN.isNaN()
+                  ? '0.0'
+                  : balanceParsedBN.toFixed();
+              }
               const condition: {
                 price?: string;
                 fiatValue?: string;
@@ -4457,7 +4567,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       return {
                         ...pre,
                         ...condition,
-                        accountAddress,
+                        accountAddress: isXmr
+                          ? detail.accountAddress
+                          : accountAddress,
                       };
                     }
                   });
@@ -4467,7 +4579,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       return {
                         ...pre,
                         ...condition,
-                        accountAddress,
+                        accountAddress: isXmr
+                          ? detail.accountAddress
+                          : accountAddress,
                       };
                     }
                   });
@@ -4477,7 +4591,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           } catch (e: any) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
-              balanceDisplay = '0.0';
+              balanceDisplay = isXmr ? undefined : '0.0';
               balanceFetchFailed = true;
             }
           } finally {
@@ -4494,6 +4608,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (isCurrentRequest()) {
+        if (
+          isXmr &&
+          !hasAuthoritativeBalance &&
+          token?.balanceParsed !== undefined
+        ) {
+          set(selectedTokenAtom, (previous) =>
+            previous
+              ? {
+                  ...previous,
+                  accountAddress: undefined,
+                  balanceParsed: undefined,
+                  fiatValue: undefined,
+                }
+              : previous,
+          );
+        }
         // A failed refresh (or a response without an authoritative balance) for
         // the token + account the stored figure already belongs to must not
         // replace a verified balance with the '0.0' fallback: that would drop
@@ -4503,6 +4633,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // its verdict; the refresh control stays available for another attempt.
         const storedBalanceMeta = get(swapSelectedTokenBalanceMetaAtom())[type];
         const keepsPreviousVerifiedBalance =
+          !isXmr &&
           isSameSwapBalanceOwner(
             storedBalanceMeta,
             buildSwapBalanceOwner({
@@ -5928,6 +6059,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
 
+export const getSwapTypeSwitchActionAtom = () =>
+  createActions().swapTypeSwitchAction.atom();
+
 // Read at log time instead of subscribing, so a "Recent trades" tap does not
 // re-render the hosts of useSwapBuildTx.
 export const useSwapRecentTokenPairAttribution = () => {
@@ -5947,6 +6081,11 @@ export const useSwapActions = () => {
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
   const selectRecentTokenPair = actions.selectRecentTokenPair.use();
+  const applySwapTabPrefill = actions.applySwapTabPrefill.use();
+  const advanceSwapTabPrefillEditRevision =
+    actions.advanceSwapTabPrefillEditRevision.use();
+  const restoreApprovedSwapDraft = actions.restoreApprovedSwapDraft.use();
+  const setSwapUserInputAmount = actions.setSwapUserInputAmount.use();
   const beginStockRecentTokenPairPick =
     actions.beginStockRecentTokenPairPick.use();
   const markRecentTokenPairSelection =
@@ -6017,6 +6156,10 @@ export const useSwapActions = () => {
     requireManualQuoteRefresh,
     selectToToken,
     selectRecentTokenPair,
+    applySwapTabPrefill,
+    advanceSwapTabPrefillEditRevision,
+    restoreApprovedSwapDraft,
+    setSwapUserInputAmount,
     beginStockRecentTokenPairPick,
     markRecentTokenPairSelection,
     endRecentTokenPairAttribution,

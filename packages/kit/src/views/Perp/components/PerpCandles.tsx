@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { BackHandler } from 'react-native';
 
 import {
   DebugRenderTracker,
+  IconButton,
   Stack,
   XStack,
   useMedia,
@@ -12,6 +14,7 @@ import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/Trading
 import {
   TRADING_VIEW_CHART_CONTROLS_HEIGHT,
   TradingViewChartModeSelect,
+  TradingViewChartModeSelectContext,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewNativeSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
@@ -23,6 +26,7 @@ import {
   usePerpsCustomSettingsAtom,
   usePerpsLayoutStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatSpotPairDisplayName,
@@ -30,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpNativeCandles, PerpNativeSplitCandles } from './PerpNativeCandles';
+import { PerpOrderBook } from './PerpOrderBook';
 
 import type { IPerpNativeCandlesProps } from './PerpNativeCandles';
 
@@ -50,6 +55,7 @@ export function PerpCandles({
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
+  const intl = useIntl();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
@@ -62,6 +68,16 @@ export function PerpCandles({
   const [isChartInteracting, setIsChartInteracting] = useState(false);
   const { gtMd } = useMedia();
   const isDesktopLayout = gtMd && !platformEnv.isNative;
+  const supportsDepthChart =
+    isDesktopLayout &&
+    activeTradeInstrument.mode === 'perp' &&
+    showChartModeSelect &&
+    !!(platformEnv.isWeb || platformEnv.isDesktop);
+  const [depthSelected, setDepthSelected] = useState(false);
+  const showDepthChart = supportsDepthChart && depthSelected;
+  useEffect(() => {
+    if (!supportsDepthChart) setDepthSelected(false);
+  }, [supportsDepthChart]);
   const enableNativeChartControls = isDesktopLayout || platformEnv.isNative;
   // Perp layouts remount at this breakpoint; keep the legacy WebView URL stable.
   const [enablePerpsTradingUi] = useState(isDesktopLayout);
@@ -140,6 +156,45 @@ export function PerpCandles({
     setPerpsCustomSettings,
   ]);
 
+  const workspaceChartSelect = useMemo(
+    () =>
+      supportsDepthChart
+        ? {
+            value: showDepthChart ? 'depth' : savedChartMode,
+            items: [
+              {
+                value: 'native',
+                label: intl.formatMessage({
+                  id: ETranslations.market_chart_original,
+                }),
+              },
+              { value: 'tradingView', label: 'TradingView' },
+              {
+                value: 'depth',
+                label: intl.formatMessage({
+                  id: ETranslations.perp_depth_chart__title,
+                }),
+              },
+            ],
+            onChange: (value: string) => {
+              if (value === 'depth') {
+                setDepthSelected(true);
+              } else if (value === 'native' || value === 'tradingView') {
+                setDepthSelected(false);
+                if (value !== savedChartMode) handleChartSwitch();
+              }
+            },
+          }
+        : null,
+    [
+      supportsDepthChart,
+      showDepthChart,
+      savedChartMode,
+      intl,
+      handleChartSwitch,
+    ],
+  );
+
   useEffect(() => {
     if (collapseChartExpandSignal) {
       handleFullscreenChange(false);
@@ -160,7 +215,7 @@ export function PerpCandles({
     source,
     storageNamespace: 'perps',
     enableTradingUi: enablePerpsTradingUi,
-    isVisible,
+    isVisible: isVisible && !showDepthChart,
     useFullscreenOverlay: !isDesktopLayout,
     onInteractionChange: setIsChartInteracting,
     enableNativeChartSettings: true,
@@ -178,7 +233,13 @@ export function PerpCandles({
   };
 
   const content = (
-    <Stack w="100%" h="100%" flex={1} minHeight={0}>
+    <Stack
+      w="100%"
+      h="100%"
+      flex={1}
+      minHeight={0}
+      display={showDepthChart ? 'none' : 'flex'}
+    >
       {!isTradingViewNative &&
       showChartModeSelect &&
       !enableNativeChartControls ? (
@@ -240,7 +301,56 @@ export function PerpCandles({
       name="PerpCandles"
       position="top-right"
     >
-      {content}
+      <TradingViewChartModeSelectContext.Provider value={workspaceChartSelect}>
+        {content}
+        {supportsDepthChart ? (
+          <Stack
+            flex={1}
+            minHeight={0}
+            display={showDepthChart ? 'flex' : 'none'}
+            testID="perp-chart-depth-panel"
+          >
+            {showDepthChart ? (
+              <XStack
+                h={TRADING_VIEW_CHART_CONTROLS_HEIGHT}
+                px="$2"
+                flexShrink={0}
+                alignItems="center"
+                justifyContent="flex-end"
+                borderBottomWidth="$px"
+                borderBottomColor="$borderSubdued"
+              >
+                <TradingViewChartModeSelect
+                  chartMode={savedChartMode}
+                  onChartSwitch={handleChartSwitch}
+                />
+                <IconButton
+                  testID="perp-depth-fullscreen-toggle"
+                  size="small"
+                  variant="tertiary"
+                  icon={
+                    chartExpanded
+                      ? 'TradingViewExitFullscreenCustom'
+                      : 'TradingViewFullscreenCustom'
+                  }
+                  title={intl.formatMessage({
+                    id: chartExpanded
+                      ? ETranslations.global_collapse
+                      : ETranslations.global_expand,
+                  })}
+                  onPress={() => handleFullscreenChange(!chartExpanded)}
+                />
+              </XStack>
+            ) : null}
+            <PerpOrderBook
+              depthChart
+              depthChartShowHeader={false}
+              depthChartVisible={showDepthChart && isVisible}
+              entry="perpTab"
+            />
+          </Stack>
+        ) : null}
+      </TradingViewChartModeSelectContext.Provider>
     </DebugRenderTracker>
   );
 }

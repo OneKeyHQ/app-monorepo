@@ -70,7 +70,10 @@ import {
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
-import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  isLocalWalletNetwork,
+  isStarknetPrivateTransaction,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 import { checksumDisplayComponentAddresses } from './utils/displayComponentAddressUtils';
@@ -378,9 +381,10 @@ class ServiceSignatureConfirm extends ServiceBase {
       },
   ) {
     const { unsignedTxs, accountId, networkId, ...rest } = params;
-    const requiresPrivacyReview = await isLocalWalletNetwork({
-      networkId,
-    });
+    const requiresPrivacyReview =
+      unsignedTxs.some(({ encodedTx }) =>
+        isStarknetPrivateTransaction(networkId, encodedTx),
+      ) || (await isLocalWalletNetwork({ networkId }));
 
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
@@ -428,15 +432,17 @@ class ServiceSignatureConfirm extends ServiceBase {
         }),
       );
 
-      r[0].txDisplay.title =
-        convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
-          decodedTxs: r,
-          unsignedTxs: requiresPrivacyReview
-            ? unsignedTxs.map((unsignedTx) => ({
-                encodedTx: unsignedTx.encodedTx,
-              }))
-            : unsignedTxs,
-        });
+      if (r.length !== 1 || !r[0].isLocalParsed || !r[0].txDisplay.title) {
+        r[0].txDisplay.title =
+          convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
+            decodedTxs: r,
+            unsignedTxs: requiresPrivacyReview
+              ? unsignedTxs.map((unsignedTx) => ({
+                  encodedTx: unsignedTx.encodedTx,
+                }))
+              : unsignedTxs,
+          });
+      }
     }
 
     if (
@@ -476,9 +482,9 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     let parsedTx: IParseTransactionResp | null = null;
 
-    const requiresPrivacyReview = await isLocalWalletNetwork({
-      networkId,
-    });
+    const requiresPrivacyReview =
+      isStarknetPrivateTransaction(networkId, unsignedTx.encodedTx) ||
+      (await isLocalWalletNetwork({ networkId }));
     // The local proposal may contain private viewing material; it must never reach the server parser.
     let disableParseTxThroughApi = requiresPrivacyReview;
 
@@ -594,12 +600,26 @@ class ServiceSignatureConfirm extends ServiceBase {
     const forceLocalTonTransfer =
       networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
       decodedTx.actions.some((action) => Boolean(action.assetTransfer));
+    // What a PSBT signature authorizes depends on its sighash type, which the
+    // local decode accounts for. A server display built from the outputs as
+    // presented must not replace it; its risk findings are retained below.
+    // PSBTs built by the wallet's own swap / staking flows keep their path.
+    const forceLocalBtcPsbt =
+      Boolean(decodedTx.isPsbt) &&
+      !unsignedTx.swapInfo &&
+      !unsignedTx.stakingInfo;
+
+    const forceLocalVaultDisplay = Boolean(
+      decodedTx.isLocalParsed && decodedTx.txDisplay,
+    );
 
     if (
       parsedTx?.display &&
+      !forceLocalVaultDisplay &&
       !shouldUseLocalDisplay &&
       !requiresLocalRebaseDisplay &&
-      !forceLocalTonTransfer
+      !forceLocalTonTransfer &&
+      !forceLocalBtcPsbt
     ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
@@ -609,6 +629,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         });
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
       let txDisplayComponents =
+        decodedTx.txDisplay?.components ??
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           isMultiTxs,
@@ -622,7 +643,9 @@ class ServiceSignatureConfirm extends ServiceBase {
       // TON decoding also retains identifiable server effects below.
       const isPayloadForcedLocal =
         ((requiresLocalRebaseDisplay && !shouldUseLocalDisplay) ||
-          forceLocalTonTransfer) &&
+          forceLocalTonTransfer ||
+          forceLocalVaultDisplay ||
+          forceLocalBtcPsbt) &&
         Boolean(parsedTx?.display);
 
       const rebaseDisplayExtras =
@@ -689,7 +712,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         ...(mergeUnknownTonEffects ? [] : previewComponents),
       ];
       decodedTx.txDisplay = {
-        title: '',
+        title: decodedTx.txDisplay?.title ?? '',
         components: requiresLocalRebaseDisplay
           ? components.map((component) =>
               component.type === EParseTxComponentType.Simulation
@@ -800,9 +823,8 @@ class ServiceSignatureConfirm extends ServiceBase {
   async parseTransaction(params: IParseTransactionParams) {
     const { accountId, networkId, encodedTx, origin } = params;
     if (
-      await isLocalWalletNetwork({
-        networkId,
-      })
+      isStarknetPrivateTransaction(networkId, encodedTx) ||
+      (await isLocalWalletNetwork({ networkId }))
     ) {
       throw new OneKeyLocalError(
         'Privacy transactions must be reviewed locally',

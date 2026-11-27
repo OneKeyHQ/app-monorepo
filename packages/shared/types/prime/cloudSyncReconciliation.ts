@@ -76,6 +76,9 @@ export type ICloudSyncReconciliationAdapter = {
     signal: AbortSignal;
     timeoutMs: number;
   }): Promise<ICloudSyncCheckServerStatusResult>;
+  getAdditionalUploadKeys?(
+    response: ICloudSyncCheckServerStatusResult,
+  ): string[];
   // Transactions must check signal/isCurrent before committing. Returning a
   // receipt counts applied record versions/deletions and skipped account
   // versions that can advance the summary.

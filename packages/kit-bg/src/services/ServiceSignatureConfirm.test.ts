@@ -225,6 +225,40 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     jest.restoreAllMocks();
   });
 
+  it('keeps Starknet privacy metadata out of both confirmation and direct remote parsing', async () => {
+    const service = buildService(buildParsedTx({ components: [] }));
+    const remoteParser = jest.spyOn(service, 'parseTransaction');
+    const network = 'starknet--mainnet';
+    const privateTx: IUnsignedTxPro = {
+      encodedTx: {
+        privacy: { kind: 'transfer', amount: '42', recipient: '0x2' },
+      } as IEncodedTx,
+    };
+    await service.buildDecodedTxs({
+      accountId,
+      networkId: network,
+      accountAddress,
+      unsignedTxs: [privateTx],
+    });
+    expect(remoteParser).not.toHaveBeenCalled();
+    await service.buildDecodedTxs({
+      accountId,
+      networkId: network,
+      accountAddress,
+      unsignedTxs: [{ encodedTx: {} }],
+    });
+    expect(remoteParser).toHaveBeenCalledTimes(1);
+    remoteParser.mockRestore();
+    await expect(
+      service.parseTransaction({
+        accountId,
+        networkId: network,
+        accountAddress,
+        encodedTx: privateTx.encodedTx,
+      }),
+    ).rejects.toThrow('Privacy transactions must be reviewed locally');
+  });
+
   it.each(['xmr--0', 'zec--0'])(
     '%s uses only verified local payment details and fees',
     async (privacyNetworkId) => {
@@ -1243,6 +1277,79 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       expect.objectContaining({ address: '0xserver-contract' }),
     );
     expect(decodedTx.txDisplay?.alerts).toEqual(alerts);
+  });
+
+  describe('BTC PSBT', () => {
+    const serverRiskTag = { value: 'Scam', displayType: 'critical' as const };
+    const buildPsbtDecodedTx = (): IDecodedTx => ({
+      ...buildLocalDecodedTx(),
+      isPsbt: true,
+    });
+    const buildServerParsedTx = () =>
+      buildParsedTx({
+        components: [
+          {
+            type: EParseTxComponentType.Default,
+            label: 'Server field',
+            value: 'Server value',
+          },
+          {
+            type: EParseTxComponentType.Address,
+            label: 'Server recipient',
+            address: contractAddress,
+            tags: [serverRiskTag],
+          },
+        ],
+        alerts: ['Server risk alert'],
+      });
+    const decodeWith = async (
+      parsedTx: IParseTransactionResp,
+      unsignedTx: IUnsignedTxPro,
+    ) => {
+      const service = buildService(parsedTx);
+      mockGetVault.mockResolvedValue({
+        buildDecodedTx: jest.fn().mockResolvedValue(buildPsbtDecodedTx()),
+      });
+      return service.buildDecodedTx({
+        networkId,
+        accountId,
+        accountAddress,
+        unsignedTx,
+      });
+    };
+
+    it('shows a dapp PSBT from the local decode and keeps the server risk findings', async () => {
+      const decodedTx = await decodeWith(buildServerParsedTx(), {
+        encodedTx: {} as IEncodedTx,
+      });
+
+      // The server cannot know which outputs the requested sighash commits
+      // to, so its components must not replace the local ones.
+      expect(decodedTx.isLocalParsed).toBe(true);
+      expect(decodedTx.txDisplay?.components).not.toContainEqual(
+        expect.objectContaining({ label: 'Server field' }),
+      );
+      expect(decodedTx.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Address,
+          address: contractAddress,
+          tags: [serverRiskTag],
+        }),
+      );
+      expect(decodedTx.txDisplay?.alerts).toEqual(['Server risk alert']);
+      expect(decodedTx.hasServerSecurityAnalysis).toBe(true);
+    });
+
+    it('keeps the server display for a PSBT built by an internal staking flow', async () => {
+      const parsedTx = {
+        ...buildServerParsedTx(),
+        type: EParseTxType.Approve,
+      };
+      const decodedTx = await decodeWith(parsedTx, buildUnsignedTx());
+
+      expect(decodedTx.isLocalParsed).toBeUndefined();
+      expect(decodedTx.txDisplay).toBe(parsedTx.display);
+    });
   });
 
   it('keeps the full server display for Borrow transactions', async () => {

@@ -650,27 +650,29 @@ export function useChartDrawings({
     );
   }, [commit]);
 
+  // Whether the double click was the drawings': it finished a path or opened
+  // a drawing's coordinates.
   const onDoubleClick = useCallback(
     (event: IDrawingPointerEvent) => {
       const projection = projectionRef.current;
       const model = state.current;
       if (model.draft && isPathTool(model.draft.drawing.tool)) {
         finishPath();
-        return;
+        return true;
       }
-      if (!projection || model.hidden || model.tool !== 'cursor') return;
+      if (!projection || model.hidden || model.tool !== 'cursor') return false;
       const hit = hitTestDrawings(
         model.history.present,
         { x: event.x, y: event.y },
         projection,
         model.selectedId,
       );
-      if (hit) {
-        model.selectedId = hit.drawing.id;
-        model.selectedIds = [hit.drawing.id];
-        model.editingCoordinates = true;
-        update();
-      }
+      if (!hit) return false;
+      model.selectedId = hit.drawing.id;
+      model.selectedIds = [hit.drawing.id];
+      model.editingCoordinates = true;
+      update();
+      return true;
     },
     [finishPath, projectionRef, update],
   );

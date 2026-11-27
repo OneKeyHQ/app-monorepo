@@ -5,6 +5,7 @@ import { TradingViewNativeMultiChartSyncContext } from '../multiChart/TradingVie
 
 import type { ITradingViewNativeViewportSyncMember } from '../multiChart/viewportSync';
 import type { ITradingViewNativeChartRuntimeViewport } from '../utils/chartRuntime';
+import type { ITradingViewNativeFollowedTimeRange } from '../utils/chartViewport';
 import type { ITradingViewNativeSyncedViewport } from '../utils/syncedViewport';
 
 type IPannedViewport = Pick<
@@ -22,11 +23,13 @@ export function useChartViewportSync(redrawRef: RefObject<() => void>) {
   const sync = scope?.viewport ?? null;
   const channel = sync?.channel ?? null;
   const isMain = scope?.isMain ?? false;
+  const panelId = scope?.panelId ?? '';
   const memberRef = useRef<ITradingViewNativeViewportSyncMember | null>(null);
   useEffect(() => {
     if (!channel) return undefined;
     const member = channel.join({
       isMain,
+      panelId,
       onChange: () => redrawRef.current(),
     });
     memberRef.current = member;
@@ -36,7 +39,7 @@ export function useChartViewportSync(redrawRef: RefObject<() => void>) {
       memberRef.current = null;
       member.leave();
     };
-  }, [channel, isMain, redrawRef]);
+  }, [channel, isMain, panelId, redrawRef]);
   const fitRange = sync?.fitRange ?? false;
   const fitRangeRef = useRef(fitRange);
   fitRangeRef.current = fitRange;
@@ -48,6 +51,23 @@ export function useChartViewportSync(redrawRef: RefObject<() => void>) {
   const getFollowedViewport = useCallback(() => {
     const viewport = memberRef.current?.getViewport();
     return viewport ? { viewport, fitRange: fitRangeRef.current } : null;
+  }, []);
+  /**
+   * The times the chart lines up with, in whole seconds, for its history to
+   * load on to them; undefined for the leading chart. Without date range,
+   * only the newest one.
+   */
+  const getFollowedTimeRange = useCallback(():
+    | ITradingViewNativeFollowedTimeRange
+    | undefined => {
+    const viewport = memberRef.current?.getViewport();
+    if (!viewport) return undefined;
+    return {
+      from: Math.floor(
+        fitRangeRef.current ? viewport.fromTime : viewport.toTime,
+      ),
+      to: Math.ceil(viewport.toTime),
+    };
   }, []);
   /**
    * Call with the viewport before and after the user's own pan or zoom. The
@@ -72,5 +92,10 @@ export function useChartViewportSync(redrawRef: RefObject<() => void>) {
     },
     [],
   );
-  return { getFollowedViewport, leadViewport, publishViewport };
+  return {
+    getFollowedTimeRange,
+    getFollowedViewport,
+    leadViewport,
+    publishViewport,
+  };
 }

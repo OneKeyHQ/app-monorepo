@@ -26,6 +26,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  showLocalSecretEnvelopeDetailsToast,
+  showLocalSecretEnvelopeRecoveryDialog,
+} from '../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
@@ -37,6 +41,24 @@ import {
 import type { ICloudBackupAvailabilityOptions } from './checkCloudBackupAvailability';
 
 let isBackupErrorDialogShowing = false;
+
+// Activity check for the screen that starts a launch. Until dispose(), it
+// turns false on the first navigation away and stays false, so coming back
+// cannot resume the launch. After dispose(), it only checks that the screen is
+// still current, which is all a lingering sign-in prompt needs.
+export function watchRouteLeave() {
+  const rootNavigation = rootNavigationRef.current;
+  if (!rootNavigation) return { isActive: () => true, dispose: () => {} };
+  const routeKey = rootNavigation.getCurrentRoute()?.key;
+  let left = false;
+  const dispose = rootNavigation.addListener('state', () => {
+    if (rootNavigation.getCurrentRoute()?.key !== routeKey) left = true;
+  });
+  return {
+    isActive: () => !left && rootNavigation.getCurrentRoute()?.key === routeKey,
+    dispose,
+  };
+}
 
 export function useCloudBackup() {
   const intl = useIntl();
@@ -83,45 +105,75 @@ export function useCloudBackup() {
     [intl, supportCloudBackup],
   );
 
+  const backupListLaunchPending = useRef(false);
   const goToPageBackupList = useCallback(
-    async ({ hideRestoreButton }: { hideRestoreButton?: boolean } = {}) => {
-      const isAvailable = await checkIsAvailable();
-      if (isAvailable) {
-        if (platformEnv.isNativeAndroid) {
-          await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-        }
-        navigation.navigate(ERootRoutes.Onboarding, {
-          screen: EOnboardingV2Routes.OnboardingV2,
-          params: {
-            screen: EOnboardingPagesV2.ICloudBackup,
+    async ({
+      hideRestoreButton,
+      isActive = () => true,
+      beforeNavigate,
+    }: {
+      hideRestoreButton?: boolean;
+      // Whether the screen that started this is still where the user is.
+      isActive?: () => boolean;
+      // Lets a source such as Settings close itself only after sign-in
+      // prompts have finished, so the user is not left behind on Home.
+      beforeNavigate?: () => void;
+    } = {}) => {
+      if (backupListLaunchPending.current) return;
+      backupListLaunchPending.current = true;
+      try {
+        const isAvailable = await checkIsAvailable({ isActive });
+        if (isAvailable) {
+          if (platformEnv.isNativeAndroid) {
+            await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+          }
+          // The user may have moved on while sign-in was pending.
+          if (!isActive()) return;
+          beforeNavigate?.();
+          navigation.navigate(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
             params: {
-              hideRestoreButton,
+              screen: EOnboardingPagesV2.ICloudBackup,
+              params: {
+                hideRestoreButton,
+              },
             },
-          },
-        });
-        defaultLogger.account.wallet.addWalletStarted({
-          addMethod: 'ImportWallet',
-          details: {
-            importType: 'cloud',
-          },
-          isSoftwareWalletOnlyUser: true,
-        });
+          });
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'ImportWallet',
+            details: {
+              importType: 'cloud',
+            },
+            isSoftwareWalletOnlyUser: true,
+          });
+        }
+      } finally {
+        backupListLaunchPending.current = false;
       }
     },
     [checkIsAvailable, navigation],
   );
 
   // The destination page owns authorization after an explicit navigation handoff.
-  const prepareBackup = useCallback(async () => {
-    const isAvailable = await checkIsAvailable({
-      isActive: () => isMountedRef.current,
-      signInIfNeeded: true,
-    });
-    if (!isAvailable || !isMountedRef.current) return undefined;
-    const data =
-      await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
-    return isMountedRef.current ? data : undefined;
-  }, [checkIsAvailable, isMountedRef]);
+  const prepareBackup = useCallback(
+    async ({
+      onCloudReady,
+    }: {
+      // Marks that later failures come from reading local wallet data.
+      onCloudReady?: () => void;
+    } = {}) => {
+      const isAvailable = await checkIsAvailable({
+        isActive: () => isMountedRef.current,
+        signInIfNeeded: true,
+      });
+      if (!isAvailable || !isMountedRef.current) return undefined;
+      onCloudReady?.();
+      const data =
+        await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+      return isMountedRef.current ? data : undefined;
+    },
+    [checkIsAvailable, isMountedRef],
+  );
 
   const doBackup = useThrottledCallback(
     async ({
@@ -346,23 +398,59 @@ export function useCloudBackup() {
     },
   );
 
-  const doRestoreBackup = useThrottledCallback(
-    async ({
+  const restoreInFlight = useRef(false);
+  const runRestoreAttempt = useCallback(
+    async (attempt: () => Promise<void>) => {
+      if (restoreInFlight.current || !isMountedRef.current) return;
+      restoreInFlight.current = true;
+      try {
+        await attempt();
+      } finally {
+        restoreInFlight.current = false;
+      }
+    },
+    [isMountedRef],
+  );
+
+  const restoreSelectedBackup = useCallback(
+    async function restoreSelectedBackup({
       payload,
       recordId,
     }: {
       recordId?: string;
       payload: IBackupDataEncryptedPayload | undefined;
-    }) => {
-      const isAvailable = await checkIsAvailable();
-      if (!isAvailable) {
+    }) {
+      const isAvailable = await checkIsAvailable({
+        isActive: () => isMountedRef.current,
+      });
+      if (!isAvailable || !isMountedRef.current) {
         return;
       }
-      let importProcessingDialog: IDialogInstance | null = null;
+      const showRestoreRetryToast = () => {
+        if (!isMountedRef.current) return;
+        showLocalSecretEnvelopeDetailsToast({
+          intl,
+          toastId: 'lse-cloud-backup-restore',
+          onDetails: () => {
+            if (!isMountedRef.current) return;
+            showLocalSecretEnvelopeRecoveryDialog({
+              intl,
+              context: 'restore',
+              onAction: () =>
+                errorToastUtils.withErrorAutoToast(() =>
+                  runRestoreAttempt(() =>
+                    restoreSelectedBackup({ recordId, payload }),
+                  ),
+                ),
+            });
+          },
+        });
+      };
       const restoreBackup = async (
         password?: string,
         verifyPasswordDialog?: IDialogInstance,
       ): Promise<boolean> => {
+        let importProcessingDialog: IDialogInstance | null = null;
         let importTaskUUID: string | undefined;
         // Show progress dialog
         try {
@@ -423,6 +511,15 @@ export function useCloudBackup() {
             importProcessingDialog = null;
             return false;
           }
+          if (
+            'localStorageUnavailable' in result &&
+            result.localStorageUnavailable === true
+          ) {
+            await importProcessingDialog.close();
+            importProcessingDialog = null;
+            showRestoreRetryToast();
+            return true;
+          }
           if (result?.success) {
             Toast.success({
               title: intl.formatMessage({
@@ -460,12 +557,13 @@ export function useCloudBackup() {
         const dialog = showCloudBackupPasswordDialog({
           isRestoreAction: true,
           intl,
-          onSubmit: async (password: string) => {
-            if (!(await restoreBackup(password, dialog))) {
-              await dialog.close();
-              showPasswordDialog();
-            }
-          },
+          onSubmit: (password: string) =>
+            runRestoreAttempt(async () => {
+              if (!(await restoreBackup(password, dialog))) {
+                await dialog.close();
+                if (isMountedRef.current) showPasswordDialog();
+              }
+            }),
         });
       };
       if (
@@ -476,6 +574,12 @@ export function useCloudBackup() {
         return;
       showPasswordDialog();
     },
+    [checkIsAvailable, intl, isMountedRef, navigation, runRestoreAttempt],
+  );
+
+  const doRestoreBackup = useThrottledCallback(
+    (params: Parameters<typeof restoreSelectedBackup>[0]) =>
+      runRestoreAttempt(() => restoreSelectedBackup(params)),
     600,
     {
       leading: true,

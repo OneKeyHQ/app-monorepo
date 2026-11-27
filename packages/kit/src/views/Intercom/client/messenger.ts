@@ -4,7 +4,11 @@ import type { IIntercomVisitor } from '@onekeyhq/shared/src/modules3rdParty/inte
 import { intercomRecord } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerModels';
 import type {
   IIntercomConversation,
+  IIntercomHome,
+  IIntercomInbox,
+  IIntercomMessengerSession,
   IIntercomNotification,
+  IIntercomOpen,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { notifyIntercomOpenFailed } from '@onekeyhq/shared/src/modules3rdParty/intercom/openFailure';
 import {
@@ -49,6 +53,21 @@ const notificationListeners = new Set<() => void>();
 let notification: IIntercomNotification | undefined;
 let pushedConversationId: string | undefined;
 const openGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
+type IIntercomResponses = {
+  inbox: IIntercomInbox;
+  open: IIntercomOpen;
+  home: IIntercomHome;
+};
+// The live client's last answers to the support screens' reads, memory only.
+// A client talks as one identity: a OneKey user or one anonymous visitor.
+// Retiring it drops the answers and, through the session generation, remounts
+// every support screen, so nothing rendered for the previous identity survives.
+let responses: Partial<IIntercomResponses> = {};
+let sessionGeneration = 0;
+const sessionListeners = new Set<() => void>();
+// The anonymous visitor the live client booted; undefined for a JWT session.
+let liveVisitor: IIntercomVisitor | undefined;
+let visitorReplacements = 0;
 
 function setUnread(ids: string[]) {
   unreadIds = new Set(ids);
@@ -81,14 +100,39 @@ function setNotification(value: IIntercomNotification | undefined) {
   notificationListeners.forEach((listener) => listener());
 }
 
+// An anonymous session may serve answers only while its visitor stays valid.
+// Boot renews a visitor within a minute of expiry and replaces an expired one.
+function hasLiveVisitor(userId: string | null | undefined) {
+  return (
+    userId !== null ||
+    (!!liveVisitor && liveVisitor.expiresAt > Date.now() + 60_000)
+  );
+}
+
 function invalidate() {
   revision += 1;
+  const retired = !!client;
   client?.dispose();
   client = undefined;
+  liveVisitor = undefined;
   setUnread([]);
   setNotification(undefined);
   pushedConversationId = undefined;
+  // Only a live client has answers or screens to retire. Skipping repeats keeps
+  // a failing identity sync from remounting support screens on every retry.
+  if (retired) {
+    sessionGeneration += 1;
+    responses = {};
+    sessionListeners.forEach((listener) => listener());
+  }
 }
+export const getIntercomSessionGeneration = () => sessionGeneration;
+export const subscribeToIntercomSessionGeneration = (listener: () => void) => {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+};
 export const getIntercomUnreadCount = () => unreadIds.size;
 export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   listeners.add(listener);
@@ -353,6 +397,17 @@ export async function createIntercomMessengerSession(
         storageOperation(async () => {
           await assertCurrent();
           await (await visitorBinding)?.set(JSON.stringify(visitor));
+          if (generation !== revision) return;
+          // A boot that replaced an expired or foreign visitor talks as another
+          // identity. Retire the client like any identity change, so the call
+          // that triggered the boot fails before it is posted as the new
+          // visitor. The next session boots the visitor saved above.
+          if (liveVisitor && liveVisitor.anonymousId !== visitor.anonymousId) {
+            visitorReplacements += 1;
+            invalidate();
+            throw new OneKeyLocalError('Support session changed');
+          }
+          liveVisitor = visitor;
         }),
       onRead: (id) => {
         if (generation !== revision || isLocked()) return;
@@ -380,6 +435,53 @@ export async function createIntercomMessengerSession(
   return active.api;
 }
 
+// The live session of this identity without revalidating it. A support screen
+// that opens again renders the session's cached answers at once and sends its
+// reads only after createIntercomMessengerSession confirms the session. An
+// expired anonymous visitor is never reused; its next boot creates another one.
+export function peekIntercomMessengerSession(expectedUserId: string | null) {
+  if (
+    !client ||
+    owner !== expectedUserId ||
+    identityTransition ||
+    identitySyncRequired ||
+    isLocked() ||
+    !hasLiveVisitor(expectedUserId)
+  )
+    return undefined;
+  return client.api;
+}
+
+export function getIntercomResponseCache<K extends keyof IIntercomResponses>(
+  session: IIntercomMessengerSession | undefined,
+  key: K,
+) {
+  if (!session) return undefined;
+  // A retired client never shows answers nor keeps a late one; an anonymous
+  // one serves them only while its visitor stays valid.
+  const live = () =>
+    session === client?.api && !isLocked() && hasLiveVisitor(owner);
+  return {
+    read: () => (live() ? responses[key] : undefined),
+    save: (data: IIntercomResponses[K]) => {
+      if (live()) responses[key] = data;
+    },
+  };
+}
+
+// A boot that replaced the visitor retires the client and fails, although the
+// visitor it saved is current. A read-only poll opens the session once more on
+// a new client instead of waiting for its failure backoff.
+async function createPollingSession(userId: string | null) {
+  const replacements = visitorReplacements;
+  try {
+    return await createIntercomMessengerSession(userId);
+  } catch (error) {
+    if (visitorReplacements === replacements) throw error;
+    return createIntercomMessengerSession(userId);
+  }
+}
+
 async function pollUnread() {
   if (!visible || isLocked()) {
     stopUnreadPolling();
@@ -395,7 +497,7 @@ async function pollUnread() {
     !parseVisitor(await storageOperation(() => visitorStorage.get(storageKey)))
   )
     return;
-  const session = await createIntercomMessengerSession(userId);
+  const session = await createPollingSession(userId);
   await session.refreshUnread();
   if (visible && !isLocked() && notificationListeners.size) {
     let conversations: IIntercomConversation[] = [];

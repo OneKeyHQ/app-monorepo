@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -11,7 +10,6 @@ import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAv
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  useDecodedTxsInitAtom,
   useEffectiveFeePayerAtom,
   useSignatureConfirmActions,
   useTxFeeInfoInitAtom,
@@ -23,14 +21,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { calculateTxExtraFee } from '@onekeyhq/shared/src/utils/feeUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -62,7 +58,6 @@ import {
   getTxConfirmMevProtectionProvider,
 } from '../../components/SignatureConfirmHeader';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
-import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
@@ -70,17 +65,16 @@ import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
 import { useTransactionSecurityCheck } from '../../hooks/useTransactionSecurityCheck';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
+import { TxConfirmState, useTxConfirmDecodedTxs } from './TxConfirmState';
+
 import type { RouteProp } from '@react-navigation/core';
 
-function TxConfirm() {
-  const route =
-    useRoute<
-      RouteProp<
-        IModalSignatureConfirmParamList,
-        EModalSignatureConfirmRoutes.TxConfirm
-      >
-    >();
+type ITxConfirmRoute = RouteProp<
+  IModalSignatureConfirmParamList,
+  EModalSignatureConfirmRoutes.TxConfirm
+>;
 
+function TxConfirm({ route }: { route: ITxConfirmRoute }) {
   const intl = useIntl();
 
   const {
@@ -90,23 +84,19 @@ function TxConfirm() {
     isQueueMode,
     unsignedTxQueue,
     gasAccountScenario,
+    transactionStep,
   } = route.params;
 
   const {
-    updateDecodedTxs,
-    updateUnsignedTxs,
     updateNativeTokenInfo,
     updatePreCheckTxStatus,
     updateSendFeeStatus,
-    updateExtraFeeInfo,
-    updateDecodedTxsInit,
     updateSendTxStatus,
     updateCustomRpcStatus,
   } = useSignatureConfirmActions().current;
 
   const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
-  const [decodedTxsInit] = useDecodedTxsInitAtom();
   const [effectiveFeePayer] = useEffectiveFeePayerAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const txConfirmParamsInit = useRef(false);
@@ -128,67 +118,16 @@ function TxConfirm() {
     isWalletConnectRequest: sourceInfo?.isWalletConnectRequest,
   });
 
-  const { result: decodedTxs, isLoading: isBuildingDecodedTxs } =
-    usePromiseResult(
-      async () => {
-        updateDecodedTxs({
-          isBuildingDecodedTxs: true,
-        });
-
-        if (!reactiveUnsignedTxs || reactiveUnsignedTxs.length === 0) {
-          return [];
-        }
-        const r =
-          await backgroundApiProxy.serviceSignatureConfirm.buildDecodedTxs({
-            accountId,
-            networkId,
-            unsignedTxs: reactiveUnsignedTxs,
-            transferPayload,
-            sourceInfo,
-          });
-
-        let extraFeeNativeTotal = new BigNumber(0);
-        for (const [index, decodedTx] of r.entries()) {
-          const extraFeeNative = calculateTxExtraFee({
-            decodedTx,
-            solanaRent: reactiveUnsignedTxs[index]?.solanaRent,
-          });
-          extraFeeNativeTotal = extraFeeNativeTotal.plus(extraFeeNative);
-        }
-
-        updateExtraFeeInfo({ feeNative: extraFeeNativeTotal.toFixed() });
-
-        updateDecodedTxs({
-          decodedTxs: r,
-          isBuildingDecodedTxs: false,
-        });
-
-        updateDecodedTxsInit(true);
-
-        return r;
-      },
-      [
-        updateDecodedTxs,
-        reactiveUnsignedTxs,
-        accountId,
-        networkId,
-        transferPayload,
-        sourceInfo,
-        updateExtraFeeInfo,
-        updateDecodedTxsInit,
-      ],
-      {
-        watchLoading: true,
-      },
-    );
+  const { decodedTxs, isBuildingDecodedTxs } = useTxConfirmDecodedTxs({
+    accountId,
+    networkId,
+    unsignedTxs: reactiveUnsignedTxs,
+    transferPayload,
+    sourceInfo,
+  });
 
   useEffect(() => {
     if (accountId && networkId && reactiveUnsignedTxs?.[0]?.uuid) {
-      updateDecodedTxs({
-        decodedTxs: [],
-        isBuildingDecodedTxs: false,
-      });
-      updateDecodedTxsInit(false);
       updateSendTxStatus({
         isInsufficientNativeBalance: false,
         isInsufficientTokenBalance: false,
@@ -206,8 +145,6 @@ function TxConfirm() {
   }, [
     txConfirmParamsInit,
     reactiveUnsignedTxs,
-    updateDecodedTxs,
-    updateDecodedTxsInit,
     accountId,
     networkId,
     updateSendFeeStatus,
@@ -336,7 +273,7 @@ function TxConfirm() {
   }, [unsignedTxs]);
 
   const txConfirmTitle = useMemo(() => {
-    if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit) {
+    if (!decodedTxs?.length) {
       return '';
     }
 
@@ -356,7 +293,7 @@ function TxConfirm() {
     return intl.formatMessage({
       id: ETranslations.transaction__transaction_confirm,
     });
-  }, [decodedTxs, intl, decodedTxsInit, stakingInfo]);
+  }, [decodedTxs, intl, stakingInfo]);
 
   const swapInfo = useMemo(() => {
     const swapTx = find(unsignedTxs, 'swapInfo');
@@ -419,7 +356,7 @@ function TxConfirm() {
         origin: sourceInfo?.origin,
         urlSecurityInfo,
         decodedTxs,
-        isParserPending: !decodedTxsInit || isBuildingDecodedTxs,
+        isParserPending: isBuildingDecodedTxs,
         transactionSecurityInfo,
         isTransactionSecurityPending,
         isTransactionSecurityApplicable,
@@ -428,7 +365,6 @@ function TxConfirm() {
       }),
     [
       decodedTxs,
-      decodedTxsInit,
       intl,
       isBuildingDecodedTxs,
       isPrimeUser,
@@ -480,11 +416,6 @@ function TxConfirm() {
   }, [fetchNativeTokenInfo, updateSendFeeStatus]);
 
   useEffect(() => {
-    dismissKeyboard();
-    updateUnsignedTxs(unsignedTxs);
-  }, [unsignedTxs, updateUnsignedTxs]);
-
-  useEffect(() => {
     if (sourceInfo) {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId,
@@ -508,10 +439,7 @@ function TxConfirm() {
   }, [accountId]);
 
   const renderTxConfirmContent = useCallback(() => {
-    if (
-      (isBuildingDecodedTxs || !decodedTxs || decodedTxs.length === 0) &&
-      !decodedTxsInit
-    ) {
+    if (!decodedTxs?.length) {
       return <SignatureConfirmLoading />;
     }
 
@@ -558,7 +486,6 @@ function TxConfirm() {
       </YStack>
     );
   }, [
-    isBuildingDecodedTxs,
     decodedTxs,
     networkId,
     accountId,
@@ -574,7 +501,6 @@ function TxConfirm() {
     unsignedTxs,
     swapInfo,
     stakingInfo,
-    decodedTxsInit,
   ]);
 
   const renderTxQueueController = useCallback(() => {
@@ -626,7 +552,14 @@ function TxConfirm() {
       testID={SignatureConfirmTestIDs.TxConfirmPage}
     >
       <Page.Header
-        title={txConfirmTitle}
+        title={
+          transactionStep && txConfirmTitle
+            ? `${txConfirmTitle} · ${intl.formatMessage(
+                { id: ETranslations.defi_lending_step_of_total },
+                transactionStep,
+              )}`
+            : txConfirmTitle
+        }
         headerRight={shouldRenderHeaderRight ? renderHeaderRight : undefined}
         unstable_headerRightItems={undefined}
       />
@@ -645,11 +578,14 @@ function TxConfirm() {
   );
 }
 
-const TxConfirmWithProvider = memo(() => (
-  <SignatureConfirmProviderMirror>
-    <TxConfirm />
-  </SignatureConfirmProviderMirror>
-));
+const TxConfirmWithProvider = memo(() => {
+  const route = useRoute<ITxConfirmRoute>();
+  return (
+    <TxConfirmState unsignedTxs={route.params.unsignedTxs}>
+      <TxConfirm route={route} />
+    </TxConfirmState>
+  );
+});
 TxConfirmWithProvider.displayName = 'TxConfirmWithProvider';
 
 export default TxConfirmWithProvider;

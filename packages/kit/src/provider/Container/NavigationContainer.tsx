@@ -12,11 +12,20 @@ import { useRouterConfig } from '../../routes/config';
 
 import { TabFreezeOnBlurContainer } from './TabFreezeOnBlurContainer';
 
-function BasicNavigation({ children }: PropsWithChildren) {
+type INavigationProps = PropsWithChildren<{
+  seedColdStartOnboarding?: boolean;
+}>;
+
+function BasicNavigation({
+  children,
+  seedColdStartOnboarding,
+}: INavigationProps) {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('BasicNavigation render');
   }
-  const { containerProps, routerConfig } = useRouterConfig();
+  const { containerProps, routerConfig } = useRouterConfig(
+    seedColdStartOnboarding,
+  );
   return useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
       debugLandingLog('BasicNavigation useMemo');
@@ -34,11 +43,11 @@ function BasicNavigation({ children }: PropsWithChildren) {
 
 const MemoizedBasicNavigation = memo(BasicNavigation);
 
-function NavigationWithEventProvider({ children }: PropsWithChildren) {
+function NavigationWithEventProvider(props: INavigationProps) {
   const routerEventRef = useRef([]);
   return (
     <RouterEventProvider value={routerEventRef}>
-      <MemoizedBasicNavigation>{children}</MemoizedBasicNavigation>
+      <MemoizedBasicNavigation {...props} />
     </RouterEventProvider>
   );
 }

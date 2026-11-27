@@ -70,6 +70,7 @@ jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
   EEnterWay: {
     ExtensionPopup: 'ExtensionPopup',
     ExtensionSidePanel: 'ExtensionSidePanel',
+    MarketList: 'MarketList',
     Search: 'Search',
   },
 }));
@@ -164,7 +165,12 @@ describe('useToDetailPage', () => {
     jest
       .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
       .mockReset();
-    Object.assign(platformEnv, { isNative: false, isDesktop: false });
+    Object.assign(platformEnv, {
+      isNative: false,
+      isNativeIOS: false,
+      isNativeAndroid: false,
+      isDesktop: false,
+    });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
     mockGetRootState.mockReturnValue(undefined);
@@ -543,6 +549,37 @@ describe('useToDetailPage', () => {
     },
   );
 
+  it.each(['iOS', 'Android'])(
+    'opens a list token on %s while the detail preload is pending',
+    async (platform) => {
+      Object.assign(platformEnv, {
+        isExtensionUiPopup: false,
+        isNative: true,
+        isNativeIOS: platform === 'iOS',
+        isNativeAndroid: platform === 'Android',
+      });
+      const preload = deferred<void>();
+      jest.mocked(preloadMarketDetailV2Page).mockReturnValue(preload.promise);
+      const { result } = renderHook(() =>
+        useToDetailPage({ from: EEnterWay.MarketList }),
+      );
+      const navigation = result.current(tokenItem);
+      try {
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          expect.objectContaining({
+            tokenAddress: tokenItem.tokenAddress,
+            from: EEnterWay.MarketList,
+          }),
+        );
+      } finally {
+        jest.mocked(preloadMarketDetailV2Page).mockResolvedValue(undefined);
+        preload.resolve();
+        await navigation;
+      }
+    },
+  );
+
   it('ignores superseded native preload completion', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: true });
     const { result } = renderHook(() => useToDetailPage());
@@ -755,6 +792,151 @@ describe('useToDetailPage', () => {
       layout: 'mobile',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it.each([
+    ['the selected spot category', { marketTokenCategory: 'hot' }, 'hot'],
+    [
+      'the entry category over the spot category',
+      { marketTokenCategory: 'hot', entryCategory: 'watchlist' },
+      'watchlist',
+    ],
+  ])(
+    'carries %s as the stock entry category',
+    async (_, options, entryCategory) => {
+      const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+        isExtensionUiPopup: boolean;
+      };
+      mockedPlatformEnv.isExtensionUiPopup = false;
+      const { result } = renderHook(() =>
+        useToDetailPage({ ...options, from: EEnterWay.MarketList }),
+      );
+
+      await act(async () => {
+        await result.current({
+          tokenAddress: '0xaapl',
+          networkId: 'evm--1',
+          symbol: 'AAPLon',
+          stockId: 'AAPL',
+        });
+      });
+
+      // Stock routes never carry marketTokenCategory: detail behavior
+      // branches on it.
+      expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+        stockId: 'AAPL',
+        tokenAddress: '0xaapl',
+        network: 'eth',
+        isNative: undefined,
+        from: EEnterWay.MarketList,
+        entryCategory,
+      });
+      mockedPlatformEnv.isExtensionUiPopup = true;
+    },
+  );
+
+  it('carries the watchlist entry category on token detail only as analytics', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({
+        from: EEnterWay.MarketList,
+        entryCategory: 'watchlist',
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        isNative: true,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: EEnterWay.MarketList,
+      entryCategory: 'watchlist',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('forwards the stock entry category through the extension handoff', async () => {
+    const { result } = renderHook(() =>
+      useToDetailPage({ entryCategory: 'watchlist' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xaapl',
+        networkId: 'evm--1',
+        symbol: 'AAPLon',
+        stockId: 'AAPL',
+      });
+    });
+
+    expect(openExtensionMarketStockDetailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stockId: 'AAPL',
+        from: EEnterWay.ExtensionPopup,
+        entryCategory: 'watchlist',
+      }),
+    );
+  });
+
+  it('keeps a given stock preview symbol on the stock route', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'AAPL',
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL.US',
+      tokenAddress: '',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+      stockPreviewSymbol: 'AAPL',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('forwards a given stock preview symbol through the extension handoff', async () => {
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'AAPL',
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+      });
+    });
+
+    expect(openExtensionMarketStockDetailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+        from: EEnterWay.ExtensionPopup,
+      }),
+    );
   });
 
   it('navigates items whose stock id is only nested on stock', async () => {

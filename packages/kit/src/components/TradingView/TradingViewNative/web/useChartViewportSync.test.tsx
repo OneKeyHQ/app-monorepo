@@ -22,13 +22,19 @@ const at = (offset: number, zoomScale = 1) => ({ offset, zoomScale });
 
 function renderChart(
   channel: ITradingViewNativeViewportSyncChannel | null,
-  { fitRange = false, isMain = false } = {},
+  {
+    fitRange = false,
+    isMain = false,
+    panelId = isMain ? 'main' : 'panel-2',
+  }: { fitRange?: boolean; isMain?: boolean; panelId?: string } = {},
 ) {
   const redraw = jest.fn();
   const redrawRef = { current: redraw };
   const scope: { current: ITradingViewNativeMultiChartSyncScope } = {
     current: {
       isMain,
+      panelId,
+      reportInterval: () => {},
       instrumentKey: 'BTC',
       crosshair: null,
       interval: null,
@@ -153,6 +159,36 @@ describe('useChartViewportSync', () => {
       chart.get().publishViewport(viewport(100));
     });
     expect(chart.get().getFollowedViewport()).toBeNull();
+    expect(chart.get().getFollowedTimeRange()).toBeUndefined();
     expect(chart.redraw).not.toHaveBeenCalled();
+  });
+
+  it('leads from the panel the option was turned on in, as it joins', () => {
+    const channel = createTradingViewNativeViewportSyncChannel('panel-3');
+    const first = renderChart(channel, { isMain: true });
+    const selected = renderChart(channel, { panelId: 'panel-3' });
+    act(() => {
+      first.get().publishViewport(viewport(100));
+      selected.get().publishViewport(viewport(50));
+    });
+
+    expect(selected.get().getFollowedViewport()).toBeNull();
+    expect(first.get().getFollowedViewport()?.viewport).toEqual(viewport(50));
+  });
+
+  it('tells the times it lines up with, for its history to load on to them', () => {
+    const channel = createTradingViewNativeViewportSyncChannel();
+    const first = renderChart(channel, { isMain: true });
+    const second = renderChart(channel);
+    act(() => first.get().publishViewport(viewport(100)));
+
+    expect(first.get().getFollowedTimeRange()).toBeUndefined();
+    // Without the date range, only where the view ends is matched.
+    expect(second.get().getFollowedTimeRange()).toEqual({ from: 100, to: 100 });
+    second.setFitRange(true);
+    expect(second.get().getFollowedTimeRange()).toEqual({
+      from: 100 - 3600,
+      to: 100,
+    });
   });
 });

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -33,11 +33,21 @@ export function NavBackButton(props: INavButtonProps) {
   );
 }
 
-export function NavCloseButton(props: INavButtonProps) {
+export function NavCloseButton({ onPress, ...props }: INavButtonProps) {
+  const onPressRef = useRef(onPress);
+  useLayoutEffect(() => {
+    onPressRef.current = onPress;
+  }, [onPress]);
+  const handlePress = useCallback<NonNullable<INavButtonProps['onPress']>>(
+    (event) => onPressRef.current?.(event),
+    [],
+  );
   return (
     <HeaderIconButton
       icon="CrossedLargeOutline"
       testID="nav-header-close"
+      onPressDebounce={300}
+      onPress={onPress ? handlePress : undefined}
       {...props}
     />
   );

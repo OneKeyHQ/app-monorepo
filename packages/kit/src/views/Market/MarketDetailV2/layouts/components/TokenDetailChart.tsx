@@ -19,6 +19,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useMarketDetailChartAnalytics } from '../../../utils/marketDetailAnalytics';
 import {
   type IStockSimpleChartRange,
   StockSimpleChart,
@@ -126,12 +127,14 @@ function TokenDetailChartBase({
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
+  const chartAnalytics = useMarketDetailChartAnalytics();
   const isSimpleMode = mode === 'simple' && !isChartFullscreen;
   const handleModeChange = useCallback(
     (nextMode: IMarketDetailChartDisplayMode) => {
       setChartDisplayMode({ mode: nextMode });
+      chartAnalytics?.onChartDisplayModeSwitch(mode, nextMode);
     },
-    [setChartDisplayMode],
+    [chartAnalytics, mode, setChartDisplayMode],
   );
 
   // Rides inside TradingView's own desktop toolbar instead of floating over
@@ -197,7 +200,10 @@ function TokenDetailChartBase({
                     size="small"
                     variant={range === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
-                    onPress={() => setRange(item)}
+                    onPress={() => {
+                      setRange(item);
+                      chartAnalytics?.onSimpleChartRangeSelect(range, item);
+                    }}
                   >
                     {intl.formatMessage({
                       id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],

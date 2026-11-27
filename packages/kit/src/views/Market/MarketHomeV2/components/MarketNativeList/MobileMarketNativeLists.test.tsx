@@ -48,6 +48,8 @@ const mockListingActions = {
   removeFromWatchListV2: jest.fn().mockResolvedValue(true),
 };
 const mockStockDetail = jest.fn();
+const mockToDetailPageOptions = jest.fn();
+const mockToStockDetailPageOptions = jest.fn();
 const mockStockRefresh = jest.fn();
 const mockStockLoadMore = jest.fn();
 let mockStockIsRefreshing = false;
@@ -239,6 +241,24 @@ jest.mock('react-native', () => ({
     </div>
   ),
 }));
+jest.mock('react-native-pager-view', () => ({
+  NativeScroller: ({
+    children,
+    testID,
+    contentContainerStyle,
+  }: PropsWithChildren<{
+    testID?: string;
+    contentContainerStyle?: CSSProperties;
+  }>) => (
+    <div
+      data-testid={testID}
+      data-native-scroller
+      style={contentContainerStyle}
+    >
+      {children}
+    </div>
+  ),
+}));
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: PropsWithChildren) => <div>{children}</div>,
   useTheme: () => mockTheme,
@@ -261,7 +281,10 @@ jest.mock('../MarketTokenList/hooks/useMarketTokenList', () => ({
   }),
 }));
 jest.mock('../MarketTokenList/hooks/useToMarketDetailPage', () => ({
-  useToDetailPage: () => jest.fn(),
+  useToDetailPage: (options: unknown) => {
+    mockToDetailPageOptions(options);
+    return jest.fn();
+  },
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   serviceMarketV2: {
@@ -298,6 +321,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
   EEnterWay: { MarketList: 'MarketList' },
+  EMarketEntryCategory: { Stocks: 'stocks', Watchlist: 'watchlist' },
   EWatchlistFrom: { Homepage: 'Homepage' },
 }));
 jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({}));
@@ -339,7 +363,10 @@ jest.mock('../MarketStockList/hooks/useMarketStockList', () => ({
   }),
 }));
 jest.mock('../MarketStockList/hooks/useToMarketStockDetailPage', () => ({
-  useToMarketStockDetailPage: () => mockStockDetail,
+  useToMarketStockDetailPage: (options: unknown) => {
+    mockToStockDetailPageOptions(options);
+    return mockStockDetail;
+  },
 }));
 jest.mock('../MarketTokenList/components/InlineActionBar', () => ({
   InlineActionBar: () => null,
@@ -574,6 +601,40 @@ describe.each([false, true])(
   },
 );
 
+describe('Market pager list entry category', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockIsNativeAndroid = false;
+    mockNativeRefresh = undefined;
+    mockNativeSnapshot = undefined;
+  });
+
+  it('reports stock list detail entries under the stocks category', () => {
+    render(
+      <MobileMarketNativeStockList
+        selectedCategoryId="all"
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+    expect(mockToStockDetailPageOptions).toHaveBeenCalledWith({
+      from: 'MarketList',
+      entryCategory: 'stocks',
+    });
+  });
+
+  it('reports watchlist detail entries under the watchlist category', () => {
+    render(
+      <MobileMarketNativeWatchlist
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+    expect(mockToDetailPageOptions).toHaveBeenCalledWith({
+      from: 'MarketList',
+      entryCategory: 'watchlist',
+    });
+  });
+});
+
 describe('MobileMarketNativeTokenList refresh', () => {
   beforeEach(() => {
     mockIsNativeAndroid = false;
@@ -666,8 +727,10 @@ it.each([false, true])(
         />,
       );
       const content = getByTestId('market-favorites-empty-scroll');
+      expect(content.hasAttribute('data-native-scroller')).toBe(isAndroid);
       expect(content.style.flexGrow).toBe(isAndroid ? '' : '1');
       expect(content.style.paddingTop).toBe('20px');
+      expect(content.style.paddingBottom).toBe(isAndroid ? '20px' : '');
       expect(content.style.minHeight).toBe('400px');
     } finally {
       mockEmptyWatchlist = false;

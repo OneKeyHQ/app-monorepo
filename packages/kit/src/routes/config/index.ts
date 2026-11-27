@@ -19,6 +19,7 @@ import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import { marketTokenPreviewRouteConfig } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
@@ -28,9 +29,15 @@ import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { rootRouter, useRootRouter } from '../router';
 
+import {
+  getColdStartOnboardingInitialState,
+  isColdStartOnboardingRoute,
+  useColdStart,
+} from './coldStartOnboardingState';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
+import { getUrlAccountHistoryBackRouteKey } from './urlAccountHistory';
 import {
   clearWebRouteNotFoundState,
   getWebDappAllowListRule,
@@ -64,6 +71,19 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
             ETabMarketRoutes.MarketNativeDetail,
           ].some((name) => name === route.name)
             ? marketTokenPreviewRouteConfig
+            : undefined),
+          ...(route.name === ETabSwapRoutes.TabSwap
+            ? {
+                // React Navigation omits stringified undefined query params.
+                stringify: {
+                  swapPrefill: () => 'undefined',
+                  swapTabNavigationId: () => 'undefined',
+                },
+                parse: {
+                  swapPrefill: () => undefined,
+                  swapTabNavigationId: () => undefined,
+                },
+              }
             : undefined),
         };
         const config = Array.isArray(route.children)
@@ -176,6 +196,9 @@ const useBuildLinking = (): LinkingOptions<any> => {
       prefixes: [],
 
       getStateFromPath: onGetStateFromPath,
+      getHistoryBackRouteKey: platformEnv.isExtensionUiExpandTab
+        ? getUrlAccountHistoryBackRouteKey
+        : undefined,
       /**
        * Only change url at whitelist routes, or return home page
        */
@@ -297,8 +320,9 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
   [ETabRoutes.SubPage]: null,
 };
 
-export const useRouterConfig = () => {
+export const useRouterConfig = (seedColdStartOnboarding = false) => {
   const routerRef = useRouterEventsRef();
+  const dispatchColdStart = useColdStart()?.dispatch;
   const linking = useBuildLinking();
   const intl = useIntl();
 
@@ -345,6 +369,16 @@ export const useRouterConfig = () => {
           },
         },
         onStateChange: (state) => {
+          if (
+            seedColdStartOnboarding &&
+            state &&
+            !isColdStartOnboardingRoute(state.routes[state.index])
+          ) {
+            dispatchColdStart?.({
+              type: 'interrupted',
+              entry: 'launch-intent',
+            });
+          }
           if (process.env.NODE_ENV !== 'production') {
             const mainRoute = state?.routes?.[state?.index ?? 0];
             const tabState = mainRoute?.state;
@@ -386,7 +420,10 @@ export const useRouterConfig = () => {
           routerRef.current.forEach((cb) => cb?.(state));
         },
         linking,
+        initialState: seedColdStartOnboarding
+          ? getColdStartOnboardingInitialState()
+          : undefined,
       } as INavigationContainerProps,
     };
-  }, [linking, routerRef, intl]);
+  }, [linking, routerRef, intl, seedColdStartOnboarding, dispatchColdStart]);
 };

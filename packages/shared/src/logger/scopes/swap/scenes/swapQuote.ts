@@ -1,3 +1,4 @@
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import type { ESwapAnalyticsCategory } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -54,10 +55,13 @@ export class SwapQuoteScene extends BaseScene {
   }) {
     void fromAddress;
     void toAddress;
+    const isXmrQuote =
+      isXmrSwapNetwork(sourceChain) || isXmrSwapNetwork(receivedChain);
     return {
       walletType,
       status,
-      message,
+      // Provider error details can contain addresses or the quote URL.
+      message: isXmrQuote ? undefined : message,
       quoteType,
       slippageSetting,
       sourceChain,
@@ -66,7 +70,13 @@ export class SwapQuoteScene extends BaseScene {
       receivedTokenSymbol,
       isAddReceiveAddress,
       isSmartMode,
-      providerQuoteResult,
+      providerQuoteResult: isXmrQuote
+        ? providerQuoteResult.map(({ provider, providerName, toAmount }) => ({
+            provider,
+            providerName,
+            toAmount,
+          }))
+        : providerQuoteResult,
       tradeSide,
       stockTokenSymbol,
       stockTokenAddress,

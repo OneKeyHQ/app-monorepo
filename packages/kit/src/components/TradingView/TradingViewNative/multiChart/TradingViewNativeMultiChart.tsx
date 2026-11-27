@@ -52,6 +52,7 @@ import {
 import { TradingViewNativeMultiChartSyncContext } from './TradingViewNativeMultiChartSyncContext';
 import { createTradingViewNativeViewportSyncChannel } from './viewportSync';
 
+import type { ITradingViewNativeIntervalSync } from './intervalSync';
 import type { ITradingViewNativeMultiChartAxis } from './multiChartLayout';
 import type {
   ITradingViewNativeMultiChartPanel,
@@ -65,6 +66,17 @@ import type { ITradingViewNativeMultiChartSyncScope } from './TradingViewNativeM
 import type { LayoutChangeEvent } from 'react-native';
 
 type IOnLayoutChange = ITradingViewNativeMultiChartProps['onLayoutChange'];
+
+type IWriteLayout = (
+  update: Parameters<IOnLayoutChange>[0],
+  /**
+   * Called when the write fails while it is still the one written last. The
+   * write is taken back then: the next one starts from the write before it.
+   * Without it, the next write carries a failed one along, e.g. a selection
+   * that is still on screen.
+   */
+  onFailure?: () => void,
+) => void;
 
 // Whether a press or key on `target` is one on the panel itself. An overlay
 // the panel opened, e.g. a chart's menu, is rendered elsewhere and only reaches
@@ -198,8 +210,32 @@ type IPanelSync = Pick<
   'crosshair' | 'interval' | 'viewport'
 >;
 
+/** A panel's slot as the grid gives it; the panel adds its interval picker. */
+type IGridControlsSlot = Omit<
+  ITradingViewNativeMultiChartControlsSlot,
+  'renderIntervalControl'
+>;
+
+interface IIntervalSyncState {
+  /** Null while every panel keeps its own interval. */
+  channel: ITradingViewNativeIntervalSync | null;
+  /** More than one chart was on screen when this was worked out. */
+  isSplit: boolean;
+}
+
+/**
+ * The interval option as this page asked for it last, until the saved layout
+ * has all the page wrote since.
+ */
+interface IIntervalSyncIntent {
+  isSynced: boolean;
+  /** Turned on: the interval saved with it, which the panels take at once. */
+  start?: string;
+}
+
 const Panel = memo(
   ({
+    controlsSlot,
     id,
     index,
     indicatorSettings,
@@ -207,12 +243,14 @@ const Panel = memo(
     isSplit,
     isSymbolSynced,
     layoutControl,
+    onIntervalReport,
     onLayoutChange,
     onSelectSource,
     renderPanel,
     source,
     sync,
   }: {
+    controlsSlot: IGridControlsSlot;
     id: string;
     index: number;
     indicatorSettings: ITradingViewNativeIndicatorSettings;
@@ -220,6 +258,7 @@ const Panel = memo(
     isSplit: boolean;
     isSymbolSynced: boolean;
     layoutControl: ReactNode;
+    onIntervalReport: (panelId: string, interval: string | undefined) => void;
     onLayoutChange: IOnLayoutChange;
     onSelectSource: (panelId: string, source: ITradingViewNativeSource) => void;
     renderPanel: ITradingViewNativeMultiChartProps['renderPanel'];
@@ -228,9 +267,28 @@ const Panel = memo(
   }) => {
     const isMain = index === 0;
     const instrumentKey = getTradingViewNativeSourceKey(source);
+    const reportInterval = useCallback(
+      (interval: string | undefined) => onIntervalReport(id, interval),
+      [id, onIntervalReport],
+    );
     const syncScope = useMemo<ITradingViewNativeMultiChartSyncScope>(
-      () => ({ ...sync, isMain, instrumentKey }),
-      [instrumentKey, isMain, sync],
+      () => ({ ...sync, isMain, panelId: id, reportInterval, instrumentKey }),
+      [id, instrumentKey, isMain, reportInterval, sync],
+    );
+    // Where the host placed `intervalControl`. It generates no box, so the
+    // picker lays out as one of the host's own items, e.g. in its header row.
+    const [intervalSlot, setIntervalSlot] = useState<HTMLElement | null>(null);
+    const intervalControl = useMemo(
+      () => <span ref={setIntervalSlot} style={{ display: 'contents' }} />,
+      [],
+    );
+    const slot = useMemo<ITradingViewNativeMultiChartControlsSlot>(
+      () => ({
+        ...controlsSlot,
+        renderIntervalControl: (control) =>
+          intervalSlot ? createPortal(control, intervalSlot) : null,
+      }),
+      [controlsSlot, intervalSlot],
     );
     const panel = useMemo<ITradingViewNativeMultiChartPanel>(
       () => ({
@@ -242,11 +300,13 @@ const Panel = memo(
         isSymbolSynced,
         source,
         layoutControl: isActive ? layoutControl : null,
+        intervalControl,
         selectSource: (picked) => onSelectSource(id, picked),
       }),
       [
         id,
         index,
+        intervalControl,
         isActive,
         isMain,
         isSplit,
@@ -257,24 +317,26 @@ const Panel = memo(
       ],
     );
     const content = renderPanel(panel);
-    // The provider stays mounted whatever the panels sync, so turning an
-    // option on or off never remounts a chart.
+    // The providers stay mounted whatever the panels sync and whichever is
+    // selected, so neither an option nor a selection remounts a chart.
     return (
-      <TradingViewNativeMultiChartSyncContext.Provider value={syncScope}>
-        {/* The first panel stays outside the scope: it keeps the host's own
-            interval and indicators whether or not the view is split. */}
-        {isMain ? (
-          content
-        ) : (
-          <PanelScope
-            panelId={id}
-            indicatorSettings={indicatorSettings}
-            onLayoutChange={onLayoutChange}
-          >
-            {content}
-          </PanelScope>
-        )}
-      </TradingViewNativeMultiChartSyncContext.Provider>
+      <TradingViewNativeMultiChartControlsContext.Provider value={slot}>
+        <TradingViewNativeMultiChartSyncContext.Provider value={syncScope}>
+          {/* The first panel stays outside the scope: it keeps the host's own
+              interval and indicators whether or not the view is split. */}
+          {isMain ? (
+            content
+          ) : (
+            <PanelScope
+              panelId={id}
+              indicatorSettings={indicatorSettings}
+              onLayoutChange={onLayoutChange}
+            >
+              {content}
+            </PanelScope>
+          )}
+        </TradingViewNativeMultiChartSyncContext.Provider>
+      </TradingViewNativeMultiChartControlsContext.Provider>
     );
   },
 );
@@ -289,6 +351,9 @@ interface IResizeDraft {
 }
 
 type IKeptSources = Partial<Record<string, ITradingViewNativeSource>>;
+
+// Where a maximized panel goes: over the whole grid.
+const FULL_GRID_RECT = { left: 0, top: 0, width: 1, height: 1 };
 
 interface IPanelSelection {
   /** Tells a selection from the ones made before and after it. */
@@ -385,12 +450,28 @@ export function TradingViewNativeMultiChart({
     },
     [channel],
   );
+  // The page that turns the interval option on or off acts on it at once, so
+  // nothing done before the saved layout is back, e.g. picking an interval or
+  // selecting another panel, meets charts that are not synced as the switch
+  // shows. A saved layout that has only an earlier write of the page, e.g. the
+  // option turned on and then off again, is not the page's choice either.
+  const [intervalSyncIntent, setIntervalSyncIntent] =
+    useState<IIntervalSyncIntent | null>(null);
+  // Time and date range follow one chart. Turned on here, they start from the
+  // selected chart, which the user may have just moved, e.g. to a picked date
+  // range; a split view that opens with either on starts from the first panel.
+  const [viewportSyncChannel, setViewportSyncChannel] = useState(() =>
+    createTradingViewNativeViewportSyncChannel(),
+  );
   // A write is on its way until the saved layout has it: the write came back,
   // or a newer revision was saved over it, e.g. by another window.
   useEffect(() => {
     if (channel.written && hasWrite(savedLayout, channel.written)) {
       channel.written = null;
     }
+    // The saved layout has all this grid wrote, or a write of another page
+    // over it: it is what the option is from here.
+    if (!channel.written) setIntervalSyncIntent(null);
   }, [channel, savedLayout]);
   useEffect(
     () => () => {
@@ -407,21 +488,31 @@ export function TradingViewNativeMultiChart({
   // from it, e.g. a selection saved after the preset changed, would undo them.
   // So each write starts from the layout written last while the saved one does
   // not have it, and carries the next revision and an ID of its own.
-  const onLayoutChange = useCallback<IOnLayoutChange>(
-    (update) =>
-      onSavedLayoutChange((current) => {
+  const onLayoutChange = useCallback<IWriteLayout>(
+    (update, onFailure) => {
+      let written: ITradingViewNativeMultiChartLayout | null = null;
+      let builtOn: ITradingViewNativeMultiChartLayout | null = null;
+      const result = onSavedLayoutChange((current) => {
         const pending = channel.written;
         const base = pending && !hasWrite(current, pending) ? pending : current;
         const next = update(base);
         if (next === base) return current;
-        const written: ITradingViewNativeMultiChartLayout = {
+        written = {
           ...normalizeTradingViewNativeMultiChartLayout(next),
           revision: Math.max(getRevision(base), getRevision(current)) + 1,
           writeId: generateUUID(),
         };
+        builtOn = base === pending ? pending : null;
         channel.written = written;
         return written;
-      }),
+      });
+      if (!onFailure) return;
+      void Promise.resolve(result).catch(() => {
+        if (!written || channel.written !== written) return;
+        channel.written = builtOn;
+        onFailure();
+      });
+    },
     [channel, onSavedLayoutChange],
   );
   // The saved layout as this page sees it, with the panel selected here. A
@@ -781,6 +872,44 @@ export function TradingViewNativeMultiChart({
     [channel, saveSelection, selectionStore, setSelection, settleSwitch],
   );
 
+  // The panel that fills the grid, and the preset it did so in. A view of
+  // the grid only: it is never saved, so a reload or another window shows the
+  // split as saved.
+  const [maximized, setMaximized] = useState<{
+    panelId: string;
+    preset: ITradingViewNativeMultiChartPreset;
+  } | null>(null);
+  // Only the selected panel stays maximized: the controls row and drawing
+  // tools on screen are its own. Another preset, or a selection that went
+  // elsewhere, e.g. back from a switch the host turned down, ends it.
+  const maximizedPanelId =
+    isSplit &&
+    maximized?.preset === preset &&
+    maximized.panelId === activePanelId
+      ? maximized.panelId
+      : null;
+  useEffect(() => {
+    // For good, so a later selection or preset does not bring it back.
+    if (maximized && maximizedPanelId === null) setMaximized(null);
+  }, [maximized, maximizedPanelId]);
+  const latestMaximize = useRef({ maximizedPanelId, preset });
+  latestMaximize.current = { maximizedPanelId, preset };
+  const toggleMaximized = useCallback(
+    (panelId: string) => {
+      const current = latestMaximize.current;
+      if (current.maximizedPanelId === panelId) {
+        setMaximized(null);
+        return;
+      }
+      // A press on the panel has selected it already; the keyboard has not.
+      handleSelectPanel(panelId);
+      setMaximized({ panelId, preset: current.preset });
+    },
+    [handleSelectPanel],
+  );
+  const maximizedIndex =
+    maximizedPanelId === null ? -1 : panelIds.indexOf(maximizedPanelId);
+
   const defaults = useRef({
     activeSource,
     getDefaultPanelSource,
@@ -832,9 +961,44 @@ export function TradingViewNativeMultiChart({
     },
     [fillPanels, onLayoutChange],
   );
+  // The interval each panel's chart is on, as the charts report it.
+  const panelIntervals = useRef(new Map<string, string>());
+  const handleIntervalReport = useCallback(
+    (panelId: string, interval: string | undefined) => {
+      if (interval === undefined) panelIntervals.current.delete(panelId);
+      else panelIntervals.current.set(panelId, interval);
+    },
+    [],
+  );
   const handleSyncChange = useCallback(
     (option: ITradingViewNativeMultiChartSyncOption, isSynced: boolean) => {
       const state = latestSelectionState.current;
+      // The intervals sync to the chart the option is turned on in: the
+      // selected one, whose controls hold it. Read now and saved with the
+      // option, as the selection can move on before the saved layout is
+      // back, and another page showing the layout has a selection of its own.
+      const readSelectedInterval = () =>
+        panelIntervals.current.get(
+          getTradingViewNativeMultiChartActivePanelId(
+            latestSelectionState.current.layout,
+          ),
+        );
+      const intervalStart =
+        option === 'interval' && isSynced ? readSelectedInterval() : undefined;
+      if (option === 'interval') {
+        setIntervalSyncIntent(
+          isSynced ? { isSynced, start: intervalStart } : { isSynced },
+        );
+      }
+      if (isSynced && (option === 'time' || option === 'dateRange')) {
+        // Started anew, so the selected chart leads as the charts join it,
+        // before any of them lines up with another one.
+        setViewportSyncChannel(
+          createTradingViewNativeViewportSyncChannel(
+            getTradingViewNativeMultiChartActivePanelId(state.layout),
+          ),
+        );
+      }
       // The host can have answered since the last render.
       const latestSelection = selectionRef.current;
       if (option === 'symbol' && isSynced && latestSelection) {
@@ -860,23 +1024,45 @@ export function TradingViewNativeMultiChart({
           }
         }
       }
-      onLayoutChange((current) => {
-        const saved = normalizeTradingViewNativeMultiChartLayout(current);
-        const next = setTradingViewNativeMultiChartSync(
-          saved,
-          option,
-          isSynced,
-        );
-        if (next === saved) return current;
-        // From here every panel shows the host's token and keeps its own for
-        // when that ends. The host's panel shows it without storing it, so
-        // what it stores can date from before it was selected.
-        return option === 'symbol' && isSynced
-          ? updateTradingViewNativeMultiChartPanel(next, state.hostPanelId, {
-              source: state.activeSource,
-            })
-          : next;
-      });
+      onLayoutChange(
+        (current) => {
+          const saved = normalizeTradingViewNativeMultiChartLayout(current);
+          const next = setTradingViewNativeMultiChartSync(
+            saved,
+            option,
+            isSynced,
+            intervalStart,
+          );
+          if (next === saved) return current;
+          // From here every panel shows the host's token and keeps its own for
+          // when that ends. The host's panel shows it without storing it, so
+          // what it stores can date from before it was selected.
+          return option === 'symbol' && isSynced
+            ? updateTradingViewNativeMultiChartPanel(next, state.hostPanelId, {
+                source: state.activeSource,
+              })
+            : next;
+        },
+        // The panels followed the option at the press. If it is not saved,
+        // the option is as the next edit finds it: in the write of this page
+        // still on its way, or in the saved layout, which another page can
+        // have changed meanwhile. Synced again, the panels start from the
+        // selected chart as at a press: the interval saved with the option
+        // can be one they have left since.
+        option === 'interval'
+          ? () => {
+              const saved = latestSelectionState.current.layout;
+              const { written } = channel;
+              const kept =
+                written && !hasWrite(saved, written) ? written : saved;
+              setIntervalSyncIntent(
+                getTradingViewNativeMultiChartSync(kept).interval
+                  ? { isSynced: true, start: readSelectedInterval() }
+                  : { isSynced: false },
+              );
+            }
+          : undefined,
+      );
     },
     [channel, onLayoutChange, setSelection],
   );
@@ -884,19 +1070,42 @@ export function TradingViewNativeMultiChart({
     () => createTradingViewNativeCrosshairSyncChannel(),
     [],
   );
-  const viewportSyncChannel = useMemo(
-    () => createTradingViewNativeViewportSyncChannel(),
-    [],
-  );
   // What every panel shares with the others. A part is rebuilt only when its
   // own option changes, so the charts keep the rest as it is.
   const isCrosshairSynced = isSplit && sync.crosshair;
-  const isIntervalSynced = isSplit && sync.interval;
-  const intervalSync = useMemo(
-    // Started anew each time, from the first panel's interval.
-    () => (isIntervalSynced ? createTradingViewNativeIntervalSync() : null),
-    [isIntervalSynced],
-  );
+  const isIntervalOptionOn = intervalSyncIntent
+    ? intervalSyncIntent.isSynced
+    : sync.interval;
+  const isIntervalSynced = isSplit && isIntervalOptionOn;
+  // A split view that opens with the option on starts from the first panel,
+  // the one chart on screen until then.
+  const [intervalSync, setIntervalSync] = useState<IIntervalSyncState>(() => ({
+    channel: isIntervalSynced ? createTradingViewNativeIntervalSync() : null,
+    isSplit,
+  }));
+  if (
+    intervalSync.isSplit !== isSplit ||
+    (intervalSync.channel !== null) !== isIntervalSynced
+  ) {
+    // Started anew each time. In a view that was split already, it is the
+    // option that was turned on: the panels take the interval saved with it,
+    // at the press on this page and as the option arrives on another one. An
+    // interval saved for an earlier start is not what a view opened since
+    // shows.
+    let start: string | undefined;
+    if (intervalSync.isSplit) {
+      start = intervalSyncIntent
+        ? intervalSyncIntent.start
+        : layout.intervalSyncStart;
+    }
+    setIntervalSync({
+      channel: isIntervalSynced
+        ? createTradingViewNativeIntervalSync(start)
+        : null,
+      isSplit,
+    });
+  }
+  const intervalSyncChannel = intervalSync.channel;
   const isViewportSynced = isSplit && (sync.time || sync.dateRange);
   const fitsDateRange = sync.dateRange;
   const viewportSync = useMemo(
@@ -909,21 +1118,34 @@ export function TradingViewNativeMultiChart({
   const panelSync = useMemo<IPanelSync>(
     () => ({
       crosshair: isCrosshairSynced ? crosshairSyncChannel : null,
-      interval: intervalSync,
+      interval: intervalSyncChannel,
       viewport: viewportSync,
     }),
-    [crosshairSyncChannel, intervalSync, isCrosshairSynced, viewportSync],
+    [
+      crosshairSyncChannel,
+      intervalSyncChannel,
+      isCrosshairSynced,
+      viewportSync,
+    ],
+  );
+  // The interval option shows what the panels do, from the press on.
+  const shownSync = useMemo(
+    () =>
+      sync.interval === isIntervalOptionOn
+        ? sync
+        : { ...sync, interval: isIntervalOptionOn },
+    [isIntervalOptionOn, sync],
   );
   const layoutControl = useMemo(
     () => (
       <TradingViewNativeMultiChartLayoutSelect
         preset={preset}
         onChange={handlePresetChange}
-        sync={sync}
+        sync={shownSync}
         onSyncChange={handleSyncChange}
       />
     ),
-    [handlePresetChange, handleSyncChange, preset, sync],
+    [handlePresetChange, handleSyncChange, preset, shownSync],
   );
 
   // One controls row and one drawing tools column for the whole grid: the
@@ -971,9 +1193,17 @@ export function TradingViewNativeMultiChart({
   const sizes = getSizes(gridSize.width);
   const latest = useRef({ preset, sizes, gridSize, storedLayout });
   latest.current = { preset, sizes, gridSize, storedLayout };
+  // The panels' places for track `sizes`, a maximized panel over the grid.
+  const getRects = (trackSizes: ITradingViewNativeMultiChartSizes) => {
+    const gridRects = getTradingViewNativeMultiChartRects(preset, trackSizes);
+    return maximizedIndex < 0
+      ? gridRects
+      : gridRects.map((rect, index) =>
+          index === maximizedIndex ? FULL_GRID_RECT : rect,
+        );
+  };
   const getPanelWidth = (index: number, width: number) =>
-    (getTradingViewNativeMultiChartRects(preset, getSizes(width))[index]
-      ?.width ?? 0) * width;
+    (getRects(getSizes(width))[index]?.width ?? 0) * width;
   const latestGetPanelWidth = useRef(getPanelWidth);
   latestGetPanelWidth.current = getPanelWidth;
   // Collapsing the column widens the grid, and a panel by what its tracks
@@ -999,7 +1229,7 @@ export function TradingViewNativeMultiChart({
     const createSlot = (
       index: number,
       isActive: boolean,
-    ): ITradingViewNativeMultiChartControlsSlot => ({
+    ): IGridControlsSlot => ({
       renderControls: (controls) =>
         isActive && controlsBar ? createPortal(controls, controlsBar) : null,
       drawingTools: {
@@ -1008,6 +1238,12 @@ export function TradingViewNativeMultiChart({
         onCollapsedChange: handleDrawingToolsCollapsedChange,
         getCollapseGain: () => getDrawingToolsCollapseGain(index),
       },
+      maximize: isSplit
+        ? {
+            isMaximized: index === maximizedIndex,
+            toggle: () => toggleMaximized(panelIds[index]),
+          }
+        : undefined,
     });
     return panelIds.map((_, index) => ({
       active: createSlot(index, true),
@@ -1019,7 +1255,10 @@ export function TradingViewNativeMultiChart({
     getDrawingToolsCollapseGain,
     handleDrawingToolsCollapsedChange,
     isDrawingToolsCollapsed,
+    isSplit,
+    maximizedIndex,
     panelIds,
+    toggleMaximized,
   ]);
   const activeResize = useRef<{
     axis: ITradingViewNativeMultiChartAxis;
@@ -1079,9 +1318,21 @@ export function TradingViewNativeMultiChart({
     },
     [onLayoutChange],
   );
+  // Maximizing takes the dividers away, also one still being dragged, e.g.
+  // when Enter on a focused corner button maximizes mid-drag. That drag never
+  // ends on its own, so it ends here without saving its sizes.
+  useEffect(() => {
+    if (maximizedPanelId !== null && activeResize.current) {
+      handleResizeEnd(false);
+    }
+  }, [handleResizeEnd, maximizedPanelId]);
 
-  const rects = getTradingViewNativeMultiChartRects(preset, sizes);
-  const dividers = getTradingViewNativeMultiChartDividers(preset, sizes);
+  const rects = getRects(sizes);
+  // A maximized panel has no panel beside it to resize against.
+  const dividers =
+    maximizedPanelId === null
+      ? getTradingViewNativeMultiChartDividers(preset, sizes)
+      : [];
   const dividerLabel = intl.formatMessage({
     id: ETranslations.perps_desktop_resize_panels__desc,
   });
@@ -1129,6 +1380,10 @@ export function TradingViewNativeMultiChart({
             const rect = rects[index];
             const state = layout.panels[id];
             const isActive = id === activePanelId;
+            const isMaximized = id === maximizedPanelId;
+            // Behind a maximized panel the others stay mounted at their size,
+            // so the split comes back without a chart resizing.
+            const isCovered = maximizedPanelId !== null && !isMaximized;
             // With the token synced, a panel keeps its own for when that ends.
             const source =
               isActive || isSymbolSynced ? shownActiveSource : state?.source;
@@ -1144,11 +1399,20 @@ export function TradingViewNativeMultiChart({
                 height={`${rect.height * 100}%`}
                 minHeight={0}
                 overflow="hidden"
+                // A covered panel later in the tree lies over the maximized
+                // one, and its empty box would take the presses meant for it.
+                pointerEvents={isCovered ? 'none' : undefined}
                 testID={`${testID}-panel-${id}`}
                 data-selected={isSplit && isActive ? 'true' : undefined}
+                data-maximized={isMaximized ? 'true' : undefined}
               >
                 <div
-                  style={{ display: 'contents' }}
+                  // Hidden, a covered chart is not painted and takes no
+                  // pointer, hover or focus.
+                  style={{
+                    display: 'contents',
+                    visibility: isCovered ? 'hidden' : undefined,
+                  }}
                   // Capture: a press anywhere in the panel, also on a control of
                   // its chart, selects it before the chart handles the press.
                   onPointerDownCapture={
@@ -1187,32 +1451,31 @@ export function TradingViewNativeMultiChart({
                         }
                   }
                 >
-                  <TradingViewNativeMultiChartControlsContext.Provider
-                    value={
-                      controlsSlots[index][isActive ? 'active' : 'inactive']
-                    }
-                  >
-                    {source ? (
-                      <Panel
-                        id={id}
-                        index={index}
-                        isActive={isActive}
-                        isSplit={isSplit}
-                        isSymbolSynced={isSymbolSynced}
-                        source={source}
-                        sync={panelSync}
-                        indicatorSettings={
-                          state?.indicatorSettings ?? defaultIndicatorSettings
-                        }
-                        layoutControl={layoutControl}
-                        onLayoutChange={onLayoutChange}
-                        onSelectSource={handleSelectPanel}
-                        renderPanel={renderPanel}
-                      />
-                    ) : null}
-                  </TradingViewNativeMultiChartControlsContext.Provider>
+                  {source ? (
+                    <Panel
+                      controlsSlot={
+                        controlsSlots[index][isActive ? 'active' : 'inactive']
+                      }
+                      id={id}
+                      index={index}
+                      isActive={isActive}
+                      isSplit={isSplit}
+                      isSymbolSynced={isSymbolSynced}
+                      source={source}
+                      sync={panelSync}
+                      indicatorSettings={
+                        state?.indicatorSettings ?? defaultIndicatorSettings
+                      }
+                      layoutControl={layoutControl}
+                      onIntervalReport={handleIntervalReport}
+                      onLayoutChange={onLayoutChange}
+                      onSelectSource={handleSelectPanel}
+                      renderPanel={renderPanel}
+                    />
+                  ) : null}
                 </div>
-                {isSplit && isActive ? (
+                {/* A maximized panel is the only chart on screen. */}
+                {isSplit && isActive && !isMaximized ? (
                   <Stack
                     position="absolute"
                     top={0}

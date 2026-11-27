@@ -9,11 +9,16 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ScanCamera } from './index.native';
 
-import type { IScanCameraRef } from './types';
+import type { IScanCameraRef, IScanFocusRequest } from './types';
+import type { IMultiQrSymbol } from '../../utils/multiQrSymbols';
 
 type IViewProps = {
   active: boolean;
   cameraId?: string;
+  frozen?: boolean;
+  focusRequest?: IScanFocusRequest;
+  onPreviewTap?: (generation: number) => void;
+  onFrameSymbols?: (symbols: IMultiQrSymbol[], generation: number) => void;
   onReady: (generation: number, cameraId?: string) => void;
   onFrameText: (text: string, generation: number) => void;
   onError: (code: string, message: string, generation: number) => void;
@@ -279,4 +284,90 @@ test('passes the chosen camera through and reports each ready camera', () => {
   expect(view().cameraId).toBe('back');
   view().onReady(2, 'back');
   expect(onCameraReady.mock.calls).toEqual([['built-in-back'], ['back']]);
+});
+
+test('sends the overlay focus point with unfreeze and drops taps from a retired capture', () => {
+  const screen = createNavigation();
+  useTestNavigation(screen);
+  const onPreviewTap = jest.fn();
+  const { rerender } = render(
+    <ScanCamera frozen onPreviewTap={onPreviewTap} />,
+  );
+  const oldView = view();
+  act(() => oldView.onReady(1, 'camera'));
+  const focusRequest = { id: 1, x: 0.25, y: 0.75 };
+  rerender(
+    <ScanCamera
+      frozen={false}
+      focusRequest={focusRequest}
+      onPreviewTap={onPreviewTap}
+    />,
+  );
+  expect(view().frozen).toBe(false);
+  expect(view().focusRequest).toEqual(focusRequest);
+  act(() => view().onPreviewTap?.(1));
+  expect(onPreviewTap).toHaveBeenCalledTimes(1);
+
+  act(() => {
+    screen.emit('transitionStart', { data: { closing: true } });
+    screen.emit('gestureCancel');
+  });
+  act(() => oldView.onPreviewTap?.(1));
+  expect(onPreviewTap).toHaveBeenCalledTimes(1);
+});
+
+test('drops Nitro callbacks queued before freeze when the capture resumes at the same generation', () => {
+  const screen = createNavigation();
+  useTestNavigation(screen);
+  const handleScanResult = jest.fn();
+  const onFrameSymbols = jest.fn();
+  const handlers = { handleScanResult, onFrameSymbols };
+  const { rerender } = render(<ScanCamera {...handlers} />);
+  const previous = view();
+  act(() => previous.onReady(1, 'camera'));
+
+  rerender(<ScanCamera {...handlers} frozen />);
+  const old = [{ text: 'old', centerX: 0.2, centerY: 0.5 }];
+  act(() => previous.onFrameText('old', 1));
+  rerender(<ScanCamera {...handlers} frozen={false} />);
+  act(() => {
+    previous.onFrameText('old', 1);
+    previous.onFrameSymbols?.(old, 1);
+  });
+  expect(handleScanResult).not.toHaveBeenCalled();
+  expect(onFrameSymbols).not.toHaveBeenCalled();
+
+  const fresh = [{ ...old[0], text: 'fresh' }];
+  act(() => {
+    view().onFrameText('fresh', 1);
+    view().onFrameSymbols?.(fresh, 1);
+  });
+  expect(handleScanResult).toHaveBeenCalledWith('fresh');
+  expect(onFrameSymbols).toHaveBeenCalledWith({
+    coordinateSpace: 'view',
+    symbols: fresh,
+  });
+});
+
+test('delivers queued Nitro frames when frozen changes from omitted to false', () => {
+  const screen = createNavigation();
+  useTestNavigation(screen);
+  const handleScanResult = jest.fn();
+  const onFrameSymbols = jest.fn();
+  const handlers = { handleScanResult, onFrameSymbols };
+  const { rerender } = render(<ScanCamera {...handlers} />);
+  const previous = view();
+  act(() => previous.onReady(1, 'camera'));
+
+  rerender(<ScanCamera {...handlers} frozen={false} />);
+  const symbols = [{ text: 'fresh', centerX: 0.2, centerY: 0.5 }];
+  act(() => {
+    previous.onFrameText('fresh', 1);
+    previous.onFrameSymbols?.(symbols, 1);
+  });
+  expect(handleScanResult).toHaveBeenCalledWith('fresh');
+  expect(onFrameSymbols).toHaveBeenCalledWith({
+    coordinateSpace: 'view',
+    symbols,
+  });
 });

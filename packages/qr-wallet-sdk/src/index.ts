@@ -12,5 +12,5 @@ export {
   assertBoundedCbor,
   checkUrPart,
   urTooLargeError,
-} from './boundedUr';
-export type { IUrPartVerdict } from './boundedUr';
+} from '@onekeyhq/shared/src/utils/boundedUr';
+export type { IUrPartVerdict } from '@onekeyhq/shared/src/utils/boundedUr';

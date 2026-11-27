@@ -146,6 +146,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   IPreActionsBeforeSendingParams,
+  ISendConfirmationPreparation,
   ISignTransactionParams,
   ITransferInfo,
   ITransferPayload,
@@ -332,6 +333,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
     result.isValid = Boolean(isValid);
 
+    if (privateKeyResult?.isValid) {
+      const { accountDeriveInfo, accountDeriveMode } =
+        await this.getVaultSettings();
+      if (accountDeriveMode === 'walletContract') {
+        result.deriveInfoItems = Object.values(accountDeriveInfo);
+      }
+    }
+
     return { result, inputDecoded: input };
   }
 
@@ -508,6 +517,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   abstract updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
+
+  async prepareSendConfirmation(
+    unsignedTxs: IUnsignedTxPro[],
+    _confirmPrerequisites: boolean,
+  ): Promise<ISendConfirmationPreparation> {
+    return {
+      unsignedTxs,
+    };
+  }
+
+  async getSendPrerequisiteProgress(_txid: string): Promise<{
+    status?: EOnChainHistoryTxStatus;
+  }> {
+    return {};
+  }
 
   // Override in chain vaults that need to refresh transaction data (e.g. blockhash)
   // before signing each transaction in a batch send sequence.
@@ -981,6 +1005,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         totalFeeInNative: onChainHistoryTx.gasFee,
 
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
+
+        ...(onChainHistoryTx.protocolFeeInNative !== undefined
+          ? { protocolFeeInNative: onChainHistoryTx.protocolFeeInNative }
+          : {}),
 
         nativeAmount: vaultSettings.isUtxo ? historyValue : undefined,
 
@@ -1672,6 +1700,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   ): Promise<IFetchServerAccountDetailsResponse> {
     throw new NotImplemented();
   }
+
+  /**
+   * Optional non-persistent overlay hook called by `ServiceToken` AFTER public
+   * token data has been persisted to `simpleDb.localTokens`. Used by privacy
+   * chains (e.g. Starknet STRK20) so decrypted private balances only enter the
+   * session-scoped display response and never hit unencrypted disk caches.
+   */
+  overlaySessionTokenListResponse?(
+    response: IFetchServerTokenListResponse,
+    params: IFetchServerTokenListParams,
+  ): Promise<void>;
 
   async fetchTokenList(
     params: IFetchServerTokenListParams,

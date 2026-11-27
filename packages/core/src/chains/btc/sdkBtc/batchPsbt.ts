@@ -139,7 +139,8 @@ export function buildOwnedAddressesForBatchDisplay({
 // non-positive fee cannot be summarized for the batch overview, but is
 // legitimate for
 // SIGHASH_SINGLE|ANYONECANPAY marketplace listing psbts (seller-side, the
-// buyer adds fee inputs later). The caller must never show a made-up
+// buyer adds fee inputs later). An output that carries value but has no
+// address cannot be summarized either. The caller must never show a made-up
 // fee/amount breakdown for such a psbt; it falls back to the legacy
 // sequential per-psbt confirm flow instead.
 export function computeBatchPsbtAmounts({
@@ -172,12 +173,19 @@ export function computeBatchPsbtAmounts({
   const ownedRecipients: string[] = [];
   const seenOwnedRecipients = new Set<string>();
 
-  psbt.txOutputs.forEach((output) => {
-    // scriptPkToAddress swallows decode errors (e.g. OP_RETURN outputs) and
-    // returns '' instead of throwing, so a falsy address counts as external
-    // value with no recipient to surface.
+  for (const output of psbt.txOutputs) {
+    // scriptPkToAddress swallows decode errors and returns '' instead of
+    // throwing, for any script with no address form: OP_RETURN, pay-to-pubkey,
+    // bare multisig, non-standard scripts.
     const address =
       scriptPkToAddress(Buffer.from(output.script), psbtNetwork) || undefined;
+    // Value on such an output has no recipient to name. Summed into
+    // externalOutValue it would be shown as sent to the other outputs'
+    // addresses, so the psbt cannot be summarized. A zero-value OP_RETURN
+    // moves nothing and does not block the summary.
+    if (!address && output.value > 0n) {
+      return null;
+    }
     if (address && accountAddressSet.has(address)) {
       changeValue += output.value;
       if (!seenOwnedRecipients.has(address)) {
@@ -191,7 +199,7 @@ export function computeBatchPsbtAmounts({
         externalRecipients.push(address);
       }
     }
-  });
+  }
 
   const feeValue = totalInValue - externalOutValue - changeValue;
   if (feeValue <= 0n) {

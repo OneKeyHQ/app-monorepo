@@ -34,17 +34,26 @@ or mark them not applicable; retain findings, evidence, scoring, and validation.
 1. **Inspect Target** — Read the requested PR or local diff without switching
    the active checkout. If source inspection requires a checkout, use an
    isolated worktree and preserve the user's active workspace.
-2. **Scope** — Inspect the selected diff's changed files and change size
-3. **Triage** — Determine which review modules apply (see triage table)
-4. **Primary Review** — Read each changed file, apply relevant checks from `references/`
+2. **Characterize First (PR 定性先行)** — Before reading line-by-line, classify the
+   PR into one primary type and blast radius (see **PR Characterization &
+   Dynamic Focus** below). Let the PR type govern what you prioritize and what
+   you explicitly skip.
+3. **Scope & Triage** — Inspect the selected diff's changed files, change size,
+   and load only the matching review modules from the triage table.
+4. **Context-Grounded Primary Review** — Read each changed file in full repo
+   context (not the diff in isolation), applying the PR-type focus areas and
+   relevant checks from `references/`.
 5. **Codex Cross-Review** — If Codex available, run full parallel review (see below)
 6. **PR Comment Analysis** — For a specified PR, fetch existing comments
    (bot + human) and analyze them against the reviewed source (see below)
-7. **Merge Findings** — Combine primary + Codex + PR comment findings, deduplicate, annotate confidence
+7. **Merge & Filter Findings** — Combine primary + Codex + PR comment findings,
+   deduplicate, apply **Hard Negative Constraints** (auto-drop forbidden noise),
+   and annotate confidence.
 8. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
 9. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
 10. **GH Comment** — When publishing is authorized for this PR, post qualifying
-    inline comments without reconfirming. Otherwise return findings locally.
+    inline comments (score-driven via `review-score-gate.js`) without
+    reconfirming. Otherwise return findings locally.
 
 Do not run `agent:check --profile commit` or `--profile pr` for read-only review;
 both can auto-fix worktree files. For remote status use `--profile ci --pr <N>`
@@ -138,6 +147,48 @@ For security-related comments (from bots like Snyk/Dependabot or from human revi
 - **Vulnerability reports** — check if the vulnerable code path is actually reachable in OneKey's usage
 - **License issues** — verify against OneKey's license policy
 - **Dependency alerts** — check if the flagged version is actually used (not just in lockfile)
+
+## PR Characterization & Dynamic Focus (MANDATORY FIRST STEP)
+
+Before inspecting individual lines, read the PR title, description, linked ticket, and changed file list to classify the PR into **one primary type**. Your review effort must concentrate on that type's highest-leverage risks rather than running a flat line-by-line nitpick pass:
+
+1. **Revert / Rollback (`revert:`)**
+   - **PRIMARY FOCUS**: Is the revert complete? Are lockfiles (`yarn.lock`, `Podfile.lock`), native podspecs, `apps/mobile/bundle-registry/module-id-registry.json`, and build configs consistent? Does the rollback itself introduce a compilation, startup, security, correctness, or persisted data schema regression?
+   - **SKIP**: Pre-existing issues in restored code that are unrelated to the rollback itself (UI polish, edge cases, a11y, refactors).
+2. **Dependency / Release / Config Chore (`chore(deps)`, version bump, CI)**
+   - **PRIMARY FOCUS**: Supply-chain risk, breaking peer/native dependency mismatches, missing lockfile/`Podfile.lock` sync, build/bundle regressions, and CI workflow trigger/gate regressions (e.g., accidentally dropping a branch trigger or skipping a check).
+3. **Cross-Platform Migration / UI Infrastructure / Refactor** (e.g., migrating to `NativeList`, `AppPager`, shared layout, native view modules)
+   - **PRIMARY FOCUS**:
+     - **Cross-platform isomorphism (三端同构)**: Are iOS / Android / Web / Desktop truly unified, or did the PR introduce parallel abstractions, reverse-bridging to deprecated contexts (e.g., `TabsContext`), or platform-specific workarounds?
+     - **Half-migration & legacy drift**: Did it leave legacy paths (`legacy*`, old `Tabs.ScrollView`, parallel entry points) partially migrated or diverged?
+     - **Code duplication & reuse-first**: Search the repo before accepting new helpers, patch planners, formatters, or state machines. Flag repeated copy-paste implementations and cross-domain imports (e.g., Market importing `views/Home/hooks/*`) with exact reuse targets.
+     - **Runtime & native boundary semantics**: Split-heap `main` vs `bg` assumptions (iOS/Android/Extension) vs single-runtime (Desktop/Web), native view recycling/memory leaks, gesture/scroll-lock semantic regressions (e.g., `pointerEvents="none"` replacing `scrollEnabled`), and strict Metro `module-id-registry.json` registration.
+4. **Core Feature / Business Logic / Crypto / Signing / Trade / Storage**
+   - **PRIMARY FOCUS**:
+     - **Security & funds safety**: Key/mnemonic/PII leakage, deterministic serialization (`stringUtils.stableStringify()`), auth/origin/CSP/risk-check bypass, unvalidated external input.
+     - **Data & state integrity**: Realm/IndexedDB schema migrations (`LOCAL_DB_VERSION`), race conditions in financial/async flows, stale closures or out-of-order responses that corrupt balance/order/tx state.
+     - **Concrete failure modes**: Reproducible runtime crashes, unhandled rejections on critical paths, and memory/subscription leaks.
+5. **Targeted Bugfix (`fix:`)**
+   - **PRIMARY FOCUS**: Does it fix the root cause (not a symptom band-aid)? Does it break adjacent flows or sibling platforms (`.native.ts`, `.ios.ts`, `.android.ts`, `.web.ts`, `.desktop.ts`, `.ext.ts`)? Are there state/lifecycle side effects?
+6. **General / Local / Docs Diff (`general`)**
+   - **FALLBACK**: Use when reviewing local diffs without PR metadata or docs/mixed changes that do not fit categories 1–5; rely on the changed-file triage table below.
+
+## Hard Negative Constraints (AUTO-DROP)
+
+NEVER report or post comments about any of the following **unless the PR's explicit stated goal is specifically about that topic**:
+
+1. **Accessibility / Assistive Tech / Motion nitpicks**: VoiceOver, TalkBack, screen readers, `accessibilityLabel`, `accessibilityRole`, `aria-*`, `spoken text`, `Reduce Motion`, keyboard tab order / focus rings on non-a11y PRs, and foldable hinge / separating pane edge cases. (Reproducible functional regressions that prevent users from completing a core flow remain reportable as `correctness`/`crash`.)
+2. **Speculative `Confirm / Verify / Check` questions**: Never emit `[Confirm whether ...]`, `[Verify that ...]`, or `[Check if ...]`. If you cannot prove a concrete failure path or defect from repository source, a regression test, or a recorded reproduction, drop the finding.
+3. **Pre-existing issues**: Do not flag bugs, missing error handling, or legacy patterns in untouched code unless this PR directly introduces or worsens the failure.
+4. **Product / scope second-guessing**: Do not ask the author to add extra chains, platforms, or features that are intentionally out of scope.
+5. **Follow-up review-fix spirals**: When reviewing subsequent commits on an already-reviewed PR, verify whether previous P0/P1 findings were fixed cleanly and report any new P0/P1 regressions introduced by the new diff. Do NOT invent new low-value P2 edge cases on fix commits.
+
+## Script-Verified Characterization & Quantitative Score Gate
+
+Do not rely solely on prose discipline to enforce PR characterization, noise filtering, or publication thresholds. Emit structured findings and run `development/scripts/review-score-gate.js` to verify PR characterization against independent `--context` (`gh pr view --json number,title,body,headRefOid,labels,files`), compute each finding's `SignalScore (0–100)`, and output score-driven `publishPayload` + a `### 量化门禁评分附录` appendix.
+
+- Supports progressive rollout modes `--mode shadow | soft | strict` (default `soft`: fail-open `exit 0`, high-risk non-speculative P0 safety valve, and collapsible `<details>` audit drawer).
+- See [references/score-gate.md](references/score-gate.md) for the exact CLI flags, `--context`/`--input` JSON schemas, `SignalScore` formula, and publishing thresholds.
 
 ## Triage: Which Checks to Run
 
@@ -267,6 +318,7 @@ Do NOT generate auto-fix for:
 - Logic changes requiring business context understanding
 - Security fixes needing architectural decisions
 - Performance optimizations with tradeoffs
+- **Clustered / state-inflating patches**: when a single file already has `>= 2` P0/P1 findings or fixing the finding would add another `useState`/`useRef`/boolean guard on top of an already complex flow, do NOT generate an additive local `Auto-fix` patch; instead recommend a convergent state-machine or boundary refactor that reduces net complexity.
 
 ## GH CLI Inline Comments
 
@@ -311,7 +363,8 @@ _— Auto-review by Claude_" \
 - Post qualifying findings in the same turn when authorized for that PR
 - Only post findings meeting the comment threshold (see above)
 - Include auto-fix in `suggestion` block when available
-- Maximum 5 inline comments per PR
+- Score-driven inline publishing: publish every finding that meets both the comment threshold (`P0` any confidence, or `P1` with `🔵 High` confidence) and the quantitative `SignalScore` bar — do not truncate real blockers with an arbitrary fixed comment cap
+- Silent pass: if no finding meets the comment threshold and `SignalScore` bar, do not manufacture low-value P2 comments to look busy — post zero inline comments
 - GitHub can only attach review comments to lines in the PR diff; if the real site is unchanged, comment on the nearest changed line and name the unchanged site in the body
 - If an existing inline thread already states the same issue, reply to that thread instead of opening a duplicate
 
@@ -323,6 +376,7 @@ _— Auto-review by Claude_" \
 # PR #NUMBER 代码审查报告
 
 ## 审查概要 [REQUIRED]
+- **PR 定性**: `[类型]` 一句话概括 PR 真实意图、本次审查重点（及主动跳过的低信号项）
 - **变更范围**: X 个文件, +Y / -Z 行
 - **风险等级**: Critical / High / Medium / Low
 - **涉及平台**: Extension / Mobile / Desktop / Web
@@ -408,12 +462,14 @@ Historical PR threads may still use the legacy 5-tier scale; when analyzing them
 
 ## Review Discipline
 
-- **Read the code** — don't just grep. Read each changed file to understand intent.
-- **No false positives** — only report issues you're confident about. Uncertain? Lower the confidence.
-- **No style nitpicks** — focus on security, correctness, architecture, performance.
+- **Characterize before scanning** — identify what the PR is actually trying to achieve first; never audit a `revert` PR like a new feature or drown a cross-platform migration in local micro-edge-cases while missing structural divergence.
+- **Read the code** — don't just grep. Read each changed file and sibling platform files to understand intent and full repo context.
+- **No false positives or speculative questions** — only report issues you can prove from code; drop `[Confirm/Verify/Check ...]` guesses and low-signal noise.
+- **No style or a11y nitpicks** — focus on security, correctness, cross-platform architecture, reuse, and real performance regressions; never inject VoiceOver/TalkBack/Reduce Motion/focus-ring nitpicks on non-a11y PRs.
 - **Context matters** — understand why the code was written this way before suggesting changes.
 - **Reuse first** — before accepting new abstractions or duplicated business logic, search for existing local implementations and flag unnecessary reimplementation with concrete reuse targets.
 - **Prioritize** — 3 high-quality findings beats 20 marginal complaints.
+- **Review-fix growth** — Report every verified defect at its actual priority. Use `yarn check:bloat` to guide fix suggestions, including whether several findings share a lifecycle or module boundary that should be refactored together.
 - **Score honestly** — the score reflects reality, not diplomacy.
 - **Auto-fix aggressively** — when the fix is clear, always include a diff patch. Reviewers prefer actionable suggestions.
 
@@ -423,3 +479,4 @@ Historical PR threads may still use the legacy 5-tier scale; when analyzing them
 - [references/code-quality-patterns.md](references/code-quality-patterns.md) — Hooks, race conditions, null safety, concurrent requests, error handling
 - [references/onekey-platform-patterns.md](references/onekey-platform-patterns.md) — Android/iOS crashes, Fabric, BigNumber, build/CI
 - [references/quick-commands.md](references/quick-commands.md) — Bash one-liners for automated checking
+- [references/score-gate.md](references/score-gate.md) — Quantitative review score gate CLI, JSON schemas, and rollout modes

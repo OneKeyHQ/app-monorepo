@@ -222,6 +222,7 @@ const shellInputDirectories = {
     'apps/mobile/android/mmkv',
   ],
   ios: [
+    'apps/mobile/ios/LiveActivity',
     'apps/mobile/ios/OneKeyLogo.icon',
     'apps/mobile/ios/OneKeyMarketWidget',
     'apps/mobile/ios/OneKeyWallet',

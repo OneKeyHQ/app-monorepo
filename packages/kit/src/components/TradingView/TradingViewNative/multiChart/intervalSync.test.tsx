@@ -24,9 +24,13 @@ function renderPanel(
     supports?: (interval: string) => boolean;
   },
 ) {
+  // What the chart tells the grid about its interval.
+  const reportInterval = jest.fn<void, [string | undefined]>();
   const scope: { current: ITradingViewNativeMultiChartSyncScope } = {
     current: {
       isMain,
+      panelId: isMain ? 'main' : 'panel-2',
+      reportInterval,
       instrumentKey: 'BTC',
       crosshair: null,
       interval: sync,
@@ -65,6 +69,14 @@ function renderPanel(
       scope.current = { ...scope.current, interval: next };
       hook.rerender();
     },
+    // The chart moves to another interval by itself, e.g. back to the one it
+    // showed as the data of a new one fails to load.
+    fallBack: (interval: string) =>
+      act(() => {
+        state.interval = interval;
+        hook.rerender();
+      }),
+    reportInterval,
     unmount: hook.unmount,
   };
 }
@@ -80,6 +92,66 @@ describe('interval sync', () => {
     expect(first.getInterval()).toBe('60');
     expect(second.getInterval()).toBe('60');
     expect(third.getInterval()).toBe('60');
+  });
+
+  it('starts every panel, the first one too, from the interval syncing was turned on with', () => {
+    const sync = createTradingViewNativeIntervalSync('240');
+    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const second = renderPanel(sync, { initialInterval: '15' });
+
+    expect(sync.get()).toBe('240');
+    expect(first.getInterval()).toBe('240');
+    expect(second.getInterval()).toBe('240');
+  });
+
+  it('hands the first panel the interval already shared when its chart joins later', () => {
+    const sync = createTradingViewNativeIntervalSync();
+    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const second = renderPanel(sync, { initialInterval: '15' });
+    second.pick('240');
+    // Its chart is mounted anew, e.g. for another token.
+    first.unmount();
+    const remounted = renderPanel(sync, {
+      initialInterval: '60',
+      isMain: true,
+    });
+
+    expect(sync.get()).toBe('240');
+    expect(remounted.getInterval()).toBe('240');
+    expect(second.getInterval()).toBe('240');
+  });
+
+  it('leaves a panel on the interval it fell back to by itself', () => {
+    const sync = createTradingViewNativeIntervalSync();
+    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const second = renderPanel(sync, { initialInterval: '15' });
+    first.pick('240');
+    second.onSyncedIntervalChange.mockClear();
+    second.fallBack('60');
+    // Nothing replays the shared interval to it until the next pick.
+    expect(second.onSyncedIntervalChange).not.toHaveBeenCalled();
+    expect(second.getInterval()).toBe('60');
+    expect(first.getInterval()).toBe('240');
+
+    first.pick('5');
+    expect(second.getInterval()).toBe('5');
+  });
+
+  it('tells the grid the interval its chart is on, synced or not', () => {
+    const chart = renderPanel(null, { initialInterval: '60' });
+    expect(chart.reportInterval).toHaveBeenLastCalledWith('60');
+    chart.pick('15');
+    expect(chart.reportInterval).toHaveBeenLastCalledWith('15');
+
+    const sync = createTradingViewNativeIntervalSync('240');
+    chart.setSync(sync);
+    act(() => {});
+    expect(chart.getInterval()).toBe('240');
+    chart.setSync(sync);
+    expect(chart.reportInterval).toHaveBeenLastCalledWith('240');
+
+    chart.unmount();
+    expect(chart.reportInterval).toHaveBeenLastCalledWith(undefined);
   });
 
   it('moves every panel to the interval picked in any of them', () => {

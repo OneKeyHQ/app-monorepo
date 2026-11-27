@@ -23,6 +23,9 @@ import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
+import type ServiceLiveActivity from '../services/ServiceLiveActivity';
+import type ServiceStarknetPrivacy from '../services/ServiceStarknetPrivacy';
+import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 
@@ -226,20 +229,24 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceSwap() {
-    const ServiceSwap =
-      require('../services/ServiceSwap') as typeof import('../services/ServiceSwap');
-    const value = new ServiceSwap.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceSwap', { value });
-    return value;
+  get serviceSwap(): ILazyServiceProxy<ServiceSwap> {
+    return this.buildLazyService(
+      'serviceSwap',
+      () => import('../services/ServiceSwap'),
+    );
   }
 
   get serviceUnifoldDeposit(): ILazyServiceProxy<ServiceUnifoldDeposit> {
     return this.buildLazyService(
       'serviceUnifoldDeposit',
       () => import('../services/ServiceUnifoldDeposit'),
+    );
+  }
+
+  get serviceLiveActivity(): ILazyServiceProxy<ServiceLiveActivity> {
+    return this.buildLazyService(
+      'serviceLiveActivity',
+      () => import('../services/ServiceLiveActivity'),
     );
   }
 
@@ -694,6 +701,65 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceLightning', { value });
+    return value;
+  }
+
+  get serviceStarknetPrivacy(): ILazyServiceProxy<ServiceStarknetPrivacy> {
+    let loadedService: ServiceStarknetPrivacy | undefined;
+    let loadingPromise: Promise<ServiceStarknetPrivacy> | undefined;
+    const value = createLazyServiceProxy<
+      ServiceStarknetPrivacy,
+      Pick<
+        ServiceStarknetPrivacy,
+        'clearViewingKeyCache' | 'invalidatePendingAuthorizations'
+      >
+    >({
+      serviceName: 'serviceStarknetPrivacy',
+      loader: () => {
+        loadingPromise = import('../services/ServiceStarknetPrivacy')
+          .then(({ default: Service }) => {
+            const instance = new Service({
+              backgroundApi: this,
+            });
+            loadedService = instance;
+            return instance;
+          })
+          .catch((error: unknown) => {
+            loadingPromise = undefined;
+            throw error;
+          });
+        return loadingPromise;
+      },
+      createImmediateMembers: () => ({
+        // Skip loading the lazy privacy chunk on lock/timeout when the service
+        // was never loaded, while still clearing synchronously once loaded.
+        invalidatePendingAuthorizations: () => {
+          if (loadedService) {
+            loadedService.invalidatePendingAuthorizations();
+            return;
+          }
+          if (loadingPromise) {
+            void loadingPromise.then(
+              (service) => service.invalidatePendingAuthorizations(),
+              () => undefined,
+            );
+          }
+        },
+        clearViewingKeyCache: () => {
+          if (loadedService) {
+            return loadedService.clearViewingKeyCache();
+          }
+          if (loadingPromise) {
+            return loadingPromise.then(
+              (service) => service.clearViewingKeyCache(),
+              () => undefined,
+            );
+          }
+          return Promise.resolve();
+        },
+      }),
+    });
+    Object.defineProperty(this, 'serviceStarknetPrivacy', { value });
     return value;
   }
 

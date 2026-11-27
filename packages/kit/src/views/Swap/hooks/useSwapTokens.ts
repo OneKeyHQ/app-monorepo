@@ -29,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildSwapAllNetworkTokenListCacheKey,
@@ -1061,6 +1062,51 @@ export function useSwapSelectedTokenInfo({
     },
     [loadSwapSelectTokenDetailDeb],
   );
+
+  const balanceAccountId = swapAddressInfo.accountInfo?.account?.id;
+  const balanceNetworkId = swapAddressInfo.networkId;
+  useEffect(() => {
+    if (
+      !isFocused ||
+      selectorNetwork ||
+      type !== ESwapDirectionType.FROM ||
+      !isXmrSwapNetwork(token?.networkId) ||
+      token?.networkId !== balanceNetworkId ||
+      !swapAddressInfo.isAddressInfoReady ||
+      !balanceAccountId
+    ) {
+      return;
+    }
+    const onBalanceLanded = ({
+      accountId,
+      networkId,
+    }: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (accountId === balanceAccountId && networkId === balanceNetworkId) {
+        setBalanceRefreshRequested((previous) =>
+          previous.from ? previous : { ...previous, from: true },
+        );
+      }
+    };
+    appEventBus.on(EAppEventBusNames.LocalWalletBalanceLanded, onBalanceLanded);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.LocalWalletBalanceLanded,
+        onBalanceLanded,
+      );
+    };
+  }, [
+    balanceAccountId,
+    balanceNetworkId,
+    isFocused,
+    selectorNetwork,
+    setBalanceRefreshRequested,
+    swapAddressInfo.isAddressInfoReady,
+    token?.networkId,
+    type,
+  ]);
 
   const reloadSwapSelectTokenDetail = useCallback(
     ({

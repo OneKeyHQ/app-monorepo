@@ -47,6 +47,8 @@ interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
   // Entry reported by detail analytics when the target does not set its own.
   from?: EEnterWay;
+  // Analytics-only list context reported with the detail entry.
+  entryCategory?: string;
 }
 
 export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview &
@@ -186,14 +188,22 @@ export function useToMarketStockDetailPage(
           nextStockId: stockId,
           replaceCurrentDetail: options?.replaceCurrentDetail,
         });
-      const preloadPromise = preloadMarketDetailV2Page({
-        includeBodyModules: true,
-        includeHeavyModules: true,
-        isStockRoute: true,
-        layout: preloadLayout,
-      });
-      if (platformEnv.isNative) {
-        await preloadPromise;
+      const entryFrom = stockPreview?.from ?? options?.from;
+      const shouldSkipListDetailPreload =
+        platformEnv.isNative &&
+        !platformEnv.isNativeIOSPad &&
+        entryFrom === EEnterWay.MarketList &&
+        !options?.replaceCurrentDetail;
+      if (!shouldSkipListDetailPreload) {
+        const preloadPromise = preloadMarketDetailV2Page({
+          includeBodyModules: true,
+          includeHeavyModules: true,
+          isStockRoute: true,
+          layout: preloadLayout,
+        });
+        if (platformEnv.isNative) {
+          await preloadPromise;
+        }
       }
 
       if (!isCurrentRequest()) return false;
@@ -247,18 +257,24 @@ export function useToMarketStockDetailPage(
           from: platformEnv.isExtensionUiPopup
             ? EEnterWay.ExtensionPopup
             : EEnterWay.ExtensionSidePanel,
+          ...(options?.entryCategory
+            ? { entryCategory: options.entryCategory }
+            : undefined),
         });
         closeExtensionPopupAfterExpandTabOpen();
         return true;
       }
 
-      const entryFrom = stockPreview?.from ?? options?.from;
+      const entryCategoryParams = options?.entryCategory
+        ? { entryCategory: options.entryCategory }
+        : undefined;
 
       if (options?.replaceCurrentDetail) {
         const stockDetailParams = {
           stockId,
           ...stockTokenParams,
           ...(entryFrom ? { from: entryFrom } : undefined),
+          ...entryCategoryParams,
           ...(stockPreview
             ? {
                 stockPreviewSymbol: stockPreview.symbol,
@@ -349,6 +365,7 @@ export function useToMarketStockDetailPage(
               ? { initialSection: stockPreview.initialSection }
               : undefined),
             ...(entryFrom ? { from: entryFrom } : undefined),
+            ...entryCategoryParams,
           },
         },
       });
@@ -363,6 +380,7 @@ export function useToMarketStockDetailPage(
       isModalPage,
       options?.replaceCurrentDetail,
       options?.from,
+      options?.entryCategory,
       preloadLayout,
       splitViewType,
       tokenDetailActions,

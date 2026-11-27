@@ -48,6 +48,7 @@ import {
   identityLifecycleMutex,
   markIdentityRecoveryFailed,
 } from './ServiceIdentityExit/identityLifecycleMutex';
+import { isStandardLiveActivityTestEndpoint } from './ServiceLiveActivity/testEndpoint';
 
 import type { IPro2FirmwareForceTargetMode } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type {
@@ -117,6 +118,23 @@ class ServiceDevSetting extends ServiceBase {
     next: IDevSettingsPersistAtom,
     update: () => Promise<T>,
   ) {
+    const updateWithLiveActivity = async () => {
+      if (!platformEnv.isNativeIOS) return update();
+      const wasTracking = isStandardLiveActivityTestEndpoint(previous);
+      const willTrack = isStandardLiveActivityTestEndpoint(next);
+      if (wasTracking && !willTrack) {
+        return this.backgroundApi.serviceLiveActivity.withTestEndpointDisabled(
+          update,
+        );
+      }
+      const result = await update();
+      if (!wasTracking && willTrack) {
+        void this.backgroundApi.serviceLiveActivity
+          .resumeRemoteSubscriptions()
+          .catch(() => undefined);
+      }
+      return result;
+    };
     if (this.environmentRestartRequired) {
       // A failed restart must remain retryable even when the requested node
       // is already committed and no further environment change is needed.
@@ -126,7 +144,7 @@ class ServiceDevSetting extends ServiceBase {
       getOneKeyIdAuthConfigByDevSettings(previous).projectUrl ===
       getOneKeyIdAuthConfigByDevSettings(next).projectUrl
     ) {
-      return update();
+      return updateWithLiveActivity();
     }
     // Resolve and execute logout while every service still uses the old node.
     const plan =
@@ -180,7 +198,7 @@ class ServiceDevSetting extends ServiceBase {
         await this.backgroundApi.serviceNotification
           .unregisterClient()
           .catch(() => undefined);
-        const updated = await update();
+        const updated = await updateWithLiveActivity();
         // Invalidate login work that began after logout but before the node
         // switch. Identity commits serialize on this same lifecycle mutex.
         await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision();
@@ -459,13 +477,13 @@ class ServiceDevSetting extends ServiceBase {
             : undefined),
         },
       }));
-      await this.saveDevModeToSyncStorage();
-      await this.syncCryptoSettings();
       try {
+        await this.saveDevModeToSyncStorage();
+        await this.syncCryptoSettings();
         await this.applyNetworkThrottleAfterEnableDevMode();
       } catch (error) {
         await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
-        await this.saveDevModeToSyncStorage();
+        await this.saveDevModeToSyncStorage().catch(() => undefined);
         await this.syncCryptoSettings();
         throw error;
       }
@@ -476,18 +494,26 @@ class ServiceDevSetting extends ServiceBase {
       enabled: false,
       settings: {},
     }));
-    await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
-      ...prev,
-      usePreReleaseConfig: false,
-    }));
-    await this.saveDevModeToSyncStorage();
-    await this.syncCryptoSettings();
+    let previousUsePreReleaseConfig = false;
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => {
+      previousUsePreReleaseConfig = prev.usePreReleaseConfig;
+      return {
+        ...prev,
+        usePreReleaseConfig: false,
+      };
+    });
 
     try {
+      await this.saveDevModeToSyncStorage();
+      await this.syncCryptoSettings();
       await this.clearNetworkThrottleAfterDisableDevMode();
     } catch (error) {
       await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
-      await this.saveDevModeToSyncStorage();
+      await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
+        ...prev,
+        usePreReleaseConfig: previousUsePreReleaseConfig,
+      }));
+      await this.saveDevModeToSyncStorage().catch(() => undefined);
       await this.syncCryptoSettings();
       throw error;
     }

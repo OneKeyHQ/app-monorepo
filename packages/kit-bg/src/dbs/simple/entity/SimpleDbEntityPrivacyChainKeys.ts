@@ -3,17 +3,25 @@ import { z } from 'zod';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { buildPrivacyChainStorageKey } from '../../../vaults/localWallet/privacyChainStorageKey';
 import { PRIVACY_CHAIN_VIEWING_KEY_MISMATCH } from '../../../vaults/localWallet/viewingKeyMismatch';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-// The only host copy of each account's viewing key (Zcash UFVK, Monero `spendPub:viewPriv`).
+export { buildPrivacyChainStorageKey };
 
-export type IPrivacyChainSealedViewingKey = { format: 'plain'; value: string };
+// The only host copy of each account's viewing key (Zcash UFVK, Monero `spendPub:viewPriv`,
+// Starknet STRK20 viewing key). Supports both legacy plaintext and password-encrypted records.
+
+export type IPrivacyChainSealedViewingKey =
+  | { format: 'plain'; value: string }
+  | { format: 'encrypted'; value: string };
 
 export type IPrivacyChainKeyRecord = {
   networkId: string;
   vkFp: string;
   sealed: IPrivacyChainSealedViewingKey;
+  // Present for scoped keys (e.g. per-network/per-pool keys) so account-level cleanup still finds them.
+  accountId?: string;
 };
 
 // Validated on read; a malformed record reads as missing and its key is derived again.
@@ -24,15 +32,39 @@ export interface IPrivacyChainKeysDB {
 const keyRecordSchema = z.object({
   networkId: z.string().min(1),
   vkFp: z.string().regex(/^[0-9a-f]{32}$/),
-  sealed: z.object({
-    format: z.literal('plain'),
-    value: z.string().min(1),
-  }),
+  sealed: z.discriminatedUnion('format', [
+    z.object({
+      format: z.literal('plain'),
+      value: z.string().min(1),
+    }),
+    z.object({
+      format: z.literal('encrypted'),
+      value: z.string().min(1),
+    }),
+  ]),
+  accountId: z.string().min(1).optional(),
 });
+
+function extractOwnerAccountId(
+  storageKey: string,
+  record?: IPrivacyChainKeyRecord,
+): string {
+  if (record?.accountId) {
+    return record.accountId;
+  }
+  const sepIndex = storageKey.indexOf('::');
+  return sepIndex > 0 ? storageKey.slice(0, sepIndex) : storageKey;
+}
 
 function parseKeyRecord(record: unknown): IPrivacyChainKeyRecord | undefined {
   const result = keyRecordSchema.safeParse(record);
-  return result.success ? result.data : undefined;
+  if (!result.success) {
+    return undefined;
+  }
+  const { networkId, vkFp, sealed, accountId } = result.data;
+  return accountId !== undefined
+    ? { networkId, vkFp, sealed, accountId }
+    : { networkId, vkFp, sealed };
 }
 
 export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyChainKeysDB> {
@@ -68,28 +100,35 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
 
   async getKey({
     accountId,
+    scope,
   }: {
     accountId: string;
+    scope?: string;
   }): Promise<IPrivacyChainKeyRecord | undefined> {
     const raw = await this.getRawData();
-    return parseKeyRecord(raw?.keys?.[accountId]);
+    const storageKey = buildPrivacyChainStorageKey({ accountId, scope });
+    return parseKeyRecord(raw?.keys?.[storageKey]);
   }
 
   // Never replaces a readable record with another identity: an account's key
   // can only change after it is removed.
   async saveKey({
     accountId,
+    scope,
     record,
   }: {
     accountId: string;
+    scope?: string;
     record: IPrivacyChainKeyRecord;
   }): Promise<void> {
-    const parsed = parseKeyRecord(record);
+    const storageKey = buildPrivacyChainStorageKey({ accountId, scope });
+    const recordToParse = scope ? { ...record, accountId } : record;
+    const parsed = parseKeyRecord(recordToParse);
     if (!parsed) {
       throw new OneKeyLocalError('privacy chain: invalid viewing key record');
     }
     const committed = await this.updateKeys((keys) => {
-      const existing = parseKeyRecord(keys[accountId]);
+      const existing = parseKeyRecord(keys[storageKey]);
       if (
         existing &&
         (existing.networkId !== parsed.networkId ||
@@ -103,7 +142,7 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
         ] = true;
         throw error;
       }
-      return { ...keys, [accountId]: parsed };
+      return { ...keys, [storageKey]: parsed };
     });
     if (!committed) {
       throw new OneKeyLocalError(
@@ -112,14 +151,86 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
     }
   }
 
-  async removeKeys({ accountIds }: { accountIds: string[] }): Promise<void> {
+  // Returns only sealed ciphertext records; decryption stays strictly bg-only.
+  async listEncryptedEntries(): Promise<[string, IPrivacyChainKeyRecord][]> {
     const raw = await this.getRawData();
-    if (!accountIds.some((id) => raw?.keys?.[id] !== undefined)) {
+    if (!raw?.keys) {
+      return [];
+    }
+    const entries: [string, IPrivacyChainKeyRecord][] = [];
+    for (const [storageKey, rawRecord] of Object.entries(raw.keys)) {
+      const parsed = parseKeyRecord(rawRecord);
+      if (parsed?.sealed.format === 'encrypted') {
+        entries.push([storageKey, parsed]);
+      }
+    }
+    return entries;
+  }
+
+  // Replaces or deletes existing encrypted records in one atomic write.
+  async applyEncryptedUpdates({
+    updates,
+  }: {
+    updates: [string, IPrivacyChainKeyRecord | null][];
+  }): Promise<void> {
+    if (!updates.length) {
+      return;
+    }
+    await this.updateKeys((keys) => {
+      const next = { ...keys };
+      for (const [storageKey, nextRecord] of updates) {
+        if (nextRecord === null) {
+          delete next[storageKey];
+        } else {
+          const parsed = parseKeyRecord(nextRecord);
+          if (parsed?.sealed.format === 'encrypted') {
+            next[storageKey] = parsed;
+          }
+        }
+      }
+      return next;
+    });
+  }
+
+  async removeKey({
+    accountId,
+    scope,
+  }: {
+    accountId: string;
+    scope?: string;
+  }): Promise<void> {
+    const storageKey = buildPrivacyChainStorageKey({ accountId, scope });
+    const raw = await this.getRawData();
+    if (raw?.keys?.[storageKey] === undefined) {
       return;
     }
     const committed = await this.updateKeys((keys) => {
-      accountIds.forEach((id) => {
-        delete keys[id];
+      delete keys[storageKey];
+      return keys;
+    });
+    if (!committed)
+      throw new OneKeyLocalError(
+        'privacy chain: viewing key removal could not be persisted',
+      );
+  }
+
+  async removeKeys({ accountIds }: { accountIds: string[] }): Promise<void> {
+    const raw = await this.getRawData();
+    if (!raw?.keys) {
+      return;
+    }
+    const idSet = new Set(accountIds);
+    const keysToDelete = Object.entries(raw.keys)
+      .filter(([storageKey, rawRecord]) =>
+        idSet.has(extractOwnerAccountId(storageKey, parseKeyRecord(rawRecord))),
+      )
+      .map(([storageKey]) => storageKey);
+    if (!keysToDelete.length) {
+      return;
+    }
+    const committed = await this.updateKeys((keys) => {
+      keysToDelete.forEach((storageKey) => {
+        delete keys[storageKey];
       });
       return keys;
     });
@@ -127,6 +238,35 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
       throw new OneKeyLocalError(
         'privacy chain: viewing key removal could not be persisted',
       );
+  }
+
+  async removeOrphanData({
+    validAccountIds,
+  }: {
+    validAccountIds: string[];
+  }): Promise<void> {
+    const raw = await this.getRawData();
+    if (!raw?.keys) {
+      return;
+    }
+    const validSet = new Set(validAccountIds);
+    const orphanKeys = Object.entries(raw.keys)
+      .filter(
+        ([storageKey, rawRecord]) =>
+          !validSet.has(
+            extractOwnerAccountId(storageKey, parseKeyRecord(rawRecord)),
+          ),
+      )
+      .map(([storageKey]) => storageKey);
+    if (!orphanKeys.length) {
+      return;
+    }
+    await this.updateKeys((keys) => {
+      orphanKeys.forEach((storageKey) => {
+        delete keys[storageKey];
+      });
+      return keys;
+    });
   }
 
   // Readable records of one network; a malformed one names no network.
@@ -147,6 +287,13 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
   // Includes malformed records, so removed-account cleanup reaches them.
   async listAccountIds(): Promise<string[]> {
     const raw = await this.getRawData();
-    return Object.keys(raw?.keys ?? {});
+    if (!raw?.keys) {
+      return [];
+    }
+    const seen = new Set<string>();
+    for (const [storageKey, rawRecord] of Object.entries(raw.keys)) {
+      seen.add(extractOwnerAccountId(storageKey, parseKeyRecord(rawRecord)));
+    }
+    return Array.from(seen);
   }
 }

@@ -14,6 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapProviderSort,
@@ -774,6 +775,17 @@ export function useSwapActionState() {
     const hasNoConnectWalletAlert = alerts.states.some(
       (item) => item.noConnectWallet,
     );
+    const isXmrFrom = isXmrSwapNetwork(fromToken?.networkId);
+    const verifiedBalance = resolveVerifiedSwapBalance({
+      balance: selectedFromTokenBalance,
+      balanceMeta: swapSelectedTokenBalanceMeta.from,
+      token: fromToken,
+      accountAddress: swapFromAddressInfo.address,
+      accountIdentity: buildSwapBalanceAccountIdentity(
+        swapFromAddressInfo.activeAccount,
+      ),
+      isAddressInfoReady: swapFromAddressInfo.isAddressInfoReady,
+    });
     if (!swapFromAddressInfo.address || quoteInputAmountNoMatch) {
       infoRes.disable = true;
     }
@@ -845,7 +857,9 @@ export function useSwapActionState() {
           });
         }
       }
-      const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
+      const balanceBN = new BigNumber(
+        isXmrFrom ? (verifiedBalance ?? '') : (selectedFromTokenBalance ?? 0),
+      );
       const fromTokenAmountBN = new BigNumber(rawFromAmount ?? 'NaN');
       const stockBalanceUnavailable =
         swapTypeSwitchValue === ESwapTabSwitchType.STOCK &&
@@ -923,6 +937,20 @@ export function useSwapActionState() {
         });
         infoRes.shouldEnterRecipient = true;
       }
+      if (
+        isXmrFrom &&
+        swapFromAddressInfo.address &&
+        quoteCurrentSelect?.toAmount &&
+        fromTokenAmountBN.gt(0) &&
+        !balanceBN.isFinite() &&
+        !infoRes.shouldEnterRecipient &&
+        !shouldOfferQuoteRefreshAction
+      ) {
+        infoRes.disable = true;
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.privacy_balance_unavailable__msg,
+        });
+      }
     }
     // Decided last so it outranks every disabled reason above, including the
     // "Enter amount" prompt, the quote-loading gate and the recipient prompt:
@@ -940,16 +968,7 @@ export function useSwapActionState() {
         balance:
           swapTypeSwitchValue === ESwapTabSwitchType.STOCK
             ? selectedFromTokenBalance
-            : resolveVerifiedSwapBalance({
-                balance: selectedFromTokenBalance,
-                balanceMeta: swapSelectedTokenBalanceMeta.from,
-                token: fromToken,
-                accountAddress: swapFromAddressInfo.address,
-                accountIdentity: buildSwapBalanceAccountIdentity(
-                  swapFromAddressInfo.activeAccount,
-                ),
-                isAddressInfoReady: swapFromAddressInfo.isAddressInfoReady,
-              }),
+            : verifiedBalance,
         hasFromToken: !!fromToken,
         hasToToken: !!toToken,
         // A pending cross-network lookup keeps the label steady; the press

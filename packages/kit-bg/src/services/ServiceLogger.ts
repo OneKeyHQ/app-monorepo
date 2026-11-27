@@ -98,8 +98,12 @@ class ServiceLogger extends ServiceBase {
     if (scope !== 'recent' && scope !== 'full')
       throw new OneKeyLocalError('Invalid log export scope');
     const store = this.persistentLogs;
-    if (!store || this.resettingLogs)
-      throw new OneKeyLocalError('Log export unavailable');
+    if (this.resettingLogs)
+      throw new OneKeyLocalError('Log export unavailable during app reset');
+    if (!store)
+      throw new OneKeyLocalError(
+        'Log export unavailable: persistent logger not initialized',
+      );
     return this.logExport.begin(async (isCancelled) => {
       // Web shares the UI heap; extension background must also flush its own tail.
       await loggerUtils.flushPendingRepeat();

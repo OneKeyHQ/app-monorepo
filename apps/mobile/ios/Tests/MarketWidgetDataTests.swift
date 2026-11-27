@@ -15,6 +15,106 @@ struct MarketWidgetDataTests {
 
   static func json(_ value: String) -> Data { Data(value.utf8) }
 
+  private static func testQuotePermissionReads() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    for _ in 0..<3 { try store.bindInstance(MarketWidgetInstanceBinding(id: UUID(), kind: .list)) }
+    var reads: [String: Int] = [:]
+    let reader = MarketWidgetStore(directory: directory) { url in
+      reads[url.lastPathComponent, default: 0] += 1
+      return try Data(contentsOf: url)
+    }
+    let asset = MarketWidgetAsset.defaults[2]
+    expect(reader.permitsRequests(for: asset), "Unpinned Hot Coins widgets permit the fallback asset")
+    expect(reads["trending-v1.json"] == 1 && reads["configuration-v1.json"] == 1,
+      "All widget permissions must share one catalog and watchlist read")
+    try store.saveTrending(MarketWidgetCatalog(assets: [MarketWidgetAsset.defaults[0]], fetchedAt: Date()))
+    expect(!reader.permitsRequests(for: asset), "The next permission check must observe the replaced catalog")
+  }
+
+  private static func testLockScreenPermissionDuringMasking() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let asset = MarketWidgetAsset(kind: .asset, assetId: "lock-only", chainId: nil,
+      contractAddress: nil, isNative: nil, symbol: "LOCK", name: "Lock only")
+    let configuration = directory.appendingPathComponent("configuration-v1.json")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    try store.rememberLockScreenAssets([asset])
+    expect(store.permitsRequests(for: asset), "An unmasked Lock Screen selection permits a quote")
+    let reader = MarketWidgetStore(directory: directory) { url in
+      if url.lastPathComponent == "trending-v1.json" {
+        // Pause the writer after it publishes the mask, before it removes the Lock Screen file.
+        try json(#"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
+          .write(to: configuration, options: .atomic)
+      }
+      return try Data(contentsOf: url)
+    }
+    expect(!reader.permitsRequests(for: asset), "A newly masked selection cannot authorize a quote")
+  }
+
+  private static func testIndependentListSettings() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    let a = MarketWidgetInstanceBinding(id: UUID(), kind: .list)
+    let b = MarketWidgetInstanceBinding(id: UUID(), kind: .list)
+    let original = MarketWidgetAsset.defaults
+    let first = Array(original.reversed())
+    let second = [original[1], original[2], original[0]]
+    rejects("A link alone cannot create an editable configuration") {
+      _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: first), instance: a)
+    }
+    let missing = try store.editorState(instance: a)
+    expect(missing.settings.isEmpty, "An unknown instance cannot open shared settings")
+    let legacy = MarketWidgetProfile(id: a.id.uuidString.lowercased(), kind: .list, name: "Legacy list", source: .hot)
+    try JSONEncoder().encode([legacy]).write(to: directory.appendingPathComponent("desktop-instances-v1.json"))
+    var numberReloads = [Set<MarketWidgetKind>]()
+    let beforeEdits = try store.installedInstancePreviews(for: [a, b]) { numberReloads.append($0) }
+    _ = try store.installedInstancePreviews(for: [a, b]) { numberReloads.append($0) }
+    expect(numberReloads == [[.list]], "Request one reload per kind with new numbers, only when numbering changes")
+    expect(beforeEdits.map(\.instanceNumber) == [1, 2] && beforeEdits.map(\.symbols) == [original, original].map { $0.map(\.displaySymbol) },
+      "Upgraded and new widgets with identical assets receive distinct numbers")
+    let wrongKind = try store.editorState(instance: MarketWidgetInstanceBinding(id: a.id, kind: .single))
+    expect(wrongKind.settings.isEmpty, "A mismatched kind cannot open shared settings")
+    try store.bindInstance(b)
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: [original[0], original[0], original[0]]))
+    expect(store.permitsRequests(for: original[2]), "A bound Hot Coins list permits its fallback quote")
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: original))
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: first), instance: a)
+    expect(store.selection(kind: .list, instanceID: b.id).assets == original, "Editing A leaves B at its initial selection")
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: second), instance: b)
+    let reopened = MarketWidgetStore(directory: directory)
+    try reopened.bindInstance(a)
+    for (binding, assets, number) in [(a, first, 1), (b, second, 2)] {
+      let editor = try reopened.editorState(instance: binding)
+      expect(editor.settings.count == 1 && editor.settings.first?.assets == assets, "Each editor reopens its own saved order")
+      let entry = MarketWidgetEntry.snapshot(isWatchlist: true, instanceID: binding.id, store: reopened)
+      expect(entry.rows.map(\.asset) == assets, "Each widget renders its own saved order")
+      expect(entry.instanceNumber == number, "The widget uses the same number as its App row after an edit")
+      let query = URLComponents(url: entry.editorURL!, resolvingAgainstBaseURL: false)?.queryItems
+      expect(query?.contains(URLQueryItem(name: "profileId", value: binding.id.uuidString.lowercased())) == true,
+        "The gear opens the editor for the same configuration as the timeline")
+    }
+    expect(reopened.selection(kind: .list).assets == original, "Independent edits preserve the existing list default")
+    let newlyInstalled = MarketWidgetInstanceBinding(id: UUID(), kind: .list)
+    let installed = try reopened.installedInstancePreviews(for: [a, newlyInstalled, a])
+    expect(installed.map(\.id) == [a, newlyInstalled].map { $0.id.uuidString.lowercased() },
+      "The settings list uses installed bindings, omits removed widgets, and deduplicates repeated bindings")
+    expect(installed.map(\.symbols) == [first, original].map { $0.map(\.displaySymbol) },
+      "The settings list shows each installed widget's own assets")
+    expect(installed.map(\.instanceNumber) == [1, 3], "Reading installed widgets preserves assigned numbers")
+    let newEditor = try reopened.editorState(instance: newlyInstalled)
+    expect(newEditor.settings.first?.id == newlyInstalled.id.uuidString.lowercased(),
+      "An installed widget is editable in the App before its first timeline runs")
+    rejects("A list editor cannot overwrite a single-coin configuration") {
+      _ = try reopened.saveSettings(json: settingsJSON(asset: original[0]), instance: a)
+    }
+  }
+
   private static func testDesktopStockSearchCandidates() throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -322,6 +422,9 @@ struct MarketWidgetDataTests {
   }
 
   static func main() async throws {
+    try testQuotePermissionReads()
+    try testLockScreenPermissionDuringMasking()
+    try testIndependentListSettings()
     try testDesktopStockSearchCandidates()
     try testEditorDraftSurvivesCandidateEviction()
     try await testDesktopStockSearchNetwork()
@@ -561,7 +664,7 @@ struct MarketWidgetDataTests {
       let encoder = JSONEncoder()
       encoder.dateEncodingStrategy = .millisecondsSince1970
       let value = try encoder.encode(quote)
-      return try store.syncQuote(json: "{\"currency\":\"usd\",\"quote\":\(String(decoding: value, as: UTF8.self))}")
+      return try store.syncQuote(json: "{\"currency\":\"usd\",\"quote\":\(String(decoding: value, as: UTF8.self))}") == quote.asset.id
     }
     func rendered() -> MarketWidgetQuote? {
       MarketWidgetEntry.snapshot(isWatchlist: false, store: MarketWidgetStore(directory: directory)).rows.first?.quote
@@ -622,7 +725,7 @@ struct MarketWidgetDataTests {
     encoder.dateEncodingStrategy = .millisecondsSince1970
     func sync(_ quote: MarketWidgetQuote) throws -> Bool {
       let value = try encoder.encode(quote)
-      return try store.syncQuote(json: "{\"currency\":\"usd\",\"quote\":\(String(decoding: value, as: UTF8.self))}")
+      return try store.syncQuote(json: "{\"currency\":\"usd\",\"quote\":\(String(decoding: value, as: UTF8.self))}") == quote.asset.id
     }
     let fallbackAt = now.addingTimeInterval(-20)
     for asset in assets {
@@ -681,7 +784,7 @@ struct MarketWidgetDataTests {
       "asset": try JSONSerialization.jsonObject(with: JSONEncoder().encode(asset)),
       "price": "105", "change24h": "2", "fetchedAt": now.addingTimeInterval(-5).timeIntervalSince1970 * 1000]]
     func sync() throws -> Bool {
-      try store.syncQuote(json: String(decoding: JSONSerialization.data(withJSONObject: payload), as: UTF8.self))
+      try store.syncQuote(json: String(decoding: JSONSerialization.data(withJSONObject: payload), as: UTF8.self)) == asset.id
     }
     expect(tryValue { try sync() } == false, "An old bridge payload may contain a live chart price")
     guard var quoteInput = payload["quote"] as? [String: Any] else { preconditionFailure("Missing App quote") }
@@ -1127,8 +1230,8 @@ struct MarketWidgetDataTests {
     expect(snapshot.rows.first?.asset.id == ethereum.id && !snapshot.profileUnavailable,
            "A desktop snapshot reads shared settings despite an obsolete binding and selection")
     let link = URLComponents(url: snapshot.editorURL!, resolvingAgainstBaseURL: false)?.queryItems
-    expect(link == [URLQueryItem(name: "kind", value: "single")],
-           "The desktop gear opens its kind directly without exposing profile IDs")
+    expect(link == [URLQueryItem(name: "setup", value: "1")],
+           "An unbound desktop gear opens binding instructions")
     _ = try store.saveSettings(json: settingsJSON(source: .hot, asset: bitcoin))
     try store.saveTrending(MarketWidgetCatalog(assets: [ethereum], fetchedAt: Date()))
     let retained = try store.saveSettings(json: settingsJSON(asset: bitcoin))

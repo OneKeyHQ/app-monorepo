@@ -5,11 +5,14 @@ import {
   extractHyperLiquidErrorMessage,
   hyperLiquidErrorResolver,
 } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
+import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ERROR_MESSAGES, ERROR_PATTERNS, TOAST_CONFIGS } from './config';
 import { EErrorType } from './types';
 
 import type { EActionType } from './types';
+
+const ERROR_LOCALIZATION_TIMEOUT_MS = 300;
 
 export interface IWithToastOptions<T = unknown> {
   asyncFn: () => Promise<T>;
@@ -47,8 +50,18 @@ function extractErrorMessage(error: unknown): string {
   return extractRawErrorMessage(error);
 }
 
-async function handleError(error: unknown): Promise<void> {
-  const errorMessage = extractErrorMessage(error);
+function formatDiagnosticError(error: unknown): string {
+  try {
+    return String(error instanceof Error ? error.message : error);
+  } catch {
+    return 'Unable to format error';
+  }
+}
+
+async function resolveErrorToastTitle(
+  error: unknown,
+  errorMessage: string,
+): Promise<string> {
   const rawErrorMessage = extractRawErrorMessage(error);
   const errorType =
     identifyError(errorMessage) ?? identifyError(rawErrorMessage);
@@ -69,7 +82,7 @@ async function handleError(error: unknown): Promise<void> {
             defaultLogger.perp.agentLifeCycle.trackReason({
               reason: 'runtime_invalid_agent_recovery_failed',
               statusDetails: {
-                errorMessage: e instanceof Error ? e.message : String(e),
+                errorMessage: formatDiagnosticError(e),
               },
             });
           });
@@ -78,26 +91,18 @@ async function handleError(error: unknown): Promise<void> {
       default:
         break;
     }
+    return ERROR_MESSAGES[errorType]();
   }
 
   const rawResolved =
     rawErrorMessage !== errorMessage
       ? await hyperLiquidErrorResolver.resolveAsync(rawErrorMessage)
       : undefined;
-  const extractedResolved =
-    !rawResolved?.i18nKey && !errorType
-      ? await hyperLiquidErrorResolver.resolveAsync(errorMessage)
-      : undefined;
-
-  let friendlyMessage = errorMessage;
-  if (errorType) {
-    friendlyMessage = ERROR_MESSAGES[errorType]();
-  } else if (rawResolved?.i18nKey) {
-    friendlyMessage = rawResolved.localizedMessage;
-  } else if (extractedResolved?.localizedMessage) {
-    friendlyMessage = extractedResolved.localizedMessage;
+  if (rawResolved?.i18nKey) {
+    return rawResolved.localizedMessage;
   }
-  Toast.error({ title: friendlyMessage });
+  const resolved = await hyperLiquidErrorResolver.resolveAsync(errorMessage);
+  return resolved.localizedMessage || errorMessage;
 }
 
 export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
@@ -106,7 +111,7 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     return asyncFn();
   }
   const config = TOAST_CONFIGS[actionType];
-  let loadingToast: { close: () => void } | undefined;
+  let loadingToast: ReturnType<typeof Toast.loading>;
   let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   if (config?.loading) {
@@ -124,7 +129,8 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     const result = await asyncFn();
 
     if (loadingTimer) clearTimeout(loadingTimer);
-    if (loadingToast) loadingToast.close();
+    loadingToast?.close();
+    loadingToast = undefined;
 
     if (options.shouldShowSuccess?.(result) === false) {
       return result;
@@ -148,16 +154,25 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     return result;
   } catch (error) {
     if (loadingTimer) clearTimeout(loadingTimer);
-    if (loadingToast) loadingToast.close();
+    loadingToast?.close();
 
-    void handleError(error).catch((e: unknown) => {
-      defaultLogger.perp.agentLifeCycle.trackReason({
-        reason: 'runtime_handle_error_failed',
-        statusDetails: {
-          errorMessage: e instanceof Error ? e.message : String(e),
-        },
+    void Promise.resolve()
+      .then(async () => {
+        const fallbackTitle = extractErrorMessage(error);
+        const title = await resolveBeforeTimeout(
+          resolveErrorToastTitle(error, fallbackTitle),
+          ERROR_LOCALIZATION_TIMEOUT_MS,
+        );
+        Toast.error({ title: title ?? fallbackTitle });
+      })
+      .catch((e: unknown) => {
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'runtime_handle_error_failed',
+          statusDetails: {
+            errorMessage: formatDiagnosticError(e),
+          },
+        });
       });
-    });
     throw error;
   }
 }

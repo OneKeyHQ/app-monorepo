@@ -29,6 +29,9 @@ function describeDeleteTarget(target: unknown) {
 }
 
 let openAttempts = 0;
+let closeAttempts = 0;
+let clearAttempts = 0;
+let clearFailuresRemaining = 0;
 let openShouldFail = true;
 let putCalls: { key: string; value: string }[] = [];
 let deleteCalls: string[] = [];
@@ -53,6 +56,10 @@ jest.mock('../../IndexedDBPromised', () => ({
       if (openShouldFail) {
         throw new OneKeyLocalError('indexeddb unavailable');
       }
+    }
+
+    close() {
+      closeAttempts += 1;
     }
 
     async createBucketTransaction(
@@ -88,7 +95,14 @@ jest.mock('../../IndexedDBPromised', () => ({
             operations.push(`delete:${describeDeleteTarget(key)}`);
             return Promise.resolve();
           },
-          clear: () => Promise.resolve(),
+          clear: () => {
+            clearAttempts += 1;
+            if (clearFailuresRemaining > 0) {
+              clearFailuresRemaining -= 1;
+              return Promise.reject(new Error('UnknownError: Internal error.'));
+            }
+            return Promise.resolve();
+          },
         }),
         done: Promise.resolve(),
       };
@@ -102,6 +116,7 @@ const {
   createWebUiSnapshotSyncBackend,
   flushUiSnapshotStoreNow,
   primeWebUiSnapshotStore,
+  resetWebUiSnapshotStore,
 } = require('./webUiSnapshotStore') as typeof import('./webUiSnapshotStore');
 
 const FLUSH_DEBOUNCE_MS = 2000;
@@ -120,6 +135,9 @@ describe('webUiSnapshotStore write-behind', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     openAttempts = 0;
+    closeAttempts = 0;
+    clearAttempts = 0;
+    clearFailuresRemaining = 0;
     openShouldFail = true;
     putCalls = [];
     deleteCalls = [];
@@ -429,5 +447,45 @@ describe('webUiSnapshotStore write-behind', () => {
 
     expect(cleared.read('d:wallet-1')).toBeUndefined();
     expect(untouched.read('d:btc')).toBe('unrelated');
+  });
+
+  it('closes and drops the cached database handle after reset', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [{ key: 'd:wallet-1', value: 'cached' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+    await flushUiSnapshotStoreNow();
+    expect(openAttempts).toBe(1);
+
+    await resetWebUiSnapshotStore();
+
+    expect(clearAttempts).toBe(1);
+    expect(closeAttempts).toBe(1);
+    expect(backend.read('d:wallet-1')).toBeUndefined();
+
+    // A later reset reopens a fresh handle rather than reusing the closed one.
+    await resetWebUiSnapshotStore();
+    expect(openAttempts).toBe(2);
+    expect(closeAttempts).toBe(2);
+  });
+
+  it('reopens and retries once when resetting an invalidated bucket handle', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [{ key: 'd:wallet-1', value: 'cached' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+    await flushUiSnapshotStoreNow();
+    expect(openAttempts).toBe(1);
+
+    clearFailuresRemaining = 1;
+    await expect(resetWebUiSnapshotStore()).resolves.toBeUndefined();
+
+    expect(clearAttempts).toBe(2);
+    expect(openAttempts).toBe(2);
+    expect(closeAttempts).toBe(2);
   });
 });

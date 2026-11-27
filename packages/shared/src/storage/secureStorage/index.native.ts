@@ -1,3 +1,4 @@
+import { requireOptionalNativeModule } from 'expo';
 import {
   WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   canUseBiometricAuthentication,
@@ -37,6 +38,10 @@ export const removeSecureItem = async (
 
 const supportSecureStorage = async () => true;
 
+const ANDROID_KEYSTORE_HEALTH_KEYCHAIN_SERVICE =
+  'onekey_lse_keystore_health_v1';
+const ANDROID_KEYSTORE_HEALTH_PROBE_KEY = 'keystore_health_probe';
+
 const storage: ISecureStorage = {
   setSecureItem,
   getSecureItem,
@@ -58,6 +63,43 @@ const storage: ISecureStorage = {
   async hasSecureItem(key: string): Promise<boolean> {
     const value = await getItemAsync(key, keychainOptions);
     return !!value;
+  },
+  async hasStoredSecureItem(key) {
+    const nativeModule = requireOptionalNativeModule<{
+      hasStoredValueWithKeyAsync?: (
+        name: string,
+        options: typeof keychainOptions,
+      ) => Promise<boolean>;
+    }>('ExpoSecureStore');
+    return nativeModule?.hasStoredValueWithKeyAsync?.(key, keychainOptions);
+  },
+  async verifySecureStorageOperational(): Promise<boolean> {
+    // Use an isolated keychainService so this probe creates/uses its own
+    // KeyStore alias and never touches or overwrites the default key_v1 alias.
+    const probeOptions = {
+      ...keychainOptions,
+      keychainService: ANDROID_KEYSTORE_HEALTH_KEYCHAIN_SERVICE,
+    };
+    const probeValue = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    try {
+      await setItemAsync(
+        ANDROID_KEYSTORE_HEALTH_PROBE_KEY,
+        probeValue,
+        probeOptions,
+      );
+      const readBack = await getItemAsync(
+        ANDROID_KEYSTORE_HEALTH_PROBE_KEY,
+        probeOptions,
+      );
+      return readBack === probeValue;
+    } catch {
+      return false;
+    } finally {
+      await deleteItemAsync(
+        ANDROID_KEYSTORE_HEALTH_PROBE_KEY,
+        probeOptions,
+      ).catch(() => undefined);
+    }
   },
   async getCredentialId(): Promise<string | null> {
     return null;

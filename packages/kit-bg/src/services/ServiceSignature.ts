@@ -335,6 +335,23 @@ class ServiceSignature extends ServiceBase {
       });
       return;
     }
+    const hasPrivateMetadata = Boolean(
+      (signedTx.encodedTx as { privacy?: unknown } | undefined)?.privacy ||
+      (decodedTx.extraInfo as { privacy?: unknown } | undefined)?.privacy,
+    );
+    if (hasPrivateMetadata) {
+      // Do not archive clear token, amount, or recipient for private transactions.
+      await this.addSignedTransaction({
+        networkId,
+        address,
+        title,
+        hash: signedTx.txid,
+        data: {
+          type: ETransactionType.CONTRACT_INTERACTION,
+        },
+      });
+      return;
+    }
     if (actions.length < 1) {
       return;
     }

@@ -19,6 +19,7 @@ import { useTokenApproveAllowance } from '@onekeyhq/kit/src/hooks/useTokenApprov
 import {
   useDecodedTxsAtom,
   useSignatureConfirmActions,
+  useSignatureConfirmContextData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -328,6 +329,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
     ...rest
   } = props;
   const { token } = component;
+  const { store } = useSignatureConfirmContextData();
   const { updateTokenApproveInfo } = useSignatureConfirmActions().current;
   const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
   const intl = useIntl();
@@ -434,8 +436,8 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
         if (isNil(token.info.decimals)) {
           throw new OneKeyLocalError('token decimals is required.');
         }
-        if (isBuildingDecodedTxs) return;
-        showApproveEditor({
+        if (!store || isBuildingDecodedTxs) return;
+        showApproveEditor(store, {
           accountId,
           networkId,
           isUnlimited: component.isInfiniteAmount,

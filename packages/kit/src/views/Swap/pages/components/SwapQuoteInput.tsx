@@ -1,6 +1,8 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useContext, useState } from 'react';
 
-import { IconButton, Stack, YStack } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+
+import { IconButton, Stack, YStack, useTheme } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -16,12 +18,18 @@ import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapA
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
+import {
+  SwapTabPrefillPendingContext,
+  useSwapFromAccountNetworkSync,
+} from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 
-import SwapInputContainer from './SwapInputContainer';
+import SwapInputContainer, {
+  SWAP_RAISED_DROP_SHADOW,
+  SWAP_RAISED_SHADOW,
+} from './SwapInputContainer';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -43,16 +51,27 @@ const SwapQuoteInput = ({
   onSelectPercentageStage,
   autoFocusFromInput,
 }: ISwapQuoteInputProps) => {
-  const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
+  const [fromInputAmount] = useSwapFromTokenAmountAtom();
+  const [toInputAmount] = useSwapToTokenAmountAtom();
   const { isQuotePresentationLoading } = useSwapQuoteProgressState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
-  const { alternationToken } = useSwapActions().current;
+  const { alternationToken, setSwapUserInputAmount } = useSwapActions().current;
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  useSwapFromAccountNetworkSync();
+  const prefillPending = useContext(SwapTabPrefillPendingContext);
+  useSwapFromAccountNetworkSync(prefillPending);
+  const theme = useTheme();
+  // Raised like the pay card it overlaps. Native draws the hairline as a ring
+  // so the button keeps its size.
+  const switchButtonRaisedProps = platformEnv.isNative
+    ? {
+        style: {
+          boxShadow: `0 0 0 ${StyleSheet.hairlineWidth}px ${theme.borderSubdued.val}, ${SWAP_RAISED_DROP_SHADOW}`,
+        },
+      }
+    : { boxShadow: SWAP_RAISED_SHADOW };
 
   const getTransform = useCallback(() => {
     if (!platformEnv.isNative) {
@@ -92,7 +111,7 @@ const SwapQuoteInput = ({
                 ),
               )
             ) {
-              setFromInputAmount({
+              setSwapUserInputAmount(ESwapDirectionType.FROM, {
                 value,
                 isInput: true,
               });
@@ -132,6 +151,7 @@ const SwapQuoteInput = ({
             disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
             onPress={alternationToken}
             borderWidth="$1"
+            {...switchButtonRaisedProps}
             cursor="pointer"
             hoverStyle={{}}
             pressStyle={{}}
@@ -154,7 +174,7 @@ const SwapQuoteInput = ({
               ),
             )
           ) {
-            setToInputAmount({
+            setSwapUserInputAmount(ESwapDirectionType.TO, {
               value,
               isInput: true,
             });

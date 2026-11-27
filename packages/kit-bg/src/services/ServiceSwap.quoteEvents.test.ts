@@ -10,8 +10,10 @@ type IMockEventSource = {
 
 type IMockPolyfill = {
   onmessage?: (event: { data: string }) => void;
+  onerror?: (event: { type: 'error'; error: string }) => Promise<void>;
   close: jest.Mock;
   headers: Record<string, string>;
+  readyState: number;
 };
 
 const globalMockBag = globalThis as typeof globalThis & {
@@ -27,6 +29,7 @@ jest.mock('event-source-polyfill', () => ({
         const source: IMockPolyfill = {
           close: jest.fn(),
           headers: options.headers,
+          readyState: 2,
         };
         globalMockBag.__swapQuotePolyfills?.push(source);
         return source;
@@ -147,6 +150,108 @@ describe('ServiceSwap quote event request ownership', () => {
     delete globalMockBag.__swapQuoteEventSources;
     delete globalMockBag.__swapQuotePolyfills;
   });
+
+  it('shares the selected XMR receiver with the cross-chain quote and blocks it on Web', async () => {
+    const { getUri, service } = createService();
+    const toTokenXmr: ISwapToken = {
+      networkId: 'xmr--0',
+      contractAddress: '',
+      symbol: 'XMR',
+      decimals: 12,
+      isNative: true,
+    };
+    const primaryAddress = `4${'aB'.repeat(47)}`;
+    const params = {
+      ...createQuoteParams('xmr-quote'),
+      toToken: toTokenXmr,
+      receivingAddress: primaryAddress,
+    };
+    const isWeb = jest.replaceProperty(platformEnv, 'isWeb', true);
+    try {
+      await expect(service.fetchQuotesEvents(params)).rejects.toThrow(
+        'Unsupported XMR swap route',
+      );
+      expect(getUri).not.toHaveBeenCalled();
+      isWeb.replaceValue(false);
+      await expect(
+        service.fetchQuotesEvents({
+          ...params,
+          receivingAddress: `8${'aB'.repeat(47)}`,
+        }),
+      ).rejects.toThrow();
+      expect(getUri).not.toHaveBeenCalled();
+
+      await service.fetchQuotesEvents(params);
+      expect(getUri).toHaveBeenCalledWith({
+        url: '/swap/v1/quote/events',
+        params: expect.objectContaining({
+          receivingAddress: primaryAddress,
+          toNetworkId: 'xmr--0',
+        }),
+      });
+    } finally {
+      await service.cancelFetchQuoteEvents(params.quoteRequestId);
+      isWeb.restore();
+    }
+  });
+
+  it.each([false, true])(
+    'keeps the XMR quote error diagnostic separate from the request (extension: %s)',
+    async (isExtension) => {
+      const web = jest.replaceProperty(platformEnv, 'isWeb', false);
+      const extension = jest.replaceProperty(
+        platformEnv,
+        'isExtension',
+        isExtension,
+      );
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const { service } = createService();
+      const quoteRequestId = 'xmr-quote-error';
+      try {
+        await service.fetchQuotesEvents({
+          ...createQuoteParams(quoteRequestId),
+          toToken: {
+            networkId: 'xmr--0',
+            contractAddress: '',
+            symbol: 'XMR',
+            decimals: 12,
+            isNative: true,
+          },
+          receivingAddress: `4${'aB'.repeat(47)}`,
+        });
+        if (isExtension) {
+          const source = globalMockBag.__swapQuotePolyfills?.[0];
+          await source?.onerror?.({ type: 'error', error: 'upstream detail' });
+        } else {
+          const source = globalMockBag.__swapQuoteEventSources?.[0];
+          const listener = source?.addEventListener.mock.calls.find(
+            ([name]: [string]) => name === 'error',
+          )?.[1] as
+            | ((event: { type: string; url: string }) => void)
+            | undefined;
+          listener?.({ type: 'error', url: 'https://example.com/request' });
+        }
+        expect(emit).toHaveBeenCalledWith(
+          EAppEventBusNames.SwapQuoteEvent,
+          expect.objectContaining({
+            quoteRequestId,
+            type: 'error',
+            event: {
+              type: 'error',
+              message: '',
+              xhrState: expect.any(Number),
+              xhrStatus: expect.any(Number),
+            },
+          }),
+        );
+      } finally {
+        await service.cancelFetchQuoteEvents(quoteRequestId);
+        emit.mockRestore();
+        extension.restore();
+        web.restore();
+      }
+    },
+  );
 
   it.each([false, true])(
     'publishes the actual request currency even if settings change (extension: %s)',

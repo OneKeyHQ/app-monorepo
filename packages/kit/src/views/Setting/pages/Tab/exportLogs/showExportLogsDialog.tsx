@@ -34,6 +34,7 @@ import type {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { downloadLogDigest } from './downloadLogDigest';
+import { formatManualExportToastMessage } from './logUploadUtils';
 import {
   resolveLogUploadError,
   uploadLogsWithRetry,
@@ -96,12 +97,16 @@ function UploadLogsDialogContent({
         }),
       });
       void dialog.close();
-    } catch (_error) {
+    } catch (error) {
       setDialogStage('idle');
+      const detail = formatManualExportToastMessage(
+        resolveLogUploadError(error),
+      );
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.settings_export_logs_failed_title,
         }),
+        message: detail,
       });
     } finally {
       isActiveRef.current = false;

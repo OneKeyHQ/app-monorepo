@@ -20,12 +20,12 @@ async function startServer(session, onHangingBodyClosed) {
   server = http.createServer((req, res) =>
     onHangingBodyClosed && req.url.endsWith('/json')
       ? (() => {
+          req.socket.once('close', onHangingBodyClosed);
           res.writeHead(200, {
             'content-type': 'application/json',
             'x-onekey-ses-fixture': 'onekey-ses-fixture-v1',
           });
           res.write('{"value":');
-          res.once('close', onHangingBodyClosed);
         })()
       : middleware(req, res, () => {
           res.statusCode = 418;
@@ -48,19 +48,17 @@ afterEach(async () => {
 });
 
 test('a response with headers but an unfinished body times out and closes its socket', async () => {
-  let bodyClosed = false;
-  await startServer(sessionId, () => {
-    bodyClosed = true;
-  });
+  const { promise: socketClosed, resolve } = Promise.withResolvers();
+  await startServer(sessionId, resolve);
+  const timeoutMs = 1000;
   const checks = await runSesNetworkChecks(
     { baseUrl: `${origin}${prefix}`, sessionId },
-    { timeoutMs: 100 },
+    { timeoutMs },
   );
   expect(checks.find((check) => check.name === 'fetch requests')).toMatchObject(
-    { status: 'fail', detail: 'fetch requests exceeded 100ms' },
+    { status: 'fail', detail: `fetch requests exceeded ${timeoutMs}ms` },
   );
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  expect(bodyClosed).toBe(true);
+  await socketClosed;
 });
 
 test('fixture is disabled without a DevSession and leaves other paths alone', async () => {

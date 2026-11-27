@@ -15,15 +15,18 @@ export function showDevOnlyPasswordDialog({
   description,
   onConfirm,
   confirmButtonProps,
+  confirmText,
 }: {
   title: string;
   description?: string;
   onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
   confirmButtonProps?: IDialogButtonProps;
+  confirmText?: string;
 }) {
   Dialog.show({
     title,
     description,
+    onConfirmText: confirmText,
     confirmButtonProps: {
       variant: 'destructive',
       ...confirmButtonProps,

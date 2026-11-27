@@ -78,9 +78,39 @@ function SupportScreen() {
 }
 
 const mockCreateSession = jest.fn(async () => mockSession);
+// The live session that a reopened screen may reuse, its cached answers and
+// the session generation that retires both, as in messenger.ts.
+let mockLiveSession: IIntercomMessengerSession | undefined;
+let mockSessionGeneration = 0;
+const mockSessionListeners = new Set<() => void>();
+const mockResponses = new Map<string, unknown>();
+function mockRetireSession() {
+  mockSessionGeneration += 1;
+  mockResponses.clear();
+  mockSessionListeners.forEach((listener) => listener());
+}
 
 jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   createIntercomMessengerSession: () => mockCreateSession(),
+  peekIntercomMessengerSession: () => mockLiveSession,
+  getIntercomResponseCache: (session: unknown, key: string) => {
+    if (!session) return undefined;
+    const generation = mockSessionGeneration;
+    const live = () => generation === mockSessionGeneration;
+    return {
+      read: () => (live() ? mockResponses.get(key) : undefined),
+      save: (data: unknown) => {
+        if (live()) mockResponses.set(key, data);
+      },
+    };
+  },
+  getIntercomSessionGeneration: () => mockSessionGeneration,
+  subscribeToIntercomSessionGeneration: (listener: () => void) => {
+    mockSessionListeners.add(listener);
+    return () => {
+      mockSessionListeners.delete(listener);
+    };
+  },
   showIntercom: jest.fn(),
 }));
 jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/upload', () => ({
@@ -583,6 +613,8 @@ beforeEach(() => {
   mockFocused = true;
   mockUnread = 0;
   mockStackIndex = 1;
+  mockLiveSession = undefined;
+  mockResponses.clear();
   mockRoute.name = 'IntercomConversation';
   mockRoute.params = { userId: null };
   mockRequest.mockReset().mockImplementation(async (path) => {
@@ -1592,6 +1624,200 @@ it('keeps the loaded home in place while a failed section retries', async () => 
   await act(async () => retry.resolve());
   await waitFor(() => expect(screen.queryByText('Loading')).toBeNull());
   expect(screen.queryByTestId('support-retry')).toBeNull();
+});
+
+// Loads the support home once, so its answers stay with the live session.
+async function openSupportHomeOnce() {
+  mockRoute.name = 'IntercomHome';
+  const view = render(<SupportScreen />);
+  await screen.findByTestId('support-conversation-42');
+  view.unmount();
+  mockLiveSession = mockSession;
+  mockRequest.mockClear();
+}
+
+it('paints a reopened support home from the live session and refreshes it in place', async () => {
+  await openSupportHomeOnce();
+  const session = deferred<IIntercomMessengerSession>();
+  mockCreateSession.mockReturnValueOnce(session.promise);
+  render(<SupportScreen />);
+  expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+  expect(screen.getByTestId('support-article-123')).toBeTruthy();
+  expect(screen.getByTestId('support-message-history').textContent).toBe(
+    'Messages',
+  );
+  // Reads wait until the reused session is revalidated.
+  expect(mockRequest).not.toHaveBeenCalled();
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'conversations'
+      ? {
+          conversation_page: {
+            conversations: [{ ...conversation, id: '84' }],
+          },
+        }
+      : original?.(path, parameters),
+  );
+  await act(async () => session.resolve(mockSession));
+  await screen.findByTestId('support-conversation-84');
+  expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+  expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
+  expect(screen.queryByText('Loading')).toBeNull();
+});
+
+it('shows placeholders on reopen when no live session can be reused', async () => {
+  await openSupportHomeOnce();
+  mockLiveSession = undefined;
+  const session = deferred<IIntercomMessengerSession>();
+  mockCreateSession.mockReturnValueOnce(session.promise);
+  render(<SupportScreen />);
+  expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+  expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+  await act(async () => session.resolve(mockSession));
+  await screen.findByTestId('support-conversation-42');
+});
+
+it('keeps a reopened home with one retry and no reads when its session fails to revalidate', async () => {
+  await openSupportHomeOnce();
+  mockCreateSession.mockRejectedValueOnce(new OneKeyLocalError('offline'));
+  render(<SupportScreen />);
+  await screen.findByTestId('support-retry');
+  expect(screen.getAllByTestId('support-retry')).toHaveLength(1);
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+  expect(mockRequest).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByTestId('support-retry'));
+  await waitFor(() => expect(screen.queryByTestId('support-retry')).toBeNull());
+  await waitFor(() => expect(mockRequest).toHaveBeenCalledWith('home'));
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+});
+
+it('shows cached help suggestions at once and refreshes them without a spinner', async () => {
+  await openSupportHomeOnce();
+  mockRoute.name = 'IntercomHelp';
+  const home = holdRequest('home');
+  render(<SupportScreen />);
+  expect(screen.queryByTestId('support-help-skeleton')).toBeNull();
+  expect(screen.getByTestId('support-help-result-123')).toBeTruthy();
+  await waitFor(() => expect(mockRequest).toHaveBeenCalledWith('home'));
+  expect(screen.queryByText('Loading')).toBeNull();
+  expect(screen.getByTestId('support-help-result-123')).toBeTruthy();
+  await act(async () => home.resolve());
+});
+
+it('drops the rendered rows of a reopened home when revalidation retires its session', async () => {
+  await openSupportHomeOnce();
+  const revalidation = deferred<IIntercomMessengerSession>();
+  mockCreateSession.mockReturnValueOnce(revalidation.promise);
+  render(<SupportScreen />);
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+  // The revalidation is in flight when it finds the shared visitor revoked,
+  // which ends the session together with its answers.
+  await act(async () => {});
+  expect(mockCreateSession).toHaveBeenCalledTimes(2);
+  const inbox = holdRequest('conversations');
+  mockLiveSession = undefined;
+  act(() => mockRetireSession());
+  await act(async () =>
+    revalidation.reject(
+      new OneKeyLocalError('Support visitor installation changed'),
+    ),
+  );
+  expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+  expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+  expect(screen.queryByTestId('support-retry')).toBeNull();
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith('conversations', { per_page: 20 }),
+  );
+  expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+  await act(async () => inbox.resolve());
+  await screen.findByTestId('support-conversation-42');
+});
+
+it('reopens without the rows of an expired anonymous visitor while the new inbox is pending', async () => {
+  await openSupportHomeOnce();
+  // An expired visitor is not reused. Its revalidation boots another visitor,
+  // which retires the client; the remounted screen opens a new session.
+  mockLiveSession = undefined;
+  mockCreateSession.mockImplementationOnce(async () => {
+    mockRetireSession();
+    throw new OneKeyLocalError('Support session changed');
+  });
+  const inbox = holdRequest('conversations');
+  render(<SupportScreen />);
+  expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith('conversations', { per_page: 20 }),
+  );
+  expect(mockCreateSession).toHaveBeenCalledTimes(3);
+  expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+  expect(screen.queryByTestId('support-retry')).toBeNull();
+  expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+  await act(async () => inbox.resolve());
+  await screen.findByTestId('support-conversation-42');
+});
+
+it('enables Load more on a reopened message list only after a fresh first page', async () => {
+  mockRoute.name = 'IntercomMessages';
+  const first = render(<SupportScreen />);
+  await screen.findByTestId('support-load-more');
+  first.unmount();
+  mockLiveSession = mockSession;
+  mockRequest.mockClear();
+  const inbox = holdRequest('conversations');
+  render(<SupportScreen />);
+  const loadMore = () =>
+    screen.getByTestId('support-load-more') as HTMLButtonElement;
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+  expect(loadMore().disabled).toBe(true);
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith('conversations', { per_page: 20 }),
+  );
+  expect(loadMore().disabled).toBe(true);
+  await act(async () => inbox.resolve());
+  await waitFor(() => expect(loadMore().disabled).toBe(false));
+  expect(
+    mockRequest.mock.calls.filter(([path]) => path === 'conversations'),
+  ).toHaveLength(1);
+});
+
+it('keeps cached help suggestions with a retry when their refresh fails', async () => {
+  await openSupportHomeOnce();
+  mockRoute.name = 'IntercomHelp';
+  const original = mockRequest.getMockImplementation();
+  let homeRequests = 0;
+  mockRequest.mockImplementation(async (path, parameters) => {
+    if (path === 'home') {
+      homeRequests += 1;
+      if (homeRequests === 1) throw new OneKeyLocalError('offline');
+    }
+    return original?.(path, parameters);
+  });
+  render(<SupportScreen />);
+  await screen.findByTestId('support-help-retry');
+  expect(screen.getByTestId('support-help-result-123')).toBeTruthy();
+  fireEvent.click(screen.getByTestId('support-help-retry'));
+  await waitFor(() =>
+    expect(screen.queryByTestId('support-help-retry')).toBeNull(),
+  );
+  expect(screen.getByTestId('support-help-result-123')).toBeTruthy();
+  expect(homeRequests).toBe(2);
+});
+
+it('shows only a retry when a help search fails', async () => {
+  mockRoute.name = 'IntercomHelp';
+  render(<SupportScreen />);
+  await screen.findByTestId('support-help-result-123');
+  fireEvent.change(screen.getByTestId('support-help-search-input'), {
+    target: { value: 'seed' },
+  });
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith('articles/search', {
+      phrase: 'seed',
+    }),
+  );
+  await screen.findByTestId('support-help-retry');
+  expect(screen.queryByTestId('support-help-result-123')).toBeNull();
 });
 
 it('labels a known help article link in the app language and other links as served', async () => {
