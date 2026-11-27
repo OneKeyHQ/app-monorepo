@@ -346,6 +346,7 @@ export function PerpCandles({
               depthChart
               depthChartShowHeader={false}
               depthChartVisible={showDepthChart && isVisible}
+              entry="perpTab"
             />
           </Stack>
         ) : null}
