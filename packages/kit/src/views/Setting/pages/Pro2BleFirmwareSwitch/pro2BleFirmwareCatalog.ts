@@ -35,7 +35,7 @@ export const PRO2_BLE_FIRMWARE_VERSIONS: readonly IPro2BleFirmwareVersion[] = [
     version: '1.0.23',
     title: 'Find My Debug 1.0.23',
     fileName: 'onekey-pro2_find-my_debug_ota_v1.0.23_signed.bin',
-    byteLength: 256_528,
+    byteLength: 256_560,
   },
   {
     id: 'findmy-debug-1.0.24',
@@ -43,7 +43,7 @@ export const PRO2_BLE_FIRMWARE_VERSIONS: readonly IPro2BleFirmwareVersion[] = [
     version: '1.0.24',
     title: 'Find My Debug 1.0.24',
     fileName: 'onekey-pro2_find-my_debug_ota_v1.0.24_signed.bin',
-    byteLength: 256_528,
+    byteLength: 256_560,
   },
   {
     id: 'findmy-production-1.0.23',
@@ -51,7 +51,7 @@ export const PRO2_BLE_FIRMWARE_VERSIONS: readonly IPro2BleFirmwareVersion[] = [
     version: '1.0.23',
     title: 'Find My Production 1.0.23',
     fileName: 'onekey-pro2_find-my_production_ota_v1.0.23_signed.bin',
-    byteLength: 255_064,
+    byteLength: 255_080,
   },
   {
     id: 'findmy-production-1.0.24',
@@ -59,6 +59,6 @@ export const PRO2_BLE_FIRMWARE_VERSIONS: readonly IPro2BleFirmwareVersion[] = [
     version: '1.0.24',
     title: 'Find My Production 1.0.24',
     fileName: 'onekey-pro2_find-my_production_ota_v1.0.24_signed.bin',
-    byteLength: 255_064,
+    byteLength: 255_080,
   },
 ];

@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { usePro2FindMyTestPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -69,6 +70,11 @@ enum EDeviceSetupState {
   Error = 'error',
   Success = 'success',
 }
+
+// Find My test build: dev-firmware Pro 2 / Neo lab devices may never report
+// ONBOARDING_STEP_DONE. After this many "checking" answers the page falls back
+// to the features-based initialized check used by legacy devices.
+const DEV_DEVICE_MAX_CHECKING_POLLS = 3;
 
 // Macro-phase swap (checking → stepper → ready): a sequenced ("mode=wait")
 // opacity fade — see makeSequencedFade. Cross-fading these dissimilar blocks (a
@@ -128,6 +134,11 @@ function DeviceSetupPage({
   const checkDeviceRunIdRef = useRef(0);
 
   const { getActiveDevice } = useDeviceConnect({ setCurrentDevice });
+  const [pro2FindMyTest] = usePro2FindMyTestPersistAtom();
+  const devDeviceCheckingPollCountRef = useRef(0);
+  // pollPro2OnboardingStatus is declared before checkDeviceInitialized, so the
+  // dev-device fallback reaches it through a ref.
+  const checkDeviceInitializedRef = useRef<() => Promise<void>>(undefined);
 
   const ensureTransportType = useCallback(async () => {
     if (!tabValue) {
@@ -171,6 +182,7 @@ function DeviceSetupPage({
       return;
     }
     onboardingRequestInFlightRef.current = true;
+    let isDevDevice = false;
     try {
       await ensureTransportType();
       const device =
@@ -183,6 +195,10 @@ function DeviceSetupPage({
         );
       }
       setCurrentDevice(device);
+      isDevDevice =
+        pro2FindMyTest.skipDeviceVerify &&
+        (device.deviceType === EDeviceType.Pro2 ||
+          device.deviceType === EDeviceType.Neo);
       const status =
         await backgroundApiProxy.serviceHardware.getPro2OnboardingStatus({
           connectId: device.connectId,
@@ -193,15 +209,34 @@ function DeviceSetupPage({
       setErrorMessage(undefined);
       setSetupState(EDeviceSetupState.Checking);
       setOnboardingStatus(status);
-      if (onboardingStatusToPhase(status) === 'ready') {
+      const phase = onboardingStatusToPhase(status);
+      // Dev-firmware lab devices can hold an initialized wallet while the
+      // onboarding step stays UNKNOWN and pin_set false; continue anyway.
+      if (
+        phase === 'ready' ||
+        (isDevDevice && status.wallet_initialized === true)
+      ) {
         navigateToFinalize(device);
         return;
+      }
+      if (isDevDevice && phase === 'checking') {
+        devDeviceCheckingPollCountRef.current += 1;
+        if (
+          devDeviceCheckingPollCountRef.current >= DEV_DEVICE_MAX_CHECKING_POLLS
+        ) {
+          void checkDeviceInitializedRef.current?.();
+          return;
+        }
       }
       onboardingPollTimeoutRef.current = setTimeout(() => {
         void pollPro2OnboardingStatus();
       }, 1200);
     } catch {
       if (!isPageActiveRef.current) {
+        return;
+      }
+      if (isDevDevice) {
+        void checkDeviceInitializedRef.current?.();
         return;
       }
       setErrorMessage(
@@ -218,6 +253,7 @@ function DeviceSetupPage({
     getActiveDevice,
     intl,
     navigateToFinalize,
+    pro2FindMyTest.skipDeviceVerify,
   ]);
 
   // Legacy fallback instructions, shown for devices without the device-driven
@@ -385,6 +421,8 @@ function DeviceSetupPage({
     deviceData,
     navigateToFinalize,
   ]);
+
+  checkDeviceInitializedRef.current = checkDeviceInitialized;
 
   const handleDeviceSetupDone = useCallback(() => {
     if (isDeviceDriven) {
