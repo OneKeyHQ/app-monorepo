@@ -223,6 +223,10 @@ describe('useToMarketStockDetailPage', () => {
     mockedPlatformEnv.isExtensionUiSidePanel = false;
     mockedPlatformEnv.isDesktop = true;
     mockedPlatformEnv.isNative = false;
+    Object.assign(mockedPlatformEnv, {
+      isNativeIOS: false,
+      isNativeAndroid: false,
+    });
     mockedPlatformEnv.isWeb = false;
     mockIsModalPage = false;
     mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
@@ -996,6 +1000,41 @@ describe('useToMarketStockDetailPage', () => {
     expect(mockCloseExtensionPopupAfterExpandTabOpen).toHaveBeenCalledTimes(1);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
+
+  it.each(['iOS', 'Android'])(
+    'opens a list stock on %s while the detail preload is pending',
+    async (platform) => {
+      Object.assign(mockedPlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isNativeIOS: platform === 'iOS',
+        isNativeAndroid: platform === 'Android',
+      });
+      const { result } = renderHook(() =>
+        useToMarketStockDetailPage({ from: EEnterWay.MarketList }),
+      );
+      let finishPreload: (() => void) | undefined;
+      const preload = new Promise<void>((resolve) => {
+        finishPreload = resolve;
+      });
+      mockPreloadMarketDetailV2Page.mockReturnValue(preload);
+
+      const navigation = result.current('AAPL');
+      try {
+        expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+          screen: ETabRoutes.Market,
+          params: {
+            screen: ETabMarketRoutes.MarketStockDetail,
+            params: { stockId: 'AAPL', from: EEnterWay.MarketList },
+          },
+        });
+      } finally {
+        mockPreloadMarketDetailV2Page.mockResolvedValue(undefined);
+        finishPreload?.();
+        await navigation;
+      }
+    },
+  );
 
   it('carries the stock list entry category in the detail route', async () => {
     const { result } = renderHook(() =>
