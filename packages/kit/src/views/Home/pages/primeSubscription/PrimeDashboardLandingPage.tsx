@@ -51,11 +51,17 @@ function PrimeDashboardLandingPage() {
         showFallback();
       }
     };
+    // pageshow also fires after the first load; only a history restore counts.
+    const showFallbackOnRestore = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        showFallbackOnReturn();
+      }
+    };
     globalThis.document?.addEventListener(
       'visibilitychange',
       showFallbackOnReturn,
     );
-    globalThis.addEventListener?.('pageshow', showFallbackOnReturn);
+    globalThis.addEventListener?.('pageshow', showFallbackOnRestore);
 
     return () => {
       clearTimeout(autoOpenTimerId);
@@ -64,7 +70,7 @@ function PrimeDashboardLandingPage() {
         'visibilitychange',
         showFallbackOnReturn,
       );
-      globalThis.removeEventListener?.('pageshow', showFallbackOnReturn);
+      globalThis.removeEventListener?.('pageshow', showFallbackOnRestore);
     };
   }, []);
 

@@ -170,6 +170,37 @@ describe('PrimeDashboardLandingPage', () => {
     expect(queryFallbackButton()).not.toBeNull();
   });
 
+  it('offers the controls only on a history restore, not the first pageshow', async () => {
+    // jest-setup stubs window listeners, so call the registered one directly.
+    const addWindowListener = jest.spyOn(
+      globalThis as unknown as Window,
+      'addEventListener',
+    );
+    try {
+      render(<PrimeDashboardLandingPage />);
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+        await Promise.resolve();
+      });
+      const onPageShow = addWindowListener.mock.calls.find(
+        ([type]) => type === 'pageshow',
+      )?.[1] as unknown as (
+        event: Pick<PageTransitionEvent, 'persisted'>,
+      ) => void;
+      expect(onPageShow).toBeInstanceOf(Function);
+
+      // The first load also fires pageshow while the handoff may be pending.
+      act(() => onPageShow({ persisted: false }));
+      expect(queryFallbackButton()).toBeNull();
+
+      act(() => onPageShow({ persisted: true }));
+      expect(queryFallbackButton()).not.toBeNull();
+      expect(mockOpenAppViaDeepLink).toHaveBeenCalledTimes(1);
+    } finally {
+      addWindowListener.mockRestore();
+    }
+  });
+
   it('keeps the loading state when the reader returns before the launch', async () => {
     render(<PrimeDashboardLandingPage />);
     setVisibility('hidden');
