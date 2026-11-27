@@ -1121,6 +1121,7 @@ export const TradingViewNativeChart = memo(
           state: runtimeStateRef.current,
         }),
         followedTimeRange: getFollowedTimeRange(),
+        pointCount,
       });
     }, [
       getFollowedTimeRange,

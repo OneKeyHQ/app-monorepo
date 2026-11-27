@@ -26,6 +26,7 @@ export interface ITradingViewNativeFollowedTimeRange {
 }
 
 export interface ITradingViewNativeVisiblePointRangeChange extends ITradingViewNativeVisiblePointRange {
+  pointCount: number;
   /**
    * While the chart follows another one of a split view, the times it lines
    * up with: from the oldest to the newest candle in view there.

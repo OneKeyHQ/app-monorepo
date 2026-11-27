@@ -4907,6 +4907,127 @@ describe('TradingViewNative K-line data state machine', () => {
     },
   );
 
+  it('orders Hyperliquid gap repairs by the successful retry and keeps later realtime ticks', async () => {
+    jest.useFakeTimers();
+    const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+      '1',
+      60,
+    );
+    const retry = createDeferred<IMarketTokenKLineResponse>();
+    mockFetchHistory.mockReturnValueOnce(retry.promise);
+    await act(async () => {
+      gap.reject(new Error('transient read error'));
+      await gap.promise.catch(() => undefined);
+    });
+
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+    pushRealtimePoint(buildResponse(106, left).points[0]);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1000);
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+
+    pushRealtimePoint(buildResponse(118, middle).points[0]);
+    await act(async () => {
+      retry.resolve(
+        buildMultiPointResponse([
+          { close: 110, timestamp: left },
+          { close: 115, timestamp: middle },
+        ]),
+      );
+      await retry.promise;
+    });
+
+    expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+      [left, 110],
+      [middle, 118],
+      [right, 120],
+    ]);
+  });
+
+  it('updates a repaired Hyperliquid candle during date navigation and keeps later realtime ticks', async () => {
+    const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+      '1',
+      60,
+    );
+    await act(async () => {
+      gap.resolve(
+        buildMultiPointResponse([
+          { close: 110, timestamp: left },
+          { close: 115, timestamp: middle },
+        ]),
+      );
+      await gap.promise;
+    });
+    expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+      [left, 110],
+      [middle, 115],
+      [right, 120],
+    ]);
+
+    mockHistoryRequestCandleCount = 10;
+    const latest = createDeferred<IMarketTokenKLineResponse>();
+    mockFetchHistory.mockReturnValueOnce(latest.promise);
+    let navigationPromise = Promise.resolve();
+    act(() => {
+      navigationPromise = result.current.handleViewportTargetChange({
+        kind: 'timeRange',
+        from: right + 300,
+        to: right + 600,
+      });
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+
+    pushRealtimePoint(buildResponse(125, right).points[0]);
+    await act(async () => {
+      latest.resolve(
+        buildMultiPointResponse([
+          { close: 111, timestamp: left },
+          { close: 116, timestamp: middle },
+          { close: 121, timestamp: right },
+        ]),
+      );
+      await navigationPromise;
+    });
+
+    expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+      [left, 111],
+      [middle, 116],
+      [right, 125],
+    ]);
+  });
+
+  it('keeps the live edge during Hyperliquid gap repair after a delayed visible range report', async () => {
+    const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+      '1',
+      60,
+    );
+    const pointCount = result.current.points.length;
+    const liveRange = { startIndex: 0, endIndex: pointCount, pointCount };
+    const next = right + 60;
+    pushRealtimePoint(buildResponse(125, next).points[0]);
+    expect(result.current.points).toHaveLength(pointCount + 1);
+    act(() => result.current.handleVisiblePointRangeChange(liveRange));
+
+    await act(async () => {
+      gap.resolve(
+        buildMultiPointResponse([
+          { close: 110, timestamp: left },
+          { close: 115, timestamp: middle },
+        ]),
+      );
+      await gap.promise;
+    });
+
+    expect(result.current.points.map((point) => point.t)).toEqual([
+      left,
+      middle,
+      right,
+      next,
+    ]);
+    expect(result.current.viewportRequest).toBeNull();
+  });
+
   it('does not request the same Hyperliquid gap again after an empty response', async () => {
     const { gap, left, result, right } = await renderPerpsRealtimeGap('1', 60);
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));

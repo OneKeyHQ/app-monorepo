@@ -786,8 +786,12 @@ export const TradingViewNativeChart = memo(
     }, []);
 
     const handleVisiblePointRangeChange = useCallback(
-      (startIndex: number, endIndex: number) => {
-        onVisiblePointRangeChange?.({ endIndex, startIndex });
+      (startIndex: number, endIndex: number, measuredPointCount: number) => {
+        onVisiblePointRangeChange?.({
+          endIndex,
+          pointCount: measuredPointCount,
+          startIndex,
+        });
       },
       [onVisiblePointRangeChange],
     );
@@ -865,6 +869,7 @@ export const TradingViewNativeChart = memo(
           current.chartWidth > 0 &&
           current.pointCount > 0 &&
           (current.chartWidth !== previous?.chartWidth ||
+            current.pointCount !== previous?.pointCount ||
             current.startIndex !== previous?.startIndex ||
             current.endIndex !== previous?.endIndex)
         ) {
@@ -872,6 +877,7 @@ export const TradingViewNativeChart = memo(
             handleVisiblePointRangeChange,
             current.startIndex,
             current.endIndex,
+            current.pointCount,
           );
         }
       },
