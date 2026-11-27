@@ -32,6 +32,7 @@ export enum EAtomNames {
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
+  pro2FindMyTestPersistAtom = 'pro2FindMyTestPersistAtom',
   // firmwareUpdatesDetectStatusAtom is reserved for firmwareUpdatesDetectStatusPersistAtom
   firmwareUpdatesDetectStatusPersistAtom = 'firmwareUpdatesDetectStatusPersistAtom', // persist
   firmwareUpdateStepInfoAtom = 'firmwareUpdateStepInfoAtom',

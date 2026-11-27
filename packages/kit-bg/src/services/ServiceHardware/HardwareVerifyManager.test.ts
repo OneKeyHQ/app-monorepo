@@ -35,8 +35,13 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: { emit: jest.fn() },
 }));
 jest.mock('../../dbs/local/localDb', () => ({ __esModule: true, default: {} }));
+const mockPro2FindMyTestGet = jest.fn(async () => ({
+  skipDeviceVerify: false,
+  skipFirmwareUpdateCheck: false,
+}));
 jest.mock('../../states/jotai/atoms', () => ({
   settingsPersistAtom: { get: async () => ({ instanceId: 'test-instance' }) },
+  pro2FindMyTestPersistAtom: { get: () => mockPro2FindMyTestGet() },
 }));
 
 const SERVER_TIME = Date.parse('2030-01-01T00:00:00Z');
@@ -135,6 +140,32 @@ describe('hardware verification challenge time', () => {
       device: { ...device, deviceType: EDeviceType.Pro2 },
     });
     expect(events).toEqual(['unlock', 'time', 'sign']);
+  });
+
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'skips %s verification when the Find My test switch is on',
+    async (deviceType) => {
+      mockPro2FindMyTestGet.mockResolvedValueOnce({
+        skipDeviceVerify: true,
+        skipFirmwareUpdateCheck: false,
+      });
+      const result = await manager.firmwareAuthenticate({
+        device: { ...device, deviceType },
+      });
+      expect(result.skipVerification).toBe(true);
+      expect(sign).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps verifying other devices when the Find My test switch is on', async () => {
+    mockPro2FindMyTestGet.mockResolvedValueOnce({
+      skipDeviceVerify: true,
+      skipFirmwareUpdateCheck: false,
+    });
+    const result = await manager.firmwareAuthenticate({ device });
+    expect(result.verified).toBe(true);
+    expect(post).toHaveBeenCalledTimes(1);
   });
 
   it.each(['unavailable response', 'network failure', 'timeout'])(

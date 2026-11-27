@@ -1,0 +1,36 @@
+diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
+index 82ec157..b230a25 100644
+--- a/node_modules/@onekeyfe/hd-core/dist/index.js
++++ b/node_modules/@onekeyfe/hd-core/dist/index.js
+@@ -54912,8 +54912,11 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+                     }
+                 };
+                 try {
+-                    windowed =
+-                        !this.protocolV2FileWriteWindowDisabled && this.shouldUseProtocolV2BleFileWriteWindow();
++                    // OneKey patch: Pro 2 Find My test build sends firmware one frame at a time
++                    // (wait for each FileWrite response); the 2-frame BLE pipeline is disabled.
++                    // windowed =
++                    //     !this.protocolV2FileWriteWindowDisabled && this.shouldUseProtocolV2BleFileWriteWindow();
++                    windowed = false;
+                     chunkSize = this.getProtocolV2FirmwareChunkSize('write', filePath, windowed);
+                     logTransfer('started');
+                     if (windowed) {
+diff --git a/node_modules/@onekeyfe/hd-core/src/api/FirmwareUpdateV4.ts b/node_modules/@onekeyfe/hd-core/src/api/FirmwareUpdateV4.ts
+index fd0f771..d3270f4 100644
+--- a/node_modules/@onekeyfe/hd-core/src/api/FirmwareUpdateV4.ts
++++ b/node_modules/@onekeyfe/hd-core/src/api/FirmwareUpdateV4.ts
+@@ -2375,8 +2375,11 @@ export default class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod<FirmwareU
+         }
+       };
+       try {
+-        windowed =
+-          !this.protocolV2FileWriteWindowDisabled && this.shouldUseProtocolV2BleFileWriteWindow();
++        // OneKey patch: Pro 2 Find My test build sends firmware one frame at a time
++        // (wait for each FileWrite response); the 2-frame BLE pipeline is disabled.
++        // windowed =
++        //   !this.protocolV2FileWriteWindowDisabled && this.shouldUseProtocolV2BleFileWriteWindow();
++        windowed = false;
+         chunkSize = this.getProtocolV2FirmwareChunkSize('write', filePath, windowed);
+         logTransfer('started');
+         if (windowed) {

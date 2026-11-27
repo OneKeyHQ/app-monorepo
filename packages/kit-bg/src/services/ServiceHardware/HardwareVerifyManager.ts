@@ -39,7 +39,10 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
 import localDb from '../../dbs/local/localDb';
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  pro2FindMyTestPersistAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
@@ -281,8 +284,15 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     return { deviceType, data, cert, signature };
   }
 
-  private isFirmwareVerificationEnabled(deviceType?: IDeviceType) {
-    return deviceUtils.isFirmwareVerifySupported(deviceType);
+  private async isFirmwareVerificationEnabled(deviceType?: IDeviceType) {
+    if (!deviceUtils.isFirmwareVerifySupported(deviceType)) {
+      return false;
+    }
+    if (deviceType === EDeviceType.Pro2 || deviceType === EDeviceType.Neo) {
+      const { skipDeviceVerify } = await pro2FindMyTestPersistAtom.get();
+      return !skipDeviceVerify;
+    }
+    return true;
   }
 
   @backgroundMethod()
@@ -310,7 +320,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async shouldAuthenticateFirmware({
     device,
   }: IShouldAuthenticateFirmwareParams) {
-    if (!this.isFirmwareVerificationEnabled(device.deviceType)) {
+    if (!(await this.isFirmwareVerificationEnabled(device.deviceType))) {
       return false;
     }
 
@@ -339,7 +349,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     skipDeviceCancel,
   }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
-    if (!this.isFirmwareVerificationEnabled(deviceType)) {
+    if (!(await this.isFirmwareVerificationEnabled(deviceType))) {
       return buildSkippedFirmwareAuthenticateResult(device);
     }
 
@@ -415,7 +425,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     const deviceType = features
       ? await deviceUtils.getDeviceTypeFromFeatures({ features })
       : undefined;
-    if (!this.isFirmwareVerificationEnabled(deviceType)) {
+    if (!(await this.isFirmwareVerificationEnabled(deviceType))) {
       return false;
     }
 
@@ -476,7 +486,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async fetchFirmwareVerifyHash(
     params: IFetchFirmwareVerifyHashParams,
   ): Promise<IFirmwareVerifyInfo[]> {
-    if (!this.isFirmwareVerificationEnabled(params.deviceType)) {
+    if (!(await this.isFirmwareVerificationEnabled(params.deviceType))) {
       return [];
     }
 
@@ -526,7 +536,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     deviceType: IDeviceType;
     onekeyFeatures: OnekeyFeatures | undefined;
   }): Promise<IDeviceVerifyVersionCompareResult> {
-    if (!this.isFirmwareVerificationEnabled(deviceType)) {
+    if (!(await this.isFirmwareVerificationEnabled(deviceType))) {
       return buildSkippedFirmwareHashResult(onekeyFeatures);
     }
 

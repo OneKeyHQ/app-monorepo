@@ -3,15 +3,19 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   Dialog,
+  ESwitchSize,
   Page,
   SizableText,
   Spinner,
+  Switch,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { inspectPro2BleFirmwareBase64 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/pro2BundledBleFirmware';
+import { usePro2FindMyTestPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPro2FindMyTestPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
   loadPro2BleFirmwareBase64,
@@ -30,6 +34,23 @@ type IFirmwareInstallTarget = {
 };
 
 const MANUAL_FIRMWARE_KEY = 'manual';
+
+const DEV_DEVICE_SWITCHES: readonly {
+  key: keyof IPro2FindMyTestPersistAtom;
+  title: string;
+  subtitle: string;
+}[] = [
+  {
+    key: 'skipDeviceVerify',
+    title: 'Skip device verification',
+    subtitle: 'Do not run the genuine check when adding a Pro 2 or Neo.',
+  },
+  {
+    key: 'skipFirmwareUpdateCheck',
+    title: 'Skip firmware update',
+    subtitle: 'Do not check for or require Pro 2 or Neo firmware updates.',
+  },
+];
 
 type IPro2BleDevice = {
   connectId?: string;
@@ -65,6 +86,7 @@ export default function PagePro2BleFirmwareSwitch() {
     'Scan for a Pro 2, then install a firmware.',
   );
   const [busyKey, setBusyKey] = useState<string | undefined>();
+  const [pro2FindMyTest, setPro2FindMyTest] = usePro2FindMyTestPersistAtom();
 
   const scanDevices = useCallback(async () => {
     setBusyKey('scan');
@@ -187,6 +209,33 @@ export default function PagePro2BleFirmwareSwitch() {
           Find My certification build. Install a bundled debug or production
           Bluetooth firmware, or choose a firmware file, on the selected Pro 2.
         </SizableText>
+        <YStack gap="$1">
+          <SizableText size="$headingMd">Dev device</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            For dev-signed Pro 2 and Neo devices. Applies when adding a device.
+          </SizableText>
+        </YStack>
+        <YStack mx="$-5">
+          {DEV_DEVICE_SWITCHES.map((item) => (
+            <ListItem
+              key={item.key}
+              title={item.title}
+              subtitle={item.subtitle}
+            >
+              <Switch
+                size={ESwitchSize.small}
+                value={pro2FindMyTest[item.key]}
+                onChange={(enabled) => {
+                  setPro2FindMyTest((prev) => ({
+                    ...prev,
+                    [item.key]: enabled,
+                  }));
+                }}
+                testID={`pro2-find-my-${item.key}`}
+              />
+            </ListItem>
+          ))}
+        </YStack>
         <XStack>
           <Button
             size="small"

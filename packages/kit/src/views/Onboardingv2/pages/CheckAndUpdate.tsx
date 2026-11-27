@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import pRetry, { AbortError } from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -30,6 +31,7 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
+import { usePro2FindMyTestPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -153,6 +155,7 @@ function CheckAndUpdatePage({
 >) {
   const intl = useIntl();
   const { ensureBurst, endBurst } = useDeviceStageBurst();
+  const [pro2FindMyTest] = usePro2FindMyTestPersistAtom();
   const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
@@ -538,6 +541,30 @@ function CheckAndUpdatePage({
           return newSteps;
         });
       };
+      // Find My test build: dev-signed Pro 2 / Neo lab devices must keep their
+      // firmware, so the release check is not run and the step is Skipped.
+      const skipCheckDevice = (getActiveDevice() ??
+        currentDevice ??
+        deviceData.device) as SearchDevice | undefined;
+      if (
+        pro2FindMyTest.skipFirmwareUpdateCheck &&
+        (skipCheckDevice?.deviceType === EDeviceType.Pro2 ||
+          skipCheckDevice?.deviceType === EDeviceType.Neo)
+      ) {
+        pendingPostUpdateReconnectRef.current = false;
+        hasUpgradeForceRef.current = false;
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Skipped,
+            errorMessage: undefined,
+          };
+          return newSteps;
+        });
+        void endBurst();
+        return;
+      }
       // Re-entry (retry / recheck) may find the step still in Error from the
       // previous attempt; flip it back to InProgress right away and drop the
       // stale message so the UI shows the loading beam instead of the old
@@ -716,6 +743,7 @@ function CheckAndUpdatePage({
       ensureActiveConnection,
       intl,
       retryDeviceConnectionAfterUpdate,
+      pro2FindMyTest.skipFirmwareUpdateCheck,
     ],
   );
 
