@@ -12,6 +12,7 @@ export enum ETabHomeRoutes {
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
   TabHomeRedeemBitcoinVoucher = 'TabHomeRedeemBitcoinVoucher',
   TabHomePrimeSubscription = 'TabHomePrimeSubscription',
+  TabHomePrimeDashboard = 'TabHomePrimeDashboard',
   TabHomePrimePurchaseComplete = 'TabHomePrimePurchaseComplete',
   TabHomePrimeRedeem = 'TabHomePrimeRedeem',
   TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
@@ -23,6 +24,8 @@ export enum ETabHomeRoutes {
 
 export const PRIME_REDEEM_LANDING_PATH = '/prime/redeem';
 export const PRIME_SUBSCRIPTION_LANDING_PATH = '/prime/subscription';
+// Email entry that opens the plain Prime dashboard in the app.
+export const PRIME_DASHBOARD_LANDING_PATH = '/prime/dashboard';
 // Redirect target of the RevenueCat hosted card checkout (Web Purchase Link).
 export const PRIME_PURCHASE_COMPLETE_PATH = '/prime/purchase-complete';
 
@@ -59,6 +62,7 @@ export type ITabHomeParamList = {
       }
     | undefined;
   [ETabHomeRoutes.TabHomePrimeSubscription]: undefined;
+  [ETabHomeRoutes.TabHomePrimeDashboard]: undefined;
   // RevenueCat appends app_user_id; it is cleared on mount and never trusted.
   [ETabHomeRoutes.TabHomePrimePurchaseComplete]:
     | {
