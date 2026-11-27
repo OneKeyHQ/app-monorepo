@@ -123,10 +123,7 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
     return {
       kind: 'detail',
       detail: {
-        screen:
-          token.isNative && !token.contractAddress
-            ? ETabMarketRoutes.MarketNativeDetail
-            : ETabMarketRoutes.MarketDetailV2,
+        screen: ETabMarketRoutes.MarketDetailV2,
         params: {
           network:
             networkUtils.getNetworkShortCode({ networkId: token.chainId }) ||
@@ -138,7 +135,20 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
           ...(token.marketTokenId
             ? { marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID }
             : {}),
-          ...(platformEnv.isNativeIOS && target.kind === 'token'
+          ...(platformEnv.isNativeIOS &&
+          target.kind === 'token' &&
+          token.isNative
+            ? {
+                marketWidgetToken: {
+                  networkId: token.chainId,
+                  tokenAddress: token.contractAddress,
+                  isNative: true,
+                },
+              }
+            : {}),
+          ...(platformEnv.isNativeIOS &&
+          target.kind === 'token' &&
+          !token.isNative
             ? { preserveTokenQuote: true }
             : {}),
           showFavoriteButton: true,
@@ -170,7 +180,6 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
       } else {
         navigation?.pushModal(EModalRoutes.MarketModal, {
           screen: EModalMarketRoutes.MarketWidgetList,
-          ...(destination.needsBinding && { params: { needsBinding: true } }),
         });
       }
     } else if (destination.kind === 'stock') {

@@ -30,6 +30,9 @@ import createLogStore from './logger/createLogStore';
 import { notifyLogReset } from './logger/logReset';
 import ServiceBase from './ServiceBase';
 
+const RESET_DIAGNOSTIC_LOG_MAX_BYTES = 256 * 1024;
+const RESET_DIAGNOSTIC_MESSAGE_LIMIT = 2048;
+
 @backgroundClass()
 class ServiceLogger extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -44,12 +47,42 @@ class ServiceLogger extends ServiceBase {
 
   private resettingLogs = false;
 
+  private resetExportBlocked = false;
+
+  private resetDiagnosticActive = false;
+
+  private resetFailedDiagnosticExport = false;
+
+  // In-memory diagnostic ring for logs emitted after stopPersistenceForReset(true),
+  // allowing post-failure export without touching disk or retaining pre-reset logs.
+  private resetDiagnosticBuffer: { message: string; bytes: number }[] = [];
+
+  private resetDiagnosticBytes = 0;
+
   // Circular buffer: O(1) insert, O(n) read (read is infrequent)
   private buffer: string[] = [];
 
   private writeIndex = 0;
 
   private isFull = false;
+
+  private appendResetDiagnosticMsg(message: string) {
+    if (!message) return;
+    const bounded =
+      message.length > RESET_DIAGNOSTIC_MESSAGE_LIMIT
+        ? `${message.slice(0, RESET_DIAGNOSTIC_MESSAGE_LIMIT - 16)}...(truncated)\r\n`
+        : message;
+    const bytes = new TextEncoder().encode(bounded).byteLength;
+    this.resetDiagnosticBuffer.push({ message: bounded, bytes });
+    this.resetDiagnosticBytes += bytes;
+    while (
+      this.resetDiagnosticBytes > RESET_DIAGNOSTIC_LOG_MAX_BYTES &&
+      this.resetDiagnosticBuffer.length > 1
+    ) {
+      const removed = this.resetDiagnosticBuffer.shift();
+      if (removed) this.resetDiagnosticBytes -= removed.bytes;
+    }
+  }
 
   @backgroundMethod()
   async getAllMsg() {
@@ -68,6 +101,12 @@ class ServiceLogger extends ServiceBase {
 
   @backgroundMethod()
   async addMsg(message: string) {
+    if (this.resettingLogs) {
+      if (this.resetDiagnosticActive) {
+        this.appendResetDiagnosticMsg(message);
+      }
+      return true;
+    }
     if (this.persistentLogs) {
       await this.persistentLogs.add(message);
       return true;
@@ -84,8 +123,25 @@ class ServiceLogger extends ServiceBase {
     return Promise.resolve(true);
   }
 
+  beginResetAttempt() {
+    this.resetExportBlocked = true;
+    this.resetFailedDiagnosticExport = false;
+    this.logExport.close();
+  }
+
+  markResetFailed() {
+    this.resetExportBlocked = false;
+    if (this.resettingLogs && this.resetDiagnosticActive) {
+      this.resetFailedDiagnosticExport = true;
+    }
+  }
+
   async stopPersistenceForReset(clear = true) {
     this.resettingLogs = true;
+    this.resetDiagnosticActive = clear;
+    this.resetFailedDiagnosticExport = false;
+    this.resetDiagnosticBuffer = [];
+    this.resetDiagnosticBytes = 0;
     this.logExport.close();
     if (clear) notifyLogReset();
     // The general reset also clears all buckets/databases if explicit deletion fails.
@@ -96,9 +152,24 @@ class ServiceLogger extends ServiceBase {
   async beginLogExport({ scope = 'recent' }: { scope?: ILogExportScope } = {}) {
     if (scope !== 'recent' && scope !== 'full')
       throw new OneKeyLocalError('Invalid log export scope');
-    const store = this.persistentLogs;
-    if (this.resettingLogs)
+    if (this.resetExportBlocked) {
       throw new OneKeyLocalError('Log export unavailable during app reset');
+    }
+    if (this.resettingLogs) {
+      if (!this.resetFailedDiagnosticExport || !this.resetDiagnosticActive) {
+        throw new OneKeyLocalError('Log export unavailable during app reset');
+      }
+      return this.logExport.begin(async (isCancelled) => {
+        await loggerUtils.flushPendingRepeat();
+        // resetDiagnosticBuffer is already capped at 256 KiB (below both export limits).
+        const snapshot = new Blob(
+          this.resetDiagnosticBuffer.map((item) => item.message),
+          { type: 'text/plain' },
+        );
+        return createLogArchive(snapshot, isCancelled);
+      });
+    }
+    const store = this.persistentLogs;
     if (!store)
       throw new OneKeyLocalError(
         'Log export unavailable: persistent logger not initialized',
