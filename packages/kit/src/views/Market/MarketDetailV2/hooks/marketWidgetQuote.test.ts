@@ -89,6 +89,68 @@ describe('widget detail quotes', () => {
     });
   });
 
+  it('keeps the pinned native identity while validating the resolved asset quote', () => {
+    const resolved = {
+      ...token,
+      networkId: 'sol--101',
+      address: 'native',
+      isNative: true,
+      widgetDetailQuote: { ...detailQuote, assetId: 'sol' },
+    };
+    const nativeTarget = {
+      assetId: 'sol',
+      networkId: 'sol--101',
+      tokenAddress: '',
+      isNative: true,
+      marketWidgetToken: {
+        networkId: 'sol--101',
+        tokenAddress: '',
+        isNative: true,
+      },
+    };
+    expect(
+      buildMarketWidgetTokenQuote({ ...nativeTarget, tokenDetail: resolved })
+        ?.quote,
+    ).toMatchObject({
+      asset: {
+        kind: 'token',
+        chainId: 'sol--101',
+        contractAddress: '',
+        requestTokenAddress: 'native',
+        isNative: true,
+      },
+      price: detailQuote.price,
+      fetchedAt: detailQuote.fetchedAt,
+    });
+    expect(
+      buildMarketWidgetTokenQuote({
+        ...nativeTarget,
+        tokenDetail: {
+          ...resolved,
+          widgetDetailQuote: { ...detailQuote, assetId: 'eth' },
+        },
+      }),
+    ).toBeUndefined();
+    expect(
+      buildMarketWidgetTokenQuote({
+        ...nativeTarget,
+        marketWidgetToken: {
+          networkId: 'evm--1',
+          tokenAddress: '',
+          isNative: true,
+        },
+        tokenDetail: resolved,
+      })?.quote.asset,
+    ).toMatchObject({ kind: 'asset', assetId: 'sol' });
+    expect(
+      buildMarketWidgetTokenQuote({
+        ...target,
+        marketWidgetToken: { ...target, tokenAddress: 'different' },
+        tokenDetail: token,
+      })?.quote.asset,
+    ).toMatchObject({ kind: 'token', contractAddress: target.tokenAddress });
+  });
+
   it('rejects a stale same-network contract detail on a native route', () => {
     for (const isNative of [false, undefined]) {
       expect(
