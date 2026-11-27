@@ -82,6 +82,7 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 
 const RESET_REMOTE_DEADLINE_MS = 10_000;
 const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
+const RESET_CACHE_STORAGE_DEADLINE_MS = 1_000;
 const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
@@ -388,8 +389,8 @@ class ServiceApp extends ServiceBase {
               : 'otherIndexedDBs';
         try {
           if (name === WORKBOX_EXPIRATION_INDEXED_DB_NAME) {
-            // Don't orphan cached assets by clearing their expiration records
-            // before the Cache Storage sweep has succeeded.
+            // Give the matching cached assets a chance to be removed first.
+            // Cache Storage is best effort, but IndexedDB erasure is required.
             await cacheCleanup;
           }
           // Keep the empty schema. An uncancellable delete queued behind a
@@ -411,27 +412,47 @@ class ServiceApp extends ServiceBase {
   }
 
   private async clearBrowserCacheStorage(log: IResetStageLogger) {
-    const { caches } = globalThis;
-    if (!caches) return;
-    try {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+    const clearCaches = async () => {
+      const { caches } = globalThis;
+      if (!caches) return;
       const names = await caches.keys();
+      // A late enumeration must not start deleting caches after reset.
+      if (timedOut) return;
       const results = await Promise.allSettled(
         names.map(async (name) => caches.delete(name)),
       );
-      const failed = results.findIndex(
-        (result) => result.status === 'rejected',
-      );
-      if (failed >= 0) {
-        throw new OneKeyLocalError(
-          `Unable to clear browser cache ${names[failed]}`,
-        );
-      }
-      log('cacheStorage', 'cleared');
+      if (timedOut) return;
+      let failed = false;
+      results.forEach((result, index) => {
+        if (result.status !== 'rejected') return;
+        failed = true;
+        log('cacheStorage', 'clear_failed', {
+          detail: `${names[index]}: ${this.formatResetErrorDetail(result.reason)}`,
+        });
+      });
+      if (!failed) log('cacheStorage', 'cleared');
+    };
+    try {
+      await Promise.race([
+        clearCaches(),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(() => {
+            timedOut = true;
+            log('cacheStorage', 'timeout', {
+              deadlineMs: RESET_CACHE_STORAGE_DEADLINE_MS,
+            });
+            resolve();
+          }, RESET_CACHE_STORAGE_DEADLINE_MS);
+        }),
+      ]);
     } catch (error) {
       log('cacheStorage', 'clear_failed', {
         detail: this.formatResetErrorDetail(error),
       });
-      throw error;
+    } finally {
+      clearTimeout(timer);
     }
   }
 

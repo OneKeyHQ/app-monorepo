@@ -1534,11 +1534,57 @@ describe('ServiceApp privacy database reset ordering', () => {
       deleteCache
         .mockRejectedValueOnce(new Error('blocked'))
         .mockResolvedValueOnce(true);
-      await expect(service.clearRemainingBrowserData(log)).rejects.toThrow(
-        'Unable to clear browser cache future-cache',
-      );
+      await expect(
+        service.clearRemainingBrowserData(log),
+      ).resolves.toBeUndefined();
       expect(deleteCache).toHaveBeenCalledTimes(2);
+      expect(log).toHaveBeenCalledWith('cacheStorage', 'clear_failed', {
+        detail: 'future-cache: blocked',
+      });
     } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'caches', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'caches');
+      }
+    }
+  });
+
+  it('does not wait for a stalled cache sweep or delete after a late enumeration', async () => {
+    jest.useFakeTimers();
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    let resolveNames: (names: string[]) => void = () => {};
+    const keys = jest.fn(
+      () =>
+        new Promise<string[]>((resolve) => {
+          resolveNames = resolve;
+        }),
+    );
+    const deleteCache = jest.fn(() => new Promise<boolean>(() => {}));
+    Object.assign(globalThis, { caches: { keys, delete: deleteCache } });
+
+    try {
+      const log = jest.fn();
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearBrowserCacheStorage: (logger: typeof log) => Promise<void>;
+      };
+      const stalledEnumeration = service.clearBrowserCacheStorage(log);
+      await jest.advanceTimersByTimeAsync(1_000);
+      await expect(stalledEnumeration).resolves.toBeUndefined();
+      resolveNames(['new-cache']);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(deleteCache).not.toHaveBeenCalled();
+
+      keys.mockResolvedValueOnce(['old-cache']);
+      const stalledDeletion = service.clearBrowserCacheStorage(log);
+      await jest.advanceTimersByTimeAsync(1_000);
+      await expect(stalledDeletion).resolves.toBeUndefined();
+      expect(deleteCache).toHaveBeenCalledWith('old-cache');
+      expect(log).toHaveBeenCalledWith('cacheStorage', 'timeout', {
+        deadlineMs: 1_000,
+      });
+    } finally {
+      jest.useRealTimers();
       if (descriptor) {
         Object.defineProperty(globalThis, 'caches', descriptor);
       } else {
