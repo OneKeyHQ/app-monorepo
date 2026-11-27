@@ -205,11 +205,26 @@ const PLATFORM_SUFFIX_RE =
 const CROSS_PLATFORM_MIGRATION_HINT_RE =
   /(NativeList|AppPager|CollapsiblePagerView|Tabs\.Container|legacy[A-Z]|module-id-registry\.json)/;
 
+const CROSS_PLATFORM_TITLE_RE =
+  /\b(cross[- ]platform|multi[- ]platform)\b|(跨端|三端同构|跨平台迁移)/i;
+
 const SECURITY_CRITICAL_FILE_RE =
   /(^|\/)(vault|signing|crypto|auth|manifest|keyring|hardware|bundle-registry|dbs\/local\/consts\.ts)/i;
 
 const A11Y_PR_HINT_RE =
   /\b(a11y|accessibility|voiceover|talkback|screen\s*reader|wcag)\b|(无障碍|旁白|读屏)/i;
+
+const CONFIDENCE_LABELS = {
+  high: 'high',
+  '🔵 high': 'high',
+  '🔵': 'high',
+  medium: 'medium',
+  '🟠 medium': 'medium',
+  '🟠': 'medium',
+  low: 'low',
+  '⚪ low': 'low',
+  '⚪': 'low',
+};
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -219,11 +234,46 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function decodeGitQuotedPath(quoted) {
+  const inner = quoted.slice(1, -1);
+  const bytes = [];
+  const escapeMap = {
+    a: 0x07,
+    b: 0x08,
+    f: 0x0c,
+    n: 0x0a,
+    r: 0x0d,
+    t: 0x09,
+    v: 0x0b,
+    '"': 0x22,
+    '\\': 0x5c,
+  };
+  for (let i = 0; i < inner.length; i += 1) {
+    const ch = inner[i];
+    if (ch === '\\' && i + 1 < inner.length) {
+      const next = inner[i + 1];
+      if (/^[0-7]{3}$/.test(inner.slice(i + 1, i + 4))) {
+        bytes.push(Number.parseInt(inner.slice(i + 1, i + 4), 8));
+        i += 3;
+      } else if (Object.prototype.hasOwnProperty.call(escapeMap, next)) {
+        bytes.push(escapeMap[next]);
+        i += 1;
+      } else {
+        bytes.push(...Buffer.from(next, 'utf8'));
+        i += 1;
+      }
+    } else {
+      bytes.push(...Buffer.from(ch, 'utf8'));
+    }
+  }
+  return Buffer.from(bytes).toString('utf8');
+}
+
 function normalizePath(filePath) {
   if (!filePath || typeof filePath !== 'string') return '';
   let clean = filePath.trim();
-  if (clean.startsWith('"') && clean.endsWith('"')) {
-    clean = clean.slice(1, -1);
+  if (clean.startsWith('"') && clean.endsWith('"') && clean.length >= 2) {
+    clean = decodeGitQuotedPath(clean);
   }
   return clean
     .replace(/^a\/|^b\//, '')
@@ -246,6 +296,7 @@ function normalizeTitleForDedup(title) {
 
 function escapeMdCell(text) {
   return String(text || '')
+    .replace(/\\/g, '\\\\')
     .replace(/\|/g, '\\|')
     .replace(/\r?\n+/g, ' ')
     .trim();
@@ -253,15 +304,14 @@ function escapeMdCell(text) {
 
 /**
  * Parse both plain ('high'|'medium'|'low') and SKILL.md emoji ('🔵 High'|'🟠 Medium'|'⚪ Low') confidence labels.
- * Missing or unknown confidence defaults to 'low' (never silently upgraded to 'high').
+ * Matches documented labels exactly; missing or unknown confidence defaults to 'low'.
  */
 function parseConfidence(raw) {
   if (typeof raw !== 'string') return 'low';
-  const norm = raw.toLowerCase();
-  if (norm.includes('high') || norm.includes('🔵')) return 'high';
-  if (norm.includes('medium') || norm.includes('🟠')) return 'medium';
-  if (norm.includes('low') || norm.includes('⚪')) return 'low';
-  return 'low';
+  const norm = raw.trim().toLowerCase().replace(/\s+/g, ' ');
+  return Object.prototype.hasOwnProperty.call(CONFIDENCE_LABELS, norm)
+    ? CONFIDENCE_LABELS[norm]
+    : 'low';
 }
 
 /**
@@ -294,7 +344,7 @@ function parseReviewDraftSafely(rawText) {
     return { ok: true, draft: direct, error: null, recoveredFromFence: false };
   } catch {
     // Scan all fenced blocks, prioritizing ```json blocks first
-    const fenceRe = /```(json)?\s*([\s\S]*?)```/gi;
+    const fenceRe = /^```(json)?\s*\r?\n([\s\S]*?)^\s*```\s*$/gim;
     const jsonBlocks = [];
     const otherBlocks = [];
     let match = fenceRe.exec(text);
@@ -356,20 +406,37 @@ function parseReviewDraftSafely(rawText) {
   }
 }
 
+function pushHunkRange(dict, fileKey, start, end) {
+  if (!dict[fileKey]) {
+    dict[fileKey] = [];
+  }
+  const ranges = dict[fileKey];
+  const prev = ranges[ranges.length - 1];
+  if (prev && start <= prev.end + 1 && end >= prev.start) {
+    prev.end = Math.max(prev.end, end);
+    return;
+  }
+  ranges.push({ start, end });
+}
+
 /**
- * Internal unified diff parser returning both right-side changed hunks (for inline RIGHT anchors)
- * and left-side deletion hunks (for deleted files / pure-deletion hunks so diff evidence still counts).
+ * Internal unified diff parser returning right-side changed hunks (for inline RIGHT anchors),
+ * base-side deletion ranges (for deleted files and removed lines in context-bearing hunks),
+ * and the set of completely deleted files. Uses prototype-free dictionaries keyed by repo path.
  */
 function parseUnifiedDiffIndex(diffText) {
-  const rightHunks = {};
-  const deletionHunks = {};
+  const rightHunks = Object.create(null);
+  const deletionHunks = Object.create(null);
+  const deletedFiles = new Set();
   if (!diffText || typeof diffText !== 'string') {
-    return { rightHunks, deletionHunks };
+    return { rightHunks, deletionHunks, deletedFiles };
   }
   let currentFile = null;
   let currentLeftFile = null;
   let expectingPlusHeader = false;
   let inHunk = false;
+  let hunkLeftLine = 0;
+  let trackInlineDeletions = false;
   const lines = diffText.split(/\r?\n/);
 
   for (const line of lines) {
@@ -378,6 +445,7 @@ function parseUnifiedDiffIndex(diffText) {
       currentLeftFile = null;
       expectingPlusHeader = false;
       inHunk = false;
+      trackInlineDeletions = false;
     } else if (!inHunk && line.startsWith('--- ')) {
       expectingPlusHeader = true;
       const leftCandidate = line.slice(4).trim();
@@ -388,6 +456,9 @@ function parseUnifiedDiffIndex(diffText) {
       const candidate = line.slice(4).trim();
       if (candidate === '/dev/null') {
         currentFile = null;
+        if (currentLeftFile) {
+          deletedFiles.add(currentLeftFile);
+        }
       } else {
         currentFile = normalizePath(candidate);
         if (!rightHunks[currentFile]) {
@@ -396,6 +467,7 @@ function parseUnifiedDiffIndex(diffText) {
       }
     } else if (line.startsWith('@@ ')) {
       inHunk = true;
+      trackInlineDeletions = false;
       const hunkMatch = line.match(
         /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/,
       );
@@ -405,26 +477,40 @@ function parseUnifiedDiffIndex(diffText) {
         const rightStart = Number(hunkMatch[3]);
         const rightCount =
           hunkMatch[4] === undefined ? 1 : Number(hunkMatch[4]);
+        hunkLeftLine = leftStart;
         if (currentFile && rightCount > 0) {
           rightHunks[currentFile].push({
             start: rightStart,
             end: rightStart + rightCount - 1,
           });
         }
-        const delFile = currentFile || currentLeftFile;
-        if (delFile && leftCount > 0 && (!currentFile || rightCount === 0)) {
-          if (!deletionHunks[delFile]) {
-            deletionHunks[delFile] = [];
+        const delFile = currentLeftFile || currentFile;
+        if (delFile && leftCount > 0) {
+          if (!currentFile || rightCount === 0) {
+            pushHunkRange(
+              deletionHunks,
+              delFile,
+              leftStart,
+              leftStart + leftCount - 1,
+            );
+          } else {
+            trackInlineDeletions = true;
           }
-          deletionHunks[delFile].push({
-            start: leftStart,
-            end: leftStart + leftCount - 1,
-          });
         }
+      }
+    } else if (inHunk && trackInlineDeletions) {
+      const delFile = currentLeftFile || currentFile;
+      if (line.startsWith('-')) {
+        if (delFile && hunkLeftLine >= 1) {
+          pushHunkRange(deletionHunks, delFile, hunkLeftLine, hunkLeftLine);
+        }
+        hunkLeftLine += 1;
+      } else if (line.startsWith(' ')) {
+        hunkLeftLine += 1;
       }
     }
   }
-  return { rightHunks, deletionHunks };
+  return { rightHunks, deletionHunks, deletedFiles };
 }
 
 /**
@@ -515,6 +601,8 @@ function extractObservedProfile(prContext = {}) {
   const hasCrossPlatformSignals =
     !isRevert &&
     (platformFiles.length > 0 ||
+      CROSS_PLATFORM_TITLE_RE.test(title) ||
+      CROSS_PLATFORM_MIGRATION_HINT_RE.test(title) ||
       files.some((f) => CROSS_PLATFORM_MIGRATION_HINT_RE.test(f)) ||
       CROSS_PLATFORM_MIGRATION_HINT_RE.test(diffText));
 
@@ -658,8 +746,9 @@ function scoreFinding(finding, options = {}) {
   const {
     effectiveType = 'core_feature',
     observed = {},
-    fileHunks = {},
-    deletionHunks = {},
+    fileHunks = Object.create(null),
+    deletionHunks = Object.create(null),
+    deletedFiles = new Set(),
     hasDiff = false,
     repoRoot = null,
     existingThreads = [],
@@ -693,7 +782,8 @@ function scoreFinding(finding, options = {}) {
   if (
     A11Y_OR_MOTION_RE.test(combinedText) &&
     effectiveCategory !== 'a11y_or_motion' &&
-    !RECLASSIFY_EXEMPT_CATEGORIES.has(effectiveCategory)
+    !RECLASSIFY_EXEMPT_CATEGORIES.has(effectiveCategory) &&
+    !(severity === 'P0' && HIGH_RISK_SAFETY_CATEGORIES.has(effectiveCategory))
   ) {
     effectiveCategory = 'a11y_or_motion';
     reclassifiedReasons.push('reclassified_to_a11y_or_motion');
@@ -737,9 +827,14 @@ function scoreFinding(finding, options = {}) {
   let inDeletionHunk = false;
   if (hasDiff) {
     inDiffVerified = isLineInDiffHunks(fileHunks, anchorFile, anchorLine);
+    const isBaseSideLocation =
+      String(finding.side || evidence.side || '').toUpperCase() === 'LEFT' ||
+      deletedFiles.has(file) ||
+      deletedFiles.has(anchorFile);
     inDeletionHunk =
-      isLineInDiffHunks(deletionHunks, file, line) ||
-      isLineInDiffHunks(deletionHunks, anchorFile, anchorLine);
+      isBaseSideLocation &&
+      (isLineInDiffHunks(deletionHunks, file, line) ||
+        isLineInDiffHunks(deletionHunks, anchorFile, anchorLine));
   }
   const hasValidInlineAnchor =
     Boolean(anchorFile) && hasAnchorLine && inDiffVerified;
@@ -749,8 +844,8 @@ function scoreFinding(finding, options = {}) {
     Boolean(String(evidence.executionPath || '').trim()) ||
     Boolean(String(evidence.reproduction || '').trim());
   const isSpeculative =
-    SPECULATIVE_TITLE_RE.test(title) ||
-    (IMPERATIVE_CHECK_TITLE_RE.test(title) && !hasRawProof);
+    !hasRawProof &&
+    (SPECULATIVE_TITLE_RE.test(title) || IMPERATIVE_CHECK_TITLE_RE.test(title));
   const hasConcreteProof = !isSpeculative && hasRawProof;
 
   // Verify referenced repository files (codeReferences or existingReuseTargets) strictly inside repoRoot
@@ -927,7 +1022,11 @@ function scoreFinding(finding, options = {}) {
  */
 function evaluateReview(draft, prContext = {}, options = {}) {
   const mode = GATE_MODES.has(options.mode) ? options.mode : 'soft';
-  const inputErrors = [];
+  const inputErrors = Array.isArray(options.initialErrors)
+    ? options.initialErrors.filter(
+        (err) => isPlainObject(err) && typeof err.code === 'string',
+      )
+    : [];
 
   if (!isPlainObject(draft)) {
     inputErrors.push({
@@ -979,9 +1078,17 @@ function evaluateReview(draft, prContext = {}, options = {}) {
   );
   const diffText = String(safeContext.diffText || '');
   const hasDiff = diffText.trim().length > 0;
-  const { rightHunks: fileHunks, deletionHunks } = hasDiff
+  const {
+    rightHunks: fileHunks,
+    deletionHunks,
+    deletedFiles,
+  } = hasDiff
     ? parseUnifiedDiffIndex(diffText)
-    : { rightHunks: {}, deletionHunks: {} };
+    : {
+        rightHunks: Object.create(null),
+        deletionHunks: Object.create(null),
+        deletedFiles: new Set(),
+      };
 
   const rawFindings = Array.isArray(safeDraft.findings)
     ? safeDraft.findings
@@ -1004,6 +1111,7 @@ function evaluateReview(draft, prContext = {}, options = {}) {
       observed,
       fileHunks,
       deletionHunks,
+      deletedFiles,
       hasDiff,
       repoRoot: options.repoRoot || null,
       existingThreads: Array.isArray(safeContext.existingThreads)
@@ -1057,7 +1165,8 @@ function evaluateReview(draft, prContext = {}, options = {}) {
       !f.scoreBreakdown.isSpeculative &&
       ((f.severity === 'P0' &&
         (f.decision === 'PUBLISH' ||
-          f.signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE)) ||
+          f.signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE ||
+          f.scoreBreakdown.safetyValveApplied)) ||
         (f.severity === 'P1' &&
           f.confidence === 'high' &&
           f.signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE)),
@@ -1104,13 +1213,15 @@ function evaluateReview(draft, prContext = {}, options = {}) {
 }
 
 function formatInlineBody(f) {
-  const locationNote =
-    f.anchorFile !== f.file || f.anchorLine !== f.line
-      ? `> 实际缺陷位置：\`${f.file}${f.line ? `:${f.line}` : ''}\`\n`
-      : '';
+  const isAlternateAnchor = f.anchorFile !== f.file || f.anchorLine !== f.line;
+  const locationNote = isAlternateAnchor
+    ? `> 实际缺陷位置：\`${f.file}${f.line ? `:${f.line}` : ''}\`\n`
+    : '';
   let suggestionBlock = '';
   if (f.autoFix) {
-    suggestionBlock = `\n**建议修复:**\n\`\`\`suggestion\n${f.autoFix}\n\`\`\``;
+    suggestionBlock = isAlternateAnchor
+      ? `\n**建议修复（请应用至实际缺陷位置 \`${f.file}${f.line ? `:${f.line}` : ''}\`）:**\n\`\`\`\n${f.autoFix}\n\`\`\``
+      : `\n**建议修复:**\n\`\`\`suggestion\n${f.autoFix}\n\`\`\``;
   } else if (f.suggestedFix) {
     suggestionBlock = `\n**建议修复:** ${f.suggestedFix}`;
   }
@@ -1127,6 +1238,16 @@ function formatInlineBody(f) {
     .join('\n\n');
 }
 
+function canAttachInlineComment(f) {
+  return (
+    Boolean(f.duplicateOfThreadId) ||
+    (Boolean(f.anchorFile) &&
+      typeof f.anchorLine === 'number' &&
+      f.anchorLine >= 1 &&
+      Boolean(f.scoreBreakdown && f.scoreBreakdown.hasValidInlineAnchor))
+  );
+}
+
 function buildPublishPayload(result) {
   // In shadow mode, pass through all anchored findings while keeping unanchored ones separate (never trigger 422)
   const sourceItems =
@@ -1138,12 +1259,7 @@ function buildPublishPayload(result) {
   const unanchoredComments = [];
 
   for (const f of sourceItems) {
-    const canAttach =
-      Boolean(f.duplicateOfThreadId) ||
-      (Boolean(f.anchorFile) &&
-        typeof f.anchorLine === 'number' &&
-        f.anchorLine >= 1 &&
-        f.scoreBreakdown.hasValidInlineAnchor);
+    const canAttach = canAttachInlineComment(f);
 
     const entry = {
       action: f.publishAction || 'NEW_THREAD',
@@ -1187,6 +1303,17 @@ function renderMarkdownReport(result) {
     REQUEST_CHANGES: '❌ REQUEST_CHANGES（存在高分 P0/P1 阻塞项）',
   }[result.verdict];
 
+  const isShadow = result.mode === 'shadow';
+  const shadowSourceItems = isShadow
+    ? result.allScored || result.published || []
+    : [];
+  const shadowAnchoredCount = isShadow
+    ? shadowSourceItems.filter(canAttachInlineComment).length
+    : 0;
+  const shadowUnanchoredCount = isShadow
+    ? shadowSourceItems.length - shadowAnchoredCount
+    : 0;
+
   const lines = [];
   lines.push(
     `### 量化门禁评分附录${result.prNumber ? `（PR #${result.prNumber}）` : ''}`,
@@ -1195,9 +1322,18 @@ function renderMarkdownReport(result) {
   lines.push(
     `- **门禁模式**: \`${result.mode}\` | **PR 定性（已核验）**: \`${result.characterizationCheck.effectiveType}\` ${result.characterizationCheck.valid ? '✅' : '⚠️ (已按客观信号自动纠偏)'}`,
   );
-  lines.push(
-    `- **门禁筛选结果**: 候选 ${result.counts.totalCandidates} 条 → **发布 ${result.counts.published} 条** / 仅报告 ${result.counts.summaryOnly} 条 / 自动过滤 ${result.counts.dropped} 条`,
-  );
+  if (isShadow) {
+    lines.push(
+      `- **Shadow 透传结果**: 候选 ${result.counts.totalCandidates} 条 → **实际透传 ${shadowAnchoredCount} 条行内评论**（未锚定 ${shadowUnanchoredCount} 条不发内联）`,
+    );
+    lines.push(
+      `- **门禁模拟对照**: 建议发布 ${result.counts.published} 条 / 仅报告 ${result.counts.summaryOnly} 条 / 模拟过滤 ${result.counts.dropped} 条`,
+    );
+  } else {
+    lines.push(
+      `- **门禁筛选结果**: 候选 ${result.counts.totalCandidates} 条 → **发布 ${result.counts.published} 条** / 仅报告 ${result.counts.summaryOnly} 条 / 自动过滤 ${result.counts.dropped} 条`,
+    );
+  }
   lines.push(`- **门禁判定**: ${verdictLabel}`);
   lines.push('');
 
@@ -1214,9 +1350,17 @@ function renderMarkdownReport(result) {
 
   if (result.published.length === 0) {
     if (result.gateErrors.length === 0) {
-      lines.push(
-        '未发现达到行内发布阈值的高信噪比问题，本次发布 0 条行内评论。',
-      );
+      if (isShadow) {
+        lines.push(
+          shadowAnchoredCount > 0
+            ? `门禁模拟判定为 0 条达到发布阈值；当前 \`shadow\` 模式实际透传 ${shadowAnchoredCount} 条已锚定候选评论用于对照观察。`
+            : '未发现达到行内发布阈值的高信噪比问题，`shadow` 模式实际透传 0 条行内评论。',
+        );
+      } else {
+        lines.push(
+          '未发现达到行内发布阈值的高信噪比问题，本次发布 0 条行内评论。',
+        );
+      }
       lines.push('');
     }
   } else {
@@ -1241,7 +1385,9 @@ function renderMarkdownReport(result) {
   if (filteredCount > 0) {
     lines.push('<details>');
     lines.push(
-      `<summary>🔍 门禁未发内联评论明细（共 ${filteredCount} 条：仅报告 ${result.summaryOnly.length} 条 / 自动过滤 ${result.dropped.length} 条，点击展开核查）</summary>`,
+      isShadow
+        ? `<summary>🔍 门禁模拟未达内联阈值明细（共 ${filteredCount} 条：仅报告 ${result.summaryOnly.length} 条 / 模拟过滤 ${result.dropped.length} 条，点击展开核查）</summary>`
+        : `<summary>🔍 门禁未发内联评论明细（共 ${filteredCount} 条：仅报告 ${result.summaryOnly.length} 条 / 自动过滤 ${result.dropped.length} 条，点击展开核查）</summary>`,
     );
     lines.push('');
     if (result.summaryOnly.length > 0) {
@@ -1322,15 +1468,20 @@ function runCli(argv) {
   const rawDraftText = fs.readFileSync(args.input, 'utf8');
   const parsed = parseReviewDraftSafely(rawDraftText);
 
+  if (mode === 'strict' && (!parsed.ok || parsed.recoveredFromFence)) {
+    const reason = parsed.recoveredFromFence
+      ? 'Strict mode requires raw valid JSON without Markdown code fences or surrounding prose.'
+      : `Draft JSON parse failed: ${parsed.error}`;
+    process.stderr.write(`${reason}\n`);
+    process.exit(2);
+  }
+
   if (!parsed.ok) {
-    if (mode === 'strict') {
-      process.stderr.write(`Draft JSON parse failed: ${parsed.error}\n`);
-      process.exit(2);
-    }
     const fallbackResult = {
       mode,
       status: 'fallback_passthrough',
       gateErrors: [{ code: 'E_INVALID_DRAFT_JSON', message: parsed.error }],
+      rawDraft: rawDraftText,
       rawDraftPreview: rawDraftText.slice(0, 500),
     };
     if (typeof args['out-json'] === 'string') {
@@ -1342,7 +1493,7 @@ function runCli(argv) {
     if (typeof args['out-md'] === 'string') {
       fs.writeFileSync(
         args['out-md'],
-        `> ⚠️ Review score gate entered \`fallback_passthrough\` (${parsed.error}). Pipeline was not blocked.\n`,
+        `> ⚠️ Review score gate entered \`fallback_passthrough\` (${parsed.error}). Pipeline was not blocked; original draft preserved below.\n\n${rawDraftText}\n`,
       );
     }
     return;
@@ -1360,23 +1511,28 @@ function runCli(argv) {
   }
 
   let prContext = isPlainObject(draft.prContext) ? draft.prContext : {};
+  const contextErrors = [];
   if (typeof args.context === 'string' && args.context) {
     try {
       const parsedCtx = JSON.parse(fs.readFileSync(args.context, 'utf8'));
       if (!isPlainObject(parsedCtx)) {
+        const message = 'Context JSON must be a plain object.';
         if (mode === 'strict') {
-          process.stderr.write('Context JSON must be a plain object.\n');
+          process.stderr.write(`${message}\n`);
           process.exit(2);
         }
+        contextErrors.push({ code: 'E_INVALID_CONTEXT_JSON', message });
         prContext = {};
       } else {
         prContext = parsedCtx;
       }
     } catch (ctxErr) {
+      const message = `Context JSON parse failed: ${ctxErr.message}`;
       if (mode === 'strict') {
-        process.stderr.write(`Context JSON parse failed: ${ctxErr.message}\n`);
+        process.stderr.write(`${message}\n`);
         process.exit(2);
       }
+      contextErrors.push({ code: 'E_INVALID_CONTEXT_JSON', message });
       prContext = {};
     }
   }
@@ -1387,6 +1543,7 @@ function runCli(argv) {
   const result = evaluateReview(draft, prContext, {
     repoRoot: typeof args.repo === 'string' ? args.repo : process.cwd(),
     mode,
+    initialErrors: contextErrors,
   });
 
   // In strict mode, fail before writing any output files

@@ -148,6 +148,7 @@ jobs:
           development/scripts/command-batches.node-test.js
           development/scripts/check-bloat.test.mjs
           development/scripts/fonts-sync.node-test.js
+          development/scripts/review-score-gate.node-test.js
           development/scripts/run-ios-account-switch-heating-repro.node-test.js
           development/scripts/tamagui-animation-initial-style.node-test.js
           development/lint/eslint.node-test.js

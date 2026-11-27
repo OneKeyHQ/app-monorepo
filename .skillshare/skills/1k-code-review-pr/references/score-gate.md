@@ -16,25 +16,31 @@ node development/scripts/review-score-gate.js evaluate \
 ```
 
 ### Progressive Rollout Modes (`--mode`)
+
 - **`shadow`** (pilot week 1–2): Fail-open (`exit 0`), passes all anchored candidates through while recording side-by-side gate scores and separating unanchored items so GitHub API calls never 422.
-- **`soft`** (default): Fail-open (`exit 0`), auto-corrects mismatched PR characterization using observed signals, preserves non-speculative high-risk P0s via safety valve, and folds filtered findings into a collapsible `<details>` audit drawer so zero findings are silently lost.
-- **`strict`**: Requires independently collected `--context` and an explicit `findings` array; exits with code `2` **before** writing any output files on invalid JSON, context mismatch, or characterization mismatch.
+- **`soft`** (default): Fail-open (`exit 0`), preserves full raw draft on `fallback_passthrough`, auto-corrects mismatched PR characterization using observed signals, preserves non-speculative high-risk P0s via safety valve, and folds filtered findings into a collapsible `<details>` audit drawer so zero findings are silently lost.
+- **`strict`**: Requires raw valid JSON (no Markdown fences/prose), independently collected `--context`, and an explicit `findings` array; exits with code `2` **before** writing any output files on invalid JSON, context mismatch, or characterization mismatch.
 
 ## Input Schemas
 
 ### `--context` (`pr-context.json`)
+
 Collected independently (compatible with `gh pr view --json number,title,body,headRefOid,labels,files`):
+
 - `prNumber` (or `number`): PR number (source of truth; conflicts with draft raise `E_CONTEXT_MISMATCH`)
 - `headSha` (or `headRefOid`): PR head commit SHA (source of truth)
 - `title`, `body`: PR title and description
 - `labels`: `string[]` or `Array<{ name: string }>`
 - `files`: `string[]` or `Array<{ path: string }>`
 - `existingAutoThreadCount`, `reviewRound`, `existingThreads` (`Array<{ id, isResolved, path, title?, body? }>`)
+  - Note: `gh pr view --json ...` does not return `existingThreads`. Before relying on `REPLY_THREAD` routing, merge open review threads from `gh api graphql` (`pullRequest.reviewThreads` with `id`, `isResolved`, `path`, and first comment `body`) into `--context`.
 
 ### `--input` (`review-draft.json`)
+
 Produced by the reviewer:
+
 - `characterization`: `{ type: "revert" | "deps_or_ci" | "cross_platform_migration" | "core_feature" | "targeted_bugfix" | "general", summary: string, focusAreas: string[] }`
-- `findings`: array of `{ severity: "P0"|"P1"|"P2", confidence: "🔵 High"|"🟠 Medium"|"⚪ Low" (or "high"|"medium"|"low"), category, file, line, anchorFile?, anchorLine?, isPreExisting?, existingThreadId?, title, problem, impact?, suggestedFix?, autoFix?, evidence: { inDiff?, executionPath?, reproduction?, existingReuseTargets?, codeReferences? } }`
+- `findings`: array of `{ severity: "P0"|"P1"|"P2", confidence: "🔵 High"|"🟠 Medium"|"⚪ Low" (or "high"|"medium"|"low"), category, file, line, side?: "RIGHT"|"LEFT", anchorFile?, anchorLine?, isPreExisting?, existingThreadId?, title, problem, impact?, suggestedFix?, autoFix?, evidence: { inDiff?, side?: "RIGHT"|"LEFT", executionPath?, reproduction?, existingReuseTargets?, codeReferences? } }`
 - Valid `category` values: `security`, `funds_loss`, `crash`, `build_registry`, `cross_platform_divergence`, `half_migration`, `code_duplication`, `concurrency_race`, `data_corruption`, `runtime_boundary`, `memory_leak`, `error_handling`, `performance`, `edge_case`, `a11y_or_motion`, `ui_polish`, `style_nit`.
 
 ## Scoring Model & Publishing Rules

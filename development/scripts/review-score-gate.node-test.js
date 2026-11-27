@@ -1,6 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
 const test = require('node:test');
 const path = require('path');
 
@@ -625,4 +628,430 @@ test('scores deleted-file and pure-deletion-hunk findings without pre_existing p
     { mode: 'soft' },
   );
   assert.equal(nullCtxResult.counts.published, 0);
+});
+
+test('low-score safety-valve P0 drives REQUEST_CHANGES and P0 cross_platform_divergence mentioning keyboard focus is not reclassified', () => {
+  const prContext = {
+    prNumber: 15_010,
+    title: 'revert: restore previous hardware signing modal',
+    files: ['packages/kit/src/views/Hardware/ConfirmModal.native.tsx'],
+  };
+
+  const result = evaluateReview(
+    {
+      prNumber: 15_010,
+      characterization: {
+        type: 'revert',
+        summary: 'Revert hardware signing modal to previous implementation',
+        focusAreas: ['cross_platform_consistency'],
+      },
+      findings: [
+        {
+          severity: 'P0',
+          confidence: 'medium',
+          category: 'cross_platform_divergence',
+          file: 'packages/kit/src/views/Hardware/ConfirmModal.native.tsx',
+          line: 42,
+          isPreExisting: false,
+          title:
+            'Desktop confirm handler diverges on keyboard focus submit path',
+          problem:
+            'Reverting only native leaves desktop keyboard focus handler submitting an unverified signing payload.',
+          evidence: {},
+        },
+      ],
+    },
+    prContext,
+    { mode: 'soft' },
+  );
+
+  assert.equal(result.counts.published, 0);
+  assert.equal(result.counts.summaryOnly, 1);
+  const rescued = result.summaryOnly[0];
+  assert.equal(rescued.effectiveCategory, 'cross_platform_divergence');
+  assert.deepEqual(rescued.scoreBreakdown.reclassifiedReasons, []);
+  assert.ok(rescued.signalScore < 50);
+  assert.equal(rescued.scoreBreakdown.safetyValveApplied, true);
+  assert.equal(result.verdict, 'REQUEST_CHANGES');
+});
+
+test('parseReviewDraftSafely extracts fenced JSON with embedded triple backticks and prose braces', () => {
+  const embeddedFix = 'Wrap handler:\n```ts\nconst ok = true;\n```';
+  const payload = {
+    prNumber: 15_011,
+    characterization: {
+      type: 'targeted_bugfix',
+      summary: 'Fix handler',
+      focusAreas: ['correctness'],
+    },
+    findings: [
+      {
+        severity: 'P1',
+        confidence: 'high',
+        category: 'crash',
+        file: 'packages/kit/src/index.ts',
+        line: 10,
+        title: 'Guard null state',
+        problem: 'Null dereference on empty state.',
+        suggestedFix: embeddedFix,
+      },
+    ],
+  };
+  const raw = [
+    'Review notes {not json here} before fence:',
+    '```json',
+    JSON.stringify(payload, null, 2),
+    '```',
+    'Trailing note {also not json}.',
+  ].join('\n');
+
+  const parsed = parseReviewDraftSafely(raw);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.recoveredFromFence, true);
+  assert.equal(parsed.draft.prNumber, 15_011);
+  assert.equal(parsed.draft.findings[0].suggestedFix, embeddedFix);
+});
+
+test('renderMarkdownReport in shadow mode distinguishes actual passthrough from simulated gate counts', () => {
+  const diff = [
+    'diff --git a/packages/kit/src/views/Toast.tsx b/packages/kit/src/views/Toast.tsx',
+    '--- a/packages/kit/src/views/Toast.tsx',
+    '+++ b/packages/kit/src/views/Toast.tsx',
+    '@@ -10,2 +10,5 @@',
+    '+const visible = true;',
+  ].join('\n');
+
+  const result = evaluateReview(
+    {
+      prNumber: 15_012,
+      characterization: {
+        type: 'targeted_bugfix',
+        summary: 'Adjust toast visibility flag',
+        focusAreas: ['correctness'],
+      },
+      findings: [
+        {
+          severity: 'P2',
+          confidence: 'high',
+          category: 'style_nit',
+          file: 'packages/kit/src/views/Toast.tsx',
+          line: 12,
+          title: 'Prefer descriptive boolean name',
+          problem: 'Minor naming nit inside changed hunk.',
+          evidence: { inDiff: true },
+        },
+      ],
+    },
+    {
+      prNumber: 15_012,
+      title: 'fix: adjust toast visibility',
+      files: ['packages/kit/src/views/Toast.tsx'],
+      diffText: diff,
+    },
+    { mode: 'shadow' },
+  );
+
+  const payload = buildPublishPayload(result);
+  assert.equal(payload.comments.length, 1);
+  assert.equal(result.counts.published, 0);
+  assert.equal(result.counts.dropped, 1);
+
+  const md = renderMarkdownReport(result);
+  assert.match(md, /实际透传 1 条行内评论/);
+  assert.match(md, /建议发布 0 条 \/ 仅报告 0 条 \/ 模拟过滤 1 条/);
+  assert.doesNotMatch(md, /本次发布 0 条行内评论/);
+});
+
+test('CLI handles strict fenced rejection, soft fallback full draft preservation, and invalid context JSON recording', () => {
+  const scriptPath = path.join(__dirname, 'review-score-gate.js');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-score-gate-'));
+
+  try {
+    const validDraft = {
+      prNumber: 15_013,
+      characterization: {
+        type: 'targeted_bugfix',
+        summary: 'Fix cache invalidation',
+        focusAreas: ['correctness'],
+      },
+      findings: [],
+    };
+    const validContext = {
+      prNumber: 15_013,
+      title: 'fix: invalidate stale cache',
+      files: ['packages/kit/src/cache.ts'],
+    };
+
+    // 1. --mode strict rejects fenced JSON with exit 2 and writes no output files
+    const fencedDraftPath = path.join(tmpDir, 'fenced-draft.json');
+    const contextPath = path.join(tmpDir, 'context.json');
+    const strictOutJson = path.join(tmpDir, 'strict-out.json');
+    const strictOutMd = path.join(tmpDir, 'strict-out.md');
+    fs.writeFileSync(
+      fencedDraftPath,
+      `\`\`\`json\n${JSON.stringify(validDraft)}\n\`\`\`\n`,
+    );
+    fs.writeFileSync(contextPath, JSON.stringify(validContext));
+
+    const strictRun = spawnSync(
+      process.execPath,
+      [
+        scriptPath,
+        'evaluate',
+        '--input',
+        fencedDraftPath,
+        '--context',
+        contextPath,
+        '--mode',
+        'strict',
+        '--out-json',
+        strictOutJson,
+        '--out-md',
+        strictOutMd,
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.equal(strictRun.status, 2);
+    assert.match(strictRun.stderr, /raw valid JSON/i);
+    assert.equal(fs.existsSync(strictOutJson), false);
+    assert.equal(fs.existsSync(strictOutMd), false);
+
+    // 2. --mode soft with unparseable JSON exits 0 and preserves full rawDraft (> 500 chars)
+    const tailMarker = 'END_OF_LONG_UNPARSEABLE_DRAFT_MARKER';
+    const longBrokenDraft = `${'Review prose without JSON. '.repeat(30)}${tailMarker}`;
+    assert.ok(longBrokenDraft.length > 500);
+    const brokenDraftPath = path.join(tmpDir, 'broken-draft.txt');
+    const fallbackOutJson = path.join(tmpDir, 'fallback-out.json');
+    const fallbackOutMd = path.join(tmpDir, 'fallback-out.md');
+    fs.writeFileSync(brokenDraftPath, longBrokenDraft);
+
+    const fallbackRun = spawnSync(
+      process.execPath,
+      [
+        scriptPath,
+        'evaluate',
+        '--input',
+        brokenDraftPath,
+        '--mode',
+        'soft',
+        '--out-json',
+        fallbackOutJson,
+        '--out-md',
+        fallbackOutMd,
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.equal(fallbackRun.status, 0);
+    const fallbackJson = JSON.parse(fs.readFileSync(fallbackOutJson, 'utf8'));
+    assert.equal(fallbackJson.status, 'fallback_passthrough');
+    assert.equal(fallbackJson.rawDraft, longBrokenDraft);
+    assert.equal(fallbackJson.rawDraftPreview, longBrokenDraft.slice(0, 500));
+    const fallbackMd = fs.readFileSync(fallbackOutMd, 'utf8');
+    assert.ok(fallbackMd.includes(tailMarker));
+
+    // 3. --mode soft with invalid --context JSON exits 0 and records E_INVALID_CONTEXT_JSON
+    const rawDraftPath = path.join(tmpDir, 'valid-draft.json');
+    const badContextPath = path.join(tmpDir, 'bad-context.json');
+    const badCtxOutJson = path.join(tmpDir, 'bad-ctx-out.json');
+    fs.writeFileSync(rawDraftPath, JSON.stringify(validDraft));
+    fs.writeFileSync(badContextPath, '{invalid json');
+
+    const badCtxRun = spawnSync(
+      process.execPath,
+      [
+        scriptPath,
+        'evaluate',
+        '--input',
+        rawDraftPath,
+        '--context',
+        badContextPath,
+        '--mode',
+        'soft',
+        '--out-json',
+        badCtxOutJson,
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.equal(badCtxRun.status, 0);
+    const badCtxJson = JSON.parse(fs.readFileSync(badCtxOutJson, 'utf8'));
+    assert.equal(badCtxJson.status, 'validation_errors');
+    assert.equal(badCtxJson.verdict, 'COMMENT');
+    assert.ok(
+      badCtxJson.gateErrors.some((e) => e.code === 'E_INVALID_CONTEXT_JSON'),
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('addresses unresolved PR review threads: exact confidence, proven Check-that P0, alternate-anchor autoFix, title cross-platform signal, deletion hunks, git-quoted paths, and prototype-safe keys', () => {
+  // 1. Exact confidence matching avoids substring false-positives
+  assert.equal(parseConfidence('🟠 Medium (high impact)'), 'low');
+  assert.equal(parseConfidence('  🔵   High '), 'high');
+  assert.equal(parseConfidence('🟠 Medium'), 'medium');
+
+  // 2. Context-bearing deletion hunk, prototype-keyed deleted file ('toString'), and Git-quoted UTF-8 path
+  const diff = [
+    'diff --git a/toString b/toString',
+    '--- a/toString',
+    '+++ /dev/null',
+    '@@ -1,2 +0,0 @@',
+    '-deleted line 1',
+    '-deleted line 2',
+    'diff --git "a/packages/kit/src/\\344\\270\\255\\346\\226\\207.ts" "b/packages/kit/src/\\344\\270\\255\\346\\226\\207.ts"',
+    '--- "a/packages/kit/src/\\344\\270\\255\\346\\226\\207.ts"',
+    '+++ /dev/null',
+    '@@ -1,2 +0,0 @@',
+    '-export const removed = true;',
+    'diff --git a/packages/kit/src/shared/auth.ts b/packages/kit/src/shared/auth.ts',
+    '--- a/packages/kit/src/shared/auth.ts',
+    '+++ b/packages/kit/src/shared/auth.ts',
+    '@@ -10,4 +10,3 @@',
+    ' const a = 1;',
+    '-verifyOrigin(req);',
+    ' const b = 2;',
+    ' const c = 3;',
+  ].join('\n');
+
+  const prContext = {
+    number: 15_020,
+    headRefOid: 'sha_15020',
+    title: 'feat: cross-platform migration for shared auth guard',
+    files: [
+      'toString',
+      'packages/kit/src/中文.ts',
+      'packages/kit/src/shared/auth.ts',
+    ],
+    diffText: diff,
+  };
+
+  const observed = extractObservedProfile(prContext);
+  assert.equal(observed.hasCrossPlatformSignals, true);
+
+  const result = evaluateReview(
+    {
+      prNumber: 15_020,
+      headSha: 'sha_15020',
+      characterization: {
+        type: 'cross_platform_migration',
+        summary: 'Migrate shared auth guard across platforms',
+        focusAreas: ['security', 'half_migration'],
+      },
+      findings: [
+        {
+          // Proven P0 titled "Check that ..." must NOT be marked speculative
+          severity: 'P0',
+          confidence: '🔵 High',
+          category: 'security',
+          file: 'packages/kit/src/shared/auth.ts',
+          line: 11,
+          side: 'LEFT',
+          anchorFile: 'packages/kit/src/shared/auth.ts',
+          anchorLine: 10, // alternate anchor -> autoFix must NOT render as ```suggestion
+          title:
+            'Check that origin verification is not removed during auth migration',
+          problem:
+            'Removing verifyOrigin(req) allows untrusted origins to call sign().',
+          autoFix: 'verifyOrigin(req);',
+          evidence: {
+            reproduction:
+              'Call sign() from untrusted origin after line 11 deletion',
+          },
+        },
+        {
+          // Deleted UTF-8 Git-quoted file should gain deletion evidence
+          severity: 'P0',
+          confidence: 'high',
+          category: 'crash',
+          file: 'packages/kit/src/中文.ts',
+          line: 1,
+          title: 'Deleted Chinese module still imported at startup',
+          problem: 'App throws module-not-found for removed file.',
+          evidence: {
+            executionPath: 'App entry imports packages/kit/src/中文.ts',
+          },
+        },
+        {
+          // Surviving file right-side finding at line 11 (outside right hunk if line 99, or same line 11 without side:LEFT)
+          // Line 11 is in rightHunks (10..12), so test line 50 in surviving file with no rightHunk and no side:LEFT
+          severity: 'P1',
+          confidence: 'high',
+          category: 'error_handling',
+          file: 'packages/kit/src/shared/auth.ts',
+          line: 11,
+          anchorFile: 'packages/kit/src/shared/auth.ts',
+          anchorLine: 50,
+          title:
+            'Right-side finding without LEFT side does not get deletion credit on line 11',
+          problem: 'Unchanged line 50 should not match deleted base line 11.',
+          evidence: {
+            executionPath: 'Line 50 runs independently',
+          },
+        },
+      ],
+    },
+    prContext,
+    { mode: 'soft' },
+  );
+
+  // Proven "Check that ..." P0 is published and uses non-suggestion code block because anchorLine !== line
+  assert.equal(result.counts.published, 1);
+  assert.equal(result.published[0].scoreBreakdown.isSpeculative, false);
+  const payload = buildPublishPayload(result);
+  assert.equal(payload.comments.length, 1);
+  assert.doesNotMatch(payload.comments[0].body, /```suggestion/);
+  assert.match(payload.comments[0].body, /verifyOrigin\(req\);/);
+
+  // Deleted Git-quoted UTF-8 file gained in_deletion_diff(+15)
+  const deletedUtf8Finding = result.summaryOnly.find(
+    (f) => f.file === 'packages/kit/src/中文.ts',
+  );
+  assert.ok(deletedUtf8Finding);
+  assert.ok(
+    deletedUtf8Finding.scoreBreakdown.evidenceNotes.includes(
+      'in_deletion_diff(+15)',
+    ),
+  );
+
+  // Right-side finding without side:'LEFT' did NOT get deletion evidence
+  const rightSideFinding = result.allScored.find((f) => f.anchorLine === 50);
+  assert.ok(rightSideFinding);
+  assert.equal(
+    rightSideFinding.scoreBreakdown.evidenceNotes.includes(
+      'in_deletion_diff(+15)',
+    ),
+    false,
+  );
+
+  // Backslash + pipe escaping in Markdown table cells (CodeQL incomplete escaping)
+  const md = renderMarkdownReport(
+    evaluateReview(
+      {
+        prNumber: 15_021,
+        characterization: {
+          type: 'core_feature',
+          summary: 'Escape test',
+          focusAreas: ['security'],
+        },
+        findings: [
+          {
+            severity: 'P0',
+            confidence: 'high',
+            category: 'security',
+            file: 'packages/kit/src/shared/auth.ts',
+            line: 10,
+            title: 'Handle raw \\| pipe escape safely',
+            problem: 'Contains backslash and pipe.',
+            evidence: { inDiff: true, executionPath: 'concrete path' },
+          },
+        ],
+      },
+      {
+        number: 15_021,
+        title: 'feat: escape test',
+        files: ['packages/kit/src/shared/auth.ts'],
+      },
+    ),
+  );
+  assert.ok(md.includes('Handle raw \\\\\\| pipe escape safely'));
 });
