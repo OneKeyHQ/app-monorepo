@@ -42,6 +42,24 @@ import type { ICloudBackupAvailabilityOptions } from './checkCloudBackupAvailabi
 
 let isBackupErrorDialogShowing = false;
 
+// Activity check for the screen that starts a launch. Until dispose(), it
+// turns false on the first navigation away and stays false, so coming back
+// cannot resume the launch. After dispose(), it only checks that the screen is
+// still current, which is all a lingering sign-in prompt needs.
+export function watchRouteLeave() {
+  const rootNavigation = rootNavigationRef.current;
+  if (!rootNavigation) return { isActive: () => true, dispose: () => {} };
+  const routeKey = rootNavigation.getCurrentRoute()?.key;
+  let left = false;
+  const dispose = rootNavigation.addListener('state', () => {
+    if (rootNavigation.getCurrentRoute()?.key !== routeKey) left = true;
+  });
+  return {
+    isActive: () => !left && rootNavigation.getCurrentRoute()?.key === routeKey,
+    dispose,
+  };
+}
+
 export function useCloudBackup() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -87,45 +105,75 @@ export function useCloudBackup() {
     [intl, supportCloudBackup],
   );
 
+  const backupListLaunchPending = useRef(false);
   const goToPageBackupList = useCallback(
-    async ({ hideRestoreButton }: { hideRestoreButton?: boolean } = {}) => {
-      const isAvailable = await checkIsAvailable();
-      if (isAvailable) {
-        if (platformEnv.isNativeAndroid) {
-          await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-        }
-        navigation.navigate(ERootRoutes.Onboarding, {
-          screen: EOnboardingV2Routes.OnboardingV2,
-          params: {
-            screen: EOnboardingPagesV2.ICloudBackup,
+    async ({
+      hideRestoreButton,
+      isActive = () => true,
+      beforeNavigate,
+    }: {
+      hideRestoreButton?: boolean;
+      // Whether the screen that started this is still where the user is.
+      isActive?: () => boolean;
+      // Lets a source such as Settings close itself only after sign-in
+      // prompts have finished, so the user is not left behind on Home.
+      beforeNavigate?: () => void;
+    } = {}) => {
+      if (backupListLaunchPending.current) return;
+      backupListLaunchPending.current = true;
+      try {
+        const isAvailable = await checkIsAvailable({ isActive });
+        if (isAvailable) {
+          if (platformEnv.isNativeAndroid) {
+            await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+          }
+          // The user may have moved on while sign-in was pending.
+          if (!isActive()) return;
+          beforeNavigate?.();
+          navigation.navigate(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
             params: {
-              hideRestoreButton,
+              screen: EOnboardingPagesV2.ICloudBackup,
+              params: {
+                hideRestoreButton,
+              },
             },
-          },
-        });
-        defaultLogger.account.wallet.addWalletStarted({
-          addMethod: 'ImportWallet',
-          details: {
-            importType: 'cloud',
-          },
-          isSoftwareWalletOnlyUser: true,
-        });
+          });
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'ImportWallet',
+            details: {
+              importType: 'cloud',
+            },
+            isSoftwareWalletOnlyUser: true,
+          });
+        }
+      } finally {
+        backupListLaunchPending.current = false;
       }
     },
     [checkIsAvailable, navigation],
   );
 
   // The destination page owns authorization after an explicit navigation handoff.
-  const prepareBackup = useCallback(async () => {
-    const isAvailable = await checkIsAvailable({
-      isActive: () => isMountedRef.current,
-      signInIfNeeded: true,
-    });
-    if (!isAvailable || !isMountedRef.current) return undefined;
-    const data =
-      await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
-    return isMountedRef.current ? data : undefined;
-  }, [checkIsAvailable, isMountedRef]);
+  const prepareBackup = useCallback(
+    async ({
+      onCloudReady,
+    }: {
+      // Marks that later failures come from reading local wallet data.
+      onCloudReady?: () => void;
+    } = {}) => {
+      const isAvailable = await checkIsAvailable({
+        isActive: () => isMountedRef.current,
+        signInIfNeeded: true,
+      });
+      if (!isAvailable || !isMountedRef.current) return undefined;
+      onCloudReady?.();
+      const data =
+        await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+      return isMountedRef.current ? data : undefined;
+    },
+    [checkIsAvailable, isMountedRef],
+  );
 
   const doBackup = useThrottledCallback(
     async ({

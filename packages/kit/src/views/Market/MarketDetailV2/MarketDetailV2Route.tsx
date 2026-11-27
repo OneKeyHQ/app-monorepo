@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { memo, useLayoutEffect, useRef } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
@@ -12,7 +13,9 @@ import {
   LazyLoadPage,
   LazyLoadPageBackdrop,
 } from '../../../components/LazyLoadPage';
+import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
 
+import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import {
   getPreloadedMarketDetailV2Shell,
   loadMarketDetailV2Shell,
@@ -35,18 +38,28 @@ export function createMarketDetailV2Route(
 
   function MarketDetailV2Route(props: IMarketDetailV2RouteProps) {
     const { params } = props.route;
+    const tabBarVisibilityManagedByRoute = Boolean(platformEnv.isNativeAndroid);
+    useMarketDetailTabBarVisibility(
+      tabBarVisibilityManagedByRoute,
+      finishMarketDetailTabBarTransition,
+    );
     const preloadedShell = getPreloadedMarketDetailV2Shell()?.default;
     const lastRenderedShell = useRef(preloadedShell);
     const hasRenderedAssetPreview = useRef(false);
+    const openedFromNativeMarketList = useRef(
+      platformEnv.isNative &&
+        !platformEnv.isNativeIOSPad &&
+        params.from === EEnterWay.MarketList,
+    );
     const isPendingAsset =
       'pendingMarketAsset' in params && Boolean(params.pendingMarketAsset);
     const shouldKeepComponentTypeStable =
       platformEnv.isDesktop ||
       platformEnv.isWeb ||
+      openedFromNativeMarketList.current ||
       isPendingAsset ||
       hasRenderedAssetPreview.current;
-    // A pending asset can arrive after a native route has switched to the
-    // preloaded shell. Preserve the component already mounted for that route.
+    // Keep an already mounted detail when preload or asset resolution finishes.
     const PreloadedMarketDetailV2 = shouldKeepComponentTypeStable
       ? lastRenderedShell.current
       : preloadedShell;
@@ -58,8 +71,9 @@ export function createMarketDetailV2Route(
       }
     }, [PreloadedMarketDetailV2, isPendingAsset]);
 
+    const detailProps = { ...props, tabBarVisibilityManagedByRoute };
     if (PreloadedMarketDetailV2) {
-      const content = <PreloadedMarketDetailV2 {...props} />;
+      const content = <PreloadedMarketDetailV2 {...detailProps} />;
       // Rendering the preloaded shell directly also skips LazyLoadPage's
       // backdrop. Without it, the square stack card background shows around
       // the rounded corners of the desktop-mode BasicPage card.
@@ -70,7 +84,7 @@ export function createMarketDetailV2Route(
       );
     }
 
-    return <LazyMarketDetailV2Route {...props} />;
+    return <LazyMarketDetailV2Route {...detailProps} />;
   }
 
   return memo(MarketDetailV2Route) as ComponentType<IMarketDetailV2RouteProps>;
