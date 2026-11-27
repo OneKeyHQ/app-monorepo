@@ -842,7 +842,8 @@ struct MarketWidgetStore {
             .resourceValues(forKeys: [.contentModificationDateKey]),
           let updatedAt = values.contentModificationDate else { return false }
     // Successful detail responses can omit a logo; avoid retrying on every editor refresh.
-    return Date().timeIntervalSince(updatedAt) < 300
+    let age = Date().timeIntervalSince(updatedAt)
+    return age >= 0 && age < 300
   }
 
   func saveProfile(json: String) throws -> MarketWidgetProfile {

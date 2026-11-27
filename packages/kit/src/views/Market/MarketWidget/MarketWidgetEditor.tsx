@@ -359,6 +359,7 @@ const MarketWidgetEditorForm = ({
                     <Token
                       size="lg"
                       tokenImageUri={
+                        item.logoURL ||
                         getMarketWidgetDisplayAsset({
                           asset: item,
                           state: editor.state,

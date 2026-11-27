@@ -1396,6 +1396,10 @@ struct MarketWidgetDataTests {
       "Successful details without a logo are reused across editor refreshes and store instances")
     let metadataFile = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
       .first { $0.lastPathComponent.hasPrefix("metadata-") }!
+    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(3600)], ofItemAtPath: metadataFile.path)
+    await MarketWidgetService.prepareEditorMetadata(store: store, session: session)
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2,
+      "Moving the device clock backward cannot extend the missing-logo retry interval")
     try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-301)], ofItemAtPath: metadataFile.path)
     MarketWidgetTestURLProtocol.configure { _ in
       json(#"{"code":0,"data":{"asset":{"assetId":"btc","symbol":"BTC","name":"Bitcoin","logoUrl":"https://coin-images.coingecko.com/bitcoin.png"},"market":{"price":"1"}}}"#)
