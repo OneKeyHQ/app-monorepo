@@ -1,3 +1,4 @@
+/* cspell:ignore sigdata */
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, orderBy } from 'lodash';
@@ -36,6 +37,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { composePrivacyChainBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { mapStrk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -62,6 +64,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IOnChainHistoryTx,
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
@@ -79,6 +82,7 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
+import { EStrk20OptInStatus } from '@onekeyhq/shared/types/starknetPrivacy';
 import type {
   IAccountToken,
   IFetchTokenDetailItem,
@@ -97,6 +101,10 @@ import {
 
 import { VaultBase } from '../../base/VaultBase';
 import { fetchLocalWalletNativeTokenQuote } from '../../localWallet/nativeTokenPrice';
+import {
+  applyComposedBalancesToBackendTokenList,
+  toLocalWalletTokenPrice,
+} from '../../localWallet/tokenList';
 import { ESignedTxBroadcastStatus } from '../../types';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -109,11 +117,18 @@ import {
   STARKNET_PRESET_TOKENS,
   ZERO_SIGNATURE,
 } from './sdkStarknet';
-import { ERC20_ENTRYPOINT, STRK_TOKEN_ADDRESS } from './sdkStarknet/consts';
+import {
+  ERC20_ENTRYPOINT,
+  STRK20_PRIVACY_CONFIG,
+  STRK_TOKEN_ADDRESS,
+} from './sdkStarknet/consts';
 import {
   assertStarknetPrivacyBuildIsFresh,
   buildStarknetPrivacyDecodedAction,
+  localizeStarknetOnChainHistoryAction,
   noteStarknetPrivacyBroadcastSubmitted,
+  redactStarknetPrivacyHistoryTx,
+  resolveStarknetOnChainHistoryExtraInfo,
 } from './starknetPrivacyVaultHelper';
 import {
   buildErc20TransferCall,
@@ -388,6 +403,43 @@ export default class Vault extends VaultBase {
     return encodedTx.deployAccount
       ? this.buildUnsignedTx({ encodedTx })
       : undefined;
+  }
+
+  async buildDappInvokeEncodedTx(params: {
+    calls: IStarknetCall[];
+  }): Promise<IEncodedTxStarknet> {
+    return this._assembleEncodedTx({
+      from: await this.getAccountAddress(),
+      calls: params.calls,
+    });
+  }
+
+  async getAccountDeploymentData(): Promise<
+    | {
+        address: string;
+        class_hash: string;
+        salt: string;
+        calldata: string[];
+        sigdata: string[];
+        version: 1;
+      }
+    | undefined
+  > {
+    const from = await this.getAccountAddress();
+    const client = await this.getClient();
+    const isDeployed = await client.isAccountDeployed(from, 'latest');
+    if (isDeployed) {
+      return undefined;
+    }
+    const deployParams = await this._getAccountDeployParams(from);
+    return {
+      address: from,
+      class_hash: deployParams.classHash,
+      salt: deployParams.addressSalt,
+      calldata: deployParams.constructorCalldata,
+      sigdata: [],
+      version: 1,
+    };
   }
 
   private async _assembleEncodedTx(params: {
@@ -994,35 +1046,11 @@ export default class Vault extends VaultBase {
             ),
         );
       if (privacyKind === 'deposit' || privacyKind === 'withdraw') {
-        const publicSide = appLocale.intl.formatMessage({
-          id: ETranslations.privacy_balance_public__title,
-        });
-        const privateSide = appLocale.intl.formatMessage({
-          id: ETranslations.privacy_history_shielded__title,
-        });
-        const direction: IDisplayComponent[] = [
-          {
-            type: EParseTxComponentType.Default,
-            label: appLocale.intl.formatMessage({
-              id: ETranslations.global_from,
-            }),
-            value: privacyKind === 'deposit' ? publicSide : privateSide,
-          },
-          {
-            type: EParseTxComponentType.Default,
-            label: appLocale.intl.formatMessage({
-              id: ETranslations.global_to,
-            }),
-            value: privacyKind === 'deposit' ? privateSide : publicSide,
-          },
-        ];
-        components = [
-          typeComponent,
-          ...direction,
-          ...components.filter(
-            (component) => component.type !== EParseTxComponentType.Address,
-          ),
-        ];
+        // The modal title already states the direction (self public <-> private),
+        // so omit redundant Type / From / To rows and the internal pool address.
+        components = components.filter(
+          (component) => component.type !== EParseTxComponentType.Address,
+        );
       } else {
         components = [typeComponent, ...components];
       }
@@ -1066,6 +1094,30 @@ export default class Vault extends VaultBase {
     });
   }
 
+  private async _resolveDecodedTokenMetadata(tokenAddress: string) {
+    const base = await this._getTokenMetadataCache(tokenAddress);
+    if (base.logoURI) {
+      return base;
+    }
+    try {
+      const token = await this.backgroundApi?.serviceToken?.getToken?.({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        tokenIdOnNetwork: tokenAddress,
+        tokenInfoOnly: true,
+      });
+      if (token?.logoURI) {
+        return {
+          ...base,
+          logoURI: token.logoURI,
+        };
+      }
+    } catch {
+      // Keep RPC/preset metadata if token service lookup fails.
+    }
+    return base;
+  }
+
   /**
    * register has no asset movement; the other three do, and the counterparty is
    * the pool on a deposit and on a withdraw's shielded leg.
@@ -1078,7 +1130,7 @@ export default class Vault extends VaultBase {
       encodedTx,
       privacy,
       getTokenMetadata: (tokenAddress) =>
-        this._getTokenMetadataCache(tokenAddress),
+        this._resolveDecodedTokenMetadata(tokenAddress),
       buildTransferAction: (params) => this.buildTxTransferAssetAction(params),
     });
   }
@@ -1089,7 +1141,7 @@ export default class Vault extends VaultBase {
     return Promise.all(
       encodedTx.calls.map(async (call) => {
         const tokenAddress = normalizeTokenAddress(call.contractAddress);
-        const token = await this._getTokenMetadataCache(tokenAddress);
+        const token = await this._resolveDecodedTokenMetadata(tokenAddress);
         const [to, low, high] = call.calldata;
         return {
           from: encodedTx.from,
@@ -1212,6 +1264,138 @@ export default class Vault extends VaultBase {
     }));
 
     return { data: { data } };
+  }
+
+  override async overlaySessionTokenListResponse(
+    response: IFetchServerTokenListResponse,
+    params: IFetchServerTokenListParams,
+  ): Promise<void> {
+    await this._overlayStarknetPrivateBalances(response, params);
+  }
+
+  /**
+   * Composes cached STRK20 private balances into the Home token list using the
+   * shared local-wallet balance overlay, without blocking on network discovery
+   * or loading the lazy privacy service for non-opted-in accounts.
+   */
+  private async _overlayStarknetPrivateBalances(
+    response: IFetchServerTokenListResponse,
+    params: IFetchServerTokenListParams,
+  ): Promise<void> {
+    const accountId = params.accountId || this.accountId;
+    const config = STRK20_PRIVACY_CONFIG[this.networkId];
+    if (!accountId || !config?.poolAddress) {
+      return;
+    }
+    if (!this.backgroundApi.simpleDb?.starknetPrivacy?.getRecord) {
+      return;
+    }
+    const record = await this.backgroundApi.simpleDb.starknetPrivacy
+      .getRecord({
+        networkId: this.networkId,
+        accountId,
+        poolAddress: config.poolAddress,
+      })
+      .catch(() => undefined);
+    if (record?.optInStatus !== EStrk20OptInStatus.Registered) {
+      return;
+    }
+    if (!this.backgroundApi.serviceStarknetPrivacy?.getHomePrivateBalances) {
+      return;
+    }
+    const privateSnapshot = await this.backgroundApi.serviceStarknetPrivacy
+      .getHomePrivateBalances({
+        networkId: this.networkId,
+        accountId,
+      })
+      .catch(() => undefined);
+    if (!privateSnapshot) {
+      return;
+    }
+    const privateByToken = privateSnapshot.byToken;
+    if (!Object.keys(privateByToken).length) {
+      return;
+    }
+    const normalizeEntryAddress = (address?: string) => {
+      try {
+        return normalizeTokenAddress(address || STRK_TOKEN_ADDRESS);
+      } catch {
+        return undefined;
+      }
+    };
+    const matchedAddresses = new Set<string>();
+    applyComposedBalancesToBackendTokenList({
+      response,
+      groups: ['tokens', 'smallBalanceTokens', 'riskTokens'],
+      resolveBalance: (token, currentFiat) => {
+        const normalized = normalizeEntryAddress(
+          token.isNative && !token.address ? STRK_TOKEN_ADDRESS : token.address,
+        );
+        if (!normalized) return undefined;
+        matchedAddresses.add(normalized);
+        const privateSide = privateByToken[normalized];
+        if (!privateSide || privateSide === '0') {
+          return undefined;
+        }
+        const composed = composePrivacyChainBalance({
+          publicSideIndexer: currentFiat.balance,
+          privateSide,
+          spendable: currentFiat.balance,
+        });
+        return composed.total ? { total: composed.total } : undefined;
+      },
+    });
+
+    const accountAddress = params.requestApiParams.accountAddress ?? '';
+    const hiddenTokenSet = new Set(
+      (params.requestApiParams.hiddenTokens ?? [])
+        .map((addr) => normalizeEntryAddress(addr))
+        .filter((addr): addr is string => Boolean(addr)),
+    );
+    const addedFingerprints: string[] = [];
+    for (const [tokenAddr, privateAmount] of Object.entries(privateByToken)) {
+      const shouldSynthesize =
+        Boolean(privateAmount) &&
+        privateAmount !== '0' &&
+        !matchedAddresses.has(tokenAddr) &&
+        !hiddenTokenSet.has(tokenAddr);
+      const preset = shouldSynthesize
+        ? this._getPresetTokens().find(
+            (item) => normalizeTokenAddress(item.address) === tokenAddr,
+          )
+        : undefined;
+      if (preset) {
+        const isNative = tokenAddr === STRK_TOKEN_ADDRESS;
+        const $key = `${this.networkId}_${accountAddress}_${preset.address}`;
+        const balanceParsed = new BigNumber(privateAmount)
+          .shiftedBy(-preset.decimals)
+          .toFixed();
+        response.data.data.tokens.data.push({
+          $key,
+          name: preset.name,
+          symbol: preset.symbol,
+          decimals: preset.decimals,
+          address: preset.address,
+          logoURI: '',
+          isNative,
+        });
+        response.data.data.tokens.map[$key] = {
+          balance: privateAmount,
+          balanceParsed,
+          totalBalance: privateAmount,
+          totalBalanceParsed: balanceParsed,
+          price: toLocalWalletTokenPrice(undefined),
+          fiatValue: '',
+          totalBalanceFiatValue: '',
+        };
+        addedFingerprints.push(`${$key}_${privateAmount}`);
+      }
+    }
+    if (addedFingerprints.length > 0) {
+      response.data.data.tokens.keys = md5(
+        `${response.data.data.tokens.keys}_${addedFingerprints.join('_')}`,
+      );
+    }
   }
 
   override async fetchTokenListByRpc(
@@ -1640,6 +1824,21 @@ export default class Vault extends VaultBase {
         .catch(() => undefined);
     }
 
+    const localExtraInfo = localTx?.decodedTx.extraInfo as
+      | IDecodedTxExtraStarknet
+      | undefined;
+    const localEncodedTx = localTx?.decodedTx.encodedTx as
+      | IEncodedTxStarknet
+      | undefined;
+    const localPrivacyKind =
+      localExtraInfo?.privacy?.kind ?? localEncodedTx?.privacy?.kind;
+    let historyLabel = '';
+    if (receipt?.type?.toUpperCase() === 'DEPLOY_ACCOUNT') {
+      historyLabel = 'deploy_account';
+    } else if (localPrivacyKind) {
+      historyLabel = `strk20_${localPrivacyKind}`;
+    }
+
     return {
       data: {
         data: {
@@ -1668,7 +1867,7 @@ export default class Vault extends VaultBase {
             functionCode: '',
             params: [],
             value: '0',
-            label: '',
+            label: historyLabel,
             block: receipt?.block_number,
           },
           tokens: {},
@@ -1843,6 +2042,61 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxStarknet | undefined,
   ) {
     return assertStarknetPrivacyBuildIsFresh({ client, encodedTx });
+  }
+
+  override async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraStarknet | null> {
+    return Promise.resolve(
+      resolveStarknetOnChainHistoryExtraInfo({
+        networkId: this.networkId,
+        onChainHistoryTx,
+      }),
+    );
+  }
+
+  override async buildHistoryTxAction(
+    params: Parameters<VaultBase['buildHistoryTxAction']>[0],
+  ): Promise<IDecodedTxAction> {
+    const action = await super.buildHistoryTxAction(params);
+    const extraInfo = resolveStarknetOnChainHistoryExtraInfo({
+      networkId: this.networkId,
+      onChainHistoryTx: params.tx,
+    });
+    return localizeStarknetOnChainHistoryAction({ action, extraInfo });
+  }
+
+  override async buildHistoryTx(
+    params: Parameters<VaultBase['buildHistoryTx']>[0],
+  ): Promise<IAccountHistoryTx> {
+    const historyTx = await super.buildHistoryTx(params);
+    // Only locally created pending privacy records carry decrypted amounts or
+    // recipients; remote on-chain rows are already public (e.g. deposit/withdraw
+    // token movements) and must not have their public transfers stripped.
+    if (!params.isLocalCreated) {
+      return historyTx;
+    }
+    const extraInfo = historyTx.decodedTx.extraInfo as
+      | IDecodedTxExtraStarknet
+      | undefined;
+    const encodedTx = historyTx.decodedTx.encodedTx as
+      | IEncodedTxStarknet
+      | undefined;
+    const privacy = extraInfo?.privacy ?? encodedTx?.privacy;
+    if (!privacy || privacy.kind === 'register') {
+      return historyTx;
+    }
+    this.backgroundApi.serviceStarknetPrivacy?.rememberPendingPrivateHistoryTx?.(
+      {
+        networkId: this.networkId,
+        accountId: this.accountId,
+        poolAddress: privacy.poolAddress,
+        tx: historyTx,
+      },
+    );
+    return redactStarknetPrivacyHistoryTx(historyTx);
   }
 
   override async getCustomRpcEndpointStatus(

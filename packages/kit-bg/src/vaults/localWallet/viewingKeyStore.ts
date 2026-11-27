@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { localWalletText } from './messages';
+import { buildPrivacyChainStorageKey } from './privacyChainStorageKey';
 import { getViewingKeyFingerprint } from './viewingKeyFingerprint';
 import {
   PRIVACY_CHAIN_VIEWING_KEY_MISMATCH,
@@ -12,18 +13,6 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IPrivacyChainKeyRecord } from '../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 
 const PRIVACY_VIEWING_KEY_DATA_TYPE = 'privacy_viewing_key';
-
-// Inlined instead of importing from SimpleDbEntityPrivacyChainKeys so the
-// SimpleDb entity implementation stays lazy in the mobile background bundle.
-function buildPrivacyChainStorageKey({
-  accountId,
-  scope,
-}: {
-  accountId: string;
-  scope?: string;
-}): string {
-  return scope ? `${accountId}::${scope}` : accountId;
-}
 
 function buildEncryptionAad({
   storageKey,

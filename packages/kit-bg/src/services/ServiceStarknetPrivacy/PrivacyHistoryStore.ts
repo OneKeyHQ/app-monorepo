@@ -20,9 +20,24 @@ import { buildPrivacyCacheKey } from './types';
 
 import type { IStarknetPrivacyContext, IStoredHistoryCursor } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IStrk20InternalHistoryCursor } from '../../vaults/impls/starknet/strk20Adapter';
+import type {
+  IStrk20HistoryPage,
+  IStrk20InternalHistoryCursor,
+} from '../../vaults/impls/starknet/strk20Adapter';
 
 const MAX_HISTORY_CURSORS = 32;
+const MAX_PENDING_PRIVATE_TXS = 64;
+const MAX_RESOLVED_PRIVATE_TXS = 128;
+
+type IStoredPendingPrivateTx = {
+  scopeKey: string;
+  tx: IAccountHistoryTx;
+};
+
+type IStoredDiscoveredRawTx = {
+  scopeKey: string;
+  transaction: IStrk20HistoryPage['transactions'][number];
+};
 
 type IPrivacyHistoryStoreDeps = {
   backgroundApi: IBackgroundApi;
@@ -37,12 +52,26 @@ type IPrivacyHistoryStoreDeps = {
 
 /**
  * Background-only store for STRK20 private history pagination cursors
- * (so channelKeys never cross IPC) and merging discovered + local private txs.
+ * (so channelKeys never cross IPC), in-memory pending private txs
+ * (cleared on lock/account removal so clear amounts never hit disk),
+ * and merging discovered + local private txs.
  */
 export class PrivacyHistoryStore {
   private readonly deps: IPrivacyHistoryStoreDeps;
 
   private readonly historyCursors = new Map<string, IStoredHistoryCursor>();
+
+  private readonly pendingPrivateTxs = new Map<
+    string,
+    IStoredPendingPrivateTx
+  >();
+
+  private readonly resolvedPrivateTxs = new Map<
+    string,
+    IStoredPendingPrivateTx
+  >();
+
+  private readonly discoveredRawTxs = new Map<string, IStoredDiscoveredRawTx>();
 
   constructor(deps: IPrivacyHistoryStoreDeps) {
     this.deps = deps;
@@ -50,6 +79,9 @@ export class PrivacyHistoryStore {
 
   clear(): void {
     this.historyCursors.clear();
+    this.pendingPrivateTxs.clear();
+    this.resolvedPrivateTxs.clear();
+    this.discoveredRawTxs.clear();
   }
 
   dropScope(scopeKey: string): void {
@@ -58,6 +90,92 @@ export class PrivacyHistoryStore {
         this.historyCursors.delete(cursorId);
       }
     }
+    for (const [hash, stored] of this.pendingPrivateTxs.entries()) {
+      if (stored.scopeKey === scopeKey) {
+        this.pendingPrivateTxs.delete(hash);
+      }
+    }
+    for (const [hash, stored] of this.resolvedPrivateTxs.entries()) {
+      if (stored.scopeKey === scopeKey) {
+        this.resolvedPrivateTxs.delete(hash);
+      }
+    }
+    for (const [hash, stored] of this.discoveredRawTxs.entries()) {
+      if (stored.scopeKey === scopeKey) {
+        this.discoveredRawTxs.delete(hash);
+      }
+    }
+  }
+
+  private rememberDiscoveredRawTxs(
+    scopeKey: string,
+    transactions: IStrk20HistoryPage['transactions'],
+  ): void {
+    for (const transaction of transactions) {
+      let hash: string;
+      try {
+        const felt = BigInt(transaction.transactionHash);
+        if (felt === 0n) {
+          // Skip synthetic zero-hash entries.
+          hash = '';
+        } else {
+          hash = felt.toString();
+        }
+      } catch {
+        hash = '';
+      }
+      if (hash) {
+        const entryKey = `${scopeKey}:${hash}`;
+        if (
+          !this.discoveredRawTxs.has(entryKey) &&
+          this.discoveredRawTxs.size >= MAX_RESOLVED_PRIVATE_TXS
+        ) {
+          const oldestKey = this.discoveredRawTxs.keys().next().value;
+          if (oldestKey !== undefined) {
+            this.discoveredRawTxs.delete(oldestKey);
+          }
+        }
+        this.discoveredRawTxs.set(entryKey, { scopeKey, transaction });
+      }
+    }
+  }
+
+  private rememberResolvedTx(scopeKey: string, tx: IAccountHistoryTx): void {
+    let hash: string;
+    try {
+      hash = BigInt(tx.decodedTx.txid).toString();
+    } catch {
+      return;
+    }
+    if (
+      !this.resolvedPrivateTxs.has(hash) &&
+      this.resolvedPrivateTxs.size >= MAX_RESOLVED_PRIVATE_TXS
+    ) {
+      const oldestKey = this.resolvedPrivateTxs.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.resolvedPrivateTxs.delete(oldestKey);
+      }
+    }
+    this.resolvedPrivateTxs.set(hash, { scopeKey, tx });
+  }
+
+  rememberPendingTx(scopeKey: string, tx: IAccountHistoryTx): void {
+    let hash: string;
+    try {
+      hash = BigInt(tx.decodedTx.txid).toString();
+    } catch {
+      return;
+    }
+    if (
+      !this.pendingPrivateTxs.has(hash) &&
+      this.pendingPrivateTxs.size >= MAX_PENDING_PRIVATE_TXS
+    ) {
+      const oldestKey = this.pendingPrivateTxs.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.pendingPrivateTxs.delete(oldestKey);
+      }
+    }
+    this.pendingPrivateTxs.set(hash, { scopeKey, tx });
   }
 
   private storeHistoryCursor(entry: IStoredHistoryCursor): string {
@@ -130,16 +248,21 @@ export class PrivacyHistoryStore {
     let tokenMetadata: Promise<IToken | undefined> | undefined;
     const getTokenInfo = () => {
       tokenMetadata ??= this.deps.backgroundApi.serviceToken
-        .fetchTokensDetails({
+        .fetchTokenInfoOnly({
           networkId: p.networkId,
-          accountId: p.accountId,
-          contractList: [p.tokenAddress],
+          tokenAddress: p.tokenAddress,
         })
-        .then((items) => items?.[0]?.info);
+        .then((item) => item?.info);
       return tokenMetadata;
     };
     const { buildStrk20HistoryTx } =
       await import('../../vaults/impls/starknet/strk20Protocol');
+    const { toHexFelt } = await import('../../vaults/impls/starknet/utils');
+    const discoveryTxIds = page.transactions.flatMap((transaction) =>
+      BigInt(transaction.transactionHash) === 0n
+        ? []
+        : [toHexFelt(transaction.transactionHash)],
+    );
     const txs = await Promise.all(
       page.transactions.map((transaction) =>
         buildStrk20HistoryTx({
@@ -154,18 +277,22 @@ export class PrivacyHistoryStore {
         }),
       ),
     );
-    const localTxs = await this.fetchLocalPrivateHistory({
-      ...p,
-      ctx,
-      getTokenInfo,
-    });
+    const { txs: localTxs, localMetaByHash } =
+      await this.fetchLocalPrivateHistory({
+        ...p,
+        scopeKey,
+        ctx,
+        getTokenInfo,
+      });
     const byHash = new Map(
       localTxs.map((tx) => [BigInt(tx.decodedTx.txid).toString(), tx]),
     );
     for (const tx of txs) {
       if (tx) {
         const hash = BigInt(tx.decodedTx.txid).toString();
-        const local = byHash.get(hash);
+        // Once Discovery indexes the tx, drop the in-memory pending copy.
+        this.pendingPrivateTxs.delete(hash);
+        const local = byHash.get(hash) ?? localMetaByHash.get(hash);
         const localExtra = local?.decodedTx.extraInfo as
           | IDecodedTxExtraStarknet
           | undefined;
@@ -210,6 +337,10 @@ export class PrivacyHistoryStore {
       }),
     );
     ctx.assertSession();
+    this.rememberDiscoveredRawTxs(scopeKey, page.transactions);
+    for (const tx of datedTxs) {
+      this.rememberResolvedTx(scopeKey, tx);
+    }
     const hasMore = !page.cursor.historyComplete;
     const cursor = hasMore
       ? {
@@ -224,49 +355,181 @@ export class PrivacyHistoryStore {
       : undefined;
     return {
       txs: sortHistoryTxsByTime({ txs: datedTxs }),
-      discoveryTxIds: txs.flatMap((tx) => (tx ? [tx.id] : [])),
+      discoveryTxIds,
       hasMore,
       isEnabled: true,
       ...(cursor ? { cursor } : {}),
     };
   }
 
+  /**
+   * Resolves a decrypted private transaction by `txid` for HistoryDetails when
+   * opened from the public history list. Checks in-memory pending/discovered
+   * caches first, then falls back to a single non-interactive Discovery fetch
+   * if the viewing key is already unlocked.
+   */
+  async resolvePrivateHistoryTx(
+    p: IStrk20AccountKey & { txid: string },
+  ): Promise<IAccountHistoryTx | undefined> {
+    let hash: string;
+    try {
+      hash = BigInt(p.txid).toString();
+    } catch {
+      return undefined;
+    }
+
+    let ctx: IStarknetPrivacyContext | undefined;
+    try {
+      ctx = await this.deps.getRegisteredPrivacyContext(p, 'read', false);
+    } catch {
+      return undefined;
+    }
+    if (!ctx) return undefined;
+
+    const scopeKey = buildPrivacyCacheKey({
+      networkId: p.networkId,
+      accountId: p.accountId,
+      poolAddress: ctx.poolAddress,
+    });
+
+    const pending = this.pendingPrivateTxs.get(hash);
+    if (pending?.scopeKey === scopeKey) {
+      return pending.tx;
+    }
+
+    const cached = this.resolvedPrivateTxs.get(hash);
+    if (cached?.scopeKey === scopeKey) {
+      return cached.tx;
+    }
+    const {
+      fetchStrk20HistoryPage,
+      getStrk20HistoryTransfers,
+      buildOhttpOption,
+    } = await import('../../vaults/impls/starknet/strk20Adapter');
+
+    const discoveryKey = `${scopeKey}:${hash}`;
+    let matched = this.discoveredRawTxs.get(discoveryKey)?.transaction;
+    if (!matched) {
+      const page = await fetchStrk20HistoryPage({
+        discoveryUrl: ctx.config.discoveryUrl,
+        poolAddress: ctx.poolAddress,
+        accountAddress: ctx.account.address,
+        viewingKey: ctx.viewing.viewingKey,
+        ohttp: buildOhttpOption(ctx.config.ohttp),
+      });
+      ctx.assertSession();
+      this.rememberDiscoveredRawTxs(scopeKey, page.transactions);
+      matched = this.discoveredRawTxs.get(discoveryKey)?.transaction;
+    }
+    if (!matched) return undefined;
+
+    const movements = await getStrk20HistoryTransfers(
+      matched,
+      BigInt(ctx.account.address),
+      BigInt(ctx.poolAddress),
+    );
+    if (!movements.length) return undefined;
+
+    const { normalizeStarknetAddress, toHexFelt } =
+      await import('../../vaults/impls/starknet/utils');
+    const tokenAddress = normalizeStarknetAddress(
+      toHexFelt(movements[0].token),
+    );
+    let tokenMetadata: Promise<IToken | undefined> | undefined;
+    const getTokenInfo = () => {
+      tokenMetadata ??= this.deps.backgroundApi.serviceToken
+        .fetchTokenInfoOnly({
+          networkId: p.networkId,
+          tokenAddress,
+        })
+        .then((item) => item?.info);
+      return tokenMetadata;
+    };
+    const { buildStrk20HistoryTx } =
+      await import('../../vaults/impls/starknet/strk20Protocol');
+    const built = await buildStrk20HistoryTx({
+      vault: ctx.vault,
+      networkId: p.networkId,
+      accountId: p.accountId,
+      accountAddress: ctx.account.address,
+      poolAddress: ctx.poolAddress,
+      transaction: matched,
+      tokenAddress,
+      getTokenInfo,
+    });
+    ctx.assertSession();
+    if (built) {
+      this.rememberResolvedTx(scopeKey, built);
+    }
+    return built;
+  }
+
   private async fetchLocalPrivateHistory(
     params: IStrk20AccountKey & {
+      scopeKey: string;
       tokenAddress: string;
       ctx: IStarknetPrivacyContext;
       getTokenInfo: () => Promise<IToken | undefined>;
     },
-  ): Promise<IAccountHistoryTx[]> {
+  ): Promise<{
+    txs: IAccountHistoryTx[];
+    localMetaByHash: Map<string, IAccountHistoryTx>;
+  }> {
     const { serviceHistory } = this.deps.backgroundApi;
     const query = {
       networkId: params.networkId,
       accountAddress: params.ctx.account.address,
-      tokenIdOnNetwork: params.tokenAddress,
     };
     const [pending, confirmed] = await Promise.all([
       serviceHistory.getAccountLocalHistoryPendingTxs(query),
       serviceHistory.getAccountLocalHistoryConfirmedTxs(query),
     ]);
-    const txs = [...pending, ...confirmed].filter((tx) => {
+    const localMetaByHash = new Map<string, IAccountHistoryTx>();
+    for (const tx of [...pending, ...confirmed]) {
       const intent = (
         tx.decodedTx.extraInfo as IDecodedTxExtraStarknet | undefined
       )?.privacy;
-      return (
+      if (
         intent &&
         intent.kind !== 'register' &&
-        intent.tokenAddress &&
-        BigInt(intent.tokenAddress) === BigInt(params.tokenAddress) &&
         BigInt(intent.poolAddress) === BigInt(params.ctx.poolAddress)
-      );
-    });
-    if (!txs.length) return [];
+      ) {
+        try {
+          localMetaByHash.set(BigInt(tx.decodedTx.txid).toString(), tx);
+        } catch {
+          // Ignore malformed txids.
+        }
+      }
+    }
+
+    const displayByHash = new Map<string, IAccountHistoryTx>();
+    for (const [hash, stored] of this.pendingPrivateTxs.entries()) {
+      if (stored.scopeKey === params.scopeKey) {
+        const intent = (
+          stored.tx.decodedTx.extraInfo as IDecodedTxExtraStarknet | undefined
+        )?.privacy;
+        if (
+          intent &&
+          intent.kind !== 'register' &&
+          intent.tokenAddress &&
+          BigInt(intent.tokenAddress) === BigInt(params.tokenAddress) &&
+          BigInt(intent.poolAddress) === BigInt(params.ctx.poolAddress)
+        ) {
+          displayByHash.set(hash, stored.tx);
+        }
+      }
+    }
+
+    const txs = [...displayByHash.values()];
+    if (!txs.length) return { txs: [], localMetaByHash };
     const token = await params.getTokenInfo();
-    if (!token) return [];
+    if (!token) return { txs: [], localMetaByHash };
     const { getReceiptTxStatus, getReceiptFeeInNative } =
       await import('../../vaults/impls/starknet/utils');
     const { PRIVATE_HISTORY_POOL_ID } =
       await import('../../vaults/impls/starknet/strk20Protocol');
+    const { redactStarknetPrivacyHistoryTx } =
+      await import('../../vaults/impls/starknet/starknetPrivacyVaultHelper');
     const settled: IAccountHistoryTx[] = [];
     const projected = await Promise.all(
       txs.map(async (tx) => {
@@ -313,7 +576,20 @@ export class PrivacyHistoryStore {
                 nextFeeInNative: totalFeeInNative,
               }),
             };
-            settled.push({ ...tx, decodedTx });
+            const settledTx: IAccountHistoryTx = { ...tx, decodedTx };
+            settled.push(settledTx);
+            try {
+              const hash = BigInt(tx.decodedTx.txid).toString();
+              const cached = this.pendingPrivateTxs.get(hash);
+              if (cached) {
+                this.pendingPrivateTxs.set(hash, {
+                  ...cached,
+                  tx: settledTx,
+                });
+              }
+            } catch {
+              // Ignore malformed txids.
+            }
           }
         }
         const amount = new BigNumber(intent.amount).shiftedBy(-token.decimals);
@@ -341,31 +617,31 @@ export class PrivacyHistoryStore {
     if (settled.length) {
       const latestConfirmed =
         await serviceHistory.getAccountLocalHistoryConfirmedTxs(query);
+      params.ctx.assertSession();
       const latestById = new Map(
         latestConfirmed.map((item) => [item.id, item]),
       );
       const mergedSettled = settled.map((item) => {
         const existing = latestById.get(item.id);
-        if (
+        const merged =
           !existing ||
           item.decodedTx.protocolFeeInNative !== undefined ||
           existing.decodedTx.protocolFeeInNative === undefined
-        ) {
-          return item;
-        }
-        return {
-          ...item,
-          decodedTx: {
-            ...item.decodedTx,
-            protocolFeeInNative: existing.decodedTx.protocolFeeInNative,
-            totalFeeInNative:
-              item.decodedTx.totalFeeInNative ??
-              existing.decodedTx.totalFeeInNative,
-            totalFeeFiatValue:
-              item.decodedTx.totalFeeFiatValue ??
-              existing.decodedTx.totalFeeFiatValue,
-          },
-        };
+            ? item
+            : {
+                ...item,
+                decodedTx: {
+                  ...item.decodedTx,
+                  protocolFeeInNative: existing.decodedTx.protocolFeeInNative,
+                  totalFeeInNative:
+                    item.decodedTx.totalFeeInNative ??
+                    existing.decodedTx.totalFeeInNative,
+                  totalFeeFiatValue:
+                    item.decodedTx.totalFeeFiatValue ??
+                    existing.decodedTx.totalFeeFiatValue,
+                },
+              };
+        return redactStarknetPrivacyHistoryTx(merged);
       });
       await this.deps.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs(
         [
@@ -378,6 +654,6 @@ export class PrivacyHistoryStore {
         ],
       );
     }
-    return projected;
+    return { txs: projected, localMetaByHash };
   }
 }
