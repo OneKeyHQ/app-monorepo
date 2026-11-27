@@ -2,6 +2,7 @@ import type { ContextType, ReactNode } from 'react';
 
 import { act, render, waitFor } from '@testing-library/react-native';
 
+import { SizableText } from '@onekeyhq/components';
 import type {
   ITradingViewChartMode,
   TradingViewChartModeSelectContext,
@@ -18,6 +19,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ITradingViewNativeMultiChartLayout } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
@@ -82,6 +84,11 @@ const mockQuote = jest.fn<
 >(() => null);
 // Panel quotes currently mounted.
 let mockMountedQuotes = 0;
+// The latest trade of each token on the shared trade feed.
+let mockLatestTrades: Record<string, { px: string; side: 'A' | 'B' }> = {};
+const mockUseLatestTrade = jest.fn<void, [string, boolean]>();
+// Tokens whose trade feed a panel keeps subscribed.
+let mockStreamedTrades: string[] = [];
 // Stands in for where the grid has a panel's chart show its interval picker.
 function MockPanelInterval(_: { panelId: string }) {
   return null;
@@ -187,6 +194,8 @@ jest.mock('./TokenSelector/PerpChartTokenSelector', () => ({
 }));
 
 jest.mock('./FavoritesBar/FavoriteTokenItem', () => ({
+  TABULAR_NUMS_STYLE: {},
+  getStablePriceMinWidth: () => undefined,
   CtxPriceDisplay: (props: Parameters<typeof mockQuote>[0]) => {
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
     useEffect(() => {
@@ -296,6 +305,21 @@ jest.mock('../hooks/usePerpMarketForeground', () => ({
   usePerpMarketForeground: () => mockRecentTradesForeground,
 }));
 
+jest.mock('../hooks/usePerpLatestTrade', () => ({
+  usePerpLatestTrade: (coin: string, active: boolean) => {
+    const { useEffect } = jest.requireActual<typeof import('react')>('react');
+    mockUseLatestTrade(coin, active);
+    useEffect(() => {
+      if (!active) return;
+      mockStreamedTrades.push(coin);
+      return () => {
+        mockStreamedTrades.splice(mockStreamedTrades.indexOf(coin), 1);
+      };
+    }, [active, coin]);
+    return { trade: mockLatestTrades[coin] };
+  },
+}));
+
 jest.mock('./PerpRecentTrades', () => ({
   useRecentTradesForeground: () => mockRecentTradesForeground,
   PerpRecentTrades: (props: { active: boolean; visible: boolean }) =>
@@ -373,6 +397,8 @@ beforeEach(() => {
   mockMultiChartProps = undefined;
   mockSelectedPanelId = undefined;
   mockPendingActiveSource = undefined;
+  mockLatestTrades = {};
+  mockStreamedTrades = [];
 });
 
 function getChartProps(coin: string) {
@@ -382,6 +408,17 @@ function getChartProps(coin: string) {
       (props) =>
         props.source.kind === 'hyperliquid' && props.source.coin === coin,
     );
+}
+
+// The price text and color of each panel header, in panel order.
+function getPanelPrices(view: ReturnType<typeof render>) {
+  return view.UNSAFE_queryAllByType(SizableText).map((node) => {
+    const { children, color } = node.props as {
+      children: string;
+      color: string;
+    };
+    return [children, color];
+  });
 }
 
 describe('split view', () => {
@@ -600,19 +637,20 @@ describe('split view', () => {
         expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
       ),
     );
-    // One quote per panel shows both the price and the 24h change.
+    // Each panel's quote gives its 24h change; its price is the latest trade.
     for (const coinName of ['BTC', 'ETH']) {
       expect(mockQuote).toHaveBeenCalledWith(
         expect.objectContaining({
           coinName,
           mode: 'perp',
-          displayMode: 'priceAndPercent',
+          displayMode: 'percent',
         }),
       );
     }
     expect(
       new Set(mockQuote.mock.calls.map(([props]) => props.displayMode)),
-    ).toEqual(new Set(['priceAndPercent']));
+    ).toEqual(new Set(['percent']));
+    expect([...mockStreamedTrades].toSorted()).toEqual(['BTC', 'ETH']);
     // The perp quotes stream only while a panel shows them: each mark is
     // released again.
     expect(mockMarkAllAssetCtxsRequired.mock.calls.length).toBeGreaterThan(
@@ -622,6 +660,73 @@ describe('split view', () => {
     expect(mockMarkAllAssetCtxsNotRequired.mock.calls.length).toBe(
       mockMarkAllAssetCtxsRequired.mock.calls.length,
     );
+    expect(mockStreamedTrades).toEqual([]);
+  });
+
+  // OK-67943: the panel of the traded token showed its mark price in the
+  // 24h change color beside the page header's latest trade.
+  it('prices every panel by its latest trade, as the page header does', async () => {
+    mockLatestTrades = {
+      BTC: { px: '61705.0', side: 'A' },
+      ETH: { px: '1733.9', side: 'B' },
+    };
+    const view = renderTradingViewCandles();
+    await waitFor(() =>
+      expect(mockQuote).toHaveBeenCalledWith(
+        expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
+      ),
+    );
+
+    expect(getPanelPrices(view)).toEqual([
+      [formatLocalizedNumberString('61705.0'), '$red11'],
+      [formatLocalizedNumberString('1733.9'), '$green11'],
+    ]);
+  });
+
+  // PR #14834 review: the price waited for the panel's metadata, which can
+  // still be loading or fail for good.
+  it('prices a panel by its latest trade before its metadata loads', () => {
+    mockLatestTrades = { ETH: { px: '1733.9', side: 'B' } };
+    const loadMeta = mockGetSymbolMeta.getMockImplementation();
+    mockGetSymbolMeta.mockImplementation(() => new Promise<never>(() => {}));
+    try {
+      const view = renderTradingViewCandles();
+
+      expect(getPanelPrices(view)).toEqual([
+        ['--', '$text'],
+        [formatLocalizedNumberString('1733.9'), '$green11'],
+      ]);
+      expect([...mockStreamedTrades].toSorted()).toEqual(['BTC', 'ETH']);
+      // Only the 24h change needs the asset, to find its quote.
+      expect(mockQuote).not.toHaveBeenCalledWith(
+        expect.objectContaining({ coinName: 'ETH' }),
+      );
+    } finally {
+      mockGetSymbolMeta.mockImplementation(loadMeta);
+    }
+  });
+
+  it('streams panel trades only while the page is in the foreground', async () => {
+    mockRecentTradesForeground = false;
+    const view = renderTradingViewCandles();
+    await waitFor(() =>
+      expect(mockQuote).toHaveBeenCalledWith(
+        expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
+      ),
+    );
+
+    expect(mockUseLatestTrade).toHaveBeenCalledWith('BTC', false);
+    expect(mockUseLatestTrade).toHaveBeenCalledWith('ETH', false);
+    expect(mockUseLatestTrade).not.toHaveBeenCalledWith(
+      expect.anything(),
+      true,
+    );
+    expect(mockStreamedTrades).toEqual([]);
+    // No trade yet: neither side's color.
+    expect(getPanelPrices(view)).toEqual([
+      ['--', '$text'],
+      ['--', '$text'],
+    ]);
   });
 
   it('puts each panel interval picker after its token quote', async () => {
@@ -702,6 +807,7 @@ describe('split view', () => {
     };
     render(<PerpMarketWorkspacePanel />);
     await waitFor(() => expect(mockMountedQuotes).toBeGreaterThan(0));
+    expect(mockStreamedTrades.length).toBeGreaterThan(0);
     expect(mockSetTradeRouteViewState).toHaveBeenLastCalledWith({
       chartPanelsSpotActive: true,
     });
@@ -720,8 +826,9 @@ describe('split view', () => {
       mockMarkAllAssetCtxsRequired.mock.calls.length,
     );
     // The headers drop their quotes, which would follow the trade
-    // instrument's ticks.
+    // instrument's ticks, and their trade feeds.
     expect(mockMountedQuotes).toBe(0);
+    expect(mockStreamedTrades).toEqual([]);
     expect(mockChartUnmount).not.toHaveBeenCalled();
     expect(getChartProps('@107')).toBeDefined();
   });

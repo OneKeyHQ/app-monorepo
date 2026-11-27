@@ -1,3 +1,7 @@
+import { createElement } from 'react';
+
+import { renderToStaticMarkup } from 'react-dom/server';
+
 import type {
   IMarketWidgetAsset,
   IMarketWidgetEditorState,
@@ -6,6 +10,8 @@ import type {
 import {
   getMarketWidgetAddressCollisions,
   getMarketWidgetAssetKey,
+  getMarketWidgetAssetLogoUrls,
+  getMarketWidgetAssetSections,
   getMarketWidgetAssetSubtitle,
   getMarketWidgetAssetTitle,
   getMarketWidgetDisplayAsset,
@@ -13,6 +19,9 @@ import {
   isMarketWidgetAssetAvailable,
   isMarketWidgetManualAssetAvailable,
 } from './assetIdentity';
+
+const { SectionList, Text } =
+  jest.requireActual<typeof import('react-native')>('react-native-web');
 
 const bitcoin: IMarketWidgetAsset = {
   kind: 'asset',
@@ -60,6 +69,112 @@ it('uses the same identity for a contract token with false or missing isNative',
 
 describe('widget draft display enrichment', () => {
   const enriched = { ...bitcoin, logoURL: 'https://example.com/btc.png' };
+
+  it.each([
+    {
+      row: '   ',
+      catalog: enriched.logoURL,
+      expected: [enriched.logoURL],
+    },
+    {
+      row: ' https://example.com/search.png ',
+      catalog: enriched.logoURL,
+      expected: ['https://example.com/search.png', enriched.logoURL],
+    },
+    {
+      row: enriched.logoURL,
+      catalog: ` ${enriched.logoURL} `,
+      expected: [enriched.logoURL],
+    },
+  ])(
+    'cleans picker logos while preserving row priority: $row',
+    ({ row, catalog, expected }) => {
+      expect(
+        getMarketWidgetAssetLogoUrls({
+          asset: { ...bitcoin, logoURL: row },
+          state: { ...state, hot: [{ ...bitcoin, logoURL: catalog }] },
+          source: 'hot',
+          kind: 'single',
+        }),
+      ).toEqual(expected);
+    },
+  );
+
+  const blankSolAssets: IMarketWidgetAsset[] = [
+    {
+      kind: 'asset',
+      assetId: 'sol',
+      symbol: 'SOL',
+      name: 'Solana',
+      logoURL: '   ',
+    },
+    {
+      kind: 'token',
+      chainId: 'sol--101',
+      contractAddress: '',
+      requestTokenAddress: '',
+      isNative: true,
+      symbol: 'SOL',
+      name: 'Solana',
+      logoURL: '   ',
+    },
+  ];
+  it.each(blankSolAssets)(
+    'uses the preset SOL logo when row and catalog URLs are blank: $kind',
+    (asset) => {
+      expect(
+        getMarketWidgetAssetLogoUrls({
+          asset,
+          state: { ...state, hot: [{ ...asset, logoURL: '\t' }] },
+          source: 'hot',
+          kind: 'list',
+        }),
+      ).toEqual(['https://uni.onekey-asset.com/static/chain/sol.png']);
+    },
+  );
+
+  it('keeps a valid native row logo when the catalog logo is blank', () => {
+    const asset: IMarketWidgetAsset = {
+      kind: 'token',
+      chainId: 'sol--101',
+      contractAddress: '',
+      requestTokenAddress: '',
+      isNative: true,
+      symbol: 'SOL',
+      name: 'Solana',
+      logoURL: enriched.logoURL,
+    };
+    expect(
+      getMarketWidgetDisplayAsset({
+        asset,
+        state: { ...state, hot: [{ ...asset, logoURL: '   ' }] },
+        source: 'hot',
+        kind: 'list',
+      })?.logoURL,
+    ).toBe(enriched.logoURL);
+  });
+
+  it('shows the public SOL logo before the native catalog resolves its identity', () => {
+    const draft: IMarketWidgetAsset = {
+      kind: 'asset',
+      assetId: 'sol',
+      symbol: 'SOL',
+      name: 'Solana',
+    };
+    const display = getMarketWidgetDisplayAsset({
+      asset: draft,
+      state,
+      source: 'hot',
+      kind: 'list',
+    });
+    expect(display?.logoURL).toBe(
+      'https://uni.onekey-asset.com/static/chain/sol.png',
+    );
+    expect(getMarketWidgetAssetKey(display!)).toBe(
+      getMarketWidgetAssetKey(draft),
+    );
+    expect(draft.logoURL).toBeUndefined();
+  });
 
   it('fills cached metadata after a background refresh without mutating the draft', () => {
     const draft = { ...bitcoin, symbol: '', name: '' };
@@ -149,7 +264,11 @@ describe('widget draft display enrichment', () => {
         source: 'hot',
         kind: 'single',
       }),
-    ).toEqual({ ...draft, name: 'Current name' });
+    ).toEqual({
+      ...draft,
+      name: 'Current name',
+      logoURL: 'https://uni.onekey-asset.com/static/chain/eth.png',
+    });
   });
 
   it('keeps useful draft metadata when the refreshed fields are empty', () => {
@@ -399,4 +518,152 @@ describe('manual widget slots', () => {
       }),
     ).toBe(false);
   });
+});
+
+describe('widget search result sections', () => {
+  const apple: IMarketWidgetAsset = {
+    kind: 'stock',
+    stockId: 'AAPL',
+    symbol: 'AAPL',
+    name: 'Apple',
+  };
+  const appleSolana: IMarketWidgetAsset = {
+    kind: 'token',
+    chainId: 'sol--101',
+    contractAddress: 'solana-apple',
+    requestTokenAddress: 'solana-apple',
+    isNative: false,
+    symbol: 'AAPLx',
+    name: 'Apple xStock',
+  };
+  const appleEthereum: IMarketWidgetAsset = {
+    ...appleSolana,
+    chainId: 'evm--1',
+    contractAddress: '0xapple',
+    requestTokenAddress: '0xapple',
+  };
+  const localApple: IMarketWidgetAsset = {
+    ...bitcoin,
+    assetId: 'apple-meme',
+    symbol: 'APPLE',
+    name: 'AAPL meme',
+  };
+
+  it('separates the AAPL listing from chain tokens and preserves remote order and identities', () => {
+    expect(
+      getMarketWidgetAssetSections({
+        state: {
+          ...state,
+          hot: [localApple],
+          searchResults: [appleSolana, appleEthereum, apple],
+        },
+        source: 'hot',
+        query: ' aapl ',
+        searchQuery: 'aapl',
+      }),
+    ).toEqual([
+      { key: 'stocks', data: [apple] },
+      { key: 'tokens', data: [appleSolana, appleEthereum] },
+    ]);
+  });
+
+  it('does not replace an empty completed search with cached candidates', () => {
+    expect(
+      getMarketWidgetAssetSections({
+        state: {
+          ...state,
+          hot: [localApple],
+          searchAssets: [apple],
+          searchResults: [],
+        },
+        source: 'hot',
+        query: 'apple',
+        searchQuery: 'apple',
+      }),
+    ).toEqual([]);
+  });
+
+  it.each(['hot', 'watchlist'] as const)(
+    'retains distinct local matches after partial remote results in %s',
+    (source) => {
+      expect(
+        getMarketWidgetAssetSections({
+          state: {
+            ...state,
+            [source]: [appleSolana, appleEthereum, bitcoin],
+            searchAssets: [appleSolana],
+            searchResults: [apple, appleEthereum],
+            searchIncomplete: true,
+          },
+          source,
+          query: 'aapl',
+          searchQuery: 'aapl',
+        }),
+      ).toEqual([
+        { key: 'stocks', data: [apple] },
+        { key: 'tokens', data: [appleEthereum, appleSolana] },
+      ]);
+    },
+  );
+
+  it('retains cached search matches when a partial response has no results', () => {
+    expect(
+      getMarketWidgetAssetSections({
+        state: {
+          ...state,
+          searchAssets: [appleSolana],
+          searchResults: [],
+          searchIncomplete: true,
+        },
+        source: 'hot',
+        query: 'aapl',
+        searchQuery: 'aapl',
+      }),
+    ).toEqual([{ key: 'tokens', data: [appleSolana] }]);
+  });
+
+  it('ignores results for an earlier query while filtering local suggestions', () => {
+    expect(
+      getMarketWidgetAssetSections({
+        state: {
+          ...state,
+          hot: [bitcoin],
+          searchAssets: [appleSolana],
+          searchResults: [bitcoin],
+        },
+        source: 'hot',
+        query: 'aapl',
+        searchQuery: 'btc',
+      }),
+    ).toEqual([{ key: 'tokens', data: [appleSolana] }]);
+  });
+
+  it('retains browse ordering without search sections', () => {
+    expect(
+      getMarketWidgetAssetSections({
+        state: { ...state, watchlist: [bitcoin, apple, bitcoin] },
+        source: 'watchlist',
+        query: '',
+        searchQuery: '',
+      }),
+    ).toEqual([{ key: 'all', data: [bitcoin, apple] }]);
+  });
+});
+
+it('renders the empty watchlist message when there are no browse assets', () => {
+  const sections = getMarketWidgetAssetSections({
+    state,
+    source: 'watchlist',
+    query: '',
+    searchQuery: undefined,
+  });
+  const markup = renderToStaticMarkup(
+    createElement(SectionList<IMarketWidgetAsset>, {
+      sections,
+      renderItem: () => null,
+      renderSectionHeader: () => null,
+      ListEmptyComponent: createElement(Text, null, 'No tokens found'),
+    }),
+  );
+  expect(markup).toContain('No tokens found');
 });

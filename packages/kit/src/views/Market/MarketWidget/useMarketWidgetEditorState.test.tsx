@@ -499,9 +499,11 @@ describe('market widget editor native snapshot lifecycle', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await act(async () => result.current.searchAssets('AAPL'));
     expect(result.current.state?.searchResults).toEqual([asset]);
+    expect(result.current.state?.searchIncomplete).toBe(true);
     expect(result.current.searchError).toBe(true);
     await act(async () => result.current.searchAssets('AAPL'));
     expect(mockSearchStocks).toHaveBeenCalledTimes(2);
+    expect(result.current.state?.searchIncomplete).toBe(false);
     expect(result.current.searchError).toBe(false);
   });
 
