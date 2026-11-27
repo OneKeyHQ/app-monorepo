@@ -3,6 +3,7 @@ import type {
   IMarketWidgetChartMode,
   IMarketWidgetQuoteUpdate,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import type { IMarketPreferredToken } from '@onekeyhq/shared/types/market';
 import type {
   IMarketStockPublicDetail,
   IMarketTokenDetail,
@@ -15,6 +16,7 @@ import type { IReportedSimpleChartRange } from './MarketSimpleChartRangeChangeCo
 export type IMarketWidgetQuoteTarget = {
   active: boolean;
   assetId?: string;
+  marketWidgetToken?: IMarketPreferredToken;
   networkId: string;
   tokenAddress: string;
   isNative: boolean;
@@ -39,6 +41,7 @@ function isFreshPrice(
 
 export function buildMarketWidgetTokenQuote({
   assetId,
+  marketWidgetToken,
   networkId,
   tokenAddress,
   isNative,
@@ -67,19 +70,27 @@ export function buildMarketWidgetTokenQuote({
     name: tokenDetail.name,
     logoURL: tokenDetail.logoUrl,
   };
+  // Asset resolution changes the quote source, but the widget keeps its pinned identity.
+  const pinnedNative =
+    isNative &&
+    marketWidgetToken?.isNative &&
+    marketWidgetToken.networkId === networkId
+      ? marketWidgetToken
+      : undefined;
   return {
     currency: 'usd',
     quote: {
-      asset: assetId
-        ? { kind: 'asset', assetId, ...metadata }
-        : {
-            kind: 'token',
-            chainId: networkId,
-            contractAddress: tokenAddress,
-            requestTokenAddress: tokenDetail.address,
-            isNative,
-            ...metadata,
-          },
+      asset:
+        assetId && !pinnedNative
+          ? { kind: 'asset', assetId, ...metadata }
+          : {
+              kind: 'token',
+              chainId: networkId,
+              contractAddress: pinnedNative?.tokenAddress ?? tokenAddress,
+              requestTokenAddress: tokenDetail.address,
+              isNative,
+              ...metadata,
+            },
       price: detailQuote.price,
       change24h: detailQuote.change24h,
       fetchedAt: detailQuote.fetchedAt,

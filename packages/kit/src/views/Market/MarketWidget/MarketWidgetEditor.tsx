@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigationState, usePreventRemove } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { FlatList } from 'react-native';
+import { SectionList } from 'react-native';
 
 import {
   Alert,
@@ -35,7 +35,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getMarketWidgetAddressCollisions,
   getMarketWidgetAssetKey,
-  getMarketWidgetAssetSearchText,
+  getMarketWidgetAssetSections,
   getMarketWidgetAssetSubtitle,
   getMarketWidgetAssetTitle,
   getMarketWidgetDisplayAsset,
@@ -188,34 +188,24 @@ const MarketWidgetEditorForm = ({
           kind,
         }),
     );
-  const visibleAssets = useMemo(() => {
-    const normalized = query.trim();
-    const search = normalized.toLowerCase();
-    const remote =
-      search && normalized === editor.searchQuery
-        ? editor.state?.searchResults
-        : undefined;
-    const candidates = [
-      ...(editor.state?.[source] ?? []),
-      ...(search && source === 'hot' && !remote
-        ? (editor.state?.searchAssets ?? [])
-        : []),
-    ].filter(
-      (item) =>
-        !search || getMarketWidgetAssetSearchText(item).includes(search),
-    );
-    const seen = new Set<string>();
-    return [...candidates, ...(remote ?? [])].filter((item) => {
-      const key = getMarketWidgetAssetKey(item);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [editor.state, editor.searchQuery, query, source]);
+  const assetSections = useMemo(
+    () =>
+      getMarketWidgetAssetSections({
+        state: editor.state,
+        source,
+        query,
+        searchQuery: editor.searchQuery,
+      }),
+    [editor.state, editor.searchQuery, query, source],
+  );
 
   const addressCollisions = useMemo(
-    () => getMarketWidgetAddressCollisions([...visibleAssets, ...displaySlots]),
-    [visibleAssets, displaySlots],
+    () =>
+      getMarketWidgetAddressCollisions([
+        ...assetSections.flatMap((section) => section.data),
+        ...displaySlots,
+      ]),
+    [assetSections, displaySlots],
   );
   const closePicker = useCallback(() => {
     cancelDraft();
@@ -340,8 +330,26 @@ const MarketWidgetEditorForm = ({
                 onChangeText={setQuery}
               />
             </YStack>
-            <FlatList
-              data={visibleAssets}
+            <SectionList
+              sections={assetSections}
+              stickySectionHeadersEnabled={false}
+              renderSectionHeader={({ section }) =>
+                section.key === 'all' ? null : (
+                  <SizableText
+                    px="$5"
+                    py="$2"
+                    size="$headingSm"
+                    color="$textSubdued"
+                  >
+                    {intl.formatMessage({
+                      id:
+                        section.key === 'stocks'
+                          ? ETranslations.perps_token_selector_stocks
+                          : ETranslations.global_universal_search_tabs_tokens,
+                    })}
+                  </SizableText>
+                )
+              }
               keyExtractor={getMarketWidgetAssetKey}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
@@ -402,7 +410,7 @@ const MarketWidgetEditorForm = ({
               ListFooterComponent={
                 query &&
                 canSearchRemotely &&
-                visibleAssets.length > 0 &&
+                assetSections.length > 0 &&
                 editor.searchError ? (
                   <MarketWidgetStateView
                     privacyMasked={editor.privacyMasked}

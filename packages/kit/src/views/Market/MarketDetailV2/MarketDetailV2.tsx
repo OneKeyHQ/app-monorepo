@@ -557,6 +557,9 @@ function MarketDetail({
       {isMarketAssetResolving ? null : (
         <MarketCurrentTokenLiveDataSync
           active={shouldOwnSharedMarketDetailState}
+          marketWidgetToken={
+            'marketWidgetToken' in params ? params.marketWidgetToken : undefined
+          }
           assetId={
             marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
               ? marketTokenId

@@ -95,6 +95,11 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
     .init(kind: .asset, assetId: "sol", chainId: nil, contractAddress: nil,
           isNative: nil, symbol: "SOL", name: "Solana"),
   ]
+
+  var previewIconName: String? {
+    guard kind == .asset, let assetId, ["btc", "eth", "sol"].contains(assetId) else { return nil }
+    return "MarketWidget-\(assetId)"
+  }
 }
 
 struct MarketWidgetConfiguration: Codable, Equatable {
