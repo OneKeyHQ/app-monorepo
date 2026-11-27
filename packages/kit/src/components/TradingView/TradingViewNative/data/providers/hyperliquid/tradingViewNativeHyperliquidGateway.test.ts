@@ -441,6 +441,42 @@ describe('TradingViewNative Hyperliquid gateway', () => {
       expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(3);
     });
 
+    it('retries a rate limit at most ten times per load', async () => {
+      const gateway = new TradingViewNativeHyperliquidGateway();
+      const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+      const rateLimit = httpError(429);
+      mocks?.candleSnapshot.mockRejectedValue(rateLimit);
+      const { signal } = new AbortController();
+
+      const result = gateway.fetchCandles({ ...request, signal });
+      await jest.advanceTimersByTimeAsync(9 * 5000);
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(10);
+      // The tenth wait ends in the final failure; handle it before it lands.
+      await Promise.all([
+        expect(result).rejects.toBe(rateLimit),
+        jest.advanceTimersByTimeAsync(5000),
+      ]);
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(11);
+
+      // A retry of the same load, as the K-line hook makes, fails at once.
+      await expect(gateway.fetchCandles({ ...request, signal })).rejects.toBe(
+        rateLimit,
+      );
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(12);
+
+      // Another load waits again.
+      mocks?.candleSnapshot
+        .mockRejectedValueOnce(rateLimit)
+        .mockResolvedValueOnce([buildCandle()]);
+      const nextLoad = gateway.fetchCandles({
+        ...request,
+        signal: new AbortController().signal,
+      });
+      await jest.advanceTimersByTimeAsync(5000);
+      await expect(nextLoad).resolves.toMatchObject({ total: 1 });
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(14);
+    });
+
     it('stops waiting once the request is aborted', async () => {
       const gateway = new TradingViewNativeHyperliquidGateway();
       const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;

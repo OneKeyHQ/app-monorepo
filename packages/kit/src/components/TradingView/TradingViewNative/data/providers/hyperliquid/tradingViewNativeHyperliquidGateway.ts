@@ -73,8 +73,9 @@ function getErrorMessage(error: unknown) {
 
 // Hyperliquid limits request weight per IP, and a split view loads several
 // charts at once. A rate-limited history request waits and tries again, so
-// the chart loads late instead of showing no data.
+// the chart loads late instead of showing no data, unless the limit lasts.
 const RATE_LIMIT_RETRY_DELAY_MS = 5000;
+const RATE_LIMIT_MAX_RETRIES = 10;
 
 function isRateLimitError(error: unknown) {
   return error instanceof HttpRequestError && error.response?.status === 429;
@@ -116,6 +117,14 @@ export class TradingViewNativeHyperliquidGateway {
   private readonly restartPromises = new Map<
     ITradingViewNativeHyperliquidEnvironment,
     Promise<void>
+  >();
+
+  // Rate-limit retries used per abort signal. The K-line hook passes one
+  // signal to the requests of a load and to its own retries of them, so its
+  // retries do not start the count over.
+  private readonly rateLimitRetries = new WeakMap<
+    AbortSignal,
+    { used: number }
   >();
 
   private createConnection(
@@ -298,13 +307,22 @@ export class TradingViewNativeHyperliquidGateway {
     signal?: AbortSignal;
   }) {
     const client = this.getInfoClient(environment);
+    let retries = signal ? this.rateLimitRetries.get(signal) : undefined;
+    if (!retries) {
+      retries = { used: 0 };
+      if (signal) this.rateLimitRetries.set(signal, retries);
+    }
     for (;;) {
       try {
         return await client.candleSnapshot(request, signal);
       } catch (error) {
-        if (!isRateLimitError(error)) {
+        if (
+          !isRateLimitError(error) ||
+          retries.used >= RATE_LIMIT_MAX_RETRIES
+        ) {
           throw error;
         }
+        retries.used += 1;
         await waitForRateLimitRetry(signal);
         // Stop once the caller aborts; it ignores the error.
         if (signal?.aborted) {
