@@ -485,20 +485,7 @@ class ServiceApp extends ServiceBase {
       // A late enumeration must not start deleting caches after reset.
       if (timedOut) return;
       const results = await Promise.allSettled(
-        names.map(async (name) => {
-          // Keep the Web service worker's public boot resources for offline reload.
-          if (
-            platformEnv.isWeb &&
-            (name === 'onekey-web-version-state' ||
-              name === 'static-resources' ||
-              name.startsWith('workbox-precache-') ||
-              name.startsWith('onekey-web-html:') ||
-              name.startsWith('onekey-web-critical:'))
-          ) {
-            return false;
-          }
-          return caches.delete(name);
-        }),
+        names.map(async (name) => caches.delete(name)),
       );
       if (timedOut) return;
       let failed = false;

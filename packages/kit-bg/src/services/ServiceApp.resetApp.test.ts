@@ -1560,7 +1560,7 @@ describe('ServiceApp privacy database reset ordering', () => {
     }
   });
 
-  it('keeps public Web bootstrap caches and clears other caches', async () => {
+  it('clears Web bootstrap caches along with all other caches', async () => {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
     const wasWeb = platformEnv.isWeb;
     const deleteCache = jest.fn().mockResolvedValue(true);
@@ -1588,6 +1588,11 @@ describe('ServiceApp privacy database reset ordering', () => {
       };
       await service.clearBrowserCacheStorage(() => {});
       expect(deleteCache.mock.calls).toEqual([
+        ['onekey-web-version-state'],
+        ['onekey-web-html:v1'],
+        ['onekey-web-critical:v1'],
+        ['workbox-precache-v2'],
+        ['static-resources'],
         ['onekey-web-critical-temp:v2'],
         ['static-assets'],
         ['runtime-cache'],
