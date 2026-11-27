@@ -20,6 +20,19 @@ export interface ITradingViewNativeVisiblePointRange {
   startIndex: number;
 }
 
+export interface ITradingViewNativeFollowedTimeRange {
+  from: number;
+  to: number;
+}
+
+export interface ITradingViewNativeVisiblePointRangeChange extends ITradingViewNativeVisiblePointRange {
+  /**
+   * While the chart follows another one of a split view, the times it lines
+   * up with: from the oldest to the newest candle in view there.
+   */
+  followedTimeRange?: ITradingViewNativeFollowedTimeRange;
+}
+
 export interface ITradingViewNativePriceRange {
   maxPrice: number;
   minPrice: number;

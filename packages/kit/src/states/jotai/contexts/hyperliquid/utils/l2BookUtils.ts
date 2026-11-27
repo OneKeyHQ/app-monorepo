@@ -6,6 +6,7 @@ import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 export type IPerpsL2BookWithLocalReceivedAt = HL.IBook & {
   localReceivedAt?: number;
+  receiptSequence?: number;
   isCachedSnapshot?: boolean;
 };
 
@@ -25,6 +26,17 @@ export type IPerpsL2BookColdCache = Record<
 // its local timestamp before the trading interaction gate can expire it.
 const PERPS_L2_BOOK_FRESHNESS_REFRESH_MIN_INTERVAL_MS =
   PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS / 2;
+
+let perpsL2BookReceiptSequence = 0;
+
+export function getPerpsL2BookReceiptSequence() {
+  return perpsL2BookReceiptSequence;
+}
+
+export function markPerpsL2BookReceived(book: HL.IBook) {
+  perpsL2BookReceiptSequence += 1;
+  return { ...book, receiptSequence: perpsL2BookReceiptSequence };
+}
 
 export function shouldWritePerpsL2BookColdCacheTarget({
   cache,
