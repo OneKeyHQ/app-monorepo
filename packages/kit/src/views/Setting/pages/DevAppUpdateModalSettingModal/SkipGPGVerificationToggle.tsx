@@ -16,9 +16,11 @@ function SkipGPGVerificationToggle() {
     useState<boolean | null>(null);
 
   const isMountedRef = useRef(true);
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
+    const seq = requestSeqRef.current;
     void Promise.all([
       backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
       BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false),
@@ -26,7 +28,9 @@ function SkipGPGVerificationToggle() {
       if (!isMountedRef.current) {
         return;
       }
-      setEnabled(skipEnabled);
+      if (requestSeqRef.current === seq) {
+        setEnabled(skipEnabled);
+      }
       setIsSkipGpgVerificationAllowed(Boolean(skipAllowed));
     });
     return () => {
@@ -35,6 +39,8 @@ function SkipGPGVerificationToggle() {
   }, []);
 
   const handleChange = useCallback((value: boolean) => {
+    requestSeqRef.current += 1;
+    const seq = requestSeqRef.current;
     setEnabled(value);
     void backgroundApiProxy.serviceDevSetting
       .setSkipBundleGPGVerification(value)
@@ -42,7 +48,7 @@ function SkipGPGVerificationToggle() {
         const persisted = await backgroundApiProxy.serviceDevSetting
           .getSkipBundleGPGVerification()
           .catch(() => !value);
-        if (isMountedRef.current) {
+        if (isMountedRef.current && requestSeqRef.current === seq) {
           setEnabled(persisted);
         }
       });
