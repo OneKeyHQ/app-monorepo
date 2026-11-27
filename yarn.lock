@@ -9433,10 +9433,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.3":
-  version: 44.0.2-alpha.3
-  resolution: "@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.3"
-  checksum: 10/2448140b44f1acb9a7177a3bd40a95648d2344bb8fdcea4d60b59ea76e4704a3b9ceb5cfd6d0fcd4caa7a0c8d76a82543c4b3bf4d89a6bbdc85d03d318e17929
+"@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.4":
+  version: 44.0.2-alpha.4
+  resolution: "@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.4"
+  checksum: 10/cca2769fb381e667cd9e22d34330abe6311c5e5760d7080a9d538ff9b01bfae4632dccb912fbd8cdcc44b1dacbcd7f2aefb3ddf8d3c1fc35f9aa7b3a545d3f9d
   languageName: node
   linkType: hard
 
@@ -10997,7 +10997,7 @@ __metadata:
     "@electron/rebuild": "npm:4.0.1"
     "@electron/remote": "npm:^2.0.1"
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
-    "@onekeyfe/electron-qr-scanner": "npm:44.0.2-alpha.3"
+    "@onekeyfe/electron-qr-scanner": "npm:44.0.2-alpha.4"
     "@onekeyfe/electron-windows-hello": "npm:44.0.2-alpha.1"
     "@sentry/electron": "npm:7.8.0"
     "@stoprocent/noble": "npm:2.3.16"
@@ -11006,7 +11006,7 @@ __metadata:
     adm-zip: "npm:0.6.1"
     concurrently: "npm:9.2.1"
     cross-env: "npm:7.0.3"
-    electron: "npm:44.5.1"
+    electron: "npm:44.11.5"
     electron-builder: "npm:26.4.0"
     electron-check-biometric-auth-changed: "npm:1.0.0"
     electron-context-menu: "npm:5.1.0"
@@ -29727,9 +29727,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:44.5.1":
-  version: 44.5.1
-  resolution: "electron@npm:44.5.1"
+"electron@npm:44.11.5":
+  version: 44.11.5
+  resolution: "electron@npm:44.11.5"
   dependencies:
     "@electron-internal/extract-zip": "npm:^1.0.1"
     "@electron/get": "npm:^5.0.0"
@@ -29737,7 +29737,7 @@ __metadata:
   bin:
     electron: cli.js
     install-electron: install.js
-  checksum: 10/32893c149eeda3941e40d8bae7a42368301fd4d03dbe60a753055340be55637e3664f1a3a5c775c09ad1e3f57b70ae452c1fe83b2dbf403b7c992419e8d23f8c
+  checksum: 10/e7892f2f61c13a79d35ce6d3e38200ca67d32560febacaaa8a1ffa8b1fa32ce72459740ab9f760018946c25bc959ec5e9c8a9fc904d618a783490bca633cd0cc
   languageName: node
   linkType: hard
 

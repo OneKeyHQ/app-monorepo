@@ -130,7 +130,11 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
           revision: (previous?.revision ?? 0) + 1,
         }));
         if (activeId) {
-          void appStorage.syncStorage.set(cameraPreferenceKey, activeId);
+          try {
+            void appStorage.syncStorage.set(cameraPreferenceKey, activeId);
+          } catch {
+            // ignore optional camera preference write failure
+          }
         }
         setCameraError(undefined);
       },
