@@ -3,10 +3,17 @@
 import type { ComponentProps } from 'react';
 import { useEffect } from 'react';
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
+
+import {
+  finishMarketDetailTabBarTransition,
+  prepareMarketDetailTabBarTransition,
+} from '../utils/marketDetailNavigation';
 
 import { createMarketDetailV2Route } from './MarketDetailV2Route';
 
@@ -14,6 +21,10 @@ type IRouteProps = ComponentProps<ReturnType<typeof createMarketDetailV2Route>>;
 
 const mockLazyMounts = { mounted: 0, unmounted: 0 };
 const mockDirectMounts = { mounted: 0, unmounted: 0 };
+const mockNavigation = {
+  isFocused: () => true,
+  addListener: () => () => undefined,
+};
 let mockPreloadedComponent:
   | ((props: {
       route: { params: { tokenAddress: string } };
@@ -44,6 +55,22 @@ jest.mock('./utils/marketDetailPagePreload', () => ({
   getPreloadedMarketDetailV2Shell: () =>
     mockPreloadedComponent ? { default: mockPreloadedComponent } : undefined,
   loadMarketDetailV2Shell: jest.fn(),
+}));
+
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => mockNavigation,
+}));
+
+jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: {
+    get current() {
+      return mockNavigation;
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  getRootRoutersLength: () => 1,
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -99,6 +126,10 @@ describe('createMarketDetailV2Route', () => {
     mockedPlatformEnv.isDesktop = true;
     mockedPlatformEnv.isWeb = false;
     mockedPlatformEnv.isNative = false;
+    Object.assign(mockedPlatformEnv, {
+      isNativeIOS: false,
+      isNativeAndroid: false,
+    });
   });
 
   it('keeps a cold-loaded route mounted after preload finishes', () => {
@@ -123,6 +154,67 @@ describe('createMarketDetailV2Route', () => {
     expect(view.queryByTestId('lazy-route')).toBeNull();
     expect(mockDirectMounts).toEqual({ mounted: 1, unmounted: 0 });
   });
+
+  it('keeps the Android tab bar hidden while a cold route outlasts the transition timeout', () => {
+    jest.useFakeTimers();
+    Object.assign(mockedPlatformEnv, {
+      isDesktop: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    const MarketDetailRoute = createMarketDetailV2Route();
+    try {
+      prepareMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+
+      const view = render(
+        <MarketDetailRoute
+          {...buildRouteProps('cold', { from: EEnterWay.MarketList })}
+        />,
+      );
+      expect(view.getByTestId('lazy-route')).toBeDefined();
+
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(isTabBarHiddenByRequest()).toBe(true);
+
+      view.unmount();
+      expect(isTabBarHiddenByRequest()).toBe(false);
+    } finally {
+      finishMarketDetailTabBarTransition();
+      jest.useRealTimers();
+    }
+  });
+
+  it.each(['iOS', 'Android'])(
+    'keeps a cold-loaded list detail on %s mounted after its params change',
+    (platform) => {
+      Object.assign(mockedPlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isNativeIOS: platform === 'iOS',
+        isNativeAndroid: platform === 'Android',
+      });
+      const MarketDetailRoute = createMarketDetailV2Route();
+      const view = render(
+        <MarketDetailRoute
+          {...buildRouteProps('first', { from: EEnterWay.MarketList })}
+        />,
+      );
+
+      mockPreloadedComponent = MockDirectRoute;
+      view.rerender(
+        <MarketDetailRoute
+          {...buildRouteProps('second', { from: EEnterWay.DetailSwitch })}
+        />,
+      );
+
+      expect(view.getByTestId('lazy-route').textContent).toBe('second');
+      expect(mockLazyMounts).toEqual({ mounted: 1, unmounted: 0 });
+      expect(mockDirectMounts).toEqual({ mounted: 0, unmounted: 0 });
+    },
+  );
 
   it('keeps the page backdrop around the preloaded shell on desktop and web', () => {
     mockPreloadedComponent = MockDirectRoute;

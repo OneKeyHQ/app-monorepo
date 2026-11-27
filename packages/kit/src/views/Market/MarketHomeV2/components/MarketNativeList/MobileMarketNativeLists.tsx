@@ -4,6 +4,7 @@ import type { RefObject } from 'react';
 import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
 import { Dimensions, PixelRatio, ScrollView, StyleSheet } from 'react-native';
+import { NativeScroller } from 'react-native-pager-view';
 
 import {
   Haptics,
@@ -641,7 +642,7 @@ function useNativeMarketBadgeInfo(listRef: RefObject<NativeListRef | null>) {
 
 function prewarmTokenDetail(item: IMarketToken) {
   void preloadMarketDetailV2Page({
-    includeBodyModules: true,
+    includeBodyModules: !platformEnv.isNative || platformEnv.isNativeIOSPad,
     includeHeavyModules: true,
     isStockRoute: Boolean(resolveMarketStockId(item)),
     layout: 'mobile',
@@ -1227,6 +1228,30 @@ function MobileMarketNativeWatchlistImpl({
     return <ScrollView style={NATIVE_LIST_STYLE.fill} />;
   }
   if (watchlist.length === 0 || (!showSkeleton && result.data.length === 0)) {
+    const paddingTop = listContainerProps.emptyContentPaddingTop ?? 16;
+    const recommendations = (
+      <Stack alignItems="center">
+        <MarketRecommendList
+          maxSize={8}
+          recommendedTokens={recommendedTokens}
+        />
+      </Stack>
+    );
+    if (platformEnv.isNativeAndroid) {
+      return (
+        <NativeScroller
+          style={NATIVE_LIST_STYLE.fill}
+          testID="market-favorites-empty-scroll"
+          contentContainerStyle={{
+            paddingTop,
+            paddingBottom: listContainerProps.paddingBottom,
+            minHeight: listContainerProps.emptyScrollContentMinHeight,
+          }}
+        >
+          {recommendations}
+        </NativeScroller>
+      );
+    }
     return (
       <ScrollView
         style={NATIVE_LIST_STYLE.fill}
@@ -1236,16 +1261,11 @@ function MobileMarketNativeWatchlistImpl({
         contentContainerStyle={{
           // Keep blank-area touches inside the iOS scroll view's content.
           flexGrow: platformEnv.isNativeIOS ? 1 : undefined,
-          paddingTop: listContainerProps.emptyContentPaddingTop ?? 16,
+          paddingTop,
           minHeight: listContainerProps.emptyScrollContentMinHeight,
         }}
       >
-        <Stack alignItems="center">
-          <MarketRecommendList
-            maxSize={8}
-            recommendedTokens={recommendedTokens}
-          />
-        </Stack>
+        {recommendations}
       </ScrollView>
     );
   }
@@ -1330,7 +1350,8 @@ function MobileMarketNativeStockListImpl({
       if (!item) return;
       if (event.actionKey === 'prewarm-stock-detail') {
         void preloadMarketDetailV2Page({
-          includeBodyModules: true,
+          includeBodyModules:
+            !platformEnv.isNative || platformEnv.isNativeIOSPad,
           includeHeavyModules: true,
           isStockRoute: true,
           layout: 'mobile',

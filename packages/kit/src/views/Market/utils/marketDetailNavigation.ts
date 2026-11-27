@@ -31,7 +31,7 @@ import type {
 } from '@react-navigation/native';
 
 // The request only bridges the gap between dispatching the navigation and
-// MarketDetailV2 claiming ownership in its focus effect, which is a couple of
+// the detail route claiming ownership in its focus effect, which is a couple of
 // frames. This hides the app wide tab bar, so the ceiling stays tight: a
 // navigation that never reaches a detail screen must not sit on it.
 const MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS = 1500;
