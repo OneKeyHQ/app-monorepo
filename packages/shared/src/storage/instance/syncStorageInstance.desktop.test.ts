@@ -147,4 +147,27 @@ describe('desktop syncStorage with $mmkvSync bridge (main renderer)', () => {
 
     expect(syncStorage.getObject(testKey)).toEqual({ x: 99 });
   });
+
+  it('throws when the bridge returns a structured storage mutation error', () => {
+    setBridge(
+      jest.fn(() => ({
+        __onekeyMmkvSyncError: true,
+        message: 'ENOSPC: no space left on device',
+      })),
+    );
+    const syncStorage = loadDesktopSyncStorage();
+
+    expect(() => syncStorage.set(testKey, 'v')).toThrow(
+      'ENOSPC: no space left on device',
+    );
+    expect(() => syncStorage.setObject(testKey, { a: 1 })).toThrow(
+      'ENOSPC: no space left on device',
+    );
+    expect(() => syncStorage.delete(testKey)).toThrow(
+      'ENOSPC: no space left on device',
+    );
+    expect(() => syncStorage.clearAll()).toThrow(
+      'ENOSPC: no space left on device',
+    );
+  });
 });

@@ -8,10 +8,21 @@ import Store from 'electron-store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const IPC_CHANNEL = 'mmkv:sync';
+const MMKV_SYNC_ERROR_KEY = '__onekeyMmkvSyncError';
 const PERSISTENT_IDS = new Set([
   'onekey-app-setting',
   'onekey-app-dev-setting',
 ]);
+
+function createMmkvSyncErrorReply(error: unknown) {
+  return {
+    [MMKV_SYNC_ERROR_KEY]: true,
+    message:
+      error instanceof Error && error.message
+        ? error.message
+        : 'Desktop MMKV storage operation failed',
+  };
+}
 
 const stores = new Map<string, Store>();
 
@@ -68,6 +79,8 @@ if (ipcMain) {
         return;
       }
       const hasValidKey = typeof key === 'string' && key.length > 0;
+      const isMutation =
+        method === 'set' || method === 'remove' || method === 'clearAll';
       let result: unknown;
       try {
         const store = getOrCreateStore(id);
@@ -117,9 +130,16 @@ if (ipcMain) {
           default:
             break;
         }
-      } catch {
-        result =
-          method === 'contains' || method === 'remove' ? false : undefined;
+      } catch (error) {
+        if (isMutation) {
+          result = createMmkvSyncErrorReply(error);
+        } else if (method === 'contains') {
+          result = false;
+        } else if (method === 'getAllKeys') {
+          result = [];
+        } else {
+          result = undefined;
+        }
       } finally {
         event.returnValue = result;
       }

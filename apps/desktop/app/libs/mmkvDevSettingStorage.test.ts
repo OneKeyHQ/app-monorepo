@@ -260,11 +260,11 @@ test('mmkv:sync rejects untrusted senders and non-persistent store ids', () => {
   ).toBe(false);
 });
 
-test('mmkv:sync completes the synchronous reply when the underlying store throws on write', () => {
-  const { handler, trustedMainFrame } = loadStorage();
+test('mmkv:sync completes the synchronous reply with an error when the underlying store throws on write', () => {
+  const { handler, rendererStorage, trustedMainFrame } = loadStorage();
   const setSpy = jest
     .spyOn(mockElectronStore.prototype, 'set')
-    .mockImplementationOnce(() => {
+    .mockImplementation(() => {
       throw new OneKeyLocalError('ENOSPC: no space left on device');
     });
 
@@ -287,7 +287,13 @@ test('mmkv:sync completes the synchronous reply when the underlying store throws
         value: true,
       }),
     ).not.toThrow();
-    expect(writeEvent.returnValue).toBeUndefined();
+    expect(writeEvent.returnValue).toEqual({
+      __onekeyMmkvSyncError: true,
+      message: 'ENOSPC: no space left on device',
+    });
+    expect(() => rendererStorage.set(devModeKey, true)).toThrow(
+      'ENOSPC: no space left on device',
+    );
   } finally {
     setSpy.mockRestore();
   }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   ESwitchSize,
@@ -15,28 +15,37 @@ function SkipGPGVerificationToggle() {
   const [isSkipGpgVerificationAllowed, setIsSkipGpgVerificationAllowed] =
     useState<boolean | null>(null);
 
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
     void Promise.all([
       backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
       BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false),
     ]).then(([skipEnabled, skipAllowed]) => {
-      if (!isMounted) {
+      if (!isMountedRef.current) {
         return;
       }
       setEnabled(skipEnabled);
       setIsSkipGpgVerificationAllowed(Boolean(skipAllowed));
     });
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
   }, []);
 
   const handleChange = useCallback((value: boolean) => {
     setEnabled(value);
-    void backgroundApiProxy.serviceDevSetting.setSkipBundleGPGVerification(
-      value,
-    );
+    void backgroundApiProxy.serviceDevSetting
+      .setSkipBundleGPGVerification(value)
+      .catch(async () => {
+        const persisted = await backgroundApiProxy.serviceDevSetting
+          .getSkipBundleGPGVerification()
+          .catch(() => !value);
+        if (isMountedRef.current) {
+          setEnabled(persisted);
+        }
+      });
   }, []);
 
   if (isSkipGpgVerificationAllowed === null) {
