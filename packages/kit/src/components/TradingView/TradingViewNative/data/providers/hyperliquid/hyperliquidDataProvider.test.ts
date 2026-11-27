@@ -134,11 +134,12 @@ describe('Hyperliquid native calendar provider', () => {
   });
 
   it.each(['60', '1W'])(
-    'passes a %s request that should not wait out rate limits to the gateway',
+    'passes the rate-limit options of a %s request to the gateway',
     async (value) => {
       await createTradingViewNativeHyperliquidDataProvider(source).fetchHistory(
         {
           interval: interval(value),
+          rateLimitRetries: { used: 3 },
           signal: new AbortController().signal,
           timeFrom: ts('2026-10-08'),
           timeTo: ts('2026-10-09'),
@@ -146,10 +147,31 @@ describe('Hyperliquid native calendar provider', () => {
         },
       );
       expect(gateway.fetchCandles.mock.calls.at(-1)?.[0]).toEqual(
-        expect.objectContaining({ waitOutRateLimit: false }),
+        expect.objectContaining({
+          rateLimitRetries: { used: 3 },
+          waitOutRateLimit: false,
+        }),
       );
     },
   );
+
+  it("counts the daily refreshes of a 1W subscription with the chart's retries", async () => {
+    await createTradingViewNativeHyperliquidDataProvider(
+      source,
+    ).subscribeRealtime({
+      interval: interval('1W'),
+      onPoint: jest.fn(),
+      rateLimitRetries: { used: 3 },
+      signal: new AbortController().signal,
+      subscriberId: 'chart',
+    });
+    expect(gateway.fetchCandles.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        interval: '1d',
+        rateLimitRetries: { used: 3 },
+      }),
+    );
+  });
 
   it('preserves normal interval history and subscription contracts', async () => {
     const provider = createTradingViewNativeHyperliquidDataProvider(source);

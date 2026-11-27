@@ -46,6 +46,7 @@ import type {
   ITradingViewNativeDataProvider,
   ITradingViewNativeHistoryRequest,
   ITradingViewNativeHistoryResponse,
+  ITradingViewNativeRateLimitRetries,
   ITradingViewNativeRealtimeSubscription,
   ITradingViewNativeRealtimeUpdate,
 } from './providers/types';
@@ -1809,8 +1810,13 @@ export function useTradingViewNativeKLine({
       string,
       IHistoryPointTypeClassification
     >();
+    // One count for this chart and token, e.g. one split-view panel: its
+    // requests and its realtime history share the rate-limit retries.
+    const rateLimitRetries: ITradingViewNativeRateLimitRetries = { used: 0 };
     return {
       ...rawHistoryProvider,
+      subscribeRealtime: (request) =>
+        rawHistoryProvider.subscribeRealtime({ ...request, rateLimitRetries }),
       fetchHistory: async (request) => {
         historyDebugRequestSequence += 1;
         const debugRequestId = historyDebugRequestSequence;
@@ -1826,7 +1832,10 @@ export function useTradingViewNativeKLine({
           name: 'history.request',
         });
         try {
-          const data = await rawHistoryProvider.fetchHistory(request);
+          const data = await rawHistoryProvider.fetchHistory({
+            ...request,
+            rateLimitRetries,
+          });
           const responseDataSource: IHistoryDataSource =
             data?.historySource === 'fallback' ? 'fallback' : 'primary';
           const responseDetails = {

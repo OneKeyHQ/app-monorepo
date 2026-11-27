@@ -490,14 +490,18 @@ describe('TradingViewNative Hyperliquid gateway', () => {
       expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(1);
     });
 
-    it('retries a rate limit at most ten times per load', async () => {
+    it('retries a rate limit at most ten times in a row per chart', async () => {
       const gateway = new TradingViewNativeHyperliquidGateway();
       const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
       const rateLimit = httpError(429);
       mocks?.candleSnapshot.mockRejectedValue(rateLimit);
-      const { signal } = new AbortController();
+      const chart = { used: 0 };
 
-      const result = gateway.fetchCandles({ ...request, signal });
+      const result = gateway.fetchCandles({
+        ...request,
+        rateLimitRetries: chart,
+        signal: new AbortController().signal,
+      });
       await jest.advanceTimersByTimeAsync(9 * 5000);
       expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(10);
       // The tenth wait ends in the final failure; handle it before it lands.
@@ -507,23 +511,51 @@ describe('TradingViewNative Hyperliquid gateway', () => {
       ]);
       expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(11);
 
-      // A retry of the same load, as the K-line hook makes, fails at once.
-      await expect(gateway.fetchCandles({ ...request, signal })).rejects.toBe(
-        rateLimit,
-      );
+      // Another request of the same chart, e.g. the K-line hook's own retry,
+      // fails at once.
+      await expect(
+        gateway.fetchCandles({
+          ...request,
+          rateLimitRetries: chart,
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toBe(rateLimit);
       expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(12);
 
-      // Another load waits again.
+      // Another chart, e.g. the next split-view panel, waits again.
       mocks?.candleSnapshot
         .mockRejectedValueOnce(rateLimit)
         .mockResolvedValueOnce([buildCandle()]);
-      const nextLoad = gateway.fetchCandles({
+      const otherChart = gateway.fetchCandles({
         ...request,
+        rateLimitRetries: { used: 0 },
         signal: new AbortController().signal,
       });
       await jest.advanceTimersByTimeAsync(5000);
-      await expect(nextLoad).resolves.toMatchObject({ total: 1 });
+      await expect(otherChart).resolves.toMatchObject({ total: 1 });
       expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(14);
+    });
+
+    it('gives a chart all retries again after a request succeeds', async () => {
+      const gateway = new TradingViewNativeHyperliquidGateway();
+      const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+      mocks?.candleSnapshot
+        .mockRejectedValueOnce(httpError(429))
+        .mockResolvedValueOnce([buildCandle()]);
+      const chart = { used: 9 };
+
+      const result = gateway.fetchCandles({
+        ...request,
+        rateLimitRetries: chart,
+        signal: new AbortController().signal,
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      // The chart's tenth retry.
+      expect(chart.used).toBe(10);
+      await jest.advanceTimersByTimeAsync(5000);
+
+      await expect(result).resolves.toMatchObject({ total: 1 });
+      expect(chart.used).toBe(0);
     });
 
     it('stops waiting once the request is aborted', async () => {

@@ -34,6 +34,7 @@ async function subscribeCalendarCandles({
   source,
   calendarInterval,
   onPoint,
+  rateLimitRetries,
   signal,
   subscriberId,
 }: ITradingViewNativeRealtimeSubscriptionRequest & {
@@ -90,6 +91,7 @@ async function subscribeCalendarCandles({
             coin: source.coin,
             environment: source.environment,
             interval: '1d',
+            rateLimitRetries,
             signal,
             timeFrom: bucketStart,
             timeTo: requestedDay + HYPERLIQUID_DAY_SECONDS - 1,
@@ -228,6 +230,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
     supportsRealtime: true,
     fetchHistory: async ({
       interval,
+      rateLimitRetries,
       signal,
       timeFrom,
       timeTo,
@@ -239,6 +242,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
           coin: source.coin,
           environment: source.environment,
           interval: calendarInterval,
+          rateLimitRetries,
           signal,
           timeFrom,
           timeTo,
@@ -249,6 +253,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
         coin: source.coin,
         environment: source.environment,
         interval: '1d',
+        rateLimitRetries,
         signal,
         waitOutRateLimit,
         timeFrom: Math.max(
@@ -266,7 +271,13 @@ export function createTradingViewNativeHyperliquidDataProvider(
       );
       return { points, total: points.length };
     },
-    subscribeRealtime: ({ interval, onPoint, signal, subscriberId }) => {
+    subscribeRealtime: ({
+      interval,
+      onPoint,
+      rateLimitRetries,
+      signal,
+      subscriberId,
+    }) => {
       if (signal.aborted) {
         return Promise.resolve(null);
       }
@@ -276,6 +287,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
             interval,
             calendarInterval: interval.hyperliquidValue,
             onPoint,
+            rateLimitRetries,
             signal,
             subscriberId,
           })

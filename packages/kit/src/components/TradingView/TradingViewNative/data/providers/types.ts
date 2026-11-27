@@ -10,10 +10,17 @@ import type {
   ITradingViewNativeKLineInterval,
 } from '../tradingViewNativeIntervals';
 
+// Rate-limited retries of one chart in a row. All requests of the chart share
+// the object, so each chart gives up on its own; a success starts it over.
+export interface ITradingViewNativeRateLimitRetries {
+  used: number;
+}
+
 export interface ITradingViewNativeHistoryRequest {
   // Initial/latest and backward pagination may cross non-trading windows.
   allowEarlierHistory?: boolean;
   interval: ITradingViewNativeKLineInterval;
+  rateLimitRetries?: ITradingViewNativeRateLimitRetries;
   signal: AbortSignal;
   timeFrom: number;
   timeTo: number;
@@ -35,6 +42,8 @@ export interface ITradingViewNativeRealtimeSubscriptionRequest {
   interval: ITradingViewNativeKLineInterval;
   getActiveInterval?: () => ITradingViewNativeKLineInterval;
   onPoint: (point: ITradingViewNativeRealtimeUpdate) => void;
+  // For history a subscription loads, e.g. the daily candles of 1W/1M.
+  rateLimitRetries?: ITradingViewNativeRateLimitRetries;
   signal: AbortSignal;
   subscriberId: string;
 }

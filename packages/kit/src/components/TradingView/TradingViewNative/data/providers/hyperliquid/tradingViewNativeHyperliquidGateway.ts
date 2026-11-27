@@ -24,6 +24,7 @@ import {
 
 import type { IHyperliquidCandleInterval } from './hyperliquidCandleUtils';
 import type { ITradingViewNativeHyperliquidEnvironment } from '../../../types';
+import type { ITradingViewNativeRateLimitRetries } from '../types';
 
 type IHyperliquidCandleListener = (point: IMarketTokenKLineDataPoint) => void;
 
@@ -58,6 +59,8 @@ interface IFetchHyperliquidCandlesParams {
   coin: string;
   environment: ITradingViewNativeHyperliquidEnvironment;
   interval: IHyperliquidCandleInterval;
+  // The chart's count; without one, the request counts its own retries.
+  rateLimitRetries?: ITradingViewNativeRateLimitRetries;
   signal?: AbortSignal;
   timeFrom: number;
   timeTo: number;
@@ -74,7 +77,8 @@ function getErrorMessage(error: unknown) {
 
 // Hyperliquid limits request weight per IP, and a split view loads several
 // charts at once. A rate-limited history request waits and tries again, so
-// the chart loads late instead of showing no data, unless the limit lasts.
+// the chart loads late instead of showing no data, unless the limit lasts:
+// each chart retries at most this many times in a row.
 const RATE_LIMIT_RETRY_DELAY_MS = 5000;
 const RATE_LIMIT_MAX_RETRIES = 10;
 // How far before now a request may end and still count as one for the latest
@@ -122,14 +126,6 @@ export class TradingViewNativeHyperliquidGateway {
   private readonly restartPromises = new Map<
     ITradingViewNativeHyperliquidEnvironment,
     Promise<void>
-  >();
-
-  // Rate-limit retries used per abort signal. The K-line hook passes one
-  // signal to the requests of a load and to its own retries of them, so its
-  // retries do not start the count over.
-  private readonly rateLimitRetries = new WeakMap<
-    AbortSignal,
-    { used: number }
   >();
 
   private createConnection(
@@ -307,6 +303,7 @@ export class TradingViewNativeHyperliquidGateway {
     endTime,
     environment,
     interval,
+    rateLimitRetries = { used: 0 },
     signal,
     startTime,
     waitOutRateLimit = true,
@@ -315,35 +312,34 @@ export class TradingViewNativeHyperliquidGateway {
     endTime: number;
     environment: ITradingViewNativeHyperliquidEnvironment;
     interval: IHyperliquidCandleInterval;
+    rateLimitRetries?: ITradingViewNativeRateLimitRetries;
     signal?: AbortSignal;
     startTime: number;
     waitOutRateLimit?: boolean;
   }) {
     const client = this.getInfoClient(environment);
-    let retries = signal ? this.rateLimitRetries.get(signal) : undefined;
-    if (!retries) {
-      retries = { used: 0 };
-      if (signal) this.rateLimitRetries.set(signal, retries);
-    }
     // The chart drops live updates until its history loads, so a request for
     // the latest candles asks again up to the time of the retry.
     const endsNow = endTime >= Date.now() - LATEST_END_TOLERANCE_MS;
     let requestEndTime = endTime;
     for (;;) {
       try {
-        return await client.candleSnapshot(
+        const candles = await client.candleSnapshot(
           { coin, interval, startTime, endTime: requestEndTime },
           signal,
         );
+        // The limit has lifted: the chart's next rate limit gets all retries.
+        rateLimitRetries.used = 0;
+        return candles;
       } catch (error) {
         if (
           !waitOutRateLimit ||
           !isRateLimitError(error) ||
-          retries.used >= RATE_LIMIT_MAX_RETRIES
+          rateLimitRetries.used >= RATE_LIMIT_MAX_RETRIES
         ) {
           throw error;
         }
-        retries.used += 1;
+        rateLimitRetries.used += 1;
         await waitForRateLimitRetry(signal);
         // Stop once the caller aborts; it ignores the error.
         if (signal?.aborted) {
@@ -360,6 +356,7 @@ export class TradingViewNativeHyperliquidGateway {
     coin,
     environment,
     interval,
+    rateLimitRetries,
     signal,
     timeFrom,
     timeTo,
@@ -377,6 +374,7 @@ export class TradingViewNativeHyperliquidGateway {
       endTime: timeTo * 1000,
       environment,
       interval,
+      rateLimitRetries,
       signal,
       startTime,
       waitOutRateLimit,
