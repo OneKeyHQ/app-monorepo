@@ -1,4 +1,4 @@
-// cspell:ignore BRAR KDJ MACD SKDJ Stoch SUPERTREND TRIX VWAP VWMA
+// cspell:ignore bollinger BRAR KDJ keltner MACD SKDJ Stoch SUPERTREND TRIX VWAP VWMA
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators';
@@ -10,217 +10,259 @@ export type IIndicatorSettingsIntl = {
   formatMessage: (descriptor: { id: ETranslations }) => string;
 };
 
-type IIndicatorSettingsTranslationConfig = {
-  labels?: Readonly<Record<string, ETranslations>>;
-  // Full name behind the abbreviation.
-  name?: ETranslations;
-};
-
-// Labels shared by the indicators that have no name translation yet: they keep
-// their English name and only localize the settings that already have a text.
+// Labels shared by several indicators.
+const BACKGROUND_LABEL = ETranslations.market_chart_settings__background;
 const LENGTH_LABEL = ETranslations.market_chart_indicator_length__label;
+const LONG_LENGTH_LABEL =
+  ETranslations.market_chart_indicator_long_length__title;
+const LOOKBACK_LABEL = ETranslations.market_chart_indicator_lookback__title;
+const LOWER_BAND_LABEL = ETranslations.market_chart_indicator_lower_band__title;
+const LOWER_LIMIT_LABEL =
+  ETranslations.market_chart_indicator_lower_limit__label;
 const MA_LENGTH_LABEL = ETranslations.market_chart_indicator_ma_length__label;
+const MULTIPLIER_LABEL = ETranslations.market_chart_indicator_multiplier__title;
+const RSI_LENGTH_LABEL = ETranslations.market_chart_indicator_rsi_length__label;
+const SHORT_LENGTH_LABEL =
+  ETranslations.market_chart_indicator_short_length__title;
 const SIGNAL_LABEL = ETranslations.market_chart_indicator_signal__label;
 const SIGNAL_LENGTH_LABEL =
   ETranslations.market_chart_indicator_signal_length__label;
+const SMOOTHED_MA_LABEL =
+  ETranslations.market_chart_indicator_smoothed_ma__label;
 const SMOOTHING_LENGTH_LABEL =
   ETranslations.market_chart_indicator_smoothing_length__label;
+const UPPER_BAND_LABEL = ETranslations.market_chart_indicator_upper_band__title;
+const UPPER_LIMIT_LABEL =
+  ETranslations.market_chart_indicator_upper_limit__label;
 const ZERO_LABEL = ETranslations.market_chart_indicator_zero__label;
-const BACKGROUND_LABEL = ETranslations.market_chart_settings__background;
 
-const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
-  Record<ITradingViewNativeAnyIndicator, IIndicatorSettingsTranslationConfig>
+// Full name behind each abbreviation. The record is exhaustive, so an added
+// indicator does not compile until it has a localized name.
+const INDICATOR_NAMES: Record<ITradingViewNativeAnyIndicator, ETranslations> = {
+  MA: ETranslations.market_chart_indicator_ma__title,
+  EMA: ETranslations.market_chart_indicator_ema__title,
+  WMA: ETranslations.market_chart_indicator_wma__title,
+  VWMA: ETranslations.market_chart_indicator_vwma__title,
+  BOLL: ETranslations.market_chart_indicator_boll__title,
+  SAR: ETranslations.market_chart_indicator_sar__title,
+  SUPERTREND: ETranslations.market_chart_indicator_supertrend__title,
+  ENV: ETranslations.market_chart_indicator_env__title,
+  VWAP: ETranslations.market_chart_indicator_vwap__title,
+  DC: ETranslations.market_chart_indicator_dc__title,
+  VOL: ETranslations.market_chart_indicator_vol__title,
+  // This key holds the full name despite its `__desc` suffix.
+  MACD: ETranslations.market_chart_indicator_macd__desc,
+  KDJ: ETranslations.market_chart_indicator_kdj__title,
+  SKDJ: ETranslations.market_chart_indicator_skdj__title,
+  RSI: ETranslations.market_chart_indicator_rsi__title,
+  StochRSI: ETranslations.market_chart_indicator_stoch_rsi__title,
+  OBV: ETranslations.market_chart_indicator_obv__title,
+  MFI: ETranslations.market_chart_indicator_mfi__title,
+  DMA: ETranslations.market_chart_indicator_dma__title,
+  TRIX: ETranslations.market_chart_indicator_trix__title,
+  VR: ETranslations.market_chart_indicator_vr__title,
+  BRAR: ETranslations.market_chart_indicator_brar__title,
+  EMV: ETranslations.market_chart_indicator_emv__title,
+  WR: ETranslations.market_chart_indicator_wr__title,
+  ROC: ETranslations.market_chart_indicator_roc__title,
+  MTM: ETranslations.market_chart_indicator_mtm__title,
+  PSY: ETranslations.market_chart_indicator_psy__title,
+  DMI: ETranslations.market_chart_indicator_dmi__title,
+  CCI: ETranslations.market_chart_indicator_cci__title,
+  PVT: ETranslations.market_chart_indicator_pvt__title,
+  ATR: ETranslations.market_chart_indicator_atr__title,
+  SMI: ETranslations.market_chart_indicator_smi__title,
+  TSI: ETranslations.market_chart_indicator_tsi__title,
+  RVI: ETranslations.market_chart_indicator_rvi__title,
+  QQE: ETranslations.market_chart_indicator_qqe__title,
+  MASS: ETranslations.market_chart_indicator_mass__title,
+  KST: ETranslations.market_chart_indicator_kst__title,
+  BBP: ETranslations.market_chart_indicator_bbp__title,
+  NVI: ETranslations.market_chart_indicator_nvi__title,
+  PMO: ETranslations.market_chart_indicator_pmo__title,
+  RCI: ETranslations.market_chart_indicator_rci__title,
+  SLOPE: ETranslations.market_chart_indicator_slope__title,
+};
+
+// Parameter and line labels by setting id. An id without an entry keeps its
+// technical name (MA1, DIF, %K, ROC 1), which reads the same in every language.
+const INDICATOR_LABELS: Partial<
+  Record<
+    ITradingViewNativeAnyIndicator,
+    Readonly<Record<string, ETranslations>>
+  >
 > = {
-  ENV: { labels: { background: BACKGROUND_LABEL } },
-  VWAP: { labels: { period: LENGTH_LABEL } },
-  DC: { labels: { background: BACKGROUND_LABEL, period: LENGTH_LABEL } },
-  KDJ: { labels: { period: LENGTH_LABEL } },
-  SKDJ: {
-    labels: { period: LENGTH_LABEL, smoothingPeriod: SMOOTHING_LENGTH_LABEL },
-  },
-  DMA: {
-    labels: { 'band:zero': ZERO_LABEL, movingAveragePeriod: MA_LENGTH_LABEL },
-  },
-  VR: {
-    labels: { movingAveragePeriod: MA_LENGTH_LABEL, period: LENGTH_LABEL },
-  },
-  BRAR: { labels: { period: LENGTH_LABEL } },
-  PSY: {
-    labels: { movingAveragePeriod: MA_LENGTH_LABEL, period: LENGTH_LABEL },
-  },
-  ATR: { labels: { period: LENGTH_LABEL } },
-  TSI: { labels: { 'band:zero': ZERO_LABEL, period: LENGTH_LABEL } },
-  RVI: {
-    labels: {
-      period: LENGTH_LABEL,
-      'plot:signal': SIGNAL_LABEL,
-      signalPeriod: SIGNAL_LENGTH_LABEL,
-    },
-  },
-  QQE: {
-    labels: {
-      rsiPeriod: ETranslations.market_chart_indicator_rsi_length__label,
-      smoothingPeriod: SMOOTHING_LENGTH_LABEL,
-    },
-  },
-  MASS: { labels: { period: LENGTH_LABEL } },
-  KST: {
-    labels: {
-      'band:zero': ZERO_LABEL,
-      'plot:signal': SIGNAL_LABEL,
-      signalPeriod: SIGNAL_LENGTH_LABEL,
-    },
-  },
-  BBP: { labels: { period: LENGTH_LABEL } },
-  NVI: { labels: { movingAveragePeriod: MA_LENGTH_LABEL } },
-  PMO: {
-    labels: {
-      'band:zero': ZERO_LABEL,
-      'plot:signal': SIGNAL_LABEL,
-      signalPeriod: SIGNAL_LENGTH_LABEL,
-    },
-  },
-  RCI: { labels: { 'band:zero': ZERO_LABEL } },
-  SLOPE: { labels: { 'band:zero': ZERO_LABEL, period: MA_LENGTH_LABEL } },
   BOLL: {
-    labels: {
-      background: ETranslations.market_chart_settings__background,
-      deviation: ETranslations.market_chart_indicator_stddev__label,
-      period: ETranslations.market_chart_indicator_length__label,
-    },
+    background: BACKGROUND_LABEL,
+    deviation: ETranslations.market_chart_indicator_stddev__label,
+    period: LENGTH_LABEL,
   },
   SAR: {
-    labels: {
-      accelerationMax: ETranslations.market_chart_indicator_maximum__label,
-      accelerationStart: ETranslations.market_chart_indicator_start__label,
-      accelerationStep: ETranslations.market_chart_indicator_increment__label,
-    },
+    accelerationMax: ETranslations.market_chart_indicator_maximum__label,
+    accelerationStart: ETranslations.market_chart_indicator_start__label,
+    accelerationStep: ETranslations.market_chart_indicator_increment__label,
+  },
+  SUPERTREND: {
+    atrPeriod: ETranslations.market_chart_indicator_atr_length__title,
+    down: ETranslations.market_chart_indicator_down_trend__title,
+    multiplier: MULTIPLIER_LABEL,
+    up: ETranslations.market_chart_indicator_up_trend__title,
+  },
+  ENV: {
+    background: BACKGROUND_LABEL,
+    bandwidth: ETranslations.market_chart_indicator_bandwidth__title,
+    lookback: LOOKBACK_LABEL,
+    lower: LOWER_BAND_LABEL,
+    multiplier: MULTIPLIER_LABEL,
+    upper: UPPER_BAND_LABEL,
+  },
+  VWAP: { period: LENGTH_LABEL },
+  DC: {
+    background: BACKGROUND_LABEL,
+    basis: ETranslations.market_chart_indicator_basis__title,
+    lower: LOWER_BAND_LABEL,
+    period: LENGTH_LABEL,
+    upper: UPPER_BAND_LABEL,
   },
   VOL: {
-    labels: {
-      movingAveragePeriod:
-        ETranslations.market_chart_indicator_ma_length__label,
-      'plot:movingAverage':
-        ETranslations.market_chart_indicator_volume_ma__label,
-      'plot:smoothedMovingAverage':
-        ETranslations.market_chart_indicator_smoothed_ma__label,
-      'plot:volume': ETranslations.market_chart_indicator_vol__title,
-      smoothingPeriod:
-        ETranslations.market_chart_indicator_smoothing_length__label,
-    },
-    name: ETranslations.market_chart_indicator_vol__title,
+    movingAveragePeriod: MA_LENGTH_LABEL,
+    'plot:movingAverage': ETranslations.market_chart_indicator_volume_ma__label,
+    'plot:smoothedMovingAverage': SMOOTHED_MA_LABEL,
+    'plot:volume': ETranslations.market_chart_indicator_vol__title,
+    smoothingPeriod: SMOOTHING_LENGTH_LABEL,
   },
   MACD: {
-    labels: {
-      fastPeriod: ETranslations.market_chart_indicator_fast_length__label,
-      signalPeriod: ETranslations.market_chart_indicator_signal_length__label,
-      slowPeriod: ETranslations.market_chart_indicator_slow_length__label,
-    },
-    // This key holds the full name despite its `__desc` suffix.
-    name: ETranslations.market_chart_indicator_macd__desc,
+    fastPeriod: ETranslations.market_chart_indicator_fast_length__label,
+    signalPeriod: SIGNAL_LENGTH_LABEL,
+    slowPeriod: ETranslations.market_chart_indicator_slow_length__label,
   },
+  KDJ: { period: LENGTH_LABEL },
+  SKDJ: { period: LENGTH_LABEL, smoothingPeriod: SMOOTHING_LENGTH_LABEL },
   RSI: {
-    labels: {
-      'band:lower': ETranslations.market_chart_indicator_lower_limit__label,
-      'band:middle': ETranslations.market_chart_indicator_middle_limit__label,
-      'band:upper': ETranslations.market_chart_indicator_upper_limit__label,
-      'fill:background': ETranslations.market_chart_settings__background,
-      movingAveragePeriod:
-        ETranslations.market_chart_indicator_smoothing_length__label,
-      period: ETranslations.market_chart_indicator_length__label,
-      'plot:movingAverage':
-        ETranslations.market_chart_indicator_smoothed_ma__label,
-    },
-    name: ETranslations.market_chart_indicator_rsi__title,
+    'band:lower': LOWER_LIMIT_LABEL,
+    'band:middle': ETranslations.market_chart_indicator_middle_limit__label,
+    'band:upper': UPPER_LIMIT_LABEL,
+    'fill:background': BACKGROUND_LABEL,
+    movingAveragePeriod: SMOOTHING_LENGTH_LABEL,
+    period: LENGTH_LABEL,
+    'plot:movingAverage': SMOOTHED_MA_LABEL,
   },
   StochRSI: {
-    labels: {
-      'band:lower': ETranslations.market_chart_indicator_lower_limit__label,
-      'band:upper': ETranslations.market_chart_indicator_upper_limit__label,
-      'fill:background': ETranslations.market_chart_settings__background,
-      rsiPeriod: ETranslations.market_chart_indicator_rsi_length__label,
-      stochasticPeriod:
-        ETranslations.market_chart_indicator_stochastic_length__label,
-    },
-    name: ETranslations.market_chart_indicator_stoch_rsi__title,
+    'band:lower': LOWER_LIMIT_LABEL,
+    'band:upper': UPPER_LIMIT_LABEL,
+    'fill:background': BACKGROUND_LABEL,
+    rsiPeriod: RSI_LENGTH_LABEL,
+    stochasticPeriod:
+      ETranslations.market_chart_indicator_stochastic_length__label,
   },
-  OBV: {
-    labels: {
-      movingAveragePeriod:
-        ETranslations.market_chart_indicator_smoothing_length__label,
-    },
-    name: ETranslations.market_chart_indicator_obv__title,
-  },
+  OBV: { movingAveragePeriod: SMOOTHING_LENGTH_LABEL },
   MFI: {
-    labels: {
-      'band:lower': ETranslations.market_chart_indicator_lower_limit__label,
-      'band:upper': ETranslations.market_chart_indicator_upper_limit__label,
-      'fill:background': ETranslations.market_chart_settings__background,
-      period: ETranslations.market_chart_indicator_length__label,
-    },
-    name: ETranslations.market_chart_indicator_mfi__title,
+    'band:lower': LOWER_LIMIT_LABEL,
+    'band:upper': UPPER_LIMIT_LABEL,
+    'fill:background': BACKGROUND_LABEL,
+    period: LENGTH_LABEL,
+  },
+  DMA: {
+    'band:zero': ZERO_LABEL,
+    longPeriod: LONG_LENGTH_LABEL,
+    movingAveragePeriod: MA_LENGTH_LABEL,
+    shortPeriod: SHORT_LENGTH_LABEL,
   },
   TRIX: {
-    labels: {
-      'band:zero': ETranslations.market_chart_indicator_zero__label,
-      movingAveragePeriod: MA_LENGTH_LABEL,
-      period: ETranslations.market_chart_indicator_length__label,
-    },
+    'band:zero': ZERO_LABEL,
+    movingAveragePeriod: MA_LENGTH_LABEL,
+    period: LENGTH_LABEL,
   },
+  VR: { movingAveragePeriod: MA_LENGTH_LABEL, period: LENGTH_LABEL },
+  BRAR: { period: LENGTH_LABEL },
   EMV: {
-    labels: {
-      divisor: ETranslations.market_chart_indicator_divisor__label,
-      movingAveragePeriod: MA_LENGTH_LABEL,
-      period: ETranslations.market_chart_indicator_length__label,
-    },
-    name: ETranslations.market_chart_indicator_emv__title,
+    divisor: ETranslations.market_chart_indicator_divisor__label,
+    movingAveragePeriod: MA_LENGTH_LABEL,
+    period: LENGTH_LABEL,
   },
   WR: {
-    labels: {
-      'band:lower': ETranslations.market_chart_indicator_lower_limit__label,
-      'band:upper': ETranslations.market_chart_indicator_upper_limit__label,
-      'fill:background': ETranslations.market_chart_settings__background,
-      period: ETranslations.market_chart_indicator_length__label,
-    },
-    name: ETranslations.market_chart_indicator_wr__title,
+    'band:lower': LOWER_LIMIT_LABEL,
+    'band:upper': UPPER_LIMIT_LABEL,
+    'fill:background': BACKGROUND_LABEL,
+    period: LENGTH_LABEL,
   },
   ROC: {
-    labels: {
-      'band:zero': ETranslations.market_chart_indicator_zero_line__label,
-      movingAveragePeriod: MA_LENGTH_LABEL,
-      period: ETranslations.market_chart_indicator_length__label,
-    },
-    name: ETranslations.market_chart_indicator_roc__title,
+    'band:zero': ETranslations.market_chart_indicator_zero_line__label,
+    movingAveragePeriod: MA_LENGTH_LABEL,
+    period: LENGTH_LABEL,
   },
   MTM: {
-    labels: {
-      'band:zero': ETranslations.market_chart_indicator_zero__label,
-      movingAveragePeriod: MA_LENGTH_LABEL,
-      period: ETranslations.market_chart_indicator_length__label,
-      'plot:momentum': ETranslations.market_chart_indicator_mtm__title,
-    },
-    name: ETranslations.market_chart_indicator_mtm__title,
+    'band:zero': ZERO_LABEL,
+    movingAveragePeriod: MA_LENGTH_LABEL,
+    period: LENGTH_LABEL,
+    'plot:momentum': ETranslations.market_chart_indicator_mtm__title,
   },
+  PSY: { movingAveragePeriod: MA_LENGTH_LABEL, period: LENGTH_LABEL },
   DMI: {
-    labels: {
-      adxSmoothingPeriod:
-        ETranslations.market_chart_indicator_adx_smoothing__label,
-      diPeriod: ETranslations.market_chart_indicator_di_length__label,
-    },
-    name: ETranslations.market_chart_indicator_dmi__title,
+    adxSmoothingPeriod:
+      ETranslations.market_chart_indicator_adx_smoothing__label,
+    diPeriod: ETranslations.market_chart_indicator_di_length__label,
   },
   CCI: {
-    labels: {
-      'band:lower': ETranslations.market_chart_indicator_lower_limit__label,
-      'band:upper': ETranslations.market_chart_indicator_upper_limit__label,
-      'fill:background': ETranslations.market_chart_settings__background,
-      movingAveragePeriod:
-        ETranslations.market_chart_indicator_smoothing_length__label,
-      period: ETranslations.market_chart_indicator_length__label,
-      'plot:movingAverage':
-        ETranslations.market_chart_indicator_smoothed_ma__label,
-    },
-    name: ETranslations.market_chart_indicator_cci__title,
+    'band:lower': LOWER_LIMIT_LABEL,
+    'band:upper': UPPER_LIMIT_LABEL,
+    'fill:background': BACKGROUND_LABEL,
+    movingAveragePeriod: SMOOTHING_LENGTH_LABEL,
+    period: LENGTH_LABEL,
+    'plot:movingAverage': SMOOTHED_MA_LABEL,
+  },
+  ATR: { period: LENGTH_LABEL },
+  SMI: {
+    bollingerMultiplier:
+      ETranslations.market_chart_indicator_bb_multiplier__title,
+    bollingerPeriod: ETranslations.market_chart_indicator_bb_length__title,
+    keltnerMultiplier:
+      ETranslations.market_chart_indicator_kc_multiplier__title,
+    keltnerPeriod: ETranslations.market_chart_indicator_kc_length__title,
+    momentumPeriod: ETranslations.market_chart_indicator_momentum_length__title,
+  },
+  TSI: { 'band:zero': ZERO_LABEL, period: LENGTH_LABEL },
+  RVI: {
+    period: LENGTH_LABEL,
+    'plot:signal': SIGNAL_LABEL,
+    signalPeriod: SIGNAL_LENGTH_LABEL,
+  },
+  QQE: {
+    fastFactor: ETranslations.market_chart_indicator_fast_factor__title,
+    'plot:fast': ETranslations.market_chart_indicator_fast_line__title,
+    'plot:slow': ETranslations.market_chart_indicator_slow_line__title,
+    rsiPeriod: RSI_LENGTH_LABEL,
+    slowFactor: ETranslations.market_chart_indicator_slow_factor__title,
+    smoothingPeriod: SMOOTHING_LENGTH_LABEL,
+  },
+  MASS: { period: LENGTH_LABEL },
+  KST: {
+    'band:zero': ZERO_LABEL,
+    'plot:signal': SIGNAL_LABEL,
+    signalPeriod: SIGNAL_LENGTH_LABEL,
+  },
+  BBP: { period: LENGTH_LABEL },
+  NVI: { movingAveragePeriod: MA_LENGTH_LABEL },
+  PMO: {
+    'band:zero': ZERO_LABEL,
+    firstPeriod: ETranslations.market_chart_indicator_first_length__title,
+    'plot:signal': SIGNAL_LABEL,
+    secondPeriod: ETranslations.market_chart_indicator_second_length__title,
+    signalPeriod: SIGNAL_LENGTH_LABEL,
+  },
+  RCI: {
+    'band:zero': ZERO_LABEL,
+    longPeriod: LONG_LENGTH_LABEL,
+    middlePeriod: ETranslations.market_chart_indicator_middle_length__title,
+    'plot:long': ETranslations.market_chart_indicator_long_line__title,
+    'plot:middle': ETranslations.market_chart_indicator_middle_line__title,
+    'plot:short': ETranslations.market_chart_indicator_short_line__title,
+    shortPeriod: SHORT_LENGTH_LABEL,
+  },
+  SLOPE: {
+    'band:zero': ZERO_LABEL,
+    lookback: LOOKBACK_LABEL,
+    period: MA_LENGTH_LABEL,
   },
 };
 
@@ -303,22 +345,24 @@ export function localizeTradingViewNativeIndicatorSettingsValue(
         return indicator;
       }
 
-      const translationConfig = INDICATOR_SETTINGS_TRANSLATIONS[indicator.id];
-      const translatedName = translationConfig?.name
-        ? intl.formatMessage({ id: translationConfig.name })
-        : undefined;
-      const labels = translationConfig?.labels;
+      const translatedName = intl.formatMessage({
+        id: INDICATOR_NAMES[indicator.id],
+      });
+      // Some languages keep the indicator's own name (Supertrend), which would
+      // only repeat the abbreviation.
+      const name =
+        translatedName.toLowerCase() === indicator.label.toLowerCase()
+          ? undefined
+          : translatedName;
+      const labels = INDICATOR_LABELS[indicator.id];
 
       return {
         ...indicator,
         description: intl.formatMessage({
           id: INDICATOR_DESCRIPTIONS[indicator.id],
         }),
-        ...(translatedName ? { name: translatedName } : {}),
-        // A title that is only the abbreviation has no English name to replace.
-        ...(translatedName && indicator.title !== indicator.label
-          ? { title: `${indicator.label} (${translatedName})` }
-          : {}),
+        name,
+        title: name ? `${indicator.label} (${name})` : indicator.label,
         ...(labels && indicator.parameters
           ? {
               parameters: localizeLabels(indicator.parameters, labels, intl),
