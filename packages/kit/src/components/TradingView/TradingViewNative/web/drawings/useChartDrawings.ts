@@ -39,6 +39,15 @@ function drawingEvent(
   };
 }
 
+// A field, e.g. a drawing's name, keeps the keys typed into it.
+export function isEditableKeyTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+  );
+}
+
 type IChartRoots = ReadonlyArray<RefObject<HTMLDivElement | null>>;
 
 // Roots of the charts with drawing tools, so a key press reaches one of them.
@@ -95,14 +104,7 @@ export function useChartDrawings(
     const roots: IChartRoots = toolsRef ? [rootRef, toolsRef] : [rootRef];
     chartRoots.add(roots);
     const handle = (event: KeyboardEvent) => {
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-      )
-        return;
-      if (!rootRef.current) return;
+      if (isEditableKeyTarget(event.target) || !rootRef.current) return;
       // With several charts on screen the key goes to the one under the
       // pointer; a focused chart only takes it when the pointer is over none.
       const isHovered = (chart: IChartRoots) =>

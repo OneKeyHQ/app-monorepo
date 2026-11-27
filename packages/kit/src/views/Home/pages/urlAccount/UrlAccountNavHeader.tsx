@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   HeaderIconButton,
-  IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
   Tooltip,
@@ -14,7 +13,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
 import { OpenInAppButton } from '@onekeyhq/kit/src/components/OpenInAppButton';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
@@ -23,29 +21,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  buildUrlAccountFullUrl,
-  getHomeTabStackLength,
-  urlAccountNavigation,
-} from './urlAccountUtils';
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function Back() {
-  const navigation = useAppNavigation();
-  return (
-    <IconButton
-      testID="home-navigation-icon-btn"
-      icon="ChevronLeftSolid"
-      onPress={() => {
-        if (getHomeTabStackLength() > 1) {
-          navigation.pop();
-        } else {
-          urlAccountNavigation.replaceHomePage(navigation);
-        }
-      }}
-    />
-  );
-}
+import { buildUrlAccountFullUrl } from './urlAccountUtils';
 
 function Address({ enableCopy = false }: { enableCopy?: boolean }) {
   const {
@@ -131,8 +107,6 @@ function Address({ enableCopy = false }: { enableCopy?: boolean }) {
 
   return (
     <XStack alignItems="center" flexShrink={1} minWidth={0}>
-      {/* use navigation built-in back button */}
-      {/* <Back /> */}
       {addressContent}
     </XStack>
   );

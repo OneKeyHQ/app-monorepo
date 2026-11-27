@@ -49,7 +49,6 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
-import { connectWalletConnectToDapp } from '../../../components/WalletConnect/connectWalletConnectToDapp';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
@@ -62,6 +61,7 @@ import {
   handleReferralLandingUrl,
   isValidReferralCode,
   navigateToReferralLanding,
+  parseReferralLandingUrl,
 } from './referralLandingLink';
 
 type IDeepLinkUrlParsedResult = {
@@ -570,6 +570,15 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.prime_subscription:
           await openPrimeInfiniSubscriptionFromDeepLink({ navigation });
           break;
+        case EOneKeyDeepLinkPath.prime_dashboard:
+          // Logged-out users sign in on the dashboard itself, with no handoff
+          // to the Infini checkout. pushModal, not pushFullModal: on iOS a
+          // full-screen modal opens under any modal that is already open.
+          await whenAppUnlocked();
+          navigation.pushModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeDashboard,
+          });
+          break;
         case EOneKeyDeepLinkPath.prime_purchase_complete: {
           // Return from the hosted card checkout. Only a hint to re-check
           // RevenueCat; the purchase is never confirmed from the link.
@@ -708,7 +717,17 @@ async function processDeepLinkWalletConnect({
       wcUri &&
       wcUri.toLowerCase().startsWith(`${WALLET_CONNECT_DEEP_LINK_NAME}:`)
     ) {
-      await connectWalletConnectToDapp(wcUri);
+      // Loaded on demand, like the pay entry above. If the helper fails to
+      // load, pairing still starts, only without its progress dialog.
+      const helper =
+        await import('../../../components/WalletConnect/connectWalletConnectToDapp').catch(
+          () => undefined,
+        );
+      if (helper) {
+        await helper.connectWalletConnectToDapp(wcUri);
+      } else {
+        await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
+      }
       return {
         type: 'walletConnect',
         url,
@@ -797,6 +816,113 @@ export const tryHandleOneKeyUniversalLink = async (
 
 let latestDeepLinkRequest = 0;
 
+function isSupportedOneKeyDeepLink(parsedUrl: Linking.ParsedURL): boolean {
+  const path = getOneKeyDeepLinkPath(parsedUrl);
+  if (!path) {
+    return false;
+  }
+  const { queryParams } = parsedUrl;
+  switch (path) {
+    case EOneKeyDeepLinkPath.invited_by_friend:
+      return isValidReferralCode(getStringQueryParam(queryParams?.code));
+    case ONEKEY_APP_CLIP_HANDOFF_PATH: {
+      const canonicalUrl = getStringQueryParam(queryParams?.url);
+      if (
+        !canonicalUrl ||
+        canonicalUrl.length > 4096 ||
+        hasUnsafeUrlChars(canonicalUrl)
+      ) {
+        return false;
+      }
+      try {
+        const canonicalParsed = Linking.parse(canonicalUrl);
+        return (
+          normalizeAppLinkPath(canonicalParsed.path) === 'clip/market' &&
+          Boolean(parseOneKeyAppLinkTarget(canonicalParsed))
+        );
+      } catch {
+        return false;
+      }
+    }
+    case EOneKeyDeepLinkPath.swap_activity:
+    case EOneKeyDeepLinkPath.invite_share:
+    case EOneKeyDeepLinkPath.redeem_bitcoin_voucher:
+    case EOneKeyDeepLinkPath.prime_subscription:
+    case EOneKeyDeepLinkPath.prime_dashboard:
+    case EOneKeyDeepLinkPath.prime_purchase_complete:
+    case EOneKeyDeepLinkPath.preview_featured_changelog:
+      return true;
+    case EOneKeyDeepLinkPath.url_account:
+      return Boolean(
+        getStringQueryParam(queryParams?.networkCode)?.trim() &&
+        getStringQueryParam(queryParams?.address)?.trim(),
+      );
+    case EOneKeyDeepLinkPath.market_detail:
+      return Boolean(getStringQueryParam(queryParams?.coinGeckoId)?.trim());
+    case WALLET_CONNECT_DEEP_LINK_NAME:
+      return Boolean(getStringQueryParam(queryParams?.uri)?.trim());
+    default:
+      return false;
+  }
+}
+
+/**
+ * Synchronously classifies whether a cold-start URL matches a supported
+ * deep-link destination handled by `handleDeepLinkUrl`, so unrecognized URLs
+ * fall back to ordinary startup instead of claiming `launch-intent`.
+ */
+export function isSupportedColdStartDeepLinkUrl(url: string): boolean {
+  if (
+    !url ||
+    typeof url !== 'string' ||
+    url.length > 4096 ||
+    hasUnsafeUrlChars(url)
+  ) {
+    return false;
+  }
+  const widgetLink = parseMarketWidgetLinkUrl(url);
+  if (widgetLink.matches) {
+    return Boolean(widgetLink.target);
+  }
+  if (parseReferralLandingUrl(url)) {
+    return true;
+  }
+  let parsedUrl: Linking.ParsedURL;
+  try {
+    parsedUrl = Linking.parse(url);
+  } catch {
+    return false;
+  }
+  if (isSupportedOneKeyDeepLink(parsedUrl)) {
+    return true;
+  }
+  if (parseOneKeyAppLinkTarget(parsedUrl)) {
+    return true;
+  }
+  const { hostname, path, queryParams, scheme } = parsedUrl;
+  const uriParam = getStringQueryParam(queryParams?.uri)?.trim();
+  if (
+    scheme === 'https' &&
+    hostname &&
+    ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS.has(hostname.toLowerCase()) &&
+    path === WalletConnectUniversalLinkPath &&
+    uriParam
+  ) {
+    return true;
+  }
+  if (
+    scheme === WALLET_CONNECT_DEEP_LINK ||
+    scheme === WALLET_CONNECT_DEEP_LINK_NAME
+  ) {
+    return Boolean(
+      (getStringQueryParam(queryParams?.['relay-protocol']) &&
+        getStringQueryParam(queryParams?.symKey)?.trim()) ||
+      getStringQueryParam(queryParams?.pay),
+    );
+  }
+  return false;
+}
+
 export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
   // Prefer the validated `data.url` from the main process; only fall back to
   // `data.argv` if `data.url` is absent, and deduplicate to avoid double execution.
@@ -845,4 +971,12 @@ if (process.env.NODE_ENV !== 'production') {
   globalThis.$$handleDeepLinkUrl = handleDeepLinkUrl;
 }
 
-export const registerDeepLinking = () => registerHandler(handleDeepLinkUrl);
+let nativeDeepLinkingRegistered = false;
+
+export function registerDeepLinking() {
+  if (platformEnv.isNative) {
+    if (nativeDeepLinkingRegistered) return;
+    nativeDeepLinkingRegistered = true;
+  }
+  return registerHandler(handleDeepLinkUrl);
+}

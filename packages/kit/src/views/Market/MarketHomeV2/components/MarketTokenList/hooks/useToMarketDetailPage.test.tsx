@@ -70,6 +70,7 @@ jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
   EEnterWay: {
     ExtensionPopup: 'ExtensionPopup',
     ExtensionSidePanel: 'ExtensionSidePanel',
+    MarketList: 'MarketList',
     Search: 'Search',
   },
 }));
@@ -164,7 +165,12 @@ describe('useToDetailPage', () => {
     jest
       .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
       .mockReset();
-    Object.assign(platformEnv, { isNative: false, isDesktop: false });
+    Object.assign(platformEnv, {
+      isNative: false,
+      isNativeIOS: false,
+      isNativeAndroid: false,
+      isDesktop: false,
+    });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
     mockGetRootState.mockReturnValue(undefined);
@@ -543,6 +549,37 @@ describe('useToDetailPage', () => {
     },
   );
 
+  it.each(['iOS', 'Android'])(
+    'opens a list token on %s while the detail preload is pending',
+    async (platform) => {
+      Object.assign(platformEnv, {
+        isExtensionUiPopup: false,
+        isNative: true,
+        isNativeIOS: platform === 'iOS',
+        isNativeAndroid: platform === 'Android',
+      });
+      const preload = deferred<void>();
+      jest.mocked(preloadMarketDetailV2Page).mockReturnValue(preload.promise);
+      const { result } = renderHook(() =>
+        useToDetailPage({ from: EEnterWay.MarketList }),
+      );
+      const navigation = result.current(tokenItem);
+      try {
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          expect.objectContaining({
+            tokenAddress: tokenItem.tokenAddress,
+            from: EEnterWay.MarketList,
+          }),
+        );
+      } finally {
+        jest.mocked(preloadMarketDetailV2Page).mockResolvedValue(undefined);
+        preload.resolve();
+        await navigation;
+      }
+    },
+  );
+
   it('ignores superseded native preload completion', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: true });
     const { result } = renderHook(() => useToDetailPage());
@@ -848,6 +885,56 @@ describe('useToDetailPage', () => {
         stockId: 'AAPL',
         from: EEnterWay.ExtensionPopup,
         entryCategory: 'watchlist',
+      }),
+    );
+  });
+
+  it('keeps a given stock preview symbol on the stock route', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'AAPL',
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL.US',
+      tokenAddress: '',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+      stockPreviewSymbol: 'AAPL',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('forwards a given stock preview symbol through the extension handoff', async () => {
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'AAPL',
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+      });
+    });
+
+    expect(openExtensionMarketStockDetailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+        from: EEnterWay.ExtensionPopup,
       }),
     );
   });

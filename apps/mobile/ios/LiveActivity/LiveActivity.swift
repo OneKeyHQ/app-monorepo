@@ -13,24 +13,39 @@ struct LiveActivityBundle: WidgetBundle {
 private let swapGreen = Color(red: 62 / 255, green: 220 / 255, blue: 47 / 255)
 private let swapRed = Color(red: 210 / 255, green: 30 / 255, blue: 36 / 255)
 private let swapOrange = Color(red: 247 / 255, green: 147 / 255, blue: 26 / 255)
+// Composite the design's 20% white over black before WidgetKit renders the track.
+private let swapProgressTrack = Color(.sRGB, red: 0.2, green: 0.2, blue: 0.2, opacity: 1)
 private let swapSecondaryText = Color.white.opacity(0.6)
 
-private extension ActivityViewContext where Attributes == SwapLiveActivityAttributes {
-  var swapStrings: SwapLiveActivityStrings? { state.strings ?? attributes.strings }
+private struct SwapLocalizedContent<Content: View>: View {
+  @AppStorage(SwapLiveActivitySharedLabels.key, store: SwapLiveActivitySharedLabels.defaults)
+  private var labels = Data()
+  let activityID: String
+  @ViewBuilder let content: (SwapLiveActivityStrings?) -> Content
 
-  var remoteStatusLabel: String? {
-    if state.isRefundFailed { return swapStrings?.refundFailed ?? "Refund failed" }
-    if state.isPartiallyFilled { return swapStrings?.partiallyFilled ?? "Partially filled" }
-    if state.isExpired { return swapStrings?.expired ?? "Expired" }
+  var body: some View {
+    content(SwapLiveActivitySharedLabels.decode(labels)[activityID])
+  }
+}
+
+private extension ActivityViewContext where Attributes == SwapLiveActivityAttributes {
+  var isNearCompletion: Bool {
+    state.almostDone == true || attributes.order.nearCompletionDate.timeIntervalSinceNow < 0
+  }
+
+  func remoteStatusLabel(strings: SwapLiveActivityStrings?) -> String? {
+    if state.isRefundFailed { return strings?.refundFailed ?? "Refund failed" }
+    if state.isPartiallyFilled { return strings?.partiallyFilled ?? "Partially filled" }
+    if state.isExpired { return strings?.expired ?? "Expired" }
     return nil
   }
 
-  var lastUpdatedText: String {
-    if let text = state.strings?.lastUpdated { return text }
-    let label = swapStrings?.lastUpdatedLabel ?? "Last updated"
-    guard let timestamp = state.updatedAtMs else { return "\(label): —" }
+  func lastUpdatedText(strings: SwapLiveActivityStrings?, usesSharedLabels: Bool) -> String? {
+    guard let timestamp = state.updatedAtMs else { return nil }
+    if !usesSharedLabels, let text = state.strings?.lastUpdated, !text.isEmpty { return text }
+    let label = strings?.lastUpdatedLabel ?? "Last updated"
     let date = Date(timeIntervalSince1970: timestamp / 1000)
-    let locale = swapStrings?.locale.map { Locale(identifier: $0) } ?? .current
+    let locale = strings?.locale.map { Locale(identifier: $0) } ?? .current
     let formatted = date.formatted(
       .dateTime.year().month(.abbreviated).day().hour().minute().locale(locale)
     )
@@ -44,21 +59,16 @@ private struct SwapTokenIcon: View {
   let size: CGFloat
 
   private var image: UIImage? {
-    guard !filename.isEmpty,
-          let directory = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.so.onekey.wallet"
-          ) else { return nil }
-    return UIImage(contentsOfFile: directory
-      .appendingPathComponent("LiveActivityIcons")
-      .appendingPathComponent(filename).path)
+    guard !filename.isEmpty, let directory = SwapLiveActivityIconFiles.directory else { return nil }
+    return UIImage(contentsOfFile: directory.appendingPathComponent(filename).path)
   }
 
   var body: some View {
     Group {
-      if token.symbol == "BTC" {
-        Image("SwapBitcoin").renderingMode(.original).resizable().scaledToFit()
-      } else if let image {
+      if let image {
         Image(uiImage: image).renderingMode(.original).resizable().scaledToFit()
+      } else if token.symbol == "BTC" {
+        Image("SwapBitcoin").renderingMode(.original).resizable().scaledToFit()
       } else if token.symbol == "USDC" {
         Image("SwapUSDC").resizable().scaledToFit()
       } else {
@@ -76,34 +86,45 @@ private struct SwapTokenIcon: View {
 }
 
 private struct SwapTokenPair: View {
-  let attributes: SwapLiveActivityAttributes
-  let status: SwapLiveActivityStatus
+  let context: ActivityViewContext<SwapLiveActivityAttributes>
   let size: CGFloat
   var overlapping = false
 
   var body: some View {
+    let attributes = context.attributes
+    let names = SwapLiveActivityIconFiles.names(for: context.activityID, attributes: attributes)
     HStack(spacing: overlapping ? -4 : 10) {
       SwapTokenIcon(token: attributes.order.fromToken,
-                    filename: attributes.fromIconName, size: size)
+                    filename: names.from, size: size)
         .zIndex(overlapping ? 1 : 0)
       SwapTokenIcon(token: attributes.order.toToken,
-                    filename: attributes.toIconName, size: size)
-        .opacity(status.isError && !overlapping ? 0.5 : 1)
+                    filename: names.to, size: size)
+        .opacity(context.state.status.isError && !overlapping ? 0.5 : 1)
     }
   }
 }
 
 private struct SwapActivityETA: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
+  let strings: SwapLiveActivityStrings?
   var compact = false
+  var pendingRingLabel: String?
 
   private var status: SwapLiveActivityStatus { context.state.status }
-  private var strings: SwapLiveActivityStrings? { context.swapStrings }
   private var order: SwapLiveActivityOrder { context.attributes.order }
+  private var etaLocale: Locale { strings?.locale.map { Locale(identifier: $0) } ?? .current }
+  private var estimatedMinutes: String {
+    let duration = order.estimatedEndAt.timeIntervalSince(order.startedAt)
+    return Int(ceil(duration / 60)).formatted(.number.locale(etaLocale))
+  }
+  private var fullEstimate: String {
+    (strings?.etaTemplate ?? "~{number} min").replacingOccurrences(of: "{number}", with: estimatedMinutes)
+  }
+  private var nearCompletionText: String { strings?.almostDone ?? "~Almost done" }
 
   var body: some View {
     Group {
-      if let label = context.remoteStatusLabel {
+      if let label = context.remoteStatusLabel(strings: strings) {
         Text(label)
       } else {
         switch status {
@@ -112,7 +133,7 @@ private struct SwapActivityETA: View {
         case .refunded: Text(strings?.refunded ?? "Refunded")
         case .canceled: Text(strings?.canceled ?? "Order canceled")
         case .refunding: Text(strings?.refunding ?? "Refunding")
-        default: countdown
+        default: pendingETA
         }
       }
     }
@@ -125,27 +146,119 @@ private struct SwapActivityETA: View {
   }
 
   @ViewBuilder
-  private var countdown: some View {
-    if order.isRealOrderOrPushTest {
-      // WidgetKit updates this countdown while the App is suspended.
-      Text(timerInterval: order.startedAt...order.estimatedEndAt, countsDown: true)
-        .multilineTextAlignment(.trailing)
-    } else if context.state.almostDone == true {
-      Text(strings?.almostDone ?? "~Almost done")
-    } else if let minutes = context.state.etaMinutes {
-      if let template = strings?.etaTemplate {
-        Text(template.replacingOccurrences(of: "{number}", with: String(minutes)))
-      } else if compact {
-        VStack(spacing: -4) {
-          Text("\(minutes)")
-            .font(.system(size: 13, weight: .heavy))
-          Text("min")
-            .font(.system(size: 9, weight: .regular))
+  private var pendingETA: some View {
+    if context.isNearCompletion {
+      nearCompletionLabel
+    } else {
+      let threshold = order.nearCompletionDate
+      // WidgetKit advances timer progress in its archived view even while the App is suspended.
+      // A nonempty interval shorter than a frame switches the two labels without a visible wipe.
+      let transition = threshold...threshold.addingTimeInterval(0.001)
+      let estimate = initialETA.mask { clockMask(transition, countsDown: true) }
+      let almostDone = nearCompletionLabel.mask { clockMask(transition, countsDown: false) }
+      Group {
+        if compact {
+          // Keep the island at the original ETA or ring width until its next system layout.
+          estimate.overlay { almostDone }
+        } else {
+          ZStack(alignment: .trailing) {
+            estimate
+            almostDone
+          }
         }
-        .frame(height: 25)
-      } else {
-        Text("~\(minutes) min")
       }
+      // The system advances the masks independently of the archived accessibility tree.
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text(verbatim: pendingRingLabel ?? fullEstimate))
+      .accessibilityValue(Text(order.estimatedEndAt, style: .time))
+      .accessibilityCustomContent(Text(verbatim: nearCompletionText), Text(threshold, style: .time))
+      .environment(\.locale, etaLocale)
+    }
+  }
+
+  @ViewBuilder
+  private var initialETA: some View {
+    if let pendingRingLabel {
+      Image("SwapPendingRing").renderingMode(.original).resizable().scaledToFit()
+        .frame(width: 22, height: 22)
+        .accessibilityLabel(Text(pendingRingLabel))
+    } else {
+      minuteETA
+    }
+  }
+
+  private func clockMask(_ interval: ClosedRange<Date>, countsDown: Bool) -> some View {
+    GeometryReader { geometry in
+      ProgressView(timerInterval: interval, countsDown: countsDown) {
+        EmptyView()
+      } currentValueLabel: {
+        EmptyView()
+      }
+      .progressViewStyle(.linear)
+      .tint(.white)
+      // Extend the rounded ends beyond the label and cover both lines of a compact ETA.
+      .frame(width: geometry.size.width + 12, height: 6)
+      .scaleEffect(x: 1, y: 20)
+      .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+    }
+    .background(.black)
+    .compositingGroup()
+    .contrast(15)
+    .luminanceToAlpha()
+    .accessibilityHidden(true)
+  }
+
+  @ViewBuilder
+  private var nearCompletionLabel: some View {
+    let label = nearCompletionText
+    if compact {
+      ViewThatFits(in: .horizontal) {
+        Text(label).fixedSize(horizontal: true, vertical: false)
+        Image(systemName: "hourglass.bottomhalf.filled")
+      }
+      .accessibilityLabel(Text(label))
+    } else {
+      Text(label)
+    }
+  }
+
+  @ViewBuilder
+  private var minuteETA: some View {
+    let number = estimatedMinutes
+    if let template = strings?.etaTemplate {
+      let localizedTemplate = compact ? template.replacingOccurrences(of: "~", with: "", options: .anchored) : template
+      if compact, let range = localizedTemplate.range(of: "{number}") {
+        let prefix = String(localizedTemplate[..<range.lowerBound])
+        let suffix = String(localizedTemplate[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        let value = Text(number).font(.system(size: 13, weight: .heavy))
+        let before = Text(suffix.isEmpty ? prefix.trimmingCharacters(in: .whitespaces) : prefix)
+          .font(.system(size: 11, weight: .regular))
+        let after = Text(suffix).font(.system(size: 11, weight: .regular))
+        Group {
+          if suffix.isEmpty {
+            before + Text("\n") + value
+          } else {
+            before + value + Text("\n") + after
+          }
+        }
+        .lineLimit(2)
+        .multilineTextAlignment(.center)
+        .frame(height: 25)
+        .padding(.trailing, 3)
+      } else {
+        Text(localizedTemplate.replacingOccurrences(of: "{number}", with: number))
+      }
+    } else if compact {
+      VStack(spacing: -4) {
+        Text(number)
+          .font(.system(size: 13, weight: .heavy))
+        Text("min")
+          .font(.system(size: 11, weight: .regular))
+      }
+      .frame(height: 25)
+      .padding(.trailing, 3)
+    } else {
+      Text("~\(number) min")
     }
   }
 }
@@ -153,20 +266,28 @@ private struct SwapActivityETA: View {
 private struct SwapActivityProgress: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
   private let height: CGFloat = 10
-  private let pendingLimit: CGFloat = 0.95
 
-  private var frozenProgress: Double {
+  private var fixedProgress: Double? {
+    let state = context.state
     let order = context.attributes.order
-    let durationMs = order.estimatedEndAtMs - order.startedAtMs
-    if let stoppedAtMs = context.state.progressStoppedAtMs ?? context.state.updatedAtMs,
-       durationMs > 0 {
-      return min(Double(pendingLimit), max(0, (stoppedAtMs - order.startedAtMs) / durationMs))
+    // Real orders and push tests get their progress from ActivityKit updates.
+    if order.isRealOrderOrPushTest, let progress = state.remoteProgress {
+      return (0...1).contains(progress) ? progress : 0
     }
-    return min(Double(pendingLimit), max(0, context.state.remoteProgress ?? 0))
+    if state.isTerminal && !state.isRefundFailed { return 1 }
+    if order.isRealOrderOrPushTest { return 0 }
+    guard state.status.isError || context.isStale else { return nil }
+    let durationMs = order.estimatedEndAtMs - order.startedAtMs
+    if let stoppedAtMs = state.progressStoppedAtMs ?? state.updatedAtMs,
+       durationMs > 0 {
+      return min(1, max(0, (stoppedAtMs - order.startedAtMs) / durationMs))
+    }
+    return 0
   }
 
-  private func timerTrack(_ interval: ClosedRange<Date>, width: CGFloat) -> some View {
-    ProgressView(timerInterval: interval, countsDown: false) {
+  private func mockTimerTrack(width: CGFloat) -> some View {
+    let order = context.attributes.order
+    return ProgressView(timerInterval: order.startedAt...order.estimatedEndAt, countsDown: false) {
       EmptyView()
     } currentValueLabel: {
       EmptyView()
@@ -176,37 +297,17 @@ private struct SwapActivityProgress: View {
     .frame(width: width, height: height)
   }
 
-  private func pendingTrack(width: CGFloat) -> some View {
-    let order = context.attributes.order
-    let fillWidth = width * pendingLimit
-    let emptyInterval = Date.distantFuture.addingTimeInterval(-60)...Date.distantFuture
-
-    // Crop two full-width system tracks so their grey rails meet without a seam.
-    // The leading track keeps updating through WidgetKit while the app is suspended.
-    return HStack(spacing: 0) {
-      timerTrack(order.startedAt...order.estimatedEndAt, width: width)
-        .frame(width: fillWidth, height: height, alignment: .leading)
-        .clipped()
-      timerTrack(emptyInterval, width: width)
-        .frame(width: width - fillWidth, height: height, alignment: .trailing)
-        .clipped()
-        .accessibilityHidden(true)
-    }
-  }
-
   var body: some View {
     GeometryReader { geometry in
       Group {
-        if context.state.isTerminal && !context.state.isRefundFailed {
-          Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
-        } else if context.state.status.isError || context.isStale {
+        if let progress = fixedProgress {
           ZStack(alignment: .leading) {
-            Capsule().fill(.white.opacity(0.2))
+            Capsule().fill(swapProgressTrack)
             Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
-              .frame(width: geometry.size.width * frozenProgress)
+              .frame(width: geometry.size.width * progress)
           }
         } else {
-          pendingTrack(width: geometry.size.width)
+          mockTimerTrack(width: geometry.size.width)
         }
       }
       .clipShape(Capsule())
@@ -216,12 +317,63 @@ private struct SwapActivityProgress: View {
   }
 }
 
+private struct SwapActivityArrows: View {
+  struct Update: Hashable {
+    let status: SwapLiveActivityStatus
+    let progress: Double?
+  }
+
+  let reversed: Bool
+  let update: Update?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
+  private let width: CGFloat = 34.9771
+  private let height: CGFloat = 14
+
+  private var arrowImage: some View {
+    Image("SwapArrows").renderingMode(.original).resizable().scaledToFit()
+      .frame(width: width, height: height)
+  }
+
+  var body: some View {
+    ZStack {
+      if !reduceMotion, !isLuminanceReduced, let update {
+        ZStack {
+          arrowImage
+            .id(update)
+            .transition(.push(from: .leading))
+        }
+        .animation(.easeInOut(duration: 0.625), value: update)
+        .transition(.identity)
+      } else {
+        arrowImage.transition(.identity)
+      }
+    }
+    .frame(width: width, height: height)
+    .clipped()
+    .environment(\.layoutDirection, .leftToRight)
+    .rotationEffect(.degrees(reversed ? 180 : 0))
+    .opacity(reversed ? 0.5 : 1)
+    .accessibilityHidden(true)
+  }
+}
+
 private struct SwapActivityDetails: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
+  let sharedLabels: SwapLiveActivityStrings?
   var expanded = false
+
+  private var strings: SwapLiveActivityStrings? { sharedLabels ?? context.state.strings ?? context.attributes.strings }
 
   private var showsStaleTime: Bool {
     context.isStale && !context.state.isTerminal && !context.state.status.isError
+  }
+
+  private var arrowUpdate: SwapActivityArrows.Update? {
+    let state = context.state
+    guard !context.isStale, !state.isTerminal, state.status != .failed else { return nil }
+    return .init(status: state.status, progress: state.remoteProgress)
   }
 
   private func ticker(_ value: String) -> String {
@@ -230,8 +382,9 @@ private struct SwapActivityDetails: View {
 
   private var stepText: String? {
     if context.state.status.isTerminal { return nil }
-    if let message = context.state.remoteMessage { return message }
-    let strings = context.swapStrings
+    if sharedLabels == nil, let message = context.state.remoteMessage { return message }
+    // The status beside the token pair already presents this label.
+    if context.remoteStatusLabel(strings: strings) != nil { return nil }
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
@@ -248,17 +401,12 @@ private struct SwapActivityDetails: View {
     VStack(alignment: .leading, spacing: expanded ? 8 : (context.state.status == .done ? 9 : 12)) {
       HStack(spacing: 9) {
         Text(ticker(context.attributes.order.fromToken.symbol))
-        Image("SwapArrows").renderingMode(.original).resizable().scaledToFit()
-        .frame(width: 34.9771, height: 14)
-        .rotationEffect(.degrees(context.state.status.isRefund ? 180 : 0))
-        .opacity(context.state.status.isRefund ? 0.5 : 1)
-        .id(context.state.status)
-        .transition(.push(from: .trailing))
+        SwapActivityArrows(reversed: context.state.status.isRefund, update: arrowUpdate)
         Text(ticker(context.attributes.order.toToken.symbol))
           .opacity(context.state.status.isError ? 0.5 : 1)
         if !showsStaleTime {
           Spacer(minLength: 4)
-          SwapActivityETA(context: context)
+          SwapActivityETA(context: context, strings: strings)
         }
       }
       .font(.system(size: 24, weight: .semibold))
@@ -268,7 +416,9 @@ private struct SwapActivityDetails: View {
       .frame(height: 24)
       VStack(alignment: .leading, spacing: expanded ? 4 : 6) {
         SwapActivityProgress(context: context)
-        if let caption = (showsStaleTime ? context.lastUpdatedText : nil) ?? stepText {
+        if let caption = (showsStaleTime
+          ? context.lastUpdatedText(strings: strings, usesSharedLabels: sharedLabels != nil)
+          : nil) ?? stepText {
           Text(caption)
             .font(.system(size: 12, weight: .regular))
             .foregroundStyle(context.state.status.isError
@@ -285,11 +435,17 @@ private struct SwapActivityDetails: View {
 
 private struct SwapCompactStatus: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
+  let sharedLabels: SwapLiveActivityStrings?
+
+  private var strings: SwapLiveActivityStrings? { sharedLabels ?? context.state.strings ?? context.attributes.strings }
 
   private var statusLabel: String {
-    if let label = context.remoteStatusLabel { return label }
-    if let message = context.state.remoteMessage { return message }
-    let strings = context.swapStrings
+    if let label = context.remoteStatusLabel(strings: strings) { return label }
+    if sharedLabels == nil, let message = context.state.remoteMessage {
+      // The sender may have localized its success message using an older order language.
+      if context.state.status == .done { return strings?.done ?? message }
+      return message
+    }
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
@@ -310,9 +466,10 @@ private struct SwapCompactStatus: View {
         .renderingMode(.original).resizable().scaledToFit()
         .frame(width: 22, height: 22)
         .accessibilityLabel(Text(statusLabel))
-    } else if !context.isStale && (context.state.displayPhase == "eta"
-      || (!context.state.status.isError && context.attributes.order.usesRemoteUpdates)) {
-      SwapActivityETA(context: context, compact: true)
+    } else if !context.isStale && (!context.state.status.isError || context.state.displayPhase == "eta") {
+      let showsLocalRing = !context.attributes.usesRemoteUpdates && context.state.displayPhase != "eta"
+      SwapActivityETA(context: context, strings: strings, compact: true,
+                      pendingRingLabel: showsLocalRing ? statusLabel : nil)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")
       .renderingMode(.original).resizable().scaledToFit()
@@ -327,11 +484,13 @@ struct SwapLiveActivityWidget: Widget {
     ActivityConfiguration(for: SwapLiveActivityAttributes.self) { context in
       VStack(alignment: .leading, spacing: context.state.status == .done ? 9 : 12) {
         HStack(alignment: .top) {
-          SwapTokenPair(attributes: context.attributes, status: context.state.status, size: 46)
+          SwapTokenPair(context: context, size: 46)
           Spacer()
           Image("SwapOneKeyWordmark").resizable().scaledToFit().frame(width: 56, height: 16.2715)
         }
-        SwapActivityDetails(context: context)
+        SwapLocalizedContent(activityID: context.activityID) { labels in
+          SwapActivityDetails(context: context, sharedLabels: labels)
+        }
       }
       .padding(.horizontal, 30)
       .padding(.vertical, 16)
@@ -341,27 +500,32 @@ struct SwapLiveActivityWidget: Widget {
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          SwapTokenPair(attributes: context.attributes, status: context.state.status, size: 40)
+          SwapTokenPair(context: context, size: 40)
         }
         DynamicIslandExpandedRegion(.trailing) {
           Image("SwapOneKeyWordmark").resizable().scaledToFit()
             .frame(width: 56, height: 16.2715)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          SwapActivityDetails(context: context, expanded: true)
-            .padding(.top, 2).padding(.bottom, 8)
+          SwapLocalizedContent(activityID: context.activityID) { labels in
+            SwapActivityDetails(context: context, sharedLabels: labels, expanded: true)
+              .padding(.top, 2).padding(.bottom, 8)
+          }
         }
       } compactLeading: {
-        SwapTokenPair(attributes: context.attributes, status: context.state.status,
-                      size: 22, overlapping: true)
+        SwapTokenPair(context: context, size: 22, overlapping: true)
       } compactTrailing: {
-        SwapCompactStatus(context: context)
+        SwapLocalizedContent(activityID: context.activityID) { labels in
+          SwapCompactStatus(context: context, sharedLabels: labels)
+        }
       } minimal: {
         ZStack {
           Image("SwapMinimalRing").renderingMode(.original).resizable().scaledToFit()
             .frame(width: 26, height: 26)
           SwapTokenIcon(token: context.attributes.order.fromToken,
-                        filename: context.attributes.fromIconName, size: 18)
+                        filename: SwapLiveActivityIconFiles.names(
+                          for: context.activityID, attributes: context.attributes
+                        ).from, size: 18)
         }
         .frame(width: 30, height: 30)
       }

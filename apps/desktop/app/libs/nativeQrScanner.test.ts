@@ -8,9 +8,14 @@ import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 
 type IHandler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 const mockHandlers = new Map<string, IHandler>();
-const mockCapture = { start: jest.fn(), dispose: jest.fn() };
+const mockCapture = {
+  start: jest.fn(),
+  setPaused: jest.fn(),
+  dispose: jest.fn(),
+  focus: jest.fn<boolean, [number, number]>(() => true),
+};
 const mockCreateCapture = jest.fn(
-  (_callbacks: ICaptureCallbacks) => mockCapture,
+  (_callbacks: ICaptureCallbacks): Partial<typeof mockCapture> => mockCapture,
 );
 const mockListCameras = jest.fn(() => [{ id: 'camera-1', name: 'Camera' }]);
 const mockSendTexture = jest.fn(async () => {});
@@ -94,6 +99,25 @@ type ICaptureCallbacks = {
   onFrame(frame: { generation: number; release: () => void }): void;
 };
 
+it('does not confirm focus when Windows reports autofocus but lacks a focus command', async () => {
+  Object.defineProperty(process, 'platform', {
+    ...originalPlatform,
+    value: 'win32',
+  });
+  mockCreateCapture.mockReturnValueOnce({
+    start: jest.fn(),
+    dispose: jest.fn(),
+  });
+  const { invoke } = setup();
+  expect(await invoke(channel.start, [sessionId, 'camera-1'])).toBe(true);
+  mockCreateCapture.mock.lastCall![0].onReady(
+    1,
+    { autoFocusSupported: true },
+    'camera-1',
+  );
+  expect(await invoke(channel.focus, [sessionId, 0.5, 0.5])).toBe(false);
+});
+
 it('retires old capture sessions and releases their frames without delivering scan results', async () => {
   const { invoke, mainFrame, webContents } = setup();
   expect(await invoke(channel.start, [sessionId, 'camera-1'])).toBe(true);
@@ -121,13 +145,43 @@ it('retires old capture sessions and releases their frames without delivering sc
     type: 'text',
     sessionId: otherSessionId,
     text: 'active',
+    analysisRevision: 0,
   });
 
   invoke(channel.stop, [sessionId]);
   expect(mockCapture.dispose).toHaveBeenCalledTimes(1);
+  expect(await invoke(channel.focus, [otherSessionId, 0.25, 0.75])).toBe(true);
+  expect(mockCapture.focus).toHaveBeenCalledWith(0.25, 0.75);
+  expect(await invoke(channel.focus, [sessionId, 0.5, 0.5])).toBe(false);
   webContents.emit('did-start-navigation', {
     isMainFrame: true,
     isSameDocument: false,
   });
   expect(mockCapture.dispose).toHaveBeenCalledTimes(2);
+});
+
+it('tags resumed results and textures with the current analysis revision', async () => {
+  const { invoke, mainFrame } = setup();
+  expect(await invoke(channel.start, [sessionId])).toBe(true);
+  const native = mockCreateCapture.mock.lastCall![0];
+  native.onReady(1, {}, 'camera-1');
+
+  await invoke(channel.setPaused, [sessionId, true, 1]);
+  const releasePausedFrame = jest.fn();
+  native.onFrame({ generation: 1, release: releasePausedFrame });
+  native.onText('paused', 1);
+  expect(releasePausedFrame).toHaveBeenCalledTimes(1);
+  expect(mockSendTexture).not.toHaveBeenCalled();
+  expect(mainFrame.send).toHaveBeenCalledTimes(1);
+
+  await invoke(channel.setPaused, [sessionId, false, 2]);
+  await invoke(channel.setPaused, [sessionId, true, 1]);
+  expect(mockCapture.setPaused.mock.calls).toEqual([[true], [false]]);
+  native.onText('fresh', 1);
+  expect(mainFrame.send).toHaveBeenLastCalledWith(channel.event, {
+    type: 'text',
+    sessionId,
+    text: 'fresh',
+    analysisRevision: 2,
+  });
 });

@@ -16,9 +16,14 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { XMR_DECIMALS } from '@onekeyhq/shared/src/config/xmr';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidAddress,
+  OneKeyError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -58,6 +63,7 @@ import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHi
 import {
   getSwapHistoryDisplayFromAmount,
   getSwapHistoryDisplayToAmount,
+  getSwapProviderOrderIdFromContext,
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryTerminalStatus,
@@ -71,6 +77,11 @@ import {
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import { buildSwapTokenSearchRequests } from '@onekeyhq/shared/src/utils/swapTokenSearchRequestUtils';
+import {
+  hasXmrMainnetPrimaryAddressShape,
+  isXmrSwapNetwork,
+  isXmrSwapProvider,
+} from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
@@ -100,7 +111,6 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapExtraStatus,
-  ESwapQuoteKind,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
@@ -135,6 +145,7 @@ import {
   ESwapFetchCancelCause,
   ESwapLimitOrderStatus,
   ESwapLimitOrderUpdateInterval,
+  ESwapQuoteKind,
   ESwapQuoteSource,
   ESwapTabSwitchType,
   ESwapTradeSource,
@@ -414,14 +425,6 @@ function getProtocolOfExchangeFromSwapTab(
   return EProtocolOfExchange.SWAP;
 }
 
-function getPrivateSendRocketXOrderIdFromCtx(ctx: unknown) {
-  const rocketXOrderId = (ctx as { rocketXOrderId?: unknown } | undefined)
-    ?.rocketXOrderId;
-  return typeof rocketXOrderId === 'string' && rocketXOrderId
-    ? rocketXOrderId
-    : undefined;
-}
-
 function getPrivateSendPayinAddressFromCtx(ctx: unknown) {
   const payinAddress = (ctx as { payinAddress?: unknown } | undefined)
     ?.payinAddress;
@@ -442,6 +445,13 @@ function getSwapHistoryStateReceivedAddress({
   isPrivateSendHistory: boolean;
 }) {
   if (!isPrivateSendHistory) {
+    if (
+      isXmrSwapNetwork(swapTxHistory.baseInfo.toToken.networkId) &&
+      !isXmrSwapNetwork(swapTxHistory.baseInfo.fromToken.networkId) &&
+      isXmrSwapProvider(swapTxHistory.swapInfo.provider.provider)
+    ) {
+      return undefined;
+    }
     return swapTxHistory.txInfo.receiver || undefined;
   }
   return (
@@ -449,6 +459,45 @@ function getSwapHistoryStateReceivedAddress({
     swapTxHistory.txInfo.receiver ||
     undefined
   );
+}
+
+function getXmrSwapRequestAddress({
+  fromToken,
+  toToken,
+  userAddress,
+  receivingAddress,
+  protocol,
+  kind,
+}: {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  userAddress?: string;
+  receivingAddress?: string;
+  protocol: EProtocolOfExchange;
+  kind?: ESwapQuoteKind;
+}) {
+  const isSource = isXmrSwapNetwork(fromToken.networkId);
+  const isDestination = isXmrSwapNetwork(toToken.networkId);
+  if (
+    (!isSource && hasXmrMainnetPrimaryAddressShape(userAddress)) ||
+    (!isDestination && hasXmrMainnetPrimaryAddressShape(receivingAddress))
+  ) {
+    throw new InvalidAddress();
+  }
+  if (!isSource && !isDestination) return undefined;
+  const token = isSource ? fromToken : toToken;
+  if (
+    platformEnv.isWeb ||
+    protocol !== EProtocolOfExchange.SWAP ||
+    kind === ESwapQuoteKind.BUY ||
+    (isSource && isDestination) ||
+    !token.isNative
+  ) {
+    throw new OneKeyLocalError('Unsupported XMR swap route');
+  }
+  const address = isSource ? userAddress : receivingAddress;
+  if (!hasXmrMainnetPrimaryAddressShape(address)) throw new InvalidAddress();
+  return { address, isSource, networkId: token.networkId };
 }
 
 function getSwapHistoryStateOrderId({
@@ -464,7 +513,10 @@ function getSwapHistoryStateOrderId({
   if (!isPrivateSendHistory) {
     return orderId;
   }
-  const rocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(swapTxHistory.ctx);
+  const rocketXOrderId = getSwapProviderOrderIdFromContext(
+    privateSendProvider,
+    swapTxHistory.ctx,
+  );
   return orderId &&
     orderId !== rocketXOrderId &&
     !isPrivateSendFallbackOrderId(orderId)
@@ -786,6 +838,13 @@ export default class ServiceSwap extends ServiceBase {
         });
       const swapNetworks = data?.data
         ?.map((network) => {
+          const isXmr = isXmrSwapNetwork(network.networkId);
+          if (
+            isXmr &&
+            (platformEnv.isWeb || network.supportCrossChainSwap !== true)
+          ) {
+            return null;
+          }
           const clientNetwork = allClientSupportNetworks.networks.find(
             (n) => n.id === network.networkId,
           );
@@ -812,10 +871,10 @@ export default class ServiceSwap extends ServiceBase {
               defaultSelectToken: network.defaultSelectToken,
               defaultSelectTokenDetail: network.defaultSelectTokenDetail,
               supportCrossChainSwap: network.supportCrossChainSwap,
-              supportSingleSwap: network.supportSingleSwap,
-              supportLimit: network.supportLimit,
-              supportPrivateSend: network.supportPrivateSend,
-              supportStock: network.supportStock,
+              supportSingleSwap: !isXmr && network.supportSingleSwap,
+              supportLimit: !isXmr && network.supportLimit,
+              supportPrivateSend: !isXmr && network.supportPrivateSend,
+              supportStock: !isXmr && network.supportStock,
             };
           }
           return null;
@@ -919,6 +978,95 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  private async getXmrSwapSpendableBalance({
+    networkId,
+    accountId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountId?: string;
+    accountAddress?: string;
+  }): Promise<string | undefined> {
+    if (!accountId || !accountAddress) return undefined;
+
+    try {
+      const address =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId,
+          accountId,
+        });
+      if (address !== accountAddress) return undefined;
+
+      const balance =
+        await this.backgroundApi.servicePrivacyChain.getLocalWalletAccountBalance(
+          { networkId, accountId },
+        );
+      if (
+        typeof balance?.spendable !== 'string' ||
+        !/^\d+$/.test(balance.spendable)
+      ) {
+        return undefined;
+      }
+      return new BigNumber(balance.spendable)
+        .shiftedBy(-XMR_DECIMALS)
+        .toFixed();
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async applyLocalXmrSwapBalance({
+    tokens,
+    protocol,
+    accountId,
+    accountAddress,
+  }: {
+    tokens: ISwapToken[];
+    protocol: EProtocolOfExchange;
+    accountId?: string;
+    accountAddress?: string;
+  }): Promise<ISwapToken[]> {
+    const xmrToken = tokens.find((token) => isXmrSwapNetwork(token.networkId));
+    if (!xmrToken) return tokens;
+
+    const xmrAvailable =
+      !platformEnv.isWeb && protocol === EProtocolOfExchange.SWAP;
+    const balanceParsed = xmrAvailable
+      ? await this.getXmrSwapSpendableBalance({
+          networkId: xmrToken.networkId,
+          accountId,
+          accountAddress,
+        })
+      : undefined;
+
+    return tokens.flatMap((token) => {
+      if (token.networkId !== xmrToken.networkId) return [token];
+      if (
+        !xmrAvailable ||
+        token.contractAddress !== '' ||
+        token.isNative !== true ||
+        token.decimals !== XMR_DECIMALS
+      ) {
+        return [];
+      }
+      const price = new BigNumber(token.price ?? '');
+      return [
+        {
+          ...token,
+          accountAddress:
+            balanceParsed === undefined ? undefined : accountAddress,
+          balanceParsed,
+          balanceMultiplier: undefined,
+          reservationValue: undefined,
+          fiatValue:
+            balanceParsed !== undefined && price.isFinite() && price.gt(0)
+              ? price.times(balanceParsed).toFixed()
+              : undefined,
+        },
+      ];
+    });
+  }
+
   private async fetchSwapTokensInternal(
     {
       networkId,
@@ -952,12 +1100,26 @@ export default class ServiceSwap extends ServiceBase {
       isTravelMode: await travelModeManager.isActive(),
       onlyAccountTokens,
     });
-    const requestAccountAddress = accountContext.accountAddress;
-    const requestAccountId = accountContext.accountId;
-    const requestAccountNetworkId = accountContext.accountNetworkId;
-    const requestOnlyAccountTokens = accountContext.onlyAccountTokens;
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
     const requestProtocol = getProtocolOfExchangeFromSwapTab(protocol);
+    const isXmrTarget = isXmrSwapNetwork(targetNetworkId);
+    const isXmrAccount = isXmrSwapNetwork(accountContext.accountNetworkId);
+    if (
+      isXmrTarget &&
+      (platformEnv.isWeb || requestProtocol !== EProtocolOfExchange.SWAP)
+    ) {
+      return [];
+    }
+    const withholdAccountContext =
+      isXmrTarget ||
+      isXmrAccount ||
+      hasXmrMainnetPrimaryAddressShape(accountContext.accountAddress?.trim());
+    const {
+      accountAddress: requestAccountAddress,
+      accountId: requestAccountId,
+      accountNetworkId: requestAccountNetworkId,
+      onlyAccountTokens: requestOnlyAccountTokens,
+    } = withholdAccountContext ? {} : accountContext;
     const params: IFetchTokenListParams = {
       protocol: requestProtocol,
       networkId: targetNetworkId,
@@ -1085,8 +1247,28 @@ export default class ServiceSwap extends ServiceBase {
       if (failedResponse && tokens.length === 0) {
         throw failedResponse.reason;
       }
-      return normalizeSwapTokenListCurrency({
+      const localXmrAccount = isXmrTarget
+        ? !accountContext.accountNetworkId || isXmrAccount
+        : isXmrAccount &&
+          networkUtils.isAllNetwork({ networkId: targetNetworkId });
+      const tokensWithLocalBalance = await this.applyLocalXmrSwapBalance({
         tokens,
+        protocol: requestProtocol,
+        accountId: localXmrAccount ? accountContext.accountId : undefined,
+        accountAddress: localXmrAccount
+          ? accountContext.accountAddress
+          : undefined,
+      });
+      throwIfCanceled();
+      return normalizeSwapTokenListCurrency({
+        tokens:
+          withholdAccountContext && accountContext.onlyAccountTokens
+            ? tokensWithLocalBalance.filter(
+                (token) =>
+                  isXmrSwapNetwork(token.networkId) &&
+                  new BigNumber(token.balanceParsed ?? '').gt(0),
+              )
+            : tokensWithLocalBalance,
         currency: requestCurrency,
       });
     } catch (e) {
@@ -1201,6 +1383,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapTokenDetails({
     networkId,
     accountAddress,
+    accountNetworkId,
     accountId,
     contractAddress,
     direction,
@@ -1212,6 +1395,7 @@ export default class ServiceSwap extends ServiceBase {
   }: {
     networkId: string;
     accountAddress?: string;
+    accountNetworkId?: string;
     accountId?: string;
     contractAddress: string;
     direction?: ESwapDirectionType;
@@ -1221,15 +1405,42 @@ export default class ServiceSwap extends ServiceBase {
     balanceMultiplier?: string;
     requireFreshBalanceMultiplier?: boolean;
   }): Promise<ISwapToken[] | undefined> {
+    // Capture this request's controller before any asynchronous preparation.
+    // A successor can cancel it even while local balance or headers are pending.
+    let fetchSignal: AbortSignal | undefined;
+    if (
+      direction === ESwapDirectionType.FROM ||
+      direction === ESwapDirectionType.TO
+    ) {
+      const controller = new AbortController();
+      this._tokenDetailAbortControllerMap[direction]?.abort();
+      this._tokenDetailAbortControllerMap[direction] = controller;
+      fetchSignal = controller.signal;
+    }
     try {
-      await this.cancelFetchTokenDetail(direction);
       const accountContext = resolveSwapRequestAccountContext({
         accountAddress,
+        accountNetworkId,
         accountId,
         isTravelMode: await travelModeManager.isActive(),
       });
-      const requestAccountAddress = accountContext.accountAddress;
-      const requestAccountId = accountContext.accountId;
+      const isXmr = isXmrSwapNetwork(networkId);
+      if (
+        isXmr &&
+        (platformEnv.isWeb ||
+          protocol !== EProtocolOfExchange.SWAP ||
+          contractAddress !== '')
+      ) {
+        return [];
+      }
+      const withholdAccountContext =
+        isXmr ||
+        isXmrSwapNetwork(accountContext.accountNetworkId) ||
+        hasXmrMainnetPrimaryAddressShape(accountContext.accountAddress?.trim());
+      const {
+        accountAddress: requestAccountAddress,
+        accountId: requestAccountId,
+      } = withholdAccountContext ? {} : accountContext;
       const params: IFetchTokenDetailParams = {
         protocol,
         networkId,
@@ -1237,13 +1448,6 @@ export default class ServiceSwap extends ServiceBase {
         contractAddress,
         currency,
       };
-      if (direction) {
-        if (direction === ESwapDirectionType.FROM) {
-          this._tokenDetailAbortControllerMap.from = new AbortController();
-        } else if (direction === ESwapDirectionType.TO) {
-          this._tokenDetailAbortControllerMap.to = new AbortController();
-        }
-      }
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       if (requestAccountId && requestAccountAddress && networkId) {
         try {
@@ -1271,12 +1475,6 @@ export default class ServiceSwap extends ServiceBase {
           );
         params.withCheckInscription = withCheckInscription;
       }
-      let fetchSignal: AbortSignal | undefined;
-      if (direction === ESwapDirectionType.FROM) {
-        fetchSignal = this._tokenDetailAbortControllerMap.from?.signal;
-      } else if (direction === ESwapDirectionType.TO) {
-        fetchSignal = this._tokenDetailAbortControllerMap.to?.signal;
-      }
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/token/detail',
         {
@@ -1293,6 +1491,26 @@ export default class ServiceSwap extends ServiceBase {
         },
       );
       const tokens = data?.data;
+      if (isXmr && tokens) {
+        if (fetchSignal?.aborted) {
+          throw new axios.CanceledError('Token detail canceled');
+        }
+        const localXmrAccount =
+          !accountContext.accountNetworkId ||
+          isXmrSwapNetwork(accountContext.accountNetworkId);
+        const tokensWithLocalBalance = await this.applyLocalXmrSwapBalance({
+          tokens: tokens.filter((token) => token.networkId === networkId),
+          protocol,
+          accountId: localXmrAccount ? accountContext.accountId : undefined,
+          accountAddress: localXmrAccount
+            ? accountContext.accountAddress
+            : undefined,
+        });
+        if (fetchSignal?.aborted) {
+          throw new axios.CanceledError('Token detail canceled');
+        }
+        return tokensWithLocalBalance;
+      }
       if (
         protocol === EProtocolOfExchange.PRIVATE_SEND ||
         !contractAddress ||
@@ -1406,7 +1624,7 @@ export default class ServiceSwap extends ServiceBase {
       );
     } catch (e) {
       if (throwOnError) throw e;
-      console.error(e);
+      if (!axios.isCancel(e)) console.error(e);
       return [];
     }
   }
@@ -1497,6 +1715,16 @@ export default class ServiceSwap extends ServiceBase {
     userMarketPriceRate,
     quoteRequestId: inputQuoteRequestId,
   }: IFetchSwapQuoteParams) {
+    const quoteProtocol = getProtocolOfExchangeFromSwapTab(protocol);
+    const xmrRequest = getXmrSwapRequestAddress({
+      fromToken,
+      toToken,
+      userAddress,
+      receivingAddress,
+      protocol: quoteProtocol,
+      kind,
+    });
+    if (xmrRequest?.isSource && !accountId) throw new InvalidAddress();
     const quoteRequestId =
       inputQuoteRequestId ??
       `service-quote-${Date.now()}-${(this._quoteEventRequestSequence += 1)}`;
@@ -1529,7 +1757,7 @@ export default class ServiceSwap extends ServiceBase {
       ...(fromTokenAmount ? { fromTokenAmount } : {}),
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
+      protocol: quoteProtocol,
       userAddress,
       slippagePercentage,
       autoSlippage,
@@ -1650,7 +1878,7 @@ export default class ServiceSwap extends ServiceBase {
             type: 'error',
             event: {
               type: 'error',
-              message: errorEvent.error,
+              message: xmrRequest ? '' : errorEvent.error,
               xhrState: quoteEventSourcePolyfill.readyState,
               xhrStatus: quoteEventSourcePolyfill.readyState,
             },
@@ -1740,9 +1968,18 @@ export default class ServiceSwap extends ServiceBase {
           type === 'timeout' ? 'timeout' : 'error',
           xhrStatus,
         );
+        // Native SSE events can include the complete request URL.
+        const errorEvent = xmrRequest
+          ? {
+              type: 'error' as const,
+              message: '',
+              xhrState: 0,
+              xhrStatus: xhrStatus ?? 0,
+            }
+          : event;
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'error',
-          event,
+          event: errorEvent,
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
@@ -1823,6 +2060,39 @@ export default class ServiceSwap extends ServiceBase {
     preparedContext?: ISwapBuildTxContext;
     reviewQuoteValidUntil?: number;
   }): Promise<IFetchBuildTxResponse | undefined> {
+    const xmrRequest = getXmrSwapRequestAddress({
+      fromToken,
+      toToken,
+      userAddress,
+      receivingAddress,
+      protocol,
+      kind,
+    });
+    if (xmrRequest) {
+      if (!isXmrSwapProvider(provider)) {
+        throw new OneKeyLocalError('Unsupported XMR swap provider');
+      }
+      const { address, networkId, isSource } = xmrRequest;
+      if (isSource) {
+        if (
+          !accountId ||
+          address !==
+            (await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              accountId,
+              networkId,
+            }))
+        ) {
+          throw new InvalidAddress();
+        }
+      } else {
+        const validation =
+          await this.backgroundApi.serviceValidator.localValidateAddress({
+            networkId,
+            address,
+          });
+        if (!validation.isValid) throw new InvalidAddress();
+      }
+    }
     const contextPromise =
       preparedContext &&
       preparedContext.accountId === accountId &&
@@ -1876,6 +2146,12 @@ export default class ServiceSwap extends ServiceBase {
         },
       };
     }
+    if (platformEnv.isNativeIOS) {
+      // Start warming the icons before signing without holding up the swap.
+      void this.backgroundApi.serviceLiveActivity
+        ?.prefetchSwapIcons?.({ protocol, fromToken, toToken })
+        ?.catch(() => undefined);
+    }
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
@@ -1883,12 +2159,49 @@ export default class ServiceSwap extends ServiceBase {
         headers: context.walletTypeHeader,
       },
     );
-    if (data?.data?.reviewQuoteExpiredBeforeSubmit) {
-      const result = { ...data.data };
-      delete result.reviewQuoteExpiredBeforeSubmit;
-      return result;
+    const build = data?.data?.reviewQuoteExpiredBeforeSubmit
+      ? omit(data.data, 'reviewQuoteExpiredBeforeSubmit')
+      : data?.data;
+    if (xmrRequest) {
+      const providerOrderId = getSwapProviderOrderIdFromContext(
+        provider,
+        build?.ctx,
+      );
+      const depositAmount = new BigNumber(
+        build?.changellyOrder?.amountExpectedFrom ?? '',
+      );
+      if (
+        typeof build?.orderId !== 'string' ||
+        !build.orderId.trim() ||
+        build.swftOrder ||
+        build.result?.info?.provider !== provider ||
+        !equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: build.result.fromTokenInfo,
+        }) ||
+        !equalTokenNoCaseSensitive({
+          token1: toToken,
+          token2: build.result.toTokenInfo,
+        }) ||
+        Boolean(build.result.fromTokenInfo.isNative) !==
+          Boolean(fromToken.isNative) ||
+        build.result.fromTokenInfo.decimals !== fromToken.decimals ||
+        Boolean(build.result.toTokenInfo.isNative) !==
+          Boolean(toToken.isNative) ||
+        build.result.toTokenInfo.decimals !== toToken.decimals ||
+        !providerOrderId ||
+        build.changellyOrder?.orderId !== providerOrderId ||
+        typeof build.changellyOrder.payinAddress !== 'string' ||
+        !build.changellyOrder.payinAddress.trim() ||
+        !depositAmount.isFinite() ||
+        !depositAmount.gt(0) ||
+        !depositAmount.eq(fromTokenAmount) ||
+        !depositAmount.eq(build.result.fromAmount ?? '')
+      ) {
+        throw new OneKeyLocalError('XMR swap order could not be verified');
+      }
     }
-    return data?.data;
+    return build;
   }
 
   @backgroundMethod()

@@ -48,7 +48,7 @@ import {
   identityLifecycleMutex,
   markIdentityRecoveryFailed,
 } from './ServiceIdentityExit/identityLifecycleMutex';
-import { isStandardLiveActivityTestEndpoint } from './ServiceLiveActivity/subscriptionTransport';
+import { isStandardLiveActivityTestEndpoint } from './ServiceLiveActivity/testEndpoint';
 
 import type { IPro2FirmwareForceTargetMode } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type {
@@ -477,13 +477,13 @@ class ServiceDevSetting extends ServiceBase {
             : undefined),
         },
       }));
-      await this.saveDevModeToSyncStorage();
-      await this.syncCryptoSettings();
       try {
+        await this.saveDevModeToSyncStorage();
+        await this.syncCryptoSettings();
         await this.applyNetworkThrottleAfterEnableDevMode();
       } catch (error) {
         await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
-        await this.saveDevModeToSyncStorage();
+        await this.saveDevModeToSyncStorage().catch(() => undefined);
         await this.syncCryptoSettings();
         throw error;
       }
@@ -494,18 +494,26 @@ class ServiceDevSetting extends ServiceBase {
       enabled: false,
       settings: {},
     }));
-    await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
-      ...prev,
-      usePreReleaseConfig: false,
-    }));
-    await this.saveDevModeToSyncStorage();
-    await this.syncCryptoSettings();
+    let previousUsePreReleaseConfig = false;
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => {
+      previousUsePreReleaseConfig = prev.usePreReleaseConfig;
+      return {
+        ...prev,
+        usePreReleaseConfig: false,
+      };
+    });
 
     try {
+      await this.saveDevModeToSyncStorage();
+      await this.syncCryptoSettings();
       await this.clearNetworkThrottleAfterDisableDevMode();
     } catch (error) {
       await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
-      await this.saveDevModeToSyncStorage();
+      await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
+        ...prev,
+        usePreReleaseConfig: previousUsePreReleaseConfig,
+      }));
+      await this.saveDevModeToSyncStorage().catch(() => undefined);
       await this.syncCryptoSettings();
       throw error;
     }

@@ -11,6 +11,10 @@ import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
 import type { EDeviceType, HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
+// Root Onboarding route param: present it without the push animation.
+export const ONBOARDING_ROUTE_DISABLE_ANIMATION_PARAM =
+  'onboardingDisableAnimation';
+
 export enum EOnboardingV2Routes {
   OnboardingV2 = 'OnboardingV2',
 }

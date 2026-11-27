@@ -28,10 +28,67 @@ export function getPerpsL2BookColdCacheGlobalSnapshot() {
     .__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__;
 }
 
-export function hasL2BookLevels(bookData: HL.IBook | null | undefined) {
-  return Boolean(
-    bookData?.levels?.[0]?.length && bookData?.levels?.[1]?.length,
+export function hasL2BookSides(bookData: HL.IBook | null | undefined) {
+  const [bids, asks] = bookData?.levels ?? [];
+  return Array.isArray(bids) && Array.isArray(asks);
+}
+
+function isPositiveDecimal(value: string | undefined) {
+  if (typeof value !== 'string') return false;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 && number === parseFloat(value);
+}
+
+function isValidDepthLevel(level: HL.IBookLevel) {
+  return isPositiveDecimal(level?.px) && isPositiveDecimal(level?.sz);
+}
+
+export function hasL2BookSnapshot(
+  book: HL.IBook | null | undefined,
+): book is HL.IBook {
+  if (
+    !book ||
+    !Number.isFinite(book.time) ||
+    book.time <= 0 ||
+    !Array.isArray(book.levels)
+  ) {
+    return false;
+  }
+  const [bids, asks] = book.levels;
+  return (
+    Array.isArray(bids) &&
+    Array.isArray(asks) &&
+    bids.every(isValidDepthLevel) &&
+    asks.every(isValidDepthLevel)
   );
+}
+
+export function getPerpsDepthChartStatus({
+  book,
+  isConnectionReady,
+  hasLoadFailed,
+  now,
+}: {
+  book: IPerpsCachedL2Book | null;
+  isConnectionReady: boolean;
+  hasLoadFailed: boolean;
+  now?: number;
+}): 'loading' | 'empty' | 'error' | 'stale' | 'ready' {
+  if (!hasL2BookSnapshot(book)) {
+    return hasLoadFailed ? 'error' : 'loading';
+  }
+  if (
+    !isConnectionReady ||
+    !isPerpsL2BookInteractive({
+      bookTime: book.time,
+      bookReceivedAt: book.localReceivedAt,
+      isCachedSnapshot: book.isCachedSnapshot,
+      now,
+    })
+  ) {
+    return 'stale';
+  }
+  return book.levels[0].length || book.levels[1].length ? 'ready' : 'empty';
 }
 
 export function isL2BookForTarget(

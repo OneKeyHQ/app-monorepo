@@ -1,3 +1,20 @@
+const starknetPrivacy = {
+  getRecord: jest.fn(),
+  patchRecord: jest.fn(),
+  recordConsent: jest.fn(),
+  setOptInStatus: jest.fn(),
+};
+
+jest.mock('../../dbs/simple/simpleDb', () => ({
+  __esModule: true,
+  default: {
+    get starknetPrivacy() {
+      return starknetPrivacy;
+    },
+  },
+}));
+
+// eslint-disable-next-line import/first
 import {
   EStrk20AccountPhase,
   EStrk20OptInStatus,
@@ -7,7 +24,11 @@ import {
   type IStrk20SequencingState,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 
-import { deriveAccountPrivacySnapshot } from './PrivacyLifecycleStore';
+// eslint-disable-next-line import/first
+import {
+  PrivacyLifecycleStore,
+  deriveAccountPrivacySnapshot,
+} from './PrivacyLifecycleStore';
 
 const BASE_STATE: IStrk20AccountPrivacyState = {
   profileId: 'account-leaf-v1',
@@ -194,5 +215,230 @@ describe('deriveAccountPrivacySnapshot (explicit dual state machine)', () => {
       status: EStrk20TxGateStatus.Idle,
       provingBlockId: 991,
     });
+  });
+});
+
+describe('PrivacyLifecycleStore dropped pending tx expiry', () => {
+  const ACCOUNT_KEY = {
+    networkId: BASE_STATE.networkId,
+    accountId: BASE_STATE.accountId,
+  };
+
+  function createStore(options?: {
+    receipt?: unknown;
+    latestBlock?: number;
+    validityBlocks?: number;
+    registeredPublicKey?: string;
+    record?: IStrk20AccountPrivacyState;
+  }) {
+    const client = {
+      getTransactionReceipt: jest.fn(async () => options?.receipt ?? null),
+      getBlockNumber: jest.fn(async () => options?.latestBlock ?? 1000),
+      getPoolProofValidityBlocks: jest.fn(
+        async () => options?.validityBlocks ?? 100,
+      ),
+      getPoolRegisteredPublicKey: jest.fn(
+        async () => options?.registeredPublicKey,
+      ),
+      isAccountDeployed: jest.fn(async () => true),
+    };
+    const vault = {
+      getClient: jest.fn(async () => client),
+      getAccountAddress: jest.fn(async () => BASE_STATE.accountAddress),
+      getAccount: jest.fn(async () => ({
+        address: BASE_STATE.accountAddress,
+        path: 'm/0',
+      })),
+      getNetwork: jest.fn(async () => ({ chainId: BASE_STATE.chainId })),
+    };
+    starknetPrivacy.getRecord.mockReset().mockResolvedValue(options?.record);
+    starknetPrivacy.patchRecord
+      .mockReset()
+      .mockImplementation(async ({ patch }: { patch: object }) =>
+        options?.record ? { ...options.record, ...patch } : undefined,
+      );
+
+    const store = new PrivacyLifecycleStore({
+      getPrivacyConfig: jest.fn(async () => undefined),
+      getPrivacyPoolSettings: jest.fn(async () => ({
+        sequencingCooldownBlocks: 10,
+      })),
+      resolvePoolAddress: jest.fn(async () => BASE_STATE.poolAddress),
+      isDisabledByServer: jest.fn(async () => false),
+      getStarknetVault: jest.fn(
+        async () =>
+          vault as unknown as import('../../vaults/impls/starknet/Vault').default,
+      ),
+      isKeyLoaded: jest.fn(() => true),
+      dropCachedViewingKey: jest.fn(),
+    });
+
+    return {
+      store,
+      client,
+      getRecord: starknetPrivacy.getRecord,
+      patchRecord: starknetPrivacy.patchRecord,
+    };
+  }
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('releases a dropped pending transfer once latestBlock exceeds provingBlockId + validityWindow', async () => {
+    const record: IStrk20AccountPrivacyState = {
+      ...BASE_STATE,
+      optInStatus: EStrk20OptInStatus.Registered,
+      lastTransfer: {
+        txid: '0xdropped',
+        kind: 'transfer',
+        status: 'pending',
+        submittedAt: Date.now() - 60_000,
+        provingBlockId: 800,
+      },
+    };
+    const { store, patchRecord } = createStore({
+      record,
+      receipt: null,
+      latestBlock: 901,
+      validityBlocks: 100,
+    });
+
+    const state = await store.getAccountPrivacyState(ACCOUNT_KEY);
+    expect(state.lastTransfer?.status).toBe('failed');
+    expect(patchRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expected: { lastTransferTxid: '0xdropped' },
+        patch: {
+          lastTransfer: expect.objectContaining({
+            txid: '0xdropped',
+            status: 'failed',
+          }),
+        },
+      }),
+    );
+  });
+
+  it('keeps a pending transfer blocked while still within provingBlockId + validityWindow', async () => {
+    const record: IStrk20AccountPrivacyState = {
+      ...BASE_STATE,
+      optInStatus: EStrk20OptInStatus.Registered,
+      lastTransfer: {
+        txid: '0xinflight',
+        kind: 'deposit',
+        status: 'pending',
+        submittedAt: Date.now() - 60_000,
+        provingBlockId: 800,
+      },
+    };
+    const { store, patchRecord } = createStore({
+      record,
+      receipt: null,
+      latestBlock: 900,
+      validityBlocks: 100,
+    });
+
+    const state = await store.getAccountPrivacyState(ACCOUNT_KEY);
+    expect(state.lastTransfer?.status).toBe('pending');
+    expect(patchRecord).not.toHaveBeenCalled();
+  });
+
+  it('keeps a pending transfer blocked when RPC returns a non-final RECEIVED receipt', async () => {
+    const record: IStrk20AccountPrivacyState = {
+      ...BASE_STATE,
+      optInStatus: EStrk20OptInStatus.Registered,
+      lastTransfer: {
+        txid: '0xreceived',
+        kind: 'transfer',
+        status: 'pending',
+        submittedAt: Date.now() - 2 * 60 * 60 * 1000,
+        provingBlockId: 800,
+      },
+    };
+    const { store, patchRecord } = createStore({
+      record,
+      receipt: { finality_status: 'RECEIVED', execution_status: 'SUCCEEDED' },
+      latestBlock: 1200,
+      validityBlocks: 100,
+    });
+
+    const state = await store.getAccountPrivacyState(ACCOUNT_KEY);
+    expect(state.lastTransfer?.status).toBe('pending');
+    expect(patchRecord).not.toHaveBeenCalled();
+  });
+
+  it('releases a dropped pending registration after proof validity expires when no on-chain key exists', async () => {
+    const record: IStrk20AccountPrivacyState = {
+      ...BASE_STATE,
+      optInStatus: EStrk20OptInStatus.RegisterPending,
+      registerTxid: '0xreg-dropped',
+      registerSubmittedAt: Date.now() - 60_000,
+      registerProvingBlockId: 800,
+    };
+    const { store, patchRecord } = createStore({
+      record,
+      receipt: null,
+      latestBlock: 901,
+      validityBlocks: 100,
+      registeredPublicKey: undefined,
+    });
+
+    const state = await store.getAccountPrivacyState(ACCOUNT_KEY);
+    expect(state.optInStatus).toBe(EStrk20OptInStatus.Consented);
+    expect(state.registerTxFailed).toBe(true);
+    expect(patchRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expected: {
+          optInStatus: EStrk20OptInStatus.RegisterPending,
+          registerTxid: '0xreg-dropped',
+        },
+        patch: {
+          optInStatus: EStrk20OptInStatus.Consented,
+          registerTxFailed: true,
+        },
+      }),
+    );
+  });
+
+  it('settles an expired missing-receipt registration to Registered when the pool already holds the key', async () => {
+    const record: IStrk20AccountPrivacyState = {
+      ...BASE_STATE,
+      optInStatus: EStrk20OptInStatus.RegisterPending,
+      registerTxid: '0xreg-landed',
+      registerSubmittedAt: Date.now() - 60_000,
+      registerProvingBlockId: 800,
+    };
+    const { store } = createStore({
+      record,
+      receipt: null,
+      latestBlock: 950,
+      validityBlocks: 100,
+      registeredPublicKey: '0xpub',
+    });
+
+    const state = await store.getAccountPrivacyState(ACCOUNT_KEY);
+    expect(state.optInStatus).toBe(EStrk20OptInStatus.Registered);
+    expect(state.registeredPublicKey).toBe('0xpub');
+    expect(state.registerTxFailed).toBe(false);
+  });
+
+  it('releases a legacy pending transfer without provingBlockId after the safety timeout', async () => {
+    const record: IStrk20AccountPrivacyState = {
+      ...BASE_STATE,
+      optInStatus: EStrk20OptInStatus.Registered,
+      lastTransfer: {
+        txid: '0xlegacy-dropped',
+        kind: 'withdraw',
+        status: 'pending',
+        submittedAt: Date.now() - 61 * 60 * 1000,
+      },
+    };
+    const { store } = createStore({
+      record,
+      receipt: null,
+    });
+
+    const state = await store.getAccountPrivacyState(ACCOUNT_KEY);
+    expect(state.lastTransfer?.status).toBe('failed');
   });
 });

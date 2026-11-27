@@ -54,6 +54,8 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
   tokenDetailPreview?: IMarketTokenDetailPreview;
+  // Symbol a stock route keeps for its preview and analytics.
+  stockPreviewSymbol?: string;
 }
 
 interface IUseToDetailPageOptions {
@@ -200,12 +202,20 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
         : options?.marketTokenCategory;
-      const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
-        includeBodyModules: !pendingMarketAssetId,
-        includeHeavyModules: true,
-        isStockRoute: Boolean(stockId),
-        layout: preloadLayout,
-      });
+      const shouldSkipListDetailPreload =
+        platformEnv.isNative &&
+        !platformEnv.isNativeIOSPad &&
+        options?.from === EEnterWay.MarketList &&
+        !options?.replaceCurrentDetail &&
+        !options?.switchToMarketTabFirst;
+      const marketDetailShellPreloadPromise = shouldSkipListDetailPreload
+        ? undefined
+        : preloadMarketDetailV2Page({
+            includeBodyModules: !pendingMarketAssetId,
+            includeHeavyModules: true,
+            isStockRoute: Boolean(stockId),
+            layout: preloadLayout,
+          });
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: resolvedItem.networkId,
       });
@@ -266,6 +276,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             network: tokenParams.network,
             isNative: tokenParams.isNative,
             from: options?.from,
+            ...(resolvedItem.stockPreviewSymbol
+              ? { stockPreviewSymbol: resolvedItem.stockPreviewSymbol }
+              : undefined),
             ...(stockEntryCategory
               ? { entryCategory: stockEntryCategory }
               : undefined),
@@ -326,6 +339,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         if (stockId) {
           await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
             stockId,
+            ...(resolvedItem.stockPreviewSymbol
+              ? { stockPreviewSymbol: resolvedItem.stockPreviewSymbol }
+              : undefined),
             tokenAddress: tokenParams.tokenAddress,
             network: tokenParams.network,
             isNative: tokenParams.isNative,
@@ -377,7 +393,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         const targetTab = ETabRoutes.Market;
 
-        if (!pendingMarketAssetId) {
+        if (marketDetailShellPreloadPromise && !pendingMarketAssetId) {
           await marketDetailShellPreloadPromise;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
@@ -422,7 +438,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           );
         }
 
-        if (platformEnv.isNative && !pendingMarketAssetId) {
+        if (
+          platformEnv.isNative &&
+          marketDetailShellPreloadPromise &&
+          !pendingMarketAssetId
+        ) {
           await marketDetailShellPreloadPromise;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;

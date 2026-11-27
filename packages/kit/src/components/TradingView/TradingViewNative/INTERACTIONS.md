@@ -86,7 +86,14 @@ under separate owners:
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,
-  and the layout picker sits in that row. The same context gives the selected
+  and the layout picker sits in that row. Every panel still shows its own
+  interval, selected or not: the grid gives the host `intervalControl` to
+  place, e.g. after the token's quote in a panel header, and the chart puts a
+  compact interval picker there through the same context
+  (`renderIntervalControl`). A pick there is the chart's own, as one in its
+  controls row, so it moves every panel while the intervals are synced, and a
+  press on it selects the panel like any press in it. A host that places none,
+  e.g. for a single chart, shows none. The same context gives the selected
   chart one drawing tools column at the left of the grid (`drawingTools`).
   The chart keeps the properties of its selected drawing, its hints and its
   object panels on itself, and the column's menus reach over the panels. The
@@ -102,8 +109,27 @@ under separate owners:
   own token, interval, indicator settings and pane heights; chart appearance
   stays shared with the namespace and drawings stay with the token. Presets are grids of cells (`1`, `2h`, `2v`,
   `3`, `4`); track sizes are saved per preset and a divider only spans the cells
-  it separates. iOS and Android resolve the `.native` pass-through and keep a
-  single chart.
+  it separates. In a split a panel can fill the grid: the button in its chart's
+  bottom right corner, where the price axis meets the time axis, or a double
+  click on its plot maximizes it, selecting it as a press would, and the same
+  again brings the split back. A double click counts only when both of its
+  presses were on the plot: one on an axis, a drawing, an order or position
+  line or its label (also one that takes no press, e.g. a PnL label or a
+  pending order) or a pane's legend, or one whose first press drew, keeps its
+  own meaning. Alt+Enter (Option+Enter) with focus in a panel's chart does the
+  same from the keyboard; an editable field, e.g. a drawing's name, keeps the
+  key. None of them toggles while a primary press in the chart or an order
+  line gesture lasts, so a gesture under way, e.g. on an order's cancel
+  control, ends on the geometry it started with. A chart without a price axis
+  has no empty corner and offers
+  the double click and the shortcut only, and a single chart has none of them.
+  The maximized panel is a view of the grid, never
+  saved: a reload, another preset or a selection that goes back elsewhere,
+  e.g. from a switch the host turned down, ends it. The other panels stay
+  mounted at their size behind it, unseen and taking no press, so the split
+  comes back without a chart resizing; the dividers and the selection outline
+  are gone meanwhile. iOS and Android resolve the `.native` pass-through and
+  keep a single chart.
 - The split view's layout picker also holds its sync options (`sync` in the
   saved layout): symbol, interval, crosshair, time and date range. All are
   off until the user turns them on. Every panel gets a
@@ -154,14 +180,30 @@ under separate owners:
     in a chart's runtime state: a chart's own crosshair always wins, and
     trade-mark tooltips keep following the pointer only.
   - Time and date range: `multiChart/viewportSync` lets the charts follow the
-    one the user moved last; until then they follow the first panel. The
-    leading chart reports, after each draw, the times of the newest and
-    oldest candles in view and where they sit (`utils/syncedViewport`). A
-    following chart lines itself up before each of its own draws: its candle
-    holding the newest time goes to the same place at the right, and with date
-    range on its zoom changes so the oldest time lands at the same place at
-    the left, within the zoom limits. A time it has not loaded goes to its
-    nearest loaded candle, from where its history loads as usual. A following
+    one the user moved last. Turned on in a split view, either option starts
+    from the selected panel's chart, which the user may have just moved, e.g.
+    to a picked date range: the grid starts the channel anew with that panel,
+    whose chart leads as it joins, before any chart lines up with another
+    one. A split view that opens with either option on (preset change, page
+    load) starts from the first panel. The
+    leading chart reports, after each draw, the times at the edges of its
+    plot and where they sit (`utils/syncedViewport`). A time moves through
+    its candle in step with the pixels, so the times change as smoothly as
+    the chart pans or zooms; times taken from whole candles would jump by a
+    candle whenever one crosses an edge and shake the charts of other
+    intervals or candle widths. Past the newest candle the time is where that
+    candle ends, and the room after it is kept as a share of the width. A
+    following chart lines itself up before each of its own draws: the time
+    at the right goes to the same place, and with date range on its zoom
+    changes so the time at the left lands at the same place, within the zoom
+    limits. A time still to come is where its newest candle ends, and a time
+    inside a gap in its data is where the candle before the gap ends. A time
+    it has not loaded goes to its nearest loaded candle, from where its
+    history loads. The chart reports
+    the times it follows with its visible range, so a newer page or a gap
+    fill reaches them in one request, up to a full history request, instead
+    of a few screens at a time: page by page, the chart would line up again
+    with every page and seem to flicker. A following
     chart never reports back, so charts cannot move each other in circles.
     Panning, zooming, the navigation buttons and a picked date make a chart
     the leading one, but only when they move it in time: a drag that changes
@@ -242,7 +284,8 @@ Cover persistence ordering/failure, restored editing, hidden/locked objects,
 freehand previews, resized pane geometry, namespace-specific settings, fullscreen
 ownership, split-view panel state (token, interval, indicators, sizes,
 selection) across preset changes and reloads, selecting a panel without a chart
-remount, drawing in every split-view panel with live sync
+remount, maximizing every panel and back by its corner button and by a double
+click anywhere on its plot, drawing in every split-view panel with live sync
 between panels showing one token, every sync option on and off across a
 reload (symbol and interval changed from the first and from another panel; the
 crosshair between panels of different tokens and intervals, with its price

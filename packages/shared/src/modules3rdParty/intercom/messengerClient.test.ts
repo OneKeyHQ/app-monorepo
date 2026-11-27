@@ -181,3 +181,83 @@ it('drops an expired anonymous session from memory and storage before refreshing
     ),
   ).toBe('new-session');
 });
+
+it('keeps the visitor of a pending boot provisional, so no other call talks as it early', async () => {
+  const now = 1_700_000_000_000;
+  const time = jest.spyOn(Date, 'now').mockReturnValue(now);
+  const own = {
+    anonymousId: 'own-visitor',
+    anonymousSession: 'own-session',
+    expiresAt: now + 120_000,
+  };
+  const replacement = {
+    anonymousId: 'next-visitor',
+    anonymousSession: 'next-session',
+    expiresAt: now + 3_600_000,
+  };
+  let stored = own;
+  const api = createMessengerClient({
+    appId: 'test',
+    assertCurrent: async () => {},
+    getIdentity: async () => ({ language: 'en' }),
+    loadVisitor: async () => stored,
+    saveVisitor: async () => {},
+    onUnread: () => {},
+  });
+  fetchMock.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({
+        user: { id: 'own', anonymous_id: own.anonymousId },
+        anonymous_session: own.anonymousSession,
+        session_expiry: own.expiresAt / 1000,
+      }),
+    ),
+  );
+  await api.boot();
+  // Within a minute of its expiry the visitor is renewed although the last
+  // boot is recent, and another window has saved a replacement meanwhile.
+  time.mockReturnValue(own.expiresAt - 30_000);
+  stored = replacement;
+  let releasePing!: (response: Response) => void;
+  fetchMock
+    .mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ conversations: [], cards: [] })),
+    )
+    .mockImplementationOnce(
+      () =>
+        new Promise<Response>((done) => {
+          releasePing = done;
+        }),
+    );
+  const home = api.api.getHome();
+  await new Promise<void>((done) => setImmediate(done));
+  const inbox = api.api.listConversations();
+  await new Promise<void>((done) => setImmediate(done));
+  // Only the renewing ping talks as the replacement while the boot is pending.
+  expect(fetchMock.mock.calls.map(([url]) => new URL(url).pathname)).toEqual([
+    '/messenger/web/ping',
+    '/messenger/web/ping',
+  ]);
+  expect(
+    new URLSearchParams(String(fetchMock.mock.calls[1][1]?.body)).get(
+      'anonymous_session',
+    ),
+  ).toBe('next-session');
+  releasePing(
+    new Response(
+      JSON.stringify({
+        user: { id: 'next', anonymous_id: replacement.anonymousId },
+        anonymous_session: replacement.anonymousSession,
+        session_expiry: replacement.expiresAt / 1000,
+      }),
+    ),
+  );
+  await Promise.all([home, inbox]);
+  expect(
+    fetchMock.mock.calls
+      .slice(2)
+      .map(([url]) => new URL(url).pathname)
+      .toSorted(),
+  ).toEqual(['/messenger/web/conversations', '/messenger/web/home']);
+});

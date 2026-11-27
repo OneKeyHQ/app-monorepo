@@ -17,6 +17,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  hasXmrMainnetPrimaryAddressShape,
+  isXmrSwapNetwork,
+} from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -43,6 +47,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
   useSwapSelectedTokensColdStartContextAtom,
+  useSwapStockFromAccountRefreshAtom,
   useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -381,17 +386,25 @@ export function useSwapAddressInfo(
   } = {},
 ) {
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const selectorNetworkId =
+    networkScope === 'selector' ? currentSelectNetwork?.networkId : undefined;
+  const useTradeRecipientAddress =
+    useCustomRecipientAddress &&
+    !(
+      type === ESwapDirectionType.TO &&
+      isXmrSwapNetwork(selectorNetworkId ?? toToken?.networkId)
+    );
   const useRecipientAccount =
-    useCustomRecipientAddress && swapToAnotherAccountSwitchOn;
+    useTradeRecipientAddress && swapToAnotherAccountSwitchOn;
   const { activeAccount } = useActiveAccount({
     num: getSwapAddressAccountSelectorNum({
       type,
       swapToAnotherAccountSwitchOn: useRecipientAccount,
     }),
   });
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
-  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
@@ -432,8 +445,6 @@ export function useSwapAddressInfo(
             : swapProSellToToken
           )?.networkId ?? '');
     }
-    const selectorNetworkId =
-      networkScope === 'selector' ? currentSelectNetwork?.networkId : undefined;
     return type === ESwapDirectionType.FROM
       ? (selectorNetworkId ?? fromToken?.networkId ?? '')
       : (selectorNetworkId ?? toToken?.networkId ?? '');
@@ -442,8 +453,7 @@ export function useSwapAddressInfo(
     type,
     fromToken?.networkId,
     toToken?.networkId,
-    currentSelectNetwork?.networkId,
-    networkScope,
+    selectorNetworkId,
     swapProDirection,
     swapProSelectToken,
     swapProUseSelectBuyToken,
@@ -494,6 +504,14 @@ export function useSwapAddressInfo(
     shouldResolveTargetNetworkAccount && tokenNetworkId
       ? validationScopeKey
       : undefined;
+  const [stockFromAccountRefresh] = useSwapStockFromAccountRefreshAtom();
+  const retryRevision =
+    (type === ESwapDirectionType.FROM || !useRecipientAccount) &&
+    networkScope === 'trade' &&
+    targetNetworkAccountResolveKey &&
+    stockFromAccountRefresh?.scopeKey === targetNetworkAccountResolveKey
+      ? stockFromAccountRefresh.revision
+      : undefined;
 
   const isAddressInfoReady = useMemo(() => {
     if (!activeAccount.ready) {
@@ -539,7 +557,10 @@ export function useSwapAddressInfo(
       try {
         const { account: targetAccount, deriveType: targetDeriveType } =
           await resolveSwapTargetNetworkAccountOnce({
-            key: targetNetworkAccountResolveKey,
+            // Join matching trade consumers even if the original lookup is still pending.
+            key: retryRevision
+              ? `${targetNetworkAccountResolveKey}|retry:${retryRevision}`
+              : targetNetworkAccountResolveKey,
             resolve: () =>
               resolveSwapNetworkAccount({
                 accountId: activeAccount.account?.id,
@@ -575,6 +596,7 @@ export function useSwapAddressInfo(
     activeAccount.account?.id,
     activeAccount.dbAccount,
     activeAccount.indexedAccount?.id,
+    retryRevision,
     shouldResolveTargetNetworkAccount,
     targetNetworkAccountResolveKey,
     tokenNetworkId,
@@ -592,6 +614,7 @@ export function useSwapAddressInfo(
       isAddressInfoReady: boolean;
       isRecipientValidationReady: boolean;
       validationScopeKey: string;
+      targetNetworkAccountResolveKey?: string;
     } = {
       networkId: undefined,
       deriveType: shouldResolveTargetNetworkAccount
@@ -602,6 +625,7 @@ export function useSwapAddressInfo(
       activeAccount: undefined,
       isAddressInfoReady,
       isRecipientValidationReady,
+      targetNetworkAccountResolveKey,
       validationScopeKey,
     };
     // Keep the confirmed custom recipient even when cross-chain TO account
@@ -609,7 +633,7 @@ export function useSwapAddressInfo(
     // Native LIMIT has a separate Pro account path; preserve its existing
     // recipient selection until quote and build share the same account source.
     const shouldUseCustomRecipient =
-      useCustomRecipientAddress &&
+      useTradeRecipientAddress &&
       (focusSwapPro ||
         networkScope === 'selector' ||
         Boolean(tokenNetworkId)) &&
@@ -693,7 +717,7 @@ export function useSwapAddressInfo(
     }
 
     if (
-      useCustomRecipientAddress &&
+      useTradeRecipientAddress &&
       !focusSwapPro &&
       networkScope === 'trade' &&
       type === ESwapDirectionType.TO &&
@@ -737,7 +761,13 @@ export function useSwapAddressInfo(
       });
       return {
         ...res,
-        address: resolvedAccount?.addressDetail?.address,
+        address:
+          isXmrSwapNetwork(tokenNetworkId) &&
+          !hasXmrMainnetPrimaryAddressShape(
+            resolvedAccount?.addressDetail?.address,
+          )
+            ? undefined
+            : resolvedAccount?.addressDetail?.address,
         // Keep the token network and the resolved account aligned so the
         // inline recipient badge matches the modal parser result.
         networkId: tokenNetworkId || activeAccount.network?.id,
@@ -769,7 +799,7 @@ export function useSwapAddressInfo(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     type,
-    useCustomRecipientAddress,
+    useTradeRecipientAddress,
     focusSwapPro,
     networkScope,
     swapToAnotherAccountSwitchOn,
@@ -782,6 +812,7 @@ export function useSwapAddressInfo(
     deriveTypeForTargetNetwork,
     isAddressInfoReady,
     isRecipientValidationReady,
+    targetNetworkAccountResolveKey,
     validationScopeKey,
     tokenNetworkId,
     currentSelectNetwork?.networkId,

@@ -19,7 +19,7 @@ export class CloudSyncFlowManagerBrowserBookmark extends CloudSyncFlowManagerBas
 > {
   override dataType = EPrimeCloudSyncDataType.BrowserBookmark as any;
 
-  override removeSyncItemIfServerDeleted = true;
+  override removeSyncItemIfServerDeleted = false;
 
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetBrowserBookmark;

@@ -1,7 +1,13 @@
 const mockGetSecureItem = jest.fn(async (_key: string) => 'persisted-secret');
 const mockHasSecureItem = jest.fn(async (_key: string) => true);
+const mockVerifySecureStorageOperational = jest.fn(async () => true);
 const mockRunProtectedOperation = jest.fn(
-  async <T>({ onBlocked }: { onBlocked: () => T | Promise<T> }) => onBlocked(),
+  async <T>({
+    onBlocked,
+  }: {
+    operation: () => T | Promise<T>;
+    onBlocked: () => T | Promise<T>;
+  }) => onBlocked(),
 );
 
 jest.mock('../secureStorage', () => ({
@@ -18,6 +24,7 @@ jest.mock('../secureStorage', () => ({
     snapshotForPasskeyReEnroll: jest.fn(async () => []),
     supportSecureStorage: jest.fn(async () => true),
     supportSecureStorageWithoutInteraction: jest.fn(async () => true),
+    verifySecureStorageOperational: mockVerifySecureStorageOperational,
   },
 }));
 
@@ -53,5 +60,20 @@ describe('secureStorageInstance Travel Mode masking', () => {
     expect(mockGetSecureItem).not.toHaveBeenCalled();
     expect(mockHasSecureItem).not.toHaveBeenCalled();
     expect(mockRunProtectedOperation).toHaveBeenCalledTimes(2);
+  });
+
+  it('forwards verifySecureStorageOperational in real mode and blocks in travel mode', async () => {
+    await expect(
+      secureStorageInstance.verifySecureStorageOperational?.(),
+    ).resolves.toBe(false);
+    expect(mockVerifySecureStorageOperational).not.toHaveBeenCalled();
+
+    mockRunProtectedOperation.mockImplementationOnce(async ({ operation }) =>
+      operation(),
+    );
+    await expect(
+      secureStorageInstance.verifySecureStorageOperational?.(),
+    ).resolves.toBe(true);
+    expect(mockVerifySecureStorageOperational).toHaveBeenCalledTimes(1);
   });
 });

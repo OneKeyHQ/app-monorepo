@@ -18,7 +18,7 @@ export class CloudSyncFlowManagerCustomNetwork extends CloudSyncFlowManagerBase<
 > {
   override dataType = EPrimeCloudSyncDataType.CustomNetwork as any;
 
-  override removeSyncItemIfServerDeleted = true;
+  override removeSyncItemIfServerDeleted = false;
 
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetCustomNetwork;

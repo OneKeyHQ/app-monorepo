@@ -896,12 +896,16 @@ export function getUSTradingHoursCountdown({
     const openAt = nextOpenTime ? new Date(nextOpenTime).getTime() : NaN;
     if (Number.isFinite(openAt) && openAt > nowMs) {
       const reopenHours = getUSMarketTradingHours(new Date(openAt));
-      return sessionStarts(
-        reopenHours.segments.find(
-          (s) => s.key === reopenHours.currentSessionKey,
-        ),
-        openAt,
-      );
+      // A reopen in the cycle-edge gap (the backend's 04:00 ET pre-market
+      // open precedes the 04:01 cycle anchor) still resolves to the previous
+      // cycle; its upcoming session belongs to the next one.
+      const reopenSegment =
+        openAt >= reopenHours.cycleEndInstant
+          ? getNextUSMarketCycle(reopenHours).segments[0]
+          : reopenHours.segments.find(
+              (s) => s.key === reopenHours.currentSessionKey,
+            );
+      return sessionStarts(reopenSegment, openAt);
     }
     const { weekendStartInstant, weekendEndInstant } = tradingHours;
     if (nowMs >= weekendStartInstant) {

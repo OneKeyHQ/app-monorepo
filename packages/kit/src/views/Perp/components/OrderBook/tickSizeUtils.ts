@@ -8,6 +8,7 @@
 import BigNumber from 'bignumber.js';
 
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 type INSig = 2 | 3 | 4 | 5 | null;
 type IMantissa = 2 | 5;
@@ -81,6 +82,24 @@ function floorLog10(x: number): number {
   return Math.floor(Math.log10(x));
 }
 
+function getReferencePriceDecimals(
+  price: number,
+  szDecimals: number | undefined,
+  isSpot: boolean,
+) {
+  if (
+    !Number.isFinite(price) ||
+    price <= 0 ||
+    szDecimals === undefined ||
+    !Number.isInteger(szDecimals) ||
+    szDecimals < 0
+  ) {
+    return undefined;
+  }
+  const maximumPriceDecimals = Math.max(0, (isSpot ? 8 : 6) - szDecimals);
+  return Math.min(maximumPriceDecimals, Math.max(0, 4 - floorLog10(price)));
+}
+
 export function buildReferenceTickOptions({
   symbol,
   price,
@@ -93,24 +112,15 @@ export function buildReferenceTickOptions({
   isSpot: boolean;
 }): IReferenceTickOptionsData | null {
   const priceNumber = Number(price);
-  if (
-    !symbol ||
-    !Number.isFinite(priceNumber) ||
-    priceNumber <= 0 ||
-    !Number.isInteger(szDecimals) ||
-    (szDecimals ?? -1) < 0
-  ) {
+  const priceDecimals = getReferencePriceDecimals(
+    priceNumber,
+    szDecimals,
+    isSpot,
+  );
+  if (!symbol || priceDecimals === undefined) {
     return null;
   }
 
-  const maximumPriceDecimals = Math.max(
-    0,
-    (isSpot ? 8 : 6) - (szDecimals ?? 0),
-  );
-  const priceDecimals = Math.min(
-    maximumPriceDecimals,
-    Math.max(0, 4 - floorLog10(priceNumber)),
-  );
   const minimumTick = new BigNumber(10).pow(-priceDecimals);
   const minimumTickNumber = minimumTick.toNumber();
   const minimumTickValue = minimumTick.toFixed();
@@ -193,6 +203,37 @@ function allowedPairs(price: number) {
         .toNumber(),
     }, // 5 * 10^(e-4)
   ];
+}
+
+export function getOrderBookSubscriptionTickLabel({
+  price,
+  szDecimals,
+  isSpot,
+  options,
+}: {
+  price: string | undefined;
+  szDecimals: number | undefined;
+  isSpot: boolean;
+  options: IL2BookOptions;
+}) {
+  const priceNumber = Number(price);
+  const priceDecimals = getReferencePriceDecimals(
+    priceNumber,
+    szDecimals,
+    isSpot,
+  );
+  if (priceDecimals === undefined) return undefined;
+
+  const minimumTick = new BigNumber(10).pow(-priceDecimals);
+  const { nSigFigs, mantissa } = options;
+  if (nSigFigs === null || nSigFigs === undefined) return minimumTick.toFixed();
+
+  const pair = allowedPairs(priceNumber).find(
+    (option) =>
+      option.n === nSigFigs &&
+      ('m' in option ? option.m : null) === (mantissa ?? null),
+  );
+  return pair ? BigNumber.max(pair.step, minimumTick).toFixed() : undefined;
 }
 
 /**

@@ -9,7 +9,7 @@ export function getLiveActivityLocalizedStrings({
 }: {
   fromNetworkName: string;
   toNetworkName: string;
-  updatedAtMs: number;
+  updatedAtMs?: number;
 }): ILiveActivityStrings {
   const { intl } = appLocale;
   const lastUpdatedLabel = intl.formatMessage({
@@ -61,12 +61,15 @@ export function getLiveActivityLocalizedStrings({
     partiallyFilled: intl.formatMessage({
       id: ETranslations.Limit_order_history_status_partially_filled,
     }),
-    lastUpdated: `${lastUpdatedLabel}: ${intl.formatDate(updatedAtMs, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })}`,
+    lastUpdated:
+      updatedAtMs === undefined
+        ? ''
+        : `${lastUpdatedLabel}: ${intl.formatDate(updatedAtMs, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })}`,
   };
 }

@@ -15,12 +15,15 @@ export function ImageWithFallbackSources({
   sources,
   fallback,
   onError,
+  onLoad,
   ...rest
 }: IImageWithFallbackSourcesProps) {
   const [index, setIndex] = useState(0);
+  const [failedSource, setFailedSource] = useState<string>();
 
   const sourcesLengthRef = useRef(sources.length);
   sourcesLengthRef.current = sources.length;
+  const currentSrc = sources[index];
 
   // Restart at the primary source during render, not in an effect: an effect
   // would first commit a frame with the previous (now out-of-range) index,
@@ -30,6 +33,15 @@ export function ImageWithFallbackSources({
   if (trackedFirstSource !== firstSource) {
     setTrackedFirstSource(firstSource);
     setIndex(0);
+    setFailedSource(undefined);
+  } else if (
+    failedSource !== undefined &&
+    failedSource === currentSrc &&
+    index < sources.length - 1
+  ) {
+    // Catalog metadata can add another source after the last image failed.
+    setIndex(index + 1);
+    setFailedSource(undefined);
   }
 
   const handleError = useCallback(
@@ -37,13 +49,20 @@ export function ImageWithFallbackSources({
       if (index < sourcesLengthRef.current - 1) {
         setIndex((prev) => prev + 1);
       } else {
+        setFailedSource(currentSrc);
         onError?.(event);
       }
     },
-    [index, onError],
+    [currentSrc, index, onError],
   );
 
-  const currentSrc = sources[index];
+  const handleLoad = useCallback(
+    (event: Parameters<NonNullable<IImageV2Props['onLoad']>>[0]) => {
+      setFailedSource(undefined);
+      onLoad?.(event);
+    },
+    [onLoad],
+  );
 
   if (!currentSrc) {
     return fallback ?? null;
@@ -58,6 +77,7 @@ export function ImageWithFallbackSources({
       src={currentSrc}
       fallback={fallback}
       onError={handleError}
+      onLoad={failedSource ? handleLoad : onLoad}
     />
   );
 }

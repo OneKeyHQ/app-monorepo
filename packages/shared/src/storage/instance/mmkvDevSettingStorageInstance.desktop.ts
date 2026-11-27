@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 type IMmkvSyncBridge = (args: {
   method: string;
   id: string;
@@ -12,7 +14,25 @@ function ipc(method: string, key?: string, value?: boolean | string | number) {
     return undefined;
   }
   // Update verification in the main process reads this same persistent store.
-  return bridge({ method, id: 'onekey-app-dev-setting', key, value });
+  const result = bridge({
+    method,
+    id: 'onekey-app-dev-setting',
+    key,
+    value,
+  });
+  if (
+    result &&
+    typeof result === 'object' &&
+    (result as { __onekeyMmkvSyncError?: unknown }).__onekeyMmkvSyncError ===
+      true
+  ) {
+    const message =
+      typeof (result as { message?: unknown }).message === 'string'
+        ? (result as { message: string }).message
+        : `Desktop MMKV ${method} failed`;
+    throw new OneKeyLocalError(message);
+  }
+  return result;
 }
 
 const mmkvDevSettingStorageInstance = {

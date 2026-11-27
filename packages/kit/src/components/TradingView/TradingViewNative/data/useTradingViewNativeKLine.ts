@@ -61,6 +61,7 @@ import type {
   ITradingViewNativeStorageNamespace,
 } from '../types';
 import type {
+  ITradingViewNativeFollowedTimeRange,
   ITradingViewNativeViewportRequest,
   ITradingViewNativeViewportTarget,
 } from '../utils/chartViewport';
@@ -474,6 +475,36 @@ function getHasPotentialEarlierHistory({
     );
   }
   return pageHasMoreHistory;
+}
+
+/**
+ * The time span of the next newer page, or of a page filling a gap. A page
+ * holds a few screens of candles, enough to keep up with a pan. A chart
+ * following another one of a split view can need a time much further on, e.g.
+ * after a picked date range, and then gets it in one page, up to a full
+ * history request: a page at a time, it would line up again with every page.
+ */
+function getHistoryPageTimeSpan({
+  followedDistance,
+  historyRequestCandleCount,
+  intervalSeconds,
+}: {
+  /**
+   * How far past the start of the page, in its direction, the followed time
+   * lies; undefined while the chart follows none.
+   */
+  followedDistance?: number;
+  historyRequestCandleCount: number;
+  intervalSeconds: number;
+}) {
+  const pageTimeSpan = HISTORY_GAP_REQUEST_CANDLE_COUNT * intervalSeconds;
+  if (followedDistance === undefined || !(followedDistance > 0)) {
+    return pageTimeSpan;
+  }
+  return Math.min(
+    followedDistance + pageTimeSpan,
+    Math.max(historyRequestCandleCount * intervalSeconds, pageTimeSpan),
+  );
 }
 
 function getOlderHistoryPreloadPointCount({
@@ -3111,7 +3142,15 @@ export function useTradingViewNativeKLine({
   );
 
   const handleVisiblePointRangeChange = useCallback(
-    ({ endIndex, startIndex }: { endIndex?: number; startIndex: number }) => {
+    ({
+      endIndex,
+      followedTimeRange,
+      startIndex,
+    }: {
+      endIndex?: number;
+      followedTimeRange?: ITradingViewNativeFollowedTimeRange;
+      startIndex: number;
+    }) => {
       const pagination = historyPaginationRef.current;
       const currentChartData = chartDataRef.current;
       if (
@@ -3167,13 +3206,30 @@ export function useTradingViewNativeKLine({
         const gapTimeTo = Math.ceil(visibleGap.to) - 1;
         const requestTimeSpan =
           HISTORY_GAP_REQUEST_CANDLE_COUNT * interval.seconds;
+        // Filled from the side in view, as far as the followed times reach.
+        const firstPageTimeSpan = getHistoryPageTimeSpan({
+          followedDistance:
+            followedTimeRange &&
+            (loadGapFrom === 'left'
+              ? followedTimeRange.to - Math.floor(visibleGap.from)
+              : Math.ceil(visibleGap.to) - followedTimeRange.from),
+          historyRequestCandleCount:
+            historyProvider.getHistoryRequestCandleCount(interval),
+          intervalSeconds: interval.seconds,
+        });
         const timeFrom =
           loadGapFrom === 'left'
             ? gapTimeFrom
-            : Math.max(gapTimeFrom, Math.ceil(visibleGap.to) - requestTimeSpan);
+            : Math.max(
+                gapTimeFrom,
+                Math.ceil(visibleGap.to) - firstPageTimeSpan,
+              );
         const timeTo =
           loadGapFrom === 'left'
-            ? Math.min(gapTimeTo, Math.floor(visibleGap.from) + requestTimeSpan)
+            ? Math.min(
+                gapTimeTo,
+                Math.floor(visibleGap.from) + firstPageTimeSpan,
+              )
             : gapTimeTo;
         if (timeFrom >= timeTo) {
           addHistoryCoverageRange({
@@ -3341,7 +3397,14 @@ export function useTradingViewNativeKLine({
         const timeFrom = newerCursorTimestamp + 1;
         const timeTo = Math.min(
           newerCursorTimestamp +
-            HISTORY_GAP_REQUEST_CANDLE_COUNT * interval.seconds,
+            getHistoryPageTimeSpan({
+              followedDistance:
+                followedTimeRange &&
+                followedTimeRange.to - newerCursorTimestamp,
+              historyRequestCandleCount:
+                historyProvider.getHistoryRequestCandleCount(interval),
+              intervalSeconds: interval.seconds,
+            }),
           currentTimestamp,
         );
         if (timeFrom > timeTo) {

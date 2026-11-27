@@ -17,7 +17,7 @@ export class CloudSyncFlowManagerCustomRpc extends CloudSyncFlowManagerBase<
 > {
   override dataType = EPrimeCloudSyncDataType.CustomRpc as any;
 
-  override removeSyncItemIfServerDeleted = true;
+  override removeSyncItemIfServerDeleted = false;
 
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetCustomRpc;
@@ -34,6 +34,31 @@ export class CloudSyncFlowManagerCustomRpc extends CloudSyncFlowManagerBase<
   }): Promise<ICloudSyncPayloadCustomRpc> {
     const { customRpc } = target;
     return Promise.resolve(cloneDeep(customRpc));
+  }
+
+  override async buildSyncItem(
+    params: Parameters<
+      CloudSyncFlowManagerBase<
+        EPrimeCloudSyncDataType.CustomRpc,
+        IDBCustomRpc
+      >['buildSyncItem']
+    >[0],
+  ): Promise<IDBCloudSyncItem | undefined> {
+    // Deletion only needs networkId; redact rpc URL so API keys are not retained.
+    return super.buildSyncItem(
+      params.isDeleted
+        ? {
+            ...params,
+            target: {
+              ...params.target,
+              customRpc: {
+                ...params.target.customRpc,
+                rpc: '',
+              },
+            },
+          }
+        : params,
+    );
   }
 
   override async isSupportSync(

@@ -93,7 +93,7 @@ struct MarketLockScreenChartWidget: Widget {
 @available(iOS 17.0, *)
 struct MarketHomeWidgetProvider: AppIntentTimelineProvider {
   let isWatchlist: Bool
-  func placeholder(in context: Context) -> MarketWidgetEntry { .placeholder(isWatchlist: isWatchlist) }
+  func placeholder(in context: Context) -> MarketWidgetEntry { .preview(isWatchlist: isWatchlist) }
   private func boundID(_ configuration: MarketWidgetInstanceIntent, preview: Bool) -> UUID? {
     guard !preview, let id = configuration.instanceID else { return nil }
     let binding = MarketWidgetInstanceBinding(id: id, kind: isWatchlist ? .list : .single)
@@ -106,7 +106,8 @@ struct MarketHomeWidgetProvider: AppIntentTimelineProvider {
     }
   }
   func snapshot(for configuration: MarketWidgetInstanceIntent, in context: Context) async -> MarketWidgetEntry {
-    .snapshot(isWatchlist: isWatchlist, instanceID: boundID(configuration, preview: context.isPreview))
+    if context.isPreview { return .preview(isWatchlist: isWatchlist) }
+    return .snapshot(isWatchlist: isWatchlist, instanceID: boundID(configuration, preview: context.isPreview))
   }
   func timeline(for configuration: MarketWidgetInstanceIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
     await MarketWidgetEntry.timeline(isWatchlist: isWatchlist, instanceID: boundID(configuration, preview: context.isPreview))
@@ -208,7 +209,7 @@ struct MarketWidgetView: View {
       VStack(alignment: .leading, spacing: 0) {
         header
         if let row = entry.rows.first {
-          MarketWidgetTokenIcon(asset: row.quote?.asset ?? row.asset, size: 32)
+          MarketWidgetTokenIcon(asset: row.quote?.asset ?? row.asset, size: 32, isPreview: entry.isGalleryPreview)
             .padding(.top, 17)
           Spacer(minLength: 10)
           HStack(alignment: .firstTextBaseline, spacing: 2) {
@@ -237,6 +238,11 @@ struct MarketWidgetView: View {
         .lineLimit(1).minimumScaleFactor(0.65)
         .allowsTightening(true)
         .frame(maxWidth: .infinity, alignment: .leading)
+      if let number = entry.instanceNumber {
+        Text(verbatim: "#\(number)")
+          .font(.system(size: 11, weight: .medium)).monospacedDigit()
+          .foregroundStyle(secondary)
+      }
       if #available(iOS 17.0, *), let editorURL = entry.editorURL {
         Link(destination: editorURL) {
           ZStack {
@@ -248,7 +254,8 @@ struct MarketWidgetView: View {
         }
         .accessibilityLabel(localized("market_widget_edit__title"))
       }
-      Image("MarketWidgetOneKey").resizable().scaledToFit().frame(width: 18, height: 18)
+      Image(decorative: entry.configuration?.privacyMasked == true ? "MarketWidgetTravelMode" : "MarketWidgetOneKey")
+        .resizable().scaledToFit().frame(width: 18, height: 18)
     }
   }
 
@@ -285,7 +292,7 @@ struct MarketWidgetView: View {
     return GeometryReader { geometry in
       HStack(spacing: 0) {
         HStack(spacing: 17) {
-          MarketWidgetTokenIcon(asset: asset, size: 32)
+          MarketWidgetTokenIcon(asset: asset, size: 32, isPreview: entry.isGalleryPreview)
           VStack(alignment: .leading, spacing: 1) {
             Text(asset.displaySymbol).font(.system(size: 14, weight: .medium)).lineLimit(1)
             Text(row.quote?.marketClosed == true ? localized("market_widget_market_closed__title") : asset.name)
@@ -358,9 +365,12 @@ struct MarketWidgetView: View {
 struct MarketWidgetTokenIcon: View {
   let asset: MarketWidgetAsset
   let size: CGFloat
+  var isPreview = false
   var body: some View {
     Group {
-      if let data = MarketWidgetStore().icon(for: asset), let image = UIImage(data: data) {
+      if isPreview, let name = asset.previewIconName {
+        Image(name).resizable().scaledToFit()
+      } else if let data = MarketWidgetStore().icon(for: asset), let image = UIImage(data: data) {
         Image(uiImage: image).resizable().scaledToFit()
       } else {
         Image(systemName: "circle.hexagongrid.fill").resizable().scaledToFit()

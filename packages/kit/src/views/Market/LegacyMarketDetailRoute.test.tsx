@@ -89,7 +89,11 @@ describe('LegacyMarketDetailRoute', () => {
     };
     const legacyDetail = { symbol: 'vbUSDC' };
     mockUsePromiseResult.mockReturnValue({
-      result: { status: 'success', data: legacyDetail },
+      result: {
+        status: 'success',
+        data: legacyDetail,
+        marketTokenId: 'vault-bridge-usdc',
+      },
       isLoading: false,
       run: mockRetry,
       setResult: jest.fn(),
@@ -109,6 +113,34 @@ describe('LegacyMarketDetailRoute', () => {
       token: legacyDetail,
       preferredToken,
     });
+  });
+
+  it('waits for the requested token instead of showing the previous one', () => {
+    jest.mocked(getLegacyMarketDetailV2RouteParams).mockClear();
+    // `usePromiseResult` still holds the previous token while the new loads.
+    mockUsePromiseResult.mockReturnValue({
+      result: {
+        status: 'success',
+        data: { symbol: 'BTC' },
+        marketTokenId: 'bitcoin',
+      },
+      isLoading: true,
+      run: mockRetry,
+      setResult: jest.fn(),
+      setStopPolling: jest.fn(),
+    });
+    const props = {
+      route: {
+        key: 'legacy-market-detail',
+        name: 'MarketDetail',
+        params: { token: 'ethereum' },
+      },
+      navigation: {},
+    } as unknown as ComponentProps<typeof LegacyMarketDetailRoute>;
+    render(<LegacyMarketDetailRoute {...props} />);
+    expect(getLegacyMarketDetailV2RouteParams).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('market-detail-v2')).toBeNull();
+    expect(screen.getByTestId('spinner')).toBeTruthy();
   });
 
   it('shows a retry action when the legacy detail request fails', () => {

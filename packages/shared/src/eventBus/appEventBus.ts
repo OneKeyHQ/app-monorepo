@@ -46,7 +46,11 @@ import type {
 import type { EHardwareVendor } from '../../types/device';
 import type { IDeviceStageWalletTypeValue } from '../../types/deviceStage';
 import type { IFeeSelectorItem } from '../../types/fee';
-import type { ESubscriptionType } from '../../types/hyperliquid/types';
+import type { IBook } from '../../types/hyperliquid/sdk';
+import type {
+  ESubscriptionType,
+  IL2BookOptions,
+} from '../../types/hyperliquid/types';
 import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
 import type {
   INotificationPushMessageInfo,
@@ -482,6 +486,7 @@ export interface IAppEventBusPayload {
     walletId?: string;
     walletType?: string;
   };
+  [EAppEventBusNames.HomeDefaultTokensUpdated]: undefined;
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
     | {
@@ -697,12 +702,20 @@ export interface IAppEventBusPayload {
     type: string;
     subType: ESubscriptionType;
     data: unknown;
+    displayOnly?: boolean;
   };
   [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
   [EAppEventBusNames.HyperliquidPublicTradesStatus]: {
     status: 'connected' | 'disconnected' | 'failed';
     coin: string;
   };
+  [EAppEventBusNames.HyperliquidPublicDepthBook]: {
+    coin: string;
+    options: IL2BookOptions;
+  } & (
+    | { status: 'ready'; book: IBook; receivedAt: number }
+    | { status: 'disconnected' | 'error' }
+  );
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
     symbol: string;
@@ -830,6 +843,7 @@ export interface IAppEventBusPayload {
     from: EEnterWay;
   };
   [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
+  [EAppEventBusNames.MarketWidgetConfigurationSynced]: undefined;
   [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
   [EAppEventBusNames.RefreshNativeTokenInfo]: undefined;
   [EAppEventBusNames.ShowInAppPushNotification]: {

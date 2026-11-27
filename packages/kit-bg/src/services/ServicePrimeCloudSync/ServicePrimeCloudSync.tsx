@@ -2,14 +2,17 @@
 import { Semaphore } from 'async-mutex';
 import { debounce, isNil, throttle, uniqBy } from 'lodash';
 
-import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import {
   backgroundClass,
   backgroundMethod,
   backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
+import {
+  endpointsMap,
+  getEndpointsMap,
+} from '@onekeyhq/shared/src/config/endpointsMap';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
@@ -36,6 +39,10 @@ import {
 import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  isSameServiceBaseURL,
+  serviceRequestUrl,
+} from '@onekeyhq/shared/src/request/helpers/serviceRequestUrl';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import systemTimeUtils, {
@@ -46,12 +53,9 @@ import systemTimeUtils, {
 import timerUtils, {
   resolveBeforeTimeout,
 } from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import { type IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
-import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   ICloudSyncAccountIssueUpdate,
   ICloudSyncAccountStatusCounts,
@@ -63,6 +67,8 @@ import type {
   ICloudSyncCheckServerStatusResult,
   ICloudSyncCredential,
   ICloudSyncCredentialForLock,
+  ICloudSyncDBRecord,
+  ICloudSyncDBRecords,
   ICloudSyncDownloadPostData,
   ICloudSyncDownloadResult,
   ICloudSyncRawDataJson,
@@ -79,12 +85,12 @@ import type {
   IPrimeConfigFlushInfo,
   IPrimeLockChangedInfo,
 } from '@onekeyhq/shared/types/socket';
-import type { ICloudSyncCustomToken } from '@onekeyhq/shared/types/token';
 
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
   EIndexedDBBucketNames,
+  type ICloudSyncPoolExistingItem,
   type IDBCloudSyncItem,
   type IDBDevice,
   type IDBWallet,
@@ -100,10 +106,14 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import { logHardwareCloudSyncDiagnostic } from '../ServiceKeylessCloudSync/hardwareCloudSyncLog';
+import { canUseHardwareCloudSyncSessionAt } from '../ServiceKeylessCloudSync/hardwareCloudSyncSession';
 
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
 import {
+  CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS,
   buildOnlyCheckLocalDataTypes,
+  isForeignCloudSyncDeletion,
+  isForeignLiveCloudSyncItem,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from './cloudSyncCheckUtils';
@@ -138,7 +148,10 @@ import {
   rememberPublicAccountSnapshotWrite,
 } from './publicAccountSnapshotWriteGuard';
 
-import type { IWalletNameDeferredObserver } from './CloudSyncFlowManager/CloudSyncFlowManagerBase';
+import type {
+  CloudSyncFlowManagerBase,
+  IWalletNameDeferredObserver,
+} from './CloudSyncFlowManager/CloudSyncFlowManagerBase';
 import type {
   IWalletUploadRetry,
   IWalletUploadRetryVersion,
@@ -170,9 +183,6 @@ type ICloudSyncDataTimeParams = {
   allowHistoricalTime?: boolean;
 };
 
-const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS = timerUtils.getTimeDurationMs({
-  minute: 10,
-});
 const CLOUD_SYNC_LAST_ISSUED_DATA_TIME_MAX_ENTRIES = 1000;
 const CLOUD_SYNC_LAST_ISSUED_DATA_TIME_TTL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
@@ -180,6 +190,20 @@ const CLOUD_SYNC_LAST_ISSUED_DATA_TIME_TTL_MS = timerUtils.getTimeDurationMs({
 
 const PRIME_CHECK_CLOCK_MAX_REQUEST_MS = 5000;
 const PRIME_CHECK_CLOCK_MAX_AGE_MS = 30_000;
+const CLOUD_TIE_BATCH_SIZE = 50;
+const CLOUD_TIE_CHECK_TIMEOUT_MS = 5000;
+const CLOUD_TIE_BATCH_INTERVAL_MS = 1000;
+
+type ICloudTieQueue = {
+  spaceId: string;
+  isCurrent: () => boolean;
+  controller: AbortController;
+  stopEndpointWatch: () => void;
+  items: Map<string, IDBCloudSyncItem>;
+  timer?: ReturnType<typeof setTimeout>;
+  running: boolean;
+  failures: number;
+};
 
 type IPrimeCheckClock = {
   origin: string;
@@ -221,6 +245,8 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   private primeCheckClock: IPrimeCheckClock | undefined;
+
+  private primeCheckRequestId = 0;
   private walletCheckOrigins = new WeakMap<
     ICloudSyncCheckServerStatusResult,
     string
@@ -243,23 +269,23 @@ class ServicePrimeCloudSync extends ServiceBase {
       IApiClientResponse<ICloudSyncCheckServerStatusResult>
     >,
     pwdHash: string,
+    trustedBaseURL: string | undefined,
   ): string | undefined {
     if (response.status !== 200 || response.data.code !== 0 || !response.config)
       return;
     const request = response.request as { responseURL?: string } | undefined;
     const finalUrl = request?.responseURL;
     try {
-      if (!finalUrl) return;
-      const { origin, pathname, username, password, hash } = new URL(finalUrl);
+      const route = '/prime/v1/sync/check';
+      const requestBaseURL = response.config.baseURL;
       if (
-        username ||
-        password ||
-        hash ||
-        ![endpointsMap.prod.prime, endpointsMap.test.prime].includes(origin) ||
-        response.config.baseURL !== origin ||
-        response.config.url !== '/prime/v1/sync/check' ||
+        !finalUrl ||
+        !requestBaseURL ||
+        !trustedBaseURL?.startsWith('https://') ||
+        !isSameServiceBaseURL(requestBaseURL, trustedBaseURL) ||
+        response.config.url !== route ||
         response.config.method?.toLowerCase() !== 'post' ||
-        pathname !== '/prime/v1/sync/check'
+        finalUrl !== serviceRequestUrl(requestBaseURL, route).href
       )
         return;
       const body = (
@@ -268,7 +294,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           : response.config.data
       ) as { pwdHash?: unknown } | undefined;
       if (body?.pwdHash !== pwdHash) return;
-      return origin;
+      return requestBaseURL;
     } catch {
       return undefined;
     }
@@ -282,6 +308,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     startedWall,
     clock,
     timeOrigin,
+    origin,
   }: {
     response: AxiosResponse<
       IApiClientResponse<ICloudSyncCheckServerStatusResult>
@@ -292,6 +319,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     startedWall: number;
     clock: Performance;
     timeOrigin: number;
+    origin: string | undefined;
   }): IPrimeCheckClock | undefined {
     const receiptAt = clock?.now();
     const receivedWall = Date.now();
@@ -315,7 +343,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       return;
     const age = response.headers?.age ?? response.headers?.Age;
     const date = response.headers?.date ?? response.headers?.Date;
-    const origin = this.checkReplyOrigin(response, pwdHash);
     if (!origin || (age !== undefined && age !== '0' && age !== 0)) return;
     try {
       const bodyTime = data.serverTime;
@@ -727,6 +754,8 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private cloudSyncNetworkReachable: boolean | null | undefined;
 
+  private cloudTieQueue: ICloudTieQueue | undefined;
+
   private clearLocalMutationRetry() {
     if (this.localMutationTimer) clearTimeout(this.localMutationTimer);
     this.localMutationTimer = undefined;
@@ -783,6 +812,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       clearTimeout(this.localMutationTimer);
       this.localMutationTimer = undefined;
     }
+    const queue = this.cloudTieQueue;
+    if (queue && reachable === false && queue.timer) {
+      clearTimeout(queue.timer);
+      queue.timer = undefined;
+    }
+    if (queue && reachable === true) this.scheduleCloudTieBatch(queue);
   }
 
   private localReplayPromise: Promise<void> | undefined;
@@ -1065,6 +1100,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   async cancelPublicAccountSnapshotImport() {
     this.publicAccountSnapshotImportGeneration += 1;
     this.clearLocalMutationRetry();
+    this.clearCloudTieQueue();
     this.walletUploadReadRetry = undefined;
     this.clearQueuedHardwareDirectUploads();
     this._startServerSyncFlowForItemsDebounced.cancel();
@@ -1244,8 +1280,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       signal?: AbortSignal;
       timeout?: number;
       reconciliation?: ICloudSyncCheckServerStatusPostData['reconciliation'];
+      supplemental?: boolean;
     } = {},
   ): Promise<ICloudSyncCheckServerStatusResult> {
+    // A background probe should not supersede the main check's clock proof.
+    const requestId = requestOptions.supplemental
+      ? undefined
+      : (this.primeCheckRequestId += 1);
     const items = (localItems ?? []).filter(
       (item) => !item.pendingPublicAccountDeletionAt,
     );
@@ -1309,29 +1350,37 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (requestOptions.signal?.aborted)
       throw new OneKeyLocalError('Cloud sync request was cancelled');
     const responseData = response?.data?.data;
-    const proof =
-      isKeylessCheck && response && responseData && pwdHash
-        ? this.capturePrimeCheckClock({
-            response,
-            data: responseData,
-            pwdHash,
-            startedAt,
-            startedWall,
-            clock,
-            timeOrigin,
-          })
-        : undefined;
-    this.primeCheckClock = proof;
-    if (
+    const origin =
       isKeylessCheck &&
       response &&
       responseData &&
       pwdHash &&
       (!responseData.pwdHash || responseData.pwdHash === pwdHash)
-    ) {
-      const origin = proof?.origin ?? this.checkReplyOrigin(response, pwdHash);
-      if (origin) this.walletCheckOrigins.set(responseData, origin);
+        ? this.checkReplyOrigin(
+            response,
+            pwdHash,
+            (await getEndpointsMap().catch(() => undefined))?.prime,
+          )
+        : undefined;
+    if (requestOptions.signal?.aborted)
+      throw new OneKeyLocalError('Cloud sync request was cancelled');
+    if (requestId === this.primeCheckRequestId) {
+      this.primeCheckClock =
+        origin && response && responseData && pwdHash
+          ? this.capturePrimeCheckClock({
+              response,
+              data: responseData,
+              pwdHash,
+              startedAt,
+              startedWall,
+              clock,
+              timeOrigin,
+              origin,
+            })
+          : undefined;
     }
+    if (origin && responseData)
+      this.walletCheckOrigins.set(responseData, origin);
 
     const serverTimeStr = response?.headers?.date as string | undefined;
 
@@ -1353,7 +1402,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
     }
     // fix localItems dataTime which is greater than server time
-    if (responseData.serverTime) {
+    if (requestId === this.primeCheckRequestId && responseData.serverTime) {
       systemTimeUtils.updateServerTime({
         serverTime: responseData.serverTime,
         source: 'cloud-sync',
@@ -1385,7 +1434,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             updater: (item) => {
               if (requestOptions.signal?.aborted)
                 throw new OneKeyLocalError('Cloud sync request was cancelled');
-              fixItemTime(item);
+              if (requestId === this.primeCheckRequestId) fixItemTime(item);
               return item;
             },
           });
@@ -1751,7 +1800,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                     selectedPwdHash: string,
                   ) => {
                     if (
-                      baseURL !== proof.origin ||
+                      !isSameServiceBaseURL(baseURL, proof.origin) ||
                       selectedPwdHash !== proof.pwdHash ||
                       this.primeCheckClock !== proof
                     ) {
@@ -1977,10 +2026,13 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   captureWalletUploadReadRetry(credential: IKeylessCloudSyncCredential) {
     const { pwdHash, hardwareSession, source } = credential;
-    const origin = hardwareSession?.boundBaseURL;
+    const origin = hardwareSession?.environment
+      ? endpointsMap[hardwareSession.environment].prime
+      : hardwareSession?.boundBaseURL;
     if (
       source?.type !== 'hardware' ||
       !origin?.startsWith('https://') ||
+      !canUseHardwareCloudSyncSessionAt(hardwareSession, origin) ||
       !pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
     )
       return undefined;
@@ -2119,7 +2171,8 @@ class ServicePrimeCloudSync extends ServiceBase {
                         credential,
                         baseURL,
                       ) => {
-                        if (baseURL !== origin) return undefined;
+                        if (!isSameServiceBaseURL(baseURL, origin))
+                          return undefined;
                         return retryModule.prepareWalletUploadReadRetry({
                           backgroundApi: this.backgroundApi,
                           filterDivergentPendingWalletNames: (options) =>
@@ -2237,6 +2290,172 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
+  private hardwareItemRepairs = new Set<string>();
+
+  async repairUnreadableHardwareSyncItem({
+    item,
+    syncCredential,
+    isCurrent: isOperationCurrent,
+  }: {
+    item: IDBCloudSyncItem;
+    syncCredential: ICloudSyncCredential;
+    isCurrent?: () => boolean;
+  }): Promise<IDBCloudSyncItem | undefined> {
+    const credential = syncCredential.keylessCredential;
+    const originalTime = item.dataTime;
+    if (
+      credential?.source?.type !== 'hardware' ||
+      credential.pwdHash !== item.pwdHash ||
+      !item.data ||
+      item.pendingPublicAccountDeletionAt ||
+      !originalTime ||
+      !Number.isSafeInteger(originalTime) ||
+      originalTime < 0 ||
+      isOperationCurrent?.() === false
+    )
+      return undefined;
+
+    const keyless = this.backgroundApi.serviceKeylessCloudSync;
+    const keyGeneration = keyless.getCloudAccountImportGeneration();
+    const generation = this.publicAccountSnapshotImportGeneration;
+    const repairKey = `${item.pwdHash}:${item.id}`;
+    if (this.hardwareItemRepairs.has(repairKey)) return undefined;
+    let endpointChanged = false;
+    const stopWatching = devSettingsPersistAtom.sub(() => {
+      endpointChanged = true;
+    });
+    this.hardwareItemRepairs.add(repairKey);
+    const isCurrent = () =>
+      !endpointChanged &&
+      isOperationCurrent?.() !== false &&
+      keyGeneration === keyless.getCloudAccountImportGeneration() &&
+      generation === this.publicAccountSnapshotImportGeneration;
+    try {
+      await this.assertSyncCredentialUnchanged(syncCredential);
+      if (!isCurrent()) return undefined;
+      const recovery =
+        await import('../ServiceKeylessCloudSync/hardwareCloudSyncRecovery');
+      const stored = await localDb.getSyncItemSafe({ id: item.id });
+      if (
+        !stored ||
+        !isCurrent() ||
+        !recovery.matchesHardwareRecoverySource(stored, item)
+      )
+        return undefined;
+
+      let replacement: IDBCloudSyncItem;
+      if (item.serverUploaded) {
+        // The download API has no key filter. A check limited to this key asks
+        // for the remote version while leaving the saved local timestamp intact.
+        const { response, pwdHash } = await this.apiCheckServerStatusKeyless({
+          postData: {
+            localData: [
+              { key: item.id, dataType: item.dataType, dataTimestamp: 0 },
+            ],
+            onlyCheckLocalDataType: buildOnlyCheckLocalDataTypes({}),
+            nonce: nonceZero,
+            pwdHash: item.pwdHash,
+          },
+          requestOptions: { timeout: 5000 },
+        });
+        const result = response.data?.data;
+        if (
+          !isCurrent() ||
+          !result ||
+          pwdHash !== item.pwdHash ||
+          (result.pwdHash && result.pwdHash !== item.pwdHash)
+        )
+          return undefined;
+        const matches = [
+          ...(result.diff ?? []),
+          ...(result.updated ?? []),
+        ].filter(
+          (candidate) =>
+            candidate.key === item.id && candidate.dataType === item.dataType,
+        );
+        const remote = matches.length === 1 ? matches[0] : undefined;
+        if (
+          !remote?.data ||
+          (remote.pwdHash && remote.pwdHash !== item.pwdHash)
+        )
+          return undefined;
+        const downloaded = await this.convertServerItemToLocalItem({
+          serverItem: remote,
+          shouldDecrypt: false,
+          syncCredential,
+          serverPwdHash: item.pwdHash,
+        });
+        if (
+          !downloaded?.dataTime ||
+          !Number.isSafeInteger(downloaded.dataTime) ||
+          downloaded.dataTime < originalTime ||
+          (downloaded.dataTime === originalTime &&
+            downloaded.isDeleted !== item.isDeleted) ||
+          downloaded.data === item.data
+        )
+          return undefined;
+        const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+          item: { ...downloaded },
+          syncCredential,
+        });
+        if (
+          rawDataJson?.dataType !== item.dataType ||
+          !rawDataJson.rawKey ||
+          sha512ProSync({ data: rawDataJson.rawKey }) !== item.id
+        )
+          return undefined;
+        replacement = { ...downloaded, rawKey: rawDataJson.rawKey };
+      } else {
+        const [rebuilt] = await recovery.prepareHardwareCloudSyncLocalRecovery({
+          items: [item],
+          syncCredential,
+          knownPwdHashes: new Set([item.pwdHash]),
+          loadAuthoritativeItems: (items) =>
+            this.buildHardwareRestoreBusinessItems(syncCredential, items),
+        });
+        if (
+          !rebuilt?.replacement.data ||
+          rebuilt.replacement.data === item.data
+        )
+          return undefined;
+        replacement = {
+          ...item,
+          data: rebuilt.replacement.data,
+          rawKey: rebuilt.replacement.rawKey,
+          rawData: rebuilt.replacement.rawData,
+          rawDataJson: undefined,
+        };
+      }
+
+      await this.assertSyncCredentialUnchanged(syncCredential);
+      if (!isCurrent()) return undefined;
+      let applied = false;
+      await localDb.updateSyncItem({
+        ids: [item.id],
+        isCurrent,
+        updater: (record) => {
+          if (
+            isCurrent() &&
+            recovery.matchesHardwareRecoverySource(record, item)
+          ) {
+            record.data = replacement.data;
+            record.rawKey = replacement.rawKey;
+            record.rawData = replacement.rawData;
+            record.dataTime = replacement.dataTime;
+            record.isDeleted = replacement.isDeleted;
+            record.localSceneUpdated = replacement.localSceneUpdated;
+            applied = true;
+          }
+          return record;
+        },
+      });
+      return applied && isCurrent() ? replacement : undefined;
+    } finally {
+      this.hardwareItemRepairs.delete(repairKey);
+      stopWatching();
+    }
+  }
+
   // TODO mutex
   async syncToSceneWithLocalSyncItems({
     items,
@@ -2246,11 +2465,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     foreignAccountsByWireId,
     localOnly = false,
     onWalletNameHistoryDeferred,
-    walletAvatarPredecessors,
   }: {
     localOnly?: boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential;
     forceSync?: boolean;
@@ -2271,7 +2488,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       foreignAccountsByWireId,
       localOnly,
       onWalletNameHistoryDeferred,
-      walletAvatarPredecessors,
     });
   }
 
@@ -2283,11 +2499,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     foreignAccountsByWireId,
     localOnly = false,
     onWalletNameHistoryDeferred,
-    walletAvatarPredecessors,
   }: {
     localOnly?: boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
     forceSync?: boolean;
@@ -2310,6 +2524,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (
         item.pendingPublicAccountDeletionAt ||
         isInactiveHardwareWalletAccount(item, activePwdHash) ||
+        isForeignCloudSyncDeletion(item, activePwdHash) ||
         !isSupportedCloudSyncDataType(item.dataType)
       )
         continue;
@@ -2364,20 +2579,26 @@ class ServicePrimeCloudSync extends ServiceBase {
     };
     assertCurrent();
 
+    const hardwareReadScope =
+      syncCredential?.keylessCredential?.source?.type === 'hardware'
+        ? { isCurrent, localOnly }
+        : {};
+
     // wallet sync
     await this.syncManagers.wallet.syncToScene({
       syncCredential,
       items: walletItems,
       forceSync,
       isCurrent,
-      ...(walletAvatarPredecessors?.size ? { walletAvatarPredecessors } : {}),
       onWalletNameHistoryDeferred,
+      ...(localOnly ? { localOnly } : {}),
     });
     assertCurrent();
     await this.syncManagers.botWallet.syncToScene({
       syncCredential,
       items: botWalletItems,
       forceSync,
+      ...hardwareReadScope,
     });
     assertCurrent();
     if (walletItems?.length || botWalletItems?.length) {
@@ -2404,6 +2625,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       items: indexedAccountItems,
       forceSync,
+      ...hardwareReadScope,
     });
     assertCurrent();
     if (accountsChanged || indexedAccountItems.length) {
@@ -2417,6 +2639,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       items: browserBookmarkItems,
       forceSync,
+      ...hardwareReadScope,
     });
     assertCurrent();
     if (browserBookmarkItems?.length) {
@@ -2430,6 +2653,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       items: marketWatchListItems,
       forceSync,
+      ...hardwareReadScope,
     });
     assertCurrent();
     if (marketWatchListItems?.length) {
@@ -2443,6 +2667,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       items: customRpcItems,
       forceSync,
+      ...hardwareReadScope,
     });
     assertCurrent();
     if (customRpcItems?.length) {
@@ -2456,6 +2681,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       items: customNetworkItems,
       forceSync,
+      ...hardwareReadScope,
     });
     assertCurrent();
     if (customNetworkItems?.length) {
@@ -2469,6 +2695,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       items: customTokenItems,
       forceSync,
+      ...hardwareReadScope,
     });
     assertCurrent();
     if (customTokenItems?.length) {
@@ -2482,6 +2709,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       items: addressBookItems,
       forceSync,
+      ...hardwareReadScope,
     });
     assertCurrent();
     if (addressBookItems?.length) {
@@ -2513,6 +2741,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     skipLastSyncTime = false,
     tieState,
     tieOrigin,
+    expectedPendingItems,
   }: {
     serverItems: ICloudSyncServerItem[];
     shouldSyncToScene: boolean;
@@ -2524,6 +2753,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     skipLastSyncTime?: boolean;
     tieState?: IWalletTieState;
     tieOrigin?: string;
+    expectedPendingItems?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     const pushGeneration = this.publicAccountSnapshotImportGeneration;
     const keyGeneration = deferPushBatchLastSyncTime
@@ -2535,6 +2765,9 @@ class ServicePrimeCloudSync extends ServiceBase {
           keyGeneration ===
             this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration()
       : undefined;
+    const operationIsCurrent = pushBatchIsCurrent
+      ? () => pushBatchIsCurrent() && (isCurrent?.() ?? true)
+      : isCurrent;
     const config = await primeCloudSyncPersistAtom.get();
     if (
       config.hardwareCloudSyncKeySource &&
@@ -2550,7 +2783,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const generation = this.publicAccountSnapshotImportGeneration;
     const guard = () => {
       this.assertCloudSyncGeneration(generation);
-      if (isCurrent && !isCurrent())
+      if (operationIsCurrent && !operationIsCurrent())
         throw new OneKeyLocalError('Cloud sync was cancelled');
     };
     const localItems: IDBCloudSyncItem[] = [];
@@ -2573,6 +2806,13 @@ class ServicePrimeCloudSync extends ServiceBase {
               syncCredential,
               serverPwdHash,
             });
+            if (item && expectedPendingItems) {
+              const expected = expectedPendingItems.get(item.id);
+              if (!expected) return null;
+              rememberPublicAccountSnapshotWrite(item, expected, {
+                requirePending: true,
+              });
+            }
             if (tieState && item?.dataType === EPrimeCloudSyncDataType.Wallet) {
               guardWalletTie(item, tieState);
               if (
@@ -2633,17 +2873,17 @@ class ServicePrimeCloudSync extends ServiceBase {
       shouldSyncToScene,
       isCurrent: tieState
         ? () =>
-            (isCurrent?.() ?? true) &&
+            (operationIsCurrent?.() ?? true) &&
             (tieState.isCurrent() ||
               !localItems.some(
                 (item) => tieState.accepted.get(item.id) === item,
               ))
-        : isCurrent,
-      captureFreshWalletAvatar: !!isCurrent && shouldSyncToScene,
+        : operationIsCurrent,
       onWalletNameHistoryDeferred,
       pushBatchIsCurrent,
       skipLastSyncTime,
       tieState,
+      expectedPendingItems,
       allowSettledAccountHandoff:
         !config.isCloudSyncEnabled &&
         !!config.isCloudSyncEnabledKeyless &&
@@ -2652,6 +2892,331 @@ class ServicePrimeCloudSync extends ServiceBase {
         config.hardwareCloudSyncKeySource.derivationVersion ===
           syncCredential.keylessCredential.source?.derivationVersion,
     });
+  }
+
+  private cloudTieCandidates(items: IDBCloudSyncItem[], spaceId: string) {
+    if (!spaceId) return [];
+    return items.filter(
+      (item) =>
+        !item.serverUploaded &&
+        item.pwdHash === spaceId &&
+        !!item.data &&
+        typeof item.dataTime === 'number' &&
+        Number.isSafeInteger(item.dataTime) &&
+        item.dataTime > 0 &&
+        !item.pendingPublicAccountDeletionAt &&
+        item.dataType !== EPrimeCloudSyncDataType.Lock,
+    );
+  }
+
+  queueCloudTieReplay({
+    localItems,
+    syncCredential,
+    prioritize = false,
+  }: {
+    localItems: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+    prioritize?: boolean;
+  }) {
+    const spaceId = cloudSyncItemBuilder.getPwdHash(syncCredential);
+    const candidates = this.cloudTieCandidates(localItems, spaceId);
+    if (!candidates.length) return;
+    let queue = this.cloudTieQueue;
+    if (!queue?.isCurrent() || queue.spaceId !== spaceId) {
+      this.clearCloudTieQueue();
+      const generation = this.publicAccountSnapshotImportGeneration;
+      const keyless = this.backgroundApi.serviceKeylessCloudSync;
+      const keyGeneration = keyless.getCloudAccountImportGeneration();
+      const controller = new AbortController();
+      queue = {
+        spaceId,
+        isCurrent: () =>
+          !controller.signal.aborted &&
+          generation === this.publicAccountSnapshotImportGeneration &&
+          keyGeneration === keyless.getCloudAccountImportGeneration(),
+        controller,
+        stopEndpointWatch: devSettingsPersistAtom.sub(() => {
+          if (this.cloudTieQueue?.controller === controller)
+            this.clearCloudTieQueue();
+        }),
+        items: new Map(),
+        running: false,
+        failures: 0,
+      };
+      this.cloudTieQueue = queue;
+    }
+    for (const item of candidates) {
+      const previous = queue.items.get(item.id);
+      if ((previous?.dataTime ?? 0) <= (item.dataTime ?? 0))
+        queue.items.set(item.id, item);
+    }
+    if (prioritize && queue.timer) {
+      clearTimeout(queue.timer);
+      queue.timer = undefined;
+    }
+    this.scheduleCloudTieBatch(queue);
+  }
+
+  private clearCloudTieQueue() {
+    const queue = this.cloudTieQueue;
+    if (!queue) return;
+    this.cloudTieQueue = undefined;
+    if (queue.timer) clearTimeout(queue.timer);
+    queue.stopEndpointWatch();
+    queue.controller.abort();
+  }
+
+  private scheduleCloudTieBatch(
+    queue: ICloudTieQueue,
+    delayMs = CLOUD_TIE_BATCH_INTERVAL_MS,
+  ) {
+    if (queue !== this.cloudTieQueue || queue.timer || queue.running) return;
+    if (!queue.isCurrent() || !queue.items.size) {
+      this.clearCloudTieQueue();
+      return;
+    }
+    if (this.cloudSyncNetworkReachable === false) return;
+    // One batch per turn gives the queue its own network budget.
+    queue.timer = setTimeout(() => {
+      queue.timer = undefined;
+      void this.runCloudTieBatch(queue).catch((error) =>
+        errorUtils.autoPrintErrorIgnore(error),
+      );
+    }, delayMs);
+  }
+
+  private async runCloudTieBatch(queue: ICloudTieQueue) {
+    if (queue !== this.cloudTieQueue) return;
+    if (!queue.isCurrent()) {
+      this.clearCloudTieQueue();
+      return;
+    }
+    if (this.cloudSyncNetworkReachable === false || this.fullSyncPromise) {
+      this.scheduleCloudTieBatch(queue);
+      return;
+    }
+    queue.running = true;
+    const batch: IDBCloudSyncItem[] = [];
+    for (const [id, item] of queue.items) {
+      queue.items.delete(id);
+      batch.push(item);
+      if (batch.length === CLOUD_TIE_BATCH_SIZE) break;
+    }
+    let retry = false;
+    try {
+      const credential = await this.getSyncCredentialSafe();
+      if (!queue.isCurrent()) return;
+      if (!credential) {
+        retry = true;
+        return;
+      }
+      if (cloudSyncItemBuilder.getPwdHash(credential) !== queue.spaceId) {
+        this.clearCloudTieQueue();
+        return;
+      }
+      const result = await this.replayConfirmedCloudTies({
+        localItems: batch,
+        syncCredential: credential,
+        isCurrent: queue.isCurrent,
+        signal: queue.controller.signal,
+      });
+      retry = result.pending;
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+      retry = true;
+    } finally {
+      queue.running = false;
+      if (queue === this.cloudTieQueue && queue.isCurrent()) {
+        if (retry) {
+          for (const item of batch) {
+            if (!queue.items.has(item.id)) queue.items.set(item.id, item);
+          }
+        }
+        queue.failures = retry ? queue.failures + 1 : 0;
+        this.scheduleCloudTieBatch(
+          queue,
+          retry
+            ? Math.min(
+                30 * 60_000,
+                30_000 * 2 ** Math.min(queue.failures - 1, 6),
+              )
+            : CLOUD_TIE_BATCH_INTERVAL_MS,
+        );
+      } else if (queue === this.cloudTieQueue) {
+        this.clearCloudTieQueue();
+      }
+    }
+  }
+
+  private async checkCloudTieBatch(
+    requested: IDBCloudSyncItem[],
+    signal: AbortSignal,
+  ) {
+    const request = new AbortController();
+    const abort = () => request.abort();
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+    try {
+      const response = await resolveBeforeTimeout(
+        this.checkServerStatusWithRequestOptions(
+          { localItems: requested.map((item) => ({ ...item, dataTime: 0 })) },
+          {
+            signal: request.signal,
+            timeout: CLOUD_TIE_CHECK_TIMEOUT_MS,
+            supplemental: true,
+          },
+        ),
+        CLOUD_TIE_CHECK_TIMEOUT_MS,
+      );
+      if (!response)
+        throw new OneKeyLocalError({
+          autoToast: false,
+          message: 'Cloud sync supplemental check timed out',
+        });
+      return response;
+    } finally {
+      signal.removeEventListener('abort', abort);
+      request.abort();
+    }
+  }
+
+  async replayConfirmedCloudTies({
+    localItems,
+    syncCredential,
+    isCurrent,
+    signal,
+  }: {
+    localItems: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+    isCurrent: () => boolean;
+    signal: AbortSignal;
+  }): Promise<{ applied: boolean; pending: boolean }> {
+    const pwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
+    const result = { applied: false, pending: false };
+    const candidates = this.cloudTieCandidates(localItems, pwdHash);
+    if (!candidates.length) return result;
+    const { prepareWalletTieState } = await import('./cloudSyncReconciliation');
+    for (
+      let offset = 0;
+      offset < candidates.length;
+      offset += CLOUD_TIE_BATCH_SIZE
+    ) {
+      if (!isCurrent() || signal.aborted) return result;
+      const batch = candidates.slice(offset, offset + CLOUD_TIE_BATCH_SIZE);
+      const { records: currentRows } = await localDb.getRecordsByIds({
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: batch.map((item) => item.id),
+      });
+      const requested = batch.filter((item, index) => {
+        const current = currentRows[index];
+        return (
+          !!current &&
+          !current.serverUploaded &&
+          !current.pendingPublicAccountDeletionAt &&
+          current.dataTime === item.dataTime &&
+          current.data === item.data &&
+          current.dataType === item.dataType &&
+          current.pwdHash === pwdHash &&
+          current.isDeleted === item.isDeleted
+        );
+      });
+      if (!requested.length) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const byId = new Map(requested.map((item) => [item.id, item]));
+      await this.assertSyncCredentialUnchanged(syncCredential);
+      if (!isCurrent() || signal.aborted) return result;
+      // The ordinary check can omit equal timestamps. Request the payload for
+      // pending keys without changing their persisted version or uploading.
+      const response = await this.checkCloudTieBatch(requested, signal);
+      if (!isCurrent() || signal.aborted || response.pwdHash !== pwdHash)
+        return result;
+      const tied = [...response.diff, ...response.updated].filter((remote) => {
+        const local = byId.get(remote.key);
+        return (
+          !!local &&
+          remote.dataType === local.dataType &&
+          (remote.pwdHash || pwdHash) === pwdHash &&
+          remote.dataTimestamp === local.dataTime &&
+          !!remote.data
+        );
+      });
+      const verifiedTies: ICloudSyncServerItem[] = [];
+      for (const remote of tied) {
+        if (!isCurrent() || signal.aborted) return result;
+        // Wallet ties already have a guarded, read-only preflight at merge.
+        if (remote.dataType === EPrimeCloudSyncDataType.Wallet) {
+          verifiedTies.push(remote);
+          continue;
+        }
+        try {
+          const item = await this.convertServerItemToLocalItem({
+            serverItem: remote,
+            shouldDecrypt: false,
+            syncCredential,
+            serverPwdHash: pwdHash,
+          });
+          if (item) {
+            const { rawDataJson: raw } =
+              await cloudSyncItemBuilder.decryptSyncItem({
+                item,
+                syncCredential,
+              });
+            if (
+              raw?.dataType === remote.dataType &&
+              raw.payload &&
+              typeof raw.payload === 'object' &&
+              typeof raw.rawKey === 'string' &&
+              raw.rawKey &&
+              sha512ProSync({ data: raw.rawKey }) === remote.key
+            ) {
+              verifiedTies.push(remote);
+              continue;
+            }
+          }
+        } catch {
+          // Keep the usable pending version when the cloud record is unreadable.
+        }
+        result.pending = true;
+      }
+      if (!isCurrent() || signal.aborted) return result;
+      if (verifiedTies.length) {
+        await this.saveServerSyncItemsToLocal({
+          serverItems: verifiedTies,
+          syncCredential,
+          serverPwdHash: pwdHash,
+          isCurrent,
+          shouldSyncToScene: true,
+          skipLastSyncTime: true,
+          expectedPendingItems: byId,
+          tieState: prepareWalletTieState(verifiedTies, requested, isCurrent),
+          tieOrigin: this.walletCheckOrigins.get(response),
+        });
+        const { records } = await localDb.getRecordsByIds({
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: verifiedTies.map((item) => item.key),
+        });
+        verifiedTies.forEach((remote, index) => {
+          const item = records[index];
+          if (!item) {
+            result.pending ||= !remote.isDeleted;
+          } else if (
+            item.pwdHash === pwdHash &&
+            item.dataTime === remote.dataTimestamp
+          ) {
+            const accepted =
+              item.serverUploaded &&
+              item.localSceneUpdated &&
+              item.data === remote.data &&
+              item.isDeleted === remote.isDeleted;
+            result.applied ||= accepted;
+            result.pending ||= !accepted;
+          }
+        });
+      }
+    }
+    return result;
   }
 
   async saveServerDeletedItemsToLocal({
@@ -2704,22 +3269,22 @@ class ServicePrimeCloudSync extends ServiceBase {
     shouldSyncToScene,
     isCurrent,
     allowSettledAccountHandoff = false,
-    captureFreshWalletAvatar = false,
     onWalletNameHistoryDeferred,
     pushBatchIsCurrent,
     skipLastSyncTime = false,
     tieState,
+    expectedPendingItems,
   }: {
     localItems: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
     shouldSyncToScene: boolean;
     isCurrent?: () => boolean;
     allowSettledAccountHandoff?: boolean;
-    captureFreshWalletAvatar?: boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     pushBatchIsCurrent?: () => boolean;
     skipLastSyncTime?: boolean;
     tieState?: IWalletTieState;
+    expectedPendingItems?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     const localItems = incomingItems.filter((item) =>
       isSupportedCloudSyncDataType(item.dataType),
@@ -2733,6 +3298,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const collisionCandidates: IDBCloudSyncItem[] = [];
     const mayHandoff =
       allowSettledAccountHandoff &&
+      !expectedPendingItems &&
       shouldSyncToScene &&
       syncCredential?.keylessCredential?.source?.type === 'hardware' &&
       !!syncCredential.keylessCredential.hardwareSession &&
@@ -2774,13 +3340,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         }
       }
     }
-    const priorWalletVersions = new Map<
-      string,
-      {
-        prior: IDBCloudSyncItem;
-        incoming: IDBCloudSyncItem;
-      }
-    >();
     console.log('updateLocalItemsByServer', localItems.length);
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
@@ -2793,26 +3352,6 @@ class ServicePrimeCloudSync extends ServiceBase {
           ),
           // Server data does not need to be uploaded again.
           skipUploadToServer: true,
-          ...(captureFreshWalletAvatar
-            ? {
-                onBeforeWalletServerMerge: (
-                  prior: IDBCloudSyncItem,
-                  incoming: IDBCloudSyncItem,
-                ) => {
-                  if (
-                    !!activePwdHash &&
-                    prior.pwdHash === activePwdHash &&
-                    incoming.pwdHash === activePwdHash &&
-                    !!incoming.data &&
-                    !incoming.isDeleted &&
-                    Number.isSafeInteger(prior.dataTime) &&
-                    Number.isSafeInteger(incoming.dataTime) &&
-                    (prior.dataTime || 0) < (incoming.dataTime || 0)
-                  )
-                    priorWalletVersions.set(incoming.id, { prior, incoming });
-                },
-              }
-            : {}),
           ...(activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
             ? { preserveExisting }
             : {}),
@@ -2829,25 +3368,21 @@ class ServicePrimeCloudSync extends ServiceBase {
         ids: localItems.map((item) => item.id),
       });
       const items = records.filter(
-        (item): item is IDBCloudSyncItem => !!item && !preserveExisting(item),
+        (item, index): item is IDBCloudSyncItem =>
+          !!item &&
+          !preserveExisting(item) &&
+          !isForeignCloudSyncDeletion(item, activePwdHash) &&
+          (!expectedPendingItems ||
+            (item.serverUploaded &&
+              !isRejectedPublicAccountSnapshotWrite(localItems[index]) &&
+              item.data === localItems[index].data &&
+              item.dataTime === localItems[index].dataTime &&
+              item.isDeleted === localItems[index].isDeleted &&
+              item.pwdHash === localItems[index].pwdHash)),
       );
       // Keep the downloaded versions before scene replay mutates decrypt/ACK
       // fields or a concurrent local restore replaces the persisted records.
       const cleanupSources = items.filter(Boolean).map((item) => ({ ...item }));
-      const walletAvatarPredecessors = new Map<string, IDBCloudSyncItem>();
-      for (const item of items) {
-        const versions = priorWalletVersions.get(item.id);
-        if (
-          versions &&
-          item.dataType === EPrimeCloudSyncDataType.Wallet &&
-          item.serverUploaded &&
-          !item.isDeleted &&
-          item.pwdHash === activePwdHash &&
-          item.data === versions.incoming.data &&
-          item.dataTime === versions.incoming.dataTime
-        )
-          walletAvatarPredecessors.set(item.id, versions.prior);
-      }
       await this.assertSyncCredentialUnchanged(syncCredential);
       const pushDeferredWalletNames = new Map<string, IDBCloudSyncItem>();
       const observeWalletNameDeferred: IWalletNameDeferredObserver = (
@@ -2871,7 +3406,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         syncCredential,
         isCurrent,
         ...(foreignAccountsByWireId.size ? { foreignAccountsByWireId } : {}),
-        ...(walletAvatarPredecessors.size ? { walletAvatarPredecessors } : {}),
         onWalletNameHistoryDeferred: pushBatchIsCurrent
           ? observeWalletNameDeferred
           : onWalletNameHistoryDeferred,
@@ -3005,19 +3539,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     skipUploadToServer,
     skipUpdate,
     preserveExisting,
-    onBeforeWalletServerMerge,
     isCurrent,
   }: {
     items: IDBCloudSyncItem[];
     skipUploadToServer: boolean;
     skipUpdate?: boolean;
-    onBeforeWalletServerMerge?: (
-      prior: IDBCloudSyncItem,
-      incoming: IDBCloudSyncItem,
-    ) => void;
-    preserveExisting?: (
-      item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
-    ) => boolean;
+    preserveExisting?: (item: ICloudSyncPoolExistingItem) => boolean;
     isCurrent?: () => boolean;
   }) {
     const generation = this.publicAccountSnapshotImportGeneration;
@@ -3033,7 +3560,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         skipUploadToServer,
         skipUpdate,
         ...(preserveExisting ? { preserveExisting } : {}),
-        ...(onBeforeWalletServerMerge ? { onBeforeWalletServerMerge } : {}),
         fn: async () => guard(),
       });
       if (offset + 50 < items.length) await timerUtils.wait(0);
@@ -3222,6 +3748,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!isCurrent()) return;
     const items = await this.syncManagers.account.buildInitSyncDBItems({
       dbRecords: hardwareAccounts,
+      lookupIndexedAccountsById: true,
       allDevices: devices,
       // A snapshot rebuilt from local data must lose to an existing Cloud edit.
       initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
@@ -3456,6 +3983,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     let networkRequests = 0;
     let latestItems: IDBCloudSyncItem[] = [];
     let checkRequestItems: IDBCloudSyncItem[] = [];
+    const reportedVersions = new Map<string, number | undefined>();
     let activeApply: Promise<{ applied: number }> | undefined;
     let activeUpload: Promise<{ uploaded: number }> | undefined;
     let endpointChanged = false;
@@ -3487,10 +4015,30 @@ class ServicePrimeCloudSync extends ServiceBase {
           }
           await this.fillingSyncItemsMissingDataFromRawData({
             skipUploadToServer: true,
+            preserveForeignLive: true,
             isCurrent,
           });
         },
       );
+      const hardware = credential.keylessCredential;
+      if (
+        onManualResult &&
+        hardware?.source?.type === 'hardware' &&
+        hardware.hardwareSession?.boundBaseURLVerified &&
+        this.cloudSyncNetworkReachable !== false &&
+        !endpointChanged &&
+        isCurrent()
+      ) {
+        const { items } = await this.getAllLocalSyncItems();
+        await this.backgroundApi.serviceKeylessCloudSync
+          .resumeHardwareCloudSyncKeyRotation({
+            key: hardware,
+            items,
+            isCurrent: () => !endpointChanged && isCurrent(),
+            signal: controller.signal,
+          })
+          .catch((error) => errorUtils.autoPrintErrorIgnore(error));
+      }
       let transportFailure: IManualCloudSyncResult | undefined;
       let heldDivergentWalletName = false;
       let onlyWalletVerificationDeferred = false;
@@ -3506,9 +4054,15 @@ class ServicePrimeCloudSync extends ServiceBase {
           deferredWalletNames.set(item.id, item);
       };
       const holds = new Map<string, number>();
+      const unresolvedCrossSpaceKeys = new Set<string>();
+      let foreignDeletions = new Map<string, IDBCloudSyncItem>();
+      let foreignLiveItems = new Map<string, IDBCloudSyncItem>();
+      let liveProbes: IDBCloudSyncItem[] = [];
       const {
         runCloudSyncReconciliation,
         readReconciliationFullSummary,
+        planCrossSpaceDeletionUploads,
+        planCrossSpaceLiveUploads,
         runReconciliationObsoletedUpload,
         getReconciliationManualResult,
         summarizeReconciliationRound,
@@ -3517,6 +4071,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         pauseReconciliation,
         runReconciliationCheckWithLegacyFallback,
       } = await import('./cloudSyncReconciliation');
+      let checkedDeletionUploads: ReturnType<
+        typeof planCrossSpaceDeletionUploads
+      >;
+      let checkedLive: ReturnType<typeof planCrossSpaceLiveUploads>;
       const result = await runCloudSyncReconciliation({
         signal: controller.signal,
         adapter: {
@@ -3524,22 +4082,50 @@ class ServicePrimeCloudSync extends ServiceBase {
           now: () => Date.now(),
           isBoundedCheckVerified: (contract) => contract.version === 1,
           pause: pauseReconciliation,
-          getFullSummary: ({ signal }) =>
-            readReconciliationFullSummary({
+          getFullSummary: async ({ signal }) => {
+            const summary = await readReconciliationFullSummary({
               signal,
               isCurrent,
               spaceId,
-              read: () => this.getAllLocalSyncItems(),
+              read: async () => {
+                const localPool = await this.getAllLocalSyncItems();
+                foreignDeletions = new Map(
+                  localPool.items
+                    .filter((item) => isForeignCloudSyncDeletion(item, spaceId))
+                    .map((item) => [item.id, item]),
+                );
+                foreignLiveItems = new Map(
+                  localPool.items
+                    .filter((item) => isForeignLiveCloudSyncItem(item, spaceId))
+                    .map((item) => [item.id, item]),
+                );
+                // An omitted timestamp asks the server for the actual record,
+                // including a tombstone that an equal timestamp would hide.
+                liveProbes = Array.from(foreignLiveItems.values(), (item) => ({
+                  ...item,
+                  dataTime: undefined,
+                }));
+                return localPool;
+              },
               onItems: (items) => {
                 latestItems = items;
               },
-            }),
+            });
+            return [
+              ...summary,
+              ...liveProbes.map(({ id, dataType }) => ({
+                key: id,
+                dataTimestamp: undefined,
+                dataType,
+              })),
+            ];
+          },
           check: async ({ reconciliation, signal, timeoutMs }) => {
             await this.assertSyncCredentialUnchanged(credential);
             checkRequestItems = latestItems.map((item) => ({ ...item }));
             const firstRequest = networkRequests === 0;
             transportFailure = undefined;
-            return runReconciliationCheckWithLegacyFallback({
+            const response = await runReconciliationCheckWithLegacyFallback({
               firstRequest,
               selectedCapability: this.boundedCheckUnsupported
                 ? undefined
@@ -3549,12 +4135,11 @@ class ServicePrimeCloudSync extends ServiceBase {
               send: (capability) => {
                 networkRequests += 1;
                 return this.checkServerStatusWithRequestOptions(
-                  { localItems: latestItems, isFullDBChecking: true },
                   {
-                    signal,
-                    timeout: timeoutMs,
-                    reconciliation: capability,
+                    localItems: [...latestItems, ...liveProbes],
+                    isFullDBChecking: true,
                   },
+                  { signal, timeout: timeoutMs, reconciliation: capability },
                 );
               },
               onFallback: () => {
@@ -3564,14 +4149,163 @@ class ServicePrimeCloudSync extends ServiceBase {
                 transportFailure = failure;
               },
             });
+            const reported = new Set([
+              ...response.diff.map((item) => item.key),
+              ...response.updated.map((item) => item.key),
+              ...response.deleted,
+              ...response.obsoleted,
+            ]);
+            for (const item of checkRequestItems) {
+              if (reported.has(item.id))
+                reportedVersions.set(item.id, item.dataTime);
+            }
+            for (const item of [...response.diff, ...response.updated]) {
+              if (item.dataTimestamp !== undefined)
+                reportedVersions.set(item.key, item.dataTimestamp);
+            }
+            return response;
+          },
+          getAdditionalUploadKeys: (response) => {
+            checkedDeletionUploads = planCrossSpaceDeletionUploads({
+              response,
+              spaceId,
+              sources: foreignDeletions,
+            });
+            checkedLive = planCrossSpaceLiveUploads({
+              response,
+              spaceId,
+              sources: foreignLiveItems,
+            });
+            const obsoleted = new Set(response.obsoleted);
+            for (const id of [
+              ...response.obsoleted,
+              ...response.diff.map((item) => item.key),
+              ...response.updated.map((item) => item.key),
+              ...response.deleted,
+            ]) {
+              unresolvedCrossSpaceKeys.delete(id);
+            }
+            for (const id of checkedDeletionUploads.blockedDownloads) {
+              unresolvedCrossSpaceKeys.add(id);
+            }
+            for (const id of checkedLive.withheldDownloads) {
+              if (!obsoleted.has(id) && !checkedLive.uploads.has(id)) {
+                unresolvedCrossSpaceKeys.add(id);
+              }
+            }
+            return [
+              ...checkedDeletionUploads.uploads.keys(),
+              ...Array.from(checkedLive.uploads.keys()).filter(
+                (id) => !obsoleted.has(id),
+              ),
+            ];
           },
           uploadObsoleted: (input) => {
+            const deletions = checkedDeletionUploads.uploads;
+            const live = checkedLive.uploads;
             const work = runReconciliationObsoletedUpload({
               ...input,
               isCurrent,
               credential,
               spaceId,
               getLatestItems: () => latestItems,
+              readCheckedUploads: async () => {
+                const items: IDBCloudSyncItem[] = [];
+                const ids = [...deletions.keys(), ...live.keys()];
+                if (!ids.length || endpointChanged) return items;
+                const liveItems = await this.buildCheckedCrossSpaceLiveItems({
+                  items: Array.from(live.values(), ({ source }) => source),
+                  syncCredential: credential,
+                });
+                const liveById = new Map(
+                  liveItems.map((item) => [item.id, item]),
+                );
+                const replacementSources = new Map(
+                  Array.from(live.values())
+                    .filter(
+                      ({ source, checkedDeletion }) =>
+                        checkedDeletion && liveById.has(source.id),
+                    )
+                    .map(({ source }) => [source.id, source]),
+                );
+                const confirmed = new Set<string>();
+                if (
+                  replacementSources.size &&
+                  isCurrent() &&
+                  !endpointChanged
+                ) {
+                  networkRequests += 1;
+                  const response =
+                    await this.checkServerStatusWithRequestOptions(
+                      {
+                        localItems: Array.from(
+                          replacementSources.values(),
+                          (item) => ({
+                            ...item,
+                            dataTime: undefined,
+                          }),
+                        ),
+                        isFullDBChecking: false,
+                      },
+                      { signal: input.signal, timeout: 10_000 },
+                    ).catch(() => undefined);
+                  if (response) {
+                    const rechecked = planCrossSpaceLiveUploads({
+                      response,
+                      spaceId,
+                      sources: replacementSources,
+                    });
+                    for (const [id, candidate] of rechecked.uploads) {
+                      const originalCheck = live.get(id);
+                      const deletion = candidate.checkedDeletion;
+                      if (
+                        deletion &&
+                        originalCheck?.checkedDeletion &&
+                        deletion.dataTimestamp ===
+                          originalCheck.checkedDeletion.dataTimestamp &&
+                        deletion.data === originalCheck.checkedDeletion.data &&
+                        candidate.dataTime === originalCheck.dataTime
+                      ) {
+                        confirmed.add(id);
+                      }
+                    }
+                  }
+                }
+                const { records } = await localDb.getRecordsByIds({
+                  name: ELocalDBStoreNames.CloudSyncItem,
+                  ids,
+                });
+                if (!endpointChanged) {
+                  for (const row of records) {
+                    const deletion = row && deletions.get(row.id);
+                    const living = row && live.get(row.id);
+                    const source = deletion?.source ?? living?.source;
+                    if (
+                      row &&
+                      source &&
+                      row.isDeleted === source.isDeleted &&
+                      row.pwdHash === source.pwdHash &&
+                      row.dataType === source.dataType &&
+                      row.localSceneUpdated === source.localSceneUpdated &&
+                      Object.is(row.dataTime, source.dataTime) &&
+                      row.data === source.data &&
+                      row.rawData === source.rawData &&
+                      (!living?.checkedDeletion || confirmed.has(row.id))
+                    ) {
+                      const outgoing =
+                        deletion?.outgoing ?? liveById.get(row.id);
+                      if (outgoing) {
+                        items.push(
+                          living?.dataTime === undefined
+                            ? outgoing
+                            : { ...outgoing, dataTime: living.dataTime },
+                        );
+                      }
+                    }
+                  }
+                }
+                return items;
+              },
               assertCredential: () =>
                 this.assertSyncCredentialUnchanged(credential),
               mutex: this.uploadItemsMutex,
@@ -3591,8 +4325,24 @@ class ServicePrimeCloudSync extends ServiceBase {
             return work;
           },
           apply: ({ response, signal }) => {
+            const isWithheld = (id: string) =>
+              checkedDeletionUploads.uploads.has(id) ||
+              checkedLive.withheldDownloads.has(id);
+            // Keep the checked source version intact until its upload succeeds.
+            const applyResponse =
+              checkedDeletionUploads.uploads.size ||
+              checkedLive.withheldDownloads.size
+                ? {
+                    ...response,
+                    diff: response.diff.filter((item) => !isWithheld(item.key)),
+                    updated: response.updated.filter(
+                      (item) => !isWithheld(item.key),
+                    ),
+                    deleted: response.deleted.filter((id) => !isWithheld(id)),
+                  }
+                : response;
             const work = runReconciliationApply({
-              response,
+              response: applyResponse,
               signal,
               isCurrent,
               latestItems,
@@ -3683,6 +4433,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           onlyWalletVerificationDeferred,
           unknownTie,
           reportOriginalPartial: !!onManualResult && reportOriginalPartial,
+          hasUnresolvedCrossSpaceConflict: unresolvedCrossSpaceKeys.size > 0,
           forceSceneReplay,
           networkRequests,
         });
@@ -3742,6 +4493,15 @@ class ServicePrimeCloudSync extends ServiceBase {
           });
         }
         onManualResult(manualResult);
+      }
+      if (shouldReplay && isCurrent() && !endpointChanged) {
+        this.queueCloudTieReplay({
+          localItems: latestItems.filter(
+            (item) => reportedVersions.get(item.id) !== item.dataTime,
+          ),
+          syncCredential: credential,
+          prioritize: !!onManualResult,
+        });
       }
       return state.status === 'complete';
     } catch (error) {
@@ -3874,6 +4634,10 @@ class ServicePrimeCloudSync extends ServiceBase {
               !item.pendingPublicAccountDeletionAt &&
               !item.rawData &&
               !isInactiveHardwareWalletAccount(item, pwdHash) &&
+              !(
+                item.localSceneUpdated &&
+                isForeignCloudSyncDeletion(item, pwdHash)
+              ) &&
               item.pwdHash &&
               item.pwdHash !== pwdHash,
           );
@@ -4953,17 +5717,30 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
   }
 
-  async buildHardwareRestoreWalletAccountItems(
+  async buildHardwareRestoreBusinessItems(
     syncCredential: ICloudSyncCredential,
     opaqueCopies: readonly IDBCloudSyncItem[],
   ): Promise<IDBCloudSyncItem[]> {
     const walletKeys = new Map<string, string>();
     const accountItems: IDBCloudSyncItem[] = [];
+    const indexedAccountKeys = new Map<string, string | undefined>();
+    const metadataKeys = new Map<
+      EPrimeCloudSyncDataType,
+      Map<string, string | undefined>
+    >();
     for (const item of opaqueCopies) {
       if (item.dataType === EPrimeCloudSyncDataType.Wallet) {
         walletKeys.set(item.id, item.rawKey);
       } else if (item.dataType === EPrimeCloudSyncDataType.Account) {
         accountItems.push(item);
+      } else if (item.dataType === EPrimeCloudSyncDataType.IndexedAccount) {
+        indexedAccountKeys.set(item.id, item.rawKey || undefined);
+      } else if (isSupportedCloudSyncDataType(item.dataType)) {
+        const keys =
+          metadataKeys.get(item.dataType) ??
+          new Map<string, string | undefined>();
+        keys.set(item.id, item.rawKey || undefined);
+        metadataKeys.set(item.dataType, keys);
       }
     }
     const buildWallets = async () => {
@@ -4978,7 +5755,18 @@ class ServicePrimeCloudSync extends ServiceBase {
         requiredSyncItems: walletKeys,
       });
     };
-    const [wallets, accounts] = await Promise.all([
+    const buildIndexedAccounts = async () => {
+      if (!indexedAccountKeys.size) return [];
+      const { indexedAccounts } =
+        await this.backgroundApi.serviceAccount.getAllIndexedAccounts({});
+      return this.syncManagers.indexedAccount.buildInitSyncDBItems({
+        dbRecords: indexedAccounts,
+        syncCredential,
+        initDataTime: undefined,
+        requiredSyncItems: indexedAccountKeys,
+      });
+    };
+    const [wallets, accounts, indexedAccounts, metadata] = await Promise.all([
       buildWallets(),
       accountItems.length
         ? this.syncManagers.account.buildHardwareRestoreLegacyAccountItems({
@@ -4986,8 +5774,195 @@ class ServicePrimeCloudSync extends ServiceBase {
             syncCredential,
           })
         : [],
+      buildIndexedAccounts(),
+      this.buildBusinessMetadataSyncItems({
+        syncCredential,
+        requiredByType: metadataKeys,
+      }),
     ]);
-    return [...wallets, ...accounts];
+    return [...wallets, ...accounts, ...indexedAccounts, ...metadata];
+  }
+
+  private async getBotWalletSyncRecords(
+    syncCredential: ICloudSyncCredential,
+  ): Promise<ICloudSyncBotWalletRecord[]> {
+    const metadataMap = await simpleDb.botWallet.getMetadataMap();
+    const records = Object.entries(metadataMap).map(([walletId, metadata]) => ({
+      walletId,
+      metadata,
+    }));
+    // Activation can build the pool before the new sync mode is persisted.
+    const credentialId = syncCredential.keylessCredential?.keylessWalletId;
+    if (
+      credentialId ||
+      (await this.getActiveSyncMode()) === ECloudSyncMode.Keyless
+    ) {
+      return filterBotWalletRecordsByCurrentKeylessSyncScope({
+        records,
+        currentKeylessWalletId:
+          credentialId ?? (await this.getCurrentCloudSyncKeylessWalletId()),
+      });
+    }
+    return records;
+  }
+
+  private async buildBusinessMetadataSyncItems({
+    syncCredential,
+    requiredByType,
+    allDevices,
+  }: {
+    syncCredential: ICloudSyncCredential;
+    requiredByType?: ReadonlyMap<
+      EPrimeCloudSyncDataType,
+      ReadonlyMap<string, string | undefined>
+    >;
+    allDevices?: IDBDevice[];
+  }): Promise<IDBCloudSyncItem[]> {
+    const {
+      serviceAddressBook,
+      serviceCustomRpc,
+      serviceCustomToken,
+      serviceDiscovery,
+      serviceMarketV2,
+    } = this.backgroundApi;
+    const sources: {
+      dataType: EPrimeCloudSyncDataType;
+      manager: Pick<
+        CloudSyncFlowManagerBase<EPrimeCloudSyncDataType, ICloudSyncDBRecord>,
+        'buildInitSyncDBItems'
+      >;
+      read: () => Promise<ICloudSyncDBRecords>;
+    }[] = [
+      {
+        dataType: EPrimeCloudSyncDataType.BotWallet,
+        manager: this.syncManagers.botWallet,
+        read: () => this.getBotWalletSyncRecords(syncCredential),
+      },
+      {
+        dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+        manager: this.syncManagers.browserBookmark,
+        read: async () =>
+          (await (requiredByType
+            ? serviceDiscovery.getBrowserBookmarks()
+            : serviceDiscovery.getBrowserBookmarksWithFillingSortIndex())) ??
+          [],
+      },
+      {
+        dataType: EPrimeCloudSyncDataType.MarketWatchList,
+        manager: this.syncManagers.marketWatchList,
+        read: async () =>
+          (
+            await (requiredByType
+              ? serviceMarketV2.getMarketWatchListV2()
+              : serviceMarketV2.getMarketWatchListWithFillingSortIndexV2())
+          )?.data ?? [],
+      },
+      {
+        dataType: EPrimeCloudSyncDataType.CustomRpc,
+        manager: this.syncManagers.customRpc,
+        read: async () => (await serviceCustomRpc.getAllCustomRpc()) ?? [],
+      },
+      {
+        dataType: EPrimeCloudSyncDataType.CustomNetwork,
+        manager: this.syncManagers.customNetwork,
+        read: async () => (await serviceCustomRpc.getAllCustomNetworks()) ?? [],
+      },
+      {
+        dataType: EPrimeCloudSyncDataType.AddressBook,
+        manager: this.syncManagers.addressBook,
+        read: async () =>
+          (await serviceAddressBook.getItemsByNetwork({})) ?? [],
+      },
+      {
+        dataType: EPrimeCloudSyncDataType.CustomToken,
+        manager: this.syncManagers.customToken,
+        read: async () => (await serviceCustomToken.getAllHiddenTokens()) ?? [],
+      },
+      {
+        dataType: EPrimeCloudSyncDataType.CustomToken,
+        manager: this.syncManagers.customToken,
+        read: async () => (await serviceCustomToken.getAllCustomTokens()) ?? [],
+      },
+    ];
+    const items: IDBCloudSyncItem[] = [];
+    for (const { dataType, manager, read } of sources) {
+      const requiredSyncItems = requiredByType?.get(dataType);
+      if (requiredByType && !requiredSyncItems?.size) continue;
+      const dbRecords = await read();
+      if (!dbRecords.length) continue;
+      items.push(
+        ...(await manager.buildInitSyncDBItems({
+          dbRecords,
+          allDevices,
+          syncCredential,
+          initDataTime: undefined,
+          requiredSyncItems,
+        })),
+      );
+    }
+    return items;
+  }
+
+  private async buildCheckedCrossSpaceLiveItems({
+    items,
+    syncCredential,
+  }: {
+    items: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+  }): Promise<IDBCloudSyncItem[]> {
+    const rebuilt: IDBCloudSyncItem[] = [];
+    const fallback = new Map<string, IDBCloudSyncItem>();
+    const requiredByType = new Map<
+      EPrimeCloudSyncDataType,
+      Map<string, string | undefined>
+    >();
+    for (const item of items) {
+      let record: IDBCloudSyncItem | undefined;
+      try {
+        const raw = item.rawData
+          ? (JSON.parse(item.rawData) as ICloudSyncRawDataJson)
+          : undefined;
+        if (
+          raw?.payload &&
+          raw.dataType === item.dataType &&
+          typeof raw.rawKey === 'string' &&
+          this.getSyncManager(item.dataType).rawKeyToHashKey(raw.rawKey) ===
+            item.id
+        ) {
+          record = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+            key: item.id,
+            rawDataJson: raw,
+            syncCredential,
+            dataTime: item.dataTime,
+          });
+        }
+      } catch {
+        // Rebuild from the live business record when the cache cannot be used.
+      }
+      if (record?.data) {
+        rebuilt.push(record);
+      } else {
+        fallback.set(item.id, item);
+        const keys =
+          requiredByType.get(item.dataType) ??
+          new Map<string, string | undefined>();
+        keys.set(item.id, item.rawKey || undefined);
+        requiredByType.set(item.dataType, keys);
+      }
+    }
+    if (fallback.size) {
+      const records = await this.buildBusinessMetadataSyncItems({
+        syncCredential,
+        requiredByType,
+      });
+      for (const record of records) {
+        const source = fallback.get(record.id);
+        if (record.data && source?.dataType === record.dataType) {
+          rebuilt.push({ ...record, dataTime: source.dataTime });
+        }
+      }
+    }
+    return rebuilt;
   }
 
   @backgroundMethod()
@@ -5037,36 +6012,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
         initDataTime: undefined,
       });
-    const botWalletMetadataMap = await simpleDb.botWallet.getMetadataMap();
-    let botWalletRecords: ICloudSyncBotWalletRecord[] = Object.entries(
-      botWalletMetadataMap,
-    ).map(([walletId, metadata]) => ({
-      walletId,
-      metadata,
-    }));
-    // Activation temporarily disables sync. Scope records by the credential
-    // being initialized even while the persisted mode is None.
-    const credentialKeylessWalletId =
-      syncCredential.keylessCredential?.keylessWalletId;
-    if (
-      credentialKeylessWalletId ||
-      (await this.getActiveSyncMode()) === ECloudSyncMode.Keyless
-    ) {
-      const currentKeylessWalletId =
-        credentialKeylessWalletId ??
-        (await this.getCurrentCloudSyncKeylessWalletId());
-      botWalletRecords = filterBotWalletRecordsByCurrentKeylessSyncScope({
-        records: botWalletRecords,
-        currentKeylessWalletId,
-      });
-    }
-    const syncItemsForBotWallets: IDBCloudSyncItem[] =
-      await this.syncManagers.botWallet.buildInitSyncDBItems({
-        dbRecords: botWalletRecords,
-        allDevices,
-        syncCredential,
-        initDataTime: undefined,
-      });
     const syncItemsForAccounts: IDBCloudSyncItem[] =
       await this.syncManagers.account.buildInitSyncDBItems({
         dbRecords: allAccounts,
@@ -5084,121 +6029,31 @@ class ServicePrimeCloudSync extends ServiceBase {
         initDataTime: undefined,
       });
 
-    const allBookmarks: IBrowserBookmark[] =
-      (await this.backgroundApi.serviceDiscovery.getBrowserBookmarksWithFillingSortIndex()) ||
-      [];
-    const syncItemsForBookmarks: IDBCloudSyncItem[] =
-      await this.syncManagers.browserBookmark.buildInitSyncDBItems({
-        dbRecords: allBookmarks,
-        allDevices,
-        syncCredential,
-        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
-        initDataTime: undefined,
-      });
-
-    const allMarketWatchList: IMarketWatchListItemV2[] =
-      (
-        await this.backgroundApi.serviceMarketV2.getMarketWatchListWithFillingSortIndexV2()
-      )?.data || [];
-    const syncItemsForMarketWatchList: IDBCloudSyncItem[] =
-      await this.syncManagers.marketWatchList.buildInitSyncDBItems({
-        dbRecords: allMarketWatchList,
-        allDevices,
-        syncCredential,
-        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
-        initDataTime: undefined,
-      });
-
-    const allCustomRpc: IDBCustomRpc[] =
-      (await this.backgroundApi.serviceCustomRpc.getAllCustomRpc()) || [];
-    const syncItemsForCustomRpc: IDBCloudSyncItem[] =
-      await this.syncManagers.customRpc.buildInitSyncDBItems({
-        dbRecords: allCustomRpc,
-        allDevices,
-        syncCredential,
-        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
-        initDataTime: undefined,
-      });
-
-    const allCustomNetwork: IServerNetwork[] =
-      (await this.backgroundApi.serviceCustomRpc.getAllCustomNetworks()) || [];
-    const syncItemsForCustomNetwork: IDBCloudSyncItem[] =
-      await this.syncManagers.customNetwork.buildInitSyncDBItems({
-        dbRecords: allCustomNetwork,
-        allDevices,
-        syncCredential,
-        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
-        initDataTime: undefined,
-      });
-
-    let syncItemsForAddressBook: IDBCloudSyncItem[] = [];
-    const addressBookItems =
-      await this.backgroundApi.serviceAddressBook.getItemsByNetwork({});
-    if (addressBookItems?.length) {
-      syncItemsForAddressBook =
-        await this.syncManagers.addressBook.buildInitSyncDBItems({
-          dbRecords: addressBookItems,
-          allDevices,
-          syncCredential,
-          // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
-          initDataTime: undefined,
-        });
-    }
-
-    const allHiddenTokens: ICloudSyncCustomToken[] =
-      (await this.backgroundApi.serviceCustomToken.getAllHiddenTokens()) || [];
-    const syncItemsForHiddenTokens: IDBCloudSyncItem[] =
-      await this.syncManagers.customToken.buildInitSyncDBItems({
-        dbRecords: allHiddenTokens,
-        allDevices,
-        syncCredential,
-        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
-        initDataTime: undefined,
-      });
-
-    const allCustomTokens: ICloudSyncCustomToken[] =
-      (await this.backgroundApi.serviceCustomToken.getAllCustomTokens()) || [];
-    const syncItemsForCustomTokens: IDBCloudSyncItem[] =
-      await this.syncManagers.customToken.buildInitSyncDBItems({
-        dbRecords: allCustomTokens,
-        allDevices,
-        syncCredential,
-        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
-        initDataTime: undefined,
-      });
-
+    const syncItemsForMetadata = await this.buildBusinessMetadataSyncItems({
+      syncCredential,
+      allDevices,
+    });
     const totalItems = [
       ...syncItemsForWallets,
-      ...syncItemsForBotWallets,
       ...syncItemsForAccounts,
       ...syncItemsForIndexedAccounts,
-      ...syncItemsForBookmarks,
-      ...syncItemsForMarketWatchList,
-      ...syncItemsForCustomRpc,
-      ...syncItemsForCustomNetwork,
-      ...syncItemsForAddressBook,
-      ...syncItemsForHiddenTokens,
-      ...syncItemsForCustomTokens,
+      ...syncItemsForMetadata,
     ];
 
     // const totalItemsUniqById = uniqBy(totalItems, (item) => item.id);
     // const totalItemsUniqByDeleted = uniqBy(totalItems, (item) => item.isDeleted);
 
+    const activePwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
     await this.writeCloudSyncPoolInBatches({
       items: totalItems,
       // Recovery already retained existing business versions and tombstones.
       // Check existence in the write transaction, including concurrent inserts.
       skipUpdate: onlyAddMissing,
-      ...(preserveInactiveWallets
-        ? {
-            preserveExisting: (row) =>
-              row.dataType === EPrimeCloudSyncDataType.Wallet &&
-              isInactiveHardwareWalletAccount(
-                row,
-                cloudSyncItemBuilder.getPwdHash(syncCredential),
-              ),
-          }
-        : {}),
+      preserveExisting: (row) =>
+        isForeignLiveCloudSyncItem(row, activePwdHash) ||
+        (!!preserveInactiveWallets &&
+          row.dataType === EPrimeCloudSyncDataType.Wallet &&
+          isInactiveHardwareWalletAccount(row, activePwdHash)),
       // as init item dataTime is undefined, server will reject the upload
       skipUploadToServer: true, // startSyncFlow() will handle uploading to server
     });
@@ -5254,9 +6109,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async fillingSyncItemsMissingDataFromRawData({
     skipUploadToServer,
     isCurrent,
+    preserveForeignLive = false,
   }: {
     skipUploadToServer: boolean;
     isCurrent?: () => boolean;
+    preserveForeignLive?: boolean;
   }) {
     const generation = this.publicAccountSnapshotImportGeneration;
     const keyGeneration =
@@ -5294,6 +6151,15 @@ class ServicePrimeCloudSync extends ServiceBase {
         continue;
       }
       if (isInactiveHardwareWalletAccount(item, currentPwdHash)) {
+        continue;
+      }
+      // Keep the original deletion version until the destination record can
+      // be compared by a full reconciliation check.
+      if (
+        isForeignCloudSyncDeletion(item, currentPwdHash) ||
+        (preserveForeignLive &&
+          isForeignLiveCloudSyncItem(item, currentPwdHash))
+      ) {
         continue;
       }
       if (item.pendingPublicAccountDeletionAt) {

@@ -79,6 +79,10 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { getSwapDefaultCounterpartToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
+import {
+  hasXmrMainnetPrimaryAddressShape,
+  isXmrSwapNetwork,
+} from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildSwapAllNetworkTokenListCacheKey,
@@ -261,7 +265,7 @@ function isIndependentSwapInputAmountType(
   );
 }
 
-function buildSwapInputAmountDraft({
+export function buildSwapInputAmountDraft({
   fromTokenAmount,
   toTokenAmount,
   fromToken,
@@ -308,7 +312,7 @@ function isSameOptionalSwapToken({
   );
 }
 
-function isSwapInputAmountDraftForTokenPair({
+export function isSwapInputAmountDraftForTokenPair({
   draft,
   fromToken,
   toToken,
@@ -2908,6 +2912,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         void this.resetQuoteAction.call(set);
         return;
       }
+      const isXmrFrom = isXmrSwapNetwork(fromToken.networkId);
+      const isXmrTo = isXmrSwapNetwork(toToken.networkId);
+      if (
+        (isXmrFrom || isXmrTo) &&
+        (!isSwapOrBridgeQuoteType(swapTabSwitchType) ||
+          (isXmrFrom &&
+            (!accountId || !hasXmrMainnetPrimaryAddressShape(address))) ||
+          (isXmrTo && !hasXmrMainnetPrimaryAddressShape(receivingAddress)))
+      ) {
+        void this.resetQuoteAction.call(set);
+        return;
+      }
       if (
         swapTabSwitchType !== ESwapTabSwitchType.PRIVATE_SEND &&
         [fromToken, toToken].some(tokenRebaseUtils.needsBalanceMultiplierLookup)
@@ -4248,10 +4264,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
-      const token =
+      const selectedTokenAtom =
         type === ESwapDirectionType.FROM
-          ? get(swapSelectFromTokenAtom())
-          : get(swapSelectToTokenAtom());
+          ? swapSelectFromTokenAtom()
+          : swapSelectToTokenAtom();
+      const token = get(selectedTokenAtom);
+      const isXmr = isXmrSwapNetwork(token?.networkId);
       const needsMultiplier = Boolean(
         token &&
         currentSwapType !== ESwapTabSwitchType.PRIVATE_SEND &&
@@ -4370,6 +4388,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         (token && (needsMultiplier || verifyingMultiplier || !token.price))
       ) {
         if (
+          !isXmr &&
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
@@ -4421,6 +4440,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                 networkId: token.networkId,
                 accountAddress,
+                ...(isXmr || isXmrSwapNetwork(accountNetworkId)
+                  ? { accountNetworkId }
+                  : {}),
                 accountId,
                 contractAddress,
                 direction: type,
@@ -4446,11 +4468,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 )
               : detailInfo?.[0];
             if (detail) {
-              const balanceParsedBN = new BigNumber(detail.balanceParsed ?? 0);
-              balanceDisplay = balanceParsedBN.isNaN()
-                ? '0.0'
-                : balanceParsedBN.toFixed();
-              hasAuthoritativeBalance = detail.balanceParsed !== undefined;
+              const balanceParsedBN = new BigNumber(
+                detail.balanceParsed ?? (isXmr ? '' : 0),
+              );
+              hasAuthoritativeBalance =
+                detail.balanceParsed !== undefined &&
+                (!isXmr ||
+                  (balanceParsedBN.isFinite() && balanceParsedBN.gte(0)));
+              if (!isXmr || hasAuthoritativeBalance) {
+                balanceDisplay = balanceParsedBN.isNaN()
+                  ? '0.0'
+                  : balanceParsedBN.toFixed();
+              }
               const condition: {
                 price?: string;
                 fiatValue?: string;
@@ -4538,7 +4567,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       return {
                         ...pre,
                         ...condition,
-                        accountAddress,
+                        accountAddress: isXmr
+                          ? detail.accountAddress
+                          : accountAddress,
                       };
                     }
                   });
@@ -4548,7 +4579,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       return {
                         ...pre,
                         ...condition,
-                        accountAddress,
+                        accountAddress: isXmr
+                          ? detail.accountAddress
+                          : accountAddress,
                       };
                     }
                   });
@@ -4558,7 +4591,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           } catch (e: any) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
-              balanceDisplay = '0.0';
+              balanceDisplay = isXmr ? undefined : '0.0';
               balanceFetchFailed = true;
             }
           } finally {
@@ -4575,6 +4608,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (isCurrentRequest()) {
+        if (
+          isXmr &&
+          !hasAuthoritativeBalance &&
+          token?.balanceParsed !== undefined
+        ) {
+          set(selectedTokenAtom, (previous) =>
+            previous
+              ? {
+                  ...previous,
+                  accountAddress: undefined,
+                  balanceParsed: undefined,
+                  fiatValue: undefined,
+                }
+              : previous,
+          );
+        }
         // A failed refresh (or a response without an authoritative balance) for
         // the token + account the stored figure already belongs to must not
         // replace a verified balance with the '0.0' fallback: that would drop
@@ -4584,6 +4633,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // its verdict; the refresh control stays available for another attempt.
         const storedBalanceMeta = get(swapSelectedTokenBalanceMetaAtom())[type];
         const keepsPreviousVerifiedBalance =
+          !isXmr &&
           isSameSwapBalanceOwner(
             storedBalanceMeta,
             buildSwapBalanceOwner({
@@ -6008,6 +6058,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
+
+export const getSwapTypeSwitchActionAtom = () =>
+  createActions().swapTypeSwitchAction.atom();
 
 // Read at log time instead of subscribing, so a "Recent trades" tap does not
 // re-render the hosts of useSwapBuildTx.

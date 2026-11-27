@@ -408,11 +408,23 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
+  const isTestCrashAvailable =
+    typeof globalThis.desktopApi?.testCrash === 'function';
+
   const testDevTestCrash = useCallback(async () => {
     try {
+      const testCrash = globalThis.desktopApi?.testCrash;
+      if (!testCrash) {
+        Dialog.debugMessage({
+          debugMessage: {
+            error: 'testCrash() is only available in unpackaged dev builds',
+          },
+        });
+        return;
+      }
       // TODO: desktopApiProxy.dev.testCrash() not working
       // await globalThis.desktopApiProxy.dev.testCrash();
-      globalThis.desktopApi.testCrash();
+      testCrash();
       Dialog.debugMessage({
         debugMessage: { result: 'testCrash() called successfully' },
       });
@@ -878,12 +890,14 @@ export default function DesktopApiProxyTestDevSettings() {
           onPress={testDevOpenLoggerFile}
         />
 
-        <ListItem
-          title="testCrash()"
-          subtitle="Test application crash (will crash the app!)"
-          drillIn
-          onPress={testDevTestCrash}
-        />
+        {isTestCrashAvailable ? (
+          <ListItem
+            title="testCrash()"
+            subtitle="Test application crash (will crash the app!)"
+            drillIn
+            onPress={testDevTestCrash}
+          />
+        ) : null}
 
         <ListItem
           title="callDevOnlyApi()"

@@ -346,7 +346,9 @@ Mobile layouts and the native apps keep the single chart.
   the first panel shows it, the hidden panel keeps its own token and does not
   take the new one.
 - Instead of its own controls, each chart in a split has a header with its
-  token, its live price and 24h change, from the same asset contexts as the
+  token, its latest price and 24h change. The latest price is the token's last
+  trade, colored by its side, as the page header's latest price shows it
+  (OK-67943); the 24h change comes from the same asset contexts as the
   favorites bar. The token is a picker (`PerpChartTokenSelector`): a press on
   it selects the panel like any press in it, and a pick selects the panel
   with the picked token through the grid, so one switch of the trade
@@ -360,9 +362,11 @@ Mobile layouts and the native apps keep the single chart.
   popover. Each header holds one quote, subscribed to its own token
   only. Perp quotes mark the shared asset contexts as required; a spot token
   outside the selected panel turns on the spot asset context subscription
-  (`chartPanelsSpotActive`). Both are let go while the workspace shows another
-  view (Info, Funding, Order book) over the mounted chart, and the headers drop
-  their quotes meanwhile.
+  (`chartPanelsSpotActive`). The latest price follows the token's public
+  trades (`usePerpLatestTrade`), shared with the page header and order book
+  for the traded token, while the page is in the foreground. All of them are
+  let go while the workspace shows another view (Info, Funding, Order book)
+  over the mounted chart, and the headers drop their quotes meanwhile.
 - The other panels show any perp or spot token, with the account's lines and
   fill marks for it read-only and no order menu. A panel keeps the token it
   showed while selected. The first panel keeps

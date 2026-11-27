@@ -20,6 +20,7 @@ import type {
   ICloudPublicAccountSnapshotResult,
 } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
+import { ELocalDBStoreNames } from '../../../dbs/local/localDBStoreNames';
 import { logHardwareCloudSyncDiagnostic } from '../../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import { isPublicAccountCreationContext } from '../publicAccountCreationContext';
@@ -456,12 +457,14 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     initDataTime,
     syncCredential,
     isCurrent = () => true,
+    lookupIndexedAccountsById = false,
   }: {
     dbRecords: ICloudSyncDBRecords;
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
     isCurrent?: () => boolean;
+    lookupIndexedAccountsById?: boolean;
   }) {
     if (!isCurrent()) return [];
     const { wallets } = await this.backgroundApi.localDb.getAllWallets();
@@ -473,7 +476,37 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     const existing = new Map(items.map((item) => [item.id, item]));
     const built: IDBCloudSyncItem[] = [];
     const accounts = dbRecords as IDBAccount[];
+    const localDb = this.backgroundApi.localDb;
+    let indexedAccountIds: Set<string>;
+    if (lookupIndexedAccountsById) {
+      const ids = [
+        ...new Set(
+          accounts
+            .map(({ indexedAccountId }) => indexedAccountId)
+            .filter(Boolean),
+        ),
+      ];
+      const records = ids.length
+        ? (
+            await localDb.getRecordsByIds({
+              name: ELocalDBStoreNames.IndexedAccount,
+              ids,
+            })
+          ).records
+        : [];
+      indexedAccountIds = new Set(records.filter(Boolean).map(({ id }) => id));
+    } else {
+      const { indexedAccounts } = await localDb.getAllIndexedAccounts();
+      indexedAccountIds = new Set(indexedAccounts.map(({ id }) => id));
+    }
     const buildEach = async (account: IDBAccount) => {
+      // Legacy account removal leaves the network records until cleanup.
+      if (
+        account.indexedAccountId &&
+        !indexedAccountIds.has(account.indexedAccountId)
+      ) {
+        return;
+      }
       const wallet = byWallet.get(
         accountUtils.getWalletIdFromAccountId({ accountId: account.id }) ?? '',
       );
@@ -588,9 +621,11 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       )
         return;
       try {
-        const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+        const { decrypted } = await this.readItemForScene({
           item,
           syncCredential,
+          isCurrent,
+          localOnly,
         });
         const payload = decrypted.rawDataJson?.payload;
         if (
@@ -604,7 +639,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           return;
         }
         if (!payload.accountId.startsWith(PUBLIC_ACCOUNT_SNAPSHOT_PREFIX)) {
-          if (!foreignAccountsByWireId?.has(item.id)) legacy.push(item);
+          if (!foreignAccountsByWireId?.has(item.id))
+            legacy.push(decrypted.dbItem);
           return;
         }
         const { snapshot, rawKey } = normalizePublicAccountSnapshotRecord(
@@ -615,8 +651,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           issues.set(item.id, 'rejected');
           return;
         }
-        (item.isDeleted ? tombstones : candidates).push({
-          item,
+        (decrypted.dbItem.isDeleted ? tombstones : candidates).push({
+          item: decrypted.dbItem,
           snapshot,
           rawKey,
         });
@@ -652,6 +688,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         items: legacy,
         forceSync,
         isCurrent,
+        // The scan already attempted repair before acquiring the import lock.
+        localOnly: true,
       });
       if (!isCurrent()) return;
       let result: ICloudPublicAccountSnapshotResult = {
@@ -663,6 +701,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         rejected: 0,
         cancelled: false,
       };
+      let updated = 0;
       let deleted = 0;
       let indexedAccountsChanged = false;
       let skippedAccountCount = 0;
@@ -699,6 +738,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           rejected: result.rejected + applied.rejected,
           cancelled: result.cancelled || applied.cancelled,
         };
+        updated += applied.updated ?? 0;
         deleted += applied.deleted;
         indexedAccountsChanged ||= applied.indexedAccountsChanged;
         skippedAccountCount += applied.skippedSnapshotIds.length;
@@ -780,7 +820,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         logHardwareCloudSyncDiagnostic('account_wallet_missing', {
           skippedAccountCount,
         });
-      if (legacy.length || result.added || deleted || indexedAccountsChanged)
+      if (
+        legacy.length ||
+        result.added ||
+        updated ||
+        deleted ||
+        indexedAccountsChanged
+      )
         onAccountsChanged?.();
     });
   }

@@ -58,6 +58,42 @@ describe('ServiceSwap history fee currency', () => {
     jest.restoreAllMocks();
   });
 
+  it('polls cross-chain XMR payouts with both order IDs and without the XMR receiver address', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: { data: { state: ESwapTxHistoryStatus.SUCCESS } },
+    });
+    const service = new ServiceSwap({ backgroundApi: {} });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ post } as never);
+    const item = createHistory(1);
+    item.baseInfo.toToken = {
+      networkId: 'xmr--0',
+      contractAddress: '',
+      symbol: 'XMR',
+      decimals: 12,
+      isNative: true,
+    };
+    item.txInfo.receiver = `4${'aB'.repeat(47)}`;
+    item.swapInfo.provider.provider = 'SwapRocketX';
+    item.swapInfo.orderId = 'onekey-order';
+    item.ctx = { rocketXOrderId: 'channel-order', isSingleNetSwap: false };
+
+    await service['fetchSwapHistoryStateTx']({
+      currentSwapTxHistory: item,
+      isPrivateSendHistory: false,
+    });
+
+    expect(post).toHaveBeenCalledWith(
+      '/swap/v1/state-tx',
+      expect.objectContaining({
+        txId: item.txInfo.txId,
+        orderId: 'onekey-order',
+        ctx: { rocketXOrderId: 'channel-order', isSingleNetSwap: false },
+        receivedAddress: undefined,
+      }),
+      expect.any(Object),
+    );
+  });
+
   it.each(['usd', 'eur', undefined])(
     'requests fees in the persisted denomination: %s',
     async (currencyId) => {
