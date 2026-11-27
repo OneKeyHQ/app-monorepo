@@ -156,6 +156,7 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'pendingMarketAsset',
   'marketVariantId',
   'marketTokenCategory',
+  'marketWidgetToken',
   'skipMarketDataFetch',
   'legacyTokenPreview',
   'marketTokenPreviewId',
