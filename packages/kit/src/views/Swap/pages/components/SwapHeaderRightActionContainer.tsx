@@ -28,8 +28,6 @@ import {
   Switch,
   XStack,
   YStack,
-  useInModalDialog,
-  useInTabDialog,
   useKeyboardHeight,
   useMedia,
   useSafeAreaInsets,
@@ -722,20 +720,16 @@ const SwapKLineHeaderButton = ({
   iconSize,
   iconColor,
   buttonSize,
-  pageType,
   swapStoreName,
 }: {
   iconSize: number | `$${string}`;
   iconColor?: ColorTokens;
   buttonSize: 'small' | 'medium';
-  pageType?: EPageType;
   swapStoreName: EJotaiContextStoreNames;
 }) => {
   const intl = useIntl();
   const { gtLg } = useMedia();
   const navigation = useAppNavigation();
-  const InTabDialog = useInTabDialog();
-  const InModalDialog = useInModalDialog();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const isKLineDisabled =
@@ -757,9 +751,7 @@ const SwapKLineHeaderButton = ({
     if (showKLineAsDialog) {
       void kLineDialogRef.current?.close();
       let dialog: ReturnType<typeof Dialog.show> | null = null;
-      const dialogController =
-        pageType === EPageType.modal ? InModalDialog : InTabDialog;
-      dialog = dialogController.show({
+      dialog = Dialog.show({
         testID: SwapTestIDs.kLineModal,
         title: intl.formatMessage({
           id: ETranslations.market_chart,
@@ -794,16 +786,7 @@ const SwapKLineHeaderButton = ({
         storeName: swapStoreName,
       },
     });
-  }, [
-    InModalDialog,
-    InTabDialog,
-    intl,
-    isKLineDisabled,
-    navigation,
-    pageType,
-    showKLineAsDialog,
-    swapStoreName,
-  ]);
+  }, [intl, isKLineDisabled, navigation, showKLineAsDialog, swapStoreName]);
 
   return (
     <HeaderIconButton
@@ -1264,7 +1247,6 @@ const SwapHeaderRightActionContainer = ({
           iconSize={resolvedIconSize}
           iconColor={iconColor}
           buttonSize={resolvedButtonSize}
-          pageType={pageType}
           swapStoreName={swapStoreName}
         />
       );
