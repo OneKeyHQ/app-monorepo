@@ -26,6 +26,7 @@ import {
 import type { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useSetSplitViewDetailFullscreen } from '../../provider/Container/TableSplitViewContainer/SplitViewDetailFullscreenContext';
 import {
   openTravelModeSettingsWithAdmission,
   shouldRedirectOnboardingToTravelMode,
@@ -113,6 +114,14 @@ const ONBOARDING_SYSTEM_BARS = { variant: 'dark' } as const;
 
 function StandardOnboardingNavigator() {
   const isFocused = useIsFocused();
+  const setDetailFullscreen = useSetSplitViewDetailFullscreen();
+  useLayoutEffect(() => {
+    if (!platformEnv.isNativeAndroid || !isFocused) {
+      return undefined;
+    }
+    setDetailFullscreen(true);
+    return () => setDetailFullscreen(false);
+  }, [isFocused, setDetailFullscreen]);
   // Tamagui's native useMedia subscribes in a passive effect, so screens that
   // mount in the same commit as the real-width hold miss its refresh and keep
   // the clamped breakpoints. Mount them only once the hold is in place; the

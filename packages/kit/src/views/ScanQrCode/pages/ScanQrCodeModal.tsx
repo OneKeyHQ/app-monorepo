@@ -21,6 +21,7 @@ import { NavCloseButton } from '@onekeyhq/components/src/layouts/Navigation/Head
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { glassBarItem } from '@onekeyhq/components/src/primitives/Button/GlassHeaderContext';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -236,7 +237,9 @@ export default function ScanQrCodeModal() {
   const scan = useRef<{
     mounted: boolean;
     phase: 'open' | 'result' | 'cancelled';
-  }>({ mounted: false, phase: 'open' });
+    captureVersion: number;
+    animationReset?: Promise<void> | 'retry';
+  }>({ mounted: false, phase: 'open', captureVersion: 0 });
   const cancelScan = useCallback(() => {
     if (scan.current.phase !== 'open') return;
     scan.current.phase = 'cancelled';
@@ -263,30 +266,88 @@ export default function ScanQrCodeModal() {
     navigation.popStack();
   }, [cancelScan, navigation]);
 
+  const onResetAnimationData = useCallback((drain?: Promise<void>) => {
+    const session = scan.current;
+    const pending = session.animationReset;
+    if (pending !== undefined && pending !== 'retry') return pending;
+    if (!session.mounted || session.phase !== 'open') {
+      return drain ?? Promise.resolve();
+    }
+    if (drain !== undefined) session.captureVersion += 1;
+    else if (pending !== 'retry') return Promise.resolve();
+
+    const reset = (drain ?? Promise.resolve())
+      .then(async () => {
+        if (session.mounted && session.phase === 'open') {
+          await backgroundApiProxy.serviceScanQRCode.resetAnimationData();
+        }
+      })
+      .then(
+        () => {
+          session.animationReset = undefined;
+        },
+        (error: unknown) => {
+          session.animationReset = 'retry';
+          throw error;
+        },
+      );
+    session.animationReset = reset;
+    return reset;
+  }, []);
+
   const callback = useCallback(
-    async (value: string) => {
+    async (
+      value: string,
+      {
+        isCaptureCurrent,
+        beforeDispatch,
+      }: {
+        isCaptureCurrent?: () => boolean;
+        beforeDispatch?: () => boolean;
+      } = {},
+    ) => {
       const session = scan.current;
-      if (!value || session.phase !== 'open' || !session.mounted) return {};
+      const canDispatch = () =>
+        session.phase === 'open' &&
+        session.mounted &&
+        isCaptureCurrent?.() !== false;
+      if (!value || !canDispatch()) return {};
       if (process.env.NODE_ENV !== 'production') {
         await appStorage.syncStorage.set(
           EAppSyncStorageKeys.last_scan_qr_code_text,
           value,
         );
-        if (session.phase !== 'open' || !session.mounted) return {};
+        if (!canDispatch()) return {};
+      }
+      let retriedReset = false;
+      while (session.animationReset !== undefined) {
+        const pending = session.animationReset;
+        if (pending === 'retry') {
+          if (retriedReset) return { retry: true };
+          retriedReset = true;
+        }
+        try {
+          await (pending === 'retry' ? onResetAnimationData() : pending);
+        } catch {
+          if (retriedReset) return { retry: true };
+        }
+        if (!canDispatch()) return {};
       }
 
+      if (beforeDispatch?.() === false) return {};
       return routeCallback({
         value,
         popNavigation: true,
         routeKey: route.key,
+        isCaptureCurrent,
         onResultDismiss: () => {
-          if (session.phase !== 'open' || !session.mounted) return false;
+          if (!canDispatch()) return false;
           session.phase = 'result';
           return true;
         },
       });
     },
-    [route.key, routeCallback],
+    [onResetAnimationData, route.key, routeCallback],
   );
 
   const isPhotoScanInProgress = useRef(false);
@@ -312,6 +373,18 @@ export default function ScanQrCodeModal() {
       clearPickedImageSelection();
     },
     [clearPickedImageSelection],
+  );
+
+  const submitPickedImage = useCallback(
+    (text: string, uri: string) =>
+      callback(text, {
+        beforeDispatch: () => {
+          if (pickedImageUriRef.current !== uri) return false;
+          clearPickedImageSelection();
+          return true;
+        },
+      }),
+    [callback, clearPickedImageSelection],
   );
 
   const pickImage = useCallback(async () => {
@@ -369,40 +442,45 @@ export default function ScanQrCodeModal() {
         return;
       }
 
-      if (decoded.symbols.length === 1 && !decoded.partial) {
-        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
-        await callback(decoded.symbols[0].text);
-        return;
-      }
-
-      // Multiple QR codes (or partial fallback result): keep image displayed
-      // with green dot anchors until the user selects one or cancels.
       if (!scan.current.mounted || scan.current.phase !== 'open') {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
         return;
       }
       pickedImageUriRef.current = uri;
-      setPickedImageSelection({
+      const selection = {
         uri,
         width: decoded.width,
         height: decoded.height,
         symbols: decoded.symbols,
-      });
+      };
+      try {
+        if (selection.symbols.length === 1 && !decoded.partial) {
+          await submitPickedImage(selection.symbols[0].text, uri);
+        }
+      } finally {
+        if (pickedImageUriRef.current === uri) {
+          if (scan.current.mounted && scan.current.phase === 'open') {
+            setPickedImageSelection(selection);
+          } else {
+            clearPickedImageSelection();
+          }
+        }
+      }
     } finally {
       isPhotoScanInProgress.current = false;
     }
-  }, [callback, clearPickedImageSelection, intl]);
+  }, [clearPickedImageSelection, intl, submitPickedImage]);
 
   const handlePickedSymbolSelect = useCallback(
     (symbol: IMultiQrSymbol) => {
-      if (isPhotoScanInProgress.current || !pickedImageUriRef.current) return;
+      const uri = pickedImageUriRef.current;
+      if (isPhotoScanInProgress.current || !uri) return;
       isPhotoScanInProgress.current = true;
-      clearPickedImageSelection();
-      void callback(symbol.text).finally(() => {
+      void submitPickedImage(symbol.text, uri).finally(() => {
         isPhotoScanInProgress.current = false;
       });
     },
-    [callback, clearPickedImageSelection],
+    [submitPickedImage],
   );
 
   const onCameraScanned = useCallback(
@@ -411,8 +489,10 @@ export default function ScanQrCodeModal() {
         return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      const result = await callback(value);
-      return result;
+      const captureVersion = scan.current.captureVersion;
+      return callback(value, {
+        isCaptureCurrent: () => captureVersion === scan.current.captureVersion,
+      });
     },
     [callback],
   );
@@ -507,6 +587,7 @@ export default function ScanQrCodeModal() {
                 <ScanQrCode
                   ref={scannerRef}
                   handleBarCodeScanned={onCameraScanned}
+                  onResetAnimationData={onResetAnimationData}
                   qrWalletScene={qrWalletScene}
                   selectionCovered={Boolean(pickedImageSelection)}
                 />

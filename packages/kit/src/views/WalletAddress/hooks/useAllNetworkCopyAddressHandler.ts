@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 
+import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -29,6 +30,14 @@ export const useAllNetworkCopyAddressHandler = ({
       if (!indexedAccount) {
         return;
       }
+      if (
+        await blockIfWalletLocalSecretEnvelopeUnavailable({
+          walletId: wallet?.id,
+          accountId: activeAccount?.dbAccount?.id ?? account?.id,
+        })
+      ) {
+        return;
+      }
       const accountId = account?.id;
       // if (!accountId) {
       //   const allNetworkMockedAccount =
@@ -47,7 +56,13 @@ export const useAllNetworkCopyAddressHandler = ({
         },
       });
     },
-    [appNavigation, account, indexedAccount, wallet],
+    [
+      appNavigation,
+      account,
+      activeAccount?.dbAccount?.id,
+      indexedAccount,
+      wallet,
+    ],
   );
 
   return {

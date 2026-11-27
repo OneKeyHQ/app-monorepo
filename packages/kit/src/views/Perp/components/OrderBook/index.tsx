@@ -158,12 +158,13 @@ function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
 function useOrderBookEpoch(
   coin: string | undefined,
   tickKey: string | undefined,
-  isEmpty: boolean,
+  hasBids: boolean,
+  hasAsks: boolean,
   layoutKey = '',
 ): number {
   const epochRef = useRef(0);
   const keyRef = useRef<string | null>(null);
-  const key = `${coin ?? ''}|${tickKey ?? ''}|${isEmpty ? 1 : 0}|${layoutKey}`;
+  const key = `${coin ?? ''}|${tickKey ?? ''}|${Number(hasBids)}${Number(hasAsks)}|${layoutKey}`;
   if (keyRef.current !== key) {
     keyRef.current = key;
     epochRef.current += 1;
@@ -1236,7 +1237,8 @@ export function OrderBook({
   const depthEpoch = useOrderBookEpoch(
     _symbol,
     selectedTickOption?.value,
-    isEmpty,
+    !!aggregatedData.bids.length,
+    !!aggregatedData.asks.length,
     isDesktopVertical
       ? `${effectiveDisplayMode}:${resolvedMaxLevelsPerSide}`
       : undefined,
@@ -1568,6 +1570,11 @@ export function OrderBook({
     [onSelectLevel],
   );
 
+  let tickLabel = selectedTickOption?.label || '-';
+  if (!isDesktopVertical && selectedTickOption?.label) {
+    tickLabel = new BigNumber(selectedTickOption.label).toFixed(priceDecimals);
+  }
+
   const tickSelector = showTickSelector ? (
     <Select
       testID="perp-select"
@@ -1583,9 +1590,22 @@ export function OrderBook({
       renderTrigger={({ onPress }) => (
         <TouchableOpacity
           activeOpacity={isDesktopVertical ? 0.8 : undefined}
+          accessibilityRole={isDesktopVertical ? 'button' : undefined}
+          accessibilityLabel={
+            isDesktopVertical
+              ? [
+                  intl.formatMessage({
+                    id: ETranslations.perp_orderbook_spread,
+                  }),
+                  selectedTickOption?.label,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              : undefined
+          }
           style={{
             minWidth: 56,
-            maxWidth: 150,
+            maxWidth: isDesktopVertical ? 200 : 150,
             height: isDesktopVertical ? 24 : verticalSpreadControlHeight,
             borderRadius: 4,
             flexDirection: 'row',
@@ -1598,17 +1618,6 @@ export function OrderBook({
           }}
           onPress={onPress}
         >
-          {isDesktopVertical ? (
-            <PerpBookText
-              numberOfLines={1}
-              style={[
-                styles.desktopTickSelectorText,
-                { color: textColor.textSubdued, marginRight: 4 },
-              ]}
-            >
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_spread })}
-            </PerpBookText>
-          ) : null}
           <PerpBookText
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -1619,9 +1628,7 @@ export function OrderBook({
               { color: textColor.text },
             ]}
           >
-            {selectedTickOption?.label
-              ? new BigNumber(selectedTickOption.label).toFixed(priceDecimals)
-              : '-'}
+            {tickLabel}
           </PerpBookText>
           <Icon
             name="ChevronDownSmallOutline"
@@ -2679,11 +2686,11 @@ export function OrderBookMobile({
     }),
     [aggregatedBook, visibleLevelsPerSide],
   );
-  const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
   const depthEpoch = useOrderBookEpoch(
     _symbol ?? activeTradeInstrument.coin,
     selectedTickOption?.value,
-    isEmpty,
+    !!aggregatedData.bids.length,
+    !!aggregatedData.asks.length,
     `${displayMode}|${visibleLevelsPerSide}`,
   );
   const bidDepth = useMemo(() => {

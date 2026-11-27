@@ -2,6 +2,13 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import { walletLocalSecretEnvelopeStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/walletLocalSecretEnvelopeStatus';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { getLocalSecretEnvelopeCredentialKey } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useReceiveToken } from './useReceiveToken';
@@ -12,6 +19,17 @@ let mockVaultSettings: {
   isSingleToken?: boolean;
   mergeDeriveAssetsEnabled?: boolean;
 } = {};
+
+jest.mock(
+  '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData',
+  () => ({
+    ...jest.requireActual<
+      typeof import('@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData')
+    >('@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData'),
+    getLocalSecretEnvelopeCredentialKey: (sessionId: string, id: string) =>
+      `${sessionId}:${id}`,
+  }),
+);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -39,7 +57,15 @@ jest.mock('@onekeyhq/shared/src/routes', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
-  default: { isOthersWallet: () => false },
+  default: {
+    isOthersWallet: () => false,
+    isHdWallet: ({ walletId }: { walletId?: string }) =>
+      Boolean(walletId?.startsWith('hd-')),
+    isImportedAccount: ({ accountId }: { accountId?: string }) =>
+      Boolean(accountId?.startsWith('imported--')),
+    getWalletIdFromAccountId: ({ accountId }: { accountId: string }) =>
+      accountId.split('--')[0] || '',
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
@@ -277,5 +303,62 @@ describe('useReceiveToken on a single-token network', () => {
       screen: 'ReceiveToken',
       params: expect.objectContaining({ token: undefined }),
     });
+  });
+});
+
+describe('useReceiveToken LSE unavailable guard', () => {
+  beforeEach(() => {
+    mockPush.mockReset();
+    mockPushModal.mockReset();
+    jotaiDefaultStore.set(walletLocalSecretEnvelopeStatusAtom.atom(), {
+      sessionId: '',
+      issues: {},
+    });
+  });
+
+  afterEach(() => {
+    jotaiDefaultStore.set(walletLocalSecretEnvelopeStatusAtom.atom(), {
+      sessionId: '',
+      issues: {},
+    });
+  });
+
+  it('blocks receive and emits the LSE recovery dialog when wallet LSE is unavailable', async () => {
+    const sessionId = 'receive-lse-session';
+    const credentialKey = getLocalSecretEnvelopeCredentialKey(
+      sessionId,
+      'hd-1',
+    );
+    const issue = {
+      credentialKey,
+      reason: 'key-missing' as const,
+    };
+    jotaiDefaultStore.set(walletLocalSecretEnvelopeStatusAtom.atom(), {
+      sessionId,
+      issues: { [credentialKey]: issue },
+    });
+
+    const onShowDialog = jest.fn();
+    appEventBus.on(
+      EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+      onShowDialog,
+    );
+    try {
+      const { result } = renderReceive();
+      await act(async () => {
+        await result.current.handleOnReceive({
+          token: TOKEN,
+        });
+      });
+
+      expect(onShowDialog).toHaveBeenCalledWith(issue);
+      expect(mockPushModal).not.toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
+    } finally {
+      appEventBus.off(
+        EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+        onShowDialog,
+      );
+    }
   });
 });

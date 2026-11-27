@@ -19,6 +19,11 @@ function initExtensionBridgeEarly() {
 }
 
 function setupUiRuntimeLate() {
+  const { initFirstLaunchForApp } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@onekeyhq/shared/src/utils/freshInstallDetector') as typeof import('@onekeyhq/shared/src/utils/freshInstallDetector');
+  initFirstLaunchForApp();
+
   const platformEnv: typeof import('@onekeyhq/shared/src/platformEnv').default =
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-require-imports
     require('@onekeyhq/shared/src/platformEnv').default;

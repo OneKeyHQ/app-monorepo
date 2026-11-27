@@ -4,7 +4,11 @@ import {
   EStrk20ErrorRetry,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 
-import { EStrk20ProvingErrorCode, mapStrk20Error } from './strk20ErrorUtils';
+import {
+  EStrk20ProvingErrorCode,
+  mapStrk20Error,
+  strk20Error,
+} from './strk20ErrorUtils';
 
 /*
 yarn jest packages/shared/src/utils/strk20ErrorUtils.test.ts
@@ -160,6 +164,41 @@ describe('mapStrk20Error', () => {
       ).toEqual({ code, translationKey: key, retryable });
     },
   );
+  it('uses confirming_wait copy with seconds when Waiting has estimatedSecondsRemaining, and falls back to waiting copy otherwise', () => {
+    const dynamicErr = strk20Error(EStrk20ErrorCode.Waiting, {
+      estimatedSecondsRemaining: 11.2,
+    });
+    expect(dynamicErr).toMatchObject({
+      key: ETranslations.starknet_privacy_error_confirming_wait__msg,
+      info: { seconds: 12 },
+      data: {
+        starknetPrivacyErrorCode: EStrk20ErrorCode.Waiting,
+        estimatedSecondsRemaining: 12,
+      },
+    });
+    expect(mapStrk20Error(dynamicErr)).toEqual({
+      code: EStrk20ErrorCode.Waiting,
+      translationKey: ETranslations.starknet_privacy_error_confirming_wait__msg,
+      translationValues: { seconds: 12 },
+      retryable: EStrk20ErrorRetry.Yes,
+    });
+
+    for (const estimatedSecondsRemaining of [undefined, 0, -5, Number.NaN]) {
+      const fallbackErr = strk20Error(EStrk20ErrorCode.Waiting, {
+        estimatedSecondsRemaining,
+      });
+      expect(fallbackErr).toMatchObject({
+        key: ETranslations.starknet_privacy_error_waiting__msg,
+        data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Waiting },
+      });
+      expect(mapStrk20Error(fallbackErr)).toEqual({
+        code: EStrk20ErrorCode.Waiting,
+        translationKey: ETranslations.starknet_privacy_error_waiting__msg,
+        retryable: EStrk20ErrorRetry.Yes,
+      });
+    }
+  });
+
   it.each([
     [
       EStrk20ProvingErrorCode.BlockNotFound,

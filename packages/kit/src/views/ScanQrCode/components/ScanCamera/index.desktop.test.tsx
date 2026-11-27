@@ -4,12 +4,16 @@ import type { ReactNode } from 'react';
 
 import { randomUUID } from 'node:crypto';
 
+import { decodeQrImageSymbols } from '@onekeyfe/react-native-qr-scanner/web';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+
+import type { IDesktopQrEvent } from '@onekeyhq/shared/types/desktopQrScanner';
 
 import { ScanCamera } from './index.desktop';
 import { useScanCameraIsActive } from './useScanCameraIsActive.desktop';
 
 import type { IScanCameraProps } from './types';
+import type { IMultiQrFrameEvent } from '../../utils/multiQrSymbols';
 
 const mockStart = jest
   .fn<Promise<boolean>, [string, string?]>()
@@ -137,5 +141,80 @@ it('restarts the same modal camera after DeviceStage releases capture', async ()
     } else {
       Reflect.deleteProperty(crypto, 'randomUUID');
     }
+  }
+});
+
+it('drops retired IPC and requires a rendered frame to verify a resumed single candidate', async () => {
+  const previousDesktopApi = globalThis.desktopApi;
+  const previousUuid = Object.getOwnPropertyDescriptor(crypto, 'randomUUID');
+  Object.defineProperty(crypto, 'randomUUID', {
+    configurable: true,
+    value: randomUUID,
+  });
+  let listener: (event: IDesktopQrEvent) => void = () => {};
+  const hasFreshPreview = jest.fn(() => false);
+  Object.defineProperty(globalThis, 'desktopApi', {
+    configurable: true,
+    writable: true,
+    value: {
+      qrScanner: {
+        start: mockStart,
+        stop: mockStop,
+        focus: mockFocus,
+        setPaused: jest.fn(async () => {}),
+        setMultiSymbol: jest.fn(),
+        setPreviewFrozen: jest.fn(),
+        hasFreshPreview,
+        onEvent: (callback: typeof listener) => {
+          listener = callback;
+          return mockUnsubscribe;
+        },
+      },
+    },
+  });
+  const onFrameSymbols = jest.fn<void, [IMultiQrFrameEvent]>();
+  try {
+    const { rerender } = render(
+      <ScanCamera frozen onFrameSymbols={onFrameSymbols} />,
+    );
+    rerender(<ScanCamera frozen={false} onFrameSymbols={onFrameSymbols} />);
+    const [sessionId] = mockStart.mock.lastCall!;
+    const canvas = document.querySelector('canvas')!;
+    const toBlob = jest
+      .spyOn(canvas, 'toBlob')
+      .mockImplementation((receive) => {
+        receive(new Blob());
+      });
+    const symbols = [{ text: 'old-candidate', centerX: 0.5, centerY: 0.5 }];
+    const result = {
+      type: 'symbols',
+      sessionId,
+      symbols,
+      frameWidth: 80,
+      frameHeight: 60,
+    } as const;
+    listener({ ...result, analysisRevision: 1 });
+    expect(onFrameSymbols).not.toHaveBeenCalled();
+    listener({ ...result, analysisRevision: 2 });
+    const [event] = onFrameSymbols.mock.lastCall!;
+    const receive = jest.fn(() => true);
+    await event.verifyPreview?.(receive);
+    expect(toBlob).not.toHaveBeenCalled();
+
+    hasFreshPreview.mockReturnValue(true);
+    jest
+      .mocked(decodeQrImageSymbols)
+      .mockResolvedValueOnce({ symbols, width: 80, height: 60 });
+    await event.verifyPreview?.(receive);
+    expect(receive).toHaveBeenCalledWith({
+      symbols,
+      coordinateSpace: 'frame',
+      frameWidth: 80,
+      frameHeight: 60,
+    });
+  } finally {
+    globalThis.desktopApi = previousDesktopApi;
+    if (previousUuid) Object.defineProperty(crypto, 'randomUUID', previousUuid);
+    else Reflect.deleteProperty(crypto, 'randomUUID');
   }
 });

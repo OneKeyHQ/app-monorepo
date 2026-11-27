@@ -210,6 +210,12 @@ type IPanelSync = Pick<
   'crosshair' | 'interval' | 'viewport'
 >;
 
+/** A panel's slot as the grid gives it; the panel adds its interval picker. */
+type IGridControlsSlot = Omit<
+  ITradingViewNativeMultiChartControlsSlot,
+  'renderIntervalControl'
+>;
+
 interface IIntervalSyncState {
   /** Null while every panel keeps its own interval. */
   channel: ITradingViewNativeIntervalSync | null;
@@ -229,6 +235,7 @@ interface IIntervalSyncIntent {
 
 const Panel = memo(
   ({
+    controlsSlot,
     id,
     index,
     indicatorSettings,
@@ -243,6 +250,7 @@ const Panel = memo(
     source,
     sync,
   }: {
+    controlsSlot: IGridControlsSlot;
     id: string;
     index: number;
     indicatorSettings: ITradingViewNativeIndicatorSettings;
@@ -267,6 +275,21 @@ const Panel = memo(
       () => ({ ...sync, isMain, reportInterval, instrumentKey }),
       [instrumentKey, isMain, reportInterval, sync],
     );
+    // Where the host placed `intervalControl`. It generates no box, so the
+    // picker lays out as one of the host's own items, e.g. in its header row.
+    const [intervalSlot, setIntervalSlot] = useState<HTMLElement | null>(null);
+    const intervalControl = useMemo(
+      () => <span ref={setIntervalSlot} style={{ display: 'contents' }} />,
+      [],
+    );
+    const slot = useMemo<ITradingViewNativeMultiChartControlsSlot>(
+      () => ({
+        ...controlsSlot,
+        renderIntervalControl: (control) =>
+          intervalSlot ? createPortal(control, intervalSlot) : null,
+      }),
+      [controlsSlot, intervalSlot],
+    );
     const panel = useMemo<ITradingViewNativeMultiChartPanel>(
       () => ({
         id,
@@ -277,11 +300,13 @@ const Panel = memo(
         isSymbolSynced,
         source,
         layoutControl: isActive ? layoutControl : null,
+        intervalControl,
         selectSource: (picked) => onSelectSource(id, picked),
       }),
       [
         id,
         index,
+        intervalControl,
         isActive,
         isMain,
         isSplit,
@@ -292,24 +317,26 @@ const Panel = memo(
       ],
     );
     const content = renderPanel(panel);
-    // The provider stays mounted whatever the panels sync, so turning an
-    // option on or off never remounts a chart.
+    // The providers stay mounted whatever the panels sync and whichever is
+    // selected, so neither an option nor a selection remounts a chart.
     return (
-      <TradingViewNativeMultiChartSyncContext.Provider value={syncScope}>
-        {/* The first panel stays outside the scope: it keeps the host's own
-            interval and indicators whether or not the view is split. */}
-        {isMain ? (
-          content
-        ) : (
-          <PanelScope
-            panelId={id}
-            indicatorSettings={indicatorSettings}
-            onLayoutChange={onLayoutChange}
-          >
-            {content}
-          </PanelScope>
-        )}
-      </TradingViewNativeMultiChartSyncContext.Provider>
+      <TradingViewNativeMultiChartControlsContext.Provider value={slot}>
+        <TradingViewNativeMultiChartSyncContext.Provider value={syncScope}>
+          {/* The first panel stays outside the scope: it keeps the host's own
+              interval and indicators whether or not the view is split. */}
+          {isMain ? (
+            content
+          ) : (
+            <PanelScope
+              panelId={id}
+              indicatorSettings={indicatorSettings}
+              onLayoutChange={onLayoutChange}
+            >
+              {content}
+            </PanelScope>
+          )}
+        </TradingViewNativeMultiChartSyncContext.Provider>
+      </TradingViewNativeMultiChartControlsContext.Provider>
     );
   },
 );
@@ -324,6 +351,9 @@ interface IResizeDraft {
 }
 
 type IKeptSources = Partial<Record<string, ITradingViewNativeSource>>;
+
+// Where a maximized panel goes: over the whole grid.
+const FULL_GRID_RECT = { left: 0, top: 0, width: 1, height: 1 };
 
 interface IPanelSelection {
   /** Tells a selection from the ones made before and after it. */
@@ -836,6 +866,44 @@ export function TradingViewNativeMultiChart({
     [channel, saveSelection, selectionStore, setSelection, settleSwitch],
   );
 
+  // The panel that fills the grid, and the preset it did so in. A view of
+  // the grid only: it is never saved, so a reload or another window shows the
+  // split as saved.
+  const [maximized, setMaximized] = useState<{
+    panelId: string;
+    preset: ITradingViewNativeMultiChartPreset;
+  } | null>(null);
+  // Only the selected panel stays maximized: the controls row and drawing
+  // tools on screen are its own. Another preset, or a selection that went
+  // elsewhere, e.g. back from a switch the host turned down, ends it.
+  const maximizedPanelId =
+    isSplit &&
+    maximized?.preset === preset &&
+    maximized.panelId === activePanelId
+      ? maximized.panelId
+      : null;
+  useEffect(() => {
+    // For good, so a later selection or preset does not bring it back.
+    if (maximized && maximizedPanelId === null) setMaximized(null);
+  }, [maximized, maximizedPanelId]);
+  const latestMaximize = useRef({ maximizedPanelId, preset });
+  latestMaximize.current = { maximizedPanelId, preset };
+  const toggleMaximized = useCallback(
+    (panelId: string) => {
+      const current = latestMaximize.current;
+      if (current.maximizedPanelId === panelId) {
+        setMaximized(null);
+        return;
+      }
+      // A press on the panel has selected it already; the keyboard has not.
+      handleSelectPanel(panelId);
+      setMaximized({ panelId, preset: current.preset });
+    },
+    [handleSelectPanel],
+  );
+  const maximizedIndex =
+    maximizedPanelId === null ? -1 : panelIds.indexOf(maximizedPanelId);
+
   const defaults = useRef({
     activeSource,
     getDefaultPanelSource,
@@ -1114,9 +1182,17 @@ export function TradingViewNativeMultiChart({
   const sizes = getSizes(gridSize.width);
   const latest = useRef({ preset, sizes, gridSize, storedLayout });
   latest.current = { preset, sizes, gridSize, storedLayout };
+  // The panels' places for track `sizes`, a maximized panel over the grid.
+  const getRects = (trackSizes: ITradingViewNativeMultiChartSizes) => {
+    const gridRects = getTradingViewNativeMultiChartRects(preset, trackSizes);
+    return maximizedIndex < 0
+      ? gridRects
+      : gridRects.map((rect, index) =>
+          index === maximizedIndex ? FULL_GRID_RECT : rect,
+        );
+  };
   const getPanelWidth = (index: number, width: number) =>
-    (getTradingViewNativeMultiChartRects(preset, getSizes(width))[index]
-      ?.width ?? 0) * width;
+    (getRects(getSizes(width))[index]?.width ?? 0) * width;
   const latestGetPanelWidth = useRef(getPanelWidth);
   latestGetPanelWidth.current = getPanelWidth;
   // Collapsing the column widens the grid, and a panel by what its tracks
@@ -1142,7 +1218,7 @@ export function TradingViewNativeMultiChart({
     const createSlot = (
       index: number,
       isActive: boolean,
-    ): ITradingViewNativeMultiChartControlsSlot => ({
+    ): IGridControlsSlot => ({
       renderControls: (controls) =>
         isActive && controlsBar ? createPortal(controls, controlsBar) : null,
       drawingTools: {
@@ -1151,6 +1227,12 @@ export function TradingViewNativeMultiChart({
         onCollapsedChange: handleDrawingToolsCollapsedChange,
         getCollapseGain: () => getDrawingToolsCollapseGain(index),
       },
+      maximize: isSplit
+        ? {
+            isMaximized: index === maximizedIndex,
+            toggle: () => toggleMaximized(panelIds[index]),
+          }
+        : undefined,
     });
     return panelIds.map((_, index) => ({
       active: createSlot(index, true),
@@ -1162,7 +1244,10 @@ export function TradingViewNativeMultiChart({
     getDrawingToolsCollapseGain,
     handleDrawingToolsCollapsedChange,
     isDrawingToolsCollapsed,
+    isSplit,
+    maximizedIndex,
     panelIds,
+    toggleMaximized,
   ]);
   const activeResize = useRef<{
     axis: ITradingViewNativeMultiChartAxis;
@@ -1222,9 +1307,21 @@ export function TradingViewNativeMultiChart({
     },
     [onLayoutChange],
   );
+  // Maximizing takes the dividers away, also one still being dragged, e.g.
+  // when Enter on a focused corner button maximizes mid-drag. That drag never
+  // ends on its own, so it ends here without saving its sizes.
+  useEffect(() => {
+    if (maximizedPanelId !== null && activeResize.current) {
+      handleResizeEnd(false);
+    }
+  }, [handleResizeEnd, maximizedPanelId]);
 
-  const rects = getTradingViewNativeMultiChartRects(preset, sizes);
-  const dividers = getTradingViewNativeMultiChartDividers(preset, sizes);
+  const rects = getRects(sizes);
+  // A maximized panel has no panel beside it to resize against.
+  const dividers =
+    maximizedPanelId === null
+      ? getTradingViewNativeMultiChartDividers(preset, sizes)
+      : [];
   const dividerLabel = intl.formatMessage({
     id: ETranslations.perps_desktop_resize_panels__desc,
   });
@@ -1272,6 +1369,10 @@ export function TradingViewNativeMultiChart({
             const rect = rects[index];
             const state = layout.panels[id];
             const isActive = id === activePanelId;
+            const isMaximized = id === maximizedPanelId;
+            // Behind a maximized panel the others stay mounted at their size,
+            // so the split comes back without a chart resizing.
+            const isCovered = maximizedPanelId !== null && !isMaximized;
             // With the token synced, a panel keeps its own for when that ends.
             const source =
               isActive || isSymbolSynced ? shownActiveSource : state?.source;
@@ -1287,11 +1388,20 @@ export function TradingViewNativeMultiChart({
                 height={`${rect.height * 100}%`}
                 minHeight={0}
                 overflow="hidden"
+                // A covered panel later in the tree lies over the maximized
+                // one, and its empty box would take the presses meant for it.
+                pointerEvents={isCovered ? 'none' : undefined}
                 testID={`${testID}-panel-${id}`}
                 data-selected={isSplit && isActive ? 'true' : undefined}
+                data-maximized={isMaximized ? 'true' : undefined}
               >
                 <div
-                  style={{ display: 'contents' }}
+                  // Hidden, a covered chart is not painted and takes no
+                  // pointer, hover or focus.
+                  style={{
+                    display: 'contents',
+                    visibility: isCovered ? 'hidden' : undefined,
+                  }}
                   // Capture: a press anywhere in the panel, also on a control of
                   // its chart, selects it before the chart handles the press.
                   onPointerDownCapture={
@@ -1330,33 +1440,31 @@ export function TradingViewNativeMultiChart({
                         }
                   }
                 >
-                  <TradingViewNativeMultiChartControlsContext.Provider
-                    value={
-                      controlsSlots[index][isActive ? 'active' : 'inactive']
-                    }
-                  >
-                    {source ? (
-                      <Panel
-                        id={id}
-                        index={index}
-                        isActive={isActive}
-                        isSplit={isSplit}
-                        isSymbolSynced={isSymbolSynced}
-                        source={source}
-                        sync={panelSync}
-                        indicatorSettings={
-                          state?.indicatorSettings ?? defaultIndicatorSettings
-                        }
-                        layoutControl={layoutControl}
-                        onIntervalReport={handleIntervalReport}
-                        onLayoutChange={onLayoutChange}
-                        onSelectSource={handleSelectPanel}
-                        renderPanel={renderPanel}
-                      />
-                    ) : null}
-                  </TradingViewNativeMultiChartControlsContext.Provider>
+                  {source ? (
+                    <Panel
+                      controlsSlot={
+                        controlsSlots[index][isActive ? 'active' : 'inactive']
+                      }
+                      id={id}
+                      index={index}
+                      isActive={isActive}
+                      isSplit={isSplit}
+                      isSymbolSynced={isSymbolSynced}
+                      source={source}
+                      sync={panelSync}
+                      indicatorSettings={
+                        state?.indicatorSettings ?? defaultIndicatorSettings
+                      }
+                      layoutControl={layoutControl}
+                      onIntervalReport={handleIntervalReport}
+                      onLayoutChange={onLayoutChange}
+                      onSelectSource={handleSelectPanel}
+                      renderPanel={renderPanel}
+                    />
+                  ) : null}
                 </div>
-                {isSplit && isActive ? (
+                {/* A maximized panel is the only chart on screen. */}
+                {isSplit && isActive && !isMaximized ? (
                   <Stack
                     position="absolute"
                     top={0}

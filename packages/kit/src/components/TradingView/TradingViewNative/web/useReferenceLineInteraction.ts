@@ -25,7 +25,7 @@ type ILinePointer = {
   moved: boolean;
 };
 
-function containsPoint(
+export function containsPoint(
   rect: ITradingViewNativeReferenceLineHitRegion['rect'],
   x: number,
   y: number,

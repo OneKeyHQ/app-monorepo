@@ -77,6 +77,7 @@ export type IStrk20SubmittedTransfer = {
   kind: IStrk20TransferKind;
   status: 'pending' | 'confirmed' | 'failed';
   submittedAt: number;
+  provingBlockId?: number;
 };
 
 /**
@@ -102,9 +103,11 @@ export type IStrk20AccountPrivacyState = {
   optInStatus: IStrk20OptInStatusValue;
   consentAcceptedAt?: number;
   registerTxid?: string;
-  /** When the register tx reached the node; a missing receipt remains pending. */
+  /** When the register tx reached the node; a missing receipt remains pending until expired. */
   registerSubmittedAt?: number;
-  /** Only an explicit failed receipt permits another registration attempt. */
+  /** Proving block recorded at submission so dropped registrations can expire after validityWindow. */
+  registerProvingBlockId?: number;
+  /** Only an explicit failed receipt or expired dropped tx permits another registration attempt. */
   registerTxFailed?: boolean;
   /** First-use deployment is submitted through the ordinary confirmation flow. */
   activationTxid?: string;
@@ -204,6 +207,7 @@ export enum EStrk20ErrorCode {
 export type IStrk20ErrorMapping = {
   code: EStrk20ErrorCode;
   translationKey: ETranslations | ETranslationsMock;
+  translationValues?: Record<string, string | number>;
   /**
    * The enum itself, not a `${EStrk20ErrorRetry}` string union: this value is
    * computed and never persisted or serialized, so there is no reason to widen

@@ -13,6 +13,7 @@ export const MAX_UR_MESSAGE_BYTES = 1024 * 1024;
 export const MAX_UR_SEQ_LENGTH = 32_768;
 /** Argument bytes for additional info 24, 25, 26 and 27. */
 const ARGUMENT_BYTES = [1, 2, 4, 8];
+const MAX_FOUNTAIN_CHECKSUM = 2 ** 32 - 1;
 
 function malformed(reason: string): Error {
   return new Error(`Malformed QR payload: ${reason}`);
@@ -80,6 +81,7 @@ function readFountainPart(input: Uint8Array): {
   seqNum: number;
   seqLength: number;
   messageLength: number;
+  checksum: number;
   fragmentLength: number;
 } {
   let offset = 0;
@@ -101,68 +103,73 @@ function readFountainPart(input: Uint8Array): {
   const seqNum = readHead(0);
   const seqLength = readHead(0);
   const messageLength = readHead(0);
-  readHead(0); // checksum
+  const checksum = readHead(0);
   const fragmentLength = readHead(2);
-  return { seqNum, seqLength, messageLength, fragmentLength };
+  return { seqNum, seqLength, messageLength, checksum, fragmentLength };
 }
 
 export type IUrPartVerdict = 'ok' | 'malformed' | 'too-large';
 
-/**
- * Judges one scanned UR part before the vendor decoder parses it. `malformed` frames (misreads,
- * bad checksums, forged headers) are to be dropped so one bad frame does not end a scan;
- * `too-large` frames belong to a code beyond the limits and should end the scan with an error.
- */
-export function checkUrPart(part: string): IUrPartVerdict {
-  const match = /^ur:[a-z0-9-]+\/(?:(\d{1,9})-(\d{1,9})\/)?([a-z]+)$/i.exec(
-    part.trim(),
-  );
-  if (!match) return 'malformed';
-  let payload: Buffer;
+const UR_PART_PATTERN =
+  /^ur:([a-z0-9-]+)\/(?:(\d{1,9})-(\d{1,9})\/)?([a-z]+)$/i;
+
+type ICheckedUrPart =
+  | { verdict: 'ok'; messageKey?: string }
+  | { verdict: 'malformed' | 'too-large' };
+
+/** Shares the bounds checks between the decoder and the viewfinder's stream matching. */
+function inspectUrPart(part: string): ICheckedUrPart {
+  const match = UR_PART_PATTERN.exec(part.trim());
+  if (!match) return { verdict: 'malformed' };
+  const [, type, sequence, length, words] = match;
   try {
-    // Minimal-style UR words carry their own CRC32; decode throws on a mismatch.
-    payload = Buffer.from(
-      urWords.decode(match[3].toLowerCase(), urWords.STYLES.MINIMAL),
+    const payload = Buffer.from(
+      urWords.decode(words.toLowerCase(), urWords.STYLES.MINIMAL),
       'hex',
     );
-  } catch {
-    return 'malformed';
-  }
-  if (match[1] === undefined) {
-    // A single-part code is the whole message.
-    if (payload.length > MAX_UR_MESSAGE_BYTES) return 'too-large';
-    try {
-      assertBoundedCbor(payload);
-    } catch {
-      return 'malformed';
+    if (sequence === undefined && payload.length > MAX_UR_MESSAGE_BYTES) {
+      return { verdict: 'too-large' };
     }
-    return 'ok';
-  }
-  try {
     assertBoundedCbor(payload);
+    if (sequence === undefined) return { verdict: 'ok' };
     const header = readFountainPart(payload);
-    // The text header, the CBOR header and the real sizes must agree, so the part count a frame
-    // declares is tied to the data it actually carries.
     if (
-      header.seqNum !== Number(match[1]) ||
-      header.seqLength !== Number(match[2]) ||
+      header.seqNum !== Number(sequence) ||
+      header.seqLength !== Number(length) ||
       header.fragmentLength < 1 ||
       header.messageLength < 1 ||
+      header.checksum > MAX_FOUNTAIN_CHECKSUM ||
       header.seqLength !==
         Math.ceil(header.messageLength / header.fragmentLength)
     ) {
-      return 'malformed';
+      return { verdict: 'malformed' };
     }
     if (
       header.messageLength > MAX_UR_MESSAGE_BYTES ||
       header.seqLength > MAX_UR_SEQ_LENGTH
     ) {
-      return 'too-large';
+      return { verdict: 'too-large' };
     }
+    return {
+      verdict: 'ok',
+      messageKey: `${type.toLowerCase()}/${header.seqLength}/${
+        header.messageLength
+      }/${header.checksum}`,
+    };
   } catch {
-    return 'malformed';
+    return { verdict: 'malformed' };
   }
-  return 'ok';
+}
+
+/** Drops malformed frames and identifies codes beyond the decoder's bounds. */
+export function checkUrPart(part: string): IUrPartVerdict {
+  return inspectUrPart(part).verdict;
+}
+
+/** Identifies parts of one validated fountain message across advancing frames. */
+export function getMultipartUrKey(part: string): string | undefined {
+  const result = inspectUrPart(part);
+  return result.verdict === 'ok' ? result.messageKey : undefined;
 }
 
 /**
