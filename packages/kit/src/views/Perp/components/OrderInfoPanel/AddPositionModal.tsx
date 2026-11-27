@@ -18,6 +18,7 @@ import {
   YStack,
   getFontSize,
   useKeyboardHeight,
+  useScrollView,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
 import { getOverlayWidthClass } from '@onekeyhq/components/src/hooks/useOverlayWidthClass';
@@ -82,6 +83,7 @@ import {
 } from './utils/addPosition';
 
 import type { IAddPositionValidationError } from './utils/addPosition';
+import type { TextInputInstance } from 'react-native';
 
 type IAddPositionOrderType = 'market' | 'limit';
 
@@ -106,6 +108,7 @@ const AddPositionForm = memo(
   }: IAddPositionFormProps) => {
     const intl = useIntl();
     const keyboardHeight = useKeyboardHeight();
+    const { scrollViewRef } = useScrollView();
     const actions = useHyperliquidActions();
     const ensureTradingEnabled = useEnsureTradingEnabled();
     const [activeAccount] = usePerpsActiveAccountAtom();
@@ -149,7 +152,9 @@ const AddPositionForm = memo(
     const orderBookTop = useCoinOrderBookTop(coin);
     const requestIdRef = useRef(0);
     const isLimitPriceInitializedRef = useRef(false);
-    const sizeInputRef = useRef<IInputRef>(null);
+    const sizeInputRef = useRef<
+      IInputRef & Partial<Pick<TextInputInstance, 'measureLayout'>>
+    >(null);
     const minimumOrderActionRef = useRef<
       ISizeInputMinimumOrderAction | undefined
     >(undefined);
@@ -416,8 +421,27 @@ const AddPositionForm = memo(
 
     const requestSizeInputFocus = useCallback(() => {
       if (!platformEnv.isNative) return;
-      requestAnimationFrame(() => sizeInputRef.current?.focus());
-    }, []);
+      const focus = () =>
+        requestAnimationFrame(() => sizeInputRef.current?.focus());
+      const scroll = resizeOnKeyboard ? undefined : scrollViewRef.current;
+      const content = scroll?.getInnerViewRef();
+      const input = sizeInputRef.current;
+      if (!scroll || !content || !input?.measureLayout) {
+        focus();
+        return;
+      }
+      // Reveal a clipped input before UIKit starts the keyboard transition.
+      input.measureLayout(
+        content,
+        (_, top) => {
+          if (top < scroll.scrollTop) {
+            scroll.scrollTo({ y: top, animated: false });
+          }
+          focus();
+        },
+        focus,
+      );
+    }, [resizeOnKeyboard, scrollViewRef]);
 
     // Size problems keep the button pressable and surface a toast on press,
     // matching the main trading panel instead of silently disabling it.

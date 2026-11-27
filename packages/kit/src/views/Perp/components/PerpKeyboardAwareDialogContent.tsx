@@ -1,9 +1,10 @@
 import { type ReactNode, useMemo } from 'react';
 
-import { ScrollView, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Keyboard,
+  ScrollView,
   YStack,
   useKeyboardHeight,
   useSafeAreaInsets,
