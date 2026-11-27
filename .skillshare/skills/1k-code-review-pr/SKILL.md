@@ -52,8 +52,8 @@ or mark them not applicable; retain findings, evidence, scoring, and validation.
 8. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
 9. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
 10. **GH Comment** — When publishing is authorized for this PR, post qualifying
-    inline comments (within the hard comment cap) without reconfirming.
-    Otherwise return findings locally.
+    inline comments (score-driven via `review-score-gate.js`) without
+    reconfirming. Otherwise return findings locally.
 
 Do not run `agent:check --profile commit` or `--profile pr` for read-only review;
 both can auto-fix worktree files. For remote status use `--profile ci --pr <N>`
@@ -153,10 +153,10 @@ For security-related comments (from bots like Snyk/Dependabot or from human revi
 Before inspecting individual lines, read the PR title, description, linked ticket, and changed file list to classify the PR into **one primary type**. Your review effort must concentrate on that type's highest-leverage risks rather than running a flat line-by-line nitpick pass:
 
 1. **Revert / Rollback (`revert:`)**
-   - **ONLY check**: Is the revert complete? Are lockfiles (`yarn.lock`, `Podfile.lock`), native podspecs, `apps/mobile/bundle-registry/module-id-registry.json`, and build configs consistent? Does it break compilation, startup, or persisted data schema compatibility?
-   - **STRICTLY FORBIDDEN**: Reviewing pre-existing code being restored (UI polish, edge cases, a11y, refactors).
+   - **PRIMARY FOCUS**: Is the revert complete? Are lockfiles (`yarn.lock`, `Podfile.lock`), native podspecs, `apps/mobile/bundle-registry/module-id-registry.json`, and build configs consistent? Does the rollback itself introduce a compilation, startup, security, correctness, or persisted data schema regression?
+   - **SKIP**: Pre-existing issues in restored code that are unrelated to the rollback itself (UI polish, edge cases, a11y, refactors).
 2. **Dependency / Release / Config Chore (`chore(deps)`, version bump, CI)**
-   - **ONLY check**: Supply-chain risk, breaking peer/native dependency mismatches, missing lockfile/`Podfile.lock` sync, and build/bundle regressions.
+   - **PRIMARY FOCUS**: Supply-chain risk, breaking peer/native dependency mismatches, missing lockfile/`Podfile.lock` sync, build/bundle regressions, and CI workflow trigger/gate regressions (e.g., accidentally dropping a branch trigger or skipping a check).
 3. **Cross-Platform Migration / UI Infrastructure / Refactor** (e.g., migrating to `NativeList`, `AppPager`, shared layout, native view modules)
    - **PRIMARY FOCUS**:
      - **Cross-platform isomorphism (三端同构)**: Are iOS / Android / Web / Desktop truly unified, or did the PR introduce parallel abstractions, reverse-bridging to deprecated contexts (e.g., `TabsContext`), or platform-specific workarounds?
@@ -170,47 +170,50 @@ Before inspecting individual lines, read the PR title, description, linked ticke
      - **Concrete failure modes**: Reproducible runtime crashes, unhandled rejections on critical paths, and memory/subscription leaks.
 5. **Targeted Bugfix (`fix:`)**
    - **PRIMARY FOCUS**: Does it fix the root cause (not a symptom band-aid)? Does it break adjacent flows or sibling platforms (`.native.ts`, `.ios.ts`, `.android.ts`, `.web.ts`, `.desktop.ts`, `.ext.ts`)? Are there state/lifecycle side effects?
+6. **General / Local / Docs Diff (`general`)**
+   - **FALLBACK**: Use when reviewing local diffs without PR metadata or docs/mixed changes that do not fit categories 1–5; rely on the changed-file triage table below.
 
 ## Hard Negative Constraints (AUTO-DROP)
 
 NEVER report or post comments about any of the following **unless the PR's explicit stated goal is specifically about that topic**:
 
-1. **Accessibility / Assistive Tech / Motion nitpicks**: VoiceOver, TalkBack, screen readers, `accessibilityLabel`, `accessibilityRole`, `aria-*`, `spoken text`, `Reduce Motion`, keyboard tab order / focus rings on non-a11y PRs, and foldable hinge / separating pane edge cases.
-2. **Speculative `Confirm / Verify / Check` questions**: Never emit `[Confirm whether ...]`, `[Verify that ...]`, or `[Check if ...]`. If you cannot prove a concrete failure path or architectural/duplication defect from repository source, drop the finding.
+1. **Accessibility / Assistive Tech / Motion nitpicks**: VoiceOver, TalkBack, screen readers, `accessibilityLabel`, `accessibilityRole`, `aria-*`, `spoken text`, `Reduce Motion`, keyboard tab order / focus rings on non-a11y PRs, and foldable hinge / separating pane edge cases. (Reproducible functional regressions that prevent users from completing a core flow remain reportable as `correctness`/`crash`.)
+2. **Speculative `Confirm / Verify / Check` questions**: Never emit `[Confirm whether ...]`, `[Verify that ...]`, or `[Check if ...]`. If you cannot prove a concrete failure path or defect from repository source, a regression test, or a recorded reproduction, drop the finding.
 3. **Pre-existing issues**: Do not flag bugs, missing error handling, or legacy patterns in untouched code unless this PR directly introduces or worsens the failure.
 4. **Product / scope second-guessing**: Do not ask the author to add extra chains, platforms, or features that are intentionally out of scope.
-5. **Follow-up review-fix spirals**: When reviewing subsequent commits on an already-reviewed PR, ONLY verify whether previous P0/P1 findings were fixed cleanly and whether the new diff introduced a P0/P1 regression. Do NOT invent new P2 edge cases on fix commits.
+5. **Follow-up review-fix spirals**: When reviewing subsequent commits on an already-reviewed PR, verify whether previous P0/P1 findings were fixed cleanly and report any new P0/P1 regressions introduced by the new diff. Do NOT invent new low-value P2 edge cases on fix commits.
 
 ## Script-Verified Characterization & Quantitative Score Gate
 
-Do not rely solely on prose discipline to enforce PR characterization, noise filtering, or comment caps. Emit structured findings and run the deterministic gate script `development/scripts/review-score-gate.js` to validate characterization, compute each finding's `SignalScore (0–100)`, and produce the final publishable review:
+Do not rely solely on prose discipline to enforce PR characterization, noise filtering, or publication thresholds. Emit structured findings and run the deterministic gate script `development/scripts/review-score-gate.js` to validate characterization, compute each finding's `SignalScore (0–100)`, and produce the publishable inline payload plus a scoring appendix:
 
 ```bash
 node development/scripts/review-score-gate.js evaluate \
   --input /tmp/pr-<N>-review-draft.json \
+  --context /tmp/pr-<N>-context.json \
   --mode soft \
   --diff /tmp/pr-<N>.diff \
   --repo . \
   --out-json /tmp/pr-<N>-review-validated.json \
-  --out-md /tmp/pr-<N>-review-report.md
+  --out-md /tmp/pr-<N>-score-appendix.md
 ```
 
 - **Progressive rollout modes (`--mode`)**:
   - `shadow` (pilot week 1–2): fail-open (`exit 0`), passes all candidates through while recording side-by-side gate scores.
   - `soft` (default): fail-open (`exit 0`), auto-corrects mismatched PR characterization using observed signals, preserves high-risk P0s via safety valve, and folds filtered findings into a collapsible `<details>` block so zero findings are silently lost.
-  - `strict`: exits with code `2` on invalid JSON or characterization mismatch; enforces hard score cutoffs and top-5 inline cap.
+  - `strict`: requires independently collected `--context` and an explicit `findings` array; exits with code `2` before writing any output on invalid JSON, context mismatch, or characterization mismatch.
 
 ### How the Gate Works
-1. **Verifiable PR Characterization**: Independently extracts an observed profile from PR title, files, diff hunks, and review round (`isRevert`, `isDepsOrCi`, `hasCrossPlatformSignals`, `hasSecurityCriticalSignals`, `isA11yTarget`, `isFollowUpRound`). Under `--strict`, claiming a type that contradicts observed signals (e.g., classifying a `revert:` PR as `core_feature`) exits with code `2`.
+1. **Verifiable PR Characterization**: Independently extracts an observed profile from PR title, files, diff hunks, and review round (`isRevert`, `isDepsOrCi`, `hasCrossPlatformSignals`, `hasSecurityCriticalSignals`, `isA11yTarget`, `isFollowUpRound`). Independently collected `--context` is the source of truth for `prNumber` and `headSha`.
 2. **Quantitative Signal Scoring (`SignalScore = clamp(BaseImpact × TypeAlignment + EvidenceScore − NoisePenalty, 0, 100)`)**:
    - **`BaseImpact × TypeAlignment`**: Looks up `PR type × finding category` alignment. On non-a11y PRs, `a11y_or_motion` (VoiceOver/TalkBack/Reduce Motion/focus ring/separating hinge) is automatically reclassified and down-weighted (`8 × 0.2`), naturally scoring below threshold without brittle prose bans; on explicit `a11y` PRs it is elevated (`30 × 1.5`).
-   - **`EvidenceScore` (0–40)**: Verifies `file:line` falls inside real `git diff` hunks (`+15`), non-speculative execution path (`+15`), and repository existence of `existingReuseTargets` via `fs.existsSync` (`+10`).
+   - **`EvidenceScore` (0–40)**: Verifies exact `file:line` falls inside real `git diff` hunks (`+15`), explicit `executionPath`/`reproduction` (`+15`), and repository existence of `existingReuseTargets` via `fs.existsSync` (`+10`).
    - **`NoisePenalty`**: Penalizes speculative `Confirm/Verify/Check` titles (`-25`), pre-existing/out-of-diff sites (`-30`), follow-up round P2 spirals (`-35`), and duplicate threads (`-40`).
-3. **Deterministic Output & Publishing**:
-   - `SignalScore >= 70` (or `P0 >= 55`), top 5 max → `PUBLISH` (written to `publishPayload.comments`)
-   - `50 <= SignalScore < 70` (or capped overflow) → `SUMMARY_ONLY` (report only, no inline comment)
-   - `SignalScore < 50` → `DROP` (filtered out with audit trail)
-   - Final verdict (`APPROVE` / `COMMENT` / `REQUEST_CHANGES`) and Markdown report are generated deterministically from the scored results.
+3. **Score-Driven Output & Publishing (No Arbitrary Comment Cap)**:
+   - Inline `PUBLISH` requires **both** eligibility (`P0` any confidence, or `P1` with `high` confidence), a valid diff line anchor, **and** `SignalScore >= 70` (or `P0 >= 55`). Every finding that clears this bar is published — no arbitrary 5-comment truncation.
+   - `50 <= SignalScore < 70` (or eligible findings without a valid inline diff anchor, or high-scoring `P2`s) → `SUMMARY_ONLY` (included in report / appendix, no inline comment).
+   - `SignalScore < 50` → `DROP` (folded in the `<details>` audit drawer).
+   - The generated Markdown (`--out-md`) serves as a **scoring appendix** alongside the required Unified Report Format below; merge verdict is computed from all verified blockers (both published and report-only).
 
 ## Triage: Which Checks to Run
 
@@ -385,8 +388,8 @@ _— Auto-review by Claude_" \
 - Post qualifying findings in the same turn when authorized for that PR
 - Only post findings meeting the comment threshold (see above)
 - Include auto-fix in `suggestion` block when available
-- Maximum 5 inline comments per PR (default target: 0–3; only exceed 5 for genuinely distinct P0/P1 blockers)
-- Silent pass: if no finding meets the comment threshold, do not manufacture low-value P2 comments to look busy — post zero inline comments
+- Score-driven inline publishing: publish every finding that meets both the comment threshold (`P0` any confidence, or `P1` with `🔵 High` confidence) and the quantitative `SignalScore` bar — do not truncate real blockers with an arbitrary fixed comment cap
+- Silent pass: if no finding meets the comment threshold and `SignalScore` bar, do not manufacture low-value P2 comments to look busy — post zero inline comments
 - GitHub can only attach review comments to lines in the PR diff; if the real site is unchanged, comment on the nearest changed line and name the unchanged site in the body
 - If an existing inline thread already states the same issue, reply to that thread instead of opening a duplicate
 

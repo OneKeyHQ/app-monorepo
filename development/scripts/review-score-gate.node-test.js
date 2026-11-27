@@ -163,7 +163,7 @@ test('scores high-leverage cross-platform architecture & duplication findings ab
             executionPath:
               'Holders.tsx:108 mirrors existing NativeList patch loops',
             existingReuseTargets: [
-              '.skillshare/skills/1k-code-review-pr/SKILL.md:1',
+              'development/scripts/agent-github-review.js:1',
             ],
           },
         },
@@ -224,7 +224,7 @@ test('scores high-leverage cross-platform architecture & duplication findings ab
   assert.match(md, /自动丢弃 2 条/);
 });
 
-test('prevents multi-round P2 review-fix spirals and enforces max 5 inline comment cap', () => {
+test('prevents multi-round P2 review-fix spirals and publishes all qualifying high-score findings without arbitrary cap', () => {
   const prContext = {
     prNumber: 14_740,
     title: 'feat: add Lightning Self-Custody on Breez Spark',
@@ -249,6 +249,7 @@ test('prevents multi-round P2 review-fix spirals and enforces max 5 inline comme
     },
     ...Array.from({ length: 7 }, (_, idx) => ({
       severity: 'P1',
+      confidence: 'high',
       category: 'security',
       file: 'packages/kit-bg/src/vaults/impls/lightning/Vault.ts',
       line: 100 + idx,
@@ -283,9 +284,9 @@ test('prevents multi-round P2 review-fix spirals and enforces max 5 inline comme
       'follow_up_round_p2_spiral(-35)',
     ),
   );
-  // 7 high-scoring P1s must be capped to 5 published + 2 summaryOnly
-  assert.equal(result.counts.published, 5);
-  assert.equal(result.counts.summaryOnly, 2);
+  // Score-driven publishing: all 7 genuinely qualifying high-score P1s are published without arbitrary 5-comment truncation
+  assert.equal(result.counts.published, 7);
+  assert.equal(result.counts.summaryOnly, 0);
 });
 
 test('allows genuine a11y findings when PR is explicitly scoped to accessibility', () => {
@@ -403,4 +404,71 @@ test('pilot rollout safeguards: JSON fence recovery, shadow passthrough, P0 safe
   const shadowPayload = buildPublishPayload(shadowResult);
   assert.equal(shadowPayload.comments.length, 2);
   assert.equal(shadowPayload.mode, 'shadow');
+});
+
+test('mixed deps+app PR is not locked to deps_or_ci, missing anchor stays in summary, and context identity wins', () => {
+  const prContext = {
+    prNumber: 15_003,
+    headSha: 'new_sha_999',
+    title: 'feat: upgrade native-list and add holders cache',
+    files: [
+      'package.json',
+      'yarn.lock',
+      'apps/mobile/ios/Podfile.lock',
+      '.github/workflows/lint.yml',
+      'packages/kit/src/views/Market/Holders.tsx',
+    ],
+  };
+
+  const observed = extractObservedProfile(prContext);
+  assert.equal(observed.isDepsOrCi, false);
+
+  const result = evaluateReview(
+    {
+      prNumber: 15_003,
+      headSha: 'stale_sha_111',
+      characterization: {
+        type: 'core_feature',
+        summary: 'Add holders cache alongside dependency bump',
+        focusAreas: ['correctness'],
+      },
+      findings: [
+        {
+          severity: 'P1',
+          confidence: 'high',
+          category: 'data_corruption',
+          file: 'packages/kit/src/views/Market/Holders.tsx',
+          line: null, // missing inline anchor -> cannot publish inline, but must still affect verdict
+          title: 'Reset stale holder cache on network switch',
+          problem: 'Cache key omits networkId.',
+          evidence: {
+            inDiff: true,
+            executionPath: 'switchNetwork() reuses previous chain holders',
+          },
+        },
+        {
+          severity: 'P2',
+          confidence: 'high',
+          category: 'security',
+          file: 'packages/kit/src/views/Market/Holders.tsx',
+          line: 20,
+          title: 'High-scoring P2 stays out of inline publish',
+          problem: 'P2 never enters inline publish per SKILL.md eligibility.',
+          evidence: {
+            inDiff: true,
+            executionPath: 'concrete path for P2',
+          },
+        },
+      ],
+    },
+    prContext,
+  );
+
+  // Context mismatch is detected and independently collected headSha wins
+  assert.equal(result.headSha, 'new_sha_999');
+  assert.ok(result.gateErrors.some((e) => e.code === 'E_CONTEXT_MISMATCH'));
+  // Neither finding enters inline publish (P1 lacks anchor; P2 is ineligible), yet verdict reflects verified P1 blocker
+  assert.equal(result.counts.published, 0);
+  assert.equal(result.counts.summaryOnly, 2);
+  assert.equal(result.verdict, 'COMMENT');
 });

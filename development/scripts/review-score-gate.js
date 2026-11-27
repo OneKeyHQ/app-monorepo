@@ -10,9 +10,12 @@ const PR_TYPES = [
   'cross_platform_migration',
   'core_feature',
   'targeted_bugfix',
+  'general',
 ];
 
 const SEVERITIES = new Set(['P0', 'P1', 'P2']);
+
+const CONFIDENCES = new Set(['high', 'medium', 'low']);
 
 const GATE_MODES = new Set(['shadow', 'soft', 'strict']);
 
@@ -142,6 +145,25 @@ const TYPE_ALIGNMENT_MATRIX = {
     ui_polish: 0.3,
     style_nit: 0.0,
   },
+  general: {
+    security: 1.3,
+    funds_loss: 1.3,
+    crash: 1.2,
+    build_registry: 1.2,
+    data_corruption: 1.2,
+    concurrency_race: 1.1,
+    runtime_boundary: 1.1,
+    memory_leak: 1.0,
+    error_handling: 0.9,
+    cross_platform_divergence: 1.0,
+    half_migration: 0.9,
+    code_duplication: 1.0,
+    performance: 0.8,
+    edge_case: 0.6,
+    a11y_or_motion: 0.2,
+    ui_polish: 0.3,
+    style_nit: 0.0,
+  },
 };
 
 const THRESHOLDS = {
@@ -149,7 +171,6 @@ const THRESHOLDS = {
   PUBLISH_P0_MIN_SCORE: 55,
   SUMMARY_MIN_SCORE: 50,
   REQUEST_CHANGES_P1_MIN_SCORE: 85,
-  MAX_INLINE_COMMENTS: 5,
 };
 
 const A11Y_OR_MOTION_RE =
@@ -293,16 +314,18 @@ function parseUnifiedDiffHunks(diffText) {
   return fileHunks;
 }
 
-function isLineInDiffHunks(fileHunks, filePath, lineNumber, tolerance = 3) {
+function isLineInDiffHunks(fileHunks, filePath, lineNumber) {
   const norm = normalizePath(filePath);
   const hunks = fileHunks[norm];
   if (!hunks || hunks.length === 0) return false;
-  if (typeof lineNumber !== 'number' || !Number.isFinite(lineNumber)) {
-    return true;
+  if (
+    typeof lineNumber !== 'number' ||
+    !Number.isFinite(lineNumber) ||
+    lineNumber < 1
+  ) {
+    return false;
   }
-  return hunks.some(
-    (h) => lineNumber >= h.start - tolerance && lineNumber <= h.end + tolerance,
-  );
+  return hunks.some((h) => lineNumber >= h.start && lineNumber <= h.end);
 }
 
 /**
@@ -329,8 +352,9 @@ function extractObservedProfile(prContext = {}) {
     /\bthis reverts commit\b/i.test(body);
 
   const depsOrCiFiles = files.filter((f) => DEPS_OR_CI_FILE_RE.test(f));
+  // Lock deps_or_ci only when 100% of changed files are dependency/CI files (no mixed app source)
   const isDepsOrCi =
-    !isRevert && files.length > 0 && depsOrCiFiles.length / files.length >= 0.8;
+    !isRevert && files.length > 0 && depsOrCiFiles.length === files.length;
 
   const platformFiles = files.filter((f) => PLATFORM_SUFFIX_RE.test(f));
   const hasCrossPlatformSignals =
@@ -360,14 +384,16 @@ function extractObservedProfile(prContext = {}) {
       'cross_platform_migration',
       'core_feature',
       'targeted_bugfix',
+      'general',
     ];
   } else if (isFixTitle) {
-    expectedTypes = ['targeted_bugfix', 'core_feature'];
+    expectedTypes = ['targeted_bugfix', 'core_feature', 'general'];
   } else {
     expectedTypes = [
       'core_feature',
       'cross_platform_migration',
       'targeted_bugfix',
+      'general',
     ];
   }
 
@@ -488,6 +514,9 @@ function scoreFinding(finding, options = {}) {
       ? finding.line
       : null;
   const severity = SEVERITIES.has(finding.severity) ? finding.severity : 'P2';
+  const confidence = CONFIDENCES.has(finding.confidence)
+    ? finding.confidence
+    : 'high';
 
   // Anti-gaming reclassification: detect a11y/motion nitpicks even if labeled edge_case
   let effectiveCategory = FINDING_CATEGORIES.includes(finding.category)
@@ -534,16 +563,19 @@ function scoreFinding(finding, options = {}) {
 
   // Evidence verification (0-40)
   const evidence = finding.evidence || {};
-  let inDiffVerified = Boolean(evidence.inDiff);
+  const hasLine =
+    typeof line === 'number' && Number.isFinite(line) && line >= 1;
+  let inDiffVerified = Boolean(evidence.inDiff) && hasLine;
   if (hasDiff) {
     inDiffVerified = isLineInDiffHunks(fileHunks, file, line);
   }
+  const hasValidInlineAnchor = Boolean(file) && hasLine && inDiffVerified;
 
   const isSpeculative = SPECULATIVE_TITLE_RE.test(title);
   const hasConcreteProof =
     !isSpeculative &&
     (Boolean(String(evidence.executionPath || '').trim()) ||
-      problem.length >= 24);
+      Boolean(String(evidence.reproduction || '').trim()));
 
   const verifiedReuseTargets = [];
   const missingReuseTargets = [];
@@ -627,11 +659,29 @@ function scoreFinding(finding, options = {}) {
       ? THRESHOLDS.PUBLISH_P0_MIN_SCORE
       : THRESHOLDS.PUBLISH_MIN_SCORE;
 
+  // Align inline publication eligibility with SKILL.md: P0 (any confidence) or P1 with high confidence
+  const meetsInlineEligibility =
+    severity === 'P0' || (severity === 'P1' && confidence === 'high');
+
   let preliminaryDecision = 'DROP';
-  if (signalScore >= publishThreshold && typeAlignment > 0) {
+  if (
+    meetsInlineEligibility &&
+    hasValidInlineAnchor &&
+    signalScore >= publishThreshold &&
+    typeAlignment > 0
+  ) {
     preliminaryDecision = 'PUBLISH';
-  } else if (signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE && typeAlignment > 0) {
+  } else if (
+    (signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE ||
+      (meetsInlineEligibility &&
+        !hasValidInlineAnchor &&
+        signalScore >= publishThreshold)) &&
+    typeAlignment > 0
+  ) {
     preliminaryDecision = 'SUMMARY_ONLY';
+    if (meetsInlineEligibility && !hasValidInlineAnchor) {
+      penaltyReasons.push('missing_valid_diff_anchor');
+    }
   }
 
   // High-risk P0 safety valve in pilot modes (shadow/soft): never silently drop high-risk P0s
@@ -652,6 +702,7 @@ function scoreFinding(finding, options = {}) {
     file,
     line,
     severity,
+    confidence,
     effectiveCategory,
     scoreBreakdown: {
       baseImpact,
@@ -664,6 +715,8 @@ function scoreFinding(finding, options = {}) {
       reclassifiedReasons,
       verifiedReuseTargets,
       missingReuseTargets,
+      hasValidInlineAnchor,
+      meetsInlineEligibility,
       safetyValveApplied,
     },
     signalScore,
@@ -676,6 +729,38 @@ function scoreFinding(finding, options = {}) {
  */
 function evaluateReview(draft, prContext = {}, options = {}) {
   const mode = GATE_MODES.has(options.mode) ? options.mode : 'soft';
+  const inputErrors = [];
+
+  // Independently collected prContext is the source of truth for PR identity
+  const resolvedPrNumber = prContext.prNumber ?? draft.prNumber ?? null;
+  const resolvedHeadSha = prContext.headSha ?? draft.headSha ?? null;
+  if (
+    prContext.prNumber !== undefined &&
+    draft.prNumber !== undefined &&
+    Number(prContext.prNumber) !== Number(draft.prNumber)
+  ) {
+    inputErrors.push({
+      code: 'E_CONTEXT_MISMATCH',
+      message: `Draft prNumber (${draft.prNumber}) does not match independently collected context (${prContext.prNumber}).`,
+    });
+  }
+  if (
+    prContext.headSha &&
+    draft.headSha &&
+    String(prContext.headSha) !== String(draft.headSha)
+  ) {
+    inputErrors.push({
+      code: 'E_CONTEXT_MISMATCH',
+      message: `Draft headSha (${draft.headSha}) does not match independently collected context (${prContext.headSha}).`,
+    });
+  }
+  if (!Array.isArray(draft.findings)) {
+    inputErrors.push({
+      code: 'E_MISSING_FINDINGS_ARRAY',
+      message: 'Review draft must include an explicit "findings" array.',
+    });
+  }
+
   const observed = extractObservedProfile(prContext);
   const characterizationCheck = verifyCharacterization(
     draft.characterization,
@@ -709,18 +794,22 @@ function evaluateReview(draft, prContext = {}, options = {}) {
     return b.signalScore - a.signalScore;
   });
 
-  // Apply hard inline comment cap (keep all P0s; cap total at MAX_INLINE_COMMENTS unless all are P0)
-  let publishCount = 0;
-  for (const item of scored) {
-    if (item.decision === 'PUBLISH') {
-      if (
-        publishCount < THRESHOLDS.MAX_INLINE_COMMENTS ||
-        item.severity === 'P0'
-      ) {
-        publishCount += 1;
-      } else {
-        item.decision = 'SUMMARY_ONLY';
-        item.scoreBreakdown.penaltyReasons.push('capped_over_max_inline_limit');
+  // Score-driven publishing: publish all qualifying findings by default; optional caller cap if explicitly set
+  const maxInlineComments =
+    typeof options.maxInlineComments === 'number' &&
+    options.maxInlineComments > 0
+      ? options.maxInlineComments
+      : null;
+  if (maxInlineComments !== null) {
+    let publishCount = 0;
+    for (const item of scored) {
+      if (item.decision === 'PUBLISH') {
+        if (publishCount < maxInlineComments) {
+          publishCount += 1;
+        } else {
+          item.decision = 'SUMMARY_ONLY';
+          item.scoreBreakdown.penaltyReasons.push('capped_over_caller_limit');
+        }
       }
     }
   }
@@ -729,26 +818,39 @@ function evaluateReview(draft, prContext = {}, options = {}) {
   const summaryOnly = scored.filter((f) => f.decision === 'SUMMARY_ONLY');
   const dropped = scored.filter((f) => f.decision === 'DROP');
 
-  const hasP0 = published.some((f) => f.severity === 'P0');
-  const hasHighP1 = published.some(
+  // Compute merge verdict from all verified blockers (both published and report-only high-scoring P0/P1s)
+  const verifiedBlockers = [...published, ...summaryOnly].filter(
+    (f) =>
+      f.severity === 'P0' ||
+      (f.severity === 'P1' &&
+        f.confidence === 'high' &&
+        f.signalScore >= THRESHOLDS.SUMMARY_MIN_SCORE),
+  );
+  const hasP0Blocker = verifiedBlockers.some((f) => f.severity === 'P0');
+  const hasHighP1Blocker = verifiedBlockers.some(
     (f) =>
       f.severity === 'P1' &&
       f.signalScore >= THRESHOLDS.REQUEST_CHANGES_P1_MIN_SCORE,
   );
 
   let verdict = 'APPROVE';
-  if (hasP0 || hasHighP1) {
+  if (hasP0Blocker || hasHighP1Blocker) {
     verdict = 'REQUEST_CHANGES';
-  } else if (published.length > 0) {
+  } else if (published.length > 0 || verifiedBlockers.length > 0) {
     verdict = 'COMMENT';
   }
 
+  const gateErrors = [
+    ...inputErrors,
+    ...(characterizationCheck.valid ? [] : characterizationCheck.errors),
+  ];
+
   return {
     mode,
-    status: 'ok',
-    gateErrors: characterizationCheck.valid ? [] : characterizationCheck.errors,
-    prNumber: draft.prNumber ?? prContext.prNumber ?? null,
-    headSha: draft.headSha ?? prContext.headSha ?? null,
+    status: gateErrors.length === 0 ? 'ok' : 'validation_errors',
+    gateErrors,
+    prNumber: resolvedPrNumber,
+    headSha: resolvedHeadSha,
     observedProfile: observed,
     characterizationCheck,
     claimedCharacterization: draft.characterization || null,
@@ -952,6 +1054,13 @@ function runCli(argv) {
   }
 
   const draft = parsed.draft;
+  if (mode === 'strict' && !args.context) {
+    process.stderr.write(
+      'Strict mode requires independently collected PR metadata via --context <pr-context.json>.\n',
+    );
+    process.exit(2);
+  }
+
   const prContext = args.context
     ? JSON.parse(fs.readFileSync(args.context, 'utf8'))
     : draft.prContext || {};
@@ -963,6 +1072,15 @@ function runCli(argv) {
     repoRoot: args.repo || process.cwd(),
     mode,
   });
+
+  // In strict mode, fail before writing any publication artifacts
+  if (mode === 'strict' && result.gateErrors.length > 0) {
+    process.stderr.write(
+      `Strict gate validation failed:\n${JSON.stringify(result.gateErrors, null, 2)}\n`,
+    );
+    process.exit(2);
+  }
+
   const payload = buildPublishPayload(result);
   const reportMd = renderMarkdownReport(result);
 
@@ -978,13 +1096,6 @@ function runCli(argv) {
 
   if (!args['out-md'] && !args['out-json']) {
     process.stdout.write(`${reportMd}\n`);
-  }
-
-  if (mode === 'strict' && !result.characterizationCheck.valid) {
-    process.stderr.write(
-      `Characterization check failed:\n${JSON.stringify(result.characterizationCheck.errors, null, 2)}\n`,
-    );
-    process.exit(2);
   }
 }
 
