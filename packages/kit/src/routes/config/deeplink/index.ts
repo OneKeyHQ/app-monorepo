@@ -570,6 +570,14 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.prime_subscription:
           await openPrimeInfiniSubscriptionFromDeepLink({ navigation });
           break;
+        case EOneKeyDeepLinkPath.prime_dashboard:
+          // Same page as the in-app Prime entry: logged-out users sign in on
+          // the dashboard itself, with no handoff to the Infini checkout.
+          await whenAppUnlocked();
+          navigation.pushFullModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeDashboard,
+          });
+          break;
         case EOneKeyDeepLinkPath.prime_purchase_complete: {
           // Return from the hosted card checkout. Only a hint to re-check
           // RevenueCat; the purchase is never confirmed from the link.
@@ -839,6 +847,7 @@ function isSupportedOneKeyDeepLink(parsedUrl: Linking.ParsedURL): boolean {
     case EOneKeyDeepLinkPath.invite_share:
     case EOneKeyDeepLinkPath.redeem_bitcoin_voucher:
     case EOneKeyDeepLinkPath.prime_subscription:
+    case EOneKeyDeepLinkPath.prime_dashboard:
     case EOneKeyDeepLinkPath.prime_purchase_complete:
     case EOneKeyDeepLinkPath.preview_featured_changelog:
       return true;

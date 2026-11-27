@@ -26,7 +26,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
-import { handleDeepLinkUrl } from '..';
+import { handleDeepLinkUrl, isSupportedColdStartDeepLinkUrl } from '..';
 import { handleMarketWidgetLink } from '../marketWidgetLink';
 import {
   handleReferralLandingUrl,
@@ -141,6 +141,7 @@ jest.mock('../referralLandingLink', () => ({
       typeof code === 'string' && /^[a-zA-Z0-9_-]{1,32}$/u.test(code),
   ),
   navigateToReferralLanding: jest.fn(async () => true),
+  parseReferralLandingUrl: jest.fn(() => undefined),
 }));
 
 const mockedHandleReferralLandingUrl =
@@ -945,6 +946,103 @@ describe('prime_subscription deep link', () => {
     expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeInfiniSubscription,
     });
+  });
+});
+
+describe('prime_dashboard deep link', () => {
+  const pushModal = jest.fn();
+  const pushFullModal = jest.fn();
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const backgroundApiProxy = jest.requireMock(
+    '../../../../background/instance/backgroundApiProxy',
+  ).default as {
+    servicePrime: { isLoggedIn: jest.Mock };
+  };
+  const mockedWhenAppUnlocked = (
+    jest.requireMock('../../../../utils/passwordUtils') as {
+      whenAppUnlocked: jest.Mock;
+    }
+  ).whenAppUnlocked;
+  const primeDashboardDeepLink = `onekey-wallet://${EOneKeyDeepLinkPath.prime_dashboard}`;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedWhenAppUnlocked.mockImplementation(async () => {});
+    appGlobals.$rootAppNavigation = {
+      pushModal,
+      pushFullModal,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+  });
+
+  afterEach(() => {
+    mockedWhenAppUnlocked.mockImplementation(async () => {});
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+  });
+
+  it.each([false, true])(
+    'opens the plain Prime dashboard like the in-app entry (logged in: %s)',
+    async (isLoggedIn) => {
+      backgroundApiProxy.servicePrime.isLoggedIn.mockResolvedValue(isLoggedIn);
+
+      handleDeepLinkUrl({ url: primeDashboardDeepLink });
+      await flushAsyncTasks();
+      await flushAsyncTasks();
+
+      expect(pushFullModal).toHaveBeenCalledTimes(1);
+      // No fromDeepLink: that flag hands logged-out users on to Infini.
+      expect(pushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeDashboard,
+      });
+      expect(pushModal).not.toHaveBeenCalled();
+    },
+  );
+
+  it('waits for app unlock before opening the dashboard', async () => {
+    let resolveUnlock: () => void = () => {};
+    mockedWhenAppUnlocked.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUnlock = resolve;
+        }),
+    );
+
+    handleDeepLinkUrl({ url: primeDashboardDeepLink });
+    await flushAsyncTasks();
+    await flushAsyncTasks();
+    expect(pushFullModal).not.toHaveBeenCalled();
+
+    resolveUnlock();
+    await flushAsyncTasks();
+    expect(pushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+    });
+  });
+
+  it.each([
+    'https://app.onekey.so/prime/dashboard',
+    'https://app.onekeytest.com/prime/dashboard',
+  ])(
+    'does not treat the web landing URL as an app deep link: %s',
+    async (url) => {
+      handleDeepLinkUrl({ url });
+      await flushAsyncTasks();
+      await flushAsyncTasks();
+
+      expect(pushFullModal).not.toHaveBeenCalled();
+      expect(pushModal).not.toHaveBeenCalled();
+    },
+  );
+
+  it('claims a cold-start launch for the app deep link only', () => {
+    expect(isSupportedColdStartDeepLinkUrl(primeDashboardDeepLink)).toBe(true);
+    expect(
+      isSupportedColdStartDeepLinkUrl('https://app.onekey.so/prime/dashboard'),
+    ).toBe(false);
+    expect(
+      isSupportedColdStartDeepLinkUrl(
+        'https://app.onekeytest.com/prime/dashboard',
+      ),
+    ).toBe(false);
   });
 });
 

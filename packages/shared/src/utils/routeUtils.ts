@@ -17,6 +17,7 @@ import {
   ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
+  PRIME_DASHBOARD_LANDING_PATH,
   PRIME_PURCHASE_COMPLETE_PATH,
   PRIME_REDEEM_LANDING_PATH,
   PRIME_SUBSCRIPTION_LANDING_PATH,
@@ -280,6 +281,10 @@ export const buildAllowList = (
     // pagePath() strips inner slashes, so these two-segment public URLs would
     // not match getPathFromState. Keep the email paths as literal allowlist keys.
     [PRIME_SUBSCRIPTION_LANDING_PATH]: {
+      showUrl: true,
+      showParams: false,
+    },
+    [PRIME_DASHBOARD_LANDING_PATH]: {
       showUrl: true,
       showParams: false,
     },
