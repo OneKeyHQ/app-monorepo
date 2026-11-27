@@ -58,6 +58,8 @@ interface ISubscribeHyperliquidCandleParams {
 interface IFetchHyperliquidCandlesParams {
   coin: string;
   environment: ITradingViewNativeHyperliquidEnvironment;
+  // A retry asks for candles up to the time it is sent.
+  followsLatest?: boolean;
   interval: IHyperliquidCandleInterval;
   // The chart's count; without one, the request counts its own retries.
   rateLimitRetries?: ITradingViewNativeRateLimitRetries;
@@ -81,10 +83,6 @@ function getErrorMessage(error: unknown) {
 // each chart retries at most this many times in a row.
 const RATE_LIMIT_RETRY_DELAY_MS = 5000;
 const RATE_LIMIT_MAX_RETRIES = 10;
-// How far before now a request may end and still count as one for the latest
-// candles: the K-line hook rounds the end down to a second and keeps it for
-// its own retries.
-const LATEST_END_TOLERANCE_MS = 10_000;
 
 function isRateLimitError(error: unknown) {
   return error instanceof HttpRequestError && error.response?.status === 429;
@@ -302,6 +300,7 @@ export class TradingViewNativeHyperliquidGateway {
     coin,
     endTime,
     environment,
+    followsLatest = false,
     interval,
     rateLimitRetries = { used: 0 },
     signal,
@@ -311,6 +310,7 @@ export class TradingViewNativeHyperliquidGateway {
     coin: string;
     endTime: number;
     environment: ITradingViewNativeHyperliquidEnvironment;
+    followsLatest?: boolean;
     interval: IHyperliquidCandleInterval;
     rateLimitRetries?: ITradingViewNativeRateLimitRetries;
     signal?: AbortSignal;
@@ -318,9 +318,6 @@ export class TradingViewNativeHyperliquidGateway {
     waitOutRateLimit?: boolean;
   }) {
     const client = this.getInfoClient(environment);
-    // The chart drops live updates until its history loads, so a request for
-    // the latest candles asks again up to the time of the retry.
-    const endsNow = endTime >= Date.now() - LATEST_END_TOLERANCE_MS;
     let requestEndTime = endTime;
     for (;;) {
       try {
@@ -345,7 +342,9 @@ export class TradingViewNativeHyperliquidGateway {
         if (signal?.aborted) {
           throw error;
         }
-        if (endsNow) {
+        // Other ranges stay fixed: candles past their end could overwrite
+        // newer live updates the chart already shows.
+        if (followsLatest) {
           requestEndTime = Math.max(endTime, Date.now());
         }
       }
@@ -355,6 +354,7 @@ export class TradingViewNativeHyperliquidGateway {
   async fetchCandles({
     coin,
     environment,
+    followsLatest,
     interval,
     rateLimitRetries,
     signal,
@@ -373,6 +373,7 @@ export class TradingViewNativeHyperliquidGateway {
       coin,
       endTime: timeTo * 1000,
       environment,
+      followsLatest,
       interval,
       rateLimitRetries,
       signal,

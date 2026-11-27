@@ -4363,6 +4363,7 @@ export function useTradingViewNativeKLine({
           consumeHistoryRequestAttempt(requestAttemptBudget);
           let data = await historyProvider.fetchHistory({
             ...(sourceKind === 'stock' ? { allowEarlierHistory: true } : {}),
+            followsLatest: true,
             interval: requestedInterval,
             signal: abortController.signal,
             timeFrom,
@@ -4379,6 +4380,7 @@ export function useTradingViewNativeKLine({
             timeFrom = fullHistoryTimeFrom;
             consumeHistoryRequestAttempt(requestAttemptBudget);
             data = await historyProvider.fetchHistory({
+              followsLatest: true,
               interval: requestedInterval,
               signal: abortController.signal,
               timeFrom,

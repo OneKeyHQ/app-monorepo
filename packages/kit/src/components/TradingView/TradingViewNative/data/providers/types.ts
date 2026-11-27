@@ -19,6 +19,9 @@ export interface ITradingViewNativeRateLimitRetries {
 export interface ITradingViewNativeHistoryRequest {
   // Initial/latest and backward pagination may cross non-trading windows.
   allowEarlierHistory?: boolean;
+  // A load of the latest candles, whose end moves to the time of a retry.
+  // A chart drops live updates until this history loads.
+  followsLatest?: boolean;
   interval: ITradingViewNativeKLineInterval;
   rateLimitRetries?: ITradingViewNativeRateLimitRetries;
   signal: AbortSignal;

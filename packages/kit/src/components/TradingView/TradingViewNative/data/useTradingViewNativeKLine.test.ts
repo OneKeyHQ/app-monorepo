@@ -811,6 +811,13 @@ describe('TradingViewNative K-line data state machine', () => {
       await jest.advanceTimersByTimeAsync(4001);
     });
     expect(mockFetchHistory).toHaveBeenCalledTimes(4);
+    // Only the latest candles follow the time of a rate-limited retry; the
+    // warmup range stays fixed.
+    expect(
+      mockFetchHistory.mock.calls.map(
+        ([request]) => request.followsLatest ?? false,
+      ),
+    ).toEqual([true, false, false, false]);
     expect(result.current.dataState.status).toBe('live');
     pushRealtimePoint(buildResponse(105, now - 3600).points[0]);
     expect(result.current.points.map(({ c }) => c)).toEqual([105]);

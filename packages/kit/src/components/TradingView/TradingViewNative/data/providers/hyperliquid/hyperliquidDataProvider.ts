@@ -229,6 +229,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: true,
     fetchHistory: async ({
+      followsLatest,
       interval,
       rateLimitRetries,
       signal,
@@ -241,6 +242,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
         return tradingViewNativeHyperliquidGateway.fetchCandles({
           coin: source.coin,
           environment: source.environment,
+          followsLatest,
           interval: calendarInterval,
           rateLimitRetries,
           signal,
@@ -252,6 +254,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
       const response = await tradingViewNativeHyperliquidGateway.fetchCandles({
         coin: source.coin,
         environment: source.environment,
+        followsLatest,
         interval: '1d',
         rateLimitRetries,
         signal,

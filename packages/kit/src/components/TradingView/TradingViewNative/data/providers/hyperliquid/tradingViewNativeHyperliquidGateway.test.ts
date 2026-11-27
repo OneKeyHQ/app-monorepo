@@ -456,6 +456,7 @@ describe('TradingViewNative Hyperliquid gateway', () => {
 
       const result = gateway.fetchCandles({
         ...request,
+        followsLatest: true,
         signal: new AbortController().signal,
       });
       await jest.advanceTimersByTimeAsync(5000);
@@ -470,6 +471,30 @@ describe('TradingViewNative Hyperliquid gateway', () => {
       expect(mocks?.candleSnapshot).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({ endTime: 1_720_003_605_500 }),
+        expect.anything(),
+      );
+    });
+
+    it('keeps the end of a range that just ended, e.g. indicator warmup', async () => {
+      // A new market's only candle opened at 1_720_003_601; the warmup before
+      // it ends one second earlier, close to now.
+      jest.setSystemTime(1_720_003_601_500);
+      const gateway = new TradingViewNativeHyperliquidGateway();
+      const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+      mocks?.candleSnapshot
+        .mockRejectedValueOnce(httpError(429))
+        .mockResolvedValueOnce([]);
+
+      const result = gateway.fetchCandles({
+        ...request,
+        signal: new AbortController().signal,
+      });
+      await jest.advanceTimersByTimeAsync(5000);
+
+      await expect(result).resolves.toMatchObject({ total: 0 });
+      expect(mocks?.candleSnapshot).toHaveBeenCalledTimes(2);
+      expect(mocks?.candleSnapshot).toHaveBeenLastCalledWith(
+        expect.objectContaining({ endTime: 1_720_003_600_000 }),
         expect.anything(),
       );
     });

@@ -138,6 +138,7 @@ describe('Hyperliquid native calendar provider', () => {
     async (value) => {
       await createTradingViewNativeHyperliquidDataProvider(source).fetchHistory(
         {
+          followsLatest: true,
           interval: interval(value),
           rateLimitRetries: { used: 3 },
           signal: new AbortController().signal,
@@ -148,6 +149,7 @@ describe('Hyperliquid native calendar provider', () => {
       );
       expect(gateway.fetchCandles.mock.calls.at(-1)?.[0]).toEqual(
         expect.objectContaining({
+          followsLatest: true,
           rateLimitRetries: { used: 3 },
           waitOutRateLimit: false,
         }),
