@@ -1,0 +1,162 @@
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
+
+import {
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useStarknetPrivacySession } from '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacySession';
+import { readStarknetPrivacyBlock } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+
+import { InfoItem, InfoItemGroup } from './TxDetailsInfoItem';
+
+function StarknetAttributes({
+  decodedTx,
+}: {
+  decodedTx: IDecodedTx;
+  txDetails?: IOnChainHistoryTx;
+}) {
+  const intl = useIntl();
+  const privacy = readStarknetPrivacyBlock(decodedTx.extraInfo);
+  const shouldResolve =
+    privacy?.kind === 'transfer' && !decodedTx.actions[0]?.assetTransfer;
+  const session = useStarknetPrivacySession({
+    enabled: shouldResolve,
+    onLock: () => undefined,
+  });
+
+  const { result: resolved } = usePromiseResult(async () => {
+    if (!shouldResolve) return { session, tx: undefined };
+    const tx = await backgroundApiProxy.serviceStarknetPrivacy
+      .resolvePrivateHistoryTx({
+        networkId: decodedTx.networkId,
+        accountId: decodedTx.accountId,
+        txid: decodedTx.txid,
+      })
+      .catch(() => undefined);
+    return { session, tx };
+  }, [
+    shouldResolve,
+    session,
+    decodedTx.networkId,
+    decodedTx.accountId,
+    decodedTx.txid,
+  ]);
+  const decryptedTx = resolved?.session === session ? resolved.tx : undefined;
+
+  if (!shouldResolve) {
+    return null;
+  }
+
+  const assetTransfer = decryptedTx?.decodedTx.actions[0]?.assetTransfer;
+  const sendTransfer = assetTransfer?.sends?.[0];
+  const receiveTransfer = assetTransfer?.receives?.[0];
+  const primaryTransfer = sendTransfer ?? receiveTransfer;
+
+  if (!primaryTransfer) {
+    return null;
+  }
+
+  const isReceive = !sendTransfer && Boolean(receiveTransfer);
+  const fromAddress =
+    primaryTransfer.from ??
+    assetTransfer?.from ??
+    decryptedTx?.decodedTx.signer;
+  const toAddress = primaryTransfer.to ?? assetTransfer?.to;
+
+  return (
+    <Stack flex={1} flexBasis="100%" p="$2.5">
+      <YStack
+        bg="$bgSubdued"
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        p="$3"
+        gap="$2"
+      >
+        <InfoItemGroup p="$0">
+          <InfoItem
+            px="$0"
+            py="$1.5"
+            label={
+              <XStack
+                alignItems="center"
+                justifyContent="space-between"
+                width="100%"
+              >
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({ id: ETranslations.content__amount })}
+                </SizableText>
+                <XStack alignItems="center" gap="$1">
+                  <Icon name="LockOutline" size="$3.5" color="$iconSubdued" />
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.private_send_private_option,
+                    })}
+                  </SizableText>
+                </XStack>
+              </XStack>
+            }
+            renderContent={
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyMdMedium"
+                color={isReceive ? '$textSuccess' : '$text'}
+                formatterOptions={{
+                  tokenSymbol: primaryTransfer.symbol,
+                  showPlusMinusSigns: true,
+                }}
+              >
+                {`${isReceive ? '+' : '-'}${primaryTransfer.amount}`}
+              </NumberSizeableText>
+            }
+          />
+          {fromAddress ? (
+            <InfoItem
+              px="$0"
+              py="$1.5"
+              label={intl.formatMessage({ id: ETranslations.global_from })}
+              renderContent={fromAddress}
+              showCopy
+              description={
+                <AddressInfo
+                  address={fromAddress}
+                  networkId={decodedTx.networkId}
+                  accountId={decodedTx.accountId}
+                />
+              }
+            />
+          ) : null}
+          {toAddress ? (
+            <InfoItem
+              px="$0"
+              py="$1.5"
+              label={intl.formatMessage({ id: ETranslations.global_to })}
+              renderContent={toAddress}
+              showCopy
+              description={
+                <AddressInfo
+                  address={toAddress}
+                  networkId={decodedTx.networkId}
+                  accountId={decodedTx.accountId}
+                />
+              }
+            />
+          ) : null}
+        </InfoItemGroup>
+      </YStack>
+    </Stack>
+  );
+}
+
+export { StarknetAttributes };
