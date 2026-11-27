@@ -108,6 +108,10 @@ import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardw
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  ESkanMilestone,
+  markSkanMilestones,
+} from '@onekeyhq/shared/src/modules/SkanConversion';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { subscribeNativeStorageRecoveryInvalidation } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryInvalidation';
@@ -4364,6 +4368,12 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    if (!isMockedStandardHwWallet) {
+      void markSkanMilestones(
+        ESkanMilestone.WalletActivated,
+        ESkanMilestone.HardwareWalletConnected,
+      );
+    }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
@@ -4859,6 +4869,7 @@ class ServiceAccount extends ServiceBase {
       walletId: result.wallet.id,
       isFreshlyGeneratedMnemonic: !!isFreshlyGeneratedMnemonic,
     });
+    void markSkanMilestones(ESkanMilestone.WalletActivated);
 
     return result;
   }
@@ -8310,6 +8321,7 @@ class ServiceAccount extends ServiceBase {
         walletId,
         walletType: wallet.type,
       });
+      void markSkanMilestones(ESkanMilestone.BackupCompleted);
     }
   }
 
