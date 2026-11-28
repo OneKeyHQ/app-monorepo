@@ -30,6 +30,7 @@ import { FOLDABLE_IPHONE_TITLE_ITEM_WIDTH } from '@onekeyhq/kit/src/components/T
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -103,6 +104,11 @@ export function MarketDetailHeader({
   const intl = useIntl();
   const isFocused = useIsFocused();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // The navigation bar spans the page, not the window: an iPad modal or a
+  // split-view pane is narrower than the window.
+  const containerWidth = useTabContainerWidth();
+  const headerBarWidth =
+    typeof containerWidth === 'number' ? containerWidth : windowWidth;
   const {
     top: safeAreaTop,
     left: safeAreaLeft,
@@ -271,7 +277,7 @@ export function MarketDetailHeader({
     ? FOLDABLE_IPHONE_TITLE_ITEM_WIDTH
     : Math.max(
         0,
-        (inPageHeaderGeometry?.width ?? windowWidth) -
+        (inPageHeaderGeometry?.width ?? headerBarWidth) -
           (inPageHeaderGeometry?.left ?? safeAreaLeft) -
           (inPageHeaderGeometry?.right ?? safeAreaRight) -
           40 -
