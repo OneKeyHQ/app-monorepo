@@ -1,9 +1,14 @@
-/* cspell:words GOMEMLIMIT tsgo */
-const { execSync, execFileSync } = require('child_process');
+/* cspell:words GOMEMLIMIT GOGC tsgo */
+const { execFileSync } = require('child_process');
 const path = require('path');
 const { exit } = require('process');
 
 const { parse } = require('@aivenio/tsc-output-parser');
+
+const {
+  buildTscInvocation,
+  getYarnCacheFolder,
+} = require('../scripts/tsc-check');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
@@ -48,36 +53,22 @@ function handleProblems(result) {
   }
 }
 
-const tsConfigPath = path.join(__dirname, '../../tsconfig.json');
+const rootDir = path.join(__dirname, '../..');
+const tsConfigPath = path.join(rootDir, 'tsconfig.json');
 try {
-  const cacheFolder = execSync('yarn config get cacheFolder')
-    .toString('utf-8')
-    .trim();
+  const cacheFolder = getYarnCacheFolder(rootDir);
   console.log(`[${getTimestamp()}] Using tsconfig: ${tsConfigPath}`);
   console.log(`[${getTimestamp()}] Using cache folder: ${cacheFolder}`);
-  const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
-  const typescriptPackage = require.resolve('typescript/package.json');
-  const tscEntry = path.join(path.dirname(typescriptPackage), 'bin', 'tsc');
-  const result = execFileSync(
-    process.execPath,
-    [
-      tscEntry,
-      '-p',
-      tsConfigPath,
-      '--noEmit',
-      '--tsBuildInfoFile',
-      tsBuildInfoPath,
-    ],
-    {
-      // Cap Go heap growth in the TypeScript 7 native compiler (tsgo) so 16 GB CI runners do
-      // not get terminated with SIGTERM (exit code 143) under memory pressure,
-      // while leaving enough headroom above the ~8 GB live AST heap to avoid GC thrashing.
-      env: {
-        ...process.env,
-        GOMEMLIMIT: process.env.GOMEMLIMIT || '11GiB',
-      },
-    },
-  ).toString('utf-8');
+  // Leave enough Go heap headroom on 16 GB CI runners while sharing the
+  // checker count and GOGC defaults with local tsc:staged / tsc:only runs.
+  const { command, args, env } = buildTscInvocation({
+    rootDir,
+    cacheFolder,
+    pretty: false,
+    defaultGoMemLimit: '11GiB',
+    env: process.env,
+  });
+  const result = execFileSync(command, args, { env }).toString('utf-8');
   console.log(result);
 } catch (error) {
   const stdout = error.stdout?.toString('utf-8') ?? '';

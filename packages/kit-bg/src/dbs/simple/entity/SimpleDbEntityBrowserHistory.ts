@@ -1,7 +1,7 @@
 import { uniqBy } from 'lodash';
 
-import type { IBrowserHistory } from '@onekeyhq/kit/src/views/Discovery/types';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IBrowserHistory } from '@onekeyhq/shared/types/discovery';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 

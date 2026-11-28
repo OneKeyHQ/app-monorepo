@@ -1,4 +1,4 @@
-import type { IBrowserRiskWhiteList } from '@onekeyhq/kit/src/views/Discovery/types';
+import type { IBrowserRiskWhiteList } from '@onekeyhq/shared/types/discovery';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { IToast } from '@onekeyhq/components';
+// oxlint-disable-next-line no-restricted-imports -- legacy upward import; do not add new @onekeyhq/kit imports
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type BackgroundApi from '@onekeyhq/kit-bg/src/apis/BackgroundApi';
 import type BackgroundApiProxy from '@onekeyhq/kit-bg/src/apis/BackgroundApiProxy';

@@ -1,4 +1,7 @@
-import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type {
+  EPrimeFeatures,
+  ISubscriptionPeriod,
+} from '@onekeyhq/shared/src/routes/prime';
 import type {
   IRevenueCatCustomerInfo,
   IRevenueCatPurchaseResult,
@@ -14,7 +17,7 @@ import type {
   MakePurchaseResult,
 } from 'react-native-purchases';
 
-export type ISubscriptionPeriod = 'P1Y' | 'P1M';
+export type { ISubscriptionPeriod };
 
 export type IPackageFreeTrial = {
   periodIso: string; // e.g. "P3D"

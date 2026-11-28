@@ -1,30 +1,23 @@
-import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
-import type { IDApp } from '@onekeyhq/shared/types/discovery';
+import {
+  ESiteMode,
+  type IBrowserBookmark,
+  type IBrowserHistory,
+  type IBrowserRiskWhiteList,
+  type IDApp,
+  type IWebTab,
+  type IWebTabsAtom,
+} from '@onekeyhq/shared/types/discovery';
+
+export { ESiteMode };
+export type {
+  IBrowserBookmark,
+  IBrowserHistory,
+  IBrowserRiskWhiteList,
+  IWebTab,
+  IWebTabsAtom,
+};
 
 export type IBrowserType = 'StandardBrowser' | 'MultiTabBrowser';
-
-export interface IBrowserHistory {
-  id: string;
-  title: string;
-  url: string;
-  createdAt: number;
-  logo?: string;
-  titleMatch?: IFuseResultMatch;
-  urlMatch?: IFuseResultMatch;
-}
-
-export interface IBrowserBookmark {
-  title: string;
-  url: string;
-  logo: string | undefined;
-  sortIndex: number | undefined;
-  titleMatch?: IFuseResultMatch;
-  urlMatch?: IFuseResultMatch;
-}
-
-export interface IBrowserRiskWhiteList {
-  url: string;
-}
 
 export interface IGotoSiteFnParams {
   url: string;
@@ -70,37 +63,6 @@ export type IOnWebviewNavigation = ({
   id,
   handlePhishingUrl,
 }: IOnWebviewNavigationFnParams) => void;
-
-export enum ESiteMode {
-  desktop = 'desktop',
-  mobile = 'mobile',
-}
-
-export interface IWebTab {
-  id: string;
-  url: string;
-  displayUrl?: string; // URL for address bar display and UI functions (sharing, external browser)
-  isActive?: boolean;
-  title?: string;
-  customTitle?: string;
-  favicon?: string;
-  thumbnail?: string;
-  isBookmark?: boolean;
-  isPinned?: boolean;
-  pinnedTimestamp?: number;
-  loading?: boolean;
-  canGoBack?: boolean;
-  canGoForward?: boolean;
-  refReady?: boolean;
-  timestamp?: number;
-  siteMode?: ESiteMode;
-  type?: 'normal' | 'home';
-}
-
-export interface IWebTabsAtom {
-  tabs: IWebTab[];
-  keys: string[];
-}
 
 export interface IMobileBottomOptionsProps {
   isBookmark: boolean;

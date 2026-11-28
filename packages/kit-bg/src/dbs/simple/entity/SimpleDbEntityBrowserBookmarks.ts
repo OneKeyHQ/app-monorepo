@@ -1,7 +1,7 @@
 import { cloneDeep } from 'lodash';
 
-import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import type { IBrowserBookmark } from '@onekeyhq/shared/types/discovery';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 

@@ -1,7 +1,8 @@
 import { createContext, useContext } from 'react';
 
-import type { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+
+import type { IHyperlinkTextComponent } from '../types';
 
 export type ISettingConfigContextValue = {
   // Resolved theme variant actually used for rendering.
@@ -11,7 +12,7 @@ export type ISettingConfigContextValue = {
   themeSetting?: 'light' | 'dark' | 'system';
   locale: ILocaleSymbol;
   hapticFeedbackEnabled: boolean;
-  HyperlinkText: typeof HyperlinkText;
+  HyperlinkText: IHyperlinkTextComponent;
 };
 
 export const SettingConfigContext = createContext<ISettingConfigContextValue>(

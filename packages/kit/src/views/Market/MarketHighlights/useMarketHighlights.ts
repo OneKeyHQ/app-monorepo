@@ -4,16 +4,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketHighlightsPreview } from '@onekeyhq/shared/src/routes/market';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { getNativeTokenInfo } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
-export type IMarketHighlightsPreview = {
-  locale: string;
-  items: IMarketHighlight[];
-};
+export type { IMarketHighlightsPreview };
 
 export function useMarketHighlights(initialResult?: IMarketHighlightsPreview) {
   const locale = useLocaleVariant();

@@ -238,3 +238,53 @@ export type IDesktopStoreMap = {
   [EDesktopStoreKeys.BootFailAppVersion]: string;
   [EDesktopStoreKeys.NetworkThrottle]: IDesktopStoreNetworkThrottle;
 };
+
+export type IMenuItemType = 'normal' | 'separator' | 'submenu';
+
+export type IMenuItemRole =
+  | 'about'
+  | 'hide'
+  | 'unhide'
+  | 'quit'
+  | 'undo'
+  | 'redo'
+  | 'cut'
+  | 'copy'
+  | 'paste'
+  | 'delete'
+  | 'selectall'
+  | 'reload'
+  | 'forcereload'
+  | 'toggledevtools'
+  | 'resetzoom'
+  | 'zoomin'
+  | 'zoomout'
+  | 'togglefullscreen'
+  | 'minimize'
+  | 'zoom'
+  | 'front'
+  | 'help';
+
+export interface IMenuItem {
+  label: string;
+  submenu: IMenu | null;
+  type: IMenuItemType;
+  role: IMenuItemRole | null;
+  accelerator: string | null;
+  icon: string | null;
+  // cspell:ignore sublabel
+  sublabel: string;
+  toolTip: string;
+  enabled: boolean;
+  visible: boolean;
+  checked: boolean;
+  acceleratorWorksWhenHidden: boolean;
+  registerAccelerator: boolean;
+  commandId: number;
+  userAccelerator: string | null;
+}
+
+export interface IMenu {
+  groupsMap: Record<string, unknown>;
+  items: IMenuItem[];
+}

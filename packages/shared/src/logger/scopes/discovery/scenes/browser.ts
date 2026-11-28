@@ -1,4 +1,4 @@
-import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import type { IWebTab } from '@onekeyhq/shared/types/discovery';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';

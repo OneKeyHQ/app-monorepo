@@ -1,4 +1,4 @@
-import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import type { IWebTab } from '@onekeyhq/shared/types/discovery';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 

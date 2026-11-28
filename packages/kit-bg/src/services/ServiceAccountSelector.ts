@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+// oxlint-disable-next-line no-restricted-imports -- legacy upward import; do not add new @onekeyhq/kit imports
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   backgroundClass,

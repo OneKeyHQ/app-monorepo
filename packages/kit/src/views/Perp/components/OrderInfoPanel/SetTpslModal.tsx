@@ -27,6 +27,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EModalPerpRoutes,
   type IModalPerpParamList,
+  type ISetTpslParams,
 } from '@onekeyhq/shared/src/routes/perp';
 import {
   calculateProfitLoss,
@@ -64,15 +65,7 @@ import {
 import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
 
-export interface ISetTpslParams {
-  coin: string;
-  szDecimals: number;
-  assetId: number;
-  isMobile?: boolean;
-  // Seed a single trigger field when opened from a chart position context.
-  presetTriggerPrice?: string;
-  presetTpsl?: 'tp' | 'sl';
-}
+export type { ISetTpslParams };
 
 interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
   inPage?: boolean;

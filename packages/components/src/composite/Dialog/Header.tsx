@@ -1,8 +1,6 @@
 import type { ComponentProps } from 'react';
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 
-import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperlinkText';
-
 import { IconButton } from '../../actions/IconButton';
 import { GlassButtonCapsule } from '../../content/GlassButtonCapsule';
 import { RichSizeableText } from '../../content/RichSizeableText';
@@ -11,6 +9,7 @@ import { Heading, Icon, SizableText, Stack } from '../../primitives';
 
 import type { IDialogHeaderContextType, IDialogHeaderProps } from './type';
 import type { IRichSizeableTextProps } from '../../content/RichSizeableText';
+import type { IHyperlinkTextProps } from '../../hocs/Provider/types';
 import type { ColorTokens, ISizableTextProps } from '../../primitives';
 
 const closeButtonIconProps = { color: '$iconSubdued' } as const;

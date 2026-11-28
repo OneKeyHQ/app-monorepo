@@ -513,9 +513,13 @@
                 "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
               },
               {
-                "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg"],
-                "message": "Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder",
-                "allowTypeImports": true
+                "group": [
+                  "@onekeyhq/kit",
+                  "@onekeyhq/kit/**",
+                  "@onekeyhq/kit-bg",
+                  "@onekeyhq/kit-bg/**"
+                ],
+                "message": "packages/components must not import from @onekeyhq/kit or @onekeyhq/kit-bg (including import type) to prevent cross-layer TS type cycles."
               }
             ]
           }
@@ -529,7 +533,12 @@
     },
     {
       // packages/shared - cannot import from kit, kit-bg, components, or core
-      "files": ["packages/shared/src/**/*.ts", "packages/shared/src/**/*.tsx"],
+      "files": [
+        "packages/shared/src/**/*.ts",
+        "packages/shared/src/**/*.tsx",
+        "packages/shared/types/**/*.ts",
+        "packages/shared/types/**/*.tsx"
+      ],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -543,12 +552,12 @@
                 "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
               },
               {
-                "group": [
-                  "@onekeyhq/kit",
-                  "@onekeyhq/kit-bg",
-                  "@onekeyhq/components"
-                ],
-                "message": "Please avoid using @onekeyhq/kit, @onekeyhq/kit-bg, and @onekeyhq/components in this folder",
+                "group": ["@onekeyhq/kit", "@onekeyhq/kit/**"],
+                "message": "packages/shared must not import from @onekeyhq/kit (including import type) to prevent cross-layer TS type cycles."
+              },
+              {
+                "group": ["@onekeyhq/kit-bg", "@onekeyhq/components"],
+                "message": "Please avoid using @onekeyhq/kit-bg and @onekeyhq/components in this folder",
                 "allowTypeImports": true
               },
               {
@@ -582,8 +591,12 @@
                 "allowTypeImports": true
               },
               {
-                "group": ["@onekeyhq/kit", "@onekeyhq/components"],
-                "message": "Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder",
+                "group": ["@onekeyhq/kit", "@onekeyhq/kit/**"],
+                "message": "packages/kit-bg must not import from @onekeyhq/kit (including import type) to prevent cross-layer TS type cycles."
+              },
+              {
+                "group": ["@onekeyhq/components"],
+                "message": "Please avoid using @onekeyhq/components in this folder",
                 "allowTypeImports": true
               }
             ]
@@ -654,12 +667,16 @@
               },
               {
                 "group": [
-                  "tamagui",
                   "@onekeyhq/kit",
-                  "@onekeyhq/kit-bg",
-                  "@onekeyhq/components"
+                  "@onekeyhq/kit/**",
+                  "@onekeyhq/components",
+                  "@onekeyhq/components/**"
                 ],
-                "message": "Please avoid using tamagui, @onekeyhq/kit, @onekeyhq/kit-bg, @onekeyhq/components in this folder",
+                "message": "packages/core must not import from @onekeyhq/kit or @onekeyhq/components (including import type) to prevent cross-layer TS type cycles."
+              },
+              {
+                "group": ["tamagui", "@onekeyhq/kit-bg"],
+                "message": "Please avoid using tamagui and @onekeyhq/kit-bg in this folder",
                 "allowTypeImports": true
               }
             ]

@@ -22,9 +22,18 @@ import { restartBridge } from '@onekeyhq/desktop/app/process';
 import { getAppStaticResourcesPath } from '@onekeyhq/desktop/app/resoucePath';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
+import type {
+  IMediaType,
+  IMenu,
+  IMenuItem,
+  IMenuItemRole,
+  IMenuItemType,
+  IPrefType,
+} from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
+
+export type { IMenu, IMenuItem, IMenuItemRole, IMenuItemType };
 
 const execFileAsync = promisify(execFile);
 
@@ -96,56 +105,6 @@ export type IInstallOneKeyUdevRulesResult = {
   stdout?: string;
   stderr?: string;
 };
-
-export type IMenuItemType = 'normal' | 'separator' | 'submenu';
-
-export type IMenuItemRole =
-  | 'about'
-  | 'hide'
-  | 'unhide'
-  | 'quit'
-  | 'undo'
-  | 'redo'
-  | 'cut'
-  | 'copy'
-  | 'paste'
-  | 'delete'
-  | 'selectall'
-  | 'reload'
-  | 'forcereload'
-  | 'toggledevtools'
-  | 'resetzoom'
-  | 'zoomin'
-  | 'zoomout'
-  | 'togglefullscreen'
-  | 'minimize'
-  | 'zoom'
-  | 'front'
-  | 'help';
-
-export interface IMenuItem {
-  label: string;
-  submenu: IMenu | null;
-  type: IMenuItemType;
-  role: IMenuItemRole | null;
-  accelerator: string | null;
-  icon: string | null;
-  // cspell:ignore sublabel
-  sublabel: string;
-  toolTip: string;
-  enabled: boolean;
-  visible: boolean;
-  checked: boolean;
-  acceleratorWorksWhenHidden: boolean;
-  registerAccelerator: boolean;
-  commandId: number;
-  userAccelerator: string | null;
-}
-
-export interface IMenu {
-  groupsMap: Record<string, unknown>;
-  items: IMenuItem[];
-}
 
 // The only legitimate producer of share images is the renderer share-card
 // canvas (`toDataURL('image/png')`), so the main process accepts nothing but

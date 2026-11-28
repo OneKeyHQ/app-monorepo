@@ -2,6 +2,7 @@ import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import axios from 'axios';
 
+// oxlint-disable-next-line no-restricted-imports -- legacy upward import; do not add new @onekeyhq/kit imports
 import { getFirmwareUpdateUSBPreflightParams } from '@onekeyhq/kit/src/views/FirmwareUpdate/utils';
 import {
   EAppEventBusNames,

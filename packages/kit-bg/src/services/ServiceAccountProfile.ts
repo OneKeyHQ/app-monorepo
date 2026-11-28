@@ -1,6 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
   backgroundMethod,
@@ -19,6 +18,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
   IAddressBadge,
+  IAddressQueryResult,
   ICexSupportedInfo,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,

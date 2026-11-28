@@ -17,10 +17,10 @@ import {
   useProps,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
-import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import { useClipboard, useSelectionColor } from '../../hooks';
 import { Group, Icon } from '../../primitives';
@@ -70,9 +70,10 @@ export type IInputProps = {
   allowClear?: boolean; // add clear button when controlled value is not empty
   allowPaste?: boolean; // add paste button
   allowScan?: boolean; // add scan button
-  startScanQrCode?: (
-    params: IQRCodeHandlerParseOutsideOptions,
-  ) => Promise<{ raw?: string }>; // const { start: startScanQrCode } = useScanQrCode();
+  startScanQrCode?: (params: {
+    handlers?: EQRCodeHandlerNames[];
+    autoExecuteParsedAction?: boolean;
+  }) => Promise<{ raw?: string }>; // const { start: startScanQrCode } = useScanQrCode();
   clearClipboardOnPaste?: boolean; // clear clipboard on paste
   autoFocusDelayMs?: number;
   selectTextOnFocus?: boolean;

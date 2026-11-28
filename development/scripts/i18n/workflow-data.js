@@ -91,6 +91,7 @@ function generatedHashes(root = ROOT) {
     [
       ...fs
         .readdirSync(path.join(root, LOCALES_PATH))
+        .filter((name) => !name.endsWith('.d.json.ts'))
         .map((name) => `${LOCALES_PATH}/${name}`),
       ...GENERATED_PATHS.slice(1),
     ].filter((file) => fs.existsSync(path.join(root, file))),

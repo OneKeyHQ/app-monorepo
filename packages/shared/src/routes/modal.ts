@@ -1,5 +1,3 @@
-import type { IModalMarketParamList } from '@onekeyhq/kit/src/views/Market/router';
-
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
 import type { IModalAddressRiskCheckParamList } from './addressRiskCheck';
@@ -22,6 +20,7 @@ import type { IIntercomParamList } from './intercom';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
 import type { IManualBackupParamList } from './manualBackup';
+import type { IModalMarketParamList } from './market';
 import type { IModalNetworkDoctorParamList } from './networkDoctor';
 import type { IModalNotificationsParamList } from './notifications';
 import type { IOnboardingParamList } from './onboarding';

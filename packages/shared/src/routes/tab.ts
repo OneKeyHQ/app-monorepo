@@ -1,3 +1,4 @@
+// oxlint-disable-next-line no-restricted-imports -- legacy upward import; do not add new @onekeyhq/kit imports
 import type { IDemoDeveloperTabParamList } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 import type {
   IMultiTabBrowserParamList,

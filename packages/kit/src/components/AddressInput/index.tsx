@@ -20,10 +20,6 @@ import {
 } from '@onekeyhq/components';
 import { useFormContext } from '@onekeyhq/components/src/hooks/useForm';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getCexDepositWarningFacts } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
@@ -31,9 +27,8 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
-  type EAddressInteractionStatus,
   EInputAddressChangeType,
-  type IAddressBadge,
+  type IAddressQueryResult,
   type IAddressValidateStatus,
   type ICexSupportedInfo,
   type IQueryCheckAddressArgs,
@@ -58,6 +53,8 @@ import {
 
 import type { IScanPluginProps } from './plugins/scan';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
+
+export type { IAddressQueryResult };
 
 type IResolvedAddressProps = {
   value: string;
@@ -177,35 +174,6 @@ type IAddressInputProps = Omit<
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
   tokenAddress?: string;
-};
-
-export type IAddressQueryResult = {
-  input?: string;
-  validStatus?: IAddressValidateStatus;
-  walletName?: string;
-  accountName?: string;
-  walletAccountName?: string;
-  walletAccountId?: string; // accountId or indexedAccountId
-  walletId?: string;
-  addressBookId?: string;
-  addressBookName?: string;
-  resolveAddress?: string;
-  validAddress?: string;
-  resolveOptions?: string[];
-  addressInteractionStatus?: EAddressInteractionStatus;
-  isContract?: boolean;
-  addressLabel?: string;
-  isAllowListed?: boolean;
-  isEnableTransferAllowList?: boolean;
-  isScam?: boolean;
-  isCex?: boolean;
-  addressBadges?: IAddressBadge[];
-  addressDeriveInfo?: IAccountDeriveInfo;
-  addressDeriveType?: IAccountDeriveTypes;
-  addressNote?: string;
-  addressMemo?: string;
-  similarAddress?: string;
-  cexSupportedInfo?: ICexSupportedInfo;
 };
 
 type IAddressInputBadgeGroupProps = {
