@@ -7,6 +7,7 @@ import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from './config';
+import { PROTOCOL, clearProtocolHandlerIfNeeded } from './libs/protocol';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import * as store from './libs/store';
 import { getAppStaticResourcesPath } from './resoucePath';
@@ -68,9 +69,10 @@ export function createRecoveryWindow(): BrowserWindow {
   // asar-aware fs layer. The main window's interceptor (app.ts:1050) is
   // registered inside did-finish-load — which never runs when the recovery
   // path is taken — so there is no conflict.
-  const PROTOCOL = 'file';
-  if (session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL)) {
-    session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
+  try {
+    clearProtocolHandlerIfNeeded(session.defaultSession.protocol, PROTOCOL);
+  } catch (e) {
+    logger.warn('[recoveryWindow] clearProtocolHandlerIfNeeded failed', e);
   }
   session.defaultSession.protocol.interceptFileProtocol(
     PROTOCOL,
