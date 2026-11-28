@@ -100,7 +100,7 @@ index a52a853..1815f53 100644
          // https://github.com/electron-userland/electron-builder/issues/1196#issuecomment-312310209
          if (masOptions != null && !isDevelopment) {
 diff --git a/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js b/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js
-index 1e4ef94..16bd529 100644
+index 1e4ef94..9141ca5 100644
 --- a/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js
 +++ b/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js
 @@ -156,6 +156,8 @@ class NsisTarget extends core_1.Target {
@@ -112,6 +112,66 @@ index 1e4ef94..16bd529 100644
              APP_ID: appInfo.id,
              APP_GUID: guid,
              // Windows bug - entry in Software\Microsoft\Windows\CurrentVersion\Uninstall cannot have \ symbols (dir)
+@@ -282,6 +284,18 @@ class NsisTarget extends core_1.Target {
+         if (packager.packagerOptions.effectiveOptionComputed != null && (await packager.packagerOptions.effectiveOptionComputed([defines, commands]))) {
+             return;
+         }
++        // OneKey patch: use the signed uninstaller to finish each NSIS payload inventory.
++        const recoveryHookPath = process.env.ONEKEY_WINDOWS_RECOVERY_INVENTORY_HOOK;
++        const prepareRecoveryInventory = !isPortable && !this.isWebInstaller && recoveryHookPath
++            ? require(path.resolve(recoveryHookPath))
++            : null;
++        if (prepareRecoveryInventory != null) {
++            if (process.platform !== "win32" || options.script != null || options.useZip) {
++                throw new Error("OneKey directory recovery requires the standard Windows NSIS installer");
++            }
++            defines.ONEKEY_USE_DIRECTORY_RECOVERY = null;
++            defines.ONEKEY_RECOVERY_HELPER = path.join(defines.BUILD_RESOURCES_DIR, "installer-generated", "OneKeyInstallerDirectoryRecovery.exe");
++        }
+         // prepare short-version variants of defines and commands, to make an uninstaller that doesn't differ much from the previous one
+         const definesUninstaller = { ...defines };
+         const commandsUninstaller = { ...commands };
+@@ -297,8 +311,38 @@ class NsisTarget extends core_1.Target {
+                 : await this.computeScriptAndSignUninstaller(definesUninstaller, commandsUninstaller, installerPath, sharedHeader, archs);
+             // copy outfile name into main options, as the computeScriptAndSignUninstaller function was kind enough to add important data to temporary defines.
+             defines.UNINSTALLER_OUT_FILE = definesUninstaller.UNINSTALLER_OUT_FILE;
+-            await this.executeMakensis(defines, commands, sharedHeader + (await this.computeFinalScript(script, true, archs)));
+-            await Promise.all([packager.signIf(installerPath), defines.UNINSTALLER_OUT_FILE == null ? Promise.resolve() : (0, fs_extra_1.unlink)(defines.UNINSTALLER_OUT_FILE)]);
++            const recoveryInventories = [];
++            try {
++                if (prepareRecoveryInventory != null) {
++                    if (defines.UNINSTALLER_OUT_FILE == null) {
++                        throw new Error("OneKey directory recovery requires an embedded uninstaller");
++                    }
++                    for (const [arch, appOutDir] of archs) {
++                        const suffix = arch === builder_util_1.Arch.x64 ? "64" : arch === builder_util_1.Arch.arm64 ? "ARM64" : "32";
++                        const outputPath = path.join(this.outDir, path.parse(installerPath).name + "__recovery_" + suffix + ".dll");
++                        recoveryInventories.push(outputPath);
++                        await prepareRecoveryInventory({
++                            appOutDir,
++                            uninstallerPath: defines.UNINSTALLER_OUT_FILE,
++                            uninstallerFilename: "Uninstall " + defines.PRODUCT_FILENAME + ".exe",
++                            uninstallerIconPath: defines.UNINSTALLER_ICON,
++                            release: defines.VERSION,
++                            outputPath,
++                            templatePath: path.join(defines.BUILD_RESOURCES_DIR, "installer-generated", "OneKeyInstallerInventoryTemplate.bin"),
++                            sign: file => packager.signIf(file),
++                        });
++                        defines["ONEKEY_RECOVERY_INVENTORY_" + suffix] = outputPath;
++                    }
++                }
++                await this.executeMakensis(defines, commands, sharedHeader + (await this.computeFinalScript(script, true, archs)));
++                await packager.signIf(installerPath);
++            }
++            finally {
++                await Promise.all(recoveryInventories.map(file => (0, fs_extra_1.remove)(file)));
++                if (defines.UNINSTALLER_OUT_FILE != null) {
++                    await (0, fs_extra_1.unlink)(defines.UNINSTALLER_OUT_FILE);
++                }
++            }
+             const safeArtifactName = (0, platformPackager_1.computeSafeArtifactNameIfNeeded)(installerFilename, () => this.generateGitHubInstallerName(primaryArch, defaultArch));
+             let updateInfo;
+             if (this.isWebInstaller) {
 diff --git a/node_modules/app-builder-lib/out/targets/snap.js b/node_modules/app-builder-lib/out/targets/snap.js
 index be3bb87..1b25951 100644
 --- a/node_modules/app-builder-lib/out/targets/snap.js
@@ -164,11 +224,316 @@ index b7f4752..f257d39 100644
    !ifmacrodef customUninstallPage
      !insertmacro customUninstallPage
    !endif
+diff --git a/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh b/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
+index 981246d..390cb6d 100644
+--- a/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
++++ b/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
+@@ -1,12 +1,3 @@
+-!ifndef nsProcess::FindProcess
+-    !include "nsProcess.nsh"
+-!endif
+-
+-!ifmacrondef customCheckAppRunning
+-  !include "getProcessInfo.nsh"
+-  Var pid
+-!endif
+-
+ # http://nsis.sourceforge.net/Allow_only_one_installer_instance
+ !macro ALLOW_ONLY_ONE_INSTALLER_INSTANCE
+   BringToFront
+@@ -29,136 +20,162 @@
+   launch:
+ !macroend
+
++# OneKey patch: select the shipped app and bundled helpers by full image path and keep the same
++# verified process handle through termination.
++!ifdef BUILD_UNINSTALLER
++  !define ONEKEY_APP_PROCESSES un.OneKeyAppProcesses
++!else
++  !define ONEKEY_APP_PROCESSES OneKeyAppProcesses
++!endif
++
++!ifmacrondef customCheckAppRunning
++  Function ${ONEKEY_APP_PROCESSES}
++    Exch $0 # 0 checks for a matching process, 1 stops matching processes.
++    Push $1
++    Push $2
++    Push $3
++    Push $4
++    Push $5
++    Push $6
++    Push $7
++    Push $8
++    Push $9
++    Push $R0
++    StrCpy $9 1
++
++    ${If} $INSTDIR == ""
++      Goto done
++    ${EndIf}
++    GetFullPathName $1 "$INSTDIR"
++    ${If} $1 == ""
++      Goto done
++    ${EndIf}
++    System::Call 'kernel32::GetLongPathNameW(w r1, w .r1, i ${NSIS_MAX_STRLEN})i .r6'
++    ${If} $6 == 0
++    ${OrIf} $6 >= ${NSIS_MAX_STRLEN}
++      Goto done
++    ${EndIf}
++    StrCpy $6 "$1" 1 -1
++    ${If} $6 == "\"
++      StrCpy $1 "$1" -1
++    ${EndIf}
++    System::Call 'kernel32::GetCurrentProcessId() i .r2'
++    System::Call 'kernel32::CreateToolhelp32Snapshot(i 2, i 0) p .r3'
++    IntCmp $3 -1 done
++
++    # PROCESSENTRY32W in the 32-bit NSIS runtime.
++    System::Alloc 556
++    Pop $4
++    ${If} $4 == 0
++      Goto close_snapshot
++    ${EndIf}
++    System::Call '*$4(i 556)'
++    System::Call 'kernel32::Process32FirstW(p r3, p r4) i .r5'
++    ${While} $5 != 0
++      System::Call '*$4(i,i,i .r6,i,i,i,i,i,i,&w260 .r7)'
++      ${If} $6 != $2
++        ${If} $7 == "${APP_EXECUTABLE_FILENAME}"
++          StrCpy $R0 "$1\${APP_EXECUTABLE_FILENAME}"
++        ${ElseIf} $7 == "onekey-ble-pair.exe"
++          StrCpy $R0 "$1\resources\bin\ble-pair\onekey-ble-pair.exe"
++        ${ElseIf} $7 == "onekeyd.exe"
++          StrCpy $R0 "$1\resources\bin\bridge\onekeyd.exe"
++        ${Else}
++          Goto next_process
++        ${EndIf}
++        StrCpy $8 0x1000 # PROCESS_QUERY_LIMITED_INFORMATION
++        ${If} $0 == 1
++          IntOp $8 $8 | 1 # PROCESS_TERMINATE
++        ${EndIf}
++        System::Call 'kernel32::OpenProcess(i r8, i 0, i r6) p .r8'
++        ${If} $8 != 0
++          StrCpy $6 ${NSIS_MAX_STRLEN}
++          System::Call 'kernel32::QueryFullProcessImageNameW(p r8, i 0, w .r7, *i r6) i .r6'
++          ${If} $6 != 0
++            System::Call 'kernel32::CompareStringOrdinal(w R0, i -1, w r7, i -1, i 1) i .r6'
++            ${If} $6 == 2 # CSTR_EQUAL
++              StrCpy $9 0
++              ${If} $0 == 1
++                System::Call 'kernel32::TerminateProcess(p r8, i 1)'
++              ${EndIf}
++            ${EndIf}
++          ${EndIf}
++          System::Call 'kernel32::CloseHandle(p r8)'
++          ${If} $0 == 0
++          ${AndIf} $9 == 0
++            ${Break}
++          ${EndIf}
++        ${EndIf}
++      ${EndIf}
++      next_process:
++      System::Call 'kernel32::Process32NextW(p r3, p r4) i .r5'
++    ${EndWhile}
++    System::Free $4
++
++    close_snapshot:
++    System::Call 'kernel32::CloseHandle(p r3)'
++    done:
++    StrCpy $0 $9
++    Pop $R0
++    Pop $9
++    Pop $8
++    Pop $7
++    Pop $6
++    Pop $5
++    Pop $4
++    Pop $3
++    Pop $2
++    Pop $1
++    Exch $0
++    ClearErrors
++  FunctionEnd
++!endif
++
+ !macro CHECK_APP_RUNNING
+-  Var /GLOBAL CmdPath
+-  Var /GLOBAL FindPath
+-  Var /GLOBAL PowerShellPath
+-  StrCpy $CmdPath "$SYSDIR\cmd.exe"
+-  StrCpy $FindPath "$SYSDIR\find.exe"
+-  StrCpy $PowerShellPath "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe"
+   !ifmacrodef customCheckAppRunning
+     !insertmacro customCheckAppRunning
+   !else
+-    !insertmacro IS_POWERSHELL_AVAILABLE
+-    !insertmacro _CHECK_APP_RUNNING
+-  !endif
+-!macroend
+-
+-!macro IS_POWERSHELL_AVAILABLE
+-  Var /GLOBAL IsPowerShellAvailable ; 0 = available, 1 = not available
+-  # Try running PowerShell with a simple command to check if it's available
+-  nsExec::Exec `"$PowerShellPath" -C "if (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"`
+-  Pop $0  # Return code (0 = success, other = error)
+-
+-  ${if} $0 == 0
+-    # PowerShell is available, check if it's not blocked by policies
+-    nsExec::Exec `"$PowerShellPath" -C "if ((Get-ExecutionPolicy -Scope Process) -eq 'Restricted') { exit 1 } else { exit 0 }"`
+-    Pop $0
+-  ${endIf}
+-
+-  ${if} $0 != 0
+-    StrCpy $0 1
+-  ${endIf}
+-
+-  StrCpy $IsPowerShellAvailable $0
+-!macroend
+-
+-!macro FIND_PROCESS _FILE _RETURN
+-  ${if} $IsPowerShellAvailable == 0
+-    nsExec::Exec `"$PowerShellPath" -C "if ((Get-CimInstance -ClassName Win32_Process | ? {$$_.Path -and $$_.Path.StartsWith('$INSTDIR', 'CurrentCultureIgnoreCase')}).Count -gt 0) { exit 0 } else { exit 1 }"`
+-    Pop ${_RETURN}
+-  ${else}
+-    !ifdef INSTALL_MODE_PER_ALL_USERS
+-      ${nsProcess::FindProcess} "${_FILE}" ${_RETURN}
+-    !else
+-      # find process owned by current user
+-      nsExec::Exec `"$CmdPath" /C tasklist /FI "USERNAME eq %USERNAME%" /FI "IMAGENAME eq ${_FILE}" /FO CSV | "$FindPath" "${_FILE}"`
+-      Pop ${_RETURN}
+-    !endif
+-  ${endIf}
+-!macroend
+-
+-!macro KILL_PROCESS _FILE _FORCE
+-  Push $0
+-  ${if} ${_FORCE} == 1
+-    ${if} $IsPowerShellAvailable == 0
+-      StrCpy $0 "-Force"
+-    ${else}
+-      StrCpy $0 "/F"
+-    ${endIf}
+-  ${else}
+-    StrCpy $0 ""
+-  ${endIf}
+-
+-  ${if} $IsPowerShellAvailable == 0
+-    nsExec::Exec `"$PowerShellPath" -C "Get-CimInstance -ClassName Win32_Process | ? {$$_.Path -and $$_.Path.StartsWith('$INSTDIR', 'CurrentCultureIgnoreCase')} | % { Stop-Process -Id $$_.ProcessId $0 }"`
+-  ${else}
+-    !ifdef INSTALL_MODE_PER_ALL_USERS
+-      nsExec::Exec `taskkill /IM "${_FILE}" /FI "PID ne $pid"`
+-    !else
+-      nsExec::Exec `"$CmdPath" /C taskkill $0 /IM "${_FILE}" /FI "PID ne $pid" /FI "USERNAME eq %USERNAME%"`
+-    !endif
+-  ${endIf}
+-  Pop $0
+-!macroend 
+-
+-!macro _CHECK_APP_RUNNING
+-  ${GetProcessInfo} 0 $pid $1 $2 $3 $4
+-  ${if} $3 != "${APP_EXECUTABLE_FILENAME}"
+     ${if} ${isUpdated}
+-      # allow app to exit without explicit kill
++      # Allow an app that initiated the update to exit on its own.
+       Sleep 300
+     ${endIf}
+
+-    !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
++    Push 0
++    Call ${ONEKEY_APP_PROCESSES}
++    Pop $R0
+     ${if} $R0 == 0
+       ${if} ${isUpdated}
+-        # allow app to exit without explicit kill
+         Sleep 1000
+         Goto doStopProcess
+       ${endIf}
+-      MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "$(appRunning)" /SD IDOK IDOK doStopProcess
++      MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION|MB_SETFOREGROUND "$(appRunning)" /SD IDOK IDOK doStopProcess
++      SetErrorLevel 1
+       Quit
+
+       doStopProcess:
+-
+       DetailPrint "$(appClosing)"
+-
+-      !insertmacro KILL_PROCESS "${APP_EXECUTABLE_FILENAME}" 0
+-      # to ensure that files are not "in-use"
+-      Sleep 300
+-
+-      # Retry counter
+       StrCpy $R1 0
+
+       loop:
+         IntOp $R1 $R1 + 1
+-
+-        !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
++        Push 1
++        Call ${ONEKEY_APP_PROCESSES}
++        Pop $R0
++        Sleep 300
++
++        Push 0
++        Call ${ONEKEY_APP_PROCESSES}
++        Pop $R0
+         ${if} $R0 == 0
+-          # wait to give a chance to exit gracefully
+-          Sleep 1000
+-          !insertmacro KILL_PROCESS "${APP_EXECUTABLE_FILENAME}" 1 # 1 = force kill
+-          !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
+-          ${if} $R0 == 0
+-            DetailPrint `Waiting for "${PRODUCT_NAME}" to close.`
+-            Sleep 2000
+-          ${else}
+-            Goto not_running
++          DetailPrint 'Waiting for "${PRODUCT_NAME}" to close.'
++          ${if} $R1 > 1
++            MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION|MB_SETFOREGROUND "$(appCannotBeClosed)" /SD IDCANCEL IDRETRY loop
++            SetErrorLevel 1
++            Quit
+           ${endIf}
+-        ${else}
+-          Goto not_running
+-        ${endIf}
+-
+-        # App likely running with elevated permissions.
+-        # Ask user to close it manually
+-        ${if} $R1 > 1
+-          MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(appCannotBeClosed)" /SD IDCANCEL IDRETRY loop
+-          Quit
+-        ${else}
++          Sleep 1000
+           Goto loop
+         ${endIf}
+-      not_running:
+     ${endIf}
+-  ${endIf}
++  !endif
+ !macroend
 diff --git a/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh b/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
-index f5470bf..4bb4e63 100644
+index f5470bf..beec9dd 100644
 --- a/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
-@@ -94,7 +94,12 @@
+@@ -3,10 +3,16 @@
+     SetCompress off
+   !endif
+
+-  Var /GLOBAL packageArch
++  !ifndef ONEKEY_USE_DIRECTORY_RECOVERY
++    Var /GLOBAL packageArch
++  !endif
+   
+   !insertmacro identify_package
+-  !insertmacro compute_files_for_current_arch
++  !ifmacrodef customEmbedAppPackage
++    !insertmacro customEmbedAppPackage
++  !else
++    !insertmacro compute_files_for_current_arch
++  !endif
+
+   !ifdef COMPRESS
+     SetCompress "${COMPRESS}"
+@@ -94,7 +100,12 @@
    CreateDirectory "$PLUGINSDIR\7z-out"
    ClearErrors
    SetOutPath "$PLUGINSDIR\7z-out"
@@ -182,24 +547,365 @@ index f5470bf..4bb4e63 100644
    Pop $R0
    SetOutPath $R0
 
+@@ -108,6 +119,10 @@
+     CopyFiles /SILENT "$PLUGINSDIR\7z-out\*" $OUTDIR
+     IfErrors 0 DoneExtract7za
+
++    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++      !insertmacro OneKeyRecoveryHandleFileErrors
++    !endif
++
+     DetailPrint `Can't modify "${PRODUCT_NAME}"'s files.`
+     ${if} $R1 < 5
+       # Try copying a few times before asking for a user action.
+diff --git a/node_modules/app-builder-lib/templates/nsis/include/installer.nsh b/node_modules/app-builder-lib/templates/nsis/include/installer.nsh
+index 300ef3d..b3a864c 100644
+--- a/node_modules/app-builder-lib/templates/nsis/include/installer.nsh
++++ b/node_modules/app-builder-lib/templates/nsis/include/installer.nsh
+@@ -6,6 +6,17 @@
+   !include webPackage.nsh
+ !endif
+
++!macro cacheEmbeddedInstaller
++  # electron always uses per user app data
++  ${if} $installMode == "all"
++    SetShellVarContext current
++  ${endif}
++  !insertmacro copyFile "$EXEPATH" "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
++  ${if} $installMode == "all"
++    SetShellVarContext all
++  ${endif}
++!macroend
++
+ !macro installApplicationFiles
+   !ifdef APP_BUILD_DIR
+     File /r "${APP_BUILD_DIR}\*.*"
+@@ -86,21 +97,31 @@
+         ${endif}
+     !else
+       !insertmacro extractEmbeddedAppPackage
+-      # electron always uses per user app data
+-      ${if} $installMode == "all"
+-        SetShellVarContext current
+-      ${endif}
+-      !insertmacro copyFile "$EXEPATH" "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
+-      ${if} $installMode == "all"
+-        SetShellVarContext all
+-      ${endif}
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        ${if} $OneKeyRecoveryState == "legacy"
++      !endif
++          !insertmacro cacheEmbeddedInstaller
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        ${endif}
++      !endif
+     !endif
+   !endif
+
+   File "/oname=${UNINSTALL_FILENAME}" "${UNINSTALLER_OUT_FILE}"
+ !macroend
+
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  !macro OneKeyRecoveryClearErrors
++    ${if} $OneKeyRecoveryState != "legacy"
++      ClearErrors
++    ${endif}
++  !macroend
++!endif
++
+ !macro registryAddInstallInfo
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    !insertmacro OneKeyRecoveryClearErrors
++  !endif
+   WriteRegStr SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" InstallLocation "$INSTDIR"
+   WriteRegStr SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" KeepShortcuts "true"
+   WriteRegStr SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" ShortcutName "${SHORTCUT_NAME}"
+@@ -156,11 +177,18 @@
+   WriteRegDWORD SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" NoModify 1
+   WriteRegDWORD SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" NoRepair 1
+
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    !insertmacro OneKeyRecoveryCheckErrors
++  !endif
++
+   # allow user to define ESTIMATED_SIZE to avoid GetSize call
+   !ifdef ESTIMATED_SIZE
+     IntFmt $0 "0x%08X" ${ESTIMATED_SIZE}
+   !else
+     ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
++    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++      !insertmacro OneKeyRecoveryCheckErrors
++    !endif
+     IntFmt $0 "0x%08X" $0
+   !endif
+
+@@ -194,19 +222,37 @@
+       !insertmacro cleanupOldMenuDirectory
+       !insertmacro createMenuDirectory
+
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        !insertmacro OneKeyRecoveryClearErrors
++      !endif
+       CreateShortCut "$newStartMenuLink" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        !insertmacro OneKeyRecoveryCheckErrors
++      !endif
+       # clear error (if shortcut already exists)
+       ClearErrors
+       WinShell::SetLnkAUMI "$newStartMenuLink" "${APP_ID}"
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        !insertmacro OneKeyRecoveryCheckErrors
++      !endif
+     # The keepShortcuts mechanism IS enabled.
+     # The menu shortcut could either not exist (it shouldn't be recreated) or exist in an obsolete location.
+     ${elseif} $oldStartMenuLink != $newStartMenuLink
+     ${andIf} ${FileExists} "$oldStartMenuLink"
+       !insertmacro createMenuDirectory
+
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        !insertmacro OneKeyRecoveryClearErrors
++      !endif
+       Rename $oldStartMenuLink $newStartMenuLink
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        !insertmacro OneKeyRecoveryCheckErrors
++      !endif
+       WinShell::UninstShortcut "$oldStartMenuLink"
+       WinShell::SetLnkAUMI "$newStartMenuLink" "${APP_ID}"
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        !insertmacro OneKeyRecoveryCheckErrors
++      !endif
+
+       !insertmacro cleanupOldMenuDirectory
+     ${endIf}
+@@ -220,24 +266,51 @@
+       # The keepShortcuts mechanism is NOT enabled.
+       # Shortcuts will be recreated.
+       ${if} $keepShortcuts == "false"
++        !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++          !insertmacro OneKeyRecoveryClearErrors
++        !endif
+         CreateShortCut "$newDesktopLink" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
++        !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++          !insertmacro OneKeyRecoveryCheckErrors
++        !endif
+         ClearErrors
+         WinShell::SetLnkAUMI "$newDesktopLink" "${APP_ID}"
++        !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++          !insertmacro OneKeyRecoveryCheckErrors
++        !endif
+       # The keepShortcuts mechanism IS enabled.
+       # The desktop shortcut could exist in an obsolete location (due to name change).
+       ${elseif} $oldDesktopLink != $newDesktopLink
+       ${andIf} ${FileExists} "$oldDesktopLink"
++        !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++          !insertmacro OneKeyRecoveryClearErrors
++        !endif
+         Rename $oldDesktopLink $newDesktopLink
++        !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++          !insertmacro OneKeyRecoveryCheckErrors
++        !endif
+         WinShell::UninstShortcut "$oldDesktopLink"
+         WinShell::SetLnkAUMI "$newDesktopLink" "${APP_ID}"
++        !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++          !insertmacro OneKeyRecoveryCheckErrors
++        !endif
+
+       !ifdef RECREATE_DESKTOP_SHORTCUT
+       ${elseif} $oldDesktopLink != $newDesktopLink
+       ${orIfNot} ${FileExists} "$oldDesktopLink"
+         ${ifNot} ${isUpdated}
++          !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++            !insertmacro OneKeyRecoveryClearErrors
++          !endif
+           CreateShortCut "$newDesktopLink" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
++          !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++            !insertmacro OneKeyRecoveryCheckErrors
++          !endif
+           ClearErrors
+           WinShell::SetLnkAUMI "$newDesktopLink" "${APP_ID}"
++          !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++            !insertmacro OneKeyRecoveryCheckErrors
++          !endif
+         ${endIf}
+       !endif
+       ${endIf}
 diff --git a/node_modules/app-builder-lib/templates/nsis/installSection.nsh b/node_modules/app-builder-lib/templates/nsis/installSection.nsh
-index 053772f..598cf27 100644
+index 053772f..80edb51 100644
 --- a/node_modules/app-builder-lib/templates/nsis/installSection.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/installSection.nsh
-@@ -49,6 +49,11 @@ ${if} $isTryToKeepShortcuts == "true"
+@@ -8,7 +8,11 @@ ${endif}
+
+ StrCpy $appExe "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+
+-# must be called before uninstallOldVersion
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  Var /GLOBAL packageArch
++  !insertmacro OneKeyRecoveryBegin
++!endif
++# Must be called before uninstallOldVersion.
+ !insertmacro setLinkVars
+
+ !ifdef ONE_CLICK
+@@ -30,11 +34,15 @@ StrCpy $appExe "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+     StrCpy $1 $hwndparent
+ 		System::Call 'user32::ShutdownBlockReasonCreate(${SYSTYPE_PTR}r1, w "$(installing)")'
+   ${endif}
+-  !insertmacro CHECK_APP_RUNNING
+-!else
+-  ${ifNot} ${UAC_IsInnerInstance}
++  !ifndef ONEKEY_USE_DIRECTORY_RECOVERY
+     !insertmacro CHECK_APP_RUNNING
+-  ${endif}
++  !endif
++!else
++  !ifndef ONEKEY_USE_DIRECTORY_RECOVERY
++    ${ifNot} ${UAC_IsInnerInstance}
++      !insertmacro CHECK_APP_RUNNING
++    ${endif}
++  !endif
+ !endif
+
+ Var /GLOBAL keepShortcuts
+@@ -49,24 +57,93 @@ ${if} $isTryToKeepShortcuts == "true"
    ${endIf}
  ${endif}
 
+-!insertmacro uninstallOldVersion SHELL_CONTEXT
+-!insertmacro handleUninstallResult SHELL_CONTEXT
 +# OneKey patch: prepare cancellable work before removing the previous version.
 +!ifmacrodef customInstallBeforeRemoveOldVersion
 +  !insertmacro customInstallBeforeRemoveOldVersion
 +!endif
-+
- !insertmacro uninstallOldVersion SHELL_CONTEXT
- !insertmacro handleUninstallResult SHELL_CONTEXT
 
+-${if} $installMode == "all"
+-  !insertmacro uninstallOldVersion HKEY_CURRENT_USER
+-  !insertmacro handleUninstallResult HKEY_CURRENT_USER
+-${endIf}
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  # Close only the registered app in a verified scope after cancellable work.
++  # The process prompt must also finish before prepare creates a journal.
++  ${If} $OneKeyRecoveryState == "legacy"
++    !insertmacro OneKeyRecoveryExecute check-process-target
++    ${If} $OneKeyRecoveryResult == "14"
++      !insertmacro OneKeyRecoveryResumeUninstall
++    ${EndIf}
++    ${If} $OneKeyRecoveryResult == "0"
++      StrCpy $OneKeyRecoveryVerifiedUpgrade "1"
++      !insertmacro CHECK_APP_RUNNING
++    ${ElseIf} $OneKeyRecoveryResult != "10"
++      Call OneKeyRecoveryFail
++    ${EndIf}
++  ${EndIf}
++  !insertmacro OneKeyRecoveryPrepare
++
++  ${if} $OneKeyRecoveryState == "legacy"
++  ${AndIf} $OneKeyRecoveryVerifiedUpgrade == "1"
++!endif
++    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++      ${If} $OneKeyRecoveryScope == "machine"
++        !insertmacro OneKeyRecoveryRunLegacyMachineUninstaller
++      ${Else}
++        !insertmacro uninstallOldVersion SHELL_CONTEXT
++        !insertmacro handleUninstallResult SHELL_CONTEXT
++      ${EndIf}
++    !else
++      !insertmacro uninstallOldVersion SHELL_CONTEXT
++      !insertmacro handleUninstallResult SHELL_CONTEXT
++    !endif
+
++    # A machine upgrade must not pass HKCU paths to an elevated uninstaller.
++    !ifndef ONEKEY_USE_DIRECTORY_RECOVERY
++      ${if} $installMode == "all"
++        !insertmacro uninstallOldVersion HKEY_CURRENT_USER
++        !insertmacro handleUninstallResult HKEY_CURRENT_USER
++      ${endIf}
++    !endif
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  ${endIf}
++  !insertmacro OneKeyRecoveryBeforeFiles
++!endif
++
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  !insertmacro OneKeyRecoveryClearErrors
++!endif
+ SetOutPath $INSTDIR
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  !insertmacro OneKeyRecoveryHandleFileErrors
++!endif
+
+ !ifdef UNINSTALLER_ICON
+   File /oname=uninstallerIcon.ico "${UNINSTALLER_ICON}"
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    !insertmacro OneKeyRecoveryHandleFileErrors
++  !endif
+ !endif
+
+ !insertmacro installApplicationFiles
+-!insertmacro registryAddInstallInfo
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  !insertmacro OneKeyRecoveryAfterFiles
++  OneKeyRecoveryFilesReady:
++  ${if} $OneKeyRecoveryState == "legacy"
++    !insertmacro registryAddInstallInfo
++  ${else}
++    # A cache copy failure can affect differential downloads only.
++    !insertmacro cacheEmbeddedInstaller
++    ClearErrors
++  ${endif}
++!else
++  !insertmacro registryAddInstallInfo
++!endif
+ !insertmacro addStartMenuLink $keepShortcuts
+ !insertmacro addDesktopLink $keepShortcuts
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  !insertmacro OneKeyRecoveryFinishShortcuts
++  ${if} $OneKeyRecoveryState != "legacy"
++    !insertmacro registryAddInstallInfo
++    !insertmacro OneKeyRecoveryCheckRegistration
++  ${endif}
++!endif
+
+ ${if} ${FileExists} "$newStartMenuLink"
+   StrCpy $launchLink "$newStartMenuLink"
+@@ -83,9 +160,15 @@ ${endIf}
+ !endif
+
+ !macro doStartApp
+-  # otherwise app window will be in background
+-  HideWindow
+-  !insertmacro StartApp
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    ${if} $OneKeyRecoveryReadyToLaunch == "1"
++  !endif
++      # otherwise app window will be in background
++      HideWindow
++      !insertmacro StartApp
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    ${endif}
++  !endif
+ !macroend
+
+ !ifdef ONE_CLICK
+diff --git a/node_modules/app-builder-lib/templates/nsis/installer.nsi b/node_modules/app-builder-lib/templates/nsis/installer.nsi
+index 4b1f42e..fca0366 100644
+--- a/node_modules/app-builder-lib/templates/nsis/installer.nsi
++++ b/node_modules/app-builder-lib/templates/nsis/installer.nsi
+@@ -49,7 +49,12 @@ Var oldMenuDirectory
+ Function .onInit
+   Call setInstallSectionSpaceRequired
+
+-  SetOutPath $INSTDIR
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    # NSIS creates an output directory even before the installer has selected a scope.
++    SetOutPath $TEMP
++  !else
++    SetOutPath $INSTDIR
++  !endif
+   ${LogSet} on
+
+   !ifmacrodef preInit
 diff --git a/node_modules/app-builder-lib/templates/nsis/multiUser.nsh b/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
-index c345dee..931eba1 100644
+index c345dee..279e9e4 100644
 --- a/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
 @@ -28,15 +28,21 @@ Var installMode
@@ -229,11 +935,53 @@ index c345dee..931eba1 100644
        StrCpy $INSTDIR "$0\${APP_FILENAME}"
      ${endif}
 
+@@ -70,8 +76,9 @@ Var installMode
+       StrCpy $INSTDIR $perMachineInstallationFolder
+     ${else}
+       StrCpy $0 "$PROGRAMFILES"
+-      !ifdef APP_64
++      !ifdef APP_64 | APP_ARM64
+         ${if} ${RunningX64}
++        ${orIf} ${IsNativeARM64}
+           StrCpy $0 "$PROGRAMFILES64"
+         ${endif}
+       !endif
 diff --git a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
-index 917b3da..22de560 100644
+index 917b3da..8b7e91e 100644
 --- a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
-@@ -28,6 +28,10 @@ Function un.onInit
+@@ -3,7 +3,11 @@ Function un.checkAppRunning
+ FunctionEnd
+
+ Function un.onInit
+-  SetOutPath $INSTDIR
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    SetOutPath $TEMP
++  !else
++    SetOutPath $INSTDIR
++  !endif
+   ${LogSet} on
+   
+   !insertmacro check64BitAndSetRegView
+@@ -16,18 +20,26 @@ Function un.onInit
+   ${EndIf}
+   
+   ${If} ${Silent}
+-    call un.checkAppRunning
++    !ifndef ONEKEY_USE_DIRECTORY_RECOVERY
++      call un.checkAppRunning
++    !endif
+   ${else}
+     !ifdef ONE_CLICK
+       MessageBox MB_OKCANCEL "$(areYouSureToUninstall)" IDOK +2
+       Quit
+
+       # one-click installer executes uninstall section in the silent mode, but we must show message dialog if silent mode was not explicitly set by user (using /S flag)
+-      call un.checkAppRunning
++      !ifndef ONEKEY_USE_DIRECTORY_RECOVERY
++        call un.checkAppRunning
++      !endif
+       SetSilent silent
      !endif
    ${endIf}
 
@@ -244,7 +992,340 @@ index 917b3da..22de560 100644
    !insertmacro initMultiUser
 
    !ifmacrodef customUnInit
-@@ -220,6 +224,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -35,6 +47,11 @@ Function un.onInit
+   !endif
+ FunctionEnd
+
++Var uninstallStagingDir
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  Var oneKeyEnrolledUninstall
++!endif
++
+ Function un.atomicRMDir
+   Exch $R0
+   Push $R1
+@@ -53,7 +70,11 @@ Function un.atomicRMDir
+     IfFileExists "$INSTDIR$R0\$R2\*.*" isDir isNotDir
+
+     isDir:
+-      CreateDirectory "$PLUGINSDIR\old-install$R0\$R2"
++      ClearErrors
++      CreateDirectory "$uninstallStagingDir$R0\$R2"
++      IfErrors 0 +3
++        StrCpy $R3 "$INSTDIR$R0\$R2"
++        Goto done
+
+       Push "$R0\$R2"
+       Call un.atomicRMDir
+@@ -67,10 +88,10 @@ Function un.atomicRMDir
+
+     isNotDir:
+       ClearErrors
+-      Rename "$INSTDIR$R0\$R2" "$PLUGINSDIR\old-install$R0\$R2"
++      Rename "$INSTDIR$R0\$R2" "$uninstallStagingDir$R0\$R2"
+
+       # Ignore errors when renaming ourselves.
+-      StrCmp "$R0\$R2" "${UNINSTALL_FILENAME}" 0 +2
++      StrCmp "$R0\$R2" "\${UNINSTALL_FILENAME}" 0 +2
+       ClearErrors
+
+       IfErrors 0 +3
+@@ -100,8 +121,11 @@ Function un.restoreFiles
+   Push $R1
+   Push $R2
+   Push $R3
++  Push $R4
++
++  StrCpy $R4 0
+
+-  StrCpy $R3 "$PLUGINSDIR\old-install$R0\*.*"
++  StrCpy $R3 "$uninstallStagingDir$R0\*.*"
+   FindFirst $R1 $R2 $R3
+
+   loop:
+@@ -110,42 +134,177 @@ Function un.restoreFiles
+     StrCmp $R2 "." continue
+     StrCmp $R2 ".." continue
+
+-    IfFileExists "$INSTDIR$R0\$R2\*.*" isDir isNotDir
++    IfFileExists "$uninstallStagingDir$R0\$R2\*.*" isDir isNotDir
+
+     isDir:
++      ClearErrors
+       CreateDirectory "$INSTDIR$R0\$R2"
++      IfErrors restoreFailed
+
+       Push "$R0\$R2"
+       Call un.restoreFiles
+       Pop $R3
+-
+-      Goto continue
++      StrCmp $R3 0 0 restoreFailed
++      ClearErrors
++      RMDir "$uninstallStagingDir$R0\$R2"
++      IfErrors restoreFailed continue
+
+     isNotDir:
+-      Rename "$PLUGINSDIR\old-install$R0\$R2" "$INSTDIR$R0\$R2"
++      ClearErrors
++      Rename "$uninstallStagingDir$R0\$R2" "$INSTDIR$R0\$R2"
++      IfErrors 0 continue
++
++    restoreFailed:
++      StrCpy $R4 1
+
+     continue:
+       FindNext $R1 $R2
+       Goto loop
+
+   break:
+-    StrCpy $R0 0
++    StrCpy $R0 $R4
+     FindClose $R1
+
++    Pop $R4
+     Pop $R3
+     Pop $R2
+     Pop $R1
+     Exch $R0
+ FunctionEnd
+
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  Function un.OneKeyRemoveLegacyFiles
++    # Keep the registered worker until all payload entries are gone. Close the
++    # search before each deletion so mutations cannot invalidate enumeration.
++    StrCpy $R0 -1
++    StrCpy $R2 "$INSTDIR"
++    System::Alloc 592 ; sizeof(WIN32_FIND_DATAW)
++    Pop $R4
++    ${If} $R4 == 0
++      Goto removeFailed
++    ${EndIf}
++    IntOp $R5 $R4 + 44 ; WIN32_FIND_DATAW.cFileName
++
++    ${Do}
++      System::Call 'Kernel32::FindFirstFileW(w "$INSTDIR\*", p R4)p .R0'
++      ${If} $R0 == -1
++        Goto removeFailed
++      ${EndIf}
++      StrCpy $R8 ""
++      ${Do}
++        System::Call '*$R5(&w260 .R1)'
++        ${If} $R1 == "${UNINSTALL_FILENAME}"
++          # Case-sensitive directories can contain more than one such name.
++          ${If} $R8 != ""
++            Goto removeFailed
++          ${EndIf}
++          StrCpy $R8 $R1
++        ${ElseIf} $R1 != "."
++        ${AndIf} $R1 != ".."
++          ${ExitDo}
++        ${EndIf}
++        System::Call 'Kernel32::FindNextFileW(p R0, p R4)i .R6 ?e'
++        Pop $R7
++        ${If} $R6 == 0
++          ${If} $R7 != 18 ; ERROR_NO_MORE_FILES
++            Goto removeFailed
++          ${EndIf}
++          StrCpy $R1 ""
++          ${ExitDo}
++        ${EndIf}
++      ${Loop}
++      System::Call 'Kernel32::FindClose(p R0)'
++      StrCpy $R0 -1
++      ${If} $R1 == ""
++        ${If} $R8 == ""
++          Goto removeFailed
++        ${EndIf}
++        ${ExitDo}
++      ${EndIf}
++
++      StrCpy $R2 "$INSTDIR\$R1"
++      # Win32 aliases a trailing space or dot to a different filename.
++      StrCpy $R6 $R1 1 -1
++      ${If} $R6 == "."
++      ${OrIf} $R6 == " "
++        Goto removeFailed
++      ${EndIf}
++      System::Call '*$R4(i .R3)'
++      IntOp $R3 $R3 & 0x410 ; DIRECTORY | REPARSE_POINT
++      ClearErrors
++      ${If} $R3 = 0x10
++        RMDir /r "$R2"
++      ${ElseIf} $R3 = 0x410
++        RMDir "$R2"
++      ${Else}
++        Delete "$R2"
++      ${EndIf}
++      IfErrors removeFailed
++      IfFileExists "$R2" removeFailed
++      StrCpy $R2 "$INSTDIR"
++    ${Loop}
++
++    System::Free $R4
++    StrCpy $R4 0
++    StrCpy $R2 "$INSTDIR\$R8"
++    ClearErrors
++    Delete "$R2"
++    IfErrors removeFailed
++
++    # The worker is the last installed entry. Prune the directory separately.
++    RMDir "$INSTDIR"
++    ${If} ${Errors}
++      DetailPrint "Could not remove the installation directory: $INSTDIR"
++    ${EndIf}
++    ClearErrors
++    Return
++
++    removeFailed:
++      ${If} $R0 != -1
++        System::Call 'Kernel32::FindClose(p R0)'
++      ${EndIf}
++      ${If} $R4 != 0
++        System::Free $R4
++      ${EndIf}
++      DetailPrint "Could not remove: $R2"
++      Call un.OneKeyRecoveryFail
++  FunctionEnd
++!endif
++
+ !ifndef UNINSTALL_SECTION_NAME
+   !define UNINSTALL_SECTION_NAME "Uninstall"
+ !endif
+
+ Section "un.${UNINSTALL_SECTION_NAME}"
+   SectionIn RO
+-  # for assisted installer we check it here to show progress
+-  !ifndef ONE_CLICK
++  !ifmacrodef customUnInstallBeforeValidation
++    !insertmacro customUnInstallBeforeValidation
++  !endif
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    !insertmacro OneKeyRecoveryReadUninstallRequest
++    ${If} $OneKeyUninstallToken == ""
++      !insertmacro OneKeyRecoveryReadEnrollment $oneKeyEnrolledUninstall
++      ${If} $oneKeyEnrolledUninstall != 1
++        !insertmacro OneKeyRecoveryLockUninstall
++        !insertmacro OneKeyRecoveryGuardLegacyUninstall
++        !insertmacro OneKeyRecoveryReadEnrollment $oneKeyEnrolledUninstall
++        ${If} $oneKeyEnrolledUninstall == 1
++          Call un.OneKeyRecoveryFail
++        ${EndIf}
++      ${EndIf}
++      !insertmacro customValidateUninstallTarget
++    ${EndIf}
++    !insertmacro OneKeyRecoveryInitUninstall
++    ${If} $OneKeyUninstallToken == ""
++      ${If} $oneKeyEnrolledUninstall == 1
++        !insertmacro OneKeyRecoveryExecuteUninstall check-process-target
++      ${Else}
++        !insertmacro OneKeyRecoveryExecuteUninstall check-legacy-uninstall
++      ${EndIf}
++      Call un.checkAppRunning
++    ${EndIf}
++  !else ifndef ONE_CLICK
++    # For assisted installers check here to show progress.
+     ${IfNot} ${Silent}
+       call un.checkAppRunning
+     ${endIf}
+@@ -161,8 +320,55 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+   !ifmacrodef customRemoveFiles
+     !insertmacro customRemoveFiles
+   !else
++    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++      ${If} $oneKeyEnrolledUninstall == 1
++      ${OrIf} $OneKeyUninstallToken != ""
++        !insertmacro OneKeyRecoveryPrepareUninstall
++      ${ElseIfNot} ${isUpdated}
++        ${If} $installMode == "all"
++          !insertmacro OneKeyRecoveryExecuteUninstall check-legacy-uninstall
++        ${EndIf}
++        Call un.OneKeyRemoveLegacyFiles
++      ${Else}
++    !endif
+     ${if} ${isUpdated}
+-      CreateDirectory "$PLUGINSDIR\old-install"
++      # Keep moved files on the installation volume after an incomplete rollback.
++      ${GetParent} "$INSTDIR" $R3
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        ${If} $installMode == "all"
++          !insertmacro OneKeyRecoveryExecuteUninstall prepare-legacy-rollback
++          StrCpy $R1 "$R8" ${ONEKEY_RECOVERY_TOKEN_CHARS}
++          System::Call 'Shlwapi::StrSpnW(w R1, w "0123456789abcdef") i .R0'
++          ${If} $R0 != ${ONEKEY_RECOVERY_TOKEN_CHARS}
++            Call un.OneKeyRecoveryFail
++          ${EndIf}
++          StrCpy $uninstallStagingDir "$R3\OneKey.legacy-$R1"
++        ${Else}
++      !endif
++        # Custom install parents may permit directory creation only.
++        StrCpy $R2 8
++        ${Do}
++          System::Call 'Ole32::CoCreateGuid(g .R1)i .R0'
++          ${If} $R0 != 0
++            SetErrorLevel 1
++            Abort "Could not generate a rollback directory name."
++          ${EndIf}
++          StrCpy $uninstallStagingDir "$R3\OneKey.legacy-$R1"
++          System::Call 'Kernel32::CreateDirectoryW(w "$uninstallStagingDir", p 0)i .R0 ?e'
++          Pop $R1
++          ${If} $R0 != 0
++          ${OrIf} $R1 != 183 ; ERROR_ALREADY_EXISTS
++            ${ExitDo}
++          ${EndIf}
++          IntOp $R2 $R2 - 1
++        ${LoopUntil} $R2 == 0
++        ${If} $R0 == 0
++          SetErrorLevel 1
++          Abort "Could not create a rollback directory."
++        ${EndIf}
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        ${EndIf}
++      !endif
+
+       Push ""
+       Call un.atomicRMDir
+@@ -171,18 +377,36 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+       ${if} $R0 != 0
+         DetailPrint "File is busy, aborting: $R0"
+
+-        # Attempt to restore previous directory
++        # Preserve any entries that could not be moved back.
+         Push ""
+         Call un.restoreFiles
+         Pop $R0
+-
+-        Abort `Can't rename "$INSTDIR" to "$PLUGINSDIR\old-install".`
++        ${If} $R0 == 0
++          ClearErrors
++          RMDir "$uninstallStagingDir"
++        ${EndIf}
++        ${If} $R0 != 0
++        ${OrIf} ${Errors}
++          DetailPrint "Rollback was incomplete. Remaining files are in $uninstallStagingDir."
++        ${EndIf}
++        SetErrorLevel 1
++        Abort "Could not remove the previous installation."
+       ${endif}
+
+     ${endif}
+
+     # Remove all files (or remaining shallow directories from the block above)
+     RMDir /r $INSTDIR
++    ${If} ${isUpdated}
++      RMDir /r "$uninstallStagingDir"
++    ${EndIf}
++    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++      ${endif}
++    !endif
++  !endif
++
++  !ifmacrodef customUnInstallFilesRemoved
++    !insertmacro customUnInstallFilesRemoved
+   !endif
+
+   ${ifNot} ${isKeepShortcuts}
+@@ -220,6 +444,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${if} ${Errors}
      !ifdef DELETE_APP_DATA_ON_UNINSTALL
        ${ifNot} ${isUpdated}
@@ -252,17 +1333,20 @@ index 917b3da..22de560 100644
          StrCpy $isDeleteAppData "1"
        ${endif}
      !endif
-@@ -228,6 +233,9 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -228,6 +453,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${endIf}
 
    ${if} $isDeleteAppData == "1"
++    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++      ${AndIf} $OneKeyUninstallToken == ""
++    !endif
 +    !ifmacrodef customRemoveAppData
 +      !insertmacro customRemoveAppData
 +    !else
      # electron always uses per user app data
      ${if} $installMode == "all"
        SetShellVarContext current
-@@ -243,6 +251,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -243,6 +474,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
      ${if} $installMode == "all"
        SetShellVarContext all
      ${endif}
@@ -270,3 +1354,14 @@ index 917b3da..22de560 100644
    ${endif}
 
    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
+@@ -251,6 +483,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+   !endif
+   DeleteRegKey SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}"
+
++  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++    !insertmacro OneKeyRecoveryFinishUninstall
++  !endif
++
+   !ifdef ONE_CLICK
+     !insertmacro quitSuccess
+   !endif

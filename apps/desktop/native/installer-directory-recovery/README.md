@@ -1,0 +1,77 @@
+# Windows installer directory recovery
+
+The NSIS installer and uninstaller use this helper to publish, replace and remove signed OneKey installations on fixed NTFS volumes. The user and machine scopes select separate registration and journal keys. The default machine installation uses the native Program Files directory and the 64-bit HKLM registry. New all-users installations at protected custom locations also use directory recovery.
+
+## Signed inventories
+
+The Windows build creates `OneKeyInstallerDirectoryRecovery.exe` and an unsigned PE template. During signed NSIS packaging, electron-builder signs the app payload and generates and signs the uninstaller. It then builds and signs a `OneKeyInstallerInventory.dll` variant for each packaged architecture. Each inventory includes the release, SHA-256 digests for every installed file, and every directory. It includes the final, signed uninstaller and the uninstall icon when present.
+
+The carrier has no entry point. The helper reads the inventory from an Authenticode-covered data section and checks the Windows trust result and the SHA-256 pin of the signing leaf. It also checks the full-file digest of the carrier distributed inside the install directory. A signed inventory binds all files that can move with an installation, including the carrier itself through this separate digest check. The preflight command is `verify-inventory <release> <carrier-path>`.
+
+Production builds pin `apps/desktop/resources/windows/code-signing/onekey-limited.cer`. The current certificate expires on September 17, 2027. Preserve approved pins when rotating signing certificates so that signed, timestamped installations can still authenticate their original inventory. Pass the older approved leaf files with `build.ps1 -PublisherCertificate <paths>` during the rotation. The active certificate stays in the checked-in signing path. Recovery uses Windows' local trust cache and can run offline once the signing chain is trusted. Missing or untrusted certificates block enrollment and recovery until Windows can validate the chain. [Windows trust verification](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/ns-wintrust-wintrust_data)
+
+After successful registration, `commit` records enrollment for a staged install. `enroll` covers a legacy installation when it meets the eligibility checks. Later upgrades and uninstalls read the original signed inventory from the installed tree. A missing or changed inventory blocks either operation for an enrolled installation.
+
+## Installer interface
+
+Commands take `--scope user|machine`, `--target <absolute registered path>`, `--release <DisplayVersion>` and `--owner-pid <installer process ID>`. Pass `--new-inventory <extracted signed carrier>` for enrollment, replacement and published recovery. The helper locates the original inventory itself, including during rollback from the backup.
+
+| Result | Meaning |
+| --- | --- |
+| 0 | The requested operation succeeded. |
+| 10 | The selected install is ineligible for replacement, or the queried transaction is absent. |
+| 11 | The previous release is back at its registered path or an unpublished first install was rolled back. |
+| 12 | The new directory is published. The matching installer must finish registration and commit. |
+| 13 | The operation is blocked. Retain the journal and directories for recovery or diagnosis. |
+| 14 | An enrolled uninstall committed its directory rename. Setup receives the tombstone token and runs the verified uninstaller to finish teardown. |
+| 16 | Setup could not verify a local fixed installation volume or directory. |
+| 17 | An unregistered default or all-users installation directory contains files. Setup leaves those files intact. |
+| 18 | The selected directory overlaps a OneKey wallet data location. |
+| 19 | The identified historical all-users install requires the default path on NTFS for migration. |
+| 20 | The helper could not establish administrator control over the all-users legacy path and its contents. |
+
+1. Call `recover` before invoking the old uninstaller. A pending transaction owns the replacement flow. After the cancellable setup work finishes, `check-process-target` verifies the registered directory for the selected scope and checks both scope registrations for overlap. It also supports verified legacy custom paths. Result 0 authorizes closing the matching app and running the existing legacy uninstaller if legacy replacement is required. Result 10 permits a fresh install when the target is unowned. Result 14 directs Setup to finish removal and exit. Any other result blocks the install.
+2. Call `prepare` for an eligible first install or upgrade. It checks scope and registration. For an upgrade, it verifies every existing entry in the original tree against its signed inventory. Missing known entries can be repaired with a complete signed replacement. It records the transaction and creates the sibling staging directory. Extract the signed payload, signed uninstaller, uninstall icon when configured, and carrier into `<target>.new-<token>` using the token returned by `prepare`. A token followed by ` custom` uses `OneKey.new-<token>` in the target's parent so the name fits independently of the target leaf length.
+3. Release installer file handles and call `promote`. It requires a complete incoming tree. An upgrade moves the original directory to `<target>.old-<token>` and attempts to restore it if publication fails. A first install publishes the staged tree directly to the absent or empty installation directory. Custom all-users transactions use `OneKey.old-<token>` for backups.
+4. After publication or result 12, write and check registration, shortcuts and app integrations. Call `commit` once these succeed. It checks the selected scope, registered path, uninstaller commands, release, directory identity and complete installed inventory before clearing the transaction. It then tries to dispose of the verified backup. Launch is allowed after commit.
+
+Windows directory IDs determine which rename completed during an interruption. Before publication, the helper can restore the previous directory and dispose of the staged files it can verify. After publication, it requires the matching installer to finish registration because the new application may already have migrated data. A single durable cleanup slot per scope tracks a backup, uninstall tombstone or recorded staging directory by identity. The helper retries pending disposal before admitting another transaction that needs the slot. If a rollback left a staging tree that still cannot be disposed of safely, the helper leaves it at its reserved path and frees the slot for the next upgrade or uninstall. Cleanup of a backup or uninstall tombstone still requires verification before a new transaction.
+
+Embedded 7z packages are extracted and checked before legacy removal in silent, standard NSIS and Win32 UI flows. All-users legacy upgrades copy the registered uninstaller into a protected sibling directory, verify it against the approved publisher pin, and hold the verified executable open through execution. The worker uses that same workspace for temporary files. Incomplete legacy rollback may leave remaining files in a sibling directory on the installation volume. An older release without an inventory gets directory recovery from its next eligible upgrade. Setup requires a new default or all-users installation directory to be absent or empty. An enrolled installation requires its original registered path and can be repaired or switched to a different installer variant at the same version.
+
+Before closing the application and again before pathname-based removal, all-users legacy operations verify the installation on fixed NTFS. The filesystem checks cover ownership and ACLs along the path and throughout the installation tree, including directory permissions to delete children and inheritance that could expose a recreated path. They reject reparse points, hard-linked files and permissions the helper cannot establish as administrator-controlled. The usual Windows volume-root permission to create a sibling directory is compatible with a protected child directory. The helper creates protected rollback directories with a new name and an explicit security descriptor before moving files.
+
+Before a machine-wide custom install or recursive legacy uninstall, the helper checks the roaming AppData configuration of the Windows user profiles registered on the machine, including the initiating account's redirected app data. It reads mounted hives and uses read-only offline hive access for signed-out users. Absolute local paths and supported variables are resolved against the registered profile. An unavailable hive or ambiguous path blocks the operation when the helper cannot establish that the installation path is disjoint from wallet data. Enrolled default transactions and verified historical default migrations authenticate their installation trees through inventories.
+
+For a new all-users custom install, the helper checks the parent path, creates any missing ancestors with explicit protection, and journals the target and parent identity before staging payload files. The staging directory is owned by Administrators and has a protected DACL that provides full control to Administrators and SYSTEM, and read and execute to standard users. Its inheritable owner-rights entry limits the implicit rights of a payload file creator. The helper checks the on-disk ACL and signed inventory before promotion and again at registration commit. Setup can recover a pending custom installation without a directory option after the helper validates the recorded target and parent. Before publication, an upgrade can roll back using the registered original tree's signed inventory. Fresh custom recovery and published registration still require the matching carrier. A registered legacy custom install can still use the verified legacy upgrade path.
+
+### Historical all-users releases
+
+For the [catalogued releases](historical-inventories/README.md), Setup can migrate an unenrolled all-users installation at the default path on NTFS. The helper selects an embedded catalogue by the registered release and SHA-256 digests of the installed application and uninstaller. It verifies the complete original tree before replacement and during rollback. Setup stages and publishes the new signed release through its directory transaction without executing the historical worker. Cleanup verifies any remaining backup entries against the recorded catalogue before deleting them.
+
+The standalone v6.6.3 and v6.6.4 ARM64 packages used the x86 Program Files directory as their all-users default. On Windows on ARM64, a verified installation of either package can upgrade in place at that path. Recovery records the registered path for subsequent repair and uninstall.
+
+The catalogue covers the published package contents listed in the provenance. Modified or incomplete historical trees require separate remediation. At other locations the existing all-users legacy path requires a Windows-trusted SHA-256 Authenticode signature from an approved publisher. The catalogue applies only to the original installation. Every incoming inventory carrier still requires the approved Authenticode signature.
+
+## Enrolled uninstall
+
+`uninstall-prepare` validates the registered path, uninstaller and complete signed inventory. It saves a durable intent before renaming the entire directory to `<target>.uninstall-<token>`, then verifies the detached tree and commits the rename. Enrolled all-users custom installations use `OneKey.uninstall-<token>` in the target's parent and return the ` custom` qualifier when Setup resumes removal. If interrupted before commit, Setup or the uninstaller can restore the complete tree and exact registered uninstaller. The uninstaller removes registrations, shortcuts and integrations after commit. An explicitly requested app-data deletion remains part of the original uninstall run.
+
+If Setup receives result 14, it copies the uninstaller from the detached tree into its private temporary directory. `verify-uninstall-worker` checks the copied bytes against the signed inventory while Setup holds the directory and executable in place. The worker runs with the original target and the returned 32-character token. `uninstall-prepare --token <token>` resumes the matching committed transaction, then `uninstall-finish` verifies registration removal, transfers the detached tree to pending cleanup and clears enrollment. Cleanup can be retried without rerunning the uninstaller. Resumed removal preserves app data. Interactive Setup confirms that removal finished and asks the user to run Setup again. Plain `/S` returns 0 after recovery-only completion. `/S --updated` returns process exit code 15 with or without `--force-run`. Both silent routes complete removal and exit without installing or launching the app. A launcher that waits for Setup can observe code 15.
+
+## Build and test
+
+From PowerShell at the repository root, use MSVC and the Windows SDK.
+
+```powershell
+$source = 'apps/desktop/native/installer-directory-recovery'
+$output = 'apps/desktop/build/installer-generated/recovery-test'
+& "$source/build.ps1" -OutputDirectory $output -TestBuild
+& "$source/test.ps1" -Helper "$output/OneKeyInstallerDirectoryRecovery.exe" -SignedInventories
+```
+
+The tests use isolated HKCU keys and temporary fixture directories. Ownership fixtures exercise standard-user mutation rights, inherited permissions, protected workspace creation, reparse points and profile overlap. The signed fixtures compile the production inventory parser and verifier with a disposable publisher certificate. They cover signature tampering, wrong release and publisher, absent enrollment across scopes, historical release and variant matching, and interruptions on both sides of publication. Fixture certificates live in the current user's personal certificate store for signing and are deleted after the test. Production release qualification uses the signed installer artifacts and real UAC install scopes.
+
+To verify release artifacts without running them, use `verify-legacy-uninstaller <absolute-worker-path>` for the pinned Authenticode check or `verify-historical-tree <release> <absolute-payload-directory>` for a complete tree assembled from an archived installer. Add the extracted uninstaller and uninstaller icon to the archive payload before checking it.
+
+To exercise the PE layout emitted by the release signer with disposable certificates, pass `-JsignJar <path-to-jsign-7.5.jar>` along with `-SignedInventories`. This requires Java and runs the same `verify-inventory` preflight as release packaging.

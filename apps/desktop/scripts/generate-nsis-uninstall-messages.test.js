@@ -8,11 +8,11 @@ const {
 
 const themeDirectory = path.join(
   __dirname,
-  '../build/nsis-duilib-ui/onekey-modern',
+  '../native/installer-native-ui/theme',
 );
 const nativeMessagesPath = path.join(
   __dirname,
-  '../build/nsis-duilib-ui/uninstall-messages.json',
+  '../native/installer-native-ui/uninstall-messages.json',
 );
 const sharedLocales = [
   ['en-US', 1033],

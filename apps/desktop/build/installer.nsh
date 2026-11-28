@@ -4,7 +4,16 @@
 !include "LogicLib.nsh"
 !include "WinMessages.nsh"
 !include "nsDialogs.nsh"
-!addplugindir /x86-unicode "${BUILD_RESOURCES_DIR}\nsis-duilib-ui\plugin\x86-unicode"
+!include "WinVer.nsh"
+!include "x64.nsh"
+!if /FileExists "${BUILD_RESOURCES_DIR}\installer-generated\installer-config.nsh"
+  !include "${BUILD_RESOURCES_DIR}\installer-generated\installer-config.nsh"
+!endif
+!ifdef ONEKEY_USE_UPDATE_STATUS
+  !ifndef BUILD_UNINSTALLER
+    !include "${PROJECT_DIR}\native\installer-update-status\update-status.nsh"
+  !endif
+!endif
 
 !define ONEKEY_APP_USER_MODEL_ID "OneKey Wallet"
 !define ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY "Software\Classes\AppUserModelId\${ONEKEY_APP_USER_MODEL_ID}"
@@ -14,7 +23,13 @@
     ReadRegStr $R9 ${ROOT_KEY} "Software\Classes\${SCHEME}\shell\open\command" ""
     ${If} $R9 == '"${TARGET_DIR}\${APP_EXECUTABLE_FILENAME}" "--" "%1"'
     ${OrIf} $R9 == '"${TARGET_DIR}\${APP_EXECUTABLE_FILENAME}" "%1"'
+      ClearErrors
       DeleteRegKey ${ROOT_KEY} "Software\Classes\${SCHEME}"
+      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+        !ifndef BUILD_UNINSTALLER
+          !insertmacro OneKeyRecoveryCheckErrors
+        !endif
+      !endif
     ${EndIf}
     ClearErrors
   ${EndIf}
@@ -39,6 +54,10 @@
   WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}" "URL Protocol" ""
   WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}\DefaultIcon" "" "$appExe,0"
   WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}\shell\open\command" "" '"$appExe" "--" "%1"'
+  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+    !insertmacro OneKeyRecoveryCheckErrors
+    !insertmacro OneKeyRecoveryCheckRegistryValue SHELL_CONTEXT "Software\Classes\${SCHEME}\shell\open\command" "" '"$appExe" "--" "%1"'
+  !endif
   ClearErrors
 !macroend
 
@@ -57,7 +76,18 @@ Var OneKeyModernLocale
 Var OneKeyModernResult
 Var OneKeyModernIsInner
 
+!include /CHARSET=UTF8 "${PROJECT_DIR}\native\installer-native-ui\renderer.nsh"
+!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+  !include /CHARSET=UTF8 "${PROJECT_DIR}\native\installer-directory-recovery\recovery.nsh"
+!endif
+
 !ifndef BUILD_UNINSTALLER
+  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+    Var OneKeyModernRecoveryScope
+    !macro customHeader
+      !insertmacro OneKeyRecoveryDefineOuterState
+    !macroend
+  !endif
   Var OneKeyModernInstallScope
   Var OneKeyModernWasInstalled
   Var OneKeyModernHadPerUser
@@ -117,10 +147,27 @@ Var OneKeyModernIsInner
     StrCpy $OneKeyModernIsAdmin "1"
   ${EndIf}
 
+  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+    !insertmacro OneKeyRecoveryReadJournal 0x80000001 "${ONEKEY_RECOVERY_JOURNAL_KEY}" $2
+    !insertmacro OneKeyRecoveryReadJournal 0x80000002 "${ONEKEY_RECOVERY_JOURNAL_KEY}" $3
+    ${If} $2 == "0"
+      !insertmacro OneKeyRecoveryReadJournalValue 0x80000001 "${ONEKEY_RECOVERY_JOURNAL_KEY}" UninstallTransactionV1 $2
+    ${EndIf}
+    ${If} $3 == "0"
+      !insertmacro OneKeyRecoveryReadJournalValue 0x80000002 "${ONEKEY_RECOVERY_JOURNAL_KEY}" UninstallTransactionV1 $3
+    ${EndIf}
+  !endif
+
   ${If} $OneKeyModernPerUserDirectory != ""
   ${AndIf} ${FileExists} "$OneKeyModernPerUserDirectory\${UNINSTALL_FILENAME}"
     StrCpy $OneKeyModernHadPerUser "1"
     StrCpy $OneKeyModernWasInstalled "1"
+  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+  ${ElseIf} $OneKeyModernPerUserDirectory != ""
+  ${AndIf} $2 == "1"
+    StrCpy $OneKeyModernHadPerUser "1"
+    StrCpy $OneKeyModernWasInstalled "1"
+  !endif
   ${Else}
     StrCpy $OneKeyModernPerUserDirectory ""
   ${EndIf}
@@ -128,6 +175,12 @@ Var OneKeyModernIsInner
   ${AndIf} ${FileExists} "$OneKeyModernPerMachineDirectory\${UNINSTALL_FILENAME}"
     StrCpy $OneKeyModernHadPerMachine "1"
     StrCpy $OneKeyModernWasInstalled "1"
+  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+  ${ElseIf} $OneKeyModernPerMachineDirectory != ""
+  ${AndIf} $3 == "1"
+    StrCpy $OneKeyModernHadPerMachine "1"
+    StrCpy $OneKeyModernWasInstalled "1"
+  !endif
   ${Else}
     StrCpy $OneKeyModernPerMachineDirectory ""
   ${EndIf}
@@ -139,6 +192,75 @@ Var OneKeyModernIsInner
   ${EndIf}
   ${GetOptions} $0 "/currentuser" $1
   ${IfNot} ${Errors}
+    ${If} $OneKeyModernExplicitScope == "all"
+      StrCpy $OneKeyModernExplicitScope "both"
+    ${Else}
+      StrCpy $OneKeyModernExplicitScope "current"
+    ${EndIf}
+  ${EndIf}
+  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+    StrCpy $OneKeyModernRecoveryScope ""
+    ${If} $2 == "1"
+    ${AndIf} $3 == "1"
+      StrCpy $OneKeyModernRecoveryScope "both"
+    ${ElseIf} $2 == "1"
+      StrCpy $OneKeyModernRecoveryScope "current"
+    ${ElseIf} $3 == "1"
+      StrCpy $OneKeyModernRecoveryScope "all"
+    ${EndIf}
+    ${If} $OneKeyModernRecoveryScope != ""
+      ${If} $OneKeyModernRecoveryScope == "both"
+        Goto OneKeyModernRecoveryScopeConflict
+      ${EndIf}
+      ${If} $OneKeyModernExplicitScope != ""
+      ${AndIf} $OneKeyModernExplicitScope != $OneKeyModernRecoveryScope
+        Goto OneKeyModernRecoveryScopeConflict
+      ${EndIf}
+      ${If} $OneKeyModernInstallScope != ""
+      ${AndIf} $OneKeyModernInstallScope != $OneKeyModernRecoveryScope
+        Goto OneKeyModernRecoveryScopeConflict
+      ${EndIf}
+      StrCpy $OneKeyModernInstallScope "$OneKeyModernRecoveryScope"
+      StrCpy $OneKeyModernAccepted "1"
+      StrCpy $OneKeyModernChosenDirectory ""
+      ${If} $OneKeyModernRecoveryScope == "current"
+        !ifndef INSTALL_MODE_PER_ALL_USERS
+          !ifndef ONE_CLICK
+            StrCpy $hasPerMachineInstallation "0"
+            StrCpy $hasPerUserInstallation "1"
+          !endif
+          !insertmacro setInstallModePerUser
+        !else
+          Goto OneKeyModernRecoveryScopeConflict
+        !endif
+      ${Else}
+        !ifndef INSTALL_MODE_PER_ALL_USERS
+          !ifndef ONE_CLICK
+            StrCpy $hasPerMachineInstallation "1"
+            StrCpy $hasPerUserInstallation "0"
+          !endif
+        !endif
+        !ifdef INSTALL_MODE_PER_ALL_USERS_REQUIRED
+          !insertmacro setInstallModePerAllUsers
+        !else
+          Goto OneKeyModernRecoveryScopeConflict
+        !endif
+      ${EndIf}
+    ${EndIf}
+    Goto OneKeyModernRecoveryScopeReady
+
+    OneKeyModernRecoveryScopeConflict:
+      ${IfNot} ${Silent}
+        !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
+          "OneKey Setup could not select a scope for recovery. Run Setup again without a scope option or contact OneKey support." \
+          "OneKey 安装程序无法确定要恢复的安装范围。请不指定安装范围重新运行安装程序，或联系 OneKey 支持。"
+      ${EndIf}
+      SetErrorLevel 1
+      Quit
+
+    OneKeyModernRecoveryScopeReady:
+  !endif
+  ${If} $OneKeyModernExplicitScope == "both"
     StrCpy $OneKeyModernExplicitScope "current"
   ${EndIf}
   # An explicit scope is an upgrade only when that scope is already installed.
@@ -170,8 +292,9 @@ Var OneKeyModernIsInner
   ${EndIf}
   ${If} $OneKeyModernPerMachineDirectory == ""
     StrCpy $0 "$PROGRAMFILES"
-    !ifdef APP_64
+    !ifdef APP_64 | APP_ARM64
       ${If} ${RunningX64}
+      ${OrIf} ${IsNativeARM64}
         StrCpy $0 "$PROGRAMFILES64"
       ${EndIf}
     !endif
@@ -197,6 +320,13 @@ Var OneKeyModernIsInner
       ${EndIf}
     ${EndIf}
   ${EndIf}
+  !ifdef ONEKEY_USE_UPDATE_STATUS
+    ; The outer instance of a silent per-machine install will hand off to UAC.
+    ${If} $hasPerMachineInstallation != "1"
+    ${OrIf} ${UAC_IsAdmin}
+      !insertmacro OneKeyStartUpdateStatus ""
+    ${EndIf}
+  !endif
 !macroend
 
 # Hide the native NSIS host before its first frame is painted. Every modern
@@ -237,14 +367,6 @@ FunctionEnd
   ${EndIf}
 !macroend
 !endif
-
-!macro OneKeyModernExtractTheme
-  InitPluginsDir
-  SetOutPath "$PLUGINSDIR\onekey-modern"
-  File /r "${BUILD_RESOURCES_DIR}\nsis-duilib-ui\onekey-modern\*.*"
-  SetOutPath "$PLUGINSDIR\onekey-modern\licenses"
-  File /r "${BUILD_RESOURCES_DIR}\nsis-duilib-ui\licenses\*.*"
-!macroend
 
 !macro OneKeyModernSelectLocale
   StrCpy $OneKeyModernLocale "en-US"
@@ -303,6 +425,8 @@ FunctionEnd
   !define /redef APP_PRODUCT_FILENAME "OneKey Wallet"
   Var OneKeyModernUninstallAccepted
   Var OneKeyModernUninstallOriginalDirectory
+  Var OneKeyModernUninstallRetryScope
+  Var OneKeyModernUninstallRetryPath
   !define MUI_CUSTOMFUNCTION_UNGUIINIT un.OneKeyModernOnGuiInit
   Function un.OneKeyModernOnGuiInit
     ${IfNot} ${Silent}
@@ -325,7 +449,7 @@ FunctionEnd
 
   Function un.OneKeyModernUninstallInstFilesPre
     ${If} $OneKeyModernUiActive == "1"
-      nsis-duilib-ui::ConcealHost
+      !insertmacro OneKeyModernRendererCall ConcealHost ''
       Pop $OneKeyModernResult
       ShowWindow $HWNDPARENT ${SW_HIDE}
     ${EndIf}
@@ -333,7 +457,7 @@ FunctionEnd
 
   Function un.OneKeyModernUninstallInstFilesShow
     ${If} $OneKeyModernUiActive == "1"
-      nsis-duilib-ui::ConcealHost
+      !insertmacro OneKeyModernRendererCall ConcealHost ''
       Pop $OneKeyModernResult
       ShowWindow $HWNDPARENT ${SW_HIDE}
     ${EndIf}
@@ -355,7 +479,7 @@ FunctionEnd
     ${ElseIf} $hasPerUserInstallation == "1"
     ${AndIf} $hasPerMachineInstallation == "1"
       ${If} $OneKeyModernUiActive == "1"
-        nsis-duilib-ui::Shutdown
+        !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
       ${EndIf}
@@ -375,21 +499,23 @@ FunctionEnd
       !insertmacro UAC_AsUser_GetGlobal $OneKeyModernUninstallAccepted $OneKeyModernUninstallAccepted
       !insertmacro UAC_AsUser_GetGlobal $OneKeyModernUninstallOriginalDirectory $OneKeyModernUninstallOriginalDirectory
     ${EndIf}
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      !insertmacro OneKeyRecoveryGuardUninstall "$OneKeyModernUninstallOriginalDirectory"
+    !endif
 
     ${IfNot} ${Silent}
     ${AndIf} $OneKeyModernUninstallAccepted == "1"
       # The elevated inner process owns a different native host. Conceal it and
       # recreate the modern progress page before initMultiUser can display it.
-      !insertmacro OneKeyModernExtractTheme
       !insertmacro OneKeyModernSelectLocale
-      nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
+      !insertmacro OneKeyModernRendererInit
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::SetPage "uninstalling"
+        !insertmacro OneKeyModernRendererCall SetPage '"uninstalling"'
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::Show
+        !insertmacro OneKeyModernRendererCall Show ''
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
@@ -398,35 +524,34 @@ FunctionEnd
         Goto OneKeyModernUnPreInitDone
       ${EndIf}
 
-      nsis-duilib-ui::Shutdown
+      !insertmacro OneKeyModernRendererCall Shutdown ''
       Pop $0
       StrCpy $OneKeyModernUiActive "0"
       ShowWindow $HWNDPARENT ${SW_SHOW}
     ${ElseIfNot} ${Silent}
     ${AndIf} $OneKeyModernUninstallAccepted != "1"
-      !insertmacro OneKeyModernExtractTheme
       !insertmacro OneKeyModernSelectLocale
-      nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
+      !insertmacro OneKeyModernRendererInit
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::SetPage "uninstallWelcome"
+        !insertmacro OneKeyModernRendererCall SetPage '"uninstallWelcome"'
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::Show
+        !insertmacro OneKeyModernRendererCall Show ''
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
         StrCpy $OneKeyModernUiActive "1"
         ShowWindow $HWNDPARENT ${SW_HIDE}
-        nsis-duilib-ui::WaitForEvent
+        !insertmacro OneKeyModernRendererCall WaitForEvent ''
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult == "primary"
           StrCpy $OneKeyModernUninstallAccepted "1"
-          nsis-duilib-ui::SetPage "uninstalling"
+          !insertmacro OneKeyModernRendererCall SetPage '"uninstalling"'
           Pop $OneKeyModernResult
           ${If} $OneKeyModernResult == "ok"
-            nsis-duilib-ui::Show
+            !insertmacro OneKeyModernRendererCall Show ''
             Pop $OneKeyModernResult
           ${EndIf}
           ${If} $OneKeyModernResult == "ok"
@@ -434,14 +559,14 @@ FunctionEnd
             Goto OneKeyModernUnPreInitDone
           ${EndIf}
         ${Else}
-          nsis-duilib-ui::ShutdownHidden
+          !insertmacro OneKeyModernRendererCall ShutdownHidden ''
           Pop $0
           StrCpy $OneKeyModernUiActive "0"
           Quit
         ${EndIf}
       ${EndIf}
 
-      nsis-duilib-ui::Shutdown
+      !insertmacro OneKeyModernRendererCall Shutdown ''
       Pop $0
       StrCpy $OneKeyModernUiActive "0"
       ShowWindow $HWNDPARENT ${SW_SHOW}
@@ -454,9 +579,8 @@ FunctionEnd
     ${IfNot} ${Silent}
     ${AndIf} $OneKeyModernUninstallAccepted == "1"
       ${If} $OneKeyModernUiActive != "1"
-        !insertmacro OneKeyModernExtractTheme
         !insertmacro OneKeyModernSelectLocale
-        nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
+        !insertmacro OneKeyModernRendererInit
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult == "ok"
           StrCpy $OneKeyModernUiActive "1"
@@ -465,37 +589,46 @@ FunctionEnd
         StrCpy $OneKeyModernResult "ok"
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::SetPage "uninstalling"
+        !insertmacro OneKeyModernRendererCall SetPage '"uninstalling"'
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::Show
+        !insertmacro OneKeyModernRendererCall Show ''
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
         StrCpy $OneKeyModernUiActive "1"
         ShowWindow $HWNDPARENT ${SW_HIDE}
       ${Else}
-        nsis-duilib-ui::Shutdown
+        !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
         ShowWindow $HWNDPARENT ${SW_SHOW}
       ${EndIf}
     ${EndIf}
   !macroend
 
+  !macro customUnInstallBeforeValidation
+    GetFullPathName $OneKeyModernUninstallRetryPath "$OneKeyModernUninstallOriginalDirectory\${UNINSTALL_FILENAME}"
+    ${If} $installMode == "all"
+      StrCpy $OneKeyModernUninstallRetryScope "/allusers"
+    ${Else}
+      StrCpy $OneKeyModernUninstallRetryScope "/currentuser"
+    ${EndIf}
+  !macroend
+
   !macro customUnInstall
     ${If} $OneKeyModernUiActive == "1"
-      nsis-duilib-ui::SetPage "uninstalling"
+      !insertmacro OneKeyModernRendererCall SetPage '"uninstalling"'
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
       OneKeyModernUninstallPrepareCommit:
-        nsis-duilib-ui::PrepareCommit
+        !insertmacro OneKeyModernRendererCall PrepareCommit ''
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult == "pending"
           Sleep 80
           Goto OneKeyModernUninstallPrepareCommit
         ${ElseIf} $OneKeyModernResult == "cancel"
-          nsis-duilib-ui::ShutdownHidden
+          !insertmacro OneKeyModernRendererCall ShutdownHidden ''
           Pop $0
           StrCpy $OneKeyModernUiActive "0"
           SetErrorLevel 1
@@ -503,11 +636,11 @@ FunctionEnd
         ${EndIf}
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::Show
+        !insertmacro OneKeyModernRendererCall Show ''
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult != "ok"
-        nsis-duilib-ui::Shutdown
+        !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
         ShowWindow $HWNDPARENT ${SW_SHOW}
@@ -515,6 +648,85 @@ FunctionEnd
         ShowWindow $HWNDPARENT ${SW_HIDE}
       ${EndIf}
     ${EndIf}
+  !macroend
+
+  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+    !macro OneKeyUninstallCheckOtherScope FLAGS
+      IntOp $3 ${NSIS_MAX_STRLEN} * 2
+      System::Call 'Advapi32::RegGetValueW(p r7, w "${INSTALL_REGISTRY_KEY}", w "InstallLocation", i ${FLAGS}, p 0, w .r1, *i r3)i .r2'
+      ${If} $2 == 0
+        GetFullPathName $1 "$1"
+        StrCmp $1 "" OneKeyUninstallInvalidTarget
+        StrCpy $1 "$1\"
+        StrCpy $2 "$0\"
+        StrLen $3 "$1"
+        StrCpy $4 "$2" $3
+        StrCmp $1 $4 OneKeyUninstallInvalidTarget
+        StrLen $3 "$2"
+        StrCpy $4 "$1" $3
+        StrCmp $2 $4 OneKeyUninstallInvalidTarget
+      ${ElseIf} $2 != 2
+      ${AndIf} $2 != 3
+        Goto OneKeyUninstallInvalidTarget
+      ${EndIf}
+    !macroend
+
+    !macro customValidateUninstallTarget
+      ${If} $installMode == "all"
+        !insertmacro OneKeyRecoveryGuardInitiatingUser
+      ${EndIf}
+      !insertmacro OneKeyRecoveryGuardUninstall "$OneKeyModernUninstallOriginalDirectory"
+
+      # Confirm the selected scope and launch directory before closing a process
+      # or modifying its installation. Do not follow a reparse point to a target.
+      ReadRegStr $0 SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" InstallLocation
+      StrCmp $0 "" OneKeyUninstallInvalidTarget
+      GetFullPathName $0 "$0"
+      GetFullPathName $1 "$OneKeyModernUninstallOriginalDirectory"
+      GetFullPathName $2 "$INSTDIR"
+      StrCmp $0 "" OneKeyUninstallInvalidTarget
+      StrCmp $0 $1 0 OneKeyUninstallInvalidTarget
+      StrCmp $0 $2 0 OneKeyUninstallInvalidTarget
+      ${If} $installMode == "all"
+        StrCpy $7 0x80000001
+      ${Else}
+        StrCpy $7 0x80000002
+      ${EndIf}
+      !insertmacro OneKeyUninstallCheckOtherScope 0x00010002
+      !insertmacro OneKeyUninstallCheckOtherScope 0x00020002
+      OneKeyUninstallCheckAncestor:
+        System::Call 'Kernel32::GetFileAttributesW(w r0)i .r1'
+        IntOp $1 $1 & 0x410
+        StrCmp $1 16 0 OneKeyUninstallInvalidDirectory
+        ${GetParent} "$0" $1
+        StrCmp $1 "" OneKeyUninstallValidTarget
+        StrCpy $2 "$1" 1 -1
+        ${If} $2 == ":"
+          System::Call 'Kernel32::GetFileAttributesW(w "$1\")i .r1'
+          IntOp $1 $1 & 0x410
+          StrCmp $1 16 OneKeyUninstallValidTarget OneKeyUninstallInvalidDirectory
+        ${EndIf}
+        StrCpy $0 "$1"
+        Goto OneKeyUninstallCheckAncestor
+
+      OneKeyUninstallInvalidDirectory:
+        !insertmacro OneKeyRecoveryReportPathError ${ONEKEY_RECOVERY_UNSUPPORTED_LOCATION}
+        SetErrorLevel 1
+        Quit
+
+      OneKeyUninstallInvalidTarget:
+        ${IfNot} ${Silent}
+          MessageBox MB_OK|MB_ICONSTOP "To uninstall OneKey, open Installed apps in Windows Settings."
+        ${EndIf}
+        SetErrorLevel 1
+        Quit
+
+      OneKeyUninstallValidTarget:
+        ClearErrors
+    !macroend
+  !endif
+
+  !macro customUnInstallFilesRemoved
     DeleteRegKey SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}"
     !insertmacro OneKeyUnregisterProtocolSchemes
     ${If} $installMode == "all"
@@ -524,6 +736,9 @@ FunctionEnd
   !macroend
 
   !macro customHeader
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      !insertmacro OneKeyRecoveryDefineOuterState
+    !endif
     !tempfile ONEKEY_UNINSTALL_MESSAGES
     !system 'node "${PROJECT_DIR}/scripts/generate-nsis-uninstall-messages.js" "${ONEKEY_UNINSTALL_MESSAGES}"' = 0
     !include /CHARSET=UTF8 "${ONEKEY_UNINSTALL_MESSAGES}"
@@ -555,6 +770,7 @@ FunctionEnd
         SetShellVarContext all
       ${EndIf}
     FunctionEnd
+    !insertmacro OneKeyModernDefineUninstallRetry
   !macroend
 
   !macro customRemoveAppData
@@ -575,12 +791,12 @@ FunctionEnd
       Abort
     ${EndIf}
 
-    nsis-duilib-ui::SetProgress "100"
+    !insertmacro OneKeyModernRendererCall SetProgress '"100"'
     Pop $OneKeyModernResult
-    nsis-duilib-ui::SetPage "uninstallFinish"
+    !insertmacro OneKeyModernRendererCall SetPage '"uninstallFinish"'
     Pop $OneKeyModernResult
     ${If} $OneKeyModernResult != "ok"
-      nsis-duilib-ui::Shutdown
+      !insertmacro OneKeyModernRendererCall Shutdown ''
       Pop $0
       StrCpy $OneKeyModernUiActive "0"
       ShowWindow $HWNDPARENT ${SW_SHOW}
@@ -588,39 +804,122 @@ FunctionEnd
     ${EndIf}
 
     ShowWindow $HWNDPARENT ${SW_HIDE}
-    nsis-duilib-ui::WaitForEvent
+    !insertmacro OneKeyModernRendererCall WaitForEvent ''
     Pop $OneKeyModernResult
-    nsis-duilib-ui::Shutdown
+    !insertmacro OneKeyModernRendererCall Shutdown ''
     Pop $0
     Quit
   FunctionEnd
 
-  Function un.onUninstFailed
+  !macro OneKeyModernDefineUninstallRetry
+    Function un.OneKeyModernCheckUninstallRetryRegistration
+      ReadRegStr $0 SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" InstallLocation
+      ${If} $0 != ""
+        GetFullPathName $0 "$0"
+        GetFullPathName $1 "$OneKeyModernUninstallOriginalDirectory"
+        ${If} $0 == $1
+          ReadRegStr $0 SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" UninstallString
+          ${If} $0 == '"$OneKeyModernUninstallRetryPath" $OneKeyModernUninstallRetryScope'
+            StrCpy $0 "ok"
+            Return
+          ${EndIf}
+        ${EndIf}
+      ${EndIf}
+      StrCpy $0 "error"
+    FunctionEnd
+
+    !ifdef ONEKEY_USE_WIN32_INSTALLER_UI
+      Function un.OneKeyModernRetryAsInitiatingUser
+        # The UAC callback executes in the original account and synchronizes $0-$9.
+        onekey-installer-ui::RetryUninstall "$0" "$1"
+        Pop $2
+      FunctionEnd
+    !endif
+
+    Function un.OneKeyModernRetryUninstall
+      StrCpy $OneKeyModernResult "error"
+      !ifdef ONEKEY_USE_WIN32_INSTALLER_UI
+        ${If} ${UAC_IsInnerInstance}
+          StrCpy $0 "$OneKeyModernUninstallRetryPath"
+          StrCpy $1 "$OneKeyModernUninstallRetryScope"
+          StrCpy $2 "error"
+          ClearErrors
+          !insertmacro UAC_AsUser_Call Function un.OneKeyModernRetryAsInitiatingUser ${UAC_SYNCREGISTERS}
+          ${IfNot} ${Errors}
+            StrCpy $OneKeyModernResult "$2"
+          ${EndIf}
+        ${Else}
+          !insertmacro OneKeyModernRendererCall RetryUninstall '"$OneKeyModernUninstallRetryPath" "$OneKeyModernUninstallRetryScope"'
+          Pop $OneKeyModernResult
+        ${EndIf}
+      !endif
+    FunctionEnd
+  !macroend
+
+  Function un.OneKeyModernShowUninstallFailure
     ${If} $OneKeyModernUiActive == "1"
-      nsis-duilib-ui::SetPage "uninstallError"
+      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+        ${If} $OneKeyUninstallPathErrorReported == "1"
+          Goto OneKeyModernUninstallExit
+        ${EndIf}
+        ${If} $OneKeyUninstallCommitted == "1"
+          Goto OneKeyModernUninstallNeedsSetup
+        ${EndIf}
+      !endif
+      Call un.OneKeyModernCheckUninstallRetryRegistration
+      ${If} $0 != "ok"
+        Goto OneKeyModernUninstallNeedsSetup
+      ${EndIf}
+      !insertmacro OneKeyModernRendererCall CheckUninstallRetry '"$OneKeyModernUninstallRetryPath" "$OneKeyModernUninstallRetryScope"'
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult != "ok"
+        Goto OneKeyModernUninstallNeedsSetup
+      ${EndIf}
+      !insertmacro OneKeyModernRendererCall SetPage '"uninstallError"'
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::Show
+        !insertmacro OneKeyModernRendererCall Show ''
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
         ShowWindow $HWNDPARENT ${SW_HIDE}
-        nsis-duilib-ui::WaitForEvent
+        !insertmacro OneKeyModernRendererCall WaitForEvent ''
         Pop $OneKeyModernResult
-        nsis-duilib-ui::Shutdown
-        Pop $0
-        StrCpy $OneKeyModernUiActive "0"
         ${If} $OneKeyModernResult == "primary"
-          ExecShell "open" "$EXEPATH"
+          Call un.OneKeyModernCheckUninstallRetryRegistration
+          ${If} $0 != "ok"
+            Goto OneKeyModernUninstallNeedsSetup
+          ${EndIf}
+          Call un.OneKeyModernRetryUninstall
+          ${If} $OneKeyModernResult != "ok"
+            Goto OneKeyModernUninstallNeedsSetup
+          ${EndIf}
         ${EndIf}
-        Quit
+        Goto OneKeyModernUninstallExit
       ${Else}
-        nsis-duilib-ui::Shutdown
+        !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
         ShowWindow $HWNDPARENT ${SW_SHOW}
       ${EndIf}
     ${EndIf}
+    Return
+
+    OneKeyModernUninstallNeedsSetup:
+      !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND \
+        "OneKey could not finish uninstalling. Run OneKey Setup to recover the installation." \
+        "OneKey 未能完成卸载。请运行 OneKey 安装程序以恢复安装。"
+
+    OneKeyModernUninstallExit:
+      !insertmacro OneKeyModernRendererCall ShutdownHidden ''
+      Pop $0
+      StrCpy $OneKeyModernUiActive "0"
+      SetErrorLevel 1
+      Quit
+  FunctionEnd
+
+  Function un.onUninstFailed
+    Call un.OneKeyModernShowUninstallFailure
   FunctionEnd
 
 !else
@@ -641,6 +940,11 @@ FunctionEnd
     ${If} $OneKeyModernIsInner == "1"
       Abort
     ${EndIf}
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      ${If} $OneKeyModernRecoveryScope != ""
+        Abort
+      ${EndIf}
+    !endif
     ${If} $OneKeyModernExplicitScope != ""
       ShowWindow $HWNDPARENT ${SW_SHOW}
       Abort
@@ -651,35 +955,34 @@ FunctionEnd
       Abort
     ${EndIf}
 
-    !insertmacro OneKeyModernExtractTheme
     !insertmacro OneKeyModernSelectLocale
-    nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
+    !insertmacro OneKeyModernRendererInit
     Pop $OneKeyModernResult
     ${If} $OneKeyModernResult == "ok"
       ${If} $OneKeyModernWasInstalled == "1"
-        nsis-duilib-ui::SetPage "upgradeScope"
+        !insertmacro OneKeyModernRendererCall SetPage '"upgradeScope"'
       ${Else}
-        nsis-duilib-ui::SetPage "welcome"
+        !insertmacro OneKeyModernRendererCall SetPage '"welcome"'
       ${EndIf}
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
-      nsis-duilib-ui::SetPerUserInstallDirectory "$OneKeyModernPerUserDirectory"
+      !insertmacro OneKeyModernRendererCall SetPerUserInstallDirectory '"$OneKeyModernPerUserDirectory"'
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
-      nsis-duilib-ui::SetPerMachineInstallDirectory "$OneKeyModernPerMachineDirectory"
+      !insertmacro OneKeyModernRendererCall SetPerMachineInstallDirectory '"$OneKeyModernPerMachineDirectory"'
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
-      nsis-duilib-ui::Show
+      !insertmacro OneKeyModernRendererCall Show ''
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
       StrCpy $OneKeyModernUiActive "1"
       ShowWindow $HWNDPARENT ${SW_HIDE}
     ${Else}
-      nsis-duilib-ui::Shutdown
+      !insertmacro OneKeyModernRendererCall Shutdown ''
       Pop $0
       StrCpy $OneKeyModernDisabled "1"
       StrCpy $OneKeyModernUiActive "0"
@@ -688,9 +991,19 @@ FunctionEnd
     ${EndIf}
 
   OneKeyModernWelcomeLoop:
-    nsis-duilib-ui::WaitForEvent
+    !insertmacro OneKeyModernRendererCall WaitForEvent ''
     Pop $OneKeyModernResult
-    ${If} $OneKeyModernResult == "browse-current"
+    ${If} $OneKeyModernResult == "terms"
+    ${OrIf} $OneKeyModernResult == "privacy"
+      !insertmacro OneKeyModernRendererCall OpenLegalLink '"$OneKeyModernResult"'
+      Pop $0
+      ${If} $0 != "ok"
+        !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND \
+          "Open this address in your browser.$\r$\n$0" \
+          "请在浏览器中打开此地址。$\r$\n$0"
+      ${EndIf}
+      Goto OneKeyModernWelcomeLoop
+    ${ElseIf} $OneKeyModernResult == "browse-current"
       ${If} $OneKeyModernWasInstalled == "1"
         Goto OneKeyModernWelcomeLoop
       ${EndIf}
@@ -719,13 +1032,13 @@ FunctionEnd
           ${EndIf}
         ${EndIf}
         StrCpy $OneKeyModernPerUserDirectory "$0"
-        nsis-duilib-ui::SetPerUserInstallDirectory "$0"
+        !insertmacro OneKeyModernRendererCall SetPerUserInstallDirectory '"$0"'
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult != "ok"
           Goto OneKeyModernWelcomeFallback
         ${EndIf}
       ${EndIf}
-      nsis-duilib-ui::Show
+      !insertmacro OneKeyModernRendererCall Show ''
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult != "ok"
         Goto OneKeyModernWelcomeFallback
@@ -761,13 +1074,13 @@ FunctionEnd
           ${EndIf}
         ${EndIf}
         StrCpy $OneKeyModernPerMachineDirectory "$0"
-        nsis-duilib-ui::SetPerMachineInstallDirectory "$0"
+        !insertmacro OneKeyModernRendererCall SetPerMachineInstallDirectory '"$0"'
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult != "ok"
           Goto OneKeyModernWelcomeFallback
         ${EndIf}
       ${EndIf}
-      nsis-duilib-ui::Show
+      !insertmacro OneKeyModernRendererCall Show ''
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult != "ok"
         Goto OneKeyModernWelcomeFallback
@@ -791,7 +1104,7 @@ FunctionEnd
       ${EndIf}
 
       ${If} $OneKeyModernIsAdmin != "1"
-        nsis-duilib-ui::Hide
+        !insertmacro OneKeyModernRendererCall Hide ''
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult != "ok"
           Goto OneKeyModernWelcomeFallback
@@ -805,7 +1118,7 @@ FunctionEnd
         ${AndIf} $3 != 0
           Goto OneKeyModernWelcomeProceed
         ${EndIf}
-        nsis-duilib-ui::Show
+        !insertmacro OneKeyModernRendererCall Show ''
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult != "ok"
           Goto OneKeyModernWelcomeFallback
@@ -815,7 +1128,7 @@ FunctionEnd
       ${EndIf}
       Goto OneKeyModernWelcomeProceed
     ${Else}
-      nsis-duilib-ui::ShutdownHidden
+      !insertmacro OneKeyModernRendererCall ShutdownHidden ''
       Pop $0
       StrCpy $OneKeyModernUiActive "0"
       Quit
@@ -823,18 +1136,18 @@ FunctionEnd
 
   OneKeyModernWelcomeProceed:
     ${If} $OneKeyModernWasInstalled == "0"
-      nsis-duilib-ui::SetPage "installing"
+      !insertmacro OneKeyModernRendererCall SetPage '"installing"'
     ${Else}
-      nsis-duilib-ui::SetPage "upgrade"
+      !insertmacro OneKeyModernRendererCall SetPage '"upgrade"'
     ${EndIf}
     Pop $OneKeyModernResult
     ${If} $OneKeyModernResult == "ok"
     ${AndIf} $OneKeyModernWasInstalled == "0"
-      nsis-duilib-ui::ResetProgress "0"
+      !insertmacro OneKeyModernRendererCall ResetProgress '"0"'
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
-      nsis-duilib-ui::Show
+      !insertmacro OneKeyModernRendererCall Show ''
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult != "ok"
@@ -845,7 +1158,7 @@ FunctionEnd
     Abort
 
   OneKeyModernWelcomeFallback:
-    nsis-duilib-ui::Shutdown
+    !insertmacro OneKeyModernRendererCall Shutdown ''
     Pop $0
     StrCpy $OneKeyModernUiActive "0"
     StrCpy $OneKeyModernDisabled "1"
@@ -863,6 +1176,12 @@ FunctionEnd
   # Keep the native MUI finish page behind it for initialization fallbacks.
   !macro customFinishPage
     Function OneKeyModernStartApp
+      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+        ${If} $OneKeyRecoveryReadyToLaunch != "1"
+          StrCpy $0 "error"
+          Return
+        ${EndIf}
+      !endif
       ${If} ${isUpdated}
         StrCpy $OneKeyModernStartAppArgs "--updated"
       ${Else}
@@ -898,28 +1217,27 @@ FunctionEnd
     ${EndIf}
 
     ${If} $OneKeyModernUiActive == "1"
-      nsis-duilib-ui::ConcealHost
+      !insertmacro OneKeyModernRendererCall ConcealHost ''
       Pop $OneKeyModernResult
     ${Else}
-      !insertmacro OneKeyModernExtractTheme
       !insertmacro OneKeyModernSelectLocale
-      nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
+      !insertmacro OneKeyModernRendererInit
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
         ${If} $OneKeyModernAccepted == "1"
-          nsis-duilib-ui::SetPage "installing"
+          !insertmacro OneKeyModernRendererCall SetPage '"installing"'
         ${Else}
-          nsis-duilib-ui::SetPage "upgrade"
+          !insertmacro OneKeyModernRendererCall SetPage '"upgrade"'
         ${EndIf}
         Pop $OneKeyModernResult
       ${EndIf}
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
-      nsis-duilib-ui::SetInstallDirectory "$INSTDIR"
+      !insertmacro OneKeyModernRendererCall SetInstallDirectory '"$INSTDIR"'
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
-      nsis-duilib-ui::Show
+      !insertmacro OneKeyModernRendererCall Show ''
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
@@ -932,7 +1250,7 @@ FunctionEnd
     # ResetProgress resumes the plug-in's native progress mirror. During
     # InstFiles, its timer also forwards confirmed Cancel/Close as IDCANCEL.
     ${If} $OneKeyModernAccepted == "1"
-      nsis-duilib-ui::ResetProgress "0"
+      !insertmacro OneKeyModernRendererCall ResetProgress '"0"'
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
         Abort
@@ -940,13 +1258,13 @@ FunctionEnd
       Goto OneKeyModernInstallFallback
     ${EndIf}
 
-    nsis-duilib-ui::WaitForEvent
+    !insertmacro OneKeyModernRendererCall WaitForEvent ''
     Pop $OneKeyModernResult
     ${If} $OneKeyModernResult == "primary"
-      nsis-duilib-ui::ResetProgress "0"
+      !insertmacro OneKeyModernRendererCall ResetProgress '"0"'
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::SetPage "installing"
+        !insertmacro OneKeyModernRendererCall SetPage '"installing"'
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
@@ -954,14 +1272,14 @@ FunctionEnd
       ${EndIf}
       Goto OneKeyModernInstallFallback
     ${Else}
-      nsis-duilib-ui::ShutdownHidden
+      !insertmacro OneKeyModernRendererCall ShutdownHidden ''
       Pop $0
       StrCpy $OneKeyModernUiActive "0"
       Quit
     ${EndIf}
 
   OneKeyModernInstallFallback:
-    nsis-duilib-ui::Shutdown
+    !insertmacro OneKeyModernRendererCall Shutdown ''
     Pop $0
     StrCpy $OneKeyModernUiActive "0"
     StrCpy $OneKeyModernDisabled "1"
@@ -972,10 +1290,14 @@ FunctionEnd
   # Embedded 7z extraction is cancellable because it only writes temporary
   # files. Lock cancellation before old-version removal and the final copy.
   !macro customInstallBeforeRemoveOldVersion
-    ${If} $OneKeyModernUiActive == "1"
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      ${If} $OneKeyRecoveryState != "published"
+    !endif
+      # Web, directory, and ZIP packages follow the builder extraction paths.
       !ifndef APP_BUILD_DIR
         !ifndef APP_PACKAGE_URL
           !ifndef ZIP_COMPRESSION
+            ClearErrors
             !ifdef COMPRESS
               SetCompress off
             !endif
@@ -1011,56 +1333,56 @@ FunctionEnd
               SetCompress "${COMPRESS}"
             !endif
 
-            Push $OUTDIR
-            ClearErrors
             CreateDirectory "$PLUGINSDIR\7z-out"
-            ${If} ${Errors}
+            ${IfNot} ${Errors}
+              # Nsis7z ignores extraction failures. The 7za exit code catches
+              # archive and write failures before old-version removal.
+              nsExec::ExecToStack '"$PLUGINSDIR\onekey-7za.exe" x -y -o"$PLUGINSDIR\7z-out" "$PLUGINSDIR\app-$OneKeyModernPackageArch.7z"'
+              Pop $OneKeyModernResult
               Pop $0
-              SetOutPath $0
-              nsis-duilib-ui::Shutdown
-              Pop $0
-              StrCpy $OneKeyModernUiActive "0"
-              ShowWindow $HWNDPARENT ${SW_SHOW}
+              ${If} $OneKeyModernResult == "0"
+                StrCpy $OneKeyModernPackagePrepared "1"
+              ${EndIf}
+            ${EndIf}
+            ${If} $OneKeyModernPackagePrepared != "1"
+              DetailPrint "OneKey Setup could not prepare the embedded application package."
+              SetErrorLevel 1
+              Call OneKeyModernShowInstallFailure
               Abort
             ${EndIf}
-            # Nsis7z ignores extraction failures; the existing 7za helper reports
-            # CRC and write errors before any old-version files are removed.
-            nsExec::ExecToStack '"$PLUGINSDIR\onekey-7za.exe" x -y -o"$PLUGINSDIR\7z-out" "$PLUGINSDIR\app-$OneKeyModernPackageArch.7z"'
-            Pop $OneKeyModernResult
-            Pop $0
-            Pop $0
-            SetOutPath $0
-            ${If} $OneKeyModernResult != "0"
-              nsis-duilib-ui::Shutdown
-              Pop $0
-              StrCpy $OneKeyModernUiActive "0"
-              ShowWindow $HWNDPARENT ${SW_SHOW}
-              Abort
-            ${EndIf}
-            StrCpy $OneKeyModernPackagePrepared "1"
           !endif
         !endif
       !endif
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      ${EndIf}
+    !endif
 
+    ${If} $OneKeyModernUiActive == "1"
     OneKeyModernPrepareCommit:
-      nsis-duilib-ui::PrepareCommit
+      !insertmacro OneKeyModernRendererCall PrepareCommit ''
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "pending"
         Sleep 80
         Goto OneKeyModernPrepareCommit
       ${ElseIf} $OneKeyModernResult == "cancel"
-        nsis-duilib-ui::ShutdownHidden
+        !insertmacro OneKeyModernRendererCall ShutdownHidden ''
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
         SetErrorLevel 1
         Quit
       ${ElseIf} $OneKeyModernResult != "ok"
-        nsis-duilib-ui::Shutdown
+        !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
         ShowWindow $HWNDPARENT ${SW_SHOW}
         Abort
       ${EndIf}
+    ${EndIf}
+  !macroend
+
+  !macro customEmbedAppPackage
+    ${If} $OneKeyModernPackagePrepared != "1"
+      !insertmacro compute_files_for_current_arch
     ${EndIf}
   !macroend
 
@@ -1075,21 +1397,31 @@ FunctionEnd
       ${if} ${FileExists} "$newStartMenuLink"
         ClearErrors
         WinShell::SetLnkAUMI "$newStartMenuLink" "${ONEKEY_APP_USER_MODEL_ID}"
+        !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+          !insertmacro OneKeyRecoveryCheckErrors
+        !endif
       ${endIf}
     !endif
 
+    ClearErrors
     WriteRegExpandStr SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}" "DisplayName" "${PRODUCT_NAME}"
     WriteRegExpandStr SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}" "IconUri" "$INSTDIR\resources\windows\notificationIcon.png"
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      !insertmacro OneKeyRecoveryCheckErrors
+    !endif
     !insertmacro OneKeyRegisterProtocolScheme "onekey-wallet" "URL:OneKey Protocol"
     !insertmacro OneKeyRegisterProtocolScheme "wc" "URL:WalletConnect Protocol"
     !insertmacro OneKeyRegisterProtocolScheme "ethereum" "URL:Ethereum Protocol"
 
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      !insertmacro OneKeyRecoveryFinish
+    !endif
     ${If} $OneKeyModernUiActive == "1"
       # Native mirroring has already reported intermediate progress.
-      nsis-duilib-ui::SetProgress "100"
+      !insertmacro OneKeyModernRendererCall SetProgress '"100"'
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult != "ok"
-        nsis-duilib-ui::Shutdown
+        !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
         ShowWindow $HWNDPARENT ${SW_SHOW}
@@ -1098,14 +1430,19 @@ FunctionEnd
   !macroend
 
   Function OneKeyModernInstallFinish
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      ${If} $OneKeyRecoveryReadyToLaunch != "1"
+        Abort
+      ${EndIf}
+    !endif
     ${If} $OneKeyModernUiActive != "1"
       Abort
     ${EndIf}
 
-    nsis-duilib-ui::SetPage "finish"
+    !insertmacro OneKeyModernRendererCall SetPage '"finish"'
     Pop $OneKeyModernResult
     ${If} $OneKeyModernResult != "ok"
-      nsis-duilib-ui::Shutdown
+      !insertmacro OneKeyModernRendererCall Shutdown ''
       Pop $0
       StrCpy $OneKeyModernUiActive "0"
       ShowWindow $HWNDPARENT ${SW_SHOW}
@@ -1114,14 +1451,18 @@ FunctionEnd
 
   OneKeyModernFinishWait:
     ShowWindow $HWNDPARENT ${SW_HIDE}
-    nsis-duilib-ui::WaitForEvent
+    !insertmacro OneKeyModernRendererCall WaitForEvent ''
     Pop $OneKeyModernResult
     ${If} $OneKeyModernResult == "primary"
       Call OneKeyModernStartApp
       ${If} $0 != "ok"
       ${AndIf} $0 != "fallback"
-        nsis-duilib-ui::SetPage "finish"
+        !insertmacro OneKeyModernRendererCall SetPage '"finish"'
         Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult == "ok"
+          !insertmacro OneKeyModernRendererCall Show ''
+          Pop $OneKeyModernResult
+        ${EndIf}
         ${If} $OneKeyModernResult == "ok"
           Goto OneKeyModernFinishWait
         ${EndIf}
@@ -1129,46 +1470,51 @@ FunctionEnd
       ${EndIf}
     ${EndIf}
 
-    nsis-duilib-ui::Shutdown
+    !insertmacro OneKeyModernRendererCall Shutdown ''
     Pop $0
     StrCpy $OneKeyModernUiActive "0"
     SetErrorLevel 0
     Quit
 
   OneKeyModernFinishFallback:
-    nsis-duilib-ui::Shutdown
+    !insertmacro OneKeyModernRendererCall Shutdown ''
     Pop $0
     StrCpy $OneKeyModernUiActive "0"
     ShowWindow $HWNDPARENT ${SW_SHOW}
     Abort
   FunctionEnd
 
-  Function .onInstFailed
+  Function OneKeyModernShowInstallFailure
     ${If} $OneKeyModernUiActive == "1"
-      nsis-duilib-ui::SetPage "error"
+      !insertmacro OneKeyModernRendererCall SetPage '"error"'
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
-        nsis-duilib-ui::Show
+        !insertmacro OneKeyModernRendererCall Show ''
         Pop $OneKeyModernResult
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
         ShowWindow $HWNDPARENT ${SW_HIDE}
-        nsis-duilib-ui::WaitForEvent
+        !insertmacro OneKeyModernRendererCall WaitForEvent ''
         Pop $OneKeyModernResult
-        nsis-duilib-ui::Shutdown
+        !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
         ${If} $OneKeyModernResult == "primary"
           ExecShell "open" "$EXEPATH"
         ${EndIf}
+        SetErrorLevel 1
         Quit
       ${Else}
-        nsis-duilib-ui::Shutdown
+        !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
         ShowWindow $HWNDPARENT ${SW_SHOW}
       ${EndIf}
     ${EndIf}
+  FunctionEnd
+
+  Function .onInstFailed
+    Call OneKeyModernShowInstallFailure
   FunctionEnd
 
 !endif
