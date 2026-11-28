@@ -169,7 +169,9 @@ function AccountModeOption({
     <YStack
       position="relative"
       overflow="hidden"
-      p="$4"
+      px="$4"
+      pb="$4"
+      pt={recommended ? '$6' : '$4'}
       borderRadius="$3"
       borderWidth="$px"
       borderColor={isSelected ? '$borderActive' : '$borderSubdued'}
