@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* cspell:words GOMEMLIMIT GOGC tsgo */
 
-const { execFileSync, spawnSync } = require('node:child_process');
+const { execSync, spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const ROOT_DIR = path.resolve(__dirname, '../..');
@@ -10,11 +10,9 @@ const DEFAULT_GOMEMLIMIT = '8GiB';
 const DEFAULT_GOGC = '50';
 
 function getYarnCacheFolder(cwd = ROOT_DIR) {
-  const yarnCmd = process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
-  return execFileSync(yarnCmd, ['config', 'get', 'cacheFolder'], {
+  return execSync('yarn config get cacheFolder', {
     cwd,
     encoding: 'utf8',
-    shell: process.platform === 'win32',
   }).trim();
 }
 
@@ -96,4 +94,5 @@ module.exports = {
   DEFAULT_GOGC,
   DEFAULT_GOMEMLIMIT,
   buildTscInvocation,
+  getYarnCacheFolder,
 };

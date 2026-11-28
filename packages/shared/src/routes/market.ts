@@ -23,27 +23,18 @@ export type IMarketHighlightsPreview = {
   items: IMarketHighlight[];
 };
 
-export enum EModalMarketRoutes {
-  MarketDetailV2 = 'MarketDetailV2',
-  MarketBannerDetail = 'MarketBannerDetail',
-  MarketHighlights = 'MarketHighlights',
-  MobileTokenSelector = 'MobileTokenSelector',
-  MarketChartSettings = 'MarketChartSettings',
-  MarketIndicatorSettings = 'MarketIndicatorSettings',
-  MarketWidgetList = 'MarketWidgetList',
-  MarketWidgetEditor = 'MarketWidgetEditor',
-}
-
+// Keep keys as string literals so this module stays 100% type-only and adds
+// zero runtime imports or Metro module-id-registry entries.
 export type IModalMarketParamList = {
-  [EModalMarketRoutes.MarketWidgetList]:
+  MarketWidgetList:
     | { kind?: IMarketWidgetKind; needsBinding?: boolean }
     | undefined;
-  [EModalMarketRoutes.MarketWidgetEditor]: {
+  MarketWidgetEditor: {
     profileId?: string;
     kind?: IMarketWidgetKind;
     editorSession?: string;
   };
-  [EModalMarketRoutes.MarketDetailV2]: {
+  MarketDetailV2: {
     tokenAddress?: string;
     network?: string;
     stockId?: string;
@@ -54,25 +45,25 @@ export type IModalMarketParamList = {
     isNative?: boolean;
     showFavoriteButton?: boolean;
   };
-  [EModalMarketRoutes.MarketBannerDetail]: {
+  MarketBannerDetail: {
     tokenListId: string;
     title: string;
     type?: EMarketBannerType;
   };
-  [EModalMarketRoutes.MarketHighlights]:
+  MarketHighlights:
     | {
         initialHighlightId?: string;
         initialQuotes?: [string, IMarketHighlightQuote][];
         initialHighlights?: IMarketHighlightsPreview;
       }
     | undefined;
-  [EModalMarketRoutes.MobileTokenSelector]:
+  MobileTokenSelector:
     | {
         showFavoriteButton?: boolean;
         defaultCategory?: 'trending' | 'top_coins' | 'stocks';
       }
     | undefined;
-  [EModalMarketRoutes.MarketChartSettings]:
+  MarketChartSettings:
     | {
         // Only stock detail charts can offer Prev close.
         showPreviousClose?: boolean;
@@ -87,7 +78,7 @@ export type IModalMarketParamList = {
         onChartSwitch?: () => void;
       }
     | undefined;
-  [EModalMarketRoutes.MarketIndicatorSettings]: {
+  MarketIndicatorSettings: {
     storageNamespace: ITradingViewNativeStorageNamespace;
     indicatorId?: ITradingViewNativeAnyIndicatorId;
   };

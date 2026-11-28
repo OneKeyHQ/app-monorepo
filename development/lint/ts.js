@@ -1,11 +1,14 @@
 /* cspell:words GOMEMLIMIT GOGC tsgo */
-const { execSync, execFileSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const { exit } = require('process');
 
 const { parse } = require('@aivenio/tsc-output-parser');
 
-const { buildTscInvocation } = require('../scripts/tsc-check');
+const {
+  buildTscInvocation,
+  getYarnCacheFolder,
+} = require('../scripts/tsc-check');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
@@ -53,9 +56,7 @@ function handleProblems(result) {
 const rootDir = path.join(__dirname, '../..');
 const tsConfigPath = path.join(rootDir, 'tsconfig.json');
 try {
-  const cacheFolder = execSync('yarn config get cacheFolder')
-    .toString('utf-8')
-    .trim();
+  const cacheFolder = getYarnCacheFolder(rootDir);
   console.log(`[${getTimestamp()}] Using tsconfig: ${tsConfigPath}`);
   console.log(`[${getTimestamp()}] Using cache folder: ${cacheFolder}`);
   // Leave enough Go heap headroom on 16 GB CI runners while sharing the
