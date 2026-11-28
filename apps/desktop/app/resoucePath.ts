@@ -15,7 +15,6 @@ const getJsBundleStaticPath = () => {
     if (fs.existsSync(staticPath)) {
       return staticPath;
     }
-    fs.mkdirSync(staticPath, { recursive: true });
   }
   return undefined;
 };
@@ -24,6 +23,20 @@ export const getAppStaticResourcesPath = () => {
   return isDev
     ? path.join(__dirname, '../../public/static')
     : process.resourcesPath;
+};
+
+export const getAppStaticPath = () => {
+  return !app?.isPackaged
+    ? path.join(__dirname, '../../public/static')
+    : path.join(process.resourcesPath, 'static');
+};
+
+// Packaged builds load webview preload.js from inside app.asar so it is covered
+// by Electron's embedded ASAR integrity validation on Windows, macOS, and Linux.
+export const getWebviewPreloadPath = () => {
+  return !app?.isPackaged
+    ? path.join(__dirname, '../../public/static/preload.js')
+    : path.join(app.getAppPath(), 'build', 'static', 'preload.js');
 };
 
 export const getResourcesPath = () => {

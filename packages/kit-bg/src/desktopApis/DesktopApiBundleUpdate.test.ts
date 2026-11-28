@@ -60,6 +60,15 @@ jest.mock('@onekeyhq/desktop/app/bundle', () => {
     getBundleExtractDir: () => require('path').join(USERDATA, 'extract'),
     testExtractedSha256FromVerifyAscFile: () => true,
     verifyMetadataFileSha256: () => true,
+    parseMetadataBuffer: (buf: Buffer) => JSON.parse(buf.toString('utf8')),
+    readVerifiedMetadataFile: (params: { metadataPath?: string }) =>
+      JSON.parse(
+        f.readFileSync(
+          params.metadataPath ||
+            require('path').join(USERDATA, 'extract', 'metadata.json'),
+          'utf8',
+        ),
+      ),
   };
 });
 jest.mock('@onekeyhq/desktop/app/config', () => ({

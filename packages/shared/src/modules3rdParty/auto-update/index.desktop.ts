@@ -425,11 +425,12 @@ export const BundleUpdate: IBundleUpdate = {
       appVersion,
       bundleVersion,
     ),
-  verifyExtractedBundle: (appVersion, bundleVersion) =>
+  verifyExtractedBundle: (appVersion, bundleVersion, signature) =>
     runUpdateOperation('verifyPackage', () =>
       globalThis.desktopApiProxy.bundleUpdate.verifyExtractedBundle(
         appVersion,
         bundleVersion,
+        signature,
       ),
     ),
   listLocalBundles: () =>
