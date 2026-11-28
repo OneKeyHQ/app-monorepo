@@ -161,7 +161,8 @@ function ChipChevron({ badged }: { badged?: boolean }) {
 }
 
 // The avatar + name + chevron chip shared by the header's account states.
-// With a networkId the avatar carries the chain badge (connected sites).
+// With a networkId the avatar carries the chain badge (connected sites);
+// without a name it is just avatar + chevron (site not connected).
 function HeaderAccountChip({
   account,
   indexedAccount,
@@ -174,7 +175,7 @@ function HeaderAccountChip({
   ComponentProps<typeof AccountAvatar>,
   'account' | 'indexedAccount' | 'networkId'
 > & {
-  name: string;
+  name?: string;
   onPress: () => void;
   // Makes the chain badge its own tap target (multi-chain dApps).
   onNetworkPress?: () => void;
@@ -228,18 +229,20 @@ function HeaderAccountChip({
           />
         ) : null}
       </Stack>
-      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={130}>
-        {name}
-      </SizableText>
+      {name ? (
+        <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={130}>
+          {name}
+        </SizableText>
+      ) : null}
       <ChipChevron badged={!!networkId} />
     </XStack>
   );
 }
 
 // The connected account in the mobile browser header chip: avatar, name and
-// chevron, the same shape as the not-connected chip. The network badge on the
-// avatar is what marks the site as connected (a connection is always on a
-// chain; the not-connected chip has no badge). Opens the dApp account
+// chevron. The name and the network badge on the avatar mark the site as
+// connected (a connection is always on a chain; the not-connected chip is
+// the bare avatar). Opens the dApp account
 // selector (same options as AccountSelectorTriggerBrowserSingle); on
 // multi-chain dApps the badge itself opens the network picker.
 function CompactConnectedAccountTrigger({ num }: { num: number }) {
@@ -274,8 +277,10 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
   );
 }
 
-// Compact version of the home account trigger for the browser header chip:
-// avatar + account name. Opens the same home-scene account selector.
+// Site not connected: only the active wallet account's avatar (the one a
+// connect would use), no name, so the chip can't read as a connection while
+// adding no text on ordinary sites. Opens the same home-scene account
+// selector.
 function CompactWalletAccountTrigger() {
   const intl = useIntl();
   const {
@@ -291,16 +296,17 @@ function CompactWalletAccountTrigger() {
     linkNetwork,
     linkNetworkId: linkNetwork ? network?.id : undefined,
   });
-  const accountName =
-    indexedAccount?.name ||
-    account?.name ||
-    intl.formatMessage({ id: ETranslations.no_account });
+  const hasAccount = !!(indexedAccount || account);
 
   return (
     <HeaderAccountChip
       account={account}
       indexedAccount={indexedAccount}
-      name={accountName}
+      name={
+        hasAccount
+          ? undefined
+          : intl.formatMessage({ id: ETranslations.no_account })
+      }
       onPress={showAccountSelector}
       testID="browser-header-account"
     />
@@ -522,9 +528,11 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
     IConnectionAccountInfoWithNum[] | null
   >(null);
   const originRef = useRef<string | null>(null);
+  // The origin of the latest settled lookup.
+  const connectionOriginRef = useRef<string | undefined>(undefined);
 
   const {
-    result: connectedAccountsInfo,
+    result: connection,
     isLoading,
     run,
   } = usePromiseResult(
@@ -532,18 +540,33 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
       if (!origin) {
         return;
       }
-      const connectedAccount =
-        await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
-          origin,
-        );
-
-      return connectedAccount;
+      try {
+        const accountsInfo =
+          await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+            origin,
+          );
+        return { origin, accountsInfo };
+      } catch (error) {
+        // Keep the usual semantics (the last result stays) except when the
+        // mobile chip is still waiting on this site, e.g. the background
+        // runtime restarted mid-request: settle on the bare avatar so it
+        // stops waiting.
+        if (!isMobileBrowser || connectionOriginRef.current === origin) {
+          throw error;
+        }
+        return { origin, accountsInfo: null };
+      }
     },
-    [origin],
+    [origin, isMobileBrowser],
     {
       checkIsFocused: false,
     },
   );
+  connectionOriginRef.current = connection?.origin;
+  const connectedAccountsInfo = connection?.accountsInfo;
+  // Until this site's lookup returns, the result is empty or the previous
+  // site's: the mobile chip must not show a connection state meanwhile.
+  const isConnectionPending = !!origin && connection?.origin !== origin;
 
   const afterChangeAccount = useCallback(() => {
     void run();
@@ -598,6 +621,9 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
   const content = useMemo(() => {
     if (isLoading) {
       return <Spinner />;
+    }
+    if (isMobileBrowser && isConnectionPending) {
+      return <Spinner size="small" />;
     }
     if (!connectedAccountsInfo?.length || !origin) {
       if (isMobileBrowser) {
@@ -666,6 +692,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
     );
   }, [
     isLoading,
+    isConnectionPending,
     connectedAccountsInfo,
     origin,
     intl,
