@@ -17,6 +17,8 @@ import type {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
+import { getMarketWidgetDisplayAsset } from './assetIdentity';
+
 const loadingSnapshot = {
   state: undefined,
   isLoading: true,
@@ -307,6 +309,22 @@ export function useMarketWidgetEditorState(
               ...current.state,
               watchlist: state.watchlist,
               hot: state.hot,
+              settings: current.state.settings?.map((setting) => {
+                const displayAsset = (asset: IMarketWidgetAsset) =>
+                  getMarketWidgetDisplayAsset({
+                    asset,
+                    state: next,
+                    source: setting.source,
+                    kind: setting.kind,
+                  }) ?? asset;
+                return {
+                  ...setting,
+                  asset: setting.asset
+                    ? displayAsset(setting.asset)
+                    : undefined,
+                  assets: setting.assets?.map(displayAsset),
+                };
+              }),
             };
           } else if (state) {
             if (searchChanged && current.state?.searchAssets) {
