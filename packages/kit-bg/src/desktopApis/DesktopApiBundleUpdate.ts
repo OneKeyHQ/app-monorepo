@@ -12,7 +12,9 @@ import {
   getBundleDirName,
   getBundleExtractDir,
   lastSHA256FailureReason,
+  parseMetadataBuffer,
   readMetadataFileSha256,
+  readVerifiedMetadataFile,
   testExtractedSha256FromVerifyAscFile,
   verifyMetadataFileSha256,
   verifySha256,
@@ -248,8 +250,52 @@ async function verifySignedMetadata(
   }
 }
 
+async function readSignedMetadata(
+  params: Parameters<typeof readVerifiedMetadataFile>[0],
+  step: TUpdateErrorStep,
+): Promise<Record<string, string>> {
+  try {
+    const metadataFilePath =
+      params.metadataPath ??
+      path.join(getBundleExtractDir(params), 'metadata.json');
+    if (!fs.existsSync(metadataFilePath)) {
+      throw createUpdateError({ code: EUpdateErrorCode.packageMissing, step });
+    }
+    return await readVerifiedMetadataFile({
+      ...params,
+      metadataPath: metadataFilePath,
+    });
+  } catch (error) {
+    throw wrapSignedMetadataError(error, step);
+  }
+}
+
+function readUnsignedMetadata(
+  metadataFilePath: string,
+  step: TUpdateErrorStep,
+): Record<string, string> {
+  if (!fs.existsSync(metadataFilePath)) {
+    throw createUpdateError({ code: EUpdateErrorCode.packageMissing, step });
+  }
+  const raw = fs.readFileSync(metadataFilePath);
+  try {
+    return parseMetadataBuffer(raw);
+  } catch (error) {
+    throw wrapSignedMetadataError(error, step);
+  }
+}
+
 class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
+
+  private verifiedBundleSignatures = new Map<string, string>();
+
+  private getBundleSignatureCacheKey(
+    appVersion: string,
+    bundleVersion: string,
+  ): string {
+    return `${appVersion}:${bundleVersion}`;
+  }
 
   get isDownloading(): boolean {
     return this.cancelByDest.size > 0;
@@ -687,20 +733,24 @@ class DesktopApiAppBundleUpdate {
         appVersion,
         bundleVersion,
       });
-      if (!allowSkipGPG) {
-        await verifySignedMetadata(
-          {
-            appVersion,
-            expectedAppVersion: appVersion,
-            bundleVersion,
-            signature: signature!,
-          },
-          'verifyASC',
+      const metadata = !allowSkipGPG
+        ? await readSignedMetadata(
+            {
+              appVersion,
+              expectedAppVersion: appVersion,
+              bundleVersion,
+              signature: signature!,
+              metadataPath: metadataFilePath,
+            },
+            'verifyASC',
+          )
+        : readUnsignedMetadata(metadataFilePath, 'verifyASC');
+      if (!allowSkipGPG && signature) {
+        this.verifiedBundleSignatures.set(
+          this.getBundleSignatureCacheKey(appVersion, bundleVersion),
+          signature,
         );
       }
-      const metadata = JSON.parse(
-        fs.readFileSync(metadataFilePath, 'utf8'),
-      ) as Record<string, string>;
       this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
       return;
     }
@@ -834,27 +884,29 @@ class DesktopApiAppBundleUpdate {
         bundleVersion,
       });
       logger.info('bundle-verifyBundleASC', metadataFilePath, allowSkipGPG);
+      // Verify all extracted files against metadata SHA512 hashes using the
+      // same verified metadata buffer (no second read from disk).
+      let metadata: Record<string, string>;
       if (!allowSkipGPG) {
-        await verifySignedMetadata(
+        metadata = await readSignedMetadata(
           {
             appVersion,
             expectedAppVersion: appVersion,
             bundleVersion,
             signature: signature!,
+            metadataPath: metadataFilePath,
           },
           'verifyASC',
         );
+        if (signature) {
+          this.verifiedBundleSignatures.set(
+            this.getBundleSignatureCacheKey(appVersion, bundleVersion),
+            signature,
+          );
+        }
+      } else {
+        metadata = readUnsignedMetadata(metadataFilePath, 'verifyASC');
       }
-
-      // Verify all extracted files against metadata SHA256 hashes
-      if (!fs.existsSync(metadataFilePath)) {
-        throw createUpdateError({
-          code: EUpdateErrorCode.packageMissing,
-          step: 'verifyASC',
-        });
-      }
-      const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
-      const metadata = JSON.parse(metadataContent) as Record<string, string>;
       this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
     } catch (error) {
       // Cleanup extracted directory on verification failure
@@ -908,33 +960,55 @@ class DesktopApiAppBundleUpdate {
       }
       if (entry.isDirectory()) {
         this.walkAndVerifyFiles(fullPath, metadata, baseDir, verifiedFiles);
-      } else if (entry.name !== 'metadata.json' && entry.name !== '.DS_Store') {
-        // Strict contract: only files under "build/" are allowed to be hashed
-        // by metadata. Any extra root-level file is treated as verification failure.
-        const relativePath = path
-          .relative(path.join(baseDir, 'build'), fullPath)
-          .split(path.sep)
-          .join('/');
-        const expectedSha512 = metadata[relativePath];
-        if (!expectedSha512) {
+      } else {
+        if (!entry.isFile()) {
           logger.error(
             'bundle-verify',
-            `File on disk not found in metadata: ${relativePath}`,
+            `Non-regular file detected: ${entry.name}`,
           );
           throw createUpdateError({
-            code: EUpdateErrorCode.integrityFailed,
+            code: EUpdateErrorCode.securityRejected,
             step: 'verifyPackage',
           });
         }
-        const isSha512Matched = checkFileSha512(fullPath, expectedSha512);
-        if (!isSha512Matched) {
-          logger.error('bundle-verify', `SHA512 mismatch for ${relativePath}`);
-          throw createUpdateError({
-            code: EUpdateErrorCode.integrityFailed,
-            step: 'verifyPackage',
-          });
+        if (
+          !(dirPath === baseDir && entry.name === 'metadata.json') &&
+          entry.name !== '.DS_Store'
+        ) {
+          // Strict contract: only files under "build/" are allowed to be hashed
+          // by metadata. Any extra root-level file is treated as verification failure.
+          const relativePath = path
+            .relative(path.join(baseDir, 'build'), fullPath)
+            .split(path.sep)
+            .join('/');
+          const expectedSha512 =
+            Object.prototype.hasOwnProperty.call(metadata, relativePath) &&
+            typeof metadata[relativePath] === 'string'
+              ? metadata[relativePath]
+              : undefined;
+          if (!expectedSha512) {
+            logger.error(
+              'bundle-verify',
+              `File on disk not found in metadata: ${relativePath}`,
+            );
+            throw createUpdateError({
+              code: EUpdateErrorCode.integrityFailed,
+              step: 'verifyPackage',
+            });
+          }
+          const isSha512Matched = checkFileSha512(fullPath, expectedSha512);
+          if (!isSha512Matched) {
+            logger.error(
+              'bundle-verify',
+              `SHA512 mismatch for ${relativePath}`,
+            );
+            throw createUpdateError({
+              code: EUpdateErrorCode.integrityFailed,
+              step: 'verifyPackage',
+            });
+          }
+          verifiedFiles.add(relativePath);
         }
-        verifiedFiles.add(relativePath);
       }
     }
   }
@@ -1120,9 +1194,14 @@ class DesktopApiAppBundleUpdate {
   async verifyExtractedBundle(
     appVersion: string,
     bundleVersion: string,
+    signature?: string,
   ): Promise<void> {
     try {
-      await this.verifyExtractedBundleInternal(appVersion, bundleVersion);
+      await this.verifyExtractedBundleInternal(
+        appVersion,
+        bundleVersion,
+        signature,
+      );
     } catch (error) {
       throw wrapBundleError(error, 'verifyPackage');
     }
@@ -1131,8 +1210,17 @@ class DesktopApiAppBundleUpdate {
   private async verifyExtractedBundleInternal(
     appVersion: string,
     bundleVersion: string,
+    signature?: string,
   ): Promise<void> {
+    assertUpdateBundleVersion(appVersion, 'verifyPackage');
+    assertUpdateBundleVersion(bundleVersion, 'verifyPackage');
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
+    if (fs.lstatSync(extractDir, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step: 'verifyPackage',
+      });
+    }
     if (!fs.existsSync(extractDir)) {
       logger.error(
         'bundle-verify',
@@ -1154,8 +1242,53 @@ class DesktopApiAppBundleUpdate {
         step: 'verifyPackage',
       });
     }
-    const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
-    const metadata = JSON.parse(metadataContent) as Record<string, string>;
+    const activeBundle = store.getUpdateBundleData();
+    const fallbackBundles = store.getFallbackUpdateBundleData();
+    let effectiveSignature =
+      signature ||
+      this.verifiedBundleSignatures.get(
+        this.getBundleSignatureCacheKey(appVersion, bundleVersion),
+      );
+    if (!effectiveSignature) {
+      if (
+        activeBundle?.appVersion === appVersion &&
+        activeBundle.bundleVersion === bundleVersion
+      ) {
+        effectiveSignature = activeBundle.signature;
+      } else if (Array.isArray(fallbackBundles)) {
+        effectiveSignature = fallbackBundles.find(
+          (entry) =>
+            entry?.appVersion === appVersion &&
+            entry.bundleVersion === bundleVersion,
+        )?.signature;
+      }
+    }
+    const allowSkipGPG = this.isSkipGPGAllowed(false);
+    let metadata: Record<string, string>;
+    if (!allowSkipGPG) {
+      if (!effectiveSignature) {
+        logger.error(
+          'bundle-verify',
+          `verifyExtractedBundle: missing GPG signature for ${appVersion}-${bundleVersion}`,
+        );
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        });
+      }
+      metadata = await readSignedMetadata(
+        {
+          appVersion,
+          expectedAppVersion: appVersion,
+          bundleVersion,
+          signature: effectiveSignature,
+          metadataPath: metadataFilePath,
+        },
+        'verifyPackage',
+      );
+    } else {
+      metadata = readUnsignedMetadata(metadataFilePath, 'verifyPackage');
+    }
     this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
   }
 
@@ -1270,19 +1403,18 @@ class DesktopApiAppBundleUpdate {
         step: 'install',
       });
     }
-    if (!allowSkipGPG) {
-      await verifySignedMetadata(
-        {
-          appVersion,
-          expectedAppVersion: appVersion,
-          bundleVersion,
-          signature: signature!,
-        },
-        'install',
-      );
-    }
-    const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
-    const metadata = JSON.parse(metadataContent) as Record<string, string>;
+    const metadata = !allowSkipGPG
+      ? await readSignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+            metadataPath: metadataFilePath,
+          },
+          'install',
+        )
+      : readUnsignedMetadata(metadataFilePath, 'install');
     this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
 
     store.setUpdateBundleData({
@@ -1417,19 +1549,18 @@ class DesktopApiAppBundleUpdate {
         step: 'install',
       });
     }
-    if (!allowSkipGPG) {
-      await verifySignedMetadata(
-        {
-          appVersion,
-          expectedAppVersion: appVersion,
-          bundleVersion,
-          signature: signature!,
-        },
-        'install',
-      );
-    }
-    const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
-    const metadata = JSON.parse(metadataContent) as Record<string, string>;
+    const metadata = !allowSkipGPG
+      ? await readSignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+            metadataPath: metadataFilePath,
+          },
+          'install',
+        )
+      : readUnsignedMetadata(metadataFilePath, 'install');
     this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
 
     store.setUpdateBundleData(updateBundleData);
