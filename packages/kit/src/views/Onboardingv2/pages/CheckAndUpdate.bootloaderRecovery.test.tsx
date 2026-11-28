@@ -213,8 +213,13 @@ jest.mock('../hooks/usePrepareUSBConnectForFirmwareUpdate', () => ({
   usePrepareUSBConnectForFirmwareUpdate: () => mockTransport,
 }));
 jest.mock('../utils', () => ({ getForceTransportType: jest.fn() }));
+const mockPro2FindMyTest = {
+  skipDeviceVerify: false,
+  skipFirmwareUpdateCheck: false,
+};
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{}],
+  usePro2FindMyTestPersistAtom: () => [mockPro2FindMyTest],
 }));
 jest.mock('@onekeyhq/shared/src/errors/utils/deviceErrorUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
@@ -307,6 +312,27 @@ describe('CheckAndUpdate post-update bootloader recovery', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+    mockPro2FindMyTest.skipFirmwareUpdateCheck = false;
+  });
+
+  it('skips the Pro 2 release check when the Find My test switch is on', async () => {
+    mockPro2FindMyTest.skipFirmwareUpdateCheck = true;
+    const props = {
+      route: { params: { deviceData: { device: mockDevice } } },
+      navigation: mockNavigation,
+    } as unknown as ComponentProps<typeof CheckAndUpdate>;
+    render(<CheckAndUpdate {...props} />);
+    fireEvent.click(
+      screen.getByTestId(OnboardingTestIDs.checkAndUpdateVerifyBtn),
+    );
+    await advanceTime(1500);
+    expect(mockCheckRelease).not.toHaveBeenCalled();
+    expect(
+      screen.queryByTestId(OnboardingTestIDs.checkAndUpdateUpdateBtn),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(OnboardingTestIDs.checkAndUpdateContinueToSetupBtn),
+    ).toBeTruthy();
   });
 
   it('restores Update now after an interrupted/cancelled update without accepting bootloader as application firmware', async () => {

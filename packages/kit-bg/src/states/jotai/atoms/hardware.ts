@@ -532,3 +532,24 @@ export const {
   initialValue: {},
   name: EAtomNames.hardwareWalletXfpStatusAtom,
 });
+
+// Pro 2 Find My test build ----------------------------------------
+// Certification labs receive dev-signed devices, which fail the genuine check
+// and may be offered firmware updates that must not be installed. This build
+// only ships through TestFlight, so both checks are skipped by default; the
+// Pro 2 Bluetooth firmware test page can turn them back on. Pro 2 and Neo only.
+export type IPro2FindMyTestPersistAtom = {
+  skipDeviceVerify: boolean;
+  skipFirmwareUpdateCheck: boolean;
+};
+export const {
+  target: pro2FindMyTestPersistAtom,
+  use: usePro2FindMyTestPersistAtom,
+} = globalAtom<IPro2FindMyTestPersistAtom>({
+  persist: true,
+  name: EAtomNames.pro2FindMyTestPersistAtom,
+  initialValue: {
+    skipDeviceVerify: true,
+    skipFirmwareUpdateCheck: true,
+  },
+});

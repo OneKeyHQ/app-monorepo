@@ -11,3 +11,9 @@ declare module '*.webp' {
 }
 
 declare module '*.css';
+
+declare module '*.bin' {
+  type IBinaryRequireSource = number;
+  const value: IBinaryRequireSource;
+  export default value;
+}
