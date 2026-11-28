@@ -1,13 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import {
-  collectLogDigest,
-  disposeLogDigest,
-  exportLogs,
-  uploadLogBundle,
-} from '.';
+import { collectLogDigest, disposeLogDigest, exportLogs } from '.';
 
-import pRetry, { AbortError } from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import {
@@ -28,13 +22,9 @@ import { Progress as ImmediateProgress } from '@onekeyhq/components/src/content/
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { inAppStateLockDialogProps } from '@onekeyhq/kit/src/views/Setting/hooks';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   BROWSER_LOG_MAX_BYTES,
-  ELogUploadStage,
   RECENT_LOG_EXPORT_BYTES,
 } from '@onekeyhq/shared/src/logger/types';
 import type {
@@ -42,20 +32,13 @@ import type {
   ILogExportScope,
 } from '@onekeyhq/shared/src/logger/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { sanitizeSniDiagnosticText } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { downloadLogDigest } from './downloadLogDigest';
+import { formatManualExportToastMessage } from './logUploadUtils';
 import {
-  LOG_UPLOAD_MAX_RETRIES,
-  formatManualExportToastMessage,
-  invalidateUploadTokenCacheAfterError,
-  isRetryableLogUploadError,
-  isUploadTokenReusable,
-  normalizeTokenExpiresAtMs,
-} from './logUploadUtils';
-
-import type { ILogUploadTokenCache } from './logUploadUtils';
+  resolveLogUploadError,
+  uploadLogsWithRetry,
+} from './uploadLogsWithRetry';
 
 const usesBrowserLogExport = platformEnv.isExtension || platformEnv.isWeb;
 
@@ -83,7 +66,6 @@ function UploadLogsDialogContent({
   const [instanceIdCopied, setInstanceIdCopied] = useState(false);
   const [exportScope, setExportScope] = useState<ILogExportScope>('recent');
   const isActiveRef = useRef(false);
-  const activeRequestIdRef = useRef<string | undefined>(undefined);
   const fileBaseNameRef = useRef<string>('');
 
   const handleEmailPress = useCallback(() => {
@@ -97,77 +79,9 @@ function UploadLogsDialogContent({
     }
   }, [copyText, instanceId]);
 
-  // Listen to backend upload progress events
-  useEffect(() => {
-    const handleProgressUpdate = ({
-      stage: incomingStage,
-      progressPercent: incomingPercent,
-      requestId,
-      bytesSent,
-      totalBytes,
-    }: {
-      stage: ELogUploadStage;
-      progressPercent?: number;
-      requestId?: string;
-      bytesSent?: number;
-      totalBytes?: number;
-    }) => {
-      if (
-        !isActiveRef.current ||
-        !activeRequestIdRef.current ||
-        requestId !== activeRequestIdRef.current
-      ) {
-        return;
-      }
-
-      // Map backend stages to unified "uploading_in_progress" for UX
-      // Only update progress, don't expose error states
-      if (incomingStage === ELogUploadStage.Uploading) {
-        if (bytesSent === 0) return;
-        const percent =
-          typeof bytesSent === 'number' &&
-          typeof totalBytes === 'number' &&
-          totalBytes > 0
-            ? Math.floor((bytesSent / totalBytes) * 100)
-            : incomingPercent;
-        if (typeof percent === 'number' && Number.isFinite(percent)) {
-          setProgressPercent((current) =>
-            Math.max(current ?? 0, Math.min(99, Math.max(0, percent))),
-          );
-        }
-      }
-    };
-
-    appEventBus.on(
-      EAppEventBusNames.ClientLogUploadProgress,
-      handleProgressUpdate,
-    );
-
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.ClientLogUploadProgress,
-        handleProgressUpdate,
-      );
-    };
-  }, []);
-
   const generateFileBaseName = useCallback(() => {
     const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
     return `OneKeyLogs-${timestamp}`;
-  }, []);
-
-  const resolveError = useCallback((err: unknown): Error => {
-    const candidate = err as { originalError?: unknown; message?: unknown };
-    if (candidate?.originalError) {
-      return resolveError(candidate.originalError);
-    }
-    if (err instanceof Error) {
-      return err;
-    }
-    if (typeof candidate?.message === 'string') {
-      return new Error(candidate.message);
-    }
-    return new Error(String(err));
   }, []);
 
   const handleManualExport = useCallback(async () => {
@@ -185,7 +99,9 @@ function UploadLogsDialogContent({
       void dialog.close();
     } catch (error) {
       setDialogStage('idle');
-      const detail = formatManualExportToastMessage(resolveError(error));
+      const detail = formatManualExportToastMessage(
+        resolveLogUploadError(error),
+      );
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.settings_export_logs_failed_title,
@@ -195,7 +111,7 @@ function UploadLogsDialogContent({
     } finally {
       isActiveRef.current = false;
     }
-  }, [generateFileBaseName, intl, dialog, exportScope, resolveError]);
+  }, [generateFileBaseName, intl, dialog, exportScope]);
 
   const handleUpload = useCallback(
     async ({ preventClose }: { preventClose: () => void }) => {
@@ -217,91 +133,26 @@ function UploadLogsDialogContent({
 
       const fileBaseName = generateFileBaseName();
       fileBaseNameRef.current = fileBaseName;
-      // One archive per upload on every platform: a fresh archive changes
-      // sha256, which would force a new token on each retry and trip the
-      // token endpoint's rate limit.
+      const upload: { digest?: ILogDigest } = {};
       let digest: ILogDigest | undefined;
-      let tokenCache: ILogUploadTokenCache | undefined;
-      let attempt = 0;
-      let tokenReused = false;
-
-      const getUploadToken = async (currentDigest: ILogDigest) => {
-        if (isUploadTokenReusable(tokenCache, currentDigest, Date.now())) {
-          tokenReused = true;
-          return tokenCache.uploadToken;
-        }
-        tokenReused = false;
-        const issuedAtMs = Date.now();
-        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
-          {
-            sizeBytes: currentDigest.sizeBytes,
-            sha256: currentDigest.sha256,
-          },
-        );
-        tokenCache = {
-          uploadToken: token.uploadToken,
-          expiresAtMs: normalizeTokenExpiresAtMs(token.expiresAt, issuedAtMs),
-          sha256: currentDigest.sha256,
-          sizeBytes: currentDigest.sizeBytes,
-          consumed: false,
-        };
-        return token.uploadToken;
-      };
-
-      const attemptUpload = async () => {
-        attempt += 1;
-        const requestId = generateUUID();
-        activeRequestIdRef.current = requestId;
-        setProgressPercent(undefined);
-        let uploadDispatched = false;
-        try {
-          digest ??= usesBrowserLogExport
-            ? await collectLogDigest(fileBaseName, exportScope)
-            : await collectLogDigest(fileBaseName);
-          const uploadToken = await getUploadToken(digest);
-          uploadDispatched = true;
-          const { result } = await uploadLogBundle({
-            uploadToken,
-            digest,
-            requestId,
-          });
-          return result.objectKey;
-        } catch (error) {
-          if (uploadDispatched) {
-            tokenCache = invalidateUploadTokenCacheAfterError(
-              tokenCache,
-              error,
-            );
-          }
-          const retryable = isRetryableLogUploadError(error);
-          const resolvedError = resolveError(error);
-          defaultLogger.setting.logUpload.attemptFailed({
-            attempt,
-            tokenReused,
-            retryable,
-            errorCode: (
-              error as { code?: unknown } | undefined
-            )?.code?.toString(),
-            errorMessage: sanitizeSniDiagnosticText(resolvedError.message),
-          });
-          if (!retryable) {
-            throw new AbortError(resolvedError);
-          }
-          throw error;
-        } finally {
-          if (activeRequestIdRef.current === requestId) {
-            activeRequestIdRef.current = undefined;
-          }
-        }
-      };
 
       try {
         // Silent retry (no error display during retry) for transient errors.
         try {
-          await pRetry(() => attemptUpload(), {
-            retries: LOG_UPLOAD_MAX_RETRIES,
+          await uploadLogsWithRetry({
+            state: upload,
+            collectDigest: () =>
+              usesBrowserLogExport
+                ? collectLogDigest(fileBaseName, exportScope)
+                : collectLogDigest(fileBaseName),
+            // The bar stops at 99 until the server confirms the upload.
+            onProgress: (percent) =>
+              setProgressPercent(
+                percent === undefined ? undefined : Math.min(99, percent),
+              ),
           });
         } finally {
+          digest = upload.digest;
           if (digest && !usesBrowserLogExport) {
             await disposeLogDigest(digest);
           }
@@ -355,7 +206,7 @@ function UploadLogsDialogContent({
         } catch (exportError) {
           // Both upload and export failed
           console.error('[Log Upload] Export also failed:', exportError);
-          const exportMessage = resolveError(exportError).message;
+          const exportMessage = resolveLogUploadError(exportError).message;
           setDialogStage('final_error');
           setErrorMessage(
             exportMessage || 'Failed to export logs. Please contact support.',
@@ -364,17 +215,9 @@ function UploadLogsDialogContent({
       } finally {
         if (usesBrowserLogExport && digest) await disposeLogDigest(digest);
         isActiveRef.current = false;
-        activeRequestIdRef.current = undefined;
       }
     },
-    [
-      dialogStage,
-      resolveError,
-      intl,
-      generateFileBaseName,
-      inAppStateLock,
-      exportScope,
-    ],
+    [dialogStage, intl, generateFileBaseName, inAppStateLock, exportScope],
   );
 
   const handleConfirmAction = useCallback(

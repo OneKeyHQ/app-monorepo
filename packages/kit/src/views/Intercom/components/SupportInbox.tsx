@@ -24,6 +24,7 @@ import type { IModalNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { getIntercomResponseCache } from '@onekeyhq/kit/src/views/Intercom/client';
+import { prepareNewSupportConversation } from '@onekeyhq/kit/src/views/Intercom/supportLog/supportRequest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -229,11 +230,28 @@ export function SupportInbox({
     homeContent.data?.newConversationLabel ||
     open.data?.newConversationLabel ||
     intl.formatMessage({ id: ETranslations.global_contact_us });
-  const startConversation = () =>
-    navigation.push(EIntercomRoutes.Conversation, {
-      ...route,
-      conversationId: undefined,
-    });
+  const starting = useRef(false);
+  // A new conversation asks once whether to attach diagnostic logs.
+  const startConversation = () => {
+    if (starting.current) return;
+    starting.current = true;
+    void prepareNewSupportConversation({
+      intl,
+      ownerUserId: route.userId,
+      requestId: route.requestId,
+    })
+      .then((composeId) => {
+        if (composeId)
+          navigation.push(EIntercomRoutes.Conversation, {
+            ...route,
+            conversationId: undefined,
+            composeId,
+          });
+      })
+      .finally(() => {
+        starting.current = false;
+      });
+  };
   const showMessages = () => {
     if (home) navigation.push(EIntercomRoutes.Messages, route);
   };

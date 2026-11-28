@@ -120,6 +120,7 @@ jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
 jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({
   __esModule: true,
   default: { formatDate: () => '12:00', formatTime: () => '12:00' },
+  formatTime: () => '12:00',
   formatRelativeDate: () => 'Today',
   formatRelativeTimeAbbr: () => '1m',
 }));
@@ -151,6 +152,29 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
 jest.mock('../utils/pickSupportImage', () => ({
   pickSupportImage: jest.fn(),
   cleanSupportImage: jest.fn(async () => {}),
+}));
+// The consent dialog and log uploads have their own tests.
+let mockCompose:
+  | {
+      errorContext?: {
+        title: string;
+        diagnosticText: string;
+        occurredAt: number;
+      };
+    }
+  | undefined;
+jest.mock('../supportLog/supportRequest', () => ({
+  prepareNewSupportConversation: async () => 'compose-1',
+  attachSupportLogs: jest.fn(),
+  getSupportCompose: () => mockCompose,
+  deleteSupportCompose: jest.fn(),
+}));
+jest.mock('../supportLog/supportLogJobs', () => ({
+  useSupportLogJob: () => undefined,
+  isSupportLogActive: () => false,
+  bindSupportLogConversation: jest.fn(),
+  removeSupportLog: jest.fn(),
+  retrySupportLog: jest.fn(),
 }));
 let mockStackIndex = 1;
 jest.mock('@react-navigation/native', () => ({
@@ -282,19 +306,57 @@ jest.mock('@onekeyhq/components', () => {
     HeaderIconButton: Button,
     YStack: View,
     XStack: View,
-    // Only the unread dot is a Stack here; expose its color token and size.
+    // Like View, and exposes the color token and size of the unread dot.
     Stack: ({
+      children,
       testID,
+      onPress,
       bg,
       width,
       height,
-    }: {
+    }: PropsWithChildren<{
       testID?: string;
+      onPress?: () => void;
       bg?: string;
       width?: number | string;
       height?: number | string;
+    }>) =>
+      onPress ? (
+        <button type="button" data-testid={testID} onClick={onPress}>
+          {children}
+        </button>
+      ) : (
+        <div data-testid={testID} data-bg={bg} data-size={`${width}x${height}`}>
+          {children}
+        </div>
+      ),
+    // Renders the menu items in place so a test can press one directly.
+    ActionList: ({
+      renderTrigger,
+      items = [],
+    }: {
+      renderTrigger: ReactNode;
+      items?: {
+        testID?: string;
+        label: string;
+        disabled?: boolean;
+        onPress?: (close: () => void) => void;
+      }[];
     }) => (
-      <div data-testid={testID} data-bg={bg} data-size={`${width}x${height}`} />
+      <div>
+        {renderTrigger}
+        {items.map((item) => (
+          <button
+            key={item.testID}
+            type="button"
+            data-testid={item.testID}
+            disabled={item.disabled}
+            onClick={() => item.onPress?.(() => {})}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
     ),
     LinearGradient: View,
     SizableText: View,
@@ -544,6 +606,7 @@ it.each([false, true])(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCompose = undefined;
   mockLocked = false;
   mockFailSend = false;
   mockFailRefresh = false;
@@ -642,10 +705,14 @@ it('opens the RN home, message list and an existing conversation', async () => {
     conversationId: '42',
   });
   fireEvent.click(screen.getByTestId('support-new-conversation'));
-  expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
-    userId: null,
-    conversationId: undefined,
-  });
+  // A new conversation opens after the log consent dialog answers.
+  await waitFor(() =>
+    expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
+      userId: null,
+      conversationId: undefined,
+      composeId: 'compose-1',
+    }),
+  );
 });
 
 it('marks an unread conversation and the messages tab with the same red dot', async () => {
@@ -799,6 +866,114 @@ it('creates a conversation and sends to it after the route params update', async
       }),
     ),
   );
+});
+
+it('sends attached error details with the next typed message unless removed', async () => {
+  mockCompose = {
+    errorContext: {
+      title: 'Signing failed',
+      diagnosticText: 'RequestId: r-1',
+      occurredAt: 0,
+    },
+  };
+  const view = render(<SupportScreen />);
+  expect(screen.getByTestId('support-error-attachment')).toBeTruthy();
+  await enterMessage('Signing keeps failing');
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith(
+      'messages',
+      expect.objectContaining({
+        blocks: [
+          {
+            type: 'paragraph',
+            text: 'Signing keeps failing<br><br>RequestId: r-1',
+          },
+        ],
+      }),
+    ),
+  );
+  expect(screen.queryByTestId('support-error-attachment')).toBeNull();
+  view.unmount();
+
+  mockRequest.mockClear();
+  render(<SupportScreen />);
+  fireEvent.click(screen.getByTestId('support-error-attachment-remove'));
+  await enterMessage('Only a question');
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith(
+      'messages',
+      expect.objectContaining({
+        blocks: [{ type: 'paragraph', text: 'Only a question' }],
+      }),
+    ),
+  );
+});
+
+it('keeps the error card when a photo is sent without text', async () => {
+  mockCompose = {
+    errorContext: {
+      title: 'Signing failed',
+      diagnosticText: 'RequestId: r-1',
+      occurredAt: 0,
+    },
+  };
+  mockRoute.params = { userId: null, conversationId: '42' };
+  const upload = deferred<Awaited<ReturnType<typeof uploadIntercomImage>>>();
+  jest.mocked(uploadIntercomImage).mockReturnValueOnce(upload.promise);
+  jest.mocked(pickSupportImage).mockResolvedValueOnce({
+    path: 'file:///test-upload.jpg',
+    filename: 'test-upload.jpg',
+    mime: 'image/jpeg',
+    size: 100,
+    width: 10,
+    height: 10,
+  });
+  render(<SupportScreen />);
+  await screen.findByText('Hello support');
+  expect(screen.getByTestId('support-error-attachment')).toBeTruthy();
+  fireEvent.click(screen.getByTestId('support-add-image'));
+  await screen.findByTestId('support-remove-image');
+  fireEvent.click(screen.getByTestId('support-send'));
+  await waitFor(() => expect(uploadIntercomImage).toHaveBeenCalled());
+  await act(async () =>
+    upload.resolve({
+      type: 'image',
+      url: 'https://downloads.intercomcdn.com/test-image.jpg',
+      width: 10,
+      height: 10,
+    }),
+  );
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith(
+      'conversations/42/reply',
+      expect.anything(),
+    ),
+  );
+  const body = mockRequest.mock.calls.find(
+    ([path]) => path === 'conversations/42/reply',
+  )?.[1];
+  expect(JSON.stringify(body)).not.toContain('RequestId');
+  expect(screen.getByTestId('support-error-attachment')).toBeTruthy();
+});
+
+it('puts the error card back when a failed send is discarded', async () => {
+  mockCompose = {
+    errorContext: {
+      title: 'Signing failed',
+      diagnosticText: 'RequestId: r-1',
+      occurredAt: 0,
+    },
+  };
+  mockFailSend = true;
+  render(<SupportScreen />);
+  await enterMessage('Signing keeps failing');
+  await screen.findByTestId('support-discard-send');
+  expect(screen.queryByTestId('support-error-attachment')).toBeNull();
+  fireEvent.click(screen.getByTestId('support-discard-send'));
+  expect(screen.getByTestId('support-error-attachment')).toBeTruthy();
+  expect(
+    (screen.getByTestId('support-message-input') as HTMLTextAreaElement).value,
+  ).toBe('Signing keeps failing');
 });
 
 it('cleans a delayed image selection when the route changes', async () => {
@@ -1872,10 +2047,13 @@ it('offers a new conversation on the message list before the home content answer
   )) as HTMLButtonElement;
   expect(button.disabled).toBe(false);
   fireEvent.click(button);
-  expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
-    userId: null,
-    conversationId: undefined,
-  });
+  await waitFor(() =>
+    expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
+      userId: null,
+      conversationId: undefined,
+      composeId: 'compose-1',
+    }),
+  );
   await act(async () => home.resolve());
 });
 

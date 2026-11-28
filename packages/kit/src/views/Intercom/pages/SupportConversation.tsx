@@ -6,12 +6,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactElement, Ref } from 'react';
+import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatList, View } from 'react-native';
 
 import {
+  ActionList,
   Button,
   IconButton,
   Image,
@@ -19,11 +20,15 @@ import {
   SizableText,
   Skeleton,
   Spinner,
+  Stack,
   TextArea,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IModalNavigationProp,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,9 +57,23 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { MessagePart, MessagePartSkeleton } from '../components/MessagePart';
 import { SupportAvatars } from '../components/SupportAvatar';
 import { SupportError } from '../components/SupportError';
+import { SupportErrorAttachment } from '../components/SupportErrorAttachment';
+import { SupportLogStatusBar } from '../components/SupportLogStatusBar';
 import { SupportSessionBoundary } from '../components/SupportSessionBoundary';
 import { useSupportAutoScroll } from '../hooks/useSupportAutoScroll';
 import { useSupportResource } from '../hooks/useSupportResource';
+import {
+  bindSupportLogConversation,
+  isSupportLogActive,
+  removeSupportLog,
+  useSupportLogJob,
+} from '../supportLog/supportLogJobs';
+import {
+  type ISupportErrorContext,
+  attachSupportLogs,
+  deleteSupportCompose,
+  getSupportCompose,
+} from '../supportLog/supportRequest';
 import { cleanSupportImage, pickSupportImage } from '../utils/pickSupportImage';
 
 import type { ISupportSessionProps } from '../components/SupportSessionBoundary';
@@ -64,6 +83,8 @@ type IOutgoing = {
   createdAt?: number;
   text: string;
   image?: IPickedImage;
+  // Kept off `text` so a failed send can put the card back on the composer.
+  errorAttachment?: ISupportErrorContext;
   blocks?: IIntercomBlock[];
   quickReply?: { partId: string; replyId: string };
   status: 'sending' | 'failed';
@@ -140,7 +161,11 @@ function SupportComposer({
   placeholder,
   image,
   failed,
+  statusBar,
+  attachment,
   onPickImage,
+  onAttachLogs,
+  attachLogsDisabled,
   onRemoveImage,
   onSend,
 }: {
@@ -149,7 +174,13 @@ function SupportComposer({
   placeholder?: string;
   image?: IPickedImage;
   failed: boolean;
+  // Diagnostic log upload state, shown above the field.
+  statusBar?: ReactNode;
+  // Error details that go out with the next message.
+  attachment?: ReactNode;
   onPickImage: () => Promise<void>;
+  onAttachLogs?: () => void;
+  attachLogsDisabled?: boolean;
   onRemoveImage: () => void;
   // True when the message was taken and the draft can be cleared.
   onSend: (text: string) => boolean;
@@ -187,8 +218,37 @@ function SupportComposer({
           onCompositionStart: composition.start,
           onCompositionEnd: composition.end,
         };
+  const addItems: IActionListItemProps[] = [
+    {
+      testID: 'support-add-image',
+      icon: 'ImageMountainsOutline',
+      label: intl.formatMessage({ id: ETranslations.scan_select_a_photo }),
+      onPress: (close) => {
+        close();
+        void onPickImage();
+      },
+    },
+  ];
+  if (onAttachLogs) {
+    addItems.push({
+      testID: 'support-add-logs',
+      icon: 'FileTextOutline',
+      label: intl.formatMessage({
+        id: ETranslations.support_diagnostic_logs__action,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.support_diagnostic_logs__desc,
+      }),
+      disabled: attachLogsDisabled,
+      onPress: (close) => {
+        close();
+        onAttachLogs();
+      },
+    });
+  }
   return (
     <YStack px="$3" pb="$3" pt="$2" bg="$bgApp">
+      {statusBar ? <Stack pb="$2">{statusBar}</Stack> : null}
       {failed ? (
         <SizableText px="$5" color="$textCritical">
           {intl.formatMessage({
@@ -204,6 +264,11 @@ function SupportComposer({
         bg="$bgApp"
         overflow="hidden"
       >
+        {attachment ? (
+          <Stack px="$3" pt="$3">
+            {attachment}
+          </Stack>
+        ) : null}
         {image ? (
           <XStack px="$3" pt="$3" gap="$3" alignItems="center">
             <Image
@@ -257,20 +322,24 @@ function SupportComposer({
         >
           {/* Mirrors the send button: a tertiary variant has no background
               and a negative margin that pulls it into the corner. */}
-          <IconButton
-            testID="support-add-image"
-            icon="ImageMountainsOutline"
-            accessibilityLabel={intl.formatMessage({
-              id: ETranslations.global_add,
-            })}
-            borderRadius={18}
-            width={36}
-            height={36}
-            ml="$0.5"
+          <ActionList
+            title={intl.formatMessage({ id: ETranslations.global_add })}
             disabled={!editable}
-            onPress={() => {
-              void onPickImage();
-            }}
+            items={addItems}
+            renderTrigger={
+              <IconButton
+                testID="support-add"
+                icon="PlusLargeOutline"
+                accessibilityLabel={intl.formatMessage({
+                  id: ETranslations.global_add,
+                })}
+                borderRadius={18}
+                width={36}
+                height={36}
+                ml="$0.5"
+                disabled={!editable}
+              />
+            }
           />
           <IconButton
             testID="support-send"
@@ -337,6 +406,22 @@ function SupportConversationContent({
   const uploadController = useRef<AbortController | undefined>(undefined);
   const list = useRef<FlatList<IIntercomPart>>(null);
   const { scrollProps, followLatest } = useSupportAutoScroll(list, active);
+  // Read once: the compose entry belongs to this screen for its lifetime.
+  const [{ composeId, compose }] = useState(() => ({
+    composeId: route.composeId,
+    compose: getSupportCompose(route.composeId),
+  }));
+  const [errorContext, setErrorContext] = useState(compose?.errorContext);
+  // The upload this screen started before its conversation existed.
+  const [logJobId, setLogJobId] = useState(compose?.logJobId);
+  const logJobIdRef = useRef(logJobId);
+  logJobIdRef.current = logJobId;
+  const conversationIdRef = useRef(conversationId);
+  conversationIdRef.current = conversationId;
+  // Set once createConversation is in flight, so leaving the screen does not
+  // drop the log job before the receipt can bind it.
+  const creationSubmittedRef = useRef(false);
+  const logJob = useSupportLogJob({ jobId: logJobId, conversationId });
   useEffect(() => {
     alive.current = true;
     const files = pickedFiles.current;
@@ -345,8 +430,25 @@ function SupportConversationContent({
       uploadController.current?.abort();
       for (const path of files)
         void cleanSupportImage(path).catch(() => undefined);
+      deleteSupportCompose(composeId);
+      // Leaving before the first message is submitted abandons the request,
+      // so its upload stops too. A submitted create keeps the job until the
+      // receipt binds it. A created conversation keeps its upload running.
+      if (
+        !conversationIdRef.current &&
+        !creationSubmittedRef.current &&
+        logJobIdRef.current
+      ) {
+        removeSupportLog(logJobIdRef.current);
+      }
     };
-  }, []);
+  }, [composeId]);
+  useEffect(() => {
+    if (logJob?.stage !== 'sent') return;
+    removeSupportLog(logJob.id);
+    // The log ID arrives as a new part of the conversation.
+    void refreshConversation();
+  }, [logJob, refreshConversation]);
   const current =
     resource.data?.conversation ??
     (createdConversation?.id === conversationId
@@ -355,6 +457,11 @@ function SupportConversationContent({
   const open = resource.data?.open;
   const acceptConversation = useCallback(
     (conversation: IIntercomConversation) => {
+      // Bind even after the screen unmounts: the receipt can arrive later.
+      if (logJobIdRef.current) {
+        bindSupportLogConversation(logJobIdRef.current, conversation.id);
+      }
+      conversationIdRef.current = conversation.id;
       if (!alive.current) return;
       setCreatedConversation(conversation);
       setConfirmed(conversation.parts);
@@ -475,9 +582,15 @@ function SupportConversationContent({
           }
           if (!alive.current) return;
         }
+        const messageText = [
+          prepared.text,
+          prepared.errorAttachment?.diagnosticText,
+        ]
+          .filter(Boolean)
+          .join('\n\n');
         let blocks =
           prepared.blocks ??
-          (prepared.text.trim() ? intercomMessageBlocks(prepared.text) : []);
+          (messageText.trim() ? intercomMessageBlocks(messageText) : []);
         if (prepared.image && !prepared.blocks) {
           const controller = new AbortController();
           uploadController.current = controller;
@@ -510,11 +623,25 @@ function SupportConversationContent({
         } else {
           if (!open)
             throw new OneKeyLocalError('Support composer is unavailable');
-          const conversation = await session.createConversation({
-            message,
-            open,
-            quickReplyId: prepared.quickReply?.replyId,
-          });
+          creationSubmittedRef.current = true;
+          let conversation: IIntercomConversation;
+          try {
+            conversation = await session.createConversation({
+              message,
+              open,
+              quickReplyId: prepared.quickReply?.replyId,
+            });
+          } catch (error) {
+            if (logJobIdRef.current && !conversationIdRef.current) {
+              if (!alive.current) {
+                removeSupportLog(logJobIdRef.current);
+              } else {
+                // The screen is still here, so a later leave can drop the job.
+                creationSubmittedRef.current = false;
+              }
+            }
+            throw error;
+          }
           acceptConversation(conversation);
         }
         if (alive.current) {
@@ -570,12 +697,39 @@ function SupportConversationContent({
       if ((!text.trim() && !image) || !canReply || pending || sending.current)
         return false;
       setImage(undefined);
-      void send({ id: generateUUID(), text, image, status: 'sending' });
+      // A photo with no typed text leaves the card in place. Details ride
+      // with the first text message, and stay separate so a failed send can
+      // put the card back.
+      const errorAttachment =
+        text.trim() && errorContext ? errorContext : undefined;
+      if (errorAttachment) setErrorContext(undefined);
+      void send({
+        id: generateUUID(),
+        text,
+        image,
+        errorAttachment,
+        status: 'sending',
+      });
       return true;
     },
-    [image, canReply, pending, send],
+    [image, canReply, pending, send, errorContext],
   );
   const removeImage = useCallback(() => setImage(undefined), []);
+  const attachLogs = useCallback(() => {
+    void attachSupportLogs({
+      intl,
+      ownerUserId: route.userId,
+      conversationId,
+      requestId: route.requestId,
+      errorContext,
+    }).then((jobId) => {
+      // A new conversation binds the upload when its first message lands.
+      // The extension popup hands the upload off and returns no job id.
+      if (!jobId || conversationId || !alive.current) return;
+      if (logJobIdRef.current) removeSupportLog(logJobIdRef.current);
+      setLogJobId(jobId);
+    });
+  }, [intl, route.userId, route.requestId, conversationId, errorContext]);
   const footer = (
     <YStack gap="$3" py="$3">
       {!conversationId && open?.suggestionPrompt ? (
@@ -618,9 +772,11 @@ function SupportConversationContent({
           testID="support-pending-message"
         >
           <YStack bg="$bgInverse" px="$4" py="$3" borderRadius={20} gap="$2">
-            {pending.text ? (
+            {pending.text || pending.errorAttachment ? (
               <SizableText selectable size="$bodyLg" color="$textInverse">
-                {pending.text}
+                {[pending.text, pending.errorAttachment?.diagnosticText]
+                  .filter(Boolean)
+                  .join('\n\n')}
               </SizableText>
             ) : null}
             {pending.image ? (
@@ -653,6 +809,8 @@ function SupportConversationContent({
                 onPress={() => {
                   composer.current?.setText(pending.text);
                   setImage(pending.image);
+                  if (pending.errorAttachment)
+                    setErrorContext(pending.errorAttachment);
                   setPending(undefined);
                 }}
               >
@@ -786,7 +944,18 @@ function SupportConversationContent({
               placeholder={current?.placeholder || open?.composerPlaceholder}
               image={image}
               failed={actionFailed}
+              statusBar={logJob ? <SupportLogStatusBar job={logJob} /> : null}
+              attachment={
+                errorContext ? (
+                  <SupportErrorAttachment
+                    errorContext={errorContext}
+                    onRemove={() => setErrorContext(undefined)}
+                  />
+                ) : null
+              }
               onPickImage={pickImage}
+              onAttachLogs={canReply ? attachLogs : undefined}
+              attachLogsDisabled={isSupportLogActive(logJob)}
               onRemoveImage={removeImage}
               onSend={sendDraft}
             />
@@ -798,20 +967,24 @@ function SupportConversationContent({
 }
 
 function SupportConversationRoute(props: ISupportSessionProps) {
+  // A new compose reuses this screen when conversationId is still empty.
+  // Key the draft by composeId so that open rebuilds the card and upload.
+  const routeIdentity =
+    props.route.conversationId ?? props.route.composeId ?? '';
   const [identity, setIdentity] = useState<{
     routeId?: string;
     createdId?: string;
     key: number;
-  }>({ routeId: props.route.conversationId, key: 0 });
+  }>({ routeId: routeIdentity, key: 0 });
   const onCreated = useCallback((id: string) => {
     setIdentity((previous) => ({ ...previous, createdId: id }));
   }, []);
-  if (identity.routeId !== props.route.conversationId) {
+  if (identity.routeId !== routeIdentity) {
     const promoted =
       identity.createdId !== undefined &&
       identity.createdId === props.route.conversationId;
     setIdentity({
-      routeId: props.route.conversationId,
+      routeId: routeIdentity,
       key: promoted ? identity.key : identity.key + 1,
     });
   }

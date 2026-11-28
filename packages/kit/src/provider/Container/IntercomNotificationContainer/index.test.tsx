@@ -132,6 +132,9 @@ jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   dismissIntercomNotification: (id: string) => mockDismissNotification(id),
   refreshIntercomNotifications: (id?: string) => mockRefreshNotifications(id),
 }));
+jest.mock('@onekeyhq/kit/src/views/Intercom/supportLog/supportRequest', () => ({
+  listenForSupportHandoff: () => undefined,
+}));
 
 const main: IIntercomNavigationState = {
   routes: [{ name: ERootRoutes.Main }],

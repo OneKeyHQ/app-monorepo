@@ -28,6 +28,7 @@ import { BrowserLogExport } from './logger/BrowserLogExport';
 import { createLogArchive } from './logger/createLogArchive';
 import createLogStore from './logger/createLogStore';
 import { notifyLogReset } from './logger/logReset';
+import { redactLogSnapshot } from './logger/redactLogSnapshot';
 import ServiceBase from './ServiceBase';
 
 const RESET_DIAGNOSTIC_LOG_MAX_BYTES = 256 * 1024;
@@ -180,7 +181,10 @@ class ServiceLogger extends ServiceBase {
       const snapshot = await store.snapshot(
         scope === 'full' ? BROWSER_LOG_MAX_BYTES : RECENT_LOG_EXPORT_BYTES,
       );
-      return createLogArchive(snapshot, isCancelled);
+      return createLogArchive(
+        await redactLogSnapshot(snapshot, isCancelled),
+        isCancelled,
+      );
     });
   }
 
