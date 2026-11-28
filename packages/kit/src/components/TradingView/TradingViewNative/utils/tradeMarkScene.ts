@@ -14,11 +14,11 @@ import type {
   ITradingViewNativeChartSceneCommand,
   ITradingViewNativeChartSceneFont,
   ITradingViewNativeChartScenePaintStyle,
+  ITradingViewNativeSceneComponents,
 } from './chartScene';
 import type { ITradingViewNativePrimarySeriesPriceSource } from './chartType';
 import type {
   ITradingViewNativeCandleTimeMode,
-  ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
 } from '../types';
 
@@ -75,8 +75,68 @@ export interface ITradingViewNativeTradeMarkLayout {
   id: string;
   label: string;
   text: string;
+  fillCount?: number;
   x: number;
   y: number;
+}
+
+const COMPACT_MARK_SIZE = 11;
+
+// Try the closest free spot first. Index only visible tags so crosshair redraws
+// need not compare every fill against every other fill.
+function placeTradeTag(
+  occupied: Map<number, { x: number; y: number }[]>,
+  candleX: number,
+  highY: number,
+  lowY: number,
+  buy: boolean,
+  plotRight: number,
+  plotTop: number,
+  plotBottom: number,
+) {
+  'worklet';
+
+  const spacing = COMPACT_MARK_SIZE + 2;
+  const minX =
+    TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + COMPACT_MARK_SIZE / 2;
+  const maxX = plotRight - COMPACT_MARK_SIZE / 2;
+  if (
+    minX > maxX ||
+    candleX < minX - COMPACT_MARK_SIZE / 2 ||
+    candleX > plotRight
+  )
+    return undefined;
+  const x = Math.max(minX, Math.min(maxX, candleX));
+  const bucket = Math.floor(x / spacing);
+  const nearby = [bucket - 1, bucket, bucket + 1];
+  for (let row = 0; row < MAX_MARKS_PER_BAR; row += 1) {
+    for (const below of [buy, !buy]) {
+      const direction = below ? 1 : -1;
+      const anchorY = below ? lowY : highY;
+      const y =
+        anchorY + direction * (COMPACT_MARK_SIZE / 2 + 2 + row * spacing);
+      if (
+        anchorY >= plotTop &&
+        anchorY <= plotBottom &&
+        y - COMPACT_MARK_SIZE / 2 >= plotTop &&
+        y + COMPACT_MARK_SIZE / 2 <= plotBottom &&
+        !nearby.some((i) =>
+          occupied
+            .get(i)
+            ?.some(
+              (tag) =>
+                Math.abs(tag.x - x) < spacing && Math.abs(tag.y - y) < spacing,
+            ),
+        )
+      ) {
+        const neighbors = occupied.get(bucket);
+        if (neighbors) neighbors.push({ x, y });
+        else occupied.set(bucket, [{ x, y }]);
+        return { x, y };
+      }
+    }
+  }
+  return undefined;
 }
 
 function appendTradeMarkTooltip({
@@ -84,6 +144,7 @@ function appendTradeMarkTooltip({
   mark,
   measureTextWidth,
   priceAxisX,
+  priceChartTop,
   priceChartHeight,
 }: {
   commands: ITradingViewNativeChartSceneCommand[];
@@ -93,12 +154,14 @@ function appendTradeMarkTooltip({
     font: ITradingViewNativeChartSceneFont,
   ) => number;
   priceAxisX: number;
+  priceChartTop?: number;
   priceChartHeight: number;
 }) {
   'worklet';
 
   const padding = 8;
-  const chartBottom = TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight;
+  const chartBottom =
+    (priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING) + priceChartHeight;
   const lineHeight = TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE + 5;
   const maxWidth = Math.min(300, priceAxisX - padding * 2);
   const maxLines = Math.min(
@@ -110,7 +173,10 @@ function appendTradeMarkTooltip({
   }
   const lines: string[] = [];
   let line = '';
-  for (const character of mark.text) {
+  const tooltipText = mark.fillCount
+    ? `${mark.label} × ${mark.fillCount}\n${mark.text}${mark.fillCount > 2 ? '\n…' : ''}`
+    : mark.text;
+  for (const character of tooltipText) {
     if (
       character === '\n' ||
       measureTextWidth(line + character, 'legend') > maxWidth - padding * 2
@@ -167,7 +233,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   candleIntervalSeconds,
   candleTimeMode,
   commands,
-  components,
+  components: { nodes: components, marketDetailLayout = false, priceChartTop },
   crosshair,
   customPaintStyles,
   getPointX,
@@ -184,7 +250,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   commands: ITradingViewNativeChartSceneCommand[];
-  components: readonly ITradingViewNativeChartLeafComponent[];
+  components: ITradingViewNativeSceneComponents;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   getPointX: (index: number) => number;
@@ -204,7 +270,22 @@ export function appendTradingViewNativeTradeMarkCommands({
   'worklet';
 
   const layouts: ITradingViewNativeTradeMarkLayout[] = [];
-  const chartBottom = TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight;
+  const chartBottom =
+    (priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING) + priceChartHeight;
+  const plotTop = priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING;
+  const occupied = marketDetailLayout
+    ? new Map<number, { x: number; y: number }[]>()
+    : undefined;
+  const priceLayout = {
+    maxPrice,
+    minPrice,
+    priceChartTop,
+    priceChartHeight,
+    priceScaleMode,
+  };
+  const candleGroups = marketDetailLayout
+    ? new Map<number, ITradingViewNativeTradeMarkLayout>()
+    : undefined;
   const barCounts: Record<number, number> = {};
   const ids = new Set<string>();
   let hoveredMark: ITradingViewNativeTradeMarkLayout | undefined;
@@ -226,62 +307,86 @@ export function appendTradingViewNativeTradeMarkCommands({
       if (index === null) {
         return;
       }
-      const x = getPointX(index);
+      const candleX = getPointX(index);
+      const groupKey = index * 2 + (mark.label === 'S' ? 1 : 0);
+      const group = candleGroups?.get(groupKey);
+      if (group) {
+        group.fillCount = (group.fillCount ?? 1) + 1;
+        // The tooltip fits two fill details; keep counting the rest.
+        if (group.fillCount === 2) group.text += `\n${mark.text}`;
+        return;
+      }
       const order = barCounts[index] ?? 0;
-      barCounts[index] = order + 1;
+      if (!marketDetailLayout) barCounts[index] = order + 1;
       if (
         order >= MAX_MARKS_PER_BAR ||
-        x + MARK_RADIUS < TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING ||
-        x - MARK_RADIUS > priceAxisX
+        candleX + MARK_RADIUS < TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING ||
+        candleX - MARK_RADIUS > priceAxisX
       ) {
         return;
       }
       const point = points[index];
-      const candleY = getTradingViewNativePriceY(
+      const highY = getTradingViewNativePriceY(
         priceSource === 'close' ? point.c : point.h,
-        {
-          maxPrice,
-          minPrice,
-          priceChartHeight,
-          priceScaleMode,
-        },
+        priceLayout,
       );
-      const y = candleY - MARK_SIZE * 1.4 * (order + 0.85);
+      const tag = occupied
+        ? placeTradeTag(
+            occupied,
+            candleX,
+            highY,
+            getTradingViewNativePriceY(
+              priceSource === 'close' ? point.c : point.l,
+              priceLayout,
+            ),
+            mark.label === 'B',
+            priceAxisX,
+            plotTop,
+            chartBottom,
+          )
+        : undefined;
+      if (occupied && !tag) return;
+      const x = tag?.x ?? candleX;
+      const y = tag?.y ?? highY - MARK_SIZE * 1.4 * (order + 0.85);
       if (
         !Number.isFinite(y) ||
         y + MARK_RADIUS < 0 ||
         y - MARK_RADIUS > chartBottom
-      ) {
+      )
         return;
-      }
       const layout = { id: mark.id, label: mark.label, text: mark.text, x, y };
+      candleGroups?.set(groupKey, layout);
       layouts.push(layout);
-      const paintId = mark.label === 'B' ? BUY_PAINT_ID : SELL_PAINT_ID;
-      customPaintStyles[paintId] = {
-        color: mark.label === 'B' ? '#26a69a' : '#ef5350',
-        opacity: 1,
-      };
+      const isBuy = mark.label === 'B';
+      const paintId = isBuy ? BUY_PAINT_ID : SELL_PAINT_ID;
+      if (!marketDetailLayout) {
+        customPaintStyles[paintId] = {
+          color: isBuy ? '#26a69a' : '#ef5350',
+          opacity: 1,
+        };
+      }
       customPaintStyles[TEXT_PAINT_ID] = { color: '#FFFFFF', opacity: 1 };
+      commands.push({
+        kind: 'clip',
+        rect: {
+          x: TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
+          y: tag ? plotTop : 0,
+          width: priceAxisX - TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
+          height: tag ? chartBottom - plotTop : chartBottom,
+        },
+      });
+      commands.push({
+        kind: 'circle',
+        cx: x,
+        cy: y,
+        radius: tag ? COMPACT_MARK_SIZE / 2 : MARK_RADIUS,
+        customPaintId: marketDetailLayout ? undefined : paintId,
+        paint: isBuy ? 'up' : 'down',
+      });
       commands.push(
         {
-          kind: 'clip',
-          rect: {
-            x: TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
-            y: 0,
-            width: priceAxisX - TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
-            height: chartBottom,
-          },
-        },
-        {
-          kind: 'circle',
-          cx: x,
-          cy: y,
-          radius: MARK_RADIUS,
-          customPaintId: paintId,
-          paint: 'up',
-        },
-        {
           kind: 'tradeMarkLabel',
+          ...(tag ? { scale: 0.75 } : {}),
           label: mark.label,
           cx: x,
           cy: y,
@@ -295,7 +400,14 @@ export function appendTradingViewNativeTradeMarkCommands({
         Math.abs(crosshair.x - x) <= MARK_RADIUS + 4 &&
         Math.abs(crosshair.y - y) <= MARK_RADIUS + 4
       ) {
-        hoveredMark = layout;
+        if (
+          !tag ||
+          !hoveredMark ||
+          Math.hypot(crosshair.x - x, crosshair.y - y) <
+            Math.hypot(crosshair.x - hoveredMark.x, crosshair.y - hoveredMark.y)
+        ) {
+          hoveredMark = layout;
+        }
       }
     });
   });
@@ -305,6 +417,7 @@ export function appendTradingViewNativeTradeMarkCommands({
       mark: hoveredMark,
       measureTextWidth,
       priceAxisX,
+      priceChartTop,
       priceChartHeight,
     });
   }

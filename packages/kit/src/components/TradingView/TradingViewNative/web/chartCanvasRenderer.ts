@@ -194,7 +194,8 @@ export function drawTradingViewNativeCanvasScene({
         context.restore();
         break;
       }
-      case 'rect': {
+      case 'rect':
+      case 'roundRect': {
         const paint = getCanvasPaintStyle(
           command,
           customPaintStyles,
@@ -202,18 +203,37 @@ export function drawTradingViewNativeCanvasScene({
         );
         context.save();
         context.globalAlpha = paint.opacity;
-        if (paint.drawStyle === 'stroke') {
-          context.strokeStyle = paint.color;
-          context.lineWidth = paint.strokeWidth ?? 1;
-          context.strokeRect(
+        if (command.kind === 'roundRect') {
+          context.beginPath();
+          context.roundRect(
             command.x,
             command.y,
             command.width,
             command.height,
+            command.radius,
           );
+        }
+        if (paint.drawStyle === 'stroke') {
+          context.strokeStyle = paint.color;
+          context.lineWidth = paint.strokeWidth ?? 1;
+          if (command.kind === 'roundRect') context.stroke();
+          else
+            context.strokeRect(
+              command.x,
+              command.y,
+              command.width,
+              command.height,
+            );
         } else {
           context.fillStyle = paint.color;
-          context.fillRect(command.x, command.y, command.width, command.height);
+          if (command.kind === 'roundRect') context.fill();
+          else
+            context.fillRect(
+              command.x,
+              command.y,
+              command.width,
+              command.height,
+            );
         }
         context.restore();
         break;
@@ -231,21 +251,40 @@ export function drawTradingViewNativeCanvasScene({
         context.save();
         context.globalAlpha = paint.opacity;
         context.fillStyle = paint.color;
-        context.font = getTradingViewNativeCanvasFont(
-          command.kind === 'tradeMarkLabel' ? 'legend' : command.font,
-          priceAxisFontSize,
-          timeAxisFontSize,
-        );
         context.textAlign = 'left';
         context.textBaseline = 'alphabetic';
         if (command.kind === 'tradeMarkLabel') {
+          const fontSize = LEGEND_FONT_SIZE * (command.scale ?? 1);
+          context.font = `${fontSize}px sans-serif`;
           context.fillText(
             command.label,
             command.cx - context.measureText(command.label).width / 2,
-            command.cy + LEGEND_FONT_SIZE * 0.35,
+            command.cy + fontSize * 0.35,
           );
         } else {
-          context.fillText(command.text, command.x, command.y);
+          context.font = getTradingViewNativeCanvasFont(
+            command.font,
+            priceAxisFontSize,
+            timeAxisFontSize,
+          );
+          const bounds = command.centerInk
+            ? context.measureText(command.text)
+            : undefined;
+          context.fillText(
+            command.text,
+            command.x +
+              (bounds
+                ? (bounds.actualBoundingBoxLeft -
+                    bounds.actualBoundingBoxRight) /
+                  2
+                : 0),
+            command.y +
+              (bounds
+                ? (bounds.actualBoundingBoxAscent -
+                    bounds.actualBoundingBoxDescent) /
+                  2
+                : 0),
+          );
         }
         context.restore();
         break;

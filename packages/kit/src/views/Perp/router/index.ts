@@ -36,6 +36,12 @@ const PagePerp = LazyLoadRootTabPage(
   () => import('../pages/Perp'),
   createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
 );
+const MobilePerpSimpleMarketPage = LazyLoadPage(
+  () => import('../pages/PerpSimpleMarket'),
+);
+const MobilePerpSimpleOrderPage = LazyLoadPage(
+  () => import('../pages/PerpSimpleOrder'),
+);
 
 const MobileTokenSelectorLazyPage = LazyLoadPage(
   loadPerpsMobileTokenSelectorPage,
@@ -96,6 +102,14 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: PagePerp,
   },
   {
+    name: EModalPerpRoutes.MobilePerpSimpleMarket,
+    component: MobilePerpSimpleMarketPage,
+  },
+  {
+    name: EModalPerpRoutes.MobilePerpSimpleOrder,
+    component: MobilePerpSimpleOrderPage,
+  },
+  {
     name: EModalPerpRoutes.MobilePerpMarket,
     component: MobilePerpMarketRoute,
   },
@@ -141,6 +155,15 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   EModalPerpRoutes,
   IModalPerpParamList
 >[] = [
+  {
+    name: EModalPerpRoutes.MobilePerpSimpleMarket,
+    component: MobilePerpSimpleMarketPage,
+  },
+  {
+    name: EModalPerpRoutes.MobilePerpSimpleOrder,
+    component: MobilePerpSimpleOrderPage,
+    options: { gestureEnabled: false },
+  },
   {
     name: EModalPerpRoutes.PerpTradersHistoryList,
     component: PerpTradersHistoryList,

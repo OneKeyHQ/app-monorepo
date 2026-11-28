@@ -1,7 +1,7 @@
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 
 import {
-  PRICE_SCALE_CONTROL_WEB_SIZING,
+  PRICE_SCALE_CONTROL_COMPACT_SIZING,
   getTradingViewNativePriceScaleControlsLayout,
 } from '../utils/priceScaleControls';
 
@@ -37,7 +37,7 @@ export function TradingViewNativePriceScaleControls({
     : 'trading-view-native-price-scale';
   const layout = getTradingViewNativePriceScaleControlsLayout(priceAxisWidth, {
     mainChartBottomInset,
-    sizing: PRICE_SCALE_CONTROL_WEB_SIZING,
+    sizing: PRICE_SCALE_CONTROL_COMPACT_SIZING,
   });
 
   if (!layout) {

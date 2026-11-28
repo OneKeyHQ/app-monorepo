@@ -129,6 +129,8 @@ import {
 } from '../../utils/mobileLayoutTrace';
 import {
   type IPerpsMarketDataFreshness,
+  PERPS_MARKET_DATA_GRACE_MS,
+  PERPS_MARKET_DATA_STALE_MS,
   getPerpsMarketDataBlockedMessageIds,
   getPerpsMarketDataFreshness,
   isPerpsOrderFormDataOfInstrument,
@@ -261,6 +263,7 @@ async function getLatestPerpsMarketDataFreshness(
         readyState?.readyState === PERPS_WEBSOCKET_OPEN_READY_STATE,
       networkConnected: networkStatus?.connected,
       lastMessageAt: networkStatus?.lastMessageAt ?? null,
+      staleMs: PERPS_MARKET_DATA_STALE_MS + PERPS_MARKET_DATA_GRACE_MS,
     }),
     isDataOfInstrument,
   );

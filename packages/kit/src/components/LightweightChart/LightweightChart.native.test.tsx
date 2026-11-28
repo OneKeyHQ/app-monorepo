@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { act, render, renderHook } from '@testing-library/react';
 
+import { Haptics } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { LightweightChart } from './LightweightChart.native';
@@ -42,6 +43,7 @@ const mockSkiaFont = jest.fn((typeface: object | undefined) => {
 });
 
 jest.mock('@onekeyhq/components', () => ({
+  Haptics: { selection: jest.fn() },
   HeaderScrollGestureContext: jest
     .requireActual<typeof import('react')>('react')
     .createContext({ excludeStartEdgeWidth: 0 }),
@@ -62,6 +64,15 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('react-native', () => ({
   Image: { resolveAssetSource: () => ({ uri: 'brand.ttf' }) },
+  StyleSheet: {
+    absoluteFill: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+  },
 }));
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: ReactNode }) => children,
@@ -184,15 +195,25 @@ jest.mock(
   }),
 );
 jest.mock('@shopify/react-native-skia', () => ({
-  Canvas: ({ children }: { children: ReactNode }) => (
-    <div data-testid="skia-canvas">{children}</div>
+  Canvas: ({
+    children,
+    testID,
+    pointerEvents,
+  }: {
+    children: ReactNode;
+    testID: string;
+    pointerEvents?: string;
+  }) => (
+    <div data-testid={testID} data-pointer-events={pointerEvents}>
+      {children}
+    </div>
   ),
-  Circle: () => null,
+  Circle: () => <div data-testid="pulse-circle" />,
   Group: ({ children }: { children: ReactNode }) => children,
   Picture: ({ picture }: { picture: { value: unknown } }) => {
     mockPictures.push(picture);
     void picture.value;
-    return null;
+    return <div data-testid="chart-picture" />;
   },
   Skia: {
     Font: (typeface: object) => mockSkiaFont(typeface),
@@ -265,7 +286,7 @@ it('paints late data into the same native canvas and applies subsequent resizing
   const { getByTestId, rerender } = render(
     <LightweightChart data={[]} height={280} />,
   );
-  const canvas = getByTestId('skia-canvas');
+  const canvas = getByTestId('lightweight-chart-skia');
   expect(mockDraws.at(-1)?.commands).toHaveLength(0);
   mockTypeface = {};
   rerender(<LightweightChart data={[]} height={280} />);
@@ -278,7 +299,7 @@ it('paints late data into the same native canvas and applies subsequent resizing
   rerender(<LightweightChart data={chartData} height={456} />);
   const resized = mockDraws.at(-1)?.commands.find((c) => c.kind === 'polyline');
   expect(resized?.points?.[0].y).not.toBe(original?.points?.[0].y);
-  expect(getByTestId('skia-canvas')).toBe(canvas);
+  expect(getByTestId('lightweight-chart-skia')).toBe(canvas);
 });
 
 it('reports scrub selection and releases it on gesture completion and unmount', () => {
@@ -312,6 +333,61 @@ it('leaves axis touches available to native page gestures', () => {
   const manager = { fail: jest.fn() };
   mockGestureHandlers.down({ changedTouches: [{ x: 401, y: 100 }] }, manager);
   expect(manager.fail).toHaveBeenCalledTimes(1);
+});
+
+it('gives throttled selection feedback while scrubbing without a hover callback', () => {
+  const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
+  const props: ILightweightChartProps = {
+    data: chartData,
+    height: 280,
+    nativeScrubOptions: {
+      labels: {},
+      largePrice: false,
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#000',
+      timeColor: '#888',
+    },
+  };
+  const { rerender } = render(<LightweightChart {...props} />);
+  expect(Haptics.selection).not.toHaveBeenCalled();
+  act(() => mockGestureHandlers.start({ x: 2, y: 80 }));
+  flush();
+  expect(Haptics.selection).toHaveBeenCalledTimes(1);
+  now.mockReturnValue(1100);
+  act(() => mockGestureHandlers.update({ x: 10, y: 100 }));
+  flush();
+  expect(Haptics.selection).toHaveBeenCalledTimes(1);
+  act(() => mockGestureHandlers.update({ x: 300, y: 100 }));
+  flush();
+  expect(Haptics.selection).toHaveBeenCalledTimes(2);
+  now.mockReturnValue(1120);
+  act(() => mockGestureHandlers.update({ x: 2, y: 80 }));
+  flush();
+  expect(Haptics.selection).toHaveBeenCalledTimes(2);
+  now.mockReturnValue(1200);
+  rerender(
+    <LightweightChart
+      {...props}
+      data={[
+        [110, 1.5],
+        [210, 2.5],
+      ]}
+    />,
+  );
+  flush();
+  expect(Haptics.selection).toHaveBeenCalledTimes(2);
+  act(() => mockGestureHandlers.update({ x: 300, y: 100 }));
+  flush();
+  expect(Haptics.selection).toHaveBeenCalledTimes(3);
+  act(() => mockGestureHandlers.end());
+  flush();
+  expect(Haptics.selection).toHaveBeenCalledTimes(3);
+  now.mockReturnValue(1300);
+  act(() => mockGestureHandlers.start({ x: 300, y: 100 }));
+  flush();
+  expect(Haptics.selection).toHaveBeenCalledTimes(4);
+  now.mockRestore();
 });
 
 it('reuses the static picture inside the plot and restores the full line outside it', () => {
@@ -472,4 +548,28 @@ it('reuses fonts, resources and gestures across quote updates with the same glyp
     }),
   );
   expect(mockResources).toHaveBeenCalledTimes(resourceCalls + 3);
+});
+
+it('keeps animated pulse circles on a separate non-interactive canvas', () => {
+  const { getByTestId, queryByTestId, rerender } = render(
+    <LightweightChart data={chartData} height={280} pulseLastPoint />,
+  );
+  const base = getByTestId('lightweight-chart-skia');
+  const pulse = getByTestId('lightweight-chart-pulse');
+  expect(pulse.dataset.pointerEvents).toBe('none');
+  expect(base.querySelectorAll('[data-testid="chart-picture"]')).toHaveLength(
+    2,
+  );
+  expect(base.querySelectorAll('[data-testid="pulse-circle"]')).toHaveLength(0);
+  expect(pulse.querySelectorAll('[data-testid="pulse-circle"]')).toHaveLength(
+    2,
+  );
+  expect(pulse.querySelectorAll('[data-testid="chart-picture"]')).toHaveLength(
+    0,
+  );
+  rerender(
+    <LightweightChart data={chartData} height={280} pulseLastPoint={false} />,
+  );
+  expect(queryByTestId('lightweight-chart-pulse')).toBeNull();
+  expect(getByTestId('lightweight-chart-skia')).toBe(base);
 });

@@ -54,7 +54,8 @@ const MIN_FLING_VELOCITY = 100;
 export function useTradingViewNativeChartGestures({
   chartRuntime,
   decayOffset,
-  isClickInteractionEnabled,
+  isClickInteractionEnabled: allowClickInteraction,
+  holdToInspect = false,
   isCrosshairEnabled,
   onChartDragStart,
   onSubIndicatorSettingsPress,
@@ -69,6 +70,7 @@ export function useTradingViewNativeChartGestures({
   chartRuntime: SharedValue<ITradingViewNativeChartRuntime>;
   decayOffset: SharedValue<number>;
   isClickInteractionEnabled: boolean;
+  holdToInspect?: boolean;
   isCrosshairEnabled: boolean;
   /** Called when a pan, pinch or time-axis drag starts moving the chart. */
   onChartDragStart?: () => void;
@@ -97,6 +99,7 @@ export function useTradingViewNativeChartGestures({
   const panStartTranslationX = useSharedValue(0);
   const isLongPressCrosshairStarted = useSharedValue(false);
   const activeGestures = useSharedValue(0);
+  const isClickInteractionEnabled = allowClickInteraction && !holdToInspect;
   return useMemo(() => {
     const setInteraction = (bit: number, active: boolean) => {
       'worklet';
@@ -279,7 +282,7 @@ export function useTradingViewNativeChartGestures({
         const didStart = isLongPressCrosshairStarted.value;
         isLongPressCrosshairStarted.value = false;
 
-        if (success) {
+        if (success && !holdToInspect) {
           return;
         }
         // A tap fails the long press only after the tap gesture has placed
@@ -678,6 +681,7 @@ export function useTradingViewNativeChartGestures({
     windowWidth,
     shouldWaitForPageScroll,
     isClickInteractionEnabled,
+    holdToInspect,
     isCrosshairEnabled,
     onChartDragStart,
     onSubIndicatorSettingsPress,

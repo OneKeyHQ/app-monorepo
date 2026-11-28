@@ -1,0 +1,252 @@
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import { Button, IconButton, XStack, YStack } from '@onekeyhq/components';
+import { usePerpsActiveTwapOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  perpsActiveAssetCtxAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPerpSimplePortfolioTab } from '@onekeyhq/shared/src/routes/perp';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  isSpotInstrument,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
+
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
+import { usePerpsAccountScopedOpenOrdersByCoin } from '../../hooks/usePerpsAccountScopedOpenOrdersByCoin';
+import { useShowPositionShare } from '../../hooks/useShowPositionShare';
+import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
+import { simplePrice } from '../../utils/simpleDisplay';
+import {
+  getSimpleOrderSummary,
+  isSimplePositionSizedOrder,
+} from '../../utils/simpleOrderSummary';
+import { useOpenOrderActions } from '../OrderInfoPanel/hooks/useOpenOrderActions';
+import { canChasePerpsOrder } from '../OrderInfoPanel/utils';
+
+import { SimpleOrderSummary } from './SimpleOrderSummary';
+import { SimplePortfolioTabs } from './SimplePortfolioTabs';
+import { SimplePositionCard } from './SimplePositionCard';
+import { SimpleTwapEntry } from './SimpleTwapEntry';
+
+export function SimpleMarketPortfolio({
+  coin,
+  position,
+  initialTab,
+}: {
+  coin: string;
+  position?: IPerpsAssetPosition;
+  initialTab?: IPerpSimplePortfolioTab;
+}) {
+  const intl = useIntl();
+  const { showPositionShare } = useShowPositionShare();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
+  const handleShare = async () => {
+    if (!position) return;
+    const currentPosition = position.position;
+    try {
+      const quote = await perpsActiveAssetCtxAtom.get();
+      const markPrice = new BigNumber(
+        quote?.coin === currentPosition.coin ? (quote.ctx.markPrice ?? '') : '',
+      );
+      showPositionShare(
+        {
+          side: new BigNumber(currentPosition.szi).gt(0) ? 'long' : 'short',
+          token: currentPosition.coin,
+          tokenDisplayName: parseDexCoin(currentPosition.coin).displayName,
+          pnl: currentPosition.unrealizedPnl,
+          pnlPercent: new BigNumber(currentPosition.returnOnEquity)
+            .times(100)
+            .toFixed(1),
+          leverage: currentPosition.leverage.value,
+          entryPrice: currentPosition.entryPx,
+          markPrice:
+            markPrice.isFinite() && markPrice.gt(0)
+              ? markPrice.toFixed()
+              : '--',
+          priceType: 'mark',
+        },
+        'position',
+      );
+    } catch (error) {
+      errorToastUtils.toastIfError(error);
+    }
+  };
+
+  const scopedOrders = usePerpsAccountScopedOpenOrdersByCoin(coin);
+  const orders = scopedOrders.filter((order) => !isSpotInstrument(order.coin));
+  const accountAddress = usePerpsAccountScopedCacheAddress();
+  const {
+    canMutateScopedOrders,
+    chasingOrderIds,
+    handleCancelOrder,
+    handleChaseOrderPress,
+  } = useOpenOrderActions(accountAddress, 'simple');
+  const [twapState] = usePerpsActiveTwapOrdersAtom();
+  const twapOrders = getPerpsAccountScopedListData({
+    activeAccountAddress: accountAddress,
+    dataAccountAddress: twapState.accountAddress,
+    data: twapState.twapOrders.filter(
+      (order) =>
+        order.state.coin === coin && !isSpotInstrument(order.state.coin),
+    ),
+  });
+  const symbol = parseDexCoin(coin).displayName;
+  const quantity = (value: BigNumber.Value) => {
+    const number = new BigNumber(value);
+    return number.isFinite() ? `${number.toFormat()} ${symbol}` : '--';
+  };
+  const detail = (id: ETranslations, value: string) => ({
+    label: intl.formatMessage({ id }),
+    value,
+  });
+  const time = (timestamp: number) =>
+    formatTime(new Date(timestamp), {
+      formatTemplate: 'yyyy-LL-dd HH:mm:ss',
+    });
+  const triggerCondition = (value: string) =>
+    value.replace(/^Price (above|below)\b/, (_match, direction: string) =>
+      intl.formatMessage({
+        id:
+          direction === 'above'
+            ? ETranslations.perp_tp_sl_above
+            : ETranslations.perp_tp_sl_below,
+      }),
+    );
+  if (!position && orders.length === 0 && twapOrders.length === 0) return null;
+  return (
+    <YStack gap="$3">
+      <SimplePortfolioTabs
+        positionCount={position ? 1 : 0}
+        orderCount={orders.length + twapOrders.length}
+        testIDPrefix="perps-simple-market"
+        initialTab={initialTab}
+        renderHeaderAction={(tab) =>
+          tab === 'positions' && position ? (
+            <IconButton
+              testID={`perps-simple-position-share-${position.position.coin}`}
+              variant="tertiary"
+              size="small"
+              icon="UploadOutline"
+              iconSize="$5"
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.perps_share_position_title,
+              })}
+              disabled={hideValue}
+              onPress={handleShare}
+            />
+          ) : null
+        }
+      >
+        {(activePortfolioTab) => (
+          <>
+            {activePortfolioTab === 'positions' && position ? (
+              <SimplePositionCard item={position} />
+            ) : null}
+            {activePortfolioTab === 'orders' ? (
+              <YStack gap="$3">
+                {orders.map((order) => {
+                  const summary = getSimpleOrderSummary(order);
+                  const positionSized = isSimplePositionSizedOrder(order);
+                  const details = [
+                    detail(
+                      ETranslations.perp_open_orders_original_size,
+                      positionSized ? '--' : quantity(order.origSz),
+                    ),
+                    detail(
+                      ETranslations.perp_executed_size__title,
+                      positionSized
+                        ? '--'
+                        : quantity(
+                            BigNumber.maximum(
+                              0,
+                              new BigNumber(order.origSz).minus(order.sz),
+                            ),
+                          ),
+                    ),
+                    detail(
+                      ETranslations.perp_chase_unfilled_size__title,
+                      positionSized ? '--' : quantity(order.sz),
+                    ),
+                    detail(
+                      ETranslations.perp_open_orders_time,
+                      time(order.timestamp),
+                    ),
+                  ];
+                  if (order.isTrigger) {
+                    details.unshift(
+                      detail(
+                        ETranslations.perp_orderbook_price,
+                        summary.orderType.endsWith('Market')
+                          ? intl.formatMessage({
+                              id: ETranslations.perp_position_market,
+                            })
+                          : simplePrice(order.limitPx),
+                      ),
+                      detail(
+                        ETranslations.perp_open_orders_trigger_condition,
+                        triggerCondition(order.triggerCondition || '--'),
+                      ),
+                    );
+                  }
+                  return (
+                    <SimpleOrderSummary
+                      key={order.oid}
+                      {...summary}
+                      details={details}
+                      actions={
+                        <XStack gap="$3">
+                          {canChasePerpsOrder(order) ? (
+                            <Button
+                              testID={`perps-simple-chase-order-${order.oid}`}
+                              flex={1}
+                              variant="secondary"
+                              borderRadius="$full"
+                              disabled={
+                                !canMutateScopedOrders ||
+                                chasingOrderIds.has(order.oid)
+                              }
+                              loading={chasingOrderIds.has(order.oid)}
+                              onPressLoadingEnabled
+                              onPress={() => handleChaseOrderPress(order)}
+                            >
+                              {intl.formatMessage({
+                                id: ETranslations.chase__action,
+                              })}
+                            </Button>
+                          ) : null}
+                          <Button
+                            testID={`perps-simple-close-order-${order.oid}`}
+                            flex={1}
+                            variant="primary"
+                            borderRadius="$full"
+                            disabled={
+                              !canMutateScopedOrders ||
+                              chasingOrderIds.has(order.oid)
+                            }
+                            onPressLoadingEnabled
+                            onPress={() => handleCancelOrder(order)}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.perp_open_orders_cancel,
+                            })}
+                          </Button>
+                        </XStack>
+                      }
+                    />
+                  );
+                })}
+                <SimpleTwapEntry count={twapOrders.length} />
+              </YStack>
+            ) : null}
+          </>
+        )}
+      </SimplePortfolioTabs>
+    </YStack>
+  );
+}

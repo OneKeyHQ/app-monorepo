@@ -14,6 +14,7 @@ import {
   createLastValueSeriesOptions,
   createReferenceLineAutoscaleInfoProvider,
 } from './utils/chartOptions';
+import { PULSE_CROSSHAIR_GAP_RADIUS } from './utils/constants';
 import {
   createDottedAreaSeriesOptions,
   createDottedAreaSeriesPaneView,
@@ -22,6 +23,7 @@ import {
   createHistogramSeriesOptions,
   createHistogramSeriesPaneView,
 } from './utils/histogramSeries';
+import { createPulseCrosshairPrimitive } from './utils/pulseCrosshair';
 import { createRightAlignedPriceAxis } from './utils/rightAlignedPriceAxis';
 
 import type { ILightweightChartProps } from './types';
@@ -157,6 +159,7 @@ export function LightweightChart({
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  resolveTimeScaleTimestamp,
   timeScaleRightOffsetPixels,
   timeZone,
   locale,
@@ -176,6 +179,8 @@ export function LightweightChart({
   secondaryLineEndTimeRef.current = secondaryLineEndTime;
   const secondaryLineBlankSlotsRef = useRef(secondaryLineBlankSlots);
   secondaryLineBlankSlotsRef.current = secondaryLineBlankSlots;
+  const resolveTimeScaleTimestampRef = useRef(resolveTimeScaleTimestamp);
+  resolveTimeScaleTimestampRef.current = resolveTimeScaleTimestamp;
   const secondaryPointSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
@@ -193,10 +198,12 @@ export function LightweightChart({
   } | null>(null);
   const pulseLastPointRef = useRef(pulseLastPoint);
   pulseLastPointRef.current = pulseLastPoint;
+  const syncPulseCrosshairRef = useRef<(() => void) | undefined>(undefined);
   // The crosshair stops feeding the position while the pulse is off (a closed
   // market), so drop it; a reopened pulse starts at the tail, not a stale point.
   useEffect(() => {
     if (!pulseLastPoint) setHoverPointPosition(null);
+    syncPulseCrosshairRef.current?.();
   }, [pulseLastPoint]);
 
   const chartConfig = useChartConfig({
@@ -305,6 +312,7 @@ export function LightweightChart({
             style: currentChartConfig.crosshairVertLineStyle,
           },
           currentChartConfig.timeScaleRightOffsetPixels,
+          (time) => resolveTimeScaleTimestampRef.current?.(time),
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -574,6 +582,48 @@ export function LightweightChart({
           updateLastPointPosition();
         });
 
+        let crosshairPoint:
+          | { x: number; time: Time; price: number }
+          | undefined;
+        const pulseCrosshair = createPulseCrosshairPrimitive(() => {
+          if (!crosshairPoint || !pulseLastPointRef.current) return undefined;
+          const pointX = chart
+            ?.timeScale()
+            .timeToCoordinate(crosshairPoint.time);
+          const pointY = series.priceToCoordinate(crosshairPoint.price);
+          if (pointX === null || pointX === undefined || pointY === null)
+            return undefined;
+          return {
+            x: crosshairPoint.x,
+            pointX,
+            pointY,
+            color: chartConfigRef.current.crosshairVertLineColor,
+            style: chartConfigRef.current.crosshairVertLineStyle,
+          };
+        }, PULSE_CROSSHAIR_GAP_RADIUS);
+        let pulseCrosshairAttached = false;
+        let isCrosshairGuideHidden = false;
+        const syncCrosshairVertLineVisibility = () => {
+          chart?.applyOptions({
+            crosshair: {
+              vertLine: {
+                visible: !pulseCrosshairAttached && !isCrosshairGuideHidden,
+              },
+            },
+          });
+        };
+        const syncPulseCrosshair = () => {
+          const enabled = !!pulseLastPointRef.current;
+          if (enabled === pulseCrosshairAttached) return;
+          crosshairPoint = undefined;
+          if (enabled) series.attachPrimitive(pulseCrosshair);
+          else series.detachPrimitive(pulseCrosshair);
+          pulseCrosshairAttached = enabled;
+          syncCrosshairVertLineVisibility();
+        };
+        syncPulseCrosshairRef.current = syncPulseCrosshair;
+        syncPulseCrosshair();
+
         // With `secondaryLineBlankSlots`, value-less overlay slots carry a
         // running session's time scale past the last price. A pointer there
         // points at no data, so the guide hides as if it had left the chart. (Native, scrubbed by a finger on
@@ -581,7 +631,6 @@ export function LightweightChart({
         // through its options rather than by clearing the position: a touch
         // long-press reads the position back as its tracking origin, and a
         // cleared one would leave the whole drag without a crosshair.
-        let isCrosshairGuideHidden = false;
         const syncCrosshairGuide = (param: MouseEventParams<Time>) => {
           const lastBar = chartConfigRef.current.data.at(-1);
           const isOverBlankSlot =
@@ -597,9 +646,7 @@ export function LightweightChart({
             );
           if (isOverBlankSlot === isCrosshairGuideHidden) return;
           isCrosshairGuideHidden = isOverBlankSlot;
-          chart?.applyOptions({
-            crosshair: { vertLine: { visible: !isOverBlankSlot } },
-          });
+          syncCrosshairVertLineVisibility();
         };
 
         chart.subscribeCrosshairMove((param) => {
@@ -614,6 +661,10 @@ export function LightweightChart({
               : null;
           const yCoord =
             price !== undefined ? series.priceToCoordinate(price) : null;
+          crosshairPoint =
+            param.point && param.time !== undefined && price !== undefined
+              ? { x: param.point.x, time: param.time, price }
+              : undefined;
           setHoverPointPosition((current) => {
             if (
               xCoord === null ||
@@ -716,6 +767,7 @@ export function LightweightChart({
       // CRITICAL: Clear all refs to release memory
       chartRef.current = null;
       seriesRef.current = null;
+      syncPulseCrosshairRef.current = undefined;
       secondarySeriesRef.current = null;
       curvedOverlaySeriesRef.current = null;
       secondaryPointSeriesRef.current = null;

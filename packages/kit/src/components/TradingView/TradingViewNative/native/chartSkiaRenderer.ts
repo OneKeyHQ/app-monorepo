@@ -45,11 +45,7 @@ import type { IDrawingRenderState } from '../drawings/useChartDrawings';
 
 export type ITradingViewNativeSkiaCommand =
   | ITradingViewNativeChartSceneCommand
-  | { kind: 'clipPolygon'; points: { x: number; y: number }[] }
-  | (Omit<
-      Extract<ITradingViewNativeChartSceneCommand, { kind: 'rect' }>,
-      'kind'
-    > & { kind: 'roundRect'; radius: number });
+  | { kind: 'clipPolygon'; points: { x: number; y: number }[] };
 
 export interface ITradingViewNativeSkiaResources {
   customPaintSignatures: Record<string, string>;
@@ -597,28 +593,34 @@ function drawTradingViewNativeSkiaCommands({
       case 'restore':
         canvas.restore();
         break;
-      case 'text':
+      case 'text': {
+        const font = getTradingViewNativeSkiaTextFont(
+          command.text,
+          resources.fonts[command.font],
+          command.font === 'legend' ? resources.legendSubscriptFont : null,
+        );
+        const bounds = command.centerInk
+          ? font.measureText(command.text)
+          : undefined;
         canvas.drawText(
           command.text,
-          command.x,
-          command.y,
+          command.x - (bounds ? bounds.x + bounds.width / 2 : 0),
+          command.y - (bounds ? bounds.y + bounds.height / 2 : 0),
           getTradingViewNativeSkiaCommandPaint({
             customPaintId: command.customPaintId,
             fallbackPaint: command.paint,
             resources,
           }),
-          getTradingViewNativeSkiaTextFont(
-            command.text,
-            resources.fonts[command.font],
-            command.font === 'legend' ? resources.legendSubscriptFont : null,
-          ),
+          font,
         );
         break;
+      }
       case 'tradeMarkLabel': {
         const path = resources.tradeMarkLabelPaths[command.label];
         if (path) {
           canvas.save();
           canvas.translate(command.cx, command.cy);
+          if (command.scale) canvas.scale(command.scale, command.scale);
           canvas.drawPath(
             path,
             getTradingViewNativeSkiaCommandPaint({

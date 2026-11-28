@@ -374,6 +374,8 @@ const ORDER_BOOK_OPTIONS_REPLACED_KEPT = 4;
 export default class ServiceHyperliquid extends ServiceBase {
   private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
 
+  private collateralTokensByDex = new Map<string, number>([['', 0]]);
+
   private runtimeSpotMeta: ISpotMetaSnapshot | undefined;
 
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
@@ -384,6 +386,10 @@ export default class ServiceHyperliquid extends ServiceBase {
   // runtime, e.g. the extension's service worker, so the ids start where none
   // of theirs can be.
   private activeAssetChangeRequestId = Date.now();
+
+  private activeRestorationId: string | undefined;
+
+  private cancelledRestorationRequestId: number | undefined;
 
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
@@ -417,11 +423,23 @@ export default class ServiceHyperliquid extends ServiceBase {
   // switch that asked. Every page's switches take theirs from here, so the id
   // tells whether a switch still holds the market, also across extension tabs.
   @backgroundMethod()
-  async cancelPendingActiveAssetChange(): Promise<number> {
+  async cancelPendingActiveAssetChange(params?: {
+    restorationId: string;
+  }): Promise<number> {
+    if (params && params.restorationId !== this.activeRestorationId) {
+      return this.activeAssetChangeRequestId;
+    }
+    if (params) {
+      // Stop the pending load but retain ownership for the caller's rollback.
+      this.cancelledRestorationRequestId = this.activeAssetChangeRequestId;
+      return this.activeAssetChangeRequestId;
+    }
     return this.beginActiveAssetChange();
   }
 
   private beginActiveAssetChange(): number {
+    this.activeRestorationId = undefined;
+    this.cancelledRestorationRequestId = undefined;
     this.activeAssetChangeRequestId += 1;
     return this.activeAssetChangeRequestId;
   }
@@ -1918,6 +1936,18 @@ export default class ServiceHyperliquid extends ServiceBase {
     markPerpsColdStartPerf('service_refresh_trading_meta_response', {
       dexCount: allPerpMetas?.length ?? 0,
     });
+    allPerpMetas?.forEach((meta, index) => {
+      if (!meta) {
+        return;
+      }
+      const dex =
+        index === 0
+          ? ''
+          : parseDexCoin(meta.universe?.[0]?.name ?? '').dexLabel;
+      if (dex !== undefined && meta.collateralToken !== undefined) {
+        this.collateralTokensByDex.set(dex, meta.collateralToken);
+      }
+    });
     const perpMetaByDex = selectPerpMetasByDex(allPerpMetas);
     if (perpMetaByDex.length) {
       const {
@@ -2736,8 +2766,24 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     );
 
+    // Do not label collateral from another DEX as USDC. Unknown metadata
+    // keeps the USDC amount unavailable until the next metadata/WS update.
+    let usdcWithdrawable = new BigNumber(0);
+    let hasUnknownCollateral = false;
+    clearinghouseStates.forEach(([dex, state]) => {
+      if (!state) return;
+      const amount = new BigNumber(state.withdrawable || '0');
+      const collateralToken = this.collateralTokensByDex.get(dex);
+      if (collateralToken === 0)
+        usdcWithdrawable = usdcWithdrawable.plus(amount);
+      else if (collateralToken === undefined && !amount.isZero())
+        hasUnknownCollateral = true;
+    });
     const summary: IPerpsActiveAccountSummaryAtom = {
       accountAddress: activeAddress as IHex,
+      usdcWithdrawable: hasUnknownCollateral
+        ? undefined
+        : usdcWithdrawable.toFixed(),
       accountValue: aggregated.accountValue.toFixed(),
       totalMarginUsed: aggregated.totalMarginUsed.toFixed(),
       crossAccountValue: aggregated.crossAccountValue.toFixed(),
@@ -3448,17 +3494,23 @@ export default class ServiceHyperliquid extends ServiceBase {
      * whole switch holds one request; other callers begin theirs here.
      */
     requestId?: number;
+    restorationId?: string;
   }): Promise<IChangeActiveAssetResult> {
     markPerpsColdStartPerf('service_change_active_asset_start', {
       coin: params.coin,
     });
     const requestId = params.requestId ?? this.beginActiveAssetChange();
+    const isCurrent = () =>
+      this.isActiveAssetChangeCurrent(requestId) &&
+      this.cancelledRestorationRequestId !== requestId;
+    if (isCurrent()) this.activeRestorationId = params.restorationId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
+    const shouldSeedSubscriptionTarget =
+      !params.restorationId && oldCoin !== newCoin;
     // A failure goes back to the last loaded asset, also from a coin a
     // superseded switch named without its metadata, e.g. when that coin is
     // asked for again.
@@ -3479,7 +3531,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     };
 
     try {
-      if (!this.isActiveAssetChangeCurrent(requestId)) {
+      if (!isCurrent()) {
         return supersededResult();
       }
       this.noteActiveAssetChangeWrite(requestId);
@@ -3496,7 +3548,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       const { universesByDex, marginTablesMapByDex } =
         await this.getTradingUniverse();
-      if (!this.isActiveAssetChangeCurrent(requestId)) {
+      if (!isCurrent()) {
         return supersededResult();
       }
 

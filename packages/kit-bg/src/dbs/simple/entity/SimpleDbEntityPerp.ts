@@ -72,6 +72,7 @@ export interface IPerpsAccountDisplayCacheSummary {
   totalNtlPos: string | undefined;
   totalRawUsd: string | undefined;
   withdrawable: string | undefined;
+  usdcWithdrawable?: string;
   totalUnrealizedPnl: string | undefined;
 }
 

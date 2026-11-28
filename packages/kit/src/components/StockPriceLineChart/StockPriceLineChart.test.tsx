@@ -16,19 +16,30 @@ import {
 let mockOnLayout:
   | ((event: { nativeEvent: { layout: { width: number } } }) => void)
   | undefined;
+let mockOnPointerDown: (() => void) | undefined;
 let mockChartData: IMarketTokenChart;
+let mockSecondaryLineEndTime: number | undefined;
+let mockResolveTimeScaleTimestamp: ((time: number) => number) | undefined;
+let mockOnHover:
+  | ((data: { time?: number; price?: number; x?: number; y?: number }) => void)
+  | undefined;
 
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({
     children,
     onLayout,
+    onPointerDown,
     testID,
   }: {
     children?: ReactNode;
     onLayout?: typeof mockOnLayout;
+    onPointerDown?: () => void;
     testID?: string;
   }) => {
-    if (testID === 'simple-chart') mockOnLayout = onLayout;
+    if (testID === 'simple-chart') {
+      mockOnLayout = onLayout;
+      mockOnPointerDown = onPointerDown;
+    }
     return <div>{children}</div>;
   },
 }));
@@ -63,8 +74,21 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: false },
 }));
 jest.mock('../LightweightChart', () => ({
-  LightweightChart: ({ data }: { data: IMarketTokenChart }) => {
+  LightweightChart: ({
+    data,
+    secondaryLineEndTime,
+    resolveTimeScaleTimestamp,
+    onHover,
+  }: {
+    data: IMarketTokenChart;
+    secondaryLineEndTime?: number;
+    resolveTimeScaleTimestamp?: (time: number) => number;
+    onHover?: typeof mockOnHover;
+  }) => {
     mockChartData = data;
+    mockSecondaryLineEndTime = secondaryLineEndTime;
+    mockResolveTimeScaleTimestamp = resolveTimeScaleTimestamp;
+    mockOnHover = onHover;
     return null;
   },
 }));
@@ -112,6 +136,85 @@ it('keeps live updates and real width changes working after a hidden measurement
   measure(960);
   expect(mockChartData.length).toBeGreaterThan(sampledCount);
   expect(mockChartData.at(-1)).toEqual(lastChartPoint);
+});
+
+it('resolves repeated-hour tick timestamps and updates held chartTime after a fall-back refresh', () => {
+  // America/New_York fall-back: EDT (UTC-4) until 2026-11-01 06:00 UTC, EST (UTC-5) after.
+  const dstEndMs = Date.UTC(2026, 10, 1, 6, 0);
+  const tzSpy = jest
+    .spyOn(Date.prototype, 'getTimezoneOffset')
+    .mockImplementation(function getOffset(this: Date) {
+      return this.getTime() < dstEndMs ? 240 : 300;
+    });
+  try {
+    const preFallback = Date.UTC(2026, 10, 1, 5, 55) / 1000; // 01:55 EDT
+    const repeatedHourStart = Date.UTC(2026, 10, 1, 6, 0) / 1000; // 01:00 EST
+    const repeatedHourHeld = Date.UTC(2026, 10, 1, 6, 30) / 1000; // 01:30 EST
+    const later = Date.UTC(2026, 10, 1, 6, 55) / 1000; // 01:55 EST
+
+    const initialSeries: IMarketTokenChart = [
+      [preFallback, 100],
+      [repeatedHourStart, 101],
+      [repeatedHourHeld, 102],
+      [later, 103],
+    ];
+    const onHoverChange = jest.fn();
+    const { rerender } = render(
+      <StockPriceLineChart
+        data={initialSeries}
+        height={240}
+        testID="simple-chart"
+        clearHoverOnTouchEnd
+        onHoverChange={onHoverChange}
+      />,
+    );
+
+    // Tick resolution maps the synthetic 01:55:01 chart time back to 06:00 UTC.
+    const syntheticStartChartTime = mockChartData[1][0];
+    expect(syntheticStartChartTime).toBe(mockChartData[0][0] + 1);
+    expect(mockResolveTimeScaleTimestamp?.(syntheticStartChartTime)).toBe(
+      repeatedHourStart,
+    );
+
+    // Hold the repeated-hour 01:30 EST candle (initially mapped synthetically).
+    const initialHeldChartTime = mockChartData[2][0];
+    expect(initialHeldChartTime).toBe(mockChartData[0][0] + 2);
+    act(() => {
+      mockOnPointerDown?.();
+      mockOnHover?.({
+        time: initialHeldChartTime,
+        price: 102,
+        x: 50,
+        y: 50,
+      });
+    });
+    expect(mockSecondaryLineEndTime).toBe(initialHeldChartTime);
+
+    // Refresh drops preFallback, so the held candle moves to its true 01:30 EST chartTime.
+    const refreshedSeries: IMarketTokenChart = [
+      [repeatedHourStart, 101],
+      [repeatedHourHeld, 110],
+      [later, 115],
+    ];
+    rerender(
+      <StockPriceLineChart
+        data={refreshedSeries}
+        height={240}
+        testID="simple-chart"
+        clearHoverOnTouchEnd
+        onHoverChange={onHoverChange}
+      />,
+    );
+
+    const refreshedHeldChartTime = mockChartData[1][0];
+    expect(refreshedHeldChartTime).not.toBe(initialHeldChartTime);
+    expect(mockSecondaryLineEndTime).toBe(refreshedHeldChartTime);
+    expect(onHoverChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ time: repeatedHourHeld, price: 110 }),
+    );
+  } finally {
+    tzSpy.mockRestore();
+  }
 });
 
 describe('buildStockPriceLineChartTimeExtension', () => {

@@ -22,6 +22,7 @@ import {
   perpsActiveAssetCtxDisplayAtom,
   perpsActiveAssetDataAtom,
   perpsActiveOrderBookOptionsAtom,
+  perpsCommonConfigPersistAtom,
   perpsTradingPreferencesAtom,
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
@@ -51,7 +52,10 @@ import {
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useHyperliquidActions } from './actions';
+import {
+  capturePerpsInstrumentChangeGuard,
+  useHyperliquidActions,
+} from './actions';
 import {
   ProviderJotaiContextHyperliquid,
   activeTradeInstrumentAtom,
@@ -73,6 +77,16 @@ type IDialogMockInstance = {
   getForm: () => undefined;
   isExist: () => boolean;
 };
+
+const mockOrdersClose = jest
+  .fn<Promise<unknown>, unknown[]>()
+  .mockResolvedValue({ status: 'ok' });
+const mockOrderOpen = jest
+  .fn<Promise<unknown>, unknown[]>()
+  .mockResolvedValue({});
+const mockUpdateLeverage = jest
+  .fn<Promise<void>, unknown[]>()
+  .mockResolvedValue(undefined);
 
 const mockDialogClose = jest.fn<Promise<void>, []>(async () => undefined);
 const mockDialogShow = jest.fn<IDialogMockInstance, [IDialogOptions]>();
@@ -104,16 +118,20 @@ const mockAmendOrderPriceByOid = jest.fn<
 >();
 const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
+const mockCancelTwapOrder = jest.fn<Promise<unknown>, unknown[]>();
 const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
 const mockChangeActiveAsset = jest.fn<
   Promise<unknown>,
-  [{ coin: string; requestId?: number }]
+  [{ coin: string; requestId?: number; restorationId?: string }]
 >();
 // The service's request ids, shared by the switches of every page.
 let mockAssetChangeRequestId = 0;
 // Rejects to make a request for one fail, as when the service cannot be
 // reached.
-const mockReachAssetChangeService = jest.fn<Promise<void> | undefined, []>();
+const mockReachAssetChangeService = jest.fn<
+  Promise<void> | undefined,
+  [params?: { restorationId: string }]
+>();
 // The perp asset the service holds once it is back on the last one loaded.
 const mockLoadedPerpAsset = jest.fn<
   Promise<IPerpsActiveAssetAtom | undefined>,
@@ -155,6 +173,15 @@ const mockGetSpotMeta = jest.fn<
   Promise<{ tokens: unknown[]; universes: HL.ISpotUniverse[] }>,
   []
 >();
+const mockUpdateSubscriptions = jest.fn<Promise<void>, []>();
+const mockRecoverSubscriptionsAfterLivenessProof = jest.fn<
+  Promise<boolean>,
+  [{ disabledCount: number }]
+>();
+
+jest.mock('@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode', () => ({
+  usePerpsTradingUiMode: () => 'simple',
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -233,9 +260,9 @@ jest.mock('@onekeyhq/components', () => {
     Icon: Container,
     SizableText: Container,
     Toast: {
-      error: jest.fn(),
       success: jest.fn(),
       loading: jest.fn(() => ({ close: jest.fn() })),
+      error: jest.fn(),
     },
     XStack: Container,
     YStack: Container,
@@ -246,15 +273,21 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHyperliquidExchange: {
-      placeTwapOrder: (params: IPlaceTwapOrderParams) =>
-        mockPlaceTwapOrder(params),
+      ordersClose: (...args: unknown[]) => mockOrdersClose(...args),
+      cancelTwapOrder: (...args: unknown[]) => mockCancelTwapOrder(...args),
       amendOrderPriceByOid: (...args: unknown[]) =>
         mockAmendOrderPriceByOid(...args),
+      orderOpen: (...args: unknown[]) => mockOrderOpen(...args),
+      updateLeverage: (...args: unknown[]) => mockUpdateLeverage(...args),
+      placeTwapOrder: (params: IPlaceTwapOrderParams) =>
+        mockPlaceTwapOrder(params),
     },
     serviceHyperliquid: {
-      cancelPendingActiveAssetChange: async () => {
-        await mockReachAssetChangeService();
-        mockAssetChangeRequestId += 1;
+      cancelPendingActiveAssetChange: async (params?: {
+        restorationId: string;
+      }) => {
+        await mockReachAssetChangeService(params);
+        if (!params) mockAssetChangeRequestId += 1;
         return mockAssetChangeRequestId;
       },
       changeActiveAsset: (params: { coin: string; requestId?: number }) =>
@@ -285,6 +318,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       perp: {
         getOrderBookTickOptions: async () => ({}),
       },
+    },
+    serviceHyperliquidSubscription: {
+      updateSubscriptions: () => mockUpdateSubscriptions(),
+      recoverSubscriptionsAfterLivenessProof: (params: {
+        disabledCount: number;
+      }) => mockRecoverSubscriptionsAfterLivenessProof(params),
     },
   },
 }));
@@ -342,10 +381,12 @@ function buildPerpsAccountStatus(
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((promiseResolve) => {
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
     resolve = promiseResolve;
+    reject = promiseReject;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 function createWrapper(store = createStore()) {
@@ -357,6 +398,12 @@ function createWrapper(store = createStore()) {
     );
   };
 }
+
+beforeEach(() => {
+  jest
+    .spyOn(perpsCommonConfigPersistAtom, 'get')
+    .mockResolvedValue({ perpConfigCommon: {} });
+});
 
 describe('useHyperliquidActions.setTokenSelectorOpen', () => {
   it('keeps the selector subscriptions on while any picker is open', () => {
@@ -574,6 +621,52 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       getOrderBookCoin: () => orderBookOptions?.coin,
     };
   }
+
+  it.each(['mode', 'contexts', 'metadata'] as const)(
+    'restores the spot market when focus is cancelled after writing %s',
+    async (stage) => {
+      const { store, result, getMode } = setup('spot');
+      const previous = store.get(activeTradeInstrumentAtom());
+      const controller = new AbortController();
+      if (stage === 'mode') {
+        const setMode =
+          mockSetTradingModeForActiveAssetChange.getMockImplementation();
+        mockSetTradingModeForActiveAssetChange.mockImplementationOnce(
+          async (params) => {
+            const holdsMarket = await setMode?.(params);
+            controller.abort();
+            return holdsMarket ?? false;
+          },
+        );
+      } else if (stage === 'contexts') {
+        mockClearActiveAssetCtxForActiveAssetChange.mockImplementationOnce(
+          async () => {
+            controller.abort();
+            return true;
+          },
+        );
+      } else {
+        mockChangeActiveAsset.mockImplementationOnce(async () => {
+          controller.abort();
+          return btc;
+        });
+      }
+      await act(async () => {
+        expect(
+          await result.current.current.switchTradeInstrument({
+            mode: 'perp',
+            coin: 'ETH',
+            restorationSignal: controller.signal,
+          }),
+        ).toBe(false);
+      });
+      expect(getMode()).toBe('spot');
+      expect(store.get(activeTradeInstrumentAtom())).toEqual(previous);
+      expect(mockRestoreActiveAssetAfterFailedChange).toHaveBeenCalledWith(
+        expect.objectContaining({ spotAsset: spot }),
+      );
+    },
+  );
 
   it.each(['perp', 'spot'] as const)(
     'goes back to the %s token it showed when the background fails a perp switch',
@@ -2536,6 +2629,599 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
   });
 });
 
+it('invalidates a captured instrument guard as soon as a real UI switch starts', async () => {
+  let stop!: (error: Error) => void;
+  mockReachAssetChangeService.mockImplementationOnce(
+    () =>
+      new Promise<void>((_resolve, reject) => {
+        stop = reject;
+      }),
+  );
+  const store = createStore();
+  store.set(activeTradeInstrumentAtom(), {
+    mode: 'perp',
+    coin: 'BTC',
+    assetId: undefined,
+    universe: undefined,
+  });
+  const { result } = renderHook(() => useHyperliquidActions(), {
+    wrapper: createWrapper(store),
+  });
+  const isCurrent = capturePerpsInstrumentChangeGuard();
+  expect(isCurrent()).toBe(true);
+  let switching!: Promise<boolean>;
+  act(() => {
+    switching = result.current.current.switchTradeInstrument({
+      mode: 'perp',
+      coin: 'ETH',
+    });
+  });
+  expect(store.get(activeTradeInstrumentAtom()).coin).toBe('ETH');
+  expect(isCurrent()).toBe(false);
+  expect(capturePerpsInstrumentChangeGuard()()).toBe(true);
+  await act(async () => {
+    stop(new OneKeyLocalError('stopped before BG write'));
+    await expect(switching).rejects.toThrow('stopped before BG write');
+  });
+});
+
+it.each([
+  { entry: 'switch', coin: 'BTC', allowed: true },
+  { entry: 'perp', coin: 'ETH', allowed: false },
+  { entry: 'spot', coin: 'BTC', allowed: false },
+])(
+  'checks the latest requested target for the $entry entry before BG writes',
+  async ({ entry, coin, allowed }) => {
+    let stop!: (error: Error) => void;
+    mockReachAssetChangeService.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          stop = reject;
+        }),
+    );
+    const store = createStore();
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(store),
+    });
+    const strictGuard = capturePerpsInstrumentChangeGuard();
+    const targetGuard = capturePerpsInstrumentChangeGuard({
+      mode: 'perp',
+      coin: 'BTC',
+    });
+    let switching!: Promise<boolean>;
+    act(() => {
+      const actions = result.current.current;
+      if (entry === 'switch') {
+        switching = actions.switchTradeInstrument({ mode: 'perp', coin });
+      } else if (entry === 'perp') {
+        switching = actions.changeActiveAsset({ coin });
+      } else {
+        switching = actions.changeActiveSpotAsset({
+          coin,
+          spotUniverse: undefined,
+        });
+      }
+    });
+    expect(strictGuard()).toBe(false);
+    expect(targetGuard()).toBe(allowed);
+    await act(async () => {
+      stop(new OneKeyLocalError('stopped before BG write'));
+      await expect(switching).rejects.toThrow('stopped before BG write');
+    });
+  },
+);
+
+describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
+  const universe: HL.IPerpsUniverse = {
+    name: 'ETH',
+    assetId: 1,
+    szDecimals: 3,
+    maxLeverage: 50,
+    marginTableId: 1,
+  };
+  let metadataReady: boolean;
+  let bgAsset: Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>;
+
+  beforeEach(() => {
+    metadataReady = false;
+    bgAsset = {
+      coin: 'ETH',
+      assetId: undefined,
+      universe: undefined,
+      margin: undefined,
+    };
+    mockReachAssetChangeService.mockReset().mockResolvedValue();
+    mockSetTradingModeForActiveAssetChange.mockReset().mockResolvedValue(true);
+    mockClearActiveAssetCtxForActiveAssetChange
+      .mockReset()
+      .mockResolvedValue(true);
+    mockRestoreActiveAssetAfterFailedChange
+      .mockReset()
+      .mockImplementation(async () => ({ restored: true, perpAsset: bgAsset }));
+    mockSetActiveOrderBookOptions
+      .mockReset()
+      .mockImplementation(async ({ options }) => {
+        await perpsActiveOrderBookOptionsAtom.set(options);
+        return true;
+      });
+    mockUpdateSubscriptions.mockReset().mockResolvedValue();
+    mockRecoverSubscriptionsAfterLivenessProof
+      .mockReset()
+      .mockResolvedValue(true);
+    mockChangeActiveAsset.mockReset().mockImplementation(async ({ coin }) => {
+      bgAsset = {
+        coin,
+        assetId: metadataReady ? universe.assetId : undefined,
+        universe: metadataReady ? { ...universe, name: coin } : undefined,
+        margin: undefined,
+      };
+      return bgAsset;
+    });
+    jest
+      .spyOn(perpsActiveAssetAtom, 'get')
+      .mockImplementation(async () => bgAsset);
+    jest.spyOn(tradingModeAtom, 'get').mockResolvedValue('perp');
+    jest.spyOn(tradingModeAtom, 'set').mockResolvedValue();
+    jest.spyOn(perpsActiveAssetCtxAtom, 'set').mockResolvedValue();
+    jest.spyOn(perpsActiveAssetCtxDisplayAtom, 'set').mockResolvedValue();
+    jest.spyOn(perpsActiveAssetDataAtom, 'set').mockResolvedValue();
+    jest.spyOn(spotActiveAssetCtxAtom, 'set').mockResolvedValue();
+    jest
+      .spyOn(perpsActiveOrderBookOptionsAtom, 'get')
+      .mockResolvedValue(undefined);
+    jest.spyOn(perpsActiveOrderBookOptionsAtom, 'set').mockResolvedValue();
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  function setup() {
+    const store = createStore();
+    const hook = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(store),
+    });
+    return { store, actions: hook.result.current.current };
+  }
+
+  it('fills the current asset metadata after a cache-empty switch has completed', async () => {
+    const { store, actions } = setup();
+    await act(async () => {
+      expect(
+        await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' }),
+      ).toBe(false);
+    });
+    expect(store.get(activeTradeInstrumentAtom())).toEqual({
+      mode: 'perp',
+      coin: 'ETH',
+      assetId: undefined,
+      universe: undefined,
+    });
+    const isCurrent = capturePerpsInstrumentChangeGuard();
+    const isCurrentTarget = capturePerpsInstrumentChangeGuard({
+      mode: 'perp',
+      coin: 'ETH',
+    });
+    metadataReady = true;
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
+    });
+    expect(store.get(activeTradeInstrumentAtom())).toEqual({
+      mode: 'perp',
+      coin: 'ETH',
+      assetId: 1,
+      universe,
+    });
+    expect(isCurrent()).toBe(false);
+    expect(isCurrentTarget()).toBe(true);
+    expect(
+      mockChangeActiveAsset.mock.calls.map(([target]) => target.coin),
+    ).toEqual(['ETH', 'ETH']);
+  });
+
+  it('reconciles a no-proof switch after hydration publishes its resolved options while the root route is hidden', async () => {
+    let publishedOptions: Awaited<
+      ReturnType<typeof perpsActiveOrderBookOptionsAtom.get>
+    >;
+    jest
+      .spyOn(perpsActiveOrderBookOptionsAtom, 'get')
+      .mockImplementation(async () => publishedOptions);
+    jest
+      .spyOn(perpsActiveOrderBookOptionsAtom, 'set')
+      .mockImplementation(async (update) => {
+        publishedOptions =
+          typeof update === 'function' ? update(publishedOptions) : update;
+      });
+    const reconciledOptions: Array<typeof publishedOptions> = [];
+    mockUpdateSubscriptions.mockImplementation(async () => {
+      reconciledOptions.push(publishedOptions);
+    });
+    const { actions } = setup();
+    await act(async () => {
+      expect(
+        await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' }),
+      ).toBe(false);
+    });
+    metadataReady = true;
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
+    });
+    await waitFor(() =>
+      expect(reconciledOptions).toContainEqual({
+        coin: 'ETH',
+        assetId: 1,
+        nSigFigs: null,
+        mantissa: null,
+      }),
+    );
+    expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
+  });
+
+  it('reconciles hydration without reusing the original switch proof', async () => {
+    const { actions } = setup();
+    await act(async () => {
+      await actions.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+        subscriptionRecoveryProof: {
+          source: 'simple-market',
+          disabledCount: 3,
+        },
+      });
+    });
+    await waitFor(() =>
+      expect(mockRecoverSubscriptionsAfterLivenessProof).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+    metadataReady = true;
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
+    });
+    await waitFor(() =>
+      expect(mockUpdateSubscriptions).toHaveBeenCalledTimes(1),
+    );
+    expect(mockRecoverSubscriptionsAfterLivenessProof).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reconcile hydrated options superseded by a newer target during publication', async () => {
+    const readOptions = jest.spyOn(perpsActiveOrderBookOptionsAtom, 'get');
+    const writeOptions = jest.spyOn(perpsActiveOrderBookOptionsAtom, 'set');
+    const { store, actions } = setup();
+    await act(async () => {
+      await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    await waitFor(() => expect(writeOptions).toHaveBeenCalledTimes(1));
+    const previousOptions =
+      createDeferred<
+        Awaited<ReturnType<typeof perpsActiveOrderBookOptionsAtom.get>>
+      >();
+    readOptions.mockReturnValueOnce(previousOptions.promise);
+    metadataReady = true;
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
+    });
+    await waitFor(() => expect(readOptions).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      expect(
+        await actions.switchTradeInstrument({ mode: 'perp', coin: 'SOL' }),
+      ).toBe(true);
+      previousOptions.resolve(undefined);
+    });
+    await waitFor(() => expect(writeOptions).toHaveBeenCalledTimes(2));
+    expect(store.get(activeTradeInstrumentAtom()).coin).toBe('SOL');
+    const publishedOptions = writeOptions.mock.calls.map(([update]) =>
+      typeof update === 'function' ? update(undefined) : update,
+    );
+    expect(publishedOptions).toEqual([
+      { coin: 'ETH', assetId: undefined, nSigFigs: null, mantissa: null },
+      { coin: 'SOL', assetId: 1, nSigFigs: null, mantissa: null },
+    ]);
+    expect(mockUpdateSubscriptions).not.toHaveBeenCalled();
+    expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
+  });
+
+  it('cancels only the pending focus restore when the page blurs during the BG switch', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const { store, actions } = setup();
+    const previous = store.get(activeTradeInstrumentAtom());
+    if (previous.mode !== 'perp')
+      throw new OneKeyLocalError('Expected a perp fixture');
+    mockRestoreActiveAssetAfterFailedChange.mockResolvedValueOnce({
+      restored: true,
+      perpAsset: { ...previous, margin: undefined },
+    });
+    const controller = new AbortController();
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+        restorationSignal: controller.signal,
+      });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    const { restorationId } = mockChangeActiveAsset.mock.calls[0][0];
+    expect(restorationId).toEqual(expect.any(String));
+    await act(async () => {
+      controller.abort();
+      expect(mockReachAssetChangeService).toHaveBeenLastCalledWith({
+        restorationId,
+      });
+      pending.resolve(bgAsset);
+      expect(await switching).toBe(false);
+    });
+    expect(store.get(activeTradeInstrumentAtom())).toEqual(previous);
+    expect(mockRestoreActiveAssetAfterFailedChange).toHaveBeenCalled();
+  });
+
+  it('waits for an in-flight switch without superseding its successful result', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const { store, actions } = setup();
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    metadataReady = true;
+    let hydrating!: Promise<boolean>;
+    act(() => {
+      hydrating = actions.hydrateUnresolvedActivePerp();
+    });
+    expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      bgAsset = {
+        coin: 'ETH',
+        assetId: undefined,
+        universe: undefined,
+        margin: undefined,
+      };
+      pending.resolve(bgAsset);
+      expect(await switching).toBe(false);
+      expect(await hydrating).toBe(true);
+    });
+    expect(store.get(activeTradeInstrumentAtom())).toEqual({
+      mode: 'perp',
+      coin: 'ETH',
+      assetId: 1,
+      universe,
+    });
+  });
+
+  it('reconciles a no-proof switch that resolves its metadata while hydration waits', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const writeOptions = jest.spyOn(perpsActiveOrderBookOptionsAtom, 'set');
+    const { store, actions } = setup();
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    let hydrating!: Promise<boolean>;
+    act(() => {
+      hydrating = actions.hydrateUnresolvedActivePerp();
+    });
+    await act(async () => {
+      metadataReady = true;
+      bgAsset = {
+        coin: 'ETH',
+        assetId: 1,
+        universe,
+        margin: undefined,
+      };
+      pending.resolve(bgAsset);
+      expect(await switching).toBe(true);
+      expect(await hydrating).toBe(false);
+    });
+    expect(store.get(activeTradeInstrumentAtom()).assetId).toBe(1);
+    expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1);
+    expect(mockUpdateSubscriptions).toHaveBeenCalledTimes(1);
+    const [update] = writeOptions.mock.calls[0];
+    expect(typeof update === 'function' ? update(undefined) : update).toEqual({
+      coin: 'ETH',
+      assetId: 1,
+      nSigFigs: null,
+      mantissa: null,
+    });
+    expect(writeOptions.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpdateSubscriptions.mock.invocationCallOrder[0],
+    );
+    expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
+  });
+
+  it('rejects the old unresolved subscription publication after hydration starts a new request', async () => {
+    const previousOptions =
+      createDeferred<
+        Awaited<ReturnType<typeof perpsActiveOrderBookOptionsAtom.get>>
+      >();
+    const readOptions = jest
+      .spyOn(perpsActiveOrderBookOptionsAtom, 'get')
+      .mockReturnValueOnce(previousOptions.promise);
+    const writeOptions = jest.spyOn(perpsActiveOrderBookOptionsAtom, 'set');
+    const { actions } = setup();
+    await act(async () => {
+      expect(
+        await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' }),
+      ).toBe(false);
+    });
+    await waitFor(() => expect(readOptions).toHaveBeenCalledTimes(1));
+    metadataReady = true;
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
+    });
+    expect(writeOptions).not.toHaveBeenCalled();
+    await act(async () => previousOptions.resolve(undefined));
+    await waitFor(() => expect(writeOptions).toHaveBeenCalledTimes(1));
+    const [update] = writeOptions.mock.calls[0];
+    expect(typeof update === 'function' ? update(undefined) : update).toEqual(
+      expect.objectContaining({ coin: 'ETH', assetId: 1 }),
+    );
+  });
+
+  it('does not reset an already resolved instrument or its order form', async () => {
+    const { store, actions } = setup();
+    metadataReady = true;
+    await act(async () => {
+      await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    store.set(tradingFormAtom(), (previous) => ({ ...previous, size: '123' }));
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(false);
+    });
+    expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1);
+    expect(store.get(tradingFormAtom()).size).toBe('123');
+    expect(mockUpdateSubscriptions).toHaveBeenCalledTimes(1);
+    expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
+  });
+
+  it('waits for a same-coin force switch that can invalidate its previously resolved snapshot', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const { store, actions } = setup();
+    store.set(activeTradeInstrumentAtom(), {
+      mode: 'perp',
+      coin: 'ETH',
+      assetId: 1,
+      universe,
+    });
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+        force: true,
+      });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    metadataReady = true;
+    let hydrating!: Promise<boolean>;
+    act(() => {
+      hydrating = actions.hydrateUnresolvedActivePerp();
+    });
+    await act(async () => {
+      pending.resolve({
+        coin: 'ETH',
+        assetId: undefined,
+        universe: undefined,
+        margin: undefined,
+      });
+      expect(await switching).toBe(false);
+      expect(await hydrating).toBe(true);
+    });
+    expect(store.get(activeTradeInstrumentAtom())).toEqual({
+      mode: 'perp',
+      coin: 'ETH',
+      assetId: 1,
+      universe,
+    });
+  });
+
+  it('releases hydration after the original switch rejects', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const { store, actions } = setup();
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    metadataReady = true;
+    let hydrating!: Promise<boolean>;
+    act(() => {
+      hydrating = actions.hydrateUnresolvedActivePerp();
+    });
+    await act(async () => {
+      pending.reject(new OneKeyLocalError('cache-empty switch failed'));
+      await expect(switching).rejects.toThrow('cache-empty switch failed');
+      expect(await hydrating).toBe(true);
+    });
+    expect(store.get(activeTradeInstrumentAtom()).assetId).toBe(1);
+  });
+
+  it('does not use an old owner store when the latest request names another target', async () => {
+    const { store, actions } = setup();
+    await act(async () => {
+      await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    store.set(activeTradeInstrumentAtom(), {
+      mode: 'perp',
+      coin: 'BTC',
+      assetId: undefined,
+      universe: undefined,
+    });
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(false);
+    });
+    expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not hydrate a perp when a same-name spot request has started before its store update', async () => {
+    const pending = createDeferred<{ tokens: unknown[]; universes: [] }>();
+    mockGetSpotMeta.mockReturnValueOnce(pending.promise);
+    const { store, actions } = setup();
+    await act(async () => {
+      await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({ mode: 'spot', coin: 'ETH' });
+    });
+    expect(store.get(activeTradeInstrumentAtom()).mode).toBe('perp');
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(false);
+    });
+    expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pending.reject(new OneKeyLocalError('stopped before spot store update'));
+      await expect(switching).rejects.toThrow(
+        'stopped before spot store update',
+      );
+    });
+  });
+
+  it('does not hydrate an old target when another request starts while it waits', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const { store, actions } = setup();
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    let hydrating!: Promise<boolean>;
+    act(() => {
+      hydrating = actions.hydrateUnresolvedActivePerp();
+    });
+    metadataReady = true;
+    await act(async () => {
+      expect(
+        await actions.switchTradeInstrument({ mode: 'perp', coin: 'SOL' }),
+      ).toBe(true);
+    });
+    await act(async () => {
+      pending.resolve({
+        coin: 'ETH',
+        assetId: undefined,
+        universe: undefined,
+        margin: undefined,
+      });
+      expect(await switching).toBe(false);
+      expect(await hydrating).toBe(false);
+    });
+    expect(store.get(activeTradeInstrumentAtom()).coin).toBe('SOL');
+    expect(
+      mockChangeActiveAsset.mock.calls.map(([target]) => target.coin),
+    ).toEqual(['ETH', 'SOL']);
+  });
+});
+
 describe('useHyperliquidActions.ensureTradingEnabled', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -2662,6 +3348,8 @@ describe('useHyperliquidActions.loadTwapData', () => {
   } satisfies IPerpsActiveAccountAtom;
 
   beforeEach(() => {
+    jest.mocked(Toast.error).mockClear();
+    jest.mocked(Toast.success).mockClear();
     mockGetTwapStates.mockReset();
     mockGetTwapHistory.mockReset().mockResolvedValue([]);
     mockGetTwapSliceFills.mockReset().mockResolvedValue([]);
@@ -2742,11 +3430,12 @@ describe('useHyperliquidActions.loadTwapData', () => {
   );
 
   it.each([
-    ['its own token', 'BTC', true],
-    ['another token', 'SOL', false],
+    ['its own token', 'BTC', true, 0],
+    ['another token', 'SOL', false, 0],
+    ['the original token but the submitted asset changed', 'BTC', false, 5],
   ] as const)(
     'submits an order only while the market the background holds is on %s',
-    async (_label, marketCoin, isSubmitted) => {
+    async (_label, marketCoin, isSubmitted, requestedAssetId) => {
       // As after another extension tab took the market: the page still shows
       // BTC, while the price and sizes in the shared atoms are SOL's.
       jest.spyOn(tradingModeAtom, 'get').mockResolvedValue('perp');
@@ -2779,7 +3468,7 @@ describe('useHyperliquidActions.loadTwapData', () => {
       await act(async () => {
         try {
           await result.current.current.submitOrder({
-            assetId: 0,
+            assetId: requestedAssetId,
             price: '100',
             formData: {
               ...store.get(tradingFormAtom()),
@@ -2795,6 +3484,10 @@ describe('useHyperliquidActions.loadTwapData', () => {
 
       expect(mockPlaceTwapOrder).toHaveBeenCalledTimes(isSubmitted ? 1 : 0);
       expect(failure === undefined).toBe(isSubmitted);
+      await waitFor(() => {
+        expect(Toast.error).toHaveBeenCalledTimes(isSubmitted ? 0 : 1);
+        expect(Toast.success).toHaveBeenCalledTimes(isSubmitted ? 1 : 0);
+      });
     },
   );
 
@@ -2851,6 +3544,8 @@ describe('useHyperliquidActions.loadTwapData', () => {
 
     expect(failure).toBeDefined();
     expect(mockPlaceTwapOrder).not.toHaveBeenCalled();
+    await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+    expect(Toast.success).not.toHaveBeenCalled();
   });
 
   it.each(['102', undefined])(
@@ -2909,6 +3604,58 @@ describe('useHyperliquidActions.loadTwapData', () => {
       );
     },
   );
+
+  it('forwards TWAP account binding and removes the canceled order', async () => {
+    mockCancelTwapOrder.mockReset().mockResolvedValue({ status: 'ok' });
+    mockGetTwapStates.mockResolvedValue(undefined);
+    const { store, result, existingOrders } = setup();
+    await act(async () =>
+      result.current.current.cancelTwapOrder({
+        assetId: 0,
+        twapId: 1,
+        expectedAccountAddress: accountAddress,
+      }),
+    );
+    expect(mockCancelTwapOrder).toHaveBeenCalledWith(
+      { assetId: 0, twapId: 1 },
+      { expectedAccountAddress: accountAddress },
+    );
+    expect(store.get(perpsActiveTwapOrdersAtom()).twapOrders).toEqual([
+      existingOrders[1],
+    ]);
+  });
+
+  it('preserves the new account orders when a TWAP cancel finishes after switching', async () => {
+    const pending = createDeferred<unknown>();
+    mockCancelTwapOrder.mockReset().mockReturnValue(pending.promise);
+    const { store, result, existingOrders } = setup();
+    const canceling = result.current.current.cancelTwapOrder({
+      assetId: 0,
+      twapId: 1,
+      expectedAccountAddress: accountAddress,
+    });
+    await waitFor(() => expect(mockCancelTwapOrder).toHaveBeenCalledTimes(1));
+    jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+      ...activeAccount,
+      accountAddress: '0xdef0',
+    });
+    const newOrders = existingOrders.map((order) => ({
+      ...order,
+      state: { ...order.state, user: '0xdef0' as const },
+    }));
+    store.set(perpsActiveTwapOrdersAtom(), {
+      accountAddress: '0xdef0',
+      twapOrders: newOrders,
+      twapOrdersByCoin: {},
+    });
+    await act(async () => {
+      pending.resolve({ status: 'ok' });
+      await canceling;
+    });
+    expect(store.get(perpsActiveTwapOrdersAtom()).twapOrders).toEqual(
+      newOrders,
+    );
+  });
 
   it('accepts checksum-cased identity and preserves other-dex orders', async () => {
     mockGetTwapStates.mockResolvedValue({
@@ -3074,4 +3821,129 @@ describe('useHyperliquidActions.chaseOrder', () => {
       expect(mockAmendOrderPriceByOid).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('reviewed trading account propagation', () => {
+  beforeEach(() => {
+    jest.spyOn(tradingModeAtom, 'get').mockResolvedValue('perp');
+    jest
+      .spyOn(spotActiveAssetAtom, 'get')
+      .mockResolvedValue({ coin: '', assetId: undefined, universe: undefined });
+    jest.spyOn(spotActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+    jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue({
+      coin: 'BTC',
+      assetId: 0,
+      universe: undefined,
+      margin: undefined,
+    });
+    jest.spyOn(perpsActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+    jest.spyOn(perpsActiveAssetDataAtom, 'get').mockResolvedValue(undefined);
+  });
+  afterEach(() => jest.restoreAllMocks());
+  it.each(['simple', 'pro', undefined] as const)(
+    'forwards the confirmed account and UI mode %s through standard order submission',
+    async (tradingUiMode) => {
+      const store = createStore();
+      store.set(activeTradeInstrumentAtom(), {
+        mode: 'perp',
+        coin: 'BTC',
+        assetId: 0,
+        universe: undefined,
+      });
+      const { result } = renderHook(() => useHyperliquidActions(), {
+        wrapper: createWrapper(store),
+      });
+      await act(async () => {
+        await result.current.current.submitOrder({
+          assetId: 0,
+          price: '50000',
+          expectedAccountAddress: '0xconfirmed',
+          tradingUiMode,
+          formData: { ...store.get(tradingFormAtom()), size: '0.1' },
+        });
+      });
+      expect(mockOrderOpen).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectedAccountAddress: '0xconfirmed',
+          tradingUiMode: tradingUiMode ?? 'pro',
+        }),
+      );
+    },
+  );
+
+  it.each([
+    ['disablePerpActionPerp', 'market'],
+    ['disablePerpActionPerp', 'limit'],
+    ['ipDisablePerp', 'market'],
+    ['ipDisablePerp', 'limit'],
+  ] as const)(
+    'blocks %s on a reviewed %s order before confirmation',
+    async (flag, type) => {
+      const store = createStore();
+      store.set(activeTradeInstrumentAtom(), {
+        mode: 'perp',
+        coin: 'BTC',
+        assetId: 0,
+        universe: undefined,
+      });
+      const { result } = renderHook(() => useHyperliquidActions(), {
+        wrapper: createWrapper(store),
+      });
+      const reviewedForm = {
+        ...store.get(tradingFormAtom()),
+        type,
+        size: '0.1',
+      };
+      jest
+        .spyOn(perpsCommonConfigPersistAtom, 'get')
+        .mockResolvedValue({ perpConfigCommon: { [flag]: true } });
+      mockOrderOpen.mockClear();
+      await act(async () => {
+        await expect(
+          result.current.current.submitOrder({
+            assetId: 0,
+            price: '50000',
+            tradingUiMode: 'simple',
+            formData: reviewedForm,
+          }),
+        ).rejects.toThrow();
+      });
+      expect(mockOrderOpen).not.toHaveBeenCalled();
+    },
+  );
+
+  it('forwards the position owner through close submission', async () => {
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(),
+    });
+    const orders = [{ assetId: 0, isBuy: true, size: '0.1', midPx: '100' }];
+    await act(async () =>
+      result.current.current.ordersClose(orders, {
+        expectedAccountAddress: '0xconfirmed',
+        tradingUiMode: 'simple',
+      }),
+    );
+    expect(mockOrdersClose).toHaveBeenCalledWith(orders, {
+      expectedAccountAddress: '0xconfirmed',
+      tradingUiMode: 'simple',
+    });
+  });
+
+  it('forwards the leverage dialog account separately from the SDK request', async () => {
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await result.current.current.updateLeverage({
+        asset: 0,
+        leverage: 5,
+        isCross: true,
+        expectedAccountAddress: '0xconfirmed',
+      });
+    });
+    expect(mockUpdateLeverage).toHaveBeenCalledWith(
+      { asset: 0, leverage: 5, isCross: true },
+      { expectedAccountAddress: '0xconfirmed' },
+    );
+  });
 });

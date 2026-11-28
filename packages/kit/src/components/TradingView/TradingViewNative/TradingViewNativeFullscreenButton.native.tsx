@@ -11,6 +11,7 @@ import type { ITradingViewNativeFullscreenButtonProps } from './TradingViewNativ
 
 export function TradingViewNativeFullscreenButton({
   chartHeight,
+  appearance,
   isFullscreen,
   onPress,
   timeAxisHeight,
@@ -47,6 +48,7 @@ export function TradingViewNativeFullscreenButton({
       borderColor="$borderSubdued"
       {...HEADER_ICON_BUTTON_STYLE_PROPS}
       bg="$bgApp"
+      {...appearance}
     />
   );
 }

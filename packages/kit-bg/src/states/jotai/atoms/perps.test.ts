@@ -1,3 +1,6 @@
+import { act, renderHook } from '@testing-library/react-native';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -20,12 +23,14 @@ import {
   perpsActiveAccountStatusAtom,
   perpsActiveAccountStatusInfoAtom,
   perpsActiveAccountSummaryAtom,
+  perpsActiveAssetCtxAtom,
   perpsComputedAccountValueAtom,
   perpsCustomSettingsAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
   perpsTradingViewIndicatorSettingsPersistAtom,
   tradingModeAtom,
+  usePerpsActiveAssetCtxMidPriceBySource,
 } from './perps';
 
 import type { IAtomNameKeys } from '../atomNames';
@@ -795,6 +800,7 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       {
         accountValue: '0',
         withdrawable: '0',
+        availableUsdc: '0',
         isLoading: false,
       },
     );
@@ -823,6 +829,7 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       {
         accountValue: undefined,
         withdrawable: undefined,
+        availableUsdc: undefined,
         isLoading: true,
       },
     );
@@ -834,6 +841,7 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       {
         accountValue: '1000',
         withdrawable: '150',
+        availableUsdc: '150',
         isLoading: false,
       },
     );
@@ -847,9 +855,30 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       {
         accountValue: '1000',
         withdrawable: '150',
+        availableUsdc: '150',
         isLoading: false,
       },
     );
+  });
+  it('keeps non-USDC collateral out of the USDC amount for separate DEX accounts', () => {
+    seedAtoms(EHyperLiquidAbstractionMode.DISABLED);
+    const summary = jotaiDefaultStore.get(perpsActiveAccountSummaryAtom.atom());
+    if (!summary) throw new OneKeyLocalError('Missing test summary');
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), {
+      ...summary,
+      usdcWithdrawable: '75',
+    });
+    expect(
+      jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom()),
+    ).toMatchObject({ withdrawable: '500', availableUsdc: '75' });
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), {
+      ...summary,
+      accountAddress: '0xdef',
+      usdcWithdrawable: '75',
+    });
+    expect(
+      jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom()).availableUsdc,
+    ).toBeUndefined();
   });
 });
 
@@ -954,5 +983,47 @@ describe('perpsActiveAccountMmrAtom', () => {
       mmr: null,
       mmrPercent: null,
     });
+  });
+});
+
+describe('coin-scoped active mid prices', () => {
+  afterEach(() => {
+    jotaiDefaultStore.set(perpsActiveAssetCtxAtom.atom(), undefined);
+  });
+
+  it('rejects another coin until its own context arrives', () => {
+    const ctx = {
+      midPrice: '3000',
+      lastPrice: '3000',
+      markPrice: '3000',
+      oraclePrice: '3000',
+      prevDayPrice: '2900',
+      fundingRate: '0',
+      openInterest: '1',
+      volume24h: '100',
+      change24h: '100',
+      change24hPercent: 3,
+    };
+    jotaiDefaultStore.set(perpsActiveAssetCtxAtom.atom(), {
+      coin: 'ETH',
+      assetId: 1,
+      ctx,
+    });
+    const { result } = renderHook(() =>
+      usePerpsActiveAssetCtxMidPriceBySource('live', 'BTC'),
+    );
+    expect(result.current).toBeUndefined();
+    act(() => {
+      jotaiDefaultStore.set(perpsActiveAssetCtxAtom.atom(), {
+        coin: 'BTC',
+        assetId: 0,
+        ctx: { ...ctx, midPrice: '80000' },
+      });
+    });
+    expect(result.current).toBe('80000');
+    act(() => {
+      jotaiDefaultStore.set(perpsActiveAssetCtxAtom.atom(), undefined);
+    });
+    expect(result.current).toBeUndefined();
   });
 });

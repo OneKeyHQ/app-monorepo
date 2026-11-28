@@ -28,6 +28,8 @@ function renderMarks(
     y: 0,
   },
   points: readonly IMarketTokenKLineDataPoint[] = POINTS,
+  marketDetailLayout = false,
+  candleIntervalSeconds = 3600,
 ) {
   const commands: ITradingViewNativeChartSceneCommand[] = [];
   const customPaintStyles: Record<
@@ -35,9 +37,12 @@ function renderMarks(
     ITradingViewNativeChartScenePaintStyle
   > = {};
   const layouts = appendTradingViewNativeTradeMarkCommands({
-    candleIntervalSeconds: 3600,
+    candleIntervalSeconds,
     commands,
-    components: [{ id: 'trades', type: 'tradeMarks', props: { marks } }],
+    components: {
+      nodes: [{ id: 'trades', type: 'tradeMarks', props: { marks } }],
+      marketDetailLayout,
+    },
     crosshair,
     customPaintStyles,
     getPointX: (index) => 50 + index * 50,
@@ -231,6 +236,53 @@ describe('TradingViewNative trade marks', () => {
     });
     expect(customPaintStyles['chart.tradeMarks.buy'].color).toBe('#26a69a');
     expect(customPaintStyles['chart.tradeMarks.sell'].color).toBe('#ef5350');
+  });
+
+  it('shows one compact circle per candle and side, counting unique fills beyond the stack limit', () => {
+    const buys = Array.from({ length: 12 }, (_, i) => ({
+      id: `buy-${i}`,
+      label: 'B' as const,
+      time: START + i,
+      text: `Buy ${i}`,
+    }));
+    const sell = {
+      id: 'sell',
+      label: 'S' as const,
+      time: START + 12,
+      text: 'Sell',
+    };
+    const next = { ...buys[0], id: 'next', time: START + 3600 };
+    const marks = [...buys, buys[0], sell, next];
+    const scene = renderMarks(marks, undefined, POINTS, true);
+    expect(scene.layouts.map((m) => [m.label, m.fillCount ?? 1])).toEqual([
+      ['B', 12],
+      ['S', 1],
+      ['B', 1],
+    ]);
+    const [buy, sale] = scene.layouts;
+    expect(buy.y).toBeGreaterThan(sale.y);
+    const circles = scene.commands.filter((c) => c.kind === 'circle');
+    expect(
+      circles.map((circle) => circle.customPaintId ?? circle.paint),
+    ).toEqual(['up', 'down', 'up']);
+    expect(circles.map((circle) => circle.radius)).toEqual([5.5, 5.5, 5.5]);
+    expect(scene.commands).toContainEqual(
+      expect.objectContaining({ kind: 'tradeMarkLabel', scale: 0.75 }),
+    );
+    const hovered = renderMarks(
+      marks,
+      { visible: true, x: buy.x, y: buy.y },
+      POINTS,
+      true,
+    );
+    expect(hovered.commands).toContainEqual(
+      expect.objectContaining({ kind: 'text', text: 'B × 12' }),
+    );
+    const fourHour = renderMarks(marks, undefined, [POINTS[0]], true, 4 * 3600);
+    expect(fourHour.layouts.map((m) => [m.label, m.fillCount ?? 1])).toEqual([
+      ['B', 13],
+      ['S', 1],
+    ]);
   });
 
   it('shows transaction text only when the crosshair reaches a mark', () => {

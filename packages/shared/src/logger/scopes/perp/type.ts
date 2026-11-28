@@ -1,5 +1,9 @@
 import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
+import type {
+  IPerpsTradeAnalyticsContext,
+  IPerpsTradingUiMode,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 export enum EPerpPageEnterSource {
@@ -81,6 +85,12 @@ export interface IPerpTradeButtonClickParams {
   orderValue?: number;
 }
 
+export interface IPerpTradingModeSwitchParams {
+  fromMode: IPerpsTradingUiMode;
+  toMode: IPerpsTradingUiMode;
+  source: 'modeSelector' | 'orderSettings' | 'twapOrders' | 'spotEntry';
+}
+
 export type TPerpAccountSnapshotStatus = 'ready' | 'notCreated' | 'unsupported';
 
 export type TPerpDepositEntrySource =
@@ -94,7 +104,8 @@ export type TPerpDepositEntrySource =
   | 'balance'
   | 'accountPanel'
   | 'tradingGuard'
-  | 'enableTrading';
+  | 'enableTrading'
+  | 'depositHistory';
 
 export type TPerpDepositMethod = 'connectedWallet' | 'depositAddress';
 
@@ -120,7 +131,7 @@ export interface IPerpAccountStatusParams {
   positionCount?: number;
 }
 
-export interface IPerpDepositInitiateParams {
+export interface IPerpDepositInitiateParams extends IPerpsTradeAnalyticsContext {
   walletType: string;
   txId?: string;
   token: IPerpsDepositToken;
@@ -132,7 +143,7 @@ export interface IPerpDepositInitiateParams {
   errorCode?: string;
 }
 
-export interface IPerpDepositMethodPanelViewParams {
+export interface IPerpDepositMethodPanelViewParams extends IPerpsTradeAnalyticsContext {
   entrySource: TPerpDepositEntrySource;
   walletType: string;
 }
@@ -149,7 +160,7 @@ export interface IPerpDepositAddressSourceSelectParams extends IPerpDepositMetho
   selectionSource: TPerpDepositAddressSelectionSource;
 }
 
-export interface IPerpUserSelectDepositTokenParams {
+export interface IPerpUserSelectDepositTokenParams extends IPerpsTradeAnalyticsContext {
   userAddress: string;
   walletType: string;
   depositToken: IPerpsDepositToken;

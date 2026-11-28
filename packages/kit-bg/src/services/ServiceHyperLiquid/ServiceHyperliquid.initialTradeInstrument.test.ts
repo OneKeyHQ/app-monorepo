@@ -1,3 +1,9 @@
+import {
+  perpsActiveAssetAtom,
+  perpsActiveAssetCtxAtom,
+  perpsActiveAssetCtxDisplayAtom,
+} from '../../states/jotai/atoms';
+
 import ServiceHyperliquid from './ServiceHyperliquid';
 
 jest.mock('p-timeout', () => ({
@@ -96,3 +102,48 @@ it('preserves the first-mount latch after clearing a cancelled request', async (
   await service.clearPendingInitialTradeInstrument({ requestId: 'first' });
   expect(await service.tryClaimInitialSymbolSelect()).toBe(false);
 });
+
+it.each(['current', 'older'])(
+  'honors only the current restore cancellation while BG awaits metadata (%s)',
+  async (owner) => {
+    const service = new ServiceHyperliquid({
+      backgroundApi: { simpleDb: { perp: { getPerpData: async () => ({}) } } },
+    });
+    jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue({
+      coin: 'ETH',
+      assetId: undefined,
+      universe: undefined,
+      margin: undefined,
+    });
+    const writeAsset = jest
+      .spyOn(perpsActiveAssetAtom, 'set')
+      .mockResolvedValue();
+    jest.spyOn(perpsActiveAssetCtxAtom, 'set').mockResolvedValue();
+    jest.spyOn(perpsActiveAssetCtxDisplayAtom, 'set').mockResolvedValue();
+    let release!: () => void;
+    const universe = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const load = jest
+      .spyOn(service, 'getTradingUniverse')
+      .mockImplementation(async () => {
+        await universe;
+        return { universesByDex: [], marginTablesMapByDex: [] };
+      });
+    const pending = service.changeActiveAsset({
+      coin: 'BTC',
+      restorationId: 'current',
+    });
+    await Promise.resolve();
+    expect(load).toHaveBeenCalled();
+    expect(writeAsset).not.toHaveBeenCalled();
+    await service.cancelPendingActiveAssetChange({ restorationId: owner });
+    release();
+    await pending;
+    if (owner === 'current') expect(writeAsset).not.toHaveBeenCalled();
+    else
+      expect(writeAsset).toHaveBeenCalledWith(
+        expect.objectContaining({ coin: 'BTC' }),
+      );
+  },
+);

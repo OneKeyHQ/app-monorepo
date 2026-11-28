@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
+import { chunk } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -175,8 +177,9 @@ function IntroInfoRows({
     }>
   >;
 }) {
-  const visibleRows = rows.filter((row) =>
-    row.some((item) => item.value && item.value !== '--'),
+  const visibleRows = chunk(
+    rows.flat().filter((item) => item.value && item.value !== '--'),
+    2,
   );
 
   return (
@@ -188,18 +191,14 @@ function IntroInfoRows({
           justifyContent="space-between"
           alignItems="flex-start"
         >
-          {row.map((item) =>
-            item.value && item.value !== '--' ? (
-              <IntroInfoItem
-                key={item.label}
-                label={item.label}
-                value={item.value}
-                tooltip={item.tooltip}
-              />
-            ) : (
-              <YStack key={item.label} flex={1} flexBasis={0} />
-            ),
-          )}
+          {row.map((item) => (
+            <IntroInfoItem
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              tooltip={item.tooltip}
+            />
+          ))}
           {row.length === 1 ? <YStack flex={1} flexBasis={0} /> : null}
         </XStack>
       ))}
@@ -286,6 +285,9 @@ export function PerpMarketIntroContent({
   paddingX = '$5',
   paddingTop = '$4',
   paddingBottom = '$6',
+  renderSections,
+  hideInfoHeader = false,
+  infoRowLimit,
 }: {
   coin?: string;
   displayName?: string;
@@ -297,6 +299,12 @@ export function PerpMarketIntroContent({
   paddingX?: number | string;
   paddingTop?: number | string;
   paddingBottom?: number | string;
+  hideInfoHeader?: boolean;
+  infoRowLimit?: number;
+  renderSections?: (sections: {
+    info: ReactNode;
+    introduction: ReactNode;
+  }) => ReactNode;
 }) {
   const intl = useIntl();
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -482,7 +490,7 @@ export function PerpMarketIntroContent({
             [infoItems.circulatingSupply, infoItems.totalSupply],
             [infoItems.maxSupply, undefined],
             [infoItems.atl, infoItems.ath],
-          ]
+          ].filter((row) => row.some((item) => Boolean(item)))
         : [],
     [infoItems],
   );
@@ -496,11 +504,19 @@ export function PerpMarketIntroContent({
   const showDescriptionToggle = aboutText.length > 320;
   const showReferenceNote = Boolean(marketDetail || stockDetail || aboutText);
 
-  if (!enabled) {
+  if (
+    !enabled ||
+    (renderSections && !marketDetail && !stockDetail && !aboutText)
+  ) {
     return null;
   }
 
-  if (effectiveResolvedMarketDetail.isLoading) {
+  if (
+    effectiveResolvedMarketDetail.isLoading &&
+    !marketDetail &&
+    !stockDetail &&
+    !aboutText
+  ) {
     return (
       <YStack
         px={paddingX}
@@ -547,43 +563,94 @@ export function PerpMarketIntroContent({
     );
   }
 
-  return (
+  const introduction = aboutText ? (
+    <YStack gap="$3.5">
+      {!renderSections ? (
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.perp_market_info_introduction__title,
+          })}
+        </SizableText>
+      ) : null}
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        lineHeight={24}
+        numberOfLines={isDescriptionExpanded ? undefined : 6}
+      >
+        {aboutText}
+      </SizableText>
+      {showDescriptionToggle ? (
+        <XStack
+          alignItems="center"
+          gap="$1"
+          alignSelf="flex-start"
+          onPress={() => setIsDescriptionExpanded((prev) => !prev)}
+        >
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: isDescriptionExpanded
+                ? ETranslations.global_collapse
+                : ETranslations.global_expand,
+            })}
+          </SizableText>
+          <Icon
+            name={
+              isDescriptionExpanded
+                ? 'ChevronTopSmallOutline'
+                : 'ChevronDownSmallOutline'
+            }
+            size="$4"
+            color="$iconSubdued"
+          />
+        </XStack>
+      ) : null}
+    </YStack>
+  ) : null;
+
+  const info = (
     <YStack px={paddingX} pt={paddingTop} pb={paddingBottom} gap="$6">
-      {showReferenceNote ? (
+      {showReferenceNote && !hideInfoHeader ? (
         <SizableText size="$bodySm" color="$textDisabled" lineHeight={20}>
           {`* ${marketDetailReferenceNote}`}
         </SizableText>
       ) : null}
 
-      <XStack alignItems="center" gap="$3">
-        <Token
-          size="sm"
-          {...(coin && !isSpotInstrument(coin)
-            ? { tokenImageUris: getHyperliquidTokenImageUris(coin) }
-            : {
-                tokenImageUri:
-                  displayName || marketDetail?.symbol
-                    ? getHyperliquidTokenImageUrl(
-                        displayName || marketDetail?.symbol || '',
-                      )
-                    : marketDetail?.image,
-              })}
-        />
-        <XStack flex={1} minWidth={0} alignItems="baseline" gap="$2.5">
-          <SizableText size="$headingLg" numberOfLines={1}>
-            {displayName ||
-              stockDetail?.ticker ||
-              marketDetail?.symbol?.toUpperCase() ||
-              coin ||
-              '--'}
-          </SizableText>
-          {stockDetail?.name || marketDetail?.name ? (
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {stockDetail?.name || marketDetail?.name}
+      {!hideInfoHeader ? (
+        <XStack alignItems="center" gap="$3">
+          <Token
+            size="sm"
+            {...(coin && !isSpotInstrument(coin)
+              ? { tokenImageUris: getHyperliquidTokenImageUris(coin) }
+              : {
+                  tokenImageUri:
+                    displayName || marketDetail?.symbol
+                      ? getHyperliquidTokenImageUrl(
+                          displayName || marketDetail?.symbol || '',
+                        )
+                      : marketDetail?.image,
+                })}
+          />
+          <XStack flex={1} minWidth={0} alignItems="baseline" gap="$2.5">
+            <SizableText size="$headingLg" numberOfLines={1}>
+              {displayName ||
+                stockDetail?.ticker ||
+                marketDetail?.symbol?.toUpperCase() ||
+                coin ||
+                '--'}
             </SizableText>
-          ) : null}
+            {stockDetail?.name || marketDetail?.name ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {stockDetail?.name || marketDetail?.name}
+              </SizableText>
+            ) : null}
+          </XStack>
         </XStack>
-      </XStack>
+      ) : null}
 
       {stockDetail ? (
         <YStack gap="$6">
@@ -593,9 +660,9 @@ export function PerpMarketIntroContent({
                 id: ETranslations.dexmarket_stock_asset_analysis,
               })}
             </SizableText>
-            <IntroInfoRows rows={stockAssetRows} />
+            <IntroInfoRows rows={stockAssetRows.slice(0, infoRowLimit)} />
           </YStack>
-          {hasTradingActivity ? (
+          {hasTradingActivity && infoRowLimit === undefined ? (
             <YStack gap="$3.5">
               <SizableText size="$headingSm">
                 {intl.formatMessage({
@@ -610,13 +677,15 @@ export function PerpMarketIntroContent({
 
       {infoRows.length ? (
         <YStack gap="$3.5">
-          <SizableText size="$headingSm">
-            {intl.formatMessage({
-              id: ETranslations.perp_market_info_coin_info__title,
-            })}
-          </SizableText>
+          {!hideInfoHeader ? (
+            <SizableText size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.perp_market_info_coin_info__title,
+              })}
+            </SizableText>
+          ) : null}
           <YStack gap="$4">
-            {infoRows.map((row, rowIndex) => (
+            {infoRows.slice(0, infoRowLimit).map((row, rowIndex) => (
               <XStack
                 key={`${rowIndex}-${row[0]?.key || 'row'}`}
                 gap={INTRO_INFO_COLUMN_GAP}
@@ -649,7 +718,7 @@ export function PerpMarketIntroContent({
         </YStack>
       ) : null}
 
-      {hasAnyLinks ? (
+      {hasAnyLinks && infoRowLimit === undefined ? (
         <YStack gap="$3.5">
           <SizableText size="$headingSm">
             {intl.formatMessage({ id: ETranslations.global_links })}
@@ -666,48 +735,22 @@ export function PerpMarketIntroContent({
         </YStack>
       ) : null}
 
-      {aboutText ? (
-        <YStack gap="$3.5">
-          <SizableText size="$headingSm">
-            {intl.formatMessage({
-              id: ETranslations.perp_market_info_introduction__title,
-            })}
-          </SizableText>
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            lineHeight={24}
-            numberOfLines={isDescriptionExpanded ? undefined : 6}
-          >
-            {aboutText}
-          </SizableText>
-          {showDescriptionToggle ? (
-            <XStack
-              alignItems="center"
-              gap="$1"
-              alignSelf="flex-start"
-              onPress={() => setIsDescriptionExpanded((prev) => !prev)}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: isDescriptionExpanded
-                    ? ETranslations.global_collapse
-                    : ETranslations.global_expand,
-                })}
-              </SizableText>
-              <Icon
-                name={
-                  isDescriptionExpanded
-                    ? 'ChevronTopSmallOutline'
-                    : 'ChevronDownSmallOutline'
-                }
-                size="$4"
-                color="$iconSubdued"
-              />
-            </XStack>
-          ) : null}
-        </YStack>
-      ) : null}
+      {!renderSections ? introduction : null}
     </YStack>
   );
+  const hasInfoContent =
+    !hideInfoHeader ||
+    infoRows.length > 0 ||
+    hasAnyLinks ||
+    Boolean(
+      stockDetail &&
+      (hasTradingActivity ||
+        stockAssetRows.some((row) =>
+          row.some((item) => item.value && item.value !== '--'),
+        )),
+    );
+  if (renderSections && !hasInfoContent && !introduction) return null;
+  return renderSections
+    ? renderSections({ info: hasInfoContent ? info : null, introduction })
+    : info;
 }

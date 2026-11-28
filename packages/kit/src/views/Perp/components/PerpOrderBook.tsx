@@ -21,7 +21,9 @@ import {
   DebugRenderTracker,
   Dialog,
   Divider,
+  type IColorTokens,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   rootNavigationRef,
@@ -100,6 +102,7 @@ import {
   type IOrderBookSelection,
   OrderBook,
   OrderBookMobile,
+  OrderBookSideRatio,
 } from './OrderBook';
 import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
 import { PerpDepthChart } from './OrderBook/PerpDepthChart';
@@ -924,11 +927,43 @@ function PerpOrderBookDataBridge({
 }
 const PerpOrderBookDataBridgeMemo = memo(PerpOrderBookDataBridge);
 
+function PerpOrderBookSummary({
+  book,
+  tickOption,
+  priceDecimals,
+  sizeDecimals,
+}: {
+  book: IL2BookData;
+  tickOption: ITickParam | undefined;
+  priceDecimals: number;
+  sizeDecimals: number;
+}) {
+  const data = useAggregatedBook(
+    'mobileHorizontal',
+    book.bids,
+    book.asks,
+    13,
+    tickOption,
+    priceDecimals,
+    sizeDecimals,
+  );
+  return (
+    <OrderBookSideRatio
+      bidDepth={new BigNumber(data.bids.at(-1)?.cumSize ?? 0)}
+      askDepth={new BigNumber(data.asks.at(-1)?.cumSize ?? 0)}
+      size="summary"
+    />
+  );
+}
+
 type IPerpOrderBookProps = {
   depthChart?: boolean;
   depthChartVisible?: boolean;
   depthChartShowHeader?: boolean;
   entry?: 'perpTab' | 'perpMobileMarket';
+  backgroundColor?: IColorTokens;
+  summaryOnly?: boolean;
+  readOnly?: boolean;
   maxLevelsPerSide?: number;
   initialOrderBookHeight?: number;
 };
@@ -954,6 +989,9 @@ function PerpOrderBookLadder({
   entry,
   maxLevelsPerSide: propMaxLevelsPerSide,
   initialOrderBookHeight,
+  backgroundColor = '$bgApp',
+  summaryOnly = false,
+  readOnly = false,
 }: Omit<
   IPerpOrderBookProps,
   'depthChart' | 'depthChartVisible' | 'depthChartShowHeader'
@@ -1231,6 +1269,7 @@ function PerpOrderBookLadder({
 
   const handlePriceSelect = useCallback(
     (price: string) => {
+      if (readOnly) return;
       if (
         !isPerpsL2BookInteractive({
           bookTime: visibleL2Book?.time,
@@ -1253,6 +1292,7 @@ function PerpOrderBookLadder({
     },
     [
       actionsRef,
+      readOnly,
       formData.type,
       visibleL2Book?.localReceivedAt,
       visibleL2Book?.isCachedSnapshot,
@@ -1469,12 +1509,31 @@ function PerpOrderBookLadder({
     />
   );
 
+  if (summaryOnly) {
+    return (
+      <>
+        {dataBridge}
+        {hasRenderOrderBook && visibleL2Book ? (
+          <PerpOrderBookSummary
+            book={visibleL2Book}
+            tickOption={selectedTickOption}
+            priceDecimals={priceDecimals}
+            sizeDecimals={sizeDecimals}
+          />
+        ) : (
+          <Skeleton height={24} width="100%" />
+        )}
+      </>
+    );
+  }
+
   if (isMobileLayout && entry !== 'perpMobileMarket') {
     const isLoading = !hasRenderOrderBook || !visibleL2Book;
     return (
       <>
         {dataBridge}
         <PerpOrderBookMobileVerticalShell
+          backgroundColor={backgroundColor}
           header={<MobileHeaderMemo />}
           isLoading={isLoading}
           onLayout={(event) =>
@@ -1539,7 +1598,7 @@ function PerpOrderBookLadder({
         {dataBridge}
         <YStack
           flex={orderBookFlex}
-          bg="$bgApp"
+          bg={backgroundColor}
           onLayout={(event) =>
             handleTraceLayout('mobileHorizontalLoading', event)
           }
@@ -1582,7 +1641,7 @@ function PerpOrderBookLadder({
   const content = (
     <YStack
       flex={orderBookFlex}
-      bg="$bgApp"
+      bg={backgroundColor}
       onLayout={(event) => handleTraceLayout('rootReady', event)}
     >
       {!isMobileLayout ? (

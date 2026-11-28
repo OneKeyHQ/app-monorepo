@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { type ReactElement, memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,6 +23,7 @@ import {
 
 import type {
   ITradingViewIntervalConfigData,
+  ITradingViewIntervalSegmentsProps,
   ITradingViewNativeIntervalControlMode,
 } from '../types';
 
@@ -35,6 +36,9 @@ interface ITradingViewNativeIntervalSelectorProps {
   // The regular toolbar has room for as many preferred intervals as the
   // compact chart, e.g. a tablet split-view pane or a full-width tablet window.
   wideMobileLayout?: boolean;
+  renderMobileIntervals?: (
+    props: ITradingViewIntervalSegmentsProps,
+  ) => ReactElement;
   fullWidth?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
@@ -124,6 +128,7 @@ export const TradingViewNativeIntervalSelector = memo(
   ({
     compactMobileLayout = false,
     wideMobileLayout = false,
+    renderMobileIntervals,
     fullWidth = false,
     intervalConfig,
     intervalControlMode = 'dialog',
@@ -257,6 +262,29 @@ export const TradingViewNativeIntervalSelector = memo(
       intervalControlMode === 'popover' ||
       options.length > segmentOptions.length;
 
+    const selectInterval = (value: string | number) => {
+      onControlInteraction?.();
+      const nextOption = options.find((option) => option.value === value);
+      if (
+        typeof value === 'string' &&
+        nextOption &&
+        !isIntervalOptionDisabled(nextOption)
+      ) {
+        onIntervalChange(value);
+      }
+    };
+
+    if (renderMobileIntervals && intervalControlMode === 'dialog') {
+      return renderMobileIntervals({
+        options: segmentOptions,
+        activeInterval,
+        moreLabel: shouldRenderMoreControl ? moreTriggerLabel : undefined,
+        moreActive: isMoreTriggerActive,
+        onMorePress: showIntervalsDialog,
+        onSelect: selectInterval,
+      });
+    }
+
     let moreControl = null;
     if (shouldRenderMoreControl) {
       if (intervalControlMode === 'popover') {
@@ -337,19 +365,7 @@ export const TradingViewNativeIntervalSelector = memo(
                 option.label
               ),
             }))}
-            onChange={(value) => {
-              onControlInteraction?.();
-              const nextOption = options.find(
-                (option) => option.value === value,
-              );
-              if (
-                typeof value === 'string' &&
-                nextOption &&
-                !isIntervalOptionDisabled(nextOption)
-              ) {
-                onIntervalChange(value);
-              }
-            }}
+            onChange={selectInterval}
             slotBackgroundColor="$transparent"
             activeBackgroundColor={
               showActiveBackground ? '$bgStrong' : '$transparent'

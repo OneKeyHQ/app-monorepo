@@ -1,11 +1,15 @@
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 
-import { getTradingViewNativePriceScaleControlsLayout } from '../utils/priceScaleControls';
+import {
+  PRICE_SCALE_CONTROL_COMPACT_SIZING,
+  getTradingViewNativePriceScaleControlsLayout,
+} from '../utils/priceScaleControls';
 
 import type { ITradingViewNativePriceScaleMode } from '../types';
 
 interface ITradingViewNativePriceScaleControlsProps {
   backgroundColor: string;
+  compact?: boolean;
   isAutoScale: boolean;
   isLogScaleAvailable: boolean;
   isVisible: boolean;
@@ -19,6 +23,7 @@ interface ITradingViewNativePriceScaleControlsProps {
 
 export function TradingViewNativePriceScaleControls({
   backgroundColor,
+  compact = false,
   isAutoScale,
   isLogScaleAvailable,
   isVisible,
@@ -34,6 +39,7 @@ export function TradingViewNativePriceScaleControls({
     : 'trading-view-native-price-scale';
   const layout = getTradingViewNativePriceScaleControlsLayout(priceAxisWidth, {
     mainChartBottomInset,
+    sizing: compact ? PRICE_SCALE_CONTROL_COMPACT_SIZING : undefined,
   });
 
   if (!layout) {
@@ -64,6 +70,7 @@ export function TradingViewNativePriceScaleControls({
       <Stack
         testID={`${testIDPrefix}-auto`}
         accessibilityRole="button"
+        hitSlop={compact ? 1 : undefined}
         accessibilityState={{ selected: isAutoScale }}
         focusable={isVisible}
         alignItems="center"
@@ -81,8 +88,8 @@ export function TradingViewNativePriceScaleControls({
         onPress={onAutoScalePress}
       >
         <SizableText
-          fontSize={16}
-          lineHeight={20}
+          fontSize={compact ? 12 : 16}
+          lineHeight={compact ? 16 : 20}
           fontWeight="500"
           color={isAutoScale ? '$textInverse' : '$text'}
           userSelect="none"
@@ -93,6 +100,7 @@ export function TradingViewNativePriceScaleControls({
       <Stack
         testID={`${testIDPrefix}-log`}
         accessibilityRole="button"
+        hitSlop={compact ? 1 : undefined}
         accessibilityState={{
           disabled: !isLogScaleAvailable,
           selected: isLogarithmic,
@@ -114,8 +122,8 @@ export function TradingViewNativePriceScaleControls({
         onPress={isLogScaleAvailable ? onLogScalePress : undefined}
       >
         <SizableText
-          fontSize={16}
-          lineHeight={20}
+          fontSize={compact ? 12 : 16}
+          lineHeight={compact ? 16 : 20}
           fontWeight="500"
           color={isLogarithmic ? '$textInverse' : '$text'}
           userSelect="none"

@@ -24,6 +24,7 @@ import {
   parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsTradeAnalyticsContext } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -38,7 +39,7 @@ import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
 import type { IntlShape } from 'react-intl';
 
-export interface IAdjustPositionMarginParams {
+export interface IAdjustPositionMarginParams extends IPerpsTradeAnalyticsContext {
   coin: string;
 }
 
@@ -49,7 +50,11 @@ interface IAdjustPositionMarginFormProps extends IAdjustPositionMarginParams {
 type IMarginAction = 'add' | 'remove';
 
 const AdjustPositionMarginForm = memo(
-  ({ coin, onClose = () => {} }: IAdjustPositionMarginFormProps) => {
+  ({
+    coin,
+    tradingUiMode,
+    onClose = () => {},
+  }: IAdjustPositionMarginFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const activePositions = usePerpsAccountScopedActivePositions();
@@ -191,6 +196,7 @@ const AdjustPositionMarginForm = memo(
         const ntli = action === 'add' ? amountNumber : amountNumber.negated();
 
         await hyperliquidActions.current.updateIsolatedMargin({
+          tradingUiMode,
           asset: assetId,
           isBuy,
           ntli: ntli.toNumber(),
@@ -204,6 +210,7 @@ const AdjustPositionMarginForm = memo(
         setIsSubmitting(false);
       }
     }, [
+      tradingUiMode,
       isValidAmount,
       assetId,
       amount,
@@ -358,6 +365,7 @@ const AdjustPositionMarginForm = memo(
 AdjustPositionMarginForm.displayName = 'AdjustPositionMarginForm';
 
 export function showAdjustPositionMarginDialog({
+  tradingUiMode,
   coin,
   dialog,
   intl,
@@ -380,6 +388,7 @@ export function showAdjustPositionMarginDialog({
         <PerpsProviderMirror>
           <PerpKeyboardAwareDialogContent>
             <AdjustPositionMarginForm
+              tradingUiMode={tradingUiMode}
               coin={coin}
               onClose={() => {
                 void dialogInstance.close();

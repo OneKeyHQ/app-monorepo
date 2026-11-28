@@ -2,6 +2,7 @@
 import { DateLocaleMap } from '@onekeyhq/shared/src/locale/dateLocaleMap';
 import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import { PULSE_CROSSHAIR_GAP_RADIUS } from './constants';
 import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
 
@@ -37,6 +38,40 @@ function getChartInitScript(): string {
   return `
       var monthDayFormats = ${JSON.stringify(monthDayFormats)};
       window.__onekeyFormatChartPrice = ${formatChartPriceSource};
+      // Mirrors pulseCrosshair.ts without serializing a Hermes function.
+      function createPulseCrosshairPrimitive(getCrosshair, gapRadius) {
+        var views = [{
+          zOrder: function() { return 'top'; },
+          renderer: function() {
+            return { draw: function(target) {
+              var crosshair = getCrosshair();
+              if (!crosshair) return;
+              target.useMediaCoordinateSpace(function(scope) {
+                var ctx = scope.context;
+                var size = scope.mediaSize;
+                ctx.save();
+                if (Math.abs(crosshair.x - crosshair.pointX) < gapRadius) {
+                  var top = Math.max(0, Math.min(size.height, crosshair.pointY - gapRadius));
+                  var bottom = Math.max(0, Math.min(size.height, crosshair.pointY + gapRadius));
+                  ctx.beginPath();
+                  ctx.rect(0, 0, size.width, top);
+                  ctx.rect(0, bottom, size.width, size.height - bottom);
+                  ctx.clip();
+                }
+                ctx.strokeStyle = crosshair.color ?? 'rgba(150, 150, 150, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([[], [1, 1], [2, 2], [6, 6], [1, 4]][crosshair.style ?? 3] ?? []);
+                ctx.beginPath();
+                ctx.moveTo(crosshair.x, 0);
+                ctx.lineTo(crosshair.x, size.height);
+                ctx.stroke();
+                ctx.restore();
+              });
+            }};
+          },
+        }];
+        return { paneViews: function() { return views; } };
+      }
       function getPriceFormatter(nextConfig) {
         if (nextConfig.priceScaleFormat === 'full') {
           return function(price) {
@@ -227,8 +262,20 @@ function getChartInitScript(): string {
               : { visible: false },
           },
           timeScale: getTimeScaleOptions(nextConfig),
+          crosshair: {
+            vertLine: {
+              visible: !nextConfig.pulseLastPoint,
+              color: nextConfig.crosshairVertLineColor || 'rgba(150, 150, 150, 0.4)',
+              style: nextConfig.crosshairVertLineStyle ?? 3,
+            },
+          },
           rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
           leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
+          trackingMode: {
+            exitMode: nextConfig.nativeScrubOptions?.exitOnTouchEnd
+              ? LightweightCharts.TrackingModeExitMode.OnTouchEnd
+              : LightweightCharts.TrackingModeExitMode.OnNextTap,
+          },
         };
         // Desktop installs formatChartPrice on the series, and the price scale
         // uses that for both ticks and the last-value badge. A function cannot
@@ -690,6 +737,20 @@ function getChartInitScript(): string {
         window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
         syncReferenceLine(nextConfig);
+        if (nextConfig.pulseLastPoint) {
+          window.series.attachPrimitive(createPulseCrosshairPrimitive(function() {
+            var hover = window.pulseCrosshair;
+            if (!hover) return undefined;
+            var pointX = window.chart.timeScale().timeToCoordinate(hover.time);
+            var pointY = window.series.priceToCoordinate(hover.price);
+            if (pointX === null || pointY === null) return undefined;
+            return {
+              x: hover.x, pointX: pointX, pointY: pointY,
+              color: window.latestChartConfig.crosshairVertLineColor,
+              style: window.latestChartConfig.crosshairVertLineStyle,
+            };
+          }, ${PULSE_CROSSHAIR_GAP_RADIUS}));
+        }
         // Cursor-layer primitives repaint with the crosshair, without making
         // setData invalidate and redraw the expensive static dotted area.
         if (nextConfig.nativeScrubOptions) {
@@ -764,6 +825,7 @@ function getChartInitScript(): string {
         crosshair: {
           mode: LightweightCharts.CrosshairMode.Normal,
           vertLine: {
+            visible: !config.pulseLastPoint,
             color: config.crosshairVertLineColor || 'rgba(150, 150, 150, 0.4)',
             width: 1,
             style: config.crosshairVertLineStyle ?? 3,
@@ -874,7 +936,7 @@ function getEventHandlers(): string {
         window.nativeScrubTime = time;
         var tooltip = document.getElementById('scrub-tooltip');
         var label = options.labels[time];
-        if (!label || message.x === undefined || message.y === undefined) {
+        if (options.showTooltip === false || !label || message.x === undefined || message.y === undefined) {
           tooltip.style.display = 'none';
           return;
         }
@@ -929,6 +991,9 @@ function getEventHandlers(): string {
           message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
         }
         updateNativeScrub(message);
+        window.pulseCrosshair = message.time !== undefined && message.price !== undefined
+          ? { x: message.x, time: Number(message.time), price: Number(message.price) }
+          : undefined;
         var nextPulseTime = message.time === undefined ? undefined : Number(message.time);
         if (nextPulseTime !== window.pulseHoverTime) {
           window.pulseHoverTime = nextPulseTime;

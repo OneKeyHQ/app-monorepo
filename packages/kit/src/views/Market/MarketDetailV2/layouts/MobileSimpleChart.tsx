@@ -10,7 +10,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  IIconProps,
+  IKeyOfIcons,
+  IStackProps,
+} from '@onekeyhq/components';
 import { TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,13 +45,20 @@ const RANGE_ROW_STYLE = {
   alignItems: 'center',
 } as const;
 
-function ChartModeButton({
+export function ChartModeButton({
   icon,
+  iconSize = '$4.5',
+  buttonStyle,
   label,
   testID,
   onPress,
 }: {
   icon: IKeyOfIcons;
+  iconSize?: IIconProps['size'];
+  buttonStyle?: Pick<
+    IStackProps,
+    'width' | 'height' | 'hitSlop' | 'bg' | 'borderRadius' | 'pressStyle'
+  >;
   label: string;
   testID: string;
   onPress: () => void;
@@ -64,9 +75,10 @@ function ChartModeButton({
       borderRadius="$full"
       bg="$transparent"
       pressStyle={{ bg: '$bgStrongActive' }}
+      {...buttonStyle}
       onPress={onPress}
     >
-      <Icon name={icon} size="$4.5" color="$icon" />
+      <Icon name={icon} size={iconSize} color="$icon" />
     </Stack>
   );
 }
@@ -188,3 +200,6 @@ export function MobileSimpleChart({
     </YStack>
   );
 }
+
+export { MobileSimpleChartFrame } from './components/MobileSimpleChartFrame';
+export type { IMobileSimpleChartRange } from './components/MobileSimpleChartFrame';

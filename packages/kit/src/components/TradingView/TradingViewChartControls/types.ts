@@ -6,6 +6,15 @@ export interface ITradingViewIntervalOption {
   disabled?: boolean;
 }
 
+export interface ITradingViewIntervalSegmentsProps {
+  options: ITradingViewIntervalOption[];
+  activeInterval: string;
+  moreLabel?: string;
+  moreActive: boolean;
+  onMorePress: () => void;
+  onSelect: (value: string) => void;
+}
+
 export interface ITradingViewIntervalConfigData {
   intervals: ITradingViewIntervalOption[];
   activeInterval: string;

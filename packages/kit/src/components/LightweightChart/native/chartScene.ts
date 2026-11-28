@@ -2,6 +2,7 @@ import {
   formatChartTickMarkInTimeZone,
   formatChartTickMarkWithoutUnit,
 } from '../utils/chartOptions';
+import { PULSE_CROSSHAIR_GAP_RADIUS } from '../utils/constants';
 import {
   formatChartPrice,
   formatChartPriceFullTicks,
@@ -1177,7 +1178,7 @@ function drawCrosshairPlot(
 ) {
   'worklet';
   commands.push({ kind: 'clip', rect: scene.plot });
-  commands.push({
+  const crosshairLine: INativeChartScene['commands'][number] = {
     kind: 'line',
     paint: 'crosshairLine',
     customPaintId: 'crosshair',
@@ -1185,7 +1186,35 @@ function drawCrosshairPlot(
     x2: crosshairX,
     y1: 0,
     y2: scene.plot.height,
-  });
+  };
+  if (
+    hideHoverDot &&
+    Math.abs(crosshairX - point.x) < PULSE_CROSSHAIR_GAP_RADIUS
+  ) {
+    const top = Math.max(
+      0,
+      Math.min(scene.plot.height, point.y - PULSE_CROSSHAIR_GAP_RADIUS),
+    );
+    const bottom = Math.max(
+      0,
+      Math.min(scene.plot.height, point.y + PULSE_CROSSHAIR_GAP_RADIUS),
+    );
+    // Clip only the crosshair, retaining the dash phase and the underlying chart.
+    for (const [y, height] of [
+      [0, top],
+      [bottom, scene.plot.height - bottom],
+    ]) {
+      if (height > 0) {
+        commands.push(
+          { kind: 'clip', rect: { ...scene.plot, y, height } },
+          crosshairLine,
+          { kind: 'restore' },
+        );
+      }
+    }
+  } else {
+    commands.push(crosshairLine);
+  }
   if (scrub) {
     // Stock charts keep the dimmed full line and cut only the solid overlay.
     for (const segment of scene.secondarySegments) {
@@ -1263,7 +1292,7 @@ function drawScrubTooltip(
   'worklet';
   const { commands, customPaintStyles } = overlay;
   const label = scrub?.labels[point.time];
-  if (scrub && label) {
+  if (scrub && scrub.showTooltip !== false && label) {
     const width = 120;
     let height = 30;
     if (label.price !== undefined) height = scrub.largePrice ? 52 : 48;

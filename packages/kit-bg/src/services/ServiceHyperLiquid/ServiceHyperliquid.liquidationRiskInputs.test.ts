@@ -9,10 +9,12 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
+  perpsActiveAccountSummaryAtom,
   perpsLiquidationRiskInputsAtom,
 } from '../../states/jotai/atoms/perps';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
+import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import { invalidatePerpsLiquidationRiskInputs } from './liquidationRiskInputs';
 import ServiceHyperliquid from './ServiceHyperliquid';
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
@@ -132,6 +134,82 @@ describe('liquidation risk snapshot lifecycle', () => {
       _clearOfflineGrace: () => void;
     };
     internals._clearOfflineGrace();
+  });
+
+  it('aggregates only confirmed USDC collateral and leaves unknown collateral unavailable', async () => {
+    const internals = service as unknown as {
+      collateralTokensByDex: Map<string, number>;
+    };
+    internals.collateralTokensByDex.set('usdc', 0);
+    internals.collateralTokensByDex.set('other', 1);
+    const state = (withdrawable: string) => ({
+      ...clearinghouseState.clearinghouseStates[0][1],
+      withdrawable,
+    });
+    const frame = {
+      user: USER,
+      clearinghouseStates: [
+        ['', state('10')],
+        ['usdc', state('20')],
+        ['other', state('300')],
+      ],
+    } as IWsAllDexsClearinghouseState;
+    await service.updateActiveAccountSummaryFromClearinghouseState(frame);
+    expect(await perpsActiveAccountSummaryAtom.get()).toMatchObject({
+      withdrawable: '330',
+      usdcWithdrawable: '30',
+    });
+    frame.clearinghouseStates.push(['unknown', state('1')]);
+    await service.updateActiveAccountSummaryFromClearinghouseState(frame);
+    expect(
+      (await perpsActiveAccountSummaryAtom.get())?.usdcWithdrawable,
+    ).toBeUndefined();
+  });
+
+  it('guards null and universe-less allPerpMetas slots during refreshTradingMeta', async () => {
+    const setTradingUniverse = jest.fn().mockResolvedValue(undefined);
+    const getTradingUniverse = jest.fn().mockResolvedValue({
+      universesByDex: [[{ name: 'BTC' }], [{ name: 'xyz:NVDA' }]],
+      marginTablesMapByDex: [],
+    });
+    (
+      backgroundApi.simpleDb.perp as unknown as {
+        setTradingUniverse: typeof setTradingUniverse;
+        getTradingUniverse: typeof getTradingUniverse;
+      }
+    ).setTradingUniverse = setTradingUniverse;
+    (
+      backgroundApi.simpleDb.perp as unknown as {
+        setTradingUniverse: typeof setTradingUniverse;
+        getTradingUniverse: typeof getTradingUniverse;
+      }
+    ).getTradingUniverse = getTradingUniverse;
+    jest.spyOn(service, 'getTradingUniverse').mockResolvedValue({
+      universesByDex: [[{ name: 'BTC' }], [{ name: 'xyz:NVDA' }]],
+      marginTablesMapByDex: [],
+    } as never);
+    jest.spyOn(hyperLiquidApiClients, 'infoClient', 'get').mockReturnValue({
+      allPerpMetas: jest
+        .fn()
+        .mockResolvedValue([
+          { universe: [{ name: 'BTC' }], collateralToken: 0, marginTables: [] },
+          null,
+          { collateralToken: 2 },
+        ]),
+    } as never);
+
+    await service.refreshTradingMeta();
+
+    const internals = service as unknown as {
+      collateralTokensByDex: Map<string, number>;
+    };
+    expect(internals.collateralTokensByDex.get('')).toBe(0);
+    expect(setTradingUniverse).toHaveBeenCalledTimes(1);
+    const persisted = setTradingUniverse.mock.calls[0][0] as {
+      universes: { name: string }[][];
+    };
+    expect(persisted.universes[0][0].name).toBe('BTC');
+    expect(persisted.universes[1][0].name).toBe('xyz:NVDA');
   });
 
   function closeSocket() {

@@ -282,6 +282,7 @@ function buildAccountDisplaySummaryCache(
     totalNtlPos: summary.totalNtlPos,
     totalRawUsd: summary.totalRawUsd,
     withdrawable: summary.withdrawable,
+    usdcWithdrawable: summary.usdcWithdrawable,
     totalUnrealizedPnl: summary.totalUnrealizedPnl,
   };
 }

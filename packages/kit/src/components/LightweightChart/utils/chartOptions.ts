@@ -16,6 +16,7 @@ import type {
   DeepPartial,
   SeriesOptionsCommon,
   TickMarkFormatter,
+  UTCTimestamp,
 } from 'lightweight-charts';
 
 // cspell:disable-next-line
@@ -249,6 +250,7 @@ export function createChartOptions(
   // line below.
   crosshairVertLine?: { color?: string; style?: number },
   timeScaleRightOffsetPixels?: number,
+  resolveTimeScaleTimestamp?: (time: number) => number | undefined,
 ): DeepPartial<ChartOptions> {
   const priceScaleOptions = {
     visible: showPriceScale,
@@ -269,8 +271,23 @@ export function createChartOptions(
         locale,
       });
   } else if (useTimeScaleTickMarkWithoutUnit) {
-    tickMarkFormatter = (time, tickMarkType) =>
-      formatChartTickMarkWithoutUnitInUtc(time, tickMarkType, locale ?? 'en');
+    tickMarkFormatter = (time, tickMarkType) => {
+      if (resolveTimeScaleTimestamp && typeof time === 'number') {
+        const sourceTime = resolveTimeScaleTimestamp(time);
+        if (sourceTime !== undefined) {
+          return formatChartTickMarkWithoutUnit(
+            sourceTime as UTCTimestamp,
+            tickMarkType,
+            locale ?? 'en',
+          );
+        }
+      }
+      return formatChartTickMarkWithoutUnitInUtc(
+        time,
+        tickMarkType,
+        locale ?? 'en',
+      );
+    };
   }
 
   return {

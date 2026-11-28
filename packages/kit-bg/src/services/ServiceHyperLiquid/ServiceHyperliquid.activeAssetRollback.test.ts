@@ -834,3 +834,60 @@ it('keeps the writes before a loaded perp asset whose save failed', async () => 
   ).resolves.toMatchObject({ restored: true });
   expect(getMode()).toBe('spot');
 });
+
+it.each([false, true])(
+  'cancels a focus load and rolls back only while it owns the market (superseded: %s)',
+  async (superseded) => {
+    const { service, getMode, getActiveAsset } = createService(btc);
+    const spotAsset: ISpotActiveAssetAtom = {
+      coin: '@107',
+      assetId: 10_107,
+      universe: undefined,
+    };
+    const previous = await service.cancelPendingActiveAssetChange();
+    await service.setTradingModeForActiveAssetChange({
+      requestId: previous,
+      spotAsset,
+    });
+    const requestId = await service.cancelPendingActiveAssetChange();
+    await service.setTradingModeForActiveAssetChange({ requestId });
+    let release!: () => void;
+    let entered!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    jest.spyOn(service, 'getTradingUniverse').mockImplementation(async () => {
+      entered();
+      await pending;
+      return {
+        universesByDex: [
+          [btc.universe, { ...btc.universe, name: 'ETH', assetId: 1 }],
+        ],
+        marginTablesMapByDex: [],
+      } as unknown as Awaited<ReturnType<typeof service.getTradingUniverse>>;
+    });
+    const switching = service.changeActiveAsset({
+      coin: 'ETH',
+      requestId,
+      restorationId: 'focus',
+    });
+    await started;
+    await service.cancelPendingActiveAssetChange({ restorationId: 'focus' });
+    if (superseded) {
+      const newer = await service.cancelPendingActiveAssetChange();
+      await service.setTradingModeForActiveAssetChange({ requestId: newer });
+    }
+    release();
+    expect((await switching).universe).toBeUndefined();
+    expect(getActiveAsset()).toEqual(btc);
+    const restored = await service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset,
+    });
+    expect(restored.restored).toBe(!superseded);
+    expect(getMode()).toBe(superseded ? 'perp' : 'spot');
+  },
+);

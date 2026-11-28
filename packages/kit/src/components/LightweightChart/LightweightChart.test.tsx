@@ -841,6 +841,8 @@ describe('LightweightChart', () => {
     const timeToCoordinate = jest.fn(() => 100);
     const priceToCoordinate = jest.fn(() => 50);
     const series = {
+      attachPrimitive: jest.fn(),
+      detachPrimitive: jest.fn(),
       setData: jest.fn(),
       priceToCoordinate,
     };
@@ -918,6 +920,8 @@ describe('LightweightChart', () => {
   it('returns a reopened pulse to the tail instead of a stale hover point', async () => {
     let crosshairListener: ((param: unknown) => void) | undefined;
     const series = {
+      attachPrimitive: jest.fn(),
+      detachPrimitive: jest.fn(),
       setData: jest.fn(),
       priceToCoordinate: jest.fn((price: number) => price),
     };
@@ -962,22 +966,33 @@ describe('LightweightChart', () => {
       });
     });
     expect(pulseX()).toBe('10');
+    expect(series.attachPrimitive).toHaveBeenCalledTimes(1);
+    expect(chart.applyOptions).toHaveBeenCalledWith({
+      crosshair: { vertLine: { visible: false } },
+    });
 
     // The market closes and reopens while the pointer stays still.
     rerender(<LightweightChart data={data} height={240} />);
     expect(screen.queryByTestId('chart-pulse-dot')).toBeNull();
+    expect(series.detachPrimitive).toHaveBeenCalledTimes(1);
+    expect(chart.applyOptions).toHaveBeenLastCalledWith({
+      crosshair: { vertLine: { visible: true } },
+    });
     rerender(<LightweightChart data={data} height={240} pulseLastPoint />);
+    expect(series.attachPrimitive).toHaveBeenCalledTimes(2);
     expect(pulseX()).toBe('20');
   });
 
   async function renderCrosshairChart(
     secondaryLineData: [number, number | null][],
-    { secondaryLineBlankSlots = true } = {},
+    { secondaryLineBlankSlots = true, pulseLastPoint = false } = {},
   ) {
     const crosshairListeners: ((param: unknown) => void)[] = [];
     // Each series is its own mock, so an event keyed by the overlay finds
     // nothing under the primary series.
     const createSeries = () => ({
+      attachPrimitive: jest.fn(),
+      detachPrimitive: jest.fn(),
       setData: jest.fn(),
       priceToCoordinate: jest.fn((price: number) => price),
     });
@@ -1012,7 +1027,7 @@ describe('LightweightChart', () => {
         secondaryLineData={secondaryLineData}
         secondaryLineBlankSlots={secondaryLineBlankSlots}
         height={240}
-        pulseLastPoint
+        pulseLastPoint={pulseLastPoint}
         onHover={onHover}
       />,
     );
@@ -1062,10 +1077,6 @@ describe('LightweightChart', () => {
       x: undefined,
       y: undefined,
     });
-    // The pulse stays on the tail.
-    expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
-      '20',
-    );
 
     // Back over the priced series the guide returns and follows the cursor.
     move({
@@ -1077,6 +1088,40 @@ describe('LightweightChart', () => {
     expect(onHover).toHaveBeenLastCalledWith(
       expect.objectContaining({ time: 1, price: 10, x: 10 }),
     );
+  });
+
+  it('keeps the pulse on the tail over blank slots and hides built-in guide while pulse crosshair is attached', async () => {
+    const { series, onHover, move, guideVisible } = await renderCrosshairChart(
+      [
+        [1, 10],
+        [2, 20],
+        [3, null],
+        [4, null],
+      ],
+      { pulseLastPoint: true },
+    );
+    expect(series.attachPrimitive).toHaveBeenCalledTimes(1);
+    expect(guideVisible()).toBe(false);
+
+    move({ time: 4, point: { x: 40, y: 5 }, seriesData: new Map() });
+    expect(guideVisible()).toBe(false);
+    expect(onHover).toHaveBeenLastCalledWith({
+      time: undefined,
+      price: undefined,
+      secondaryPrice: undefined,
+      x: undefined,
+      y: undefined,
+    });
+    expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
+      '20',
+    );
+
+    move({
+      time: 1,
+      point: { x: 10, y: 5 },
+      seriesData: new Map([[series, { value: 10 }]]),
+    });
+    expect(guideVisible()).toBe(false);
     expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
       '10',
     );
@@ -1130,6 +1175,8 @@ describe('LightweightChart', () => {
     const timeToCoordinate = jest.fn(() => 100);
     const priceToCoordinate = jest.fn(() => 50);
     const primarySeries = {
+      attachPrimitive: jest.fn(),
+      detachPrimitive: jest.fn(),
       setData: jest.fn(),
       priceToCoordinate,
     };

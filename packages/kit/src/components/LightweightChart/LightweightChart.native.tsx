@@ -14,6 +14,7 @@ import {
   Picture,
   Skia,
 } from '@shopify/react-native-skia';
+import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   cancelAnimation,
@@ -25,7 +26,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Stack } from '@onekeyhq/components';
+import { Haptics, Stack } from '@onekeyhq/components';
 import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/HeaderScrollGestureContext';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -257,6 +258,17 @@ export function LightweightChart(
   );
   const onHoverRef = useRef(onHover);
   onHoverRef.current = onHover;
+  const lastHapticTime = useRef<number | undefined>(undefined);
+  const triggerSelectionHaptic = useCallback(() => {
+    const now = Date.now();
+    if (
+      lastHapticTime.current === undefined ||
+      now - lastHapticTime.current >= 50
+    ) {
+      Haptics.selection();
+      lastHapticTime.current = now;
+    }
+  }, []);
   const reportHover = useCallback(
     (hover: Parameters<NonNullable<ILightweightChartProps['onHover']>>[0]) =>
       onHoverRef.current?.(hover),
@@ -273,6 +285,15 @@ export function LightweightChart(
         return;
       }
       if (
+        isScrubEnabled &&
+        hover.time !== undefined &&
+        hover.time !== previous?.time &&
+        // A quote refresh can change the selected point without a finger move.
+        (!previous || hover.x !== previous.x || hover.y !== previous.y)
+      ) {
+        runOnJS(triggerSelectionHaptic)();
+      }
+      if (
         !previous ||
         hover.time !== previous.time ||
         hover.price !== previous.price ||
@@ -282,7 +303,7 @@ export function LightweightChart(
       )
         runOnJS(reportHover)(hover);
     },
-    [scene, reportHover],
+    [scene, reportHover, isScrubEnabled, triggerSelectionHaptic],
   );
   useEffect(() => () => onHoverRef.current?.({}), []);
   const { excludeStartEdgeWidth } = useContext(HeaderScrollGestureContext);
@@ -366,26 +387,33 @@ export function LightweightChart(
       <GestureDetector gesture={gesture}>
         <Canvas testID="lightweight-chart-skia" style={{ flex: 1 }}>
           <Picture picture={picture} />
-          {pulseLastPoint && scene.lastPoint ? (
-            <Group clip={scene.plot}>
-              <Circle
-                cx={pulseX}
-                cy={pulseY}
-                r={ringRadius}
-                opacity={ringOpacity}
-                color={props.pulseLastPointColor ?? config.theme.lineColor}
-              />
-              <Circle
-                cx={pulseX}
-                cy={pulseY}
-                r={dotRadius}
-                color={props.pulseLastPointColor ?? config.theme.lineColor}
-              />
-            </Group>
-          ) : null}
           <Picture picture={crosshair} />
         </Canvas>
       </GestureDetector>
+      {/* Isolate the pulse so each animation frame does not replay the chart picture. */}
+      {pulseLastPoint && scene.lastPoint ? (
+        <Canvas
+          testID="lightweight-chart-pulse"
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+        >
+          <Group clip={scene.plot}>
+            <Circle
+              cx={pulseX}
+              cy={pulseY}
+              r={ringRadius}
+              opacity={ringOpacity}
+              color={props.pulseLastPointColor ?? config.theme.lineColor}
+            />
+            <Circle
+              cx={pulseX}
+              cy={pulseY}
+              r={dotRadius}
+              color={props.pulseLastPointColor ?? config.theme.lineColor}
+            />
+          </Group>
+        </Canvas>
+      ) : null}
     </Stack>
   );
 }

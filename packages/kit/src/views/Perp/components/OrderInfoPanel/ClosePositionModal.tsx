@@ -32,6 +32,7 @@ import {
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IPerpsTradeAnalyticsContext } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -59,7 +60,8 @@ interface IClosePositionFormData {
   percentage: number;
 }
 
-interface IClosePositionParams {
+interface IClosePositionParams extends IPerpsTradeAnalyticsContext {
+  expectedAccountAddress: string;
   position: IPosition;
   type: ICloseType;
 }
@@ -69,7 +71,13 @@ interface IClosePositionFormProps extends IClosePositionParams {
 }
 
 const ClosePositionForm = memo(
-  ({ position, type, onClose }: IClosePositionFormProps) => {
+  ({
+    position,
+    type,
+    onClose,
+    tradingUiMode,
+    expectedAccountAddress,
+  }: IClosePositionFormProps) => {
     const intl = useIntl();
     const [allMids] = usePerpsAllMidsAtom();
     const hyperliquidActions = useHyperliquidActions();
@@ -336,14 +344,17 @@ const ClosePositionForm = memo(
             return;
           }
 
-          await hyperliquidActions.current.ordersClose([
-            {
-              assetId,
-              isBuy: isLongPosition,
-              size: closeAmount,
-              midPx: latestMidPrice,
-            },
-          ]);
+          await hyperliquidActions.current.ordersClose(
+            [
+              {
+                assetId,
+                isBuy: isLongPosition,
+                size: closeAmount,
+                midPx: latestMidPrice,
+              },
+            ],
+            { tradingUiMode, expectedAccountAddress },
+          );
         } else {
           const limitPriceBN = new BigNumber(formData.limitPrice || '0');
           if (!formData.limitPrice || limitPriceBN.lte(0)) {
@@ -353,14 +364,17 @@ const ClosePositionForm = memo(
             return;
           }
 
-          await hyperliquidActions.current.ordersClose([
-            {
-              assetId,
-              isBuy: isLongPosition,
-              size: closeAmount,
-              limitPx: formData.limitPrice,
-            },
-          ]);
+          await hyperliquidActions.current.ordersClose(
+            [
+              {
+                assetId,
+                isBuy: isLongPosition,
+                size: closeAmount,
+                limitPx: formData.limitPrice,
+              },
+            ],
+            { tradingUiMode, expectedAccountAddress },
+          );
         }
 
         hyperliquidActions.current.resetTradingForm();
@@ -379,6 +393,8 @@ const ClosePositionForm = memo(
         }
       }
     }, [
+      tradingUiMode,
+      expectedAccountAddress,
       formData.amount,
       formData.type,
       formData.limitPrice,
@@ -630,6 +646,8 @@ let activeCloseDialog: IDialogInstance | undefined;
 let activeCloseDialogShownAt = 0;
 
 export function showClosePositionDialog({
+  tradingUiMode,
+  expectedAccountAddress,
   position,
   type,
   intl,
@@ -657,6 +675,8 @@ export function showClosePositionDialog({
       <PerpsProviderMirror>
         <PerpKeyboardAwareDialogContent>
           <ClosePositionForm
+            tradingUiMode={tradingUiMode}
+            expectedAccountAddress={expectedAccountAddress}
             position={position}
             type={type}
             onClose={() => dialogInstance.close()}

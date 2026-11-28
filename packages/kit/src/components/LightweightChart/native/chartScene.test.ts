@@ -300,6 +300,32 @@ it('draws a native scrub card and cuts only the solid overlay at the cursor', ()
   expect(buildNativeChartCrosshair(chart, -1, 20).commands).toHaveLength(0);
 });
 
+it('keeps the scrub crosshair without drawing a disabled tooltip', () => {
+  const chart = scene({ hideCrosshairPriceLabel: true });
+  const point = chart.hoverPoints[1];
+  const overlay = buildNativeChartCrosshair(chart, point.x, 100, {
+    labels: { 200: { time: '' } },
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    textColor: '#000',
+    timeColor: '#888',
+    largePrice: false,
+    showTooltip: false,
+  });
+
+  expect(overlay.commands).toContainEqual(
+    expect.objectContaining({ kind: 'circle', cx: point.x, cy: point.y }),
+  );
+  expect(
+    overlay.commands.some(
+      (command) =>
+        'customPaintId' in command &&
+        command.customPaintId?.startsWith('tooltip'),
+    ),
+  ).toBe(false);
+  expect(overlay.customPaintStyles).not.toHaveProperty('tooltip');
+});
+
 it.each(['left', 'right'] as const)(
   'keeps the scrub guide under the finger on the %s price scale',
   (priceScalePosition) => {
@@ -575,6 +601,43 @@ it('leaves the hover dot to the pulse when asked', () => {
   expect(circles()).toHaveLength(2);
   expect(circles(true)).toHaveLength(0);
 });
+
+it.each([0, 100, 280])(
+  'clips the pulse crosshair gap at y=%s without erasing the chart',
+  (y) => {
+    const chart = scene();
+    const point = chart.hoverPoints[1];
+    point.y = y;
+    const { commands } = buildNativeChartCrosshair(
+      chart,
+      point.x,
+      100,
+      undefined,
+      true,
+    );
+    const clips = commands
+      .filter((command) => command.kind === 'clip')
+      .slice(1);
+    expect(clips.length).toBeGreaterThan(0);
+    for (const { rect } of clips) {
+      expect(rect.height).toBeGreaterThan(0);
+      expect(rect.y >= y + 10 || rect.y + rect.height <= y - 10).toBe(true);
+    }
+    const lines = commands
+      .filter((command) => command.kind === 'line')
+      .filter((command) => command.customPaintId === 'crosshair');
+    expect(lines).toHaveLength(clips.length);
+    for (const line of lines) {
+      expect(line.y1).toBe(0);
+      expect(line.y2).toBe(chart.plot.height);
+    }
+    expect(
+      buildNativeChartCrosshair(chart, point.x, 100).commands.filter(
+        (command) => command.kind === 'clip',
+      ),
+    ).toHaveLength(1);
+  },
+);
 
 const overlayWithTrailingGaps = [
   ...config.data,

@@ -90,7 +90,10 @@ import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewN
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
-import { TradingViewNativeChartSettingsButton } from './TradingViewNativeChartSettingsButton';
+import {
+  TradingViewNativeChartSettingsButton,
+  TradingViewToolbarButtonAppearanceContext,
+} from './TradingViewNativeChartSettingsButton';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
 import { TradingViewNativeFullscreenIndicatorPanel } from './TradingViewNativeFullscreenIndicatorPanel';
 import { TradingViewNativeFullscreenIndicatorRail } from './TradingViewNativeFullscreenIndicatorRail';
@@ -123,6 +126,7 @@ import {
   getTradingViewNativePrimarySeriesPoints,
   resolveTradingViewNativeChartType,
 } from './utils/chartType';
+import { clampTradingViewNativePriceRangeScale } from './utils/priceAxisScale';
 import {
   applyTradingViewNativeSubIndicatorDisplayPrecision,
   buildTradingViewNativeSubIndicatorRenderPanes,
@@ -148,10 +152,18 @@ import type {
 } from '../TradingViewChartControls/types';
 import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
 
+const PRICE_AXIS_FONT_SIZE_BY_MODE = {
+  default: undefined,
+  compact: TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE,
+  marketDetail: 12,
+} as const;
+
 export function TradingViewNativeChartArea({
   children,
+  inset,
   onSizeChange,
 }: PropsWithChildren<{
+  inset?: number;
   onSizeChange: (layout: LayoutRectangle) => void;
 }>) {
   const isActive = useContext(TradingViewNativeChartActiveContext);
@@ -168,7 +180,7 @@ export function TradingViewNativeChartArea({
     if (isActive && layoutRef.current) onSizeChange(layoutRef.current);
   }, [isActive, onSizeChange]);
   return (
-    <Stack flex={1} position="relative" onLayout={handleLayout}>
+    <Stack flex={1} position="relative" mx={inset} onLayout={handleLayout}>
       {children}
     </Stack>
   );
@@ -261,6 +273,8 @@ type ITradingViewNativeContentProps = ITradingViewNativeProps & {
 const TradingViewNativeContent = memo(
   ({
     testID,
+    active,
+    defaultBackgroundColor,
     source,
     priceDecimalPlaces,
     isPricePrecisionLoading,
@@ -283,11 +297,15 @@ const TradingViewNativeContent = memo(
     prioritizePageScroll = false,
     nativeChartSettingsInToolbar = false,
     mobileToolbarExtra,
+    mobileControlsAppearance,
     initialRightOffset,
+    defaultPriceRangeScale,
+    initialZoomScale,
     nativeChartDisplayMode,
     showCompactMainIndicators = false,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
+    mobileControlsPaddingHorizontal,
     nativeControlsFlushHorizontalInset,
     nativeControlsLeading,
     nativeControlsTrailing,
@@ -322,8 +340,9 @@ const TradingViewNativeContent = memo(
         resolveTradingViewNativeChartThemeColors(
           normalizedChartSettings,
           themeColors,
+          defaultBackgroundColor,
         ),
-      [normalizedChartSettings, themeColors],
+      [defaultBackgroundColor, normalizedChartSettings, themeColors],
     );
     const onPriceUpdateRef = useRef(onPriceUpdate);
     const realtimePointRef = useRef<{ c: number; t: number } | undefined>(
@@ -471,6 +490,7 @@ const TradingViewNativeContent = memo(
       handleVisiblePointRangeChange,
       viewportRequest,
     } = useTradingViewNativeKLine({
+      active,
       onRealtimePoint: handleRealtimePoint,
       panelId,
       source,
@@ -488,6 +508,7 @@ const TradingViewNativeContent = memo(
       () => getTradingViewNativePrimarySeriesPoints({ chartType, points }),
       [chartType, points],
     );
+    const isMarketDetail = nativeChartDisplayMode === 'marketDetail';
     const isCompactDisplayMode = nativeChartDisplayMode === 'compact';
     const timeAxisHeight = isCompactDisplayMode
       ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT
@@ -1092,7 +1113,9 @@ const TradingViewNativeContent = memo(
         isMobileControlsLayout &&
         !isCompactDisplayMode ? (
           <TradingViewIndicatorQuickBar
+            backgroundColor={defaultBackgroundColor}
             activeIndicatorValues={activeIndicatorValues}
+            dense={mobileControlsAppearance?.denseIndicators}
             mainIndicators={mainIndicators}
             subIndicators={subIndicators}
             canToggleIndicatorOn={canToggleIndicatorOn}
@@ -1103,7 +1126,9 @@ const TradingViewNativeContent = memo(
                 size="small"
                 variant="tertiary"
                 icon="ChartTrending2Outline"
-                iconSize="$5"
+                iconSize={
+                  mobileControlsAppearance?.denseIndicators ? '$4' : '$5'
+                }
                 width="$10"
                 height={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
                 accessibilityLabel={intl.formatMessage({
@@ -1117,12 +1142,14 @@ const TradingViewNativeContent = memo(
       [
         activeIndicatorValues,
         canToggleIndicatorOn,
+        defaultBackgroundColor,
         handleIndicatorSettingsPress,
         handleQuickBarIndicatorPress,
         intl,
         isCompactDisplayMode,
         isMobileControlsLayout,
         mainIndicators,
+        mobileControlsAppearance,
         showNativeIndicatorQuickBar,
         subIndicators,
       ],
@@ -1263,7 +1290,10 @@ const TradingViewNativeContent = memo(
       panelId ? `:panel:${panelId}` : ''
     }`;
     const chartArea = (
-      <TradingViewNativeChartArea onSizeChange={handleChartAreaLayout}>
+      <TradingViewNativeChartArea
+        inset={isMarketDetail ? mobileControlsPaddingHorizontal : undefined}
+        onSizeChange={handleChartAreaLayout}
+      >
         <TradingViewNativeChart
           key={chartSessionKey}
           enableDrawings={
@@ -1297,6 +1327,10 @@ const TradingViewNativeContent = memo(
           indicatorSeries={indicatorSeries}
           indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
           initialRightOffset={initialRightOffset}
+          initialZoomScale={initialZoomScale}
+          defaultPriceRangeScale={clampTradingViewNativePriceRangeScale(
+            defaultPriceRangeScale ?? 1,
+          )}
           isMobileLayout={isMobileControlsLayout}
           resizesWithSubIndicatorPanes={Boolean(
             (nativeChartGrowsWithSubIndicators ||
@@ -1312,16 +1346,15 @@ const TradingViewNativeContent = memo(
               : undefined
           }
           priceAxisFontSize={
-            isCompactDisplayMode
-              ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
-              : undefined
+            PRICE_AXIS_FONT_SIZE_BY_MODE[nativeChartDisplayMode ?? 'default']
           }
           // A compact chart has no room for the candle's price row; it keeps
           // the full chart's indicator rows.
+          marketDetailLayout={isMarketDetail}
           showLegend={showMainIndicators}
           showPriceLegend={!isCompactDisplayMode}
           timeAxisFontSize={
-            isCompactDisplayMode
+            isCompactDisplayMode || isMarketDetail
               ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
               : undefined
           }
@@ -1340,6 +1373,7 @@ const TradingViewNativeContent = memo(
         />
         {!isChartUnavailable && showChartLoadingMask ? (
           <TradingViewChartLoadingMask
+            backgroundColor={defaultBackgroundColor}
             testID={testID ? `${testID}-loading` : undefined}
           />
         ) : null}
@@ -1391,6 +1425,7 @@ const TradingViewNativeContent = memo(
         !isNativeChartFullscreen &&
         onNativeChartFullscreenChange ? (
           <TradingViewNativeFullscreenButton
+            appearance={mobileControlsAppearance?.fullscreenButton}
             chartHeight={chartHeight}
             isFullscreen={Boolean(isNativeChartFullscreen)}
             onPress={handleMobileFullscreenToggle}
@@ -1407,7 +1442,22 @@ const TradingViewNativeContent = memo(
         calendarAvailableTimeRange={calendarAvailableTimeRange}
         compactMobileLayout={isCompactDisplayMode}
         enableNativeChartSettings={enableNativeChartSettings}
-        mobileSettingsControl={mobileSettingsControl}
+        renderMobileIntervals={
+          isMobileControlsLayout
+            ? mobileControlsAppearance?.renderIntervals
+            : undefined
+        }
+        mobileSettingsControl={
+          mobileSettingsControl && mobileControlsAppearance ? (
+            <TradingViewToolbarButtonAppearanceContext.Provider
+              value={mobileControlsAppearance.settingsButton}
+            >
+              {mobileSettingsControl}
+            </TradingViewToolbarButtonAppearanceContext.Provider>
+          ) : (
+            mobileSettingsControl
+          )
+        }
         enablePreviousClose={enablePreviousClose}
         enableNavigationButtons={!isCompactDisplayMode}
         intervalConfig={intervalConfig}

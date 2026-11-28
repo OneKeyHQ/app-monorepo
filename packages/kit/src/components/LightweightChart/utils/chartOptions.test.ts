@@ -35,6 +35,37 @@ describe('createChartOptions', () => {
     expect(formatter?.(localMidnight, 3, 'en')).toBe('00:00');
   });
 
+  it('formats unit-less ticks from resolved source timestamps in local time', () => {
+    const sourceUtc = Date.UTC(2026, 10, 1, 6, 0) / 1000;
+    const syntheticChartTime = (Date.UTC(2026, 10, 1, 1, 55, 1) /
+      1000) as UTCTimestamp;
+    const options = createChartOptions(
+      theme,
+      true,
+      11,
+      undefined,
+      true,
+      true,
+      true,
+      undefined,
+      'right',
+      undefined,
+      'en',
+      undefined,
+      undefined,
+      (chartTime) => (chartTime === syntheticChartTime ? sourceUtc : undefined),
+    );
+    const formatter = options.timeScale?.tickMarkFormatter as
+      | TickMarkFormatter
+      | undefined;
+    const date = new Date(sourceUtc * 1000);
+    const pad = (value: number) => value.toString().padStart(2, '0');
+
+    expect(formatter?.(syntheticChartTime, 3, 'en')).toBe(
+      `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+    );
+  });
+
   it('keeps the native unit-less formatter on device local time', () => {
     const time = (Date.UTC(2026, 10, 19, 13, 5) / 1000) as UTCTimestamp;
     const date = new Date(time * 1000);

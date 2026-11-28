@@ -4,6 +4,24 @@ import {
 } from './coinScopedOrder';
 
 describe('coin-scoped order helpers', () => {
+  it('forwards the client order ID and expected account for a recoverable mobile order', () => {
+    const cloid = '0x11111111111111111111111111111111' as const;
+    const expectedAccountAddress = '0x1111111111111111111111111111111111111111';
+    expect(
+      buildCoinScopedOrderOpenParams({
+        assetId: 1,
+        params: {
+          coin: 'ETH',
+          expectedAccountAddress,
+          cloid,
+          isBuy: true,
+          size: '1',
+          price: '3000',
+          orderType: 'market',
+        },
+      }),
+    ).toMatchObject({ cloid, expectedAccountAddress, type: 'market' });
+  });
   it('uses the target coin asset id and never opens reduce-only', () => {
     expect(
       buildCoinScopedOrderOpenParams({
@@ -20,6 +38,7 @@ describe('coin-scoped order helpers', () => {
       }),
     ).toEqual({
       assetId: 11_000,
+      expectedAccountAddress: '0x1111111111111111111111111111111111111111',
       isBuy: true,
       size: '0.1234',
       price: '180.25',

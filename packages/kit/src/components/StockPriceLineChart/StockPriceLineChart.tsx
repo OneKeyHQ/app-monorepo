@@ -201,6 +201,7 @@ export type IStockPriceLineChartHoverPoint = {
 export function StockPriceLineChart({
   data: sourceData,
   height,
+  lineColorToken,
   pulseLastPoint,
   previousClose,
   showCurrentPriceLabel,
@@ -208,12 +209,16 @@ export function StockPriceLineChart({
   testID,
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
+  showPriceScale = true,
+  showHoverLabel = true,
+  clearHoverOnTouchEnd = false,
   onHoverChange,
   timeSpanEnd,
   trend = 'up',
 }: {
   data: IMarketTokenChart;
   height: number;
+  lineColorToken?: 'textSuccess' | 'green9' | 'bgAccent';
   // End (unix seconds) of a window that is still filling in. The time axis
   // runs on to it, leaving the part not reached yet empty on the right. Omit
   // for a series that spans its window.
@@ -236,6 +241,9 @@ export function StockPriceLineChart({
   hoverLabelShowsPrice?: boolean;
   // Lifts the card's price to $bodyMdMedium, 2px under the time.
   hoverLabelLargePrice?: boolean;
+  showPriceScale?: boolean;
+  showHoverLabel?: boolean;
+  clearHoverOnTouchEnd?: boolean;
   // Called with undefined when the pointer leaves the plot, and on unmount.
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
   // Direction of the drawn range: the line, its fill, the live pulse and the
@@ -246,6 +254,15 @@ export function StockPriceLineChart({
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
+  const useNativeScrub = platformEnv.isNative;
+  const pointerTrackingRef = useRef(false);
+  const startHover = useCallback(() => {
+    pointerTrackingRef.current = true;
+  }, []);
+  const clearHover = useCallback(() => {
+    pointerTrackingRef.current = false;
+    setHoverData(null);
+  }, []);
   const [chartWidth, setChartWidth] = useState(0);
   // Everything drawn or scrubbed reads the thinned series, so the hover snaps
   // only to points that sit on the line. Until the width is known, the full
@@ -280,16 +297,20 @@ export function StockPriceLineChart({
   const chartData = localTimeScale?.data ?? data;
   // The overlay line carries the blank slots: a null value is a gap on both
   // renderers, and its times join the time scale without drawing anything.
-  const overlayData = useMemo<ILightweightSecondaryLineChart>(() => {
+  const { overlayData, toUtcTimestamp } = useMemo(() => {
     const extension = buildStockPriceLineChartTimeExtension({
       data,
       timeSpanEnd,
     });
     if (extension.length === 0) {
-      return chartData;
+      return {
+        overlayData: chartData as ILightweightSecondaryLineChart,
+        toUtcTimestamp: localTimeScale?.toUtcTimestamp,
+      };
     }
+    const extensionUtcByLocalTime = new Map<number, number>();
     let previousTime = chartData.at(-1)?.[0] ?? -Infinity;
-    return [
+    const extendedOverlay: ILightweightSecondaryLineChart = [
       ...chartData,
       ...extension.map((time): [number, null] => {
         // Same shift, and the same strictly increasing guard, as the series.
@@ -298,13 +319,24 @@ export function StockPriceLineChart({
           previousTime + 1,
         );
         previousTime = chartTime;
+        if (localTimeScale) {
+          extensionUtcByLocalTime.set(chartTime, time);
+        }
         return [chartTime, null];
       }),
     ];
+    return {
+      overlayData: extendedOverlay,
+      toUtcTimestamp: localTimeScale
+        ? (localTimeSeconds: number) =>
+            extensionUtcByLocalTime.get(localTimeSeconds) ??
+            localTimeScale.toUtcTimestamp(localTimeSeconds)
+        : undefined,
+    };
   }, [chartData, data, localTimeScale, timeSpanEnd]);
   // Read through a ref: a new `onHover` would rebuild the chart instance.
-  const toUtcTimestampRef = useRef(localTimeScale?.toUtcTimestamp);
-  toUtcTimestampRef.current = localTimeScale?.toUtcTimestamp;
+  const toUtcTimestampRef = useRef(toUtcTimestamp);
+  toUtcTimestampRef.current = toUtcTimestamp;
   const priceFormatter = useCallback(
     (price: number) => {
       if (priceScaleFormat === 'full') return formatChartPriceFull(price);
@@ -336,6 +368,14 @@ export function StockPriceLineChart({
       y?: number;
     }) => {
       if (
+        clearHoverOnTouchEnd &&
+        !platformEnv.isNative &&
+        !pointerTrackingRef.current
+      ) {
+        setHoverData(null);
+        return;
+      }
+      if (
         time !== undefined &&
         price !== undefined &&
         x !== undefined &&
@@ -352,17 +392,23 @@ export function StockPriceLineChart({
         setHoverData(null);
       }
     },
-    [],
+    [clearHoverOnTouchEnd],
   );
-  // Native charts keep tracking locally across refreshes. Keep an optional price
-  // header on that point too, until it leaves the refreshed range.
+  // Keep a held point across live refreshes until it leaves the selected range.
   useEffect(() => {
     setHoverData((current) => {
-      if (!platformEnv.isNative || !current) return null;
-      const point = data.find(([time]) => time === current.time);
-      return point ? { ...current, price: point[1] } : null;
+      if ((!useNativeScrub && !clearHoverOnTouchEnd) || !current) return null;
+      const pointIndex = data.findIndex(([time]) => time === current.time);
+      if (pointIndex < 0) return null;
+      const point = data[pointIndex];
+      const chartTime = chartData[pointIndex]?.[0] ?? point[0];
+      return {
+        ...current,
+        chartTime,
+        price: point[1],
+      };
     });
-  }, [data]);
+  }, [chartData, data, useNativeScrub, clearHoverOnTouchEnd]);
 
   const hoverPoint = useMemo<IStockPriceLineChartHoverPoint | undefined>(() => {
     if (!hoverData) {
@@ -390,6 +436,21 @@ export function StockPriceLineChart({
   const dimmedLineColor = useMemo(
     () => fadeLineColor(solidLineColor),
     [solidLineColor],
+  );
+  const lineColorOverride = lineColorToken
+    ? theme[lineColorToken].val
+    : undefined;
+  const seriesColorOverrides = useMemo(
+    () =>
+      lineColorOverride
+        ? {
+            lineColor: fadeLineColor(lineColorOverride),
+            patternColor: lineColorOverride,
+            pulseLastPointColor: lineColorOverride,
+            secondaryLineColor: lineColorOverride,
+          }
+        : undefined,
+    [lineColorOverride],
   );
   const crosshairVertLineColor = theme.textSubdued.val;
   const pageBackgroundColor = theme.bgApp.val;
@@ -449,10 +510,11 @@ export function StockPriceLineChart({
   const nativeScrubOptions = useMemo<
     ILightweightChartNativeScrubOptions | undefined
   >(() => {
-    if (!platformEnv.isNative) return undefined;
+    if (!useNativeScrub) return undefined;
     return {
       labels: Object.fromEntries(
         data.map(([time, price]) => {
+          if (!showHoverLabel) return [time, { time: '' }];
           const parts = numberFormatAsRaw(String(price), {
             formatter: 'price',
             formatterOptions: HOVER_PRICE_FORMATTER_OPTIONS,
@@ -485,12 +547,17 @@ export function StockPriceLineChart({
       textColor: theme.text.val,
       timeColor: theme.textDisabled.val,
       largePrice: hoverLabelLargePrice,
+      showTooltip: showHoverLabel,
+      exitOnTouchEnd: clearHoverOnTouchEnd,
     };
   }, [
     data,
     formatDate,
     hoverLabelShowsPrice,
     hoverLabelLargePrice,
+    showHoverLabel,
+    clearHoverOnTouchEnd,
+    useNativeScrub,
     theme.bg.val,
     theme.borderSubdued.val,
     theme.text.val,
@@ -552,6 +619,13 @@ export function StockPriceLineChart({
       testID={testID}
       position="relative"
       height={height}
+      onTouchStart={clearHoverOnTouchEnd ? startHover : undefined}
+      onPointerDown={clearHoverOnTouchEnd ? startHover : undefined}
+      onTouchEnd={clearHoverOnTouchEnd ? clearHover : undefined}
+      onTouchCancel={clearHoverOnTouchEnd ? clearHover : undefined}
+      onPointerUp={clearHoverOnTouchEnd ? clearHover : undefined}
+      onPointerCancel={clearHoverOnTouchEnd ? clearHover : undefined}
+      onPointerLeave={clearHoverOnTouchEnd ? clearHover : undefined}
       onLayout={(event) => {
         const width = event.nativeEvent.layout.width;
         // Hidden tabs can report zero width; retain the last sampling width.
@@ -578,14 +652,19 @@ export function StockPriceLineChart({
         crosshairVertLineStyle={CROSSHAIR_VERT_LINE_STYLE}
         seriesType="dotted-area"
         lineType="curved"
-        showPriceScale
+        showPriceScale={showPriceScale}
         referenceLine={referenceLine}
         showLastValue={showCurrentPriceLabel}
+        {...(!showPriceScale && {
+          showPriceScale: false,
+          showLastValue: false,
+        })}
         showLastValuePriceLine={false}
         lastValueLabelColor={currentPriceLabelColor}
         showLastPointMarker={false}
         preserveChartInstanceOnDataChange
         pulseLastPoint={pulseLastPoint}
+        {...seriesColorOverrides}
         showTimeScale
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly
@@ -600,6 +679,9 @@ export function StockPriceLineChart({
         priceScaleFormat={priceScaleFormat}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
+        resolveTimeScaleTimestamp={
+          platformEnv.isNative ? undefined : toUtcTimestamp
+        }
         nativeScrubOptions={nativeScrubOptions}
         onHover={
           platformEnv.isNativeAndroid && !onHoverChange
@@ -607,7 +689,7 @@ export function StockPriceLineChart({
             : handleHover
         }
       />
-      {!platformEnv.isNative && hoverData && tooltipPosition ? (
+      {showHoverLabel && !useNativeScrub && hoverData && tooltipPosition ? (
         <Stack
           testID="stock-price-line-chart-hover-label"
           position="absolute"

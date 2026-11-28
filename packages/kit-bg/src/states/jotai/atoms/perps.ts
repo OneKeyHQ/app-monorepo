@@ -159,6 +159,7 @@ export type IPerpsActiveAccountSummaryAtom =
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
+      usdcWithdrawable?: string;
       totalUnrealizedPnl: string | undefined;
     }
   | undefined;
@@ -450,6 +451,7 @@ export const {
 } = globalAtomComputedR<{
   accountValue: string | undefined;
   withdrawable: string | undefined;
+  availableUsdc: string | undefined;
   isLoading: boolean;
   isAccountValuePartial?: boolean;
 }>({
@@ -486,6 +488,7 @@ export const {
       return {
         accountValue: '0',
         withdrawable: '0',
+        availableUsdc: '0',
         isLoading: false,
       };
     }
@@ -496,6 +499,7 @@ export const {
       return {
         accountValue: activeSummary?.accountValue,
         withdrawable: activeSummary?.withdrawable,
+        availableUsdc: undefined,
         isLoading: true,
       };
     }
@@ -515,6 +519,7 @@ export const {
         return {
           accountValue: undefined,
           withdrawable: undefined,
+          availableUsdc: undefined,
           isLoading: true,
         };
       }
@@ -526,6 +531,7 @@ export const {
         accountValue: activeSpotData.spotTotalUsd,
         isAccountValuePartial: activeSpotData.hasUnsupportedBalances,
         withdrawable: usdcWithdrawable,
+        availableUsdc: usdcWithdrawable,
         isLoading: false,
       };
     }
@@ -537,6 +543,7 @@ export const {
       accountValue: spotValue.plus(perpsValue).toFixed(),
       isAccountValuePartial: activeSpotData?.hasUnsupportedBalances,
       withdrawable: activeSummary?.withdrawable,
+      availableUsdc: activeSummary?.usdcWithdrawable,
       isLoading: activeSpotData?.spotTotalUsd === undefined,
     };
   },
@@ -873,14 +880,16 @@ export type IPerpsActiveAssetCtxMidPriceSource =
   | 'disabled';
 
 export const perpsActiveAssetCtxMidPriceBySourceAtomCache = new Map<
-  IPerpsActiveAssetCtxMidPriceSource,
+  string,
   ReturnType<typeof globalAtomComputedR<string | undefined>>
 >();
 
 function getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
   source: IPerpsActiveAssetCtxMidPriceSource,
+  coin?: string,
 ) {
-  let entry = perpsActiveAssetCtxMidPriceBySourceAtomCache.get(source);
+  const key = coin === undefined ? source : `${source}:${coin}`;
+  let entry = perpsActiveAssetCtxMidPriceBySourceAtomCache.get(key);
   if (!entry) {
     entry = globalAtomComputedR<string | undefined>({
       read: (get) => {
@@ -891,18 +900,23 @@ function getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
           source === 'display'
             ? get(perpsActiveAssetCtxDisplayAtom.atom())
             : get(perpsActiveAssetCtxAtom.atom());
+        if (coin !== undefined && assetCtx?.coin !== coin) return undefined;
         return assetCtx?.ctx?.midPrice;
       },
     });
-    perpsActiveAssetCtxMidPriceBySourceAtomCache.set(source, entry);
+    perpsActiveAssetCtxMidPriceBySourceAtomCache.set(key, entry);
   }
   return entry;
 }
 
 export function usePerpsActiveAssetCtxMidPriceBySource(
   source: IPerpsActiveAssetCtxMidPriceSource,
+  coin?: string,
 ): string | undefined {
-  const { use } = getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(source);
+  const { use } = getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
+    source,
+    coin,
+  );
   const [midPrice] = use();
   return midPrice;
 }
@@ -1220,11 +1234,13 @@ export interface IPerpsCustomSettings {
   positionActionVisibility?: Partial<
     Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
   >;
+  mobileTradingMode?: 'simple' | 'pro';
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
   chartPosition?: IPerpsChartPosition;
   chartMode?: 'native' | 'tradingView';
+  simpleMarketChartMode?: 'line' | 'candles';
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
@@ -1237,6 +1253,7 @@ export const {
   name: EAtomNames.perpsCustomSettingsAtom,
   persist: true,
   initialValue: {
+    mobileTradingMode: 'pro',
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
@@ -1251,6 +1268,7 @@ export const {
 
 export interface IPerpsTradingPreferences {
   sizeInputUnit: 'token' | 'usd' | 'margin';
+  simpleSizeInputUnit?: 'token' | 'usd' | 'margin';
   slippage: number;
 }
 export const {
