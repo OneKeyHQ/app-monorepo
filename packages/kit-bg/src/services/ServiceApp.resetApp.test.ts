@@ -774,7 +774,7 @@ describe('ServiceApp.resetApp', () => {
     }
   });
 
-  test('deletes renderer-owned IndexedDBs only after Desktop reload releases the old connections', async () => {
+  test('clears renderer-owned IndexedDBs after Desktop reload even with a held connection', async () => {
     const globals = {
       indexedDB: new IDBFactory(),
       IDBRequest,
@@ -788,8 +788,12 @@ describe('ServiceApp.resetApp', () => {
     const wasDesktop = platformEnv.isDesktop;
     Object.assign(globalThis, globals);
     platformEnv.isDesktop = true;
-    const databaseName = 'WALLET_CONNECT_V2_INDEXED_DB';
+    const databaseName = 'desktop-held-third-party';
+    const store = 'records';
     const openRequest = indexedDB.open(databaseName);
+    openRequest.onupgradeneeded = () => {
+      openRequest.result.createObjectStore(store).put('before-reset', 'key');
+    };
     const heldConnection = await new Promise<IDBDatabase>((resolve, reject) => {
       openRequest.onsuccess = () => resolve(openRequest.result);
       openRequest.onerror = () => reject(openRequest.error);
@@ -821,7 +825,7 @@ describe('ServiceApp.resetApp', () => {
         databaseName,
       );
 
-      heldConnection.close();
+      // A sibling renderer might still hold the database after reload.
       resetUtils.endResetting();
       const fresh = new ServiceApp({ backgroundApi });
       const restartFresh = jest
@@ -832,9 +836,16 @@ describe('ServiceApp.resetApp', () => {
       expect(
         backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset,
       ).toHaveBeenCalledTimes(1);
-      expect(
-        (await indexedDB.databases()).map(({ name }) => name),
-      ).not.toContain(databaseName);
+      const count = heldConnection
+        .transaction(store)
+        .objectStore(store)
+        .count();
+      await expect(
+        new Promise<number>((resolve, reject) => {
+          count.onsuccess = () => resolve(count.result);
+          count.onerror = () => reject(count.error);
+        }),
+      ).resolves.toBe(0);
       await expect(readAppResetMarker()).resolves.toBeUndefined();
     } finally {
       heldConnection.close();
@@ -849,104 +860,93 @@ describe('ServiceApp.resetApp', () => {
     }
   });
 
-  test('clears WalletConnect records without waiting for its open connection to close', async () => {
-    const indexedDB = new IDBFactory();
-    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
-    const wasDesktop = platformEnv.isDesktop;
-    const name = 'WALLET_CONNECT_V2_INDEXED_DB';
-    const store = 'keyvaluestorage';
-    const open = indexedDB.open(name);
-    open.onupgradeneeded = () => {
-      open.result.createObjectStore(store).put('test-session', 'session');
-    };
-    const held = await new Promise<IDBDatabase>((resolve, reject) => {
-      open.onsuccess = () => resolve(open.result);
-      open.onerror = () => reject(open.error);
-    });
-    Object.assign(globalThis, { indexedDB });
-    platformEnv.isDesktop = false;
-
-    try {
-      const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
-      const log = jest.fn();
-      const service = new ServiceApp({ backgroundApi: {} });
-      await (
-        service as unknown as {
-          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
-        }
-      ).deleteOtherIndexedDBs(log);
-
-      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'cleared');
-      expect(deletion).toHaveBeenCalledWith(name);
-      const request = deletion.mock.results[0].value as ReturnType<
-        IDBFactory['deleteDatabase']
-      >;
-      const deleted = new Promise<void>((resolve) => {
-        request.addEventListener('success', () => resolve());
-      });
-      await new Promise<void>((resolve) => {
-        request.addEventListener('blocked', () => resolve());
-      });
-      const count = held.transaction(store).objectStore(store).count();
-      await expect(
-        new Promise<number>((resolve, reject) => {
-          count.onsuccess = () => resolve(count.result);
-          count.onerror = () => reject(count.error);
-        }),
-      ).resolves.toBe(0);
-      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'blocked');
-      await (
-        service as unknown as {
-          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
-        }
-      ).deleteOtherIndexedDBs(log);
-      expect(deletion).toHaveBeenCalledTimes(1);
-
-      held.close();
-      await deleted;
-      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'deleted');
-
-      const reopened = indexedDB.open(name);
-      reopened.onupgradeneeded = () => {
-        reopened.result.createObjectStore(store).put('test-session', 'session');
+  test.each(['WALLET_CONNECT_V2_INDEXED_DB', 'sentry-offline', 'future-sdk'])(
+    'clears %s without waiting for a held connection or blocking new opens',
+    async (name) => {
+      const indexedDB = new IDBFactory();
+      const descriptor = Object.getOwnPropertyDescriptor(
+        globalThis,
+        'indexedDB',
+      );
+      const wasDesktop = platformEnv.isDesktop;
+      const store = 'keyvaluestorage';
+      const open = indexedDB.open(name);
+      open.onupgradeneeded = () => {
+        open.result.createObjectStore(store).put('test-session', 'session');
       };
-      const heldForFailure = await new Promise<IDBDatabase>(
-        (resolve, reject) => {
+      const held = await new Promise<IDBDatabase>((resolve, reject) => {
+        open.onsuccess = () => resolve(open.result);
+        open.onerror = () => reject(open.error);
+      });
+      Object.assign(globalThis, { indexedDB });
+      platformEnv.isDesktop = false;
+
+      try {
+        const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
+        const log = jest.fn();
+        const makeService = () =>
+          new ServiceApp({ backgroundApi: {} }) as unknown as {
+            clearRemainingBrowserData: (logger: typeof log) => Promise<void>;
+          };
+        await makeService().clearRemainingBrowserData(log);
+
+        expect(log).toHaveBeenCalledWith(expect.any(String), 'cleared', {
+          detail: name,
+        });
+        expect(deletion).not.toHaveBeenCalled();
+        const reopened = indexedDB.open(name);
+        const second = await new Promise<IDBDatabase>((resolve, reject) => {
           reopened.onsuccess = () => resolve(reopened.result);
           reopened.onerror = () => reject(reopened.error);
-        },
-      );
-      const clearStore = IDBObjectStore.prototype.clear;
-      const clear = jest.spyOn(IDBObjectStore.prototype, 'clear');
-      clear.mockImplementationOnce(function (this: IDBObjectStore) {
-        const clearRequest = clearStore.call(this);
-        this.transaction.abort();
-        return clearRequest;
-      });
-      try {
-        const failingService = new ServiceApp({ backgroundApi: {} });
-        await expect(
-          (
-            failingService as unknown as {
-              deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
-            }
-          ).deleteOtherIndexedDBs(log),
-        ).rejects.toThrow('WalletConnect clear aborted');
-        expect(deletion).toHaveBeenCalledTimes(1);
+        });
+        try {
+          const count = second.transaction(store).objectStore(store).count();
+          await expect(
+            new Promise<number>((resolve, reject) => {
+              count.onsuccess = () => resolve(count.result);
+              count.onerror = () => reject(count.error);
+            }),
+          ).resolves.toBe(0);
+        } finally {
+          second.close();
+        }
+
+        const clearStore = IDBObjectStore.prototype.clear;
+        const clear = jest.spyOn(IDBObjectStore.prototype, 'clear');
+        clear.mockImplementationOnce(function (this: IDBObjectStore) {
+          const clearRequest = clearStore.call(this);
+          this.transaction.abort();
+          return clearRequest;
+        });
+        try {
+          const cleanup = makeService().clearRemainingBrowserData(log);
+          if (name === 'sentry-offline') {
+            await expect(cleanup).resolves.toBeUndefined();
+            expect(log).toHaveBeenCalledWith(
+              'optionalIndexedDB:sentry-offline',
+              'failed',
+              expect.objectContaining({
+                detail: 'sentry-offline clear aborted',
+              }),
+            );
+          } else {
+            await expect(cleanup).rejects.toThrow(`${name} clear aborted`);
+          }
+          expect(deletion).not.toHaveBeenCalled();
+        } finally {
+          clear.mockRestore();
+        }
       } finally {
-        clear.mockRestore();
-        heldForFailure.close();
+        held.close();
+        platformEnv.isDesktop = wasDesktop;
+        if (descriptor) {
+          Object.defineProperty(globalThis, 'indexedDB', descriptor);
+        } else {
+          Reflect.deleteProperty(globalThis, 'indexedDB');
+        }
       }
-    } finally {
-      held.close();
-      platformEnv.isDesktop = wasDesktop;
-      if (descriptor) {
-        Object.defineProperty(globalThis, 'indexedDB', descriptor);
-      } else {
-        Reflect.deleteProperty(globalThis, 'indexedDB');
-      }
-    }
-  });
+    },
+  );
 
   test('does not restart after a storage reset failure', async () => {
     const service = new ServiceApp({
@@ -1460,6 +1460,7 @@ describe('ServiceApp privacy database reset ordering', () => {
       'caches',
     );
     const deleteCache = jest.fn().mockResolvedValue(true);
+    const keys = jest.fn().mockResolvedValue(['static-assets', 'runtime-v2']);
     const wasDesktop = platformEnv.isDesktop;
     const name = 'workbox-expiration';
     const store = 'cache-entries';
@@ -1471,7 +1472,10 @@ describe('ServiceApp privacy database reset ordering', () => {
       open.onsuccess = () => resolve(open.result);
       open.onerror = () => reject(open.error);
     });
-    Object.assign(globalThis, { indexedDB, caches: { delete: deleteCache } });
+    Object.assign(globalThis, {
+      indexedDB,
+      caches: { keys, delete: deleteCache },
+    });
     platformEnv.isDesktop = false;
 
     try {
@@ -1480,13 +1484,21 @@ describe('ServiceApp privacy database reset ordering', () => {
       const service = new ServiceApp({ backgroundApi: {} });
       await (
         service as unknown as {
-          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+          clearRemainingBrowserData: (logger: typeof log) => Promise<void>;
         }
-      ).deleteOtherIndexedDBs(log);
+      ).clearRemainingBrowserData(log);
 
+      expect(keys).toHaveBeenCalledTimes(1);
       expect(deleteCache).toHaveBeenCalledWith('static-assets');
-      expect(log).toHaveBeenCalledWith('workboxExpirationIndexedDB', 'cleared');
-      expect(deletion).toHaveBeenCalledWith(name);
+      expect(deleteCache).toHaveBeenCalledWith('runtime-v2');
+      expect(log).toHaveBeenCalledWith(
+        'workboxExpirationIndexedDB',
+        'cleared',
+        {
+          detail: name,
+        },
+      );
+      expect(deletion).not.toHaveBeenCalled();
       const count = held.transaction(store).objectStore(store).count();
       await expect(
         new Promise<number>((resolve, reject) => {
@@ -1506,6 +1518,298 @@ describe('ServiceApp privacy database reset ordering', () => {
         Object.defineProperty(globalThis, 'caches', cachesDescriptor);
       } else {
         Reflect.deleteProperty(globalThis, 'caches');
+      }
+    }
+  });
+
+  it('clears all Cache Storage even without a Workbox database', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    const keys = jest.fn().mockResolvedValue(['future-cache', 'another-cache']);
+    const deleteCache = jest.fn().mockResolvedValue(true);
+    Object.assign(globalThis, { caches: { keys, delete: deleteCache } });
+
+    try {
+      const log = jest.fn();
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearRemainingBrowserData: (logger: typeof log) => Promise<void>;
+      };
+      await service.clearRemainingBrowserData(log);
+      expect(deleteCache.mock.calls).toEqual([
+        ['future-cache'],
+        ['another-cache'],
+      ]);
+      expect(log).toHaveBeenCalledWith('cacheStorage', 'cleared');
+
+      deleteCache.mockReset();
+      deleteCache
+        .mockRejectedValueOnce(new Error('blocked'))
+        .mockResolvedValueOnce(true);
+      await expect(
+        service.clearRemainingBrowserData(log),
+      ).resolves.toBeUndefined();
+      expect(deleteCache).toHaveBeenCalledTimes(2);
+      expect(log).toHaveBeenCalledWith('cacheStorage', 'clear_failed', {
+        detail: 'future-cache: blocked',
+      });
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'caches', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'caches');
+      }
+    }
+  });
+
+  it('clears Web bootstrap caches along with all other caches', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    const wasWeb = platformEnv.isWeb;
+    const deleteCache = jest.fn().mockResolvedValue(true);
+    platformEnv.isWeb = true;
+    Object.assign(globalThis, {
+      caches: {
+        keys: jest
+          .fn()
+          .mockResolvedValue([
+            'onekey-web-version-state',
+            'onekey-web-html:v1',
+            'onekey-web-critical:v1',
+            'workbox-precache-v2',
+            'static-resources',
+            'onekey-web-critical-temp:v2',
+            'static-assets',
+            'runtime-cache',
+          ]),
+        delete: deleteCache,
+      },
+    });
+    try {
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearBrowserCacheStorage: (logger: () => void) => Promise<void>;
+      };
+      await service.clearBrowserCacheStorage(() => {});
+      expect(deleteCache.mock.calls).toEqual([
+        ['onekey-web-version-state'],
+        ['onekey-web-html:v1'],
+        ['onekey-web-critical:v1'],
+        ['workbox-precache-v2'],
+        ['static-resources'],
+        ['onekey-web-critical-temp:v2'],
+        ['static-assets'],
+        ['runtime-cache'],
+      ]);
+    } finally {
+      platformEnv.isWeb = wasWeb;
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'caches', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'caches');
+      }
+    }
+  });
+
+  it('queues the database deletion fallback once without waiting for it', async () => {
+    const indexedDB = globalThis.indexedDB;
+    const name = 'held-reset-fallback';
+    const held = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(name);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore('records').put('before reset', 1);
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
+    const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+      clearRemainingBrowserData: (logger: () => void) => Promise<void>;
+      finishAppReset: (logger: () => void) => Promise<void>;
+    };
+    try {
+      await service.clearRemainingBrowserData(() => {});
+      expect(deletion).not.toHaveBeenCalled();
+
+      await expect(service.finishAppReset(() => {})).resolves.toBeUndefined();
+      expect(deletion.mock.calls).toEqual([[name]]);
+      await expect(service.finishAppReset(() => {})).resolves.toBeUndefined();
+      expect(deletion.mock.calls).toEqual([[name]]);
+    } finally {
+      held.close();
+    }
+  });
+
+  it('continues reset when the UI snapshot database cannot be cleared', async () => {
+    jest
+      .spyOn(globalThis.indexedDB, 'databases')
+      .mockResolvedValue([{ name: 'onekey-ui-snapshot' }]);
+    jest.spyOn(globalThis.indexedDB, 'open').mockImplementation(() => {
+      throw new OneKeyLocalError('snapshot storage busy');
+    });
+    const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+      clearRemainingBrowserData: (logger: () => void) => Promise<void>;
+    };
+    const log = jest.fn();
+    await expect(
+      service.clearRemainingBrowserData(log),
+    ).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith(
+      'optionalIndexedDB:onekey-ui-snapshot',
+      'failed',
+      expect.objectContaining({ detail: 'snapshot storage busy' }),
+    );
+  });
+
+  it('clears the diagnostic history and restores metadata with a held connection', async () => {
+    const indexedDB = globalThis.indexedDB;
+    const held = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('OneKeyDiagnosticLogs');
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore('chunks').put('old message', 1);
+        request.result.createObjectStore('meta').put({ nextId: 2 }, 'state');
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
+    try {
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearRemainingBrowserData: (logger: () => void) => Promise<void>;
+      };
+      await service.clearRemainingBrowserData(() => {});
+      const transaction = held.transaction(['chunks', 'meta']);
+      const count = transaction.objectStore('chunks').count();
+      const state = transaction.objectStore('meta').get('state');
+      await expect(
+        new Promise<void>((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onabort = () => reject(transaction.error);
+        }),
+      ).resolves.toBeUndefined();
+      expect(count.result).toBe(0);
+      expect(state.result).toEqual({ nextId: 1, bytes: 0, count: 0 });
+      expect(deletion).not.toHaveBeenCalled();
+    } finally {
+      held.close();
+    }
+  });
+
+  it('starts a fresh optional database cleanup on retry', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        runOptionalResetCleanup: (
+          logger: () => void,
+          stage: string,
+          task: (canContinue: () => boolean) => unknown,
+          rejoinPending: boolean,
+        ) => Promise<void>;
+      };
+      const task = jest
+        .fn()
+        .mockReturnValueOnce(new Promise<void>(() => {}))
+        .mockImplementationOnce((canContinue: () => boolean) => {
+          expect(canContinue()).toBe(true);
+        });
+      const first = service.runOptionalResetCleanup(
+        () => {},
+        'optionalIndexedDB:sentry-offline',
+        task,
+        false,
+      );
+      await jest.advanceTimersByTimeAsync(1000);
+      await first;
+      await service.runOptionalResetCleanup(
+        () => {},
+        'optionalIndexedDB:sentry-offline',
+        task,
+        false,
+      );
+      expect(task).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not wait for a stalled cache sweep or delete after a late enumeration', async () => {
+    jest.useFakeTimers();
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    let resolveNames: (names: string[]) => void = () => {};
+    const keys = jest.fn(
+      () =>
+        new Promise<string[]>((resolve) => {
+          resolveNames = resolve;
+        }),
+    );
+    const deleteCache = jest.fn(() => new Promise<boolean>(() => {}));
+    Object.assign(globalThis, { caches: { keys, delete: deleteCache } });
+
+    try {
+      const log = jest.fn();
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearBrowserCacheStorage: (logger: typeof log) => Promise<void>;
+      };
+      const stalledEnumeration = service.clearBrowserCacheStorage(log);
+      await jest.advanceTimersByTimeAsync(1000);
+      await expect(stalledEnumeration).resolves.toBeUndefined();
+      resolveNames(['new-cache']);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(deleteCache).not.toHaveBeenCalled();
+
+      keys.mockResolvedValueOnce(['old-cache']);
+      const stalledDeletion = service.clearBrowserCacheStorage(log);
+      await jest.advanceTimersByTimeAsync(1000);
+      await expect(stalledDeletion).resolves.toBeUndefined();
+      expect(deleteCache).toHaveBeenCalledWith('old-cache');
+      expect(log).toHaveBeenCalledWith('cacheStorage', 'timeout', {
+        deadlineMs: 1000,
+      });
+    } finally {
+      jest.useRealTimers();
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'caches', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'caches');
+      }
+    }
+  });
+
+  it('does not clear an optional database that opens after its reset deadline', async () => {
+    jest.useFakeTimers();
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
+    const db = { close: jest.fn(), transaction: jest.fn() };
+    const request = {
+      result: db,
+      addEventListener: jest.fn(),
+      onsuccess: () => {},
+    };
+    const open = jest.fn().mockReturnValue(request);
+    Object.assign(globalThis, {
+      indexedDB: {
+        databases: jest.fn().mockResolvedValue([{ name: 'sentry-offline' }]),
+        open,
+      },
+    });
+
+    try {
+      const log = jest.fn();
+      const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+        clearRemainingBrowserData: (logger: typeof log) => Promise<void>;
+      };
+      const cleanup = service.clearRemainingBrowserData(log);
+      await jest.advanceTimersByTimeAsync(1000);
+      await expect(cleanup).resolves.toBeUndefined();
+      expect(open).toHaveBeenCalledWith('sentry-offline');
+      request.onsuccess();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(db.close).toHaveBeenCalledTimes(1);
+      expect(db.transaction).not.toHaveBeenCalled();
+      expect(log).not.toHaveBeenCalledWith('otherIndexedDBs', 'cleared', {
+        detail: 'sentry-offline',
+      });
+    } finally {
+      jest.useRealTimers();
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'indexedDB', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'indexedDB');
       }
     }
   });
@@ -1540,8 +1844,10 @@ describe('ServiceApp privacy database reset ordering', () => {
     expect(markResetFailed).toHaveBeenCalledTimes(1);
   });
 
-  it('formats multi-stage resetData failures without double-wrapping stage envelopes', async () => {
-    jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+  it('reports required reset failures without including an optional snapshot failure', async () => {
+    jest
+      .spyOn(appStorage, 'clear')
+      .mockRejectedValueOnce(new Error('Storage locked.'));
     jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
     jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
@@ -1565,7 +1871,7 @@ describe('ServiceApp privacy database reset ordering', () => {
     await expect(
       (service as unknown as { resetData: () => Promise<void> }).resetData(),
     ).rejects.toThrow(
-      'App reset could not complete snapshotCaches (UnknownError: Internal error), walletDatabase (Database locked). Retry Reset App.',
+      'App reset could not complete appStorage (Storage locked), walletDatabase (Database locked). Retry Reset App.',
     );
   });
 

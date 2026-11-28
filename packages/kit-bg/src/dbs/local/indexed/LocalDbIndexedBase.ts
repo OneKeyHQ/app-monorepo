@@ -441,19 +441,22 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     const environment = await travelModeManager.getRuntimeEnvironment();
     return environment.persistence.run({
       operation: async () => {
-        const db = await this.getRealDb();
         const bucketNames = Object.values(EIndexedDBBucketNames);
+        const storageBuckets = (globalThis.navigator as INavigator | undefined)
+          ?.storageBuckets;
         const results = await Promise.allSettled(
           bucketNames.map(async (bucketName) => {
-            db.getIndexedByBucketName(bucketName).close();
-            await IndexedDBPromised.deleteDatabase({
-              bucketName,
-              name: indexedDBUtils.buildDbName(bucketName),
-              onBlocked: () => onBlocked?.(bucketName),
-            });
-            const storageBuckets = (globalThis.navigator as INavigator)
-              ?.storageBuckets;
-            await storageBuckets?.delete(bucketName);
+            if (storageBuckets) {
+              // Whole-bucket deletion closes the browser's bucket
+              // connections. Do not open or individually delete its IDB first.
+              await storageBuckets.delete(bucketName);
+              return;
+            }
+            await IndexedDBPromised.clearDatabaseForReset(
+              globalThis.indexedDB,
+              indexedDBUtils.buildDbName(bucketName),
+              () => onBlocked?.(bucketName),
+            );
           }),
         );
         const failedIndex = results.findIndex(

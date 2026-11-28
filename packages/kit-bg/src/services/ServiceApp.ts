@@ -15,6 +15,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
@@ -81,11 +82,24 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 
 const RESET_REMOTE_DEADLINE_MS = 10_000;
 const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
+const RESET_OPTIONAL_CLEANUP_DEADLINE_MS = 1000;
+const RESET_DATABASE_DELETE_WINDOW_MS = 3000;
 const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 const WORKBOX_EXPIRATION_INDEXED_DB_NAME = 'workbox-expiration';
-const WORKBOX_STATIC_ASSETS_CACHE_NAME = 'static-assets';
+const UI_SNAPSHOT_DATABASE = 'onekey-ui-snapshot';
+const BROWSER_LOG_DATABASE = 'OneKeyDiagnosticLogs';
+const OPTIONAL_RESET_DATABASES = new Set([
+  WORKBOX_EXPIRATION_INDEXED_DB_NAME,
+  BROWSER_LOG_DATABASE,
+  UI_SNAPSHOT_DATABASE,
+  'sentry-offline',
+]);
+const OPTIONAL_RESET_BUCKETS = new Set([
+  'diagnostic-logs_onekey-bucket',
+  UI_SNAPSHOT_DATABASE,
+]);
 
 type IResetStageLogger = (
   stage: string,
@@ -221,9 +235,15 @@ class ServiceApp extends ServiceBase {
   ) {
     const runCleanup = (stage: string, task: () => unknown) =>
       this.runResetCleanup(log, failedStages, stage, task);
-    await runCleanup('logPersistence', () =>
-      this.backgroundApi.serviceLogger.stopPersistenceForReset(),
-    );
+    if (!this.completedResetCleanups.has('logPersistence')) {
+      await this.runOptionalResetCleanup(log, 'logPersistence', async () => {
+        await this.backgroundApi.serviceLogger.stopPersistenceForReset(
+          true,
+          false,
+        );
+        this.completedResetCleanups.add('logPersistence');
+      });
+    }
 
     // Client-scanned chains keep state in their own databases, outside every store cleared below; failures
     // come back as networks to retry and must not take App Reset down.
@@ -275,13 +295,15 @@ class ServiceApp extends ServiceBase {
         }
       });
     }
-    // A retry must clear snapshots again even if the first attempt cleared them.
-    this.completedResetCleanups.delete('snapshotCaches');
-    await runCleanup('snapshotCaches', async () => {
-      const { clearAllSnapshotCaches } =
-        await import('@onekeyhq/shared/src/storage/SnapshotCache');
-      await clearAllSnapshotCaches();
-    });
+    await this.runOptionalResetCleanup(
+      log,
+      'snapshotCaches',
+      async (canContinue) => {
+        const { clearAllSnapshotCaches } =
+          await import('@onekeyhq/shared/src/storage/SnapshotCache');
+        if (canContinue()) await clearAllSnapshotCaches();
+      },
+    );
     await runCleanup('legacyAppStorage', () => v4appStorage.clear());
     await runCleanup('walletEncryptionKeys', () =>
       this.resetNativeLocalSecretEnvelopeKeys(),
@@ -307,13 +329,33 @@ class ServiceApp extends ServiceBase {
       ) {
         await runCleanup('storageBuckets', async () => {
           const buckets = (globalThis.navigator as INavigator)?.storageBuckets;
-          for (const name of (await buckets?.keys()) ?? []) {
-            await buckets?.delete(name);
+          if (!buckets) return;
+          const names = await buckets.keys();
+          const results = await Promise.allSettled(
+            names.map(async (name) => {
+              if (OPTIONAL_RESET_BUCKETS.has(name)) {
+                await this.runOptionalResetCleanup(
+                  log,
+                  `optionalBucket:${name}`,
+                  () => buckets.delete(name),
+                );
+              } else {
+                await buckets.delete(name);
+              }
+            }),
+          );
+          const failed = results.findIndex(
+            (result) => result.status === 'rejected',
+          );
+          if (failed >= 0) {
+            throw new OneKeyLocalError(
+              `Unable to erase storage bucket ${names[failed]}`,
+            );
           }
         });
         if (!platformEnv.isDesktop) {
           await runCleanup('otherIndexedDBs', () =>
-            this.deleteOtherIndexedDBs(log),
+            this.clearRemainingBrowserData(log),
           );
         }
       }
@@ -362,125 +404,139 @@ class ServiceApp extends ServiceBase {
     }
   }
 
-  private async deleteOtherIndexedDBs(log: IResetStageLogger) {
-    const indexedDB = globalThis.indexedDB;
-    const databases = (await indexedDB?.databases?.()) ?? [];
-    const results = await Promise.allSettled(
-      databases.map(async ({ name }) => {
-        if (name === WALLET_CONNECT_INDEXED_DB_NAME && !platformEnv.isDesktop) {
-          await this.clearAndDeleteHeldIndexedDB(
-            indexedDB,
-            name,
-            'walletConnectIndexedDB',
-            log,
-          );
-        } else if (
-          name === WORKBOX_EXPIRATION_INDEXED_DB_NAME &&
-          !platformEnv.isDesktop
-        ) {
-          // Delete the Workbox Cache Storage entries together with their
-          // expiration metadata so cached assets are not orphaned outside TTL/maxEntries.
-          await globalThis.caches
-            ?.delete(WORKBOX_STATIC_ASSETS_CACHE_NAME)
-            .catch(() => {});
-          // Service Worker holds workbox-expiration open for static asset TTLs;
-          // clear its records and queue deletion without blocking app reset.
-          await this.clearAndDeleteHeldIndexedDB(
-            indexedDB,
-            name,
-            'workboxExpirationIndexedDB',
-            log,
-          );
-        } else if (name && name !== APP_RESET_CONTROL_NAME) {
-          await new Promise<void>((resolve, reject) => {
-            const request = indexedDB.deleteDatabase(name);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-            request.onblocked = () =>
-              log('otherIndexedDBs', 'blocked', { detail: name });
-          });
-        }
-      }),
-    );
-    const failure = results.find((result) => result.status === 'rejected');
-    if (failure) throw failure.reason;
-  }
+  private deleteClearedBrowserDatabases?: () => void;
 
-  private async clearAndDeleteHeldIndexedDB(
-    indexedDB: IDBFactory,
-    databaseName: string,
-    stage: string,
-    log: IResetStageLogger,
-  ) {
-    if (this.completedResetCleanups.has(stage)) return;
-    await new Promise<void>((resolve, reject) => {
-      let missing = false;
-      const open = indexedDB.open(databaseName);
-      open.onupgradeneeded = () => {
-        missing = true;
-        open.transaction?.abort();
-      };
-      open.onerror = () => {
-        if (missing && open.error?.name === 'AbortError') {
-          resolve();
-          return;
+  private async clearRemainingBrowserData(log: IResetStageLogger) {
+    const indexedDB = globalThis.indexedDB;
+    let databases: IDBDatabaseInfo[] = [];
+    if (indexedDB?.databases) {
+      databases = await indexedDB.databases();
+    } else if (indexedDB) {
+      databases = [UI_SNAPSHOT_DATABASE, BROWSER_LOG_DATABASE].map((name) => ({
+        name,
+      }));
+    }
+    const cacheCleanup = this.clearBrowserCacheStorage(log);
+    const results = await Promise.allSettled([
+      cacheCleanup,
+      ...databases.map(async ({ name }) => {
+        if (!name || name === APP_RESET_CONTROL_NAME) return;
+        let stage = 'otherIndexedDBs';
+        if (name === WALLET_CONNECT_INDEXED_DB_NAME) {
+          stage = 'walletConnectIndexedDB';
+        } else if (name === WORKBOX_EXPIRATION_INDEXED_DB_NAME) {
+          stage = 'workboxExpirationIndexedDB';
         }
-        log(stage, 'clear_failed', {
-          detail: this.formatResetErrorDetail(open.error) || databaseName,
-        });
-        reject(open.error);
-      };
-      open.onsuccess = () => {
-        const db = open.result;
         try {
-          const names = Array.from(db.objectStoreNames);
-          if (!names.length) {
-            resolve();
-            return;
+          if (name === WORKBOX_EXPIRATION_INDEXED_DB_NAME) {
+            // Give the matching cached assets a chance to be removed first.
+            await cacheCleanup;
           }
-          const tx = db.transaction(names, 'readwrite');
-          tx.oncomplete = () => {
-            log(stage, 'cleared');
-            resolve();
-          };
-          tx.onabort = () => {
-            log(stage, 'clear_failed', {
-              detail: this.formatResetErrorDetail(tx.error) || databaseName,
-            });
-            reject(
-              tx.error ??
-                new OneKeyLocalError(
-                  `${databaseName === WALLET_CONNECT_INDEXED_DB_NAME ? 'WalletConnect' : databaseName} clear aborted`,
-                ),
+          // Verify erasure without waiting for other connections to close.
+          const clear = async (canClear?: () => boolean) => {
+            const onBlocked = () => log(stage, 'blocked', { detail: name });
+            await IndexedDBPromised.clearDatabaseForReset(
+              indexedDB,
+              name,
+              onBlocked,
+              canClear,
+              name === BROWSER_LOG_DATABASE
+                ? (transaction) => {
+                    // Keep the retained logger schema ready for fresh writes.
+                    transaction
+                      .objectStore('meta')
+                      .put({ nextId: 1, bytes: 0, count: 0 }, 'state');
+                  }
+                : undefined,
             );
-          };
-          try {
-            for (const name of names) {
-              tx.objectStore(name).clear();
+            if (!canClear || canClear()) {
+              log(stage, 'cleared', { detail: name });
             }
-          } catch (error) {
-            tx.abort();
-            throw error;
+          };
+          if (OPTIONAL_RESET_DATABASES.has(name)) {
+            await this.runOptionalResetCleanup(
+              log,
+              `optionalIndexedDB:${name}`,
+              clear,
+              false,
+            );
+          } else {
+            await clear();
           }
         } catch (error) {
           log(stage, 'clear_failed', {
-            detail: this.formatResetErrorDetail(error) || databaseName,
+            detail: `${name}: ${this.formatResetErrorDetail(error)}`,
           });
-          reject(error);
-        } finally {
-          db.close();
+          throw error;
+        }
+      }),
+    ]);
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure) throw failure.reason;
+    if (indexedDB) {
+      this.deleteClearedBrowserDatabases = () => {
+        const deadline = Date.now() + RESET_DATABASE_DELETE_WINDOW_MS;
+        for (const { name } of databases) {
+          if (Date.now() >= deadline) break;
+          if (name && name !== APP_RESET_CONTROL_NAME) {
+            try {
+              // Do not await or retry. The browser may keep an already-issued
+              // delete queued beyond this dispatch window.
+              indexedDB.deleteDatabase(name).onerror = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              };
+            } catch {
+              // A best-effort delete does not affect reset success.
+            }
+          }
         }
       };
-    });
-    this.completedResetCleanups.add(stage);
-    // The records are gone even if an existing connection still blocks deletion.
+    }
+  }
+
+  private async clearBrowserCacheStorage(log: IResetStageLogger) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+    const clearCaches = async () => {
+      const { caches } = globalThis;
+      if (!caches) return;
+      const names = await caches.keys();
+      // A late enumeration must not start deleting caches after reset.
+      if (timedOut) return;
+      const results = await Promise.allSettled(
+        names.map(async (name) => caches.delete(name)),
+      );
+      if (timedOut) return;
+      let failed = false;
+      results.forEach((result, index) => {
+        if (result.status !== 'rejected') return;
+        failed = true;
+        log('cacheStorage', 'clear_failed', {
+          detail: `${names[index]}: ${this.formatResetErrorDetail(result.reason)}`,
+        });
+      });
+      if (!failed) log('cacheStorage', 'cleared');
+    };
     try {
-      const deletion = indexedDB.deleteDatabase(databaseName);
-      deletion.onblocked = () => log(stage, 'blocked');
-      deletion.onerror = () => log(stage, 'delete_failed');
-      deletion.onsuccess = () => log(stage, 'deleted');
-    } catch {
-      log(stage, 'delete_failed');
+      await Promise.race([
+        clearCaches(),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(() => {
+            timedOut = true;
+            log('cacheStorage', 'timeout', {
+              deadlineMs: RESET_OPTIONAL_CLEANUP_DEADLINE_MS,
+            });
+            resolve();
+          }, RESET_OPTIONAL_CLEANUP_DEADLINE_MS);
+        }),
+      ]);
+    } catch (error) {
+      log('cacheStorage', 'clear_failed', {
+        detail: this.formatResetErrorDetail(error),
+      });
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -504,6 +560,28 @@ class ServiceApp extends ServiceBase {
   private readonly runningResetStages = new Map<string, Promise<unknown>>();
 
   private readonly completedResetCleanups = new Set<string>();
+
+  private async runOptionalResetCleanup(
+    log: IResetStageLogger,
+    stage: string,
+    task: (canContinue: () => boolean) => unknown,
+    rejoinPending = true,
+  ) {
+    let active = true;
+    try {
+      await this.runResetStage(
+        log,
+        stage,
+        () => task(() => active),
+        RESET_OPTIONAL_CLEANUP_DEADLINE_MS,
+        rejoinPending,
+      );
+    } catch {
+      // runResetStage records the failure, but this is not required erasure.
+    } finally {
+      active = false;
+    }
+  }
 
   private async runResetCleanup(
     log: IResetStageLogger,
@@ -550,6 +628,7 @@ class ServiceApp extends ServiceBase {
     stage: string,
     task: () => T | Promise<T>,
     deadlineMs = RESET_LOCAL_STAGE_DEADLINE_MS,
+    rejoinPending = true,
   ): Promise<T> {
     const start = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -559,8 +638,9 @@ class ServiceApp extends ServiceBase {
       // Rejoin a native or database operation after its deadline.
       // Starting another delete could leave it queued behind a successful retry.
       const pending =
-        (this.runningResetStages.get(stage) as Promise<T> | undefined) ??
-        Promise.resolve().then(task);
+        (rejoinPending
+          ? (this.runningResetStages.get(stage) as Promise<T> | undefined)
+          : undefined) ?? Promise.resolve().then(task);
       this.runningResetStages.set(stage, pending);
       const clearPending = () => {
         if (this.runningResetStages.get(stage) === pending) {
@@ -687,7 +767,7 @@ class ServiceApp extends ServiceBase {
         resetUtils.startResetting();
         const log = this.buildResetLogger(marker);
         await this.runResetStage(log, 'otherIndexedDBs', () =>
-          this.deleteOtherIndexedDBs(log),
+          this.clearRemainingBrowserData(log),
         );
         await this.finishAppReset(log);
         resetUtils.endResetting();
@@ -706,6 +786,7 @@ class ServiceApp extends ServiceBase {
       const currentMarker = pendingMarker ?? marker;
       if (this.resetMarker?.operationId !== currentMarker.operationId) {
         this.completedResetCleanups.clear();
+        this.deleteClearedBrowserDatabases = undefined;
       }
       this.resetMarker = currentMarker;
       this.backgroundApi.serviceLogger?.beginResetAttempt?.();
@@ -738,6 +819,9 @@ class ServiceApp extends ServiceBase {
     await this.runResetStage(log, 'clearResetMarker', () =>
       writeAppResetMarker(),
     );
+    const deleteDatabases = this.deleteClearedBrowserDatabases;
+    this.deleteClearedBrowserDatabases = undefined;
+    deleteDatabases?.();
     log('localCleanup', 'reset_completed');
     broadcastAppReset('completed');
   }
@@ -827,8 +911,8 @@ class ServiceApp extends ServiceBase {
     await this.resetData(log, failedStages);
     if (recoveryErasureFailed) throw new RecoveryCacheErasureError();
     if (platformEnv.isDesktop) {
-      // WalletConnect and other renderer-owned connections can keep origin
-      // database deletes blocked until Electron reloads this renderer.
+      // Reload to stop renderer-owned writers before sweeping remaining
+      // IndexedDB data. This phase uses the same clear as Web and extension.
       const nextMarker: IAppResetMarker = {
         ...marker,
         desktopIndexedDBCleanup: true,
