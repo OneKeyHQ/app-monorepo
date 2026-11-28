@@ -13,6 +13,7 @@ import {
   Toast,
   XStack,
   YStack,
+  runAfterActionListClose,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { useDeepCompareEffect } from '@onekeyhq/components/src/hooks/useDeepCompareEffect';
@@ -91,6 +92,7 @@ type IProps = {
     deriveInfo: IAccountDeriveInfo;
     deriveType: IAccountDeriveTypes;
   }) => Promise<void>;
+  closeBeforeSelect?: boolean;
   onCreate?: (value: {
     account: IDBAccount | undefined;
     deriveInfo: IAccountDeriveInfo;
@@ -134,7 +136,7 @@ const StrongText = (chunks: (string | ReactElement)[]) => (
 function AddressTypeSelectorContent(
   props: IProps & {
     isOpen?: boolean;
-    closePopover: () => void;
+    closePopover: () => void | Promise<void>;
     networkAccounts: IDerivedAccount[];
     refreshNetworkAccounts: () => Promise<void>;
     selectorTitle: string | ReactNode;
@@ -145,6 +147,7 @@ function AddressTypeSelectorContent(
     indexedAccountId,
     description,
     onSelect,
+    closeBeforeSelect,
     onCreate,
     changeDefaultAddressTypeAfterSelect = true,
     networkAccounts,
@@ -204,6 +207,23 @@ function AddressTypeSelectorContent(
     return null;
   }, [changeDefaultAddressTypeAfterSelect, description, intl]);
 
+  const selectAddressAndClose = useCallback(
+    (selected: IDerivedAccount) => {
+      if (closeBeforeSelect) {
+        return runAfterActionListClose(
+          closePopover,
+          () => onSelect?.(selected),
+          {
+            waitForAnimation: false,
+          },
+        );
+      }
+      void onSelect?.(selected);
+      void closePopover();
+    },
+    [closeBeforeSelect, closePopover, onSelect],
+  );
+
   const handleAddressTypeOnSelect = useCallback(
     async ({
       account,
@@ -226,7 +246,7 @@ function AddressTypeSelectorContent(
           // z-index (150_000) does not hide those dialogs (z-index 100_000).
           // Software wallets keep the popover open to show inline loading.
           if (accountUtils.isHwWallet({ walletId })) {
-            closePopover();
+            void closePopover();
           }
           const createAddressResult = await createAddress({
             selectAfterCreate: false,
@@ -260,12 +280,7 @@ function AddressTypeSelectorContent(
 
       if (deriveType === activeDeriveType) {
         if (!doubleConfirm) {
-          void onSelect?.({
-            account,
-            deriveInfo,
-            deriveType,
-          });
-          closePopover();
+          await selectAddressAndClose({ account, deriveInfo, deriveType });
         }
         return;
       }
@@ -281,12 +296,7 @@ function AddressTypeSelectorContent(
             },
           );
         }
-        void onSelect?.({
-          account,
-          deriveInfo,
-          deriveType,
-        });
-        closePopover();
+        await selectAddressAndClose({ account, deriveInfo, deriveType });
       }
     },
     [
@@ -303,7 +313,7 @@ function AddressTypeSelectorContent(
       onCreate,
       closePopover,
       changeDefaultAddressTypeAfterSelect,
-      onSelect,
+      selectAddressAndClose,
     ],
   );
 
@@ -362,13 +372,10 @@ function AddressTypeSelectorContent(
               }
 
               if (currentNetworkAccount) {
-                void onSelect?.({
-                  account: currentNetworkAccount.account,
-                  deriveInfo: currentNetworkAccount.deriveInfo,
-                  deriveType: currentNetworkAccount.deriveType,
-                });
+                await selectAddressAndClose(currentNetworkAccount);
+                return;
               }
-              closePopover();
+              void closePopover();
             }}
           >
             {confirmText ||
@@ -470,9 +477,10 @@ function AddressTypeSelectorPopoverContent({
   selectorHelpLink: string;
 }) {
   const { open: isOpen, closePopover } = usePopoverContext();
-  const handleClosePopover = useCallback(() => {
-    void closePopover?.();
-  }, [closePopover]);
+  const handleClosePopover = useCallback(
+    () => closePopover?.(),
+    [closePopover],
+  );
 
   return (
     <AccountSelectorProviderMirror
