@@ -212,6 +212,11 @@ const nativeContractDirectories = {
   shared: [],
 };
 
+const nativeIconResourceDirectories = [
+  'packages/components/svg',
+  'development/onekey-icons',
+];
+
 const shellInputDirectories = {
   android: [
     'apps/mobile/android/app/src',
@@ -252,7 +257,7 @@ const shellInputDirectories = {
     'apps/mobile/ios/zh-Hans.lproj',
     'apps/mobile/ios/zh-Hant.lproj',
   ],
-  shared: ['packages/components/svg', 'development/onekey-icons'],
+  shared: nativeIconResourceDirectories,
 };
 
 const shellInputFiles = {
@@ -340,6 +345,7 @@ module.exports = {
   nativeContractDependencies,
   nativeContractDirectories,
   nativeContractFiles,
+  nativeIconResourceDirectories,
   getTransformationEnvironment,
   isVendorModule(moduleKey) {
     return moduleKey.startsWith('node_modules/');

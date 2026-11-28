@@ -998,10 +998,10 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   return {
     app: getAppNativeAbiDescriptor(platform, repoRoot),
     iconResources: hashRepoFiles(
-      listShellInputRepoFiles(repoRoot, [
-        'packages/components/svg',
-        'development/onekey-icons',
-      ]),
+      listShellInputRepoFiles(
+        repoRoot,
+        devVendorConfig.nativeIconResourceDirectories,
+      ),
       repoRoot,
     ),
     dependencies: dependencyNames.map((name) =>
