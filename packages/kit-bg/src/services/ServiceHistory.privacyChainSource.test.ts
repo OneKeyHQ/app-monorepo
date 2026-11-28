@@ -18,7 +18,10 @@ jest.mock('../states/jotai/atoms', () => ({
   perpsDepositOrderAtom: { get: async () => ({ orders: [] }) },
 }));
 
-import { convertHistoryTxsFiatCurrency } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  convertHistoryTxsFiatCurrency,
+  getHistoryTxDetailInfo,
+} from '@onekeyhq/shared/src/utils/historyUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
@@ -107,6 +110,77 @@ function createService() {
   );
   return { service, fetchHistoryTxDetails };
 }
+
+describe('ServiceHistory receipt-only details', () => {
+  const networkId = 'starknet--mainnet';
+  const scope = { networkId, accountId: 'acc', accountAddress: 'addr' };
+  it('keeps the cached Starknet token amount when only receipt metadata is available', async () => {
+    const { service } = createService();
+    const cachedTx = row(networkId, 'receipt', { isLocalCreated: false });
+    cachedTx.decodedTx.isFinal = true;
+    cachedTx.decodedTx.actions = [
+      {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: 'sender',
+          to: 'addr',
+          sends: [],
+          receives: [
+            {
+              amount: '7',
+              tokenIdOnNetwork: 'strk',
+              from: 'sender',
+              to: 'addr',
+              name: 'Starknet',
+              icon: '',
+              symbol: 'STRK',
+            },
+          ],
+        },
+      },
+    ];
+    const receipt = {
+      tx: 'receipt',
+      status: EOnChainHistoryTxStatus.Success,
+      gasFee: '0.001',
+      sends: [],
+      receives: [],
+    } as unknown as IFetchHistoryTxDetailsResp['data'];
+    const result = await service.decodeOnChainHistoryTx({
+      ...scope,
+      cachedTx,
+      tx: receipt,
+      tokens: {},
+      nfts: {},
+    });
+    expect(result?.decodedTx.actions).toEqual(cachedTx.decodedTx.actions);
+    // Fee and receipt status are displayed independently from the cached asset action.
+    expect(
+      getHistoryTxDetailInfo({ historyTx: result, txDetails: receipt })
+        .feeInNative,
+    ).toBe('0.001');
+  });
+  it('decodes a pending custom RPC receipt without token or NFT maps', async () => {
+    const { service } = createService();
+    const pending = row('evm--901', 'pending');
+    const buildOnChainHistoryTx = jest.fn(async () => pending);
+    mockGetVault.mockResolvedValue({ buildOnChainHistoryTx });
+    const tx = {
+      tx: 'pending',
+      status: EOnChainHistoryTxStatus.Pending,
+    } as IFetchHistoryTxDetailsResp['data'];
+    expect(
+      await service.decodeOnChainHistoryTx({
+        ...scope,
+        networkId: 'evm--901',
+        tx,
+      }),
+    ).toEqual(pending);
+    expect(buildOnChainHistoryTx).toHaveBeenCalledWith(
+      expect.objectContaining({ onChainHistoryTx: tx, tokens: {}, nfts: {} }),
+    );
+  });
+});
 
 describe('ServiceHistory All Networks privacy chain rows', () => {
   async function fetchAllNetworks(
@@ -401,7 +475,7 @@ describe('ServiceHistory pending row confirmed after a currency switch', () => {
         addressMap: {},
         hasMore: false,
       }),
-      attachPrivateSendDisplayStatus: async (txs: IAccountHistoryTx[]) => {
+      attachSwapHistoryForDisplay: async (txs: IAccountHistoryTx[]) => {
         confirmed = txs;
         throw stop;
       },

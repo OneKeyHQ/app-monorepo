@@ -2,8 +2,17 @@
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
+import { checkIsLowValueReceiveTx } from '@onekeyhq/shared/src/utils/historyUtils';
+import { getSwapHistoryDisplayToAmount } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import {
+  ESwapTxHistoryStatus,
+  type ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  EDecodedTxStatus,
+  EDecodedTxActionType,
+} from '@onekeyhq/shared/types/tx';
 
 const ServiceHistory = require('./ServiceHistory')
   .default as typeof import('./ServiceHistory').default;
@@ -30,22 +39,317 @@ function localTx(): IAccountHistoryTx {
   } as unknown as IAccountHistoryTx;
 }
 
+function legacyTransfer(id: string, amounts = ['2']) {
+  const legacy = tx(EDecodedTxStatus.Confirmed);
+  const transfer = {
+    from: 'sender',
+    to: 'addr',
+    amount: '2',
+    price: '80',
+    icon: '',
+    name: 'Stock',
+    symbol: 'SNDKB',
+    tokenIdOnNetwork: 'stock',
+  };
+  legacy.isLocalCreated = false;
+  Object.assign(legacy.decodedTx, {
+    networkId: 'evm--56',
+    txid: id,
+    isFinal: true,
+  });
+  legacy.id = id;
+  const assetTransfer = {
+    from: 'sender',
+    to: 'addr',
+    sends: [],
+    receives: amounts.map((amount) => ({ ...transfer, amount })),
+  };
+  legacy.decodedTx.actions = [
+    { type: EDecodedTxActionType.ASSET_TRANSFER, assetTransfer },
+  ];
+  return legacy;
+}
+
 describe('ServiceHistory local pending reconciliation', () => {
   function createService() {
     const batchUpdateLocalHistoryTxs = jest.fn(async () => undefined);
-    const service = Object.assign(
-      Object.create(ServiceHistory.prototype) as InstanceType<
-        typeof ServiceHistory
-      >,
-      {
-        backgroundApi: {
-          serviceNetwork: { getVaultSettings: async () => ({}) },
-          simpleDb: { localHistory: { batchUpdateLocalHistoryTxs } },
-        },
+    const service = new ServiceHistory({
+      backgroundApi: {
+        serviceNetwork: { getVaultSettings: async () => ({}) },
+        simpleDb: { localHistory: { batchUpdateLocalHistoryTxs } },
       },
-    );
+    });
     return { service, batchUpdateLocalHistoryTxs };
   }
+
+  it.each([
+    ['same-chain receipt', 'fill', undefined, 'receiver', '2', '80'],
+    ['cross-chain receipt', 'bridge', 'bridge', 'receiver', '2', '80'],
+    ['unrelated transaction', 'other', undefined, 'receiver', '16', '10'],
+    [
+      'another recipient in the same transaction',
+      'fill',
+      undefined,
+      'other',
+      '16',
+      '10',
+    ],
+  ] as const)(
+    'decodes a %s against the completed order snapshot',
+    async (_, txid, receiverTransactionId, to, amount, price) => {
+      const { service } = createService();
+      const networkId = 'evm--56';
+      const token = {
+        contractAddress: '0xABC',
+        networkId,
+        symbol: 'SNDKB',
+        decimals: 18,
+        balanceMultiplier: '1',
+      };
+      const order: ISwapTxHistory = {
+        status: ESwapTxHistoryStatus.SUCCESS,
+        txInfo: {
+          txId: 'fill',
+          receiverTransactionId,
+          sender: 'sender',
+          receiver: 'receiver',
+        },
+        accountInfo: { sender: { networkId }, receiver: { networkId } },
+        baseInfo: {
+          fromToken: receiverTransactionId
+            ? { ...token, networkId: 'evm--1' }
+            : token,
+          toToken: token,
+          fromAmount: '2',
+          toAmount: '2',
+        },
+        swapInfo: {
+          provider: { provider: 'test', providerName: 'Test' },
+          instantRate: '1',
+        },
+        date: { created: 1, updated: 1 },
+      };
+      const row = tx(EDecodedTxStatus.Confirmed);
+      row.isLocalCreated = false;
+      const leg = {
+        tokenIdOnNetwork: '0xabc',
+        from: 'sender',
+        to,
+        icon: '',
+        name: 'Stock',
+        symbol: 'SNDKB',
+        amount: '16',
+        rawAmount: receiverTransactionId ? undefined : '2',
+        balanceMultiplier: '8',
+        price: '10',
+      };
+      Object.assign(row.decodedTx, {
+        networkId,
+        txid,
+        isFinal: true,
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            assetTransfer: { from: 'sender', to, sends: [], receives: [leg] },
+          },
+        ],
+      });
+      const getSwapHistoryList = jest.fn(async () => [order]);
+      Object.assign(service.backgroundApi.simpleDb, {
+        localHistory: {
+          getAccountLocalHistoryConfirmedTxs: async () => [row],
+          getAccountLocalHistoryPendingTxs: async () => [],
+        },
+        swapHistory: { getSwapHistoryList },
+      });
+      Object.assign(service.backgroundApi, {
+        serviceAccount: {
+          getAccountAddressForApi: async () => 'addr',
+          getAccountXpub: async () => undefined,
+        },
+      });
+      const scope = { accountId: 'acc', accountAddress: 'addr', networkId };
+      getSwapHistoryList.mockRejectedValueOnce(new Error('store unavailable'));
+      expect((await service.getAccountsLocalHistoryTxs(scope))[0]).toBe(row);
+      getSwapHistoryList.mockResolvedValueOnce([
+        { ...order, status: ESwapTxHistoryStatus.PENDING },
+      ]);
+      expect((await service.getAccountsLocalHistoryTxs(scope))[0]).toBe(row);
+      const [completed] = await service.getAccountsLocalHistoryTxs(scope);
+      const detail = await service.decodeOnChainHistoryTx({
+        ...scope,
+        cachedTx: row,
+      });
+      expect(detail).toEqual(completed);
+      expect(leg).toMatchObject({
+        amount: '16',
+        price: '10',
+        balanceMultiplier: '8',
+      });
+      expect(
+        completed.decodedTx.actions[0].assetTransfer?.receives[0],
+      ).toMatchObject({ amount, price });
+      expect(
+        await service.decodeOnChainHistoryTx({ ...scope, cachedTx: completed }),
+      ).toEqual(completed);
+      expect(getSwapHistoryDisplayToAmount(order)).toBe('2');
+    },
+  );
+
+  it('refreshes an older off-page token transfer from raw detail once and retries after a failed request', async () => {
+    const { service, batchUpdateLocalHistoryTxs } = createService();
+    const networkId = 'evm--56';
+    const legacy = legacyTransfer('receipt', ['2', '3', '4', '4', '5']);
+    const transfer = legacy.decodedTx.actions[0].assetTransfer!.receives[0];
+    const receipt = {
+      data: {
+        tx: legacy.decodedTx.txid,
+        // The 4-unit matches agree. The 5-unit matches have different prices.
+        receives: ['3', '4', '2.00', '4', '5', '5.0'].map((amount) => ({
+          ...transfer,
+          token: 'stock',
+          key: amount === '5.0' ? 'other' : 'stock',
+          amount,
+        })),
+        sends: [],
+      },
+      tokens: {
+        stock: { info: { balanceMultiplier: '8' }, price: '10' },
+        other: { info: { balanceMultiplier: '8' }, price: '11' },
+      },
+      nfts: {},
+    } as unknown as NonNullable<
+      Awaited<ReturnType<typeof service.fetchHistoryTxDetails>>
+    >;
+    const details = jest
+      .spyOn(service, 'fetchHistoryTxDetails')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(receipt);
+    const refresh = async (cached: IAccountHistoryTx) =>
+      (
+        await service.batchUpdateLocalHistoryTxs([
+          {
+            networkId,
+            accountAddress: 'addr',
+            onChainHistoryTxs: [],
+            confirmedTxs: [cached],
+            pendingTxs: [],
+            pendingTxsToModify: [],
+          },
+        ])
+      ).allConfirmedTxsToSave[0];
+    const clock = jest.spyOn(Date, 'now');
+    try {
+      expect(await refresh(legacy)).toEqual(legacy);
+      expect(await refresh(legacy)).toEqual(legacy);
+      expect(details).toHaveBeenCalledTimes(1);
+      clock.mockReturnValue(Date.now() + 6 * 60_000);
+      let release!: () => void;
+      const slow = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      details.mockImplementationOnce(async () => {
+        await slow;
+        return receipt;
+      });
+      expect(await refresh(legacy)).toEqual(legacy);
+      expect(
+        legacy.decodedTx.actions[0].assetTransfer?.receives[0].amount,
+      ).toBe('2');
+      release();
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+      const online = await refresh(legacy);
+      const legs = online.decodedTx.actions[0].assetTransfer?.receives;
+      expect(legs).toMatchObject([
+        { amount: '16', rawAmount: '2.00', price: '10' },
+        { amount: '24', rawAmount: '3', price: '10' },
+        { amount: '32', price: '10' },
+        { amount: '32', price: '10' },
+        { amount: '5', price: undefined },
+      ]);
+      expect(online.fiatCurrency).toBe('usd');
+      expect(await refresh(online)).toEqual(online);
+      expect(details).toHaveBeenCalledTimes(2);
+      const displayed = await service.decodeOnChainHistoryTx({
+        accountId: 'acc',
+        networkId,
+        cachedTx: { ...legacy, fiatCurrency: 'usd' },
+        requestCurrency: 'eur',
+        tx: receipt.data,
+        tokens: receipt.tokens,
+      });
+      expect(displayed?.fiatCurrency).toBe('eur');
+      expect(
+        displayed?.decodedTx.actions[0].assetTransfer?.receives,
+      ).toMatchObject([
+        { amount: '16', price: '10' },
+        { amount: '24', price: '10' },
+        { amount: '32', price: '10' },
+        { amount: '32', price: '10' },
+        { amount: '5', price: undefined },
+      ]);
+      expect(batchUpdateLocalHistoryTxs).toHaveBeenLastCalledWith([
+        expect.objectContaining({ confirmedTxsToSave: [online] }),
+      ]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('keeps a partially priced receipt visible, including an unpriced native leg', () => {
+    const row = legacyTransfer('receipt', ['0.005', '20']);
+    const [small, native] = row.decodedTx.actions[0].assetTransfer!.receives;
+    small.price = '1';
+    native.isNative = true;
+    native.price = undefined;
+    expect(checkIsLowValueReceiveTx({ tx: row })).toBe(false);
+    native.price = '1';
+    expect(checkIsLowValueReceiveTx({ tx: row })).toBe(false);
+    native.amount = '0.001';
+    expect(checkIsLowValueReceiveTx({ tx: row })).toBe(true);
+  });
+
+  it('visits the next account before expired failures can take the backfill budget again', async () => {
+    const { service } = createService();
+    const details = jest
+      .spyOn(service, 'fetchHistoryTxDetails')
+      .mockResolvedValue(null);
+    const prefix = Array.from({ length: 25 }, (_, i) =>
+      legacyTransfer(String(i).padStart(2, '0')),
+    );
+    const tail = legacyTransfer('last');
+    tail.fiatCurrency = 'eur';
+    const batch = [prefix, [tail]].map((confirmedTxs, i) => ({
+      networkId: 'evm--56',
+      accountAddress: String(i),
+      confirmedTxs,
+      onChainHistoryTxs: [],
+      pendingTxs: [],
+      pendingTxsToModify: [],
+    }));
+    const clock = jest.spyOn(Date, 'now');
+    try {
+      for (let i = 0; i <= prefix.length; i += 1) {
+        await service.batchUpdateLocalHistoryTxs(batch);
+        expect(details).toHaveBeenCalledTimes(i + 1);
+        clock.mockReturnValue(Date.now() + 15_000);
+      }
+      expect(details.mock.calls.map(([request]) => request.txid)).toEqual([
+        ...prefix.map((row) => row.decodedTx.txid),
+        'last',
+      ]);
+      expect(details).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          accountAddress: '1',
+          requestCurrency: 'eur',
+        }),
+      );
+    } finally {
+      clock.mockRestore();
+    }
+  });
 
   it.each([
     ['a local pending row', EDecodedTxStatus.Pending, localTx()],

@@ -24,6 +24,7 @@ import type {
   IOnChainHistoryTxToken,
   IOnChainHistoryTxTransfer,
 } from '../../types/history';
+import type { IDecodedTxTransferInfo } from '../../types/tx';
 
 // usd
 const LOW_VALUE_RECEIVE_TX_THRESHOLD = 0.01;
@@ -56,6 +57,26 @@ export function getOnChainHistoryTxStatus(
   return EDecodedTxStatus.Pending;
 }
 
+// Indexer-decoded transfers carry the multiplier used for their displayed amount.
+export function hasIndexedTokenTransfers(
+  tx?: IAccountHistoryTx,
+  legacyOnly = false,
+) {
+  const transfer = tx?.decodedTx.actions?.[0]?.assetTransfer;
+  return (
+    tx?.isLocalCreated === false &&
+    tx.decodedTx.isFinal &&
+    !!transfer &&
+    [...transfer.sends, ...transfer.receives].some(
+      (asset) =>
+        asset.tokenIdOnNetwork &&
+        !asset.isNative &&
+        !asset.isNFT &&
+        (!legacyOnly || asset.balanceMultiplier === undefined),
+    )
+  );
+}
+
 export function getOnChainHistoryTxAssetInfo({
   key,
   tokenAddress,
@@ -77,6 +98,7 @@ export function getOnChainHistoryTxAssetInfo({
   let isNative = false;
   let price = '0';
   let decimals = 0;
+  let balanceMultiplier: string | undefined;
   nft = nfts[key] ?? nfts[tokenAddress];
   if (tokenAddress === '') {
     token = tokens[key] ?? tokens[tokenAddress] ?? tokens.native;
@@ -101,6 +123,7 @@ export function getOnChainHistoryTxAssetInfo({
     isNative = !!info.isNative;
     price = token.price ?? '0';
     decimals = info.decimals;
+    balanceMultiplier = info.balanceMultiplier;
   }
   return {
     name,
@@ -111,6 +134,7 @@ export function getOnChainHistoryTxAssetInfo({
     isNative,
     price,
     decimals,
+    balanceMultiplier,
   };
 }
 
@@ -388,16 +412,15 @@ export function checkIsLowValueReceiveTx({
   let totalFiatValue = new BigNumber(0);
   let hasNonZeroPrice = false;
 
-  filteredReceives.forEach((receive) => {
-    const { amount, price } = receive;
-
-    if (new BigNumber(price ?? 0).gt(0)) {
+  for (const receive of filteredReceives) {
+    const price = new BigNumber(receive.price ?? NaN);
+    if (price.isFinite() && price.gt(0)) {
       hasNonZeroPrice = true;
-      totalFiatValue = totalFiatValue.plus(
-        new BigNumber(amount ?? 0).multipliedBy(price ?? 0),
-      );
+      totalFiatValue = totalFiatValue.plus(price.times(receive.amount));
+    } else if (!receive.isNFT) {
+      return false;
     }
-  });
+  }
 
   if (!hasNonZeroPrice) {
     return false;
@@ -423,7 +446,50 @@ export function checkIsLowValueReceiveTx({
   return totalFiatValue.lt(LOW_VALUE_RECEIVE_TX_THRESHOLD);
 }
 
-function convertHistoryTxFiatCurrency({
+// Apply a display transform without mutating the cached history row.
+export function mapHistoryTransfers(
+  tx: IAccountHistoryTx,
+  update: (
+    asset: IDecodedTxTransferInfo,
+    side: 'sends' | 'receives',
+    index: number,
+  ) => IDecodedTxTransferInfo,
+) {
+  const mapActions = (actions: IAccountHistoryTx['decodedTx']['actions']) =>
+    actions.map((action) => {
+      const group = action.assetTransfer;
+      if (!group) return action;
+      const sends = group.sends.map((asset, i) => update(asset, 'sends', i));
+      const receives = group.receives.map((asset, i) =>
+        update(asset, 'receives', i),
+      );
+      if (
+        sends.every((a, i) => a === group.sends[i]) &&
+        receives.every((a, i) => a === group.receives[i])
+      )
+        return action;
+      return { ...action, assetTransfer: { ...group, sends, receives } };
+    });
+  const { decodedTx } = tx;
+  const actions = mapActions(decodedTx.actions);
+  const outputActions =
+    decodedTx.outputActions && mapActions(decodedTx.outputActions);
+  if (
+    actions.every((a, i) => a === decodedTx.actions[i]) &&
+    !outputActions?.some((a, i) => a !== decodedTx.outputActions?.[i])
+  )
+    return tx;
+  return {
+    ...tx,
+    decodedTx: {
+      ...decodedTx,
+      actions,
+      ...(outputActions && { outputActions }),
+    },
+  };
+}
+
+export function convertHistoryTxFiatCurrency({
   tx,
   targetCurrency,
   currencyMap,
@@ -435,10 +501,12 @@ function convertHistoryTxFiatCurrency({
   hideUnconvertible?: boolean;
 }): IAccountHistoryTx {
   const sourceCurrency = tx.fiatCurrency;
-  if (!sourceCurrency || sourceCurrency === targetCurrency) {
+  if (sourceCurrency === targetCurrency) {
     return tx;
   }
-  const sourceRate = new BigNumber(currencyMap?.[sourceCurrency]?.value ?? NaN);
+  const sourceRate = new BigNumber(
+    (sourceCurrency && currencyMap?.[sourceCurrency]?.value) || NaN,
+  );
   const targetRate = new BigNumber(currencyMap?.[targetCurrency]?.value ?? NaN);
   const rate =
     sourceRate.gt(0) && targetRate.gt(0)
@@ -458,38 +526,16 @@ function convertHistoryTxFiatCurrency({
     const converted = new BigNumber(value).times(rate);
     return converted.isNaN() ? undefined : converted.toFixed();
   };
-  const convertActions = (actions: IAccountHistoryTx['decodedTx']['actions']) =>
-    actions.map((action) => {
-      const { assetTransfer } = action;
-      if (!assetTransfer) {
-        return action;
-      }
-      return {
-        ...action,
-        assetTransfer: {
-          ...assetTransfer,
-          sends: assetTransfer.sends.map((transfer) => ({
-            ...transfer,
-            price: convert(transfer.price),
-          })),
-          receives: assetTransfer.receives.map((transfer) => ({
-            ...transfer,
-            price: convert(transfer.price),
-          })),
-        },
-      };
-    });
-  const { decodedTx } = tx;
+  const converted = mapHistoryTransfers(tx, (asset) => ({
+    ...asset,
+    price: convert(asset.price),
+  }));
   return {
-    ...tx,
+    ...converted,
     fiatCurrency: rate ? targetCurrency : undefined,
     decodedTx: {
-      ...decodedTx,
-      totalFeeFiatValue: convert(decodedTx.totalFeeFiatValue),
-      actions: convertActions(decodedTx.actions),
-      ...(decodedTx.outputActions
-        ? { outputActions: convertActions(decodedTx.outputActions) }
-        : {}),
+      ...converted.decodedTx,
+      totalFeeFiatValue: convert(tx.decodedTx.totalFeeFiatValue),
     },
   };
 }
@@ -518,12 +564,14 @@ export function convertHistoryTxsFiatCurrency({
     return txs;
   }
   return txs.map((tx) =>
-    convertHistoryTxFiatCurrency({
-      tx,
-      targetCurrency,
-      currencyMap,
-      hideUnconvertible,
-    }),
+    tx.fiatCurrency
+      ? convertHistoryTxFiatCurrency({
+          tx,
+          targetCurrency,
+          currencyMap,
+          hideUnconvertible,
+        })
+      : tx,
   );
 }
 

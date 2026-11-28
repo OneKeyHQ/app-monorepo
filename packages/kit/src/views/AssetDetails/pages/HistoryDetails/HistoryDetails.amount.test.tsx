@@ -45,7 +45,7 @@ function mockGate() {
 }
 
 function mockGatedHistory() {
-  return mockHistory.decodedTx.networkId.startsWith('btc')
+  return /^(btc|evm)--/.test(mockHistory.decodedTx.networkId)
     ? mockHistory
     : gateLocalWalletHistoryTx(mockGate(), mockHistory);
 }
@@ -59,12 +59,19 @@ function mockGatedDetails() {
     : mockTxDetails;
 }
 
+let mockCurrency = 'usd';
+let mockDetailKey: string | undefined;
 let mockDeepLink = false;
+let mockRefreshedHistory: IAccountHistoryTx | undefined;
+let mockNativeSymbol: string | undefined;
 
 beforeEach(() => {
   mockTxDetails = undefined;
   mockAccountAddresses = undefined;
+  mockCurrency = 'usd';
   mockDeepLink = false;
+  mockRefreshedHistory = undefined;
+  mockNativeSymbol = 'XMR';
 });
 
 // Messages with values render from the English catalog; others stay ids.
@@ -141,8 +148,19 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/components/NumberSizeableTextWrapper', () => ({
   __esModule: true,
-  default: ({ children }: { children?: ReactNode }) => (
-    <span data-testid="formatted-number">{children}</span>
+  default: ({
+    children,
+    formatterOptions,
+  }: {
+    children?: ReactNode;
+    formatterOptions?: { tokenSymbol?: string };
+  }) => (
+    <span
+      data-testid="formatted-number"
+      data-unit={formatterOptions?.tokenSymbol}
+    >
+      {children}
+    </span>
   ),
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
@@ -181,8 +199,8 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
       symbol: 'XMR',
       name: 'Monero',
     },
-    vaultSettings: mockHistory.decodedTx.networkId.startsWith('btc')
-      ? { isUtxo: true }
+    vaultSettings: /^(btc|evm)--/.test(mockHistory.decodedTx.networkId)
+      ? { isUtxo: mockHistory.decodedTx.networkId.startsWith('btc') }
       : {
           localWallet: {
             publicAddressPattern:
@@ -217,19 +235,41 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
   }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (_request: unknown, deps: unknown[]) => ({
-    result:
-      deps.length === 2
-        ? { symbol: 'XMR' }
-        : {
-            txDetails: mockGatedDetails(),
-            decodedOnChainTx: mockDeepLink ? mockHistory : undefined,
-          },
-    isLoading: false,
-  }),
+  usePromiseResult: (
+    _request: unknown,
+    deps: unknown[],
+    options?: { swrKey?: string },
+  ) => {
+    if (options?.swrKey) mockDetailKey = options.swrKey;
+    return {
+      result:
+        deps.length === 2
+          ? {
+              networkId: mockHistory.decodedTx.networkId,
+              symbol: mockNativeSymbol,
+            }
+          : {
+              txDetails: mockGatedDetails(),
+              decodedOnChainTx:
+                mockRefreshedHistory ??
+                (mockDeepLink ? mockHistory : undefined),
+            },
+      isLoading: false,
+    };
+  },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useSettingsPersistAtom: () => [{ currencyInfo: { symbol: '$' } }],
+  useSettingsPersistAtom: () => [
+    {
+      currencyInfo: {
+        id: mockCurrency,
+        symbol: mockCurrency === 'usd' ? '$' : '€',
+      },
+    },
+  ],
+  useCurrencyPersistAtom: () => [
+    { currencyMap: { usd: { value: '1' }, eur: { value: '0.8' } } },
+  ],
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider',
@@ -244,10 +284,8 @@ jest.mock('@onekeyhq/kit/src/views/Swap/utils/privateSendHistory', () => ({
 jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
   swrCacheNamespaces: { historyTxDetail: 'detail' },
   swrCacheUtils: { removeByPrefix: jest.fn(), flushNow: jest.fn() },
-  swrKeys: { historyTxDetail: () => 'test-detail' },
-}));
-jest.mock('@onekeyhq/shared/src/utils/historyUtils', () => ({
-  getHistoryTxDetailInfo: () => ({}),
+  swrKeys: jest.requireActual('@onekeyhq/shared/src/utils/swrCacheUtils')
+    .swrKeys,
 }));
 jest.mock('../../utils', () => ({ getHistoryTxMeta: () => undefined }));
 jest.mock('./components/TxKYTRiskCheck', () => ({
@@ -657,6 +695,83 @@ it('shows our transparent change address beside the displayed t1', () => {
   expect(result.queryByTestId('history-details-to-pool')).toBeNull();
   expect(result.getAllByText(OWN_T)).toHaveLength(1);
   expect(result.getAllByText(external)).toHaveLength(1);
+});
+
+it('replaces a legacy route amount when the decoded detail arrives', () => {
+  mockHistory = history('evm--56', '2');
+  mockHistory.isLocalCreated = false;
+  mockHistory.decodedTx.isFinal = true;
+  const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
+  if (!transfer) throw new OneKeyLocalError('missing asset transfer fixture');
+  Object.assign(transfer.sends[0], {
+    tokenIdOnNetwork: 'stock',
+    isNative: false,
+    symbol: 'SNDKB',
+  });
+  mockRefreshedHistory = {
+    ...mockHistory,
+    decodedTx: {
+      ...mockHistory.decodedTx,
+      actions: [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            ...transfer,
+            sends: [
+              { ...transfer.sends[0], amount: '16', balanceMultiplier: '8' },
+            ],
+          },
+        },
+      ],
+    },
+  };
+  const result = render(<HistoryDetails />);
+  const assets = within(
+    result.getByTestId('history-details-what-assets-change'),
+  );
+  expect(assets.getByText('-16')).toBeTruthy();
+  expect(assets.queryByText('-2')).toBeNull();
+});
+
+it('reopens a USD receipt in EUR with a separate cache entry and converted transfer and fee', () => {
+  mockHistory = history('evm--1', '2');
+  mockHistory.fiatCurrency = 'usd';
+  mockHistory.decodedTx.totalFeeInNative = '0.01';
+  mockHistory.decodedTx.totalFeeFiatValue = '5';
+  const usd = render(<HistoryDetails />);
+  expect(usd.getByText('20')).toBeTruthy();
+  expect(usd.getByText('5')).toBeTruthy();
+  const usdKey = mockDetailKey;
+  usd.unmount();
+  mockCurrency = 'eur';
+  const eur = render(<HistoryDetails />);
+  expect(mockDetailKey).toBeDefined();
+  expect(mockDetailKey).not.toBe(usdKey);
+  expect(eur.getByText('16')).toBeTruthy();
+  expect(eur.getByText('4')).toBeTruthy();
+  expect(eur.queryByText('20')).toBeNull();
+});
+
+it.each(['evm--1', 'evm--169'])(
+  'shows a cached fee in ETH offline on %s',
+  (networkId) => {
+    mockHistory = history(networkId, '1');
+    mockHistory.decodedTx.totalFeeInNative = '0.007';
+    mockNativeSymbol = undefined;
+    const result = render(<HistoryDetails />);
+    expect(result.getByText('0.007').getAttribute('data-unit')).toBe('ETH');
+  },
+);
+
+it('waits for the native asset on an unknown network', () => {
+  mockHistory = history('evm--12345678', '1');
+  mockHistory.decodedTx.totalFeeInNative = '0.007';
+  mockNativeSymbol = undefined;
+  const result = render(<HistoryDetails />);
+  expect(result.queryByText('0.007')).toBeNull();
+  mockNativeSymbol = 'ETH';
+  result.rerender(<HistoryDetails />);
+  expect(result.getByText('0.007').getAttribute('data-unit')).toBe('ETH');
 });
 
 // A privacy chain cannot always see the fee of a payment someone else funded.

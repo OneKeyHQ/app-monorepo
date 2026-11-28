@@ -99,7 +99,7 @@ function createService(cached: IAccountHistoryTx[]) {
     },
   );
   Object.assign(service, {
-    attachPrivateSendDisplayStatus: async (txs: IAccountHistoryTx[]) => txs,
+    attachSwapHistoryForDisplay: async (txs: IAccountHistoryTx[]) => txs,
     attachPrivateSendDisplayPrices: async ({
       txs,
     }: {
