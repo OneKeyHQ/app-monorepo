@@ -1,3 +1,5 @@
+import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+
 import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
@@ -7,10 +9,12 @@ import { getTradingViewNativeDefaultInitialRightOffset } from '../config';
 
 import {
   type ITradingViewNativeViewportPointRange,
-  type ITradingViewNativeVisiblePointRange,
+  type ITradingViewNativeViewportRequest,
   clampTradingViewNativePanOffset,
   getTradingViewNativePanOffsetAfterDataUpdate,
+  getTradingViewNativePanPosition,
   getTradingViewNativeViewportForPointRange,
+  getTradingViewNativeViewportPointRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from './chartViewport';
@@ -272,6 +276,43 @@ export function reduceTradingViewNativeChartRuntime(
   }
 }
 
+export function getTradingViewNativeViewportRequestEvent({
+  applied,
+  chartWidth,
+  points,
+  request,
+}: {
+  applied: { chartWidth: number; requestId: number };
+  chartWidth: number;
+  points: IMarketTokenKLineDataPoint[];
+  request: ITradingViewNativeViewportRequest;
+}): ITradingViewNativeChartRuntimeEvent | undefined {
+  const pointCount = points.length;
+  const { insertedAfterAnchor, requestId } = request;
+  if (
+    chartWidth <= 0 ||
+    !pointCount ||
+    (requestId === applied.requestId &&
+      (insertedAfterAnchor !== undefined || applied.chartWidth === chartWidth))
+  )
+    return undefined;
+  if (insertedAfterAnchor !== undefined) {
+    return {
+      type: 'dataUpdated',
+      appendedPointCount: insertedAfterAnchor,
+      chartWidth,
+      pointCount,
+    };
+  }
+  const pointRange = getTradingViewNativeViewportPointRange({
+    points,
+    target: request.target,
+  });
+  return pointRange
+    ? { type: 'viewportRequested', chartWidth, pointCount, pointRange }
+    : undefined;
+}
+
 export function getTradingViewNativeChartRuntimeVisiblePointRange({
   chartWidth,
   pointCount,
@@ -280,14 +321,18 @@ export function getTradingViewNativeChartRuntimeVisiblePointRange({
   chartWidth: number;
   pointCount: number;
   state: ITradingViewNativeChartRuntimeState;
-}): ITradingViewNativeVisiblePointRange {
+}) {
   'worklet';
 
-  return getTradingViewNativeVisiblePointRange({
+  const viewport = {
     chartWidth,
     initialRightOffset: state.viewport.initialRightOffset,
     offset: state.viewport.offset,
     pointCount,
     zoomScale: state.viewport.zoomScale,
-  });
+  };
+  return {
+    ...getTradingViewNativeVisiblePointRange(viewport),
+    followsLive: getTradingViewNativePanPosition(viewport).followsLive,
+  };
 }

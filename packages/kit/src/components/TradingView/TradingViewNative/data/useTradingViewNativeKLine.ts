@@ -21,6 +21,7 @@ import {
   getTradingViewNativeChartType,
   isTradingViewNativeSingleValueHistory,
 } from '../utils/chartType';
+import { getTradingViewNativeViewportPointRange } from '../utils/chartViewport';
 
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
 import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
@@ -163,6 +164,7 @@ interface IRealtimeState {
 }
 
 interface IHistoryPaginationState {
+  recheckVisibleGap?: () => void;
   abortController?: AbortController;
   earliestTimestamp?: number;
   hasMore: boolean;
@@ -184,6 +186,7 @@ interface IHistoryCoverageRange {
 }
 
 interface IHistoryCoverageState {
+  gapToleranceIntervals: number;
   interval: ITradingViewNativeChartInterval;
   ranges: IHistoryCoverageRange[];
   seriesKey: string;
@@ -238,6 +241,7 @@ interface IHistoryGapRecoveryProgressOptions {
 }
 
 interface IScopedVisiblePointRange {
+  followsLive: boolean;
   endIndex: number;
   interval: ITradingViewNativeChartInterval;
   seriesKey: string;
@@ -299,27 +303,70 @@ function normalizeKLinePointsInRange({
   );
 }
 
+type ICandleRevisions = WeakMap<IMarketTokenKLineDataPoint, number>;
+
+function isFixedCandleInterval(interval: ITradingViewNativeChartInterval) {
+  return interval !== '1W' && interval !== '1M';
+}
+
+function recordCandleRead(
+  revisions: ICandleRevisions,
+  points: IMarketTokenKLineDataPoint[],
+  readRevision: number,
+) {
+  for (const point of points) {
+    revisions.set(point, Math.max(revisions.get(point) ?? 0, readRevision));
+  }
+}
+
+function shouldReplaceCandle(
+  current: IMarketTokenKLineDataPoint,
+  incoming: IMarketTokenKLineDataPoint,
+  revisions: ICandleRevisions,
+) {
+  const nextRevision = revisions.get(incoming) ?? 0;
+  if ((revisions.get(current) ?? 0) > nextRevision) return false;
+  if (!areKLinePointsEqual(current, incoming)) return true;
+  // An identical tick is still a newer observation of the retained point.
+  revisions.set(current, nextRevision);
+  return false;
+}
+
 function mergeKLinePoints(
   points: IMarketTokenKLineDataPoint[],
   incomingPoints: Iterable<IMarketTokenKLineDataPoint>,
+  revisions?: ICandleRevisions,
 ) {
   const pointsByTimestamp = new Map<number, IMarketTokenKLineDataPoint>();
   points.forEach((point) => pointsByTimestamp.set(point.t, point));
+  let changed = false;
   for (const incomingPoint of incomingPoints) {
-    pointsByTimestamp.set(incomingPoint.t, incomingPoint);
+    const current = revisions && pointsByTimestamp.get(incomingPoint.t);
+    if (
+      !current ||
+      !revisions ||
+      shouldReplaceCandle(current, incomingPoint, revisions)
+    ) {
+      pointsByTimestamp.set(incomingPoint.t, incomingPoint);
+      changed = true;
+    }
   }
-  return normalizeKLinePoints([...pointsByTimestamp.values()]);
+  return revisions && !changed
+    ? points
+    : normalizeKLinePoints([...pointsByTimestamp.values()]);
 }
 
 function mergeScopedChartDataPoints({
   currentData,
   interval,
   points,
+  revisions,
   seriesKey,
 }: {
   currentData: IChartData | null;
   interval: ITradingViewNativeChartInterval;
   points: IMarketTokenKLineDataPoint[];
+  revisions?: ICandleRevisions;
   seriesKey: string;
 }) {
   if (
@@ -329,10 +376,12 @@ function mergeScopedChartDataPoints({
   ) {
     return currentData;
   }
+  const merged = mergeKLinePoints(currentData.points, points, revisions);
+  if (merged === currentData.points) return currentData;
   return {
     ...currentData,
     chartPictureVersion: currentData.chartPictureVersion + 1,
-    points: mergeKLinePoints(currentData.points, points),
+    points: merged,
   };
 }
 
@@ -353,6 +402,7 @@ function areKLinePointsEqual(
 function mergeRealtimePoint(
   points: IMarketTokenKLineDataPoint[],
   realtimePoint: IMarketTokenKLineDataPoint,
+  revisions?: ICandleRevisions,
 ) {
   const latestPointIndex = points.length - 1;
   const existingPointIndex =
@@ -365,7 +415,12 @@ function mergeRealtimePoint(
       points: normalizeKLinePoints([...points, realtimePoint]),
     };
   }
-  if (areKLinePointsEqual(points[existingPointIndex], realtimePoint)) {
+  const existing = points[existingPointIndex];
+  if (
+    revisions
+      ? !shouldReplaceCandle(existing, realtimePoint, revisions)
+      : areKLinePointsEqual(existing, realtimePoint)
+  ) {
     return { didChangeHistoricalPoints: false, points };
   }
 
@@ -1305,11 +1360,11 @@ async function findFirstHistoryPageAtOrAfter({
 
 function mergeHistoryCoverageRanges({
   incomingRange,
-  intervalSeconds,
+  mergeTolerance,
   ranges,
 }: {
   incomingRange: IHistoryCoverageRange;
-  intervalSeconds: number;
+  mergeTolerance: number;
   ranges: IHistoryCoverageRange[];
 }) {
   const normalizedIncomingRange = {
@@ -1323,7 +1378,6 @@ function mergeHistoryCoverageRanges({
     return ranges;
   }
 
-  const mergeTolerance = Math.max(intervalSeconds * 2, 1);
   const sortedRanges = [...ranges, normalizedIncomingRange].toSorted(
     (first, second) => first.from - second.from,
   );
@@ -1364,7 +1418,7 @@ function addHistoryCoverageRange({
   }
   coverageState.ranges = mergeHistoryCoverageRanges({
     incomingRange: { from, to },
-    intervalSeconds,
+    mergeTolerance: coverageState.gapToleranceIntervals * intervalSeconds,
     ranges: coverageState.ranges,
   });
 }
@@ -1434,14 +1488,14 @@ function createHistoryGapRecoveryProgressHandler({
 function getVisibleHistoryGap({
   coverageRanges,
   endIndex,
-  intervalSeconds,
+  gapTolerance,
   points,
   searchPaddingPointCount = HISTORY_GAP_SEARCH_PADDING_POINT_COUNT,
   startIndex,
 }: {
   coverageRanges: IHistoryCoverageRange[];
   endIndex: number;
-  intervalSeconds: number;
+  gapTolerance: number;
   points: IMarketTokenKLineDataPoint[];
   searchPaddingPointCount?: number;
   startIndex: number;
@@ -1463,7 +1517,6 @@ function getVisibleHistoryGap({
       Math.max(Math.ceil(endIndex) - 1, 0)) /
       2,
   );
-  const gapTolerance = Math.max(intervalSeconds * 2, 1);
 
   for (
     let pointIndex = searchStartIndex;
@@ -1518,6 +1571,26 @@ function getVisiblePointAnchorTimestamp({
     points.length - 1,
   );
   return points[Math.floor((startIndex + endIndex) / 2)]?.t;
+}
+
+function countInsertedGapCandles(
+  points: IMarketTokenKLineDataPoint[],
+  gapPoints: IMarketTokenKLineDataPoint[],
+  realtimeBuffer: Map<number, IMarketTokenKLineDataPoint>,
+  afterTimestamp: number,
+) {
+  const inserted = new Set<number>();
+  for (const { t } of gapPoints) {
+    // A tick may already be queued in the same React batch as the gap response.
+    if (t > afterTimestamp && !realtimeBuffer.has(t)) {
+      const match = getTradingViewNativeViewportPointRange({
+        points,
+        target: { kind: 'timestamp', timestamp: t },
+      });
+      if (!match || points[match.firstIndex].t !== t) inserted.add(t);
+    }
+  }
+  return inserted.size;
 }
 
 function getViewportTargetTimeRange(target: ITradingViewNativeViewportTarget) {
@@ -1791,6 +1864,12 @@ export function useTradingViewNativeKLine({
     stockId,
   ]);
   const seriesKey = rawHistoryProvider.key;
+  // Order each actual history dispatch, including retries, against received ticks.
+  const candleSequence = useRef(0);
+  const hyperliquidRevisions = useMemo<ICandleRevisions | undefined>(
+    () => (sourceKind === 'hyperliquid' ? new WeakMap() : undefined),
+    [sourceKind],
+  );
   const [historyPointTypeScopeState, setHistoryPointTypeScopeState] = useState<{
     historyProvider: ITradingViewNativeDataProvider;
     scopes: ReadonlyMap<string, IHistoryPointTypeClassification>;
@@ -1822,6 +1901,8 @@ export function useTradingViewNativeKLine({
           name: 'history.request',
         });
         try {
+          candleSequence.current += 1;
+          const readRevision = candleSequence.current;
           const data = await rawHistoryProvider.fetchHistory(request);
           const responseDataSource: IHistoryDataSource =
             data?.historySource === 'fallback' ? 'fallback' : 'primary';
@@ -1870,6 +1951,12 @@ export function useTradingViewNativeKLine({
           }
 
           if (data && data.points.length > 0) {
+            if (
+              hyperliquidRevisions &&
+              isFixedCandleInterval(request.interval.value)
+            ) {
+              recordCandleRead(hyperliquidRevisions, data.points, readRevision);
+            }
             selectedHistoryDataSource ??= responseDataSource;
             const scopeKey = getHistoryPointTypeScopeKey(
               seriesKey,
@@ -1928,7 +2015,7 @@ export function useTradingViewNativeKLine({
         }
       },
     };
-  }, [rawHistoryProvider, seriesKey]);
+  }, [hyperliquidRevisions, rawHistoryProvider, seriesKey]);
   const realtimeProvider = useMemo(() => {
     if (sourceKind === 'hyperliquid') {
       return historyProvider;
@@ -2002,6 +2089,10 @@ export function useTradingViewNativeKLine({
   const activeInterval =
     supportedIntervals.find((interval) => interval.value === selectedInterval)
       ?.value ?? DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
+  const candleRevisions = isFixedCandleInterval(activeInterval)
+    ? hyperliquidRevisions
+    : undefined;
+  const fixedHyperliquidCandles = Boolean(candleRevisions);
   const historyPaginationRef = useRef<IHistoryPaginationState>({
     hasMore: true,
     hasMoreAfter: false,
@@ -2115,6 +2206,7 @@ export function useTradingViewNativeKLine({
   );
   const realtimeScopeRef = useRef({ interval: activeInterval, seriesKey });
   const historyCoverageRef = useRef<IHistoryCoverageState>({
+    gapToleranceIntervals: fixedHyperliquidCandles ? 1 : 2,
     interval: activeInterval,
     ranges: [],
     seriesKey,
@@ -2198,6 +2290,7 @@ export function useTradingViewNativeKLine({
     setScopedViewportRequest(null);
     historyPaginationRef.current.abortController?.abort();
     historyCoverageRef.current = {
+      gapToleranceIntervals: fixedHyperliquidCandles ? 1 : 2,
       interval: activeInterval,
       ranges: [],
       seriesKey,
@@ -2232,7 +2325,7 @@ export function useTradingViewNativeKLine({
       }
       viewportHistoryAbortControllerRef.current?.abort();
     };
-  }, [activeInterval, seriesKey]);
+  }, [activeInterval, fixedHyperliquidCandles, seriesKey]);
 
   const currentSeriesChartData =
     chartData?.seriesKey === seriesKey ? chartData : null;
@@ -2510,12 +2603,17 @@ export function useTradingViewNativeKLine({
         pagination.interval === activeInterval
       ) {
         pagination.abortController?.abort();
+        pagination.recheckVisibleGap = undefined;
         pagination.abortController = undefined;
         pagination.isLoading = false;
       }
 
       const abortController = new AbortController();
       viewportHistoryAbortControllerRef.current = abortController;
+      const mergeNavigationPoints = (
+        points: IMarketTokenKLineDataPoint[],
+        incoming: IMarketTokenKLineDataPoint[],
+      ) => mergeKLinePoints(points, incoming, candleRevisions);
       try {
         const existingPoints =
           currentChartData?.seriesKey === seriesKey &&
@@ -2605,11 +2703,11 @@ export function useTradingViewNativeKLine({
                   to: latestTimeTo,
                 })
               : [];
-          const latestPoints = mergeKLinePoints(
-            mergeKLinePoints(latestHistoryPoints, latestChartPoints),
+          const latestPoints = mergeNavigationPoints(
+            mergeNavigationPoints(latestHistoryPoints, latestChartPoints),
             realtimePointsIncludedInLatestHistory,
           );
-          targetPoints = mergeKLinePoints(targetPoints, latestPoints);
+          targetPoints = mergeNavigationPoints(targetPoints, latestPoints);
           hasMoreTargetHistory = historyProvider.hasMoreHistory({
             historySource: latestData.historySource,
             interval,
@@ -2669,13 +2767,16 @@ export function useTradingViewNativeKLine({
             break;
           }
 
-          targetPoints = mergeKLinePoints(targetPoints, pagePoints);
+          targetPoints = mergeNavigationPoints(targetPoints, pagePoints);
           hasMoreTargetHistory = historyProvider.hasMoreHistory({
             historySource: data.historySource,
             interval,
             receivedPointCount: normalizedPagePoints.length,
           });
-          const loadedPoints = mergeKLinePoints(existingPoints, targetPoints);
+          const loadedPoints = mergeNavigationPoints(
+            existingPoints,
+            targetPoints,
+          );
           if (
             hasViewportTargetHistory({
               intervalSeconds: interval.seconds,
@@ -2714,7 +2815,7 @@ export function useTradingViewNativeKLine({
           target.kind === 'timeRange' &&
           !hasViewportTargetHistory({
             intervalSeconds: interval.seconds,
-            points: mergeKLinePoints(existingPoints, targetPoints),
+            points: mergeNavigationPoints(existingPoints, targetPoints),
             target,
           })
         ) {
@@ -2749,7 +2850,10 @@ export function useTradingViewNativeKLine({
             const rangeStartPoints = normalizeKLinePoints(
               rangeStartData.points,
             );
-            targetPoints = mergeKLinePoints(targetPoints, rangeStartPoints);
+            targetPoints = mergeNavigationPoints(
+              targetPoints,
+              rangeStartPoints,
+            );
             addHistoryCoverageRange({
               coverageState: historyCoverageRef.current,
               from: rangeStartPoints[0]?.t,
@@ -2918,7 +3022,10 @@ export function useTradingViewNativeKLine({
                   points: forwardData.points,
                   to: forwardTimeTo,
                 });
-                targetPoints = mergeKLinePoints(targetPoints, forwardPoints);
+                targetPoints = mergeNavigationPoints(
+                  targetPoints,
+                  forwardPoints,
+                );
                 addHistoryCoverageRange({
                   coverageState: historyCoverageRef.current,
                   from: forwardTimeFrom,
@@ -2970,12 +3077,12 @@ export function useTradingViewNativeKLine({
                   to: latestMergeTimeTo,
                 })
               : [];
-          realtimePointsIncludedInLatestHistory = mergeKLinePoints(
+          realtimePointsIncludedInLatestHistory = mergeNavigationPoints(
             realtimePointsIncludedInLatestHistory,
             latestRealtimePoints,
           );
-          targetPoints = mergeKLinePoints(
-            mergeKLinePoints(targetPoints, latestChartPoints),
+          targetPoints = mergeNavigationPoints(
+            mergeNavigationPoints(targetPoints, latestChartPoints),
             latestRealtimePoints,
           );
           addHistoryCoverageRange({
@@ -3057,12 +3164,15 @@ export function useTradingViewNativeKLine({
               interval: activeInterval,
               seriesKey,
               points: isCurrentInterval
-                ? mergeKLinePoints(currentData.points, targetPoints)
+                ? mergeNavigationPoints(currentData.points, targetPoints)
                 : targetPoints,
             };
           });
         }
-        const navigationPoints = mergeKLinePoints(existingPoints, targetPoints);
+        const navigationPoints = mergeNavigationPoints(
+          existingPoints,
+          targetPoints,
+        );
         if (!navigationPoints.length) {
           throw new OneKeyLocalError(
             'No candle history is available for time navigation',
@@ -3134,6 +3244,7 @@ export function useTradingViewNativeKLine({
     },
     [
       activeInterval,
+      candleRevisions,
       historyProvider,
       providerIsReady,
       seriesKey,
@@ -3141,16 +3252,37 @@ export function useTradingViewNativeKLine({
     ],
   );
 
+  const finishHistoryPage = useCallback(
+    (pagination: IHistoryPaginationState, controller: AbortController) => {
+      if (
+        historyPaginationRef.current !== pagination ||
+        pagination.abortController !== controller
+      )
+        return;
+      pagination.abortController = undefined;
+      pagination.isLoading = false;
+      const recheck = pagination.recheckVisibleGap;
+      pagination.recheckVisibleGap = undefined;
+      if (!controller.signal.aborted && isVisibleRef.current) recheck?.();
+    },
+    [],
+  );
+
   const handleVisiblePointRangeChange = useCallback(
-    ({
-      endIndex,
-      followedTimeRange,
-      startIndex,
-    }: {
-      endIndex?: number;
-      followedTimeRange?: ITradingViewNativeFollowedTimeRange;
-      startIndex: number;
-    }) => {
+    function checkVisibleRange(
+      {
+        endIndex,
+        followedTimeRange,
+        followsLive,
+        startIndex,
+      }: {
+        endIndex?: number;
+        followedTimeRange?: ITradingViewNativeFollowedTimeRange;
+        followsLive?: boolean;
+        startIndex: number;
+      },
+      gapOnly = false,
+    ) {
       const pagination = historyPaginationRef.current;
       const currentChartData = chartDataRef.current;
       if (
@@ -3164,13 +3296,20 @@ export function useTradingViewNativeKLine({
 
       if (endIndex !== undefined && Number.isFinite(endIndex)) {
         visiblePointRangeRef.current = {
+          followsLive:
+            gapOnly && visiblePointRangeRef.current
+              ? visiblePointRangeRef.current.followsLive
+              : (followsLive ?? endIndex >= currentChartData.points.length),
           endIndex,
           interval: activeInterval,
           seriesKey,
           startIndex,
         };
       }
-      if (pagination.isLoading) {
+      if (
+        pagination.isLoading &&
+        (!fixedHyperliquidCandles || endIndex === undefined)
+      ) {
         return;
       }
 
@@ -3186,6 +3325,7 @@ export function useTradingViewNativeKLine({
           ? navigationAnchor
           : null;
       if (activeNavigationAnchor) {
+        pagination.recheckVisibleGap = undefined;
         return;
       }
       const visibleGap =
@@ -3195,14 +3335,50 @@ export function useTradingViewNativeKLine({
           ? getVisibleHistoryGap({
               coverageRanges: coverageState.ranges,
               endIndex,
-              intervalSeconds: interval.seconds,
+              gapTolerance:
+                coverageState.gapToleranceIntervals * interval.seconds,
               points: currentChartData.points,
               startIndex,
             })
           : null;
+      if (pagination.isLoading) {
+        // Prepending history can shift both visible indices before the page settles.
+        const times = visibleGap && getVisibleTimeRange();
+        pagination.recheckVisibleGap = times
+          ? () => {
+              const points = chartDataRef.current?.points;
+              if (!points) return;
+              const to = times.to - interval.seconds;
+              const range = getTradingViewNativeViewportPointRange({
+                points,
+                target: { kind: 'timeRange', from: times.from, to },
+              });
+              if (
+                range &&
+                points[range.firstIndex].t === times.from &&
+                points[range.lastIndex].t === to
+              ) {
+                checkVisibleRange(
+                  {
+                    startIndex: range.firstIndex,
+                    endIndex: range.lastIndex + 1,
+                    followedTimeRange,
+                  },
+                  true,
+                );
+              }
+            }
+          : undefined;
+        return;
+      }
+      if (gapOnly && !visibleGap) return;
       if (visibleGap) {
         const loadGapFrom = visibleGap.loadFrom;
-        const gapTimeFrom = Math.max(Math.floor(visibleGap.from) + 1, 0);
+        // The last closed candle may still contain its pre-disconnect partial update.
+        const gapTimeFrom = Math.max(
+          Math.floor(visibleGap.from) + (fixedHyperliquidCandles ? 0 : 1),
+          0,
+        );
         const gapTimeTo = Math.ceil(visibleGap.to) - 1;
         const requestTimeSpan =
           HISTORY_GAP_REQUEST_CANDLE_COUNT * interval.seconds;
@@ -3278,9 +3454,7 @@ export function useTradingViewNativeKLine({
                 from: nextTimeFrom,
                 points: data.points,
                 to: nextTimeTo,
-              }).filter(
-                (point) => point.t > visibleGap.from && point.t < visibleGap.to,
-              );
+              });
               addHistoryCoverageRange({
                 coverageState: historyCoverageRef.current,
                 from: nextTimeFrom,
@@ -3291,34 +3465,51 @@ export function useTradingViewNativeKLine({
               });
               if (gapPoints.length) {
                 const latestChartData = chartDataRef.current;
+                setChartData((currentData) =>
+                  mergeScopedChartDataPoints({
+                    currentData,
+                    interval: activeInterval,
+                    points: gapPoints,
+                    revisions: candleRevisions,
+                    seriesKey,
+                  }),
+                );
+                const hasInteriorPoints = gapPoints.some(
+                  (point) => point.t > visibleGap.from,
+                );
                 const latestVisibleRange = visiblePointRangeRef.current;
                 const anchorTimestamp =
+                  hasInteriorPoints &&
                   latestChartData?.seriesKey === seriesKey &&
                   latestChartData.interval === activeInterval &&
                   latestVisibleRange?.seriesKey === seriesKey &&
-                  latestVisibleRange.interval === activeInterval
+                  latestVisibleRange.interval === activeInterval &&
+                  (!fixedHyperliquidCandles ||
+                    pagination.hasMoreAfter ||
+                    !latestVisibleRange.followsLive)
                     ? getVisiblePointAnchorTimestamp({
                         points: latestChartData.points,
                         range: latestVisibleRange,
                       })
                     : undefined;
-                setChartData((currentData) => {
-                  if (
-                    currentData?.seriesKey !== seriesKey ||
-                    currentData.interval !== activeInterval
-                  ) {
-                    return currentData;
-                  }
-                  return {
-                    ...currentData,
-                    chartPictureVersion: currentData.chartPictureVersion + 1,
-                    points: mergeKLinePoints(currentData.points, gapPoints),
-                  };
-                });
-                if (anchorTimestamp !== undefined) {
+                const preservePan =
+                  fixedHyperliquidCandles && !latestVisibleRange?.followsLive;
+                const inserted =
+                  fixedHyperliquidCandles &&
+                  latestChartData &&
+                  anchorTimestamp !== undefined
+                    ? countInsertedGapCandles(
+                        latestChartData.points,
+                        gapPoints,
+                        realtimePointBufferRef.current,
+                        preservePan ? anchorTimestamp : -Infinity,
+                      )
+                    : undefined;
+                if (anchorTimestamp !== undefined && inserted !== 0) {
                   viewportRequestIdRef.current += 1;
                   const nextViewportRequest = {
                     interval: activeInterval,
+                    insertedAfterAnchor: preservePan ? inserted : undefined,
                     preserveVisibleAnchor: true,
                     requestId: viewportRequestIdRef.current,
                     seriesKey,
@@ -3330,7 +3521,7 @@ export function useTradingViewNativeKLine({
                   viewportNavigationAnchorRef.current = nextViewportRequest;
                   setScopedViewportRequest(nextViewportRequest);
                 }
-                return;
+                if (hasInteriorPoints) return;
               }
 
               if (loadGapFrom === 'left') {
@@ -3362,13 +3553,7 @@ export function useTradingViewNativeKLine({
               error,
             );
           } finally {
-            if (
-              historyPaginationRef.current === pagination &&
-              pagination.abortController === abortController
-            ) {
-              pagination.abortController = undefined;
-              pagination.isLoading = false;
-            }
+            finishHistoryPage(pagination, abortController);
           }
         };
         void loadHistoryGap();
@@ -3586,13 +3771,7 @@ export function useTradingViewNativeKLine({
               error,
             );
           } finally {
-            if (
-              historyPaginationRef.current === pagination &&
-              pagination.abortController === abortController
-            ) {
-              pagination.abortController = undefined;
-              pagination.isLoading = false;
-            }
+            finishHistoryPage(pagination, abortController);
           }
         };
         void loadNewerHistory();
@@ -3804,18 +3983,21 @@ export function useTradingViewNativeKLine({
             error,
           );
         } finally {
-          if (
-            historyPaginationRef.current === pagination &&
-            pagination.abortController === abortController
-          ) {
-            pagination.abortController = undefined;
-            pagination.isLoading = false;
-          }
+          finishHistoryPage(pagination, abortController);
         }
       };
       void loadOlderHistory();
     },
-    [activeInterval, historyProvider, seriesKey, sourceKind],
+    [
+      activeInterval,
+      finishHistoryPage,
+      fixedHyperliquidCandles,
+      getVisibleTimeRange,
+      historyProvider,
+      candleRevisions,
+      seriesKey,
+      sourceKind,
+    ],
   );
 
   const handleRealtimePoint = useCallback(
@@ -3923,6 +4105,10 @@ export function useTradingViewNativeKLine({
         seriesKey,
         status: 'live',
       });
+      if (candleRevisions) {
+        candleSequence.current += 1;
+        candleRevisions.set(point, candleSequence.current);
+      }
       bufferRealtimePoint(realtimePointBufferRef.current, point);
       const pagination = historyPaginationRef.current;
       if (
@@ -3942,7 +4128,11 @@ export function useTradingViewNativeKLine({
           return currentData;
         }
 
-        const mergeResult = mergeRealtimePoint(currentData.points, point);
+        const mergeResult = mergeRealtimePoint(
+          currentData.points,
+          point,
+          candleRevisions,
+        );
         return mergeResult.points === currentData.points
           ? currentData
           : {
@@ -3954,7 +4144,7 @@ export function useTradingViewNativeKLine({
             };
       });
     },
-    [activeInterval, historyProvider, seriesKey],
+    [activeInterval, candleRevisions, historyProvider, seriesKey],
   );
 
   const handleRealtimePointRef = useRef(handleRealtimePoint);
@@ -4464,17 +4654,25 @@ export function useTradingViewNativeKLine({
         realtimeScope.interval === requestedInterval.value &&
         realtimePointBufferRef.current.size > 0
       ) {
-        points = mergeRealtimePointBuffer(
-          points,
-          realtimePointBufferRef.current.values(),
-        );
+        points = candleRevisions
+          ? mergeKLinePoints(
+              normalizeKLinePoints([
+                ...realtimePointBufferRef.current.values(),
+              ]),
+              points,
+              candleRevisions,
+            )
+          : mergeRealtimePointBuffer(
+              points,
+              realtimePointBufferRef.current.values(),
+            );
         realtimePointBufferRef.current.clear();
       }
       const currentChartData = chartDataRef.current;
       const nextPoints =
         currentChartData?.seriesKey === seriesKey &&
         currentChartData.interval === requestedInterval.value
-          ? mergeKLinePoints(currentChartData.points, points)
+          ? mergeKLinePoints(currentChartData.points, points, candleRevisions)
           : points;
       if (
         pagination.seriesKey === seriesKey &&
@@ -4487,20 +4685,27 @@ export function useTradingViewNativeKLine({
         pagination.hasMoreAfter = false;
         pagination.newerCursorTimestamp = timeTo;
       }
-      setChartData((currentData) => ({
-        chartPictureVersion:
+      setChartData((currentData) => {
+        const sameChart =
           currentData?.seriesKey === seriesKey &&
-          currentData.interval === requestedInterval.value
+          currentData.interval === requestedInterval.value;
+        let mergedPoints = nextPoints;
+        if (currentData !== currentChartData) {
+          mergedPoints = sameChart
+            ? mergeKLinePoints(currentData.points, points, candleRevisions)
+            : points;
+        }
+        if (candleRevisions && sameChart && mergedPoints === currentData.points)
+          return currentData;
+        return {
+          chartPictureVersion: sameChart
             ? currentData.chartPictureVersion + 1
             : 0,
-        interval: requestedInterval.value,
-        seriesKey,
-        points:
-          currentData?.seriesKey === seriesKey &&
-          currentData.interval === requestedInterval.value
-            ? mergeKLinePoints(currentData.points, points)
-            : points,
-      }));
+          interval: requestedInterval.value,
+          seriesKey,
+          points: mergedPoints,
+        };
+      });
       setHistoryState({
         interval: requestedInterval.value,
         lastUpdatedAt: Date.now(),
@@ -4552,6 +4757,7 @@ export function useTradingViewNativeKLine({
                 currentData,
                 interval: requestedInterval.value,
                 points: olderPoints,
+                revisions: candleRevisions,
                 seriesKey,
               }),
             );
@@ -4575,13 +4781,7 @@ export function useTradingViewNativeKLine({
             // Pagination stays retryable after the loading lock is released.
           }
         } finally {
-          if (
-            historyPaginationRef.current === pagination &&
-            pagination.abortController === abortController
-          ) {
-            pagination.abortController = undefined;
-            pagination.isLoading = false;
-          }
+          finishHistoryPage(pagination, abortController);
         }
         return;
       }
@@ -4657,13 +4857,7 @@ export function useTradingViewNativeKLine({
           );
         }
       } finally {
-        if (
-          historyPaginationRef.current === pagination &&
-          pagination.abortController === abortController
-        ) {
-          pagination.abortController = undefined;
-          pagination.isLoading = false;
-        }
+        finishHistoryPage(pagination, abortController);
       }
     };
     void fetchHistory().finally(() => {
@@ -4681,8 +4875,10 @@ export function useTradingViewNativeKLine({
     };
   }, [
     activeInterval,
+    finishHistoryPage,
     historyProvider,
     historyRefreshRevision,
+    candleRevisions,
     providerIsReady,
     seriesKey,
     setActiveInterval,
