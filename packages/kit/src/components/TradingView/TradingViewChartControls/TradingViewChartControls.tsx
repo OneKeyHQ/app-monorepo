@@ -22,6 +22,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { CalendarPanelPopover } from './calendarControls/CalendarPanelPopover';
 import { ChartTypeSelect } from './chartType/ChartTypeSelect';
@@ -600,6 +601,7 @@ export const TradingViewChartControls = memo(
               {leadingControl ? <ToolbarSeparator /> : null}
 
               <XStack
+                collapsable={platformEnv.isNativeAndroid ? false : undefined}
                 testID="trading-view-chart-ready-controls"
                 flexGrow={1}
                 flexShrink={desktopToolbar ? 0 : 1}
@@ -682,6 +684,7 @@ export const TradingViewChartControls = memo(
     }
     const mobileReadyControls = (
       <XStack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         testID="trading-view-chart-ready-controls"
         flex={mobileControlsFlex}
         flexGrow={mobileFullscreenHeader ? 1 : undefined}
@@ -806,7 +809,11 @@ export const TradingViewChartControls = memo(
             pr={compactMobileLayout && onRightControlPress ? '$2' : undefined}
             accessibilityRole={onRightControlPress ? 'button' : undefined}
             accessibilityLabel={rightControlLabel}
-            cursor={onRightControlPress ? 'pointer' : undefined}
+            cursor={
+              !platformEnv.isNative && onRightControlPress
+                ? 'pointer'
+                : undefined
+            }
             onPress={onRightControlPress}
           >
             {fullscreenControl}

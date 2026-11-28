@@ -29,6 +29,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   BROWSER_CHROME_CAPSULE_HEIGHT,
@@ -541,6 +542,7 @@ function MobileBrowserBottomBar({
           {/* The hidden layer only fades its contents, so its buttons stay in
           the accessibility tree unless removed here. */}
           <Animated.View
+            collapsable={platformEnv.isNativeAndroid ? false : undefined}
             pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
             accessibilityElementsHidden={isChromeCollapsed}
             importantForAccessibility={
@@ -650,6 +652,7 @@ function MobileBrowserBottomBar({
           </Animated.View>
         </GlassContainer>
         <Animated.View
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
           accessibilityElementsHidden={!isChromeCollapsed}
           importantForAccessibility={

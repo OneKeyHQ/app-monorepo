@@ -15,6 +15,7 @@ import {
 import { TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
 
@@ -228,7 +229,7 @@ function DateField({
       borderWidth="$px"
       borderColor={isActive ? '$borderActive' : '$borderStrong'}
       borderRadius="$3"
-      cursor={onPress ? 'pointer' : undefined}
+      cursor={!platformEnv.isNative && onPress ? 'pointer' : undefined}
       onPress={onPress}
     >
       <SizableText size="$bodyLg" color="$textSubdued">

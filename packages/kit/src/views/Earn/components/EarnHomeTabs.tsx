@@ -24,6 +24,7 @@ export const EarnHomeTabs = ({
       <MarketSelector mode={activeMode} onModeChange={onModeChange} />
       <Stack {...flexProps} pt={24}>
         <Stack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           {...flexProps}
           display={isEarnMode ? 'flex' : 'none'}
           pointerEvents={isEarnMode ? 'auto' : 'none'}
@@ -31,6 +32,7 @@ export const EarnHomeTabs = ({
           {earn}
         </Stack>
         <Stack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           {...flexProps}
           display={isBorrowMode ? 'flex' : 'none'}
           pointerEvents={isBorrowMode ? 'auto' : 'none'}

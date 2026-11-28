@@ -560,7 +560,9 @@ const PositionRowDesktopTPSL = memo(
             <XStack
               alignItems="center"
               gap="$1"
-              cursor={canSetTpsl ? 'pointer' : undefined}
+              cursor={
+                !platformEnv.isNative && canSetTpsl ? 'pointer' : undefined
+              }
               onPress={canSetTpsl ? onSetTpsl : undefined}
             >
               <SizableText

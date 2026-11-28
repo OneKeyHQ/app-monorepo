@@ -135,6 +135,7 @@ export function PercentageStageOnKeyboard({
 
   return shouldRender ? (
     <XStack
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       transition="quick"
       alignItems="center"
       gap="$1"

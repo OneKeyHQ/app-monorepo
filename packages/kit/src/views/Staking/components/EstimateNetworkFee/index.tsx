@@ -17,6 +17,7 @@ import type { IOnDialogConfirm } from '@onekeyhq/components/src/composite/Dialog
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
 import { CalculationListItem } from '../CalculationList';
@@ -266,7 +267,7 @@ function EstimateNetworkFeeListItem({
       </CalculationListItem.Label>
       <XStack
         alignItems="center"
-        cursor={onPress ? 'pointer' : undefined}
+        cursor={!platformEnv.isNative && onPress ? 'pointer' : undefined}
         mr={onPress ? -6 : undefined}
       >
         <NumberSizeableText

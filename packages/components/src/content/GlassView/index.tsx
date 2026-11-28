@@ -2,6 +2,8 @@ import type { PropsWithChildren } from 'react';
 
 import { View } from 'react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { GlassViewProps } from 'expo-glass-effect';
 import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 
@@ -36,7 +38,11 @@ export function GlassContainer({
   pointerEvents,
 }: IGlassContainerProps) {
   return (
-    <View style={style} pointerEvents={pointerEvents}>
+    <View
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
+      style={style}
+      pointerEvents={pointerEvents}
+    >
       {children}
     </View>
   );

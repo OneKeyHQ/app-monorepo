@@ -11,6 +11,7 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -98,7 +99,7 @@ function PortfolioItemSmallBase({
       borderRadius="$3"
       alignItems="center"
       onPress={onPress ? handlePress : undefined}
-      cursor={onPress ? 'pointer' : undefined}
+      cursor={!platformEnv.isNative && onPress ? 'pointer' : undefined}
     >
       <YStack w={100} minWidth={0} alignItems="flex-start">
         <Currency

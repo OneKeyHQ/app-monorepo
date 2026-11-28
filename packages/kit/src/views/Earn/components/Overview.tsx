@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { useEarnAccountKey } from '../hooks/useEarnAccountKey';
@@ -81,7 +82,9 @@ const OverviewComponent = ({
           gap="$3"
           ai="center"
           alignSelf="flex-start"
-          cursor={onPressTotalValue ? 'pointer' : undefined}
+          cursor={
+            !platformEnv.isNative && onPressTotalValue ? 'pointer' : undefined
+          }
           onPress={onPressTotalValue}
         >
           <NumberSizeableText

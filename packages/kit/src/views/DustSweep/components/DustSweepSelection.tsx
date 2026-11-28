@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { useDustSweep } from '../DustSweepProvider';
@@ -180,9 +181,17 @@ export function DustSweepSelection({
             gap="$3"
             alignItems="center"
             // While sweeping it keeps its look but can't be changed.
-            cursor={selecting ? undefined : 'not-allowed'}
+            cursor={
+              !platformEnv.isNative && !selecting ? 'not-allowed' : undefined
+            }
           >
-            <Stack pointerEvents={selecting ? 'auto' : 'none'}>
+            <Stack
+              collapsable={platformEnv.isNativeAndroid ? false : undefined}
+              collapsableChildren={
+                platformEnv.isNativeAndroid ? false : undefined
+              }
+              pointerEvents={selecting ? 'auto' : 'none'}
+            >
               <Checkbox
                 testID="dust-sweep-select-all"
                 value={selectAllValue}

@@ -658,6 +658,7 @@ function PanelSeat({
   // assistive tech on both platforms.
   return (
     <Animated.View
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       style={style}
       aria-hidden={!active}
       {...(platformEnv.isNative ? null : { inert: !active })}
@@ -1624,6 +1625,7 @@ export function MorphOverlay<T>({
             grant. Over the seats, so the button stays tappable
             above whatever column is lit. */}
         <Animated.View
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           style={toolbarStyle}
           {...(platformEnv.isNative ? null : { inert: pose !== 'card' })}
           pointerEvents={pose === 'card' ? 'box-none' : 'none'}
@@ -1650,6 +1652,7 @@ export function MorphOverlay<T>({
           ) : null}
         </Animated.View>
         <Animated.View
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           style={pillStyle}
           {...(platformEnv.isNative ? null : { inert: pose !== 'capsule' })}
           pointerEvents={pose === 'capsule' ? 'box-none' : 'none'}

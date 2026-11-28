@@ -9,6 +9,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 
 import { Stack, XStack, useTheme } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS,
@@ -82,6 +83,7 @@ export function TradingViewNativeNavigationControls({
       style={[TRADING_VIEW_NATIVE_NAVIGATION_LAYER_STYLE, fadeStyle]}
     >
       <XStack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         testID={`${testIDPrefix}-controls`}
         position="absolute"
         left={0}

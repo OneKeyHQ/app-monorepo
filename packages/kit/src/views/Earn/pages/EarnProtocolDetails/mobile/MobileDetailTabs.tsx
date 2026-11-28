@@ -14,6 +14,7 @@ import Animated, {
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   interpolatePageHeight,
@@ -127,6 +128,7 @@ function TabPage({
     // sit clipped off-screen, where VoiceOver / TalkBack would otherwise still
     // walk and activate their controls.
     <Animated.View
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       pointerEvents={isActive ? 'auto' : 'none'}
       accessibilityElementsHidden={!isActive}
       importantForAccessibility={isActive ? 'auto' : 'no-hide-descendants'}

@@ -448,6 +448,7 @@ function WebRecommendedScroller({
         {children}
       </ScrollView>
       <Stack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         position="absolute"
         left={0}
         top={0}
@@ -476,6 +477,7 @@ function WebRecommendedScroller({
         />
       </Stack>
       <Stack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         position="absolute"
         right={0}
         top={0}

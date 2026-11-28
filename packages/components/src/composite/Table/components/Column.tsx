@@ -1,6 +1,8 @@
 import type { PropsWithChildren } from 'react';
 import { useMemo } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SizableText, XStack } from '../../../primitives';
 import { useSortIcon } from '../hooks';
 
@@ -57,7 +59,7 @@ export function Column<T>({
       gap="$0.5"
       width={width}
       onPress={onPress}
-      cursor={cursor}
+      cursor={platformEnv.isNative ? undefined : cursor}
       userSelect="none"
       {...props}
     >

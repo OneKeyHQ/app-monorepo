@@ -16,6 +16,7 @@ import {
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { CHART_TYPE_ICONS } from '../utils/NativeChartControlsShared';
@@ -169,6 +170,7 @@ function SettingsColorPair({
       onChange={(enabled) => onToggle(item.id, enabled)}
     >
       <XStack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         gap="$4"
         alignItems="center"
         opacity={item.enabled ? 1 : 0.5}

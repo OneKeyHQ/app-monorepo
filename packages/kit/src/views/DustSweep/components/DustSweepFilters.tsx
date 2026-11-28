@@ -390,9 +390,12 @@ function DustSweepDesktopNetworks({
         setContainerWidth(Math.floor(event.nativeEvent.layout.width))
       }
       // While sweeping the chips keep their look but can't be changed.
-      cursor={canSelectNetwork ? undefined : 'not-allowed'}
+      cursor={
+        !platformEnv.isNative && !canSelectNetwork ? 'not-allowed' : undefined
+      }
     >
       <XStack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         flexWrap={shrinkPinned ? 'nowrap' : 'wrap'}
         alignItems="center"
         gap="$2"
@@ -548,6 +551,8 @@ export function DustSweepFilters({ desktop }: { desktop: boolean }) {
       justifyContent="space-between"
     >
       <XStack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
+        collapsableChildren={platformEnv.isNativeAndroid ? false : undefined}
         gap="$1"
         cursor={selecting ? undefined : 'not-allowed'}
         pointerEvents={selecting ? 'auto' : 'none'}

@@ -69,6 +69,7 @@ function PhaseLayer({
 }) {
   return (
     <Stack
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       w="100%"
       flexShrink={0}
       ml={overlapPrevious ? '-100%' : undefined}

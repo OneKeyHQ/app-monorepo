@@ -21,6 +21,7 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
@@ -379,6 +380,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                 its parents, breaks the effect until the animation ends. */}
             {showInfoContent ? <EarnHomeBannerInfoGlass /> : null}
             <XStack
+              collapsable={platformEnv.isNativeAndroid ? false : undefined}
               flex={1}
               px="$3"
               gap="$3"

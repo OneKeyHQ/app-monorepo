@@ -262,6 +262,7 @@ function MobileBrowserHeader({
       >
         <Animated.View style={spacerStyle} />
         <Animated.View
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           pointerEvents={isCollapsed ? 'none' : 'box-none'}
           style={[styles.overlay, { top }, rowSlideStyle, rowFadeStyle]}
         >

@@ -11,6 +11,7 @@ import {
 
 import { IconButton, ScrollView, Stack, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../testIDs';
 
@@ -144,6 +145,7 @@ export function MarketBannerDesktopScroller({
             : children}
         </ScrollView>
         <Stack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           position="absolute"
           left={0}
           top={0}
@@ -173,6 +175,7 @@ export function MarketBannerDesktopScroller({
           />
         </Stack>
         <Stack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           position="absolute"
           right={0}
           top={0}

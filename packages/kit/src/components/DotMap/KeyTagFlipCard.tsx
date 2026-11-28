@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // A two-sided card that flips around its vertical axis (rotateY) to reveal the
 // back plate, instead of stacking front/back vertically. The front face is in
@@ -60,12 +61,14 @@ export function KeyTagFlipCard({
   return (
     <Stack>
       <Animated.View
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         pointerEvents={flipped ? 'none' : 'auto'}
         style={[styles.face, frontStyle]}
       >
         {front}
       </Animated.View>
       <Animated.View
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         pointerEvents={flipped ? 'auto' : 'none'}
         style={[StyleSheet.absoluteFill, styles.face, backStyle]}
       >

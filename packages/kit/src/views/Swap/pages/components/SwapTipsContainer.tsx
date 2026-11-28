@@ -76,6 +76,7 @@ const SwapTipsContainer = ({ pageType }: ISwapTipsContainerProps) => {
   // so inactive tabs reserve the active tab's exact height.
   return (
     <YStack
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       testID={SwapTestIDs.tipsContainer}
       opacity={shouldShowTips ? 1 : 0}
       pointerEvents={shouldShowTips ? 'auto' : 'none'}
