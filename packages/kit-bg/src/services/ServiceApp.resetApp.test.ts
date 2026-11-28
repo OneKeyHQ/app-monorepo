@@ -1607,6 +1607,35 @@ describe('ServiceApp privacy database reset ordering', () => {
     }
   });
 
+  it('queues the database deletion fallback once without waiting for it', async () => {
+    const indexedDB = globalThis.indexedDB;
+    const name = 'held-reset-fallback';
+    const held = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(name);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore('records').put('before reset', 1);
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
+    const service = new ServiceApp({ backgroundApi: {} }) as unknown as {
+      clearRemainingBrowserData: (logger: () => void) => Promise<void>;
+      finishAppReset: (logger: () => void) => Promise<void>;
+    };
+    try {
+      await service.clearRemainingBrowserData(() => {});
+      expect(deletion).not.toHaveBeenCalled();
+
+      await expect(service.finishAppReset(() => {})).resolves.toBeUndefined();
+      expect(deletion.mock.calls).toEqual([[name]]);
+      await expect(service.finishAppReset(() => {})).resolves.toBeUndefined();
+      expect(deletion.mock.calls).toEqual([[name]]);
+    } finally {
+      held.close();
+    }
+  });
+
   it('continues reset when the UI snapshot database cannot be cleared', async () => {
     jest
       .spyOn(globalThis.indexedDB, 'databases')

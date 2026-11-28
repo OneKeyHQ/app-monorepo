@@ -83,6 +83,7 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 const RESET_REMOTE_DEADLINE_MS = 10_000;
 const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
 const RESET_OPTIONAL_CLEANUP_DEADLINE_MS = 1000;
+const RESET_DATABASE_DELETE_WINDOW_MS = 3000;
 const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
 const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
@@ -403,6 +404,8 @@ class ServiceApp extends ServiceBase {
     }
   }
 
+  private deleteClearedBrowserDatabases?: () => void;
+
   private async clearRemainingBrowserData(log: IResetStageLogger) {
     const indexedDB = globalThis.indexedDB;
     let databases: IDBDatabaseInfo[] = [];
@@ -429,8 +432,7 @@ class ServiceApp extends ServiceBase {
             // Give the matching cached assets a chance to be removed first.
             await cacheCleanup;
           }
-          // Keep the empty schema. A queued delete cannot be canceled and
-          // would block new opens while another connection remains active.
+          // Verify erasure without waiting for other connections to close.
           const clear = async (canClear?: () => boolean) => {
             const onBlocked = () => log(stage, 'blocked', { detail: name });
             await IndexedDBPromised.clearDatabaseForReset(
@@ -471,6 +473,25 @@ class ServiceApp extends ServiceBase {
     ]);
     const failure = results.find((result) => result.status === 'rejected');
     if (failure) throw failure.reason;
+    if (indexedDB) {
+      this.deleteClearedBrowserDatabases = () => {
+        const deadline = Date.now() + RESET_DATABASE_DELETE_WINDOW_MS;
+        for (const { name } of databases) {
+          if (Date.now() >= deadline) break;
+          if (!name || name === APP_RESET_CONTROL_NAME) continue;
+          try {
+            // Do not await or retry. The browser may keep an already-issued
+            // delete queued beyond this dispatch window.
+            indexedDB.deleteDatabase(name).onerror = (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            };
+          } catch {
+            // A best-effort delete does not affect reset success.
+          }
+        }
+      };
+    }
   }
 
   private async clearBrowserCacheStorage(log: IResetStageLogger) {
@@ -764,6 +785,7 @@ class ServiceApp extends ServiceBase {
       const currentMarker = pendingMarker ?? marker;
       if (this.resetMarker?.operationId !== currentMarker.operationId) {
         this.completedResetCleanups.clear();
+        this.deleteClearedBrowserDatabases = undefined;
       }
       this.resetMarker = currentMarker;
       this.backgroundApi.serviceLogger?.beginResetAttempt?.();
@@ -796,6 +818,9 @@ class ServiceApp extends ServiceBase {
     await this.runResetStage(log, 'clearResetMarker', () =>
       writeAppResetMarker(),
     );
+    const deleteDatabases = this.deleteClearedBrowserDatabases;
+    this.deleteClearedBrowserDatabases = undefined;
+    deleteDatabases?.();
     log('localCleanup', 'reset_completed');
     broadcastAppReset('completed');
   }
