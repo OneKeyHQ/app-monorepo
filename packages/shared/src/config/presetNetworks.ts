@@ -1818,7 +1818,7 @@ const tron: IServerNetwork = {
 };
 
 const nile: IServerNetwork = {
-  'chainId': 'tron--0xcd8690dc',
+  'chainId': '0xcd8690dc',
   'code': 'ttrx',
   'decimals': 6,
   'id': 'tron--0xcd8690dc',
