@@ -21,6 +21,8 @@ import {
   setNativeVersion,
 } from './libs/store';
 
+import type { IVerifiedFileCache } from './libs/verifiedFileCache';
+
 export const readMetadataFileSha256 = async (
   signature: string,
   expected?: { appVersion?: string; bundleVersion?: string },
@@ -672,11 +674,15 @@ export const readVerifiedBundleFile = ({
   metadata,
   driveLetter,
   url,
+  verifiedCache,
 }: {
   bundleDirPath: string;
   metadata: Record<string, string>;
   driveLetter: string;
   url: string;
+  // When provided, a previously verified buffer for the same path + sha512 is
+  // served without re-reading/re-hashing, and a fresh verification is stored.
+  verifiedCache?: IVerifiedFileCache;
 }): { filePath: string; buffer: Buffer } => {
   if (!bundleDirPath) {
     throw new OneKeyLocalError('Bundle directory path not found');
@@ -715,6 +721,10 @@ export const readVerifiedBundleFile = ({
       `File ${url}, sha512 not found in metadata.json`,
     );
   }
+  const cachedBuffer = verifiedCache?.get(filePath, sha512);
+  if (cachedBuffer) {
+    return { filePath, buffer: cachedBuffer };
+  }
   const buffer = readVerifiedFileSha512(filePath, sha512);
   if (!buffer) {
     logger.info(
@@ -724,6 +734,7 @@ export const readVerifiedBundleFile = ({
     unmatchedFileDialog();
     throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
   }
+  verifiedCache?.set(filePath, sha512, buffer);
   return { filePath, buffer };
 };
 

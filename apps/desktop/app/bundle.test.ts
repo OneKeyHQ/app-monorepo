@@ -69,6 +69,7 @@ import {
   getSkipGPGVerification,
   setNativeVersion,
 } from './libs/store';
+import { createVerifiedFileCache } from './libs/verifiedFileCache';
 
 // --- Helpers ---
 
@@ -620,6 +621,72 @@ test('readVerifiedBundleFile reads file once and returns the verified buffer', (
   } finally {
     fsOpenSpy.mockRestore();
     fsReadSpy.mockRestore();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('readVerifiedBundleFile reuses a verified buffer from the cache without re-reading or re-hashing', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-read-cache-'));
+  const fsOpenSpy = jest.spyOn(fs, 'openSync');
+  const hashSpy = jest.spyOn(crypto, 'createHash');
+  try {
+    const content = Buffer.from('fake-mp4-bytes', 'utf8');
+    const filePath = path.join(tmpDir, 'static', 'media', 'clip.mp4');
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, content);
+    const sha512 = crypto.createHash('sha512').update(content).digest('hex');
+    const params = {
+      bundleDirPath: tmpDir,
+      metadata: { 'static/media/clip.mp4': sha512 },
+      driveLetter: '',
+      url: '/static/media/clip.mp4',
+    };
+    const verifiedCache = createVerifiedFileCache();
+
+    fsOpenSpy.mockClear();
+    hashSpy.mockClear();
+    const first = readVerifiedBundleFile({ ...params, verifiedCache });
+    expect(first.buffer.equals(content)).toBe(true);
+    expect(hashSpy).toHaveBeenCalledTimes(1);
+
+    // Tamper on disk after verification: cached bytes are the verified ones.
+    fs.writeFileSync(filePath, 'tampered');
+    fsOpenSpy.mockClear();
+    hashSpy.mockClear();
+    const second = readVerifiedBundleFile({ ...params, verifiedCache });
+    expect(second.buffer).toBe(first.buffer);
+    expect(second.buffer.equals(content)).toBe(true);
+    expect(fsOpenSpy).not.toHaveBeenCalled();
+    expect(hashSpy).not.toHaveBeenCalled();
+
+    // Without the cache the tampered file is still rejected.
+    expect(() => readVerifiedBundleFile(params)).toThrow('sha512 mismatch');
+  } finally {
+    fsOpenSpy.mockRestore();
+    hashSpy.mockRestore();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('readVerifiedBundleFile does not cache files that fail sha512 verification', () => {
+  const tmpDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'bundle-read-cache-bad-'),
+  );
+  try {
+    const filePath = path.join(tmpDir, 'clip.mp4');
+    fs.writeFileSync(filePath, 'untrusted');
+    const verifiedCache = createVerifiedFileCache();
+    const params = {
+      bundleDirPath: tmpDir,
+      metadata: { 'clip.mp4': 'f'.repeat(128) },
+      driveLetter: '',
+      url: '/clip.mp4',
+      verifiedCache,
+    };
+    expect(() => readVerifiedBundleFile(params)).toThrow('sha512 mismatch');
+    expect(verifiedCache.size).toBe(0);
+    expect(() => readVerifiedBundleFile(params)).toThrow('sha512 mismatch');
+  } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
