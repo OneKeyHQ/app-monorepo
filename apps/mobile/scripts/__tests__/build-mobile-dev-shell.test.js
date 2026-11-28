@@ -280,6 +280,8 @@ SPEC CHECKSUMS:
       expect(source).toContain('push:\n    branches:\n      - x\n    paths:');
       expect(source).toContain("- 'apps/mobile/package.json'");
       expect(source).toContain("- 'apps/mobile/dev-vendor.config.js'");
+      expect(source).toContain("- 'apps/mobile/native/mmkv/**'");
+      expect(source).toContain("ONEKEY_FONTS_FORCE_FALLBACK: '1'");
       expect(source).toContain("- 'patches/**'");
       expect(source).toContain("- 'yarn.lock'");
       expect(source).not.toContain('workflow_run:');

@@ -109,6 +109,8 @@ describe('local shell artifact cache', () => {
     'apps/mobile/ios/OneKeyMarketWidget/MarketWidgetProvider.swift',
     'apps/mobile/ios/SharedMarketWidget/MarketWidgetData.swift',
     'apps/mobile/ios/SharedMarketWidget/MarketWidgetService.swift',
+    'apps/mobile/ios/OneKeyAppClip/AppClipRootView.swift',
+    'apps/mobile/ios/SharedAppClipAttribution/AppClipAttributionStore.swift',
   ])('invalidates the iOS shell after editing untracked %s', (relativePath) => {
     writeShellInputFixture('ios');
     const file = path.join(directory, relativePath);
@@ -149,6 +151,38 @@ describe('local shell artifact cache', () => {
     const after = getShellCompatibility(inputs);
     expect(after.nativeContractKey).toBe(before.nativeContractKey);
     expect(after.shellInputKey).not.toBe(before.shellInputKey);
+  });
+
+  it.each([
+    ['ios', 'apps/mobile/ios/Podfile'],
+    ['android', 'apps/mobile/android/app/build.gradle'],
+  ])(
+    'keeps the %s shell key stable across checkout line endings',
+    (platform, relativePath) => {
+      writeShellInputFixture(platform);
+      const file = path.join(directory, relativePath);
+      fs.writeFileSync(file, 'first line\nsecond line\n');
+      const inputs = {
+        nativeContractKey: 'a'.repeat(64),
+        platform,
+        repoRoot: directory,
+      };
+      const before = getShellCompatibility(inputs);
+      fs.writeFileSync(file, 'first line\r\nsecond line\r\n');
+      expect(getShellCompatibility(inputs).exactTag).toBe(before.exactTag);
+    },
+  );
+
+  it('excludes Android instrumentation tests from the APK input key', () => {
+    writeShellInputFixture('android');
+    const file = path.join(
+      directory,
+      'apps/mobile/android/app/src/androidTest/FooTest.java',
+    );
+    const before = getBuildDigest('android', { repoRoot: directory });
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'class FooTest {}');
+    expect(getBuildDigest('android', { repoRoot: directory })).toBe(before);
   });
 
   it.each([

@@ -10,11 +10,13 @@ on:
       - '.github/workflows/mobile-dev-shell-ios-simulator.yml'
       - '.github/workflows/web-embed-prebundle.yml'
       - 'apps/mobile/dev-vendor.config.js'
+      - 'apps/mobile/native/mmkv/**'
       - 'apps/mobile/ios/**'
       - 'apps/mobile/package.json'
       - 'apps/mobile/plugins/devVendor.js'
       - 'apps/mobile/react-native.config.js'
       - 'apps/mobile/scripts/build-mobile-dev-shell.js'
+      - 'apps/mobile/scripts/inject-sentry-native-config.sh'
       - 'apps/mobile/scripts/local-dev-shell-cache.js'
       - 'apps/mobile/scripts/mobile-dev-shell-resource.js'
       - 'apps/mobile/scripts/native-dev-shell.js'
@@ -38,6 +40,7 @@ on:
 
 env:
   NODE_ENV: production
+  ONEKEY_FONTS_FORCE_FALLBACK: '1'
   YARN_ENABLE_GLOBAL_CACHE: true
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 

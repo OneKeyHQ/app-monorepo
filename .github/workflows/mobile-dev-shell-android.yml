@@ -11,6 +11,7 @@ on:
       - '.github/workflows/web-embed-prebundle.yml'
       - 'apps/mobile/android/**'
       - 'apps/mobile/dev-vendor.config.js'
+      - 'apps/mobile/native/mmkv/**'
       - 'apps/mobile/package.json'
       - 'apps/mobile/plugins/devVendor.js'
       - 'apps/mobile/react-native.config.js'
@@ -38,6 +39,7 @@ on:
 
 env:
   NODE_ENV: production
+  ONEKEY_FONTS_FORCE_FALLBACK: '1'
   YARN_ENABLE_GLOBAL_CACHE: true
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 

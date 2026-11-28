@@ -586,40 +586,53 @@ describe('mobile-dev-shell-resource', () => {
     }
   });
 
-  it('returns the final cache artifact path after a cold remote restore', async () => {
-    const cacheRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'onekey-shell-cold-cache-test-'),
-    );
-    try {
-      const remote = createRemoteShell({
-        compatibility,
-        inputKey: compatibility.shellInputKey,
-      });
-      const result = await restoreMobileDevShell({
-        attestationVerifier: jest.fn().mockResolvedValue(undefined),
-        cacheRoot,
-        compatibility,
-        fetchImpl: remote.fetchImpl,
-      });
-
-      expect(result).toMatchObject({
-        artifactPath: path.join(
+  it.each([false, true])(
+    'returns the final cache artifact path after a cold remote restore (transient failure: %s)',
+    async (transientFailure) => {
+      const cacheRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'onekey-shell-cold-cache-test-'),
+      );
+      try {
+        const remote = createRemoteShell({
+          compatibility,
+          inputKey: compatibility.shellInputKey,
+        });
+        if (transientFailure) {
+          remote.fetchImpl.mockResolvedValueOnce(
+            new Response(null, { status: 503 }),
+          );
+        }
+        const result = await restoreMobileDevShell({
+          attestationVerifier: jest.fn().mockResolvedValue(undefined),
           cacheRoot,
-          compatibility.exactTag,
-          compatibility.artifactFile,
-        ),
-        cacheHit: false,
-        compatibilityFallback: false,
-        source: 'remote',
-      });
-      expect(fs.readFileSync(result.artifactPath)).toEqual(remote.artifact);
-      expect(
-        fs.readdirSync(cacheRoot).some((entry) => entry.includes('.download-')),
-      ).toBe(false);
-    } finally {
-      fs.rmSync(cacheRoot, { force: true, recursive: true });
-    }
-  });
+          compatibility,
+          fetchImpl: remote.fetchImpl,
+        });
+
+        expect(result).toMatchObject({
+          artifactPath: path.join(
+            cacheRoot,
+            compatibility.exactTag,
+            compatibility.artifactFile,
+          ),
+          cacheHit: false,
+          compatibilityFallback: false,
+          source: 'remote',
+        });
+        expect(fs.readFileSync(result.artifactPath)).toEqual(remote.artifact);
+        expect(remote.fetchImpl).toHaveBeenCalledTimes(
+          transientFailure ? 5 : 4,
+        );
+        expect(
+          fs
+            .readdirSync(cacheRoot)
+            .some((entry) => entry.includes('.download-')),
+        ).toBe(false);
+      } finally {
+        fs.rmSync(cacheRoot, { force: true, recursive: true });
+      }
+    },
+  );
 
   it('resolves an existing exact OCI shell without downloading its layers', async () => {
     const remote = createRemoteShell({
