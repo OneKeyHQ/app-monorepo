@@ -148,6 +148,10 @@ import { createSoftRestartRenderer } from './libs/softRestart';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
 import {
+  createVerifiedFileCache,
+  isRangeRequest,
+} from './libs/verifiedFileCache';
+import {
   isWcPayEmbedUrl,
   stripFrameBlockingHeaders,
 } from './libs/wcPayFrameEmbedding';
@@ -1653,8 +1657,16 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
       }
     }
     uninterceptFileProtocolIfNeeded();
+    // Media elements re-fetch their source as Range requests on every play;
+    // reuse the already read/verified bytes instead of re-reading and
+    // re-hashing the whole file per range. Scoped to this handler so a
+    // re-registration (new bundle / soft restart) starts empty.
+    const rangeRequestFileCache = createVerifiedFileCache();
     session.defaultSession.protocol.handle(PROTOCOL, (request) => {
       try {
+        const rangeCache = isRangeRequest(request)
+          ? rangeRequestFileCache
+          : undefined;
         const cleanUrl = request.url.split(/[?#]/, 1)[0];
         const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
         const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
@@ -1727,6 +1739,7 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
             metadata,
             driveLetter,
             url: targetUrl,
+            verifiedCache: rangeCache,
           });
           return createBufferResponse(buffer, filePath, request);
         }
@@ -1756,11 +1769,12 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
         if (!resolvedStat || !resolvedStat.isFile()) {
           return Response.error();
         }
-        return createBufferResponse(
-          fs.readFileSync(resolved),
-          resolved,
-          request,
-        );
+        let builtinBuffer = rangeCache?.get(resolved);
+        if (!builtinBuffer) {
+          builtinBuffer = fs.readFileSync(resolved);
+          rangeCache?.set(resolved, undefined, builtinBuffer);
+        }
+        return createBufferResponse(builtinBuffer, resolved, request);
       } catch (error) {
         logger.error('protocol.handle(file) error:', error);
         return Response.error();
