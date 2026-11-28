@@ -1629,7 +1629,11 @@ class ServicePendingInstallTask {
     }
 
     try {
-      await BundleUpdate.verifyExtractedBundle(appVersion, bundleVersion);
+      await BundleUpdate.verifyExtractedBundle(
+        appVersion,
+        bundleVersion,
+        signature,
+      );
     } catch (error) {
       throw createUpdateError(getUpdateError(error, 'verifyPackage'));
     }

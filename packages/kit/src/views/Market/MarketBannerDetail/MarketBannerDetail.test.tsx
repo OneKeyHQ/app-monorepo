@@ -20,6 +20,8 @@ let mockIncludeNonStockToken = false;
 let mockIsWeb = true;
 let mockIsNative = false;
 let mockIsOverlayPage = false;
+let mockIsModalPage = false;
+let mockIsNativeIOS26Plus = false;
 let mockIsFocused = true;
 let mockTickerIsLoading: boolean | undefined;
 const mockFocusListeners = new Map<string, () => void>();
@@ -60,7 +62,7 @@ jest.mock('@react-navigation/core', () => ({
     },
   }),
 }));
-jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 0 }));
+jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 74 }));
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
 }));
@@ -86,14 +88,16 @@ jest.mock('@onekeyhq/components', () => {
   const Frame = ({
     children,
     maxWidth,
+    pt,
     testID,
   }: import('react').PropsWithChildren<{
     maxWidth?: number;
+    pt?: number;
     testID?: string;
   }>) =>
     React.createElement(
       'div',
-      { 'data-testid': testID, 'data-max-width': maxWidth },
+      { 'data-testid': testID, 'data-max-width': maxWidth, 'data-pt': pt },
       children,
     );
   return {
@@ -124,6 +128,7 @@ jest.mock('@onekeyhq/components', () => {
     NavBackButton: () => null,
     HeaderButtonGroup: () => null,
     rootNavigationRef: { current: undefined },
+    useIsModalPage: () => mockIsModalPage,
     useIsOverlayPage: () => mockIsOverlayPage,
     useMedia: () => ({ gtMd: mockWide }),
     useSafeAreaInsets: () => ({ top: 0 }),
@@ -153,6 +158,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     },
     get isNative() {
       return mockIsNative;
+    },
+    get isNativeIOS26Plus() {
+      return mockIsNativeIOS26Plus;
     },
   },
 }));
@@ -295,6 +303,8 @@ beforeEach(() => {
   mockIsWeb = true;
   mockIsNative = false;
   mockIsOverlayPage = false;
+  mockIsModalPage = false;
+  mockIsNativeIOS26Plus = false;
   mockIsFocused = true;
   mockTickerIsLoading = false;
   mockFocusListeners.clear();
@@ -362,6 +372,26 @@ it.each([
       isStock: false,
       isIndex: false,
     });
+  },
+);
+
+it.each([
+  { name: 'pushed page', isModal: false, pt: '74' },
+  { name: 'modal page', isModal: true, pt: '0' },
+])(
+  'offsets the iOS 26 body by the header height only on a $name',
+  ({ isModal, pt }) => {
+    // A pushed page's iOS 26 bar floats over the body; a modal's opaque bar
+    // (an iPad overlay) already sits above it (OK-67747).
+    mockIsNative = true;
+    mockIsWeb = false;
+    mockIsNativeIOS26Plus = true;
+    mockIsModalPage = isModal;
+    mockIsOverlayPage = isModal;
+    render(<MarketBannerDetail />);
+    expect(
+      screen.getByTestId('market-banner-detail-body').getAttribute('data-pt'),
+    ).toBe(pt);
   },
 );
 

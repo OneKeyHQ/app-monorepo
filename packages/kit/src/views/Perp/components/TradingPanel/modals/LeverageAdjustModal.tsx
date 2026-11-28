@@ -41,8 +41,8 @@ import {
   openGuideUrl,
 } from '../../Guide/perpGuideData';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../../PerpDialogLayout';
 import { PerpsSlider } from '../../PerpsSlider';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
@@ -64,6 +64,7 @@ const LeverageContent = memo(
     activeAssetData,
   }: ILeverageContentProps) => {
     const [value, setValue] = useDelayedState(initialValue);
+    const dialogButtonSize = usePerpDialogButtonSize();
     const [loading, setLoading] = useState(false);
     const dialogInstance = useDialogInstance();
     const actions = useHyperliquidActions();
@@ -254,13 +255,13 @@ const LeverageContent = memo(
                 })}
               </SizableText>
             </XStack>
-            <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+            <TradingGuardWrapper buttonSize={dialogButtonSize}>
               <Button
                 testID={PerpTestIDs.LeverageConfirmButton}
                 onPress={handleConfirm}
                 disabled={isDisabled}
                 loading={loading}
-                size={PERP_DIALOG_BUTTON_SIZE}
+                size={dialogButtonSize}
                 variant="primary"
               >
                 {intl.formatMessage({ id: ETranslations.global_confirm })}

@@ -13,6 +13,7 @@ export enum EOneKeyDeepLinkPath {
   invited_by_friend = 'invited_by_friend',
   redeem_bitcoin_voucher = 'redeem_bitcoin_voucher',
   prime_subscription = 'prime_subscription',
+  prime_dashboard = 'prime_dashboard',
   prime_purchase_complete = 'prime_purchase_complete',
   cross_device_transfer = 'cross_device_transfer',
   // Value MUST equal the on-wire URL segment (compared as a raw string in the
@@ -42,6 +43,7 @@ export type IEOneKeyDeepLinkParams = {
     code?: string;
   };
   [EOneKeyDeepLinkPath.prime_subscription]: undefined;
+  [EOneKeyDeepLinkPath.prime_dashboard]: undefined;
   [EOneKeyDeepLinkPath.prime_purchase_complete]: undefined;
   [EOneKeyDeepLinkPath.cross_device_transfer]: {
     code?: string;

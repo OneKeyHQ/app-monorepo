@@ -30,7 +30,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import App from './App';
-import { createServiceWorkerVersionProtocol } from './src/serviceWorkerVersionProtocol';
+import {
+  createServiceWorkerVersionProtocol,
+  nudgeWaitingServiceWorker,
+} from './src/serviceWorkerVersionProtocol';
 
 initFirstLaunchForApp();
 
@@ -281,6 +284,7 @@ if (
         updateViaCache: 'none',
       })
       .then((registration) => {
+        nudgeWaitingServiceWorker(registration);
         versionProtocol.setup();
         navigator.serviceWorker.ready
           .then(() => versionProtocol.requestVersionCheck())

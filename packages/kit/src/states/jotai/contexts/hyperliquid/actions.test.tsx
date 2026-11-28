@@ -237,6 +237,7 @@ jest.mock('@onekeyhq/components', () => {
       success: jest.fn(),
       loading: jest.fn(() => ({ close: jest.fn() })),
     },
+    useMedia: () => ({ md: false }),
     XStack: Container,
     YStack: Container,
   };
