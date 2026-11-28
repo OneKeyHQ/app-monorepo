@@ -15,6 +15,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useIsModalPage,
   useIsOverlayPage,
   useMedia,
   useSafeAreaInsets,
@@ -144,6 +145,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
+  const isModalPage = useIsModalPage();
   const { gtMd } = useMedia();
 
   const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
@@ -487,7 +489,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   if (gtMd) {
     bodyTopInset = 0;
   } else if (platformEnv.isNativeIOS26Plus) {
-    bodyTopInset = headerHeight;
+    // Only a pushed page's iOS 26 bar is translucent over the body. A modal
+    // (an iPad overlay) has an opaque bar the body already sits below.
+    bodyTopInset = isModalPage ? 0 : headerHeight;
   } else {
     bodyTopInset = top;
   }
