@@ -478,16 +478,17 @@ class ServiceApp extends ServiceBase {
         const deadline = Date.now() + RESET_DATABASE_DELETE_WINDOW_MS;
         for (const { name } of databases) {
           if (Date.now() >= deadline) break;
-          if (!name || name === APP_RESET_CONTROL_NAME) continue;
-          try {
-            // Do not await or retry. The browser may keep an already-issued
-            // delete queued beyond this dispatch window.
-            indexedDB.deleteDatabase(name).onerror = (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-            };
-          } catch {
-            // A best-effort delete does not affect reset success.
+          if (name && name !== APP_RESET_CONTROL_NAME) {
+            try {
+              // Do not await or retry. The browser may keep an already-issued
+              // delete queued beyond this dispatch window.
+              indexedDB.deleteDatabase(name).onerror = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              };
+            } catch {
+              // A best-effort delete does not affect reset success.
+            }
           }
         }
       };
