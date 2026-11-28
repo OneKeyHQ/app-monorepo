@@ -78,11 +78,20 @@ type IPortfolioActionableAssetStatusItem = Omit<
 > & {
   button: IEarnActionIcon;
 };
+type IPortfolioRewardAsset =
+  IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number];
+type IPortfolioActionableRewardAsset = IPortfolioRewardAsset & {
+  button: NonNullable<IPortfolioRewardAsset['button']>;
+};
 type IWrappedActionReward =
-  | IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]
+  | IPortfolioActionableRewardAsset
   | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number]
   | IPortfolioActionableAssetStatusItem;
 type IWrappedActionButton = IWrappedActionReward['button'];
+
+const hasRewardButton = (
+  reward: IPortfolioRewardAsset,
+): reward is IPortfolioActionableRewardAsset => Boolean(reward.button);
 
 const toActionableAssetStatusItem = (
   status: IPortfolioAssetStatusItem,
@@ -603,11 +612,13 @@ const ActionField = ({
               <EarnTooltip tooltip={reward.tooltip} />
             </XStack>
           ) : null}
-          <WrappedActionButton
-            asset={asset}
-            reward={reward}
-            rewardSymbol={getRewardButtonSymbol(reward.button)}
-          />
+          {hasRewardButton(reward) ? (
+            <WrappedActionButton
+              asset={asset}
+              reward={reward}
+              rewardSymbol={getRewardButtonSymbol(reward.button)}
+            />
+          ) : null}
         </Stack>
       ))}
     </FieldWrapper>
@@ -1140,13 +1151,15 @@ const PortfolioItemComponent = ({
                               />
                               <EarnTooltip tooltip={reward.tooltip} />
                             </XStack>
-                            <WrappedActionButton
-                              asset={asset}
-                              reward={reward}
-                              rewardSymbol={getRewardButtonSymbol(
-                                reward.button,
-                              )}
-                            />
+                            {hasRewardButton(reward) ? (
+                              <WrappedActionButton
+                                asset={asset}
+                                reward={reward}
+                                rewardSymbol={getRewardButtonSymbol(
+                                  reward.button,
+                                )}
+                              />
+                            ) : null}
                           </XStack>
                         ))}
 

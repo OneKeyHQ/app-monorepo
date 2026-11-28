@@ -12,7 +12,41 @@ const MESSAGE_TYPES = {
   UPDATE_READY: 'UPDATE_READY',
   UPDATE_FAILED: 'UPDATE_FAILED',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
+  SKIP_WAITING: 'SKIP_WAITING',
 };
+
+export function nudgeWaitingServiceWorker(registration) {
+  if (!registration) {
+    return;
+  }
+  const watchedWorkers = new WeakSet();
+  const postSkipWaiting = (worker) => {
+    if (worker?.state === 'installed') {
+      worker.postMessage({ type: MESSAGE_TYPES.SKIP_WAITING });
+    }
+  };
+  const watchInstalling = (worker) => {
+    if (!worker || watchedWorkers.has(worker)) {
+      return;
+    }
+    watchedWorkers.add(worker);
+    if (worker.state === 'installed') {
+      postSkipWaiting(worker);
+      return;
+    }
+    worker.addEventListener?.('statechange', () => {
+      if (worker.state === 'installed') {
+        postSkipWaiting(worker);
+      }
+    });
+  };
+
+  postSkipWaiting(registration.waiting);
+  watchInstalling(registration.installing);
+  registration.addEventListener?.('updatefound', () => {
+    watchInstalling(registration.installing);
+  });
+}
 const AUTO_RELOAD_STORAGE_KEY = '__onekey_sw_error_auto_reload__';
 const ACTIVATION_TIMEOUT_MS = 3000;
 
