@@ -6,6 +6,7 @@ on:
       - x
     paths:
       - '.env.version'
+      - '.github/actions/publish-mobile-dev-shell/**'
       - '.github/workflows/mobile-dev-shell-ios-simulator.yml'
       - '.github/workflows/web-embed-prebundle.yml'
       - 'apps/mobile/dev-vendor.config.js'
@@ -16,6 +17,7 @@ on:
       - 'apps/mobile/scripts/build-mobile-dev-shell.js'
       - 'apps/mobile/scripts/local-dev-shell-cache.js'
       - 'apps/mobile/scripts/mobile-dev-shell-resource.js'
+      - 'apps/mobile/scripts/native-dev-shell.js'
       - 'apps/web-embed/**'
       - 'development/**'
       - 'package.json'
@@ -51,6 +53,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       exists: ${{ steps.shell.outputs.exists }}
+      tag: ${{ steps.shell.outputs.tag }}
 
     steps:
       - name: Checkout Source Code
@@ -111,6 +114,7 @@ jobs:
           oci_digest="$(jq -r '.ociDigest // ""' "$status_file")"
           reference="ghcr.io/onekeyhq/mobile-dev-shell:$tag"
           echo "exists=$exists" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           {
             echo "### iOS Simulator dev shell"
             echo "- Exact OCI reference: \`$reference${oci_digest:+@$oci_digest}\`"
@@ -230,9 +234,12 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          cd apps/mobile/ios
           gem install cocoapods -v 1.17.0
-          pod _1.17.0_ install --deployment
+          node <<'NODE'
+          const path = require('node:path');
+          const { installIosPods } = require('./apps/mobile/scripts/build-mobile-dev-shell');
+          installIosPods(path.resolve('apps/mobile/ios'), '1.17.0');
+          NODE
 
       - name: Restore web-embed prebundle
         uses: ./.github/actions/restore-web-embed
@@ -247,10 +254,13 @@ jobs:
 
       - name: Create arm64 Simulator app manifest
         id: artifact
+        env:
+          EXPECTED_EXACT_TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           set -euo pipefail
           shell_artifact_key="$(node apps/mobile/scripts/native-dev-shell.js artifact-manifest \
             --platform ios \
+            --expected-exact-tag "$EXPECTED_EXACT_TAG" \
             --artifact apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.zip \
             --web-embed-receipt apps/web-embed/out-dir-bundle/web-embed-prebundle-restored.json \
             --output apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.json)"
@@ -262,7 +272,6 @@ jobs:
             echo "artifact_tag=mobile-dev-shell-artifact-v3-ios-simulator-arm64-$shell_artifact_key"
             echo "compatibility_key=$shell_compatibility_key"
             echo "compatibility_tag=mobile-dev-shell-contract-v3-ios-simulator-arm64-$shell_compatibility_key"
-            echo "exact_tag=mobile-dev-shell-input-v3-ios-simulator-arm64-$shell_input_key"
             echo "input_key=$shell_input_key"
             echo "native_contract_key=$native_contract_key"
           } >> "$GITHUB_OUTPUT"
@@ -276,7 +285,7 @@ jobs:
           artifact_tag: ${{ steps.artifact.outputs.artifact_tag }}
           compatibility_key: ${{ steps.artifact.outputs.compatibility_key }}
           compatibility_tag: ${{ steps.artifact.outputs.compatibility_tag }}
-          exact_tag: ${{ steps.artifact.outputs.exact_tag }}
+          exact_tag: ${{ needs.resolve.outputs.tag }}
           input_key: ${{ steps.artifact.outputs.input_key }}
           manifest: apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.json
           native_contract_key: ${{ steps.artifact.outputs.native_contract_key }}

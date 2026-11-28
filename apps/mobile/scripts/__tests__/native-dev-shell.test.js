@@ -1711,6 +1711,7 @@ describe('native-dev-shell', () => {
 
     const manifest = await writeArtifactManifest({
       artifact: artifactPath,
+      expectedExactTag: getShellCompatibility({ platform: 'android' }).exactTag,
       expectedWebEmbedInputKey: '1'.repeat(64),
       output: outputPath,
       platform: 'android',
@@ -1755,6 +1756,33 @@ describe('native-dev-shell', () => {
     expect(manifest.shellInputKey).toMatch(/^[0-9a-f]{64}$/u);
     expect(JSON.parse(fs.readFileSync(outputPath, 'utf8'))).toEqual(manifest);
   });
+
+  it.each(['ios', 'android'])(
+    'rejects native input changes before generating a %s publication manifest',
+    async (platform) => {
+      const receiptPath = path.join(temporaryDirectory, 'receipt.json');
+      const output = path.join(temporaryDirectory, 'artifact.json');
+      fs.writeFileSync(
+        receiptPath,
+        JSON.stringify({
+          schemaVersion: 1,
+          inputKey: '1'.repeat(64),
+          outputTreeDigest: '2'.repeat(64),
+        }),
+      );
+      await expect(
+        writeArtifactManifest({
+          artifact: path.join(temporaryDirectory, 'shell'),
+          expectedExactTag: 'stale-native-build',
+          expectedWebEmbedInputKey: '1'.repeat(64),
+          output,
+          platform,
+          webEmbedReceipt: receiptPath,
+        }),
+      ).rejects.toThrow('Native shell inputs changed during the build');
+      expect(fs.existsSync(output)).toBe(false);
+    },
+  );
 
   it('records a canonical local web-embed fallback in the shell manifest', async () => {
     const artifactPath = path.join(temporaryDirectory, 'OneKeyWallet.apk');

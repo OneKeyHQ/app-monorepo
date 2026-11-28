@@ -5,6 +5,7 @@
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { isDeepStrictEqual } = require('util');
 
 const yaml = require('yaml');
 
@@ -269,14 +270,27 @@ function hasSpecRepoChecksumChange(iosDirectory, output) {
   return changedPods.some((name) => specRepoPods.has(name));
 }
 
-function installIosPods(iosDirectory = path.join(MOBILE_ROOT, 'ios')) {
+function installIosPods(
+  iosDirectory = path.join(MOBILE_ROOT, 'ios'),
+  podVersion,
+) {
+  const projectFile = path.join(
+    iosDirectory,
+    'OneKeyWallet.xcodeproj/project.pbxproj',
+  );
+  const originalProject = fs.readFileSync(projectFile);
   refreshStaleIosPodspecs(iosDirectory);
+  const podArgs = podVersion ? [`_${podVersion}_`] : [];
   const install = (extraArgs) => {
-    const result = spawnSync('pod', ['install', '--deployment', ...extraArgs], {
-      cwd: iosDirectory,
-      encoding: 'utf8',
-      maxBuffer: 256 * 1024 * 1024,
-    });
+    const result = spawnSync(
+      'pod',
+      [...podArgs, 'install', '--deployment', ...extraArgs],
+      {
+        cwd: iosDirectory,
+        encoding: 'utf8',
+        maxBuffer: 256 * 1024 * 1024,
+      },
+    );
     process.stdout.write(result.stdout || '');
     process.stderr.write(result.stderr || '');
     return result;
@@ -302,6 +316,24 @@ function installIosPods(iosDirectory = path.join(MOBILE_ROOT, 'ios')) {
     throw new Error('[buildMobileDevShell] Command failed: pod install', {
       cause: result.error,
     });
+  }
+
+  const installedProject = fs.readFileSync(projectFile);
+  if (installedProject.equals(originalProject)) return;
+  // CocoaPods can rewrite the project without changing its build settings.
+  const parseProject = (input) =>
+    JSON.parse(
+      runForOutput('/usr/bin/plutil', ['-convert', 'json', '-o', '-', '-'], {
+        input,
+      }),
+    );
+  if (
+    isDeepStrictEqual(
+      parseProject(originalProject),
+      parseProject(installedProject),
+    )
+  ) {
+    fs.writeFileSync(projectFile, originalProject);
   }
 }
 
