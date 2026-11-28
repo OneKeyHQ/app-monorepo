@@ -458,7 +458,7 @@ test('mobile consumers and Metro bundle registry do not duplicate canonical SVGs
   );
 });
 
-test('web assetUrls provider uses external href on same-origin and injects in-document symbol on cross-origin CDN', async () => {
+test('web assetUrls provider uses external href on same-origin and injects in-document symbol on cross-origin CDN and desktop file:', async () => {
   const { outputs } = await generateOutputs(appRoot);
   const assetUrlsTs = [...outputs].find(([file]) =>
     file.endsWith('/web/assetUrls.ts'),
@@ -496,6 +496,7 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
       location: contextGlobals.location,
       DOMParser: contextGlobals.DOMParser,
       fetch: contextGlobals.fetch,
+      process: contextGlobals.process,
     });
     return exportsObj;
   };
@@ -602,4 +603,60 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
     injectedSymbol.parentElement?.getAttribute('id'),
     'onekey-icon-sprite-root',
   );
+
+  // 3. Desktop file: bundle is never reused by Chromium, so external references would
+  // re-read the file on every swap; load each symbol once into the page sprite.
+  const fileDom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'file:///Applications/OneKey.app/Contents/Resources/build/index.html',
+  });
+  const fileFetchCalls = [];
+  const fileProvider = evaluateProvider(
+    'file:///Applications/OneKey.app/Contents/Resources/build/static/js/bundle.js',
+    {
+      document: fileDom.window.document,
+      location: fileDom.window.location,
+      DOMParser: fileDom.window.DOMParser,
+      process: { env: { ONEKEY_PLATFORM: 'desktop' } },
+      fetch: async (url) => {
+        fileFetchCalls.push(url);
+        return { ok: true, text: async () => dotVerSvg };
+      },
+    },
+  );
+  assert.equal(
+    fileProvider.iconResourceHref('DotVerSolid'),
+    '#onekey-DotVerSolid',
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok(fileDom.window.document.getElementById('onekey-DotVerSolid'));
+  assert.equal(
+    fileProvider.iconResourceHref('DotVerSolid'),
+    '#onekey-DotVerSolid',
+  );
+  assert.deepEqual(fileFetchCalls, [
+    'file:///Applications/OneKey.app/Contents/Resources/build/static/js/assets/DotVerSolid.svg',
+  ]);
+
+  // 4. Other file: hosts (iOS web-embed WKWebView) keep the external reference.
+  const embedDom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'file:///var/mobile/web-embed/index.html',
+  });
+  const embedFetchCalls = [];
+  const embedProvider = evaluateProvider(
+    'file:///var/mobile/web-embed/static/js/bundle.js',
+    {
+      document: embedDom.window.document,
+      location: embedDom.window.location,
+      DOMParser: embedDom.window.DOMParser,
+      fetch: async (url) => {
+        embedFetchCalls.push(url);
+        return { ok: true, text: async () => dotVerSvg };
+      },
+    },
+  );
+  assert.equal(
+    embedProvider.iconResourceHref('DotVerSolid'),
+    'file:///var/mobile/web-embed/static/js/assets/DotVerSolid.svg#onekey-DotVerSolid',
+  );
+  assert.equal(embedFetchCalls.length, 0);
 });

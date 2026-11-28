@@ -417,7 +417,22 @@ function ownValue<T>(record: Record<string, T>, key: string): T | undefined {
     : undefined;
 }
 
-function isCrossOriginResource(assetUrl: string): boolean {
+// The Rspack build defines ONEKEY_PLATFORM per target. Other file: hosts (the
+// iOS web-embed WKWebView) may refuse fetch() of file: URLs. Builds that do not
+// define it reference a missing \`process\` and count as non-desktop.
+function isDesktopBuild(): boolean {
+  try {
+    return process.env.ONEKEY_PLATFORM === 'desktop';
+  } catch {
+    return false;
+  }
+}
+
+// Cross-origin documents cannot reference external symbols. Chromium never
+// reuses desktop file: resources, so every external <use> href change re-reads
+// the file through Electron's protocol handler and paints blank until it
+// resolves (OK-68236). Both load each symbol once and keep it in the page sprite.
+function shouldInjectDocumentSymbol(assetUrl: string): boolean {
   if (
     typeof document === 'undefined' ||
     typeof location === 'undefined' ||
@@ -427,11 +442,10 @@ function isCrossOriginResource(assetUrl: string): boolean {
   }
   try {
     const resolved = new URL(assetUrl, location.href);
-    if (
-      resolved.protocol === 'file:' ||
-      resolved.protocol === 'data:' ||
-      resolved.protocol === 'blob:'
-    ) {
+    if (resolved.protocol === 'file:') {
+      return isDesktopBuild();
+    }
+    if (resolved.protocol === 'data:' || resolved.protocol === 'blob:') {
       return false;
     }
     return resolved.origin !== location.origin;
@@ -505,7 +519,7 @@ function injectSymbolMarkup(symbolId: string, markup: string): boolean {
   return true;
 }
 
-function ensureCrossOriginSymbol(name: string, assetUrl: string): string {
+function ensureDocumentSymbol(name: string, assetUrl: string): string {
   const symbolId = symbolIdFor(name);
   const fragment = \`#\${symbolId}\`;
   if (typeof document === 'undefined') {
@@ -552,8 +566,8 @@ export function iconResourceHref(name: string): string | undefined {
     return \`#\${symbolId}\`;
   }
   const assetUrl = load();
-  if (isCrossOriginResource(assetUrl)) {
-    return ensureCrossOriginSymbol(name, assetUrl);
+  if (shouldInjectDocumentSymbol(assetUrl)) {
+    return ensureDocumentSymbol(name, assetUrl);
   }
   return \`\${assetUrl}#\${symbolId}\`;
 }
