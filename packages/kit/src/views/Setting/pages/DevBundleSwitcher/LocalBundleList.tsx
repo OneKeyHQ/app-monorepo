@@ -20,7 +20,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-type ILocalBundle = { appVersion: string; bundleVersion: string };
+type ILocalBundle = {
+  appVersion: string;
+  bundleVersion: string;
+  signature?: string;
+};
 
 function LocalBundleItem({
   bundle,
@@ -116,7 +120,11 @@ export default function SettingDevLocalBundleList() {
             const appVersion = String(b.appVersion);
             const bundleVersion = String(b.bundleVersion);
             const key = `${appVersion}-${bundleVersion}`;
-            if (merged.has(key)) {
+            const existing = merged.get(key);
+            if (existing) {
+              if (!existing.signature && b.signature) {
+                merged.set(key, { ...existing, signature: b.signature });
+              }
               return;
             }
             const exists = await BundleUpdate.isBundleExists(
@@ -124,7 +132,11 @@ export default function SettingDevLocalBundleList() {
               bundleVersion,
             );
             if (exists) {
-              merged.set(key, { appVersion, bundleVersion });
+              merged.set(key, {
+                appVersion,
+                bundleVersion,
+                signature: b.signature,
+              });
             }
           }),
         );
@@ -160,6 +172,7 @@ export default function SettingDevLocalBundleList() {
       await BundleUpdate.verifyExtractedBundle(
         bundle.appVersion,
         bundle.bundleVersion,
+        bundle.signature,
       );
       await backgroundApiProxy.serviceDevSetting.updateDevSetting(
         'ignoreServerBundleUpdate',
@@ -169,7 +182,7 @@ export default function SettingDevLocalBundleList() {
       await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
       await BundleUpdate.switchBundle({
         ...bundle,
-        signature: 'dev-local-switch',
+        signature: bundle.signature || 'dev-local-switch',
       });
     } catch (e) {
       setError((e as Error)?.message || 'Switch failed');
