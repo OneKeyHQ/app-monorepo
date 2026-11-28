@@ -17,7 +17,9 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   default: { showToastOfError: (error: unknown) => mockError(error) },
 }));
 
-function openDialog(signal?: AbortSignal) {
+function openDialog(
+  ...args: Parameters<typeof showBotWalletDeactivatedWarningDialog>
+) {
   let props: IDialogShowProps | undefined;
   const instance = {
     close: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
@@ -29,7 +31,7 @@ function openDialog(signal?: AbortSignal) {
     props = value;
     return instance;
   });
-  const result = showBotWalletDeactivatedWarningDialog(signal);
+  const result = showBotWalletDeactivatedWarningDialog(...args);
   const getProps = () => {
     if (!props) throw new OneKeyLocalError('Dialog was not shown');
     return props;
@@ -46,6 +48,24 @@ describe('Bot wallet deactivation warning', () => {
     await expect(dialog.result).resolves.toBe(true);
     await confirm;
     expect(dialog.instance.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('can defer confirmation until the warning dialog closes', async () => {
+    const dialog = openDialog(undefined, { waitForClose: true });
+    const close = Promise.withResolvers<void>();
+    dialog.instance.close.mockReturnValue(close.promise);
+    const onConfirmation = jest.fn<void, [boolean]>();
+    void dialog.result.then(onConfirmation);
+
+    const confirm = dialog.getProps().onConfirm?.(dialog.instance);
+    await Promise.resolve();
+    expect(dialog.instance.close).toHaveBeenCalledTimes(1);
+    expect(onConfirmation).not.toHaveBeenCalled();
+
+    close.resolve();
+    await confirm;
+    await expect(dialog.result).resolves.toBe(true);
+    expect(onConfirmation).toHaveBeenCalledWith(true);
   });
 
   it('accepts confirmation with a signal even when close calls onClose', async () => {
