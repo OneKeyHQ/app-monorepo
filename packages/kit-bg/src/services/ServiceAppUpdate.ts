@@ -852,6 +852,8 @@ class ServiceAppUpdate extends ServiceBase {
               await BundleUpdate.verifyExtractedBundle?.(
                 snapshot.latestVersion,
                 snapshot.jsBundleVersion,
+                snapshot.downloadedEvent?.signature ??
+                  snapshot.jsBundle?.signature,
               );
               availability = {
                 status: EAppUpdatePackageAvailabilityStatus.available,

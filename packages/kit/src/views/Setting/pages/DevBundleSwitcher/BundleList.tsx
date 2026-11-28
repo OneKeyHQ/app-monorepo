@@ -191,6 +191,7 @@ export function BundleItem({
         await BundleUpdate.verifyExtractedBundle(
           version,
           bundle.ciBundleVersion,
+          bundle.signature,
         );
         defaultLogger.app.jsBundleDev.installBundleResult({
           version,

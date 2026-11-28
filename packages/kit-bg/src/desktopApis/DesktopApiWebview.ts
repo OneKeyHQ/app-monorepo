@@ -1,17 +1,10 @@
-import path from 'path';
+import { pathToFileURL } from 'url';
 
 import { app, session } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import {
-  checkFileHash,
-  getBundleDirPath,
-  getDriveLetter,
-  getMetadata,
-} from '@onekeyhq/desktop/app/bundle';
-import * as store from '@onekeyhq/desktop/app/libs/store';
-import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
+import { getWebviewPreloadPath } from '@onekeyhq/desktop/app/resoucePath';
 
 // @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
 import injectedDesktopCode from './injectedDesktopCode.text-js';
@@ -117,35 +110,14 @@ class DesktopApiNetwork {
   }
 
   async getPreloadJsContent(): Promise<string> {
-    const staticPath = getStaticPath();
-    const preloadJsPath = path.join(staticPath, 'preload.js');
+    // Always load webview preload.js from inside the integrity-checked
+    // app.asar archive rather than user-writable OTA or loose resources.
+    const preloadJsPath = getWebviewPreloadPath();
     logger.info('getPreloadJsContent', preloadJsPath);
-    if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
-      const bundleDirPath = getBundleDirPath();
-      const bundleData = store.getUpdateBundleData();
-      const metadata = bundleDirPath
-        ? await getMetadata({
-            bundleDir: bundleDirPath,
-            appVersion: bundleData.appVersion,
-            bundleVersion: bundleData.bundleVersion,
-            signature: bundleData.signature,
-          })
-        : {};
-      const driveLetter = getDriveLetter();
-      checkFileHash({
-        bundleDirPath,
-        metadata,
-        driveLetter,
-        url: preloadJsPath
-          .replace(/\\/g, '/')
-          .replace(`${bundleDirPath.replace(/\\/g, '/')}/`, ''),
-      });
-    }
     // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47
     // Add timestamp to prevent Node.js require cache from loading the same file only once
-    return isDev
-      ? `file://${preloadJsPath}?t=${Date.now()}`
-      : `file://${preloadJsPath}`;
+    const preloadUrl = pathToFileURL(preloadJsPath).href;
+    return isDev ? `${preloadUrl}?t=${Date.now()}` : preloadUrl;
   }
 
   async getInjectedJsContent(): Promise<string> {
