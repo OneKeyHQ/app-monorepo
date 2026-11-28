@@ -147,6 +147,11 @@ import {
   stripFrameBlockingHeaders,
 } from './libs/wcPayFrameEmbedding';
 import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
+import {
+  WebviewDownloadPolicy,
+  configureOverlaySessionPermissions,
+  configureWebviewSessionDeviceAndDownloadPolicy,
+} from './libs/webviewSessionPolicy';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
@@ -1320,6 +1325,7 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   const overlaySession = session.fromPartition(
     DESKTOP_WEBVIEW_OVERLAY_PARTITION,
   );
+  const webviewDownloadPolicy = new WebviewDownloadPolicy();
   void applyDesktopNetworkThrottleToKnownSessions();
   // Overlay loads arbitrary external https pages from deeplinks /
   // notifications; the renderer's media-permission whitelist already
@@ -1327,13 +1333,7 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   // desktop session needs its own deny handlers because Electron
   // defaults to granting permission requests when none are set
   // (https://www.electronjs.org/docs/latest/tutorial/security#5-handle-session-permission-requests-from-remote-content).
-  overlaySession.setPermissionCheckHandler(() => false);
-  overlaySession.setPermissionRequestHandler(
-    (_webContents, _permission, callback) => {
-      callback(false);
-    },
-  );
-  overlaySession.setDevicePermissionHandler(() => false);
+  configureOverlaySessionPermissions(overlaySession);
 
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');
@@ -1352,8 +1352,30 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
         };
         contents.on('will-redirect', guardOverlayPreNavigation);
         contents.on('will-navigate', guardOverlayPreNavigation);
+      } else {
+        contents.on('input-event', (_inputEvent, inputDetails) => {
+          webviewDownloadPolicy.recordInputEvent(contents.id, inputDetails);
+        });
+        contents.once('destroyed', () => {
+          webviewDownloadPolicy.clearWebContents(contents.id);
+        });
       }
       contents.setWindowOpenHandler((handleDetails) => {
+        if (!isOverlayWebview) {
+          const { action } = uriUtils.parseDappRedirect(
+            handleDetails.url,
+            getTemplatePhishingUrls(),
+          );
+          if (
+            action !== uriUtils.EDAppOpenActionEnum.DENY &&
+            !uriUtils.isValidDeepLink(handleDetails.url)
+          ) {
+            webviewDownloadPolicy.recordNewWindowHandoff({
+              sourceWebContentsId: contents.id,
+              url: handleDetails.url,
+            });
+          }
+        }
         const safelyMainWindow = getSafelyMainWindow();
         // Forward the source webContents id so renderer listeners can
         // distinguish overlay-route webviews (strict policy: https-only,
@@ -1498,6 +1520,13 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   webviewSession.setPermissionCheckHandler((_webContents, permission) => {
     if (permission === 'media') return true;
     return WEBVIEW_ALLOWED_PERMISSIONS.has(permission);
+  });
+  configureWebviewSessionDeviceAndDownloadPolicy({
+    webviewSession,
+    downloadPolicy: webviewDownloadPolicy,
+    onAutomaticDownloadBlocked: () => {
+      logger.info('[webview] automatic download blocked');
+    },
   });
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
