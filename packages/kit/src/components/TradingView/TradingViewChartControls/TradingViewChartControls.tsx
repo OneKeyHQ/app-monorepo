@@ -22,6 +22,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ITradingViewChartMode } from '@onekeyhq/shared/src/routes/market';
 
 import { CalendarPanelPopover } from './calendarControls/CalendarPanelPopover';
 import { ChartTypeSelect } from './chartType/ChartTypeSelect';
@@ -49,7 +50,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 type IPriceMarketCapConfig =
   ITradingViewNativeChartControlsConfigData['priceMarketCap'];
-export type ITradingViewChartMode = 'native' | 'tradingView';
+export type { ITradingViewChartMode };
 
 // A workspace can offer additional views without persisting them as a candle engine.
 export const TradingViewChartModeSelectContext = createContext<{

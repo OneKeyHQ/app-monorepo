@@ -29,6 +29,8 @@ function buildTscInvocation({
   rootDir = ROOT_DIR,
   cacheFolder,
   extraArgs = [],
+  pretty = true,
+  defaultGoMemLimit = DEFAULT_GOMEMLIMIT,
   env = process.env,
 }) {
   const tsConfigPath = path.join(rootDir, 'tsconfig.json');
@@ -44,7 +46,7 @@ function buildTscInvocation({
     tsBuildInfoPath,
     '--checkers',
     checkers,
-    '--pretty',
+    ...(pretty ? ['--pretty'] : []),
     ...extraArgs,
   ];
 
@@ -52,7 +54,7 @@ function buildTscInvocation({
   // do not balloon to 10-16 GiB RSS on developer machines.
   const childEnv = {
     ...env,
-    GOMEMLIMIT: env.GOMEMLIMIT || DEFAULT_GOMEMLIMIT,
+    GOMEMLIMIT: env.GOMEMLIMIT || defaultGoMemLimit,
     GOGC: env.GOGC || DEFAULT_GOGC,
   };
 

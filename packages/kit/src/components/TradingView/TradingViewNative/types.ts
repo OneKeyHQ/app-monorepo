@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/shared/src/routes/market';
 import type {
   ITradingViewNativeChartLineStyle,
   ITradingViewNativeChartType,
@@ -16,7 +17,7 @@ export type {
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
-export type ITradingViewNativeStorageNamespace = 'market' | 'perps' | 'swap';
+export type { ITradingViewNativeStorageNamespace };
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 export type ITradingViewNativeCandleTimeMode = 'calendar' | 'fixed';
 
