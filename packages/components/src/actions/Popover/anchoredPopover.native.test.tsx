@@ -14,13 +14,15 @@ import {
   GlassHeaderProvider,
   useInGlassHeader,
 } from '../../primitives/Button/GlassHeaderContext';
+import { OverlayCloseCancelledError } from '../../shared/overlayCloseCancellation';
 
-import { Popover } from './index.native';
+import { Popover, usePopoverContext } from './index.native';
 
 type IMockOverlayProps = {
   visible: boolean;
   children?: ReactNode;
   windowOffsetRequest?: number;
+  onClose?: () => void;
   onWindowOffset?: (offset: { x: number; y: number }) => void;
 };
 
@@ -221,6 +223,54 @@ it.each([true, false])(
     expect(onPress).toHaveBeenCalledTimes(1);
   },
 );
+
+it('cancels an anchored close on reopen and waits for the next exit', async () => {
+  let closePopover: (() => Promise<void>) | undefined;
+  const onOpenChange = jest.fn<void, [boolean]>();
+  function Content() {
+    ({ closePopover } = usePopoverContext());
+    return menuContent;
+  }
+
+  const popover = (open: boolean) => (
+    <Popover
+      title="Menu"
+      open={open}
+      onOpenChange={onOpenChange}
+      nativeAnchorRect={mockTriggerRect}
+      renderTrigger={triggerContent}
+      renderContent={Content}
+    />
+  );
+  const view = render(popover(true));
+  const previousClose = closePopover?.();
+  expect(previousClose).toBeInstanceOf(Promise);
+  expect(closePopover?.()).toBe(previousClose);
+  expect(onOpenChange).toHaveBeenCalledTimes(1);
+
+  view.rerender(popover(false));
+  const previousOnClose = lastOverlay().onClose;
+  view.rerender(popover(true));
+  await expect(previousClose).rejects.toBeInstanceOf(
+    OverlayCloseCancelledError,
+  );
+  await act(async () => {
+    jest.advanceTimersByTime(5500);
+  });
+  expect(lastOverlay().visible).toBe(true);
+
+  const nextClose = closePopover?.();
+  expect(nextClose).toBeInstanceOf(Promise);
+  const afterClose = jest.fn();
+  void nextClose?.then(afterClose);
+  view.rerender(popover(false));
+  await act(async () => previousOnClose?.());
+  expect(afterClose).not.toHaveBeenCalled();
+
+  await act(async () => lastOverlay().onClose?.());
+  await expect(nextClose).resolves.toBeUndefined();
+  expect(afterClose).toHaveBeenCalledTimes(1);
+});
 
 it('presents an Android anchored panel without waiting for a modal offset', () => {
   Object.assign(platformEnv, { isNativeAndroid: true, isNativeIOS: false });
