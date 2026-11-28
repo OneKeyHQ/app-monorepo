@@ -88,7 +88,8 @@ function JotaiContextRootProviderRendererCmp({
           }
           case EJotaiContextStoreNames.swapModal:
           case EJotaiContextStoreNames.swapHomeMore:
-          case EJotaiContextStoreNames.swapHomeToken: {
+          case EJotaiContextStoreNames.swapHomeToken:
+          case EJotaiContextStoreNames.swapHomeTradePanel: {
             return <SwapModalRootProvider key={key} storeName={storeName} />;
           }
           case EJotaiContextStoreNames.swapTokenSelector:

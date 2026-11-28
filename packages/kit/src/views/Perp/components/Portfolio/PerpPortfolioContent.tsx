@@ -1454,6 +1454,7 @@ function PerpPortfolioContentComponent({
                           ),
                         ]
                   }
+                  symbol={mostTradedTokenDisplayName}
                 />
                 <SizableText size="$headingSm" color="$text">
                   {mostTradedTokenDisplayName}

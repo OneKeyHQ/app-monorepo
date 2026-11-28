@@ -317,6 +317,7 @@ export function AssetItem({
       <Token
         isNFT={asset.isNFT}
         tokenImageUri={asset.icon}
+        symbol={asset.symbol}
         networkImageUri={isAllNetworks ? networkIcon : undefined}
         showNetworkIcon={isAllNetworks}
         networkId={networkId}

@@ -144,12 +144,13 @@ function ListingSymbol({ children }: { children: string }) {
   );
 }
 
-function ListingLogo({ uri }: { uri: string }) {
+function ListingLogo({ uri, symbol }: { uri: string; symbol: string }) {
   return (
     <Token
       size="lg"
       borderRadius="$full"
       tokenImageUri={uri}
+      symbol={symbol}
       fallbackIcon="CryptoCoinOutline"
     />
   );
@@ -197,7 +198,7 @@ export function WatchlistStockIdentity({
   const variants = record.stockVariants;
   return (
     <ListingIdentityCell
-      logo={<ListingLogo uri={record.tokenImageUri} />}
+      logo={<ListingLogo uri={record.tokenImageUri} symbol={record.symbol} />}
       primary={<ListingSymbol>{record.symbol}</ListingSymbol>}
       subtitle={
         <MarketHoverRevealLine
@@ -235,7 +236,7 @@ export function WatchlistStockIdentity({
 export function WatchlistAssetIdentity({ record }: { record: IMarketToken }) {
   return (
     <ListingIdentityCell
-      logo={<ListingLogo uri={record.tokenImageUri} />}
+      logo={<ListingLogo uri={record.tokenImageUri} symbol={record.symbol} />}
       primary={<ListingSymbol>{record.symbol.toUpperCase()}</ListingSymbol>}
       subtitle={
         record.name ? <ListingSubtitle>{record.name}</ListingSubtitle> : null
@@ -254,6 +255,7 @@ export function WatchlistPerpsIdentity({ record }: { record: IMarketToken }) {
           size="lg"
           borderRadius="$full"
           tokenImageUri={record.tokenImageUri}
+          symbol={record.symbol}
           tokenImageUris={record.tokenImageUris}
           fallbackIcon="CryptoCoinOutline"
         />
@@ -336,6 +338,7 @@ export function WatchlistTokenIdentity({
           size="lg"
           borderRadius="$full"
           tokenImageUri={record.tokenImageUri}
+          symbol={record.symbol}
           tokenImageUris={record.tokenImageUris}
           networkImageUri={record.networkLogoUri}
           fallbackIcon="CryptoCoinOutline"

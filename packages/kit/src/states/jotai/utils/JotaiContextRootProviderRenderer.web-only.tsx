@@ -191,7 +191,8 @@ function JotaiContextRootProviderRendererCmp({
           }
           case EJotaiContextStoreNames.swapModal:
           case EJotaiContextStoreNames.swapHomeMore:
-          case EJotaiContextStoreNames.swapHomeToken: {
+          case EJotaiContextStoreNames.swapHomeToken:
+          case EJotaiContextStoreNames.swapHomeTradePanel: {
             return (
               <SwapModalRootProviderLazy key={key} storeName={storeName} />
             );

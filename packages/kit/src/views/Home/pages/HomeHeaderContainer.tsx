@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Stack, YStack } from '@onekeyhq/components';
+import { Stack, XStack, YStack, useMedia } from '@onekeyhq/components';
+import type { IYStackProps } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -8,6 +9,7 @@ import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/ac
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { HomeBalanceAccountTrigger } from '../../../components/TabPageHeader/components/WalletConnectionGroup';
 import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
 import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -17,6 +19,7 @@ import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
 import { HomeTestIDs } from '../testIDs';
 
+import { useHomeHeaderInMotion } from './homeHeaderMotion';
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 import type { IHomePrivacyActionsPresentation } from '../components/HomePrivacyActions';
@@ -140,6 +143,23 @@ export function useHomeHeaderLayout() {
   );
 }
 
+// Holds the native header open at its reserved height, except while a part
+// of it folds away (the last banner closing, see homeHeaderMotion): then the
+// header follows its content. Only this frame re-renders as the motion starts
+// and ends; the content inside stays the same.
+function HeaderFrame({
+  reservedHeight,
+  children,
+  ...props
+}: IYStackProps & { reservedHeight?: number }) {
+  const inMotion = useHomeHeaderInMotion();
+  return (
+    <YStack {...props} minHeight={inMotion ? undefined : reservedHeight}>
+      {children}
+    </YStack>
+  );
+}
+
 function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
   const {
     wallet,
@@ -149,6 +169,10 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
     nativeMinHeight,
     onActionsPresentationChange,
   } = layout;
+  // Wide desktop / web: the action row joins the total's row, on the right.
+  // From the large breakpoint up only: narrower, a long total runs under it.
+  const { gtLg } = useMedia();
+  const actionsInBalanceRow = !platformEnv.isNative && gtLg;
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -175,11 +199,12 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
   }, [wallet?.id, wallet?.type, isWalletNotBackedUp, homeBalanceState]);
 
   return (
-    <YStack
-      pb="$8"
+    <HeaderFrame
+      // Small screens: the text tab row adds its own 14 above the labels.
+      pb="$4"
       gap="$5"
-      minHeight={nativeMinHeight}
-      $gtMd={{ gap: '$8' }}
+      reservedHeight={nativeMinHeight}
+      $gtMd={{ gap: '$8', pb: '$8' }}
       bg="$bgApp"
       pointerEvents="box-none"
     >
@@ -194,15 +219,39 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
         bg="$bgApp"
         pointerEvents="box-none"
       >
-        <HomeHeaderGesture onRefresh={onHomePageRefresh}>
-          <Stack gap="$2.5">
-            <HomeOverviewContainer />
-          </Stack>
-        </HomeHeaderGesture>
-        {isWalletNotBackedUp ? null : (
-          <HomeHeaderGesture onRefresh={onHomePageRefresh}>
-            <WalletActions onPresentationChange={onActionsPresentationChange} />
-          </HomeHeaderGesture>
+        {actionsInBalanceRow ? (
+          <XStack alignItems="center" gap="$5">
+            <Stack gap="$2.5" flex={1} minWidth={0}>
+              <HomeOverviewContainer inBalanceRow />
+            </Stack>
+            {isWalletNotBackedUp ? null : (
+              // On the total's 48 line, not the column's middle: networks
+              // with a frozen balance add a link under the total.
+              <WalletActions
+                inBalanceRow
+                onPresentationChange={onActionsPresentationChange}
+                flexShrink={0}
+                alignSelf="flex-start"
+                mt={5}
+              />
+            )}
+          </XStack>
+        ) : (
+          <>
+            <HomeHeaderGesture onRefresh={onHomePageRefresh}>
+              <Stack gap="$2.5">
+                {platformEnv.isNative ? <HomeBalanceAccountTrigger /> : null}
+                <HomeOverviewContainer />
+              </Stack>
+            </HomeHeaderGesture>
+            {isWalletNotBackedUp ? null : (
+              <HomeHeaderGesture onRefresh={onHomePageRefresh}>
+                <WalletActions
+                  onPresentationChange={onActionsPresentationChange}
+                />
+              </HomeHeaderGesture>
+            )}
+          </>
         )}
       </Stack>
       {/* Always mount so initLocalBanners + remote fetch effects run.
@@ -214,7 +263,7 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
           zero-balance / not-backed-up still works via the `hidden`
           prop. */}
       <WalletBanner hidden={!shouldShowBanner} />
-    </YStack>
+    </HeaderFrame>
   );
 }
 

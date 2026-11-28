@@ -6,6 +6,7 @@ import { act, renderHook } from '@testing-library/react';
 import {
   DustSweepEntryCapabilitiesProvider,
   useActiveAccountDustSweep,
+  useDustSweepScope,
 } from './useNavigateToDustSweep';
 
 const mockNavigate = jest.fn<Promise<void>, unknown[]>(async () => undefined);
@@ -15,6 +16,7 @@ let mockCapabilities: {
 };
 let mockFocused = true;
 let mockAccountId = 'account';
+let mockAllNetworks = false;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -27,7 +29,9 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
     activeAccount: {
       account: { id: mockAccountId },
       wallet: { id: 'hd-1' },
-      network: { id: 'evm--1', isAllNetworks: false },
+      network: mockAllNetworks
+        ? { id: 'onekeyall--0', isAllNetworks: true }
+        : { id: 'evm--1', isAllNetworks: false },
       indexedAccount: { id: 'indexed' },
     },
   }),
@@ -65,6 +69,7 @@ beforeEach(() => {
   mockCapabilities = { result: supported, isLoading: false };
   mockFocused = true;
   mockAccountId = 'account';
+  mockAllNetworks = false;
 });
 
 it('opens Dust Sweep right away when capabilities are current', async () => {
@@ -80,6 +85,26 @@ it('opens Dust Sweep right away when capabilities are current', async () => {
     params: expectedParams,
   });
 });
+
+it.each([
+  [true, 'evm--56'],
+  [false, undefined],
+])(
+  'opens on the banner network only on All Networks (%s)',
+  async (allNetworks, preferredNetworkId) => {
+    mockAllNetworks = allNetworks;
+    const { result } = renderHook(() => useActiveAccountDustSweep(), {
+      wrapper,
+    });
+    await act(async () => {
+      await result.current.openDustSweep('homeBanner', 'evm--56');
+    });
+    const { params } = mockNavigate.mock.calls[0][0] as {
+      params: Record<string, unknown>;
+    };
+    expect(params.preferredNetworkId).toBe(preferredNetworkId);
+  },
+);
 
 it('opens once immediately while capabilities revalidate', async () => {
   mockCapabilities = { result: supported, isLoading: true };
@@ -228,4 +253,51 @@ it('does not revive a pending tap after Home loses and regains focus', async () 
   });
   await act(async () => opening);
   expect(mockNavigate).not.toHaveBeenCalled();
+});
+
+describe('a menu item that unmounts before the page loads', () => {
+  function renderItemWithHost() {
+    const host = renderHook(() => useDustSweepScope(mockFocused));
+    const item = renderHook(
+      () => useActiveAccountDustSweep({ hostScope: host.result.current }),
+      { wrapper },
+    );
+    return { host, item };
+  }
+
+  it('still opens when its host keeps the same account', async () => {
+    const { item } = renderItemWithHost();
+    let opening: Promise<void> | undefined;
+    act(() => {
+      opening = item.result.current.openDustSweep('walletMore');
+      item.unmount();
+    });
+    await act(async () => opening);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open after its host switches accounts', async () => {
+    const { host, item } = renderItemWithHost();
+    let opening: Promise<void> | undefined;
+    act(() => {
+      opening = item.result.current.openDustSweep('walletMore');
+      item.unmount();
+      mockAccountId = 'other-account';
+      host.rerender();
+    });
+    await act(async () => opening);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('does not open after its host leaves Home', async () => {
+    const { host, item } = renderItemWithHost();
+    let opening: Promise<void> | undefined;
+    act(() => {
+      opening = item.result.current.openDustSweep('walletMore');
+      item.unmount();
+      host.unmount();
+    });
+    await act(async () => opening);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 });

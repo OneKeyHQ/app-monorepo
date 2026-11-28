@@ -283,6 +283,7 @@ const InitialRowsSnapshotRow = memo(
             {...(mockedToken.spotUniverse
               ? { tokenImageUri: getHyperliquidTokenImageUrl(imageName) }
               : { tokenImageUris: getHyperliquidTokenImageUris(tokenName) })}
+            symbol={displayName}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>

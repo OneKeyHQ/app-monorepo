@@ -1,14 +1,26 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import type { IXStackProps } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Skeleton,
+  Stack,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -20,10 +32,60 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../utils/deferHeavyWork';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
+import {
+  DESKTOP_HEADER_TRIGGER_PROPS,
+  DESKTOP_HEADER_TRIGGER_SHAPE,
+  DesktopHeaderHitArea,
+  handleDesktopHeaderKeyDown,
+} from './AccountSelectorTrigger/AccountSelectorTriggerBase';
 import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
+import { NetworkChipFrame } from './NetworkChipFrame';
 import { AccountSelectorTestIDs } from './testIDs';
 
 const MAX_DISPLAY_NETWORKS = 2;
+
+// Desktop header: the 28 chips (24 logo + 2 gap) sit 2 inside the 32 hover
+// shape.
+const DESKTOP_NETWORK_TRIGGER_PROPS: IXStackProps = {
+  ...DESKTOP_HEADER_TRIGGER_PROPS,
+  py: '$0.5',
+  my: '$-0.5',
+};
+// A static count: equal-width digits would pad the narrow "1" out to the
+// width of "7" and leave "+17" looking loosely spaced.
+const PROPORTIONAL_NUMS: ['proportional-nums'] = ['proportional-nums'];
+
+// Same size as the loaded chips, so what sits beside them does not move when
+// the networks arrive (only shown without a cached list).
+function NetworkChipsSkeleton() {
+  return (
+    <>
+      <NetworkChipFrame cut="next">
+        <Skeleton w="$6" h="$6" radius="round" />
+      </NetworkChipFrame>
+      <NetworkChipFrame cut="next" ml="$-2">
+        <Skeleton w="$6" h="$6" radius="round" />
+      </NetworkChipFrame>
+      <NetworkChipFrame ml="$-2">
+        <Skeleton w="$8" h="$6" radius="round" />
+      </NetworkChipFrame>
+    </>
+  );
+}
+
+function DesktopNetworksSkeleton() {
+  return (
+    <XStack
+      {...DESKTOP_HEADER_TRIGGER_SHAPE}
+      py="$0.5"
+      my="$-0.5"
+      alignItems="center"
+    >
+      <NetworkChipsSkeleton />
+      <Stack w="$5" h="$5" />
+    </XStack>
+  );
+}
 
 // Set once the first missing-address query after launch has waited for the UI
 // to settle. Later runs (remounts, focus, explicit refreshes) go straight to
@@ -34,12 +96,21 @@ function AllNetworksManagerTrigger({
   num,
   showSkeleton,
   unifiedMode = false,
+  desktopHeader = false,
+  hideChevron = false,
+  hidePressStyle = false,
 }: {
   num: number;
   containerProps?: ComponentProps<typeof Stack>;
   showSkeleton?: boolean;
   unifiedMode?: boolean;
+  desktopHeader?: boolean;
+  // For a host that already draws the trigger in its own pill.
+  hideChevron?: boolean;
+  // For a host whose glass already reacts to the press.
+  hidePressStyle?: boolean;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const {
     activeAccount: { network, wallet, account, indexedAccount },
@@ -205,8 +276,42 @@ function AllNetworksManagerTrigger({
     !isCompatQueryReady ||
     !enabledNetworksCompatibleWithWalletId
   ) {
+    if (desktopHeader) return <DesktopNetworksSkeleton />;
+    // Without a chevron the trigger sits in the phone home header's pill,
+    // which an empty slot would leave blank.
+    if (hideChevron) {
+      return (
+        <XStack alignItems="center">
+          <NetworkChipsSkeleton />
+        </XStack>
+      );
+    }
     return <Stack h={36} />;
   }
+
+  const desktopTriggerProps: IXStackProps | undefined = desktopHeader
+    ? {
+        ...DESKTOP_NETWORK_TRIGGER_PROPS,
+        onKeyDown: (event: { key: string; preventDefault: () => void }) =>
+          handleDesktopHeaderKeyDown(event, handleOnPress),
+      }
+    : undefined;
+  // In the home header's round pill (no chevron) the web focus ring follows
+  // the pill instead of drawing a square inside it.
+  const triggerRadius =
+    hideChevron && !platformEnv.isNative ? ('$full' as const) : ('$2' as const);
+  // `focusable` gives no tab stop on web, so elsewhere (the extension's home
+  // header) the trigger takes one and presses on Enter or Space as well.
+  const webKeyboardProps: IXStackProps | undefined =
+    desktopHeader || platformEnv.isNative
+      ? undefined
+      : {
+          role: 'button',
+          tabIndex: 0,
+          onKeyDown: (event: { key: string; preventDefault: () => void }) =>
+            handleDesktopHeaderKeyDown(event, handleOnPress),
+        };
+  const hitArea = desktopHeader ? <DesktopHeaderHitArea /> : null;
 
   if (enabledNetworksCompatibleWithWalletId.length === 0) {
     // Dead-end escape hatch: none of the enabled All Networks chains is
@@ -216,13 +321,9 @@ function AllNetworksManagerTrigger({
     return (
       <XStack
         testID={AccountSelectorTestIDs.allNetworksTrigger}
-        borderRadius="$2"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
+        borderRadius={triggerRadius}
+        hoverStyle={hidePressStyle ? undefined : { bg: '$bgHover' }}
+        pressStyle={hidePressStyle ? undefined : { bg: '$bgActive' }}
         focusable
         focusVisibleStyle={{
           outlineWidth: 2,
@@ -232,28 +333,63 @@ function AllNetworksManagerTrigger({
         userSelect="none"
         onPress={handleOnPress}
         alignItems="center"
+        {...desktopTriggerProps}
+        {...webKeyboardProps}
+        aria-label={intl.formatMessage({
+          id: ETranslations.global_all_networks,
+        })}
       >
+        {hitArea}
         <NetworkAvatarBase
           logoURI={network?.logoURI ?? ''}
           size="$6"
           networkName={network?.name}
           isAllNetworks={network?.isAllNetworks}
         />
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        {hideChevron ? null : (
+          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        )}
       </XStack>
     );
   }
 
-  return (
+  const shownNetworks = enabledNetworksCompatibleWithWalletId.slice(
+    0,
+    MAX_DISPLAY_NETWORKS,
+  );
+  const hiddenCount =
+    enabledNetworksCompatibleWithWalletId.length - MAX_DISPLAY_NETWORKS;
+  // On the home header (no chevron) the missing-address dot sits over the
+  // last chip's corner, which gives up its outline.
+  const dotOverLastChip =
+    hasNetworksWithoutAccount && !desktopHeader && hideChevron;
+  const lastChipCut = dotOverLastChip ? 'dot' : undefined;
+  const missingCount = networkIdsWithoutAccount?.length ?? 0;
+  // Hover or keyboard focus explains the trigger: which networks are on, and
+  // the dot's meaning when some lack an address for this account.
+  const missingText = intl.formatMessage(
+    { id: ETranslations.current_account_missing_addresses },
+    { count: missingCount },
+  );
+  const tooltipText = hasNetworksWithoutAccount
+    ? missingText
+    : intl.formatMessage({ id: ETranslations.global_all_networks });
+  const desktopLabel = [
+    intl.formatMessage(
+      { id: ETranslations.network_view_assets_from_n_networks },
+      { count: enabledNetworksCompatibleWithWalletId.length },
+    ),
+    hasNetworksWithoutAccount ? missingText : undefined,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  const trigger = (
     <XStack
       testID={AccountSelectorTestIDs.allNetworksTrigger}
-      borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      borderRadius={triggerRadius}
+      hoverStyle={hidePressStyle ? undefined : { bg: '$bgHover' }}
+      pressStyle={hidePressStyle ? undefined : { bg: '$bgActive' }}
       focusable
       focusVisibleStyle={{
         outlineWidth: 2,
@@ -263,52 +399,91 @@ function AllNetworksManagerTrigger({
       userSelect="none"
       onPress={handleOnPress}
       alignItems="center"
+      {...desktopTriggerProps}
+      {...webKeyboardProps}
+      // The chips are only logos; this names the trigger everywhere.
+      aria-label={desktopLabel}
     >
+      {hitArea}
       <XStack alignItems="center">
-        {enabledNetworksCompatibleWithWalletId
-          ?.slice(0, MAX_DISPLAY_NETWORKS)
-          .map((item, index) => (
-            <Stack
-              key={index}
-              borderWidth={2}
-              borderColor="$bgApp"
-              borderRadius="$full"
-              zIndex={index}
-              {...(index !== 0 && {
-                ml: '$-2',
-              })}
-            >
-              <NetworkAvatarBase
-                logoURI={item?.logoURI}
-                size="$6"
-                networkName={item?.name}
-                isCustomNetwork={item?.isCustomNetwork}
-              />
-            </Stack>
-          ))}
-        {enabledNetworksCompatibleWithWalletId.length > MAX_DISPLAY_NETWORKS ? (
-          <XStack
-            px="$1"
-            bg="$gray5"
-            borderRadius="$full"
-            ml="$-2"
-            zIndex={999}
-            borderWidth={2}
-            borderColor="$bgApp"
-            alignItems="center"
-            justifyContent="center"
-            h={28}
+        {shownNetworks.map((item, index) => (
+          <NetworkChipFrame
+            key={index}
+            zIndex={index}
+            {...(index !== 0 && {
+              ml: '$-2',
+            })}
+            cut={
+              index < shownNetworks.length - 1 || hiddenCount > 0
+                ? 'next'
+                : lastChipCut
+            }
           >
-            <SizableText size="$bodySm">
-              +
-              {enabledNetworksCompatibleWithWalletId.length -
-                MAX_DISPLAY_NETWORKS}
-            </SizableText>
-          </XStack>
+            <NetworkAvatarBase
+              logoURI={item?.logoURI}
+              size="$6"
+              networkName={item?.name}
+              isCustomNetwork={item?.isCustomNetwork}
+            />
+          </NetworkChipFrame>
+        ))}
+        {hiddenCount > 0 ? (
+          <NetworkChipFrame
+            ml="$-2"
+            zIndex={shownNetworks.length}
+            cut={lastChipCut}
+          >
+            <XStack
+              // One less on the "+" side, one more on the digits' side: reads
+              // centered in the pill.
+              pl={5}
+              pr={7}
+              // A see-through fill lifts the pill off whatever is behind it,
+              // the dark glass capsule included; on the page it matches gray5.
+              bg="$neutral5"
+              borderRadius="$full"
+              alignItems="center"
+              justifyContent="center"
+              // The logos' $6, which Android scales on narrow screens.
+              h="$6"
+            >
+              <SizableText size="$bodySm" fontVariant={PROPORTIONAL_NUMS}>
+                +{hiddenCount}
+              </SizableText>
+            </XStack>
+          </NetworkChipFrame>
         ) : null}
       </XStack>
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
-      {hasNetworksWithoutAccount ? (
+      {hideChevron ? null : (
+        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      )}
+      {hasNetworksWithoutAccount && desktopHeader ? (
+        // App warning color (as in the network picker); it never overlaps the
+        // chevron glyph, so it needs no ring.
+        <Stack
+          position="absolute"
+          top="$1"
+          right="$1"
+          w="$2"
+          h="$2"
+          borderRadius="$full"
+          bg="$textCaution"
+          pointerEvents="none"
+        />
+      ) : null}
+      {dotOverLastChip ? (
+        <Stack
+          position="absolute"
+          right={2}
+          top={2}
+          w="$2"
+          h="$2"
+          borderRadius="$full"
+          bg="$caution10"
+          pointerEvents="none"
+        />
+      ) : null}
+      {hasNetworksWithoutAccount && !desktopHeader && !hideChevron ? (
         <Stack
           position="absolute"
           right="$0"
@@ -336,6 +511,19 @@ function AllNetworksManagerTrigger({
         </Stack>
       ) : null}
     </XStack>
+  );
+
+  if (!desktopHeader) {
+    return trigger;
+  }
+  return (
+    <Tooltip
+      // Same shortcut hint as the copy button beside it (desktop only).
+      shortcutKey={EShortcutEvents.NetworkSelector}
+      renderContent={tooltipText}
+      placement="bottom"
+      renderTrigger={trigger}
+    />
   );
 }
 

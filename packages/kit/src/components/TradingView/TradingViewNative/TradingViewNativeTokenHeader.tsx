@@ -20,6 +20,7 @@ export function TradingViewNativeTokenHeader({
         size="sm"
         tokenImageUri={tokenImageUri}
         tokenImageUris={tokenImageUris}
+        symbol={name}
         flexShrink={0}
       />
       <SizableText

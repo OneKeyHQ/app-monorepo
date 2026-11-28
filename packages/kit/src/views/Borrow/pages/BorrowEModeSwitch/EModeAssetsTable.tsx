@@ -81,7 +81,11 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
         render: (asset) => (
           <XStack ai="center" gap="$2" flex={1} minWidth={0}>
             <Stack flexShrink={0}>
-              <Token size="md" tokenImageUri={asset.token.logoURI} />
+              <Token
+                size="md"
+                tokenImageUri={asset.token.logoURI}
+                symbol={asset.token.symbol}
+              />
             </Stack>
             <SizableText
               size="$bodyMdMedium"

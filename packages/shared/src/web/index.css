@@ -113,8 +113,8 @@ body {
   display: none;
   position: absolute;
   border-radius: 2px;
-  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
-    var(--bgApp);
+  background:
+    linear-gradient(var(--borderStrong), var(--borderStrong)), var(--bgApp);
   touch-action: none;
   user-select: none;
 }
@@ -133,8 +133,8 @@ body {
 
 .perp-table-overlay-scrollbar:hover,
 .perp-table-overlay-scrollbar:active {
-  background: linear-gradient(var(--textDisabled), var(--textDisabled)),
-    var(--bgApp);
+  background:
+    linear-gradient(var(--textDisabled), var(--textDisabled)), var(--bgApp);
 }
 
 [data-testid='perp-recent-trades-scroll'] {
@@ -147,8 +147,8 @@ body {
 }
 
 [data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-thumb {
-  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
-    var(--bgApp);
+  background:
+    linear-gradient(var(--borderStrong), var(--borderStrong)), var(--bgApp);
   border-radius: 2px;
 }
 
@@ -353,6 +353,49 @@ textarea {
 [data-testid='chain-selector-unified-section-index-container']
   > .ok-native-list-index-rail {
   top: 0 !important;
+}
+
+/* Home token rows on desktop and web read asset | price | holdings
+   (NativeTokenSelectorList). The price, the second cell, is in regular
+   weight so the medium weight stays on the symbol and the holdings. A data
+   row takes one weight for every column and the package sets it inline,
+   hence !important. Remove once the package takes a weight per column.
+   Every rule here needs a third cell: a native token's balance check row on
+   narrow screens shares the testID but holds only asset | balance. */
+.ok-native-list-item[data-testid^='home-token-item-']
+  .ok-native-list-data
+  > .ok-native-list-data-cell:nth-child(2 of .ok-native-list-data-cell):not(
+    :nth-last-child(1 of .ok-native-list-data-cell)
+  )
+  [data-nl-slot='columns'] {
+  font-weight: 400 !important;
+  font-family: var(--nl-font-regular) !important;
+}
+
+/* The same rows split into four equal columns: icon and asset, price,
+   holdings, and Swap at the end of the last. NativeList takes only column
+   weights, which leave the icon and the button outside them, so price and
+   holdings (each with its 12px gap) and the Swap column take a quarter here
+   and the asset cell's weight takes the rest. The package sets the weights
+   inline, hence !important. TokenListFooterRows gives its hidden Swap the
+   same quarter. Remove once the package takes column widths. */
+.ok-native-list-item[data-testid^='home-token-item-']
+  .ok-native-list-data
+  > .ok-native-list-data-cell:nth-child(2 of .ok-native-list-data-cell):not(
+    :nth-last-child(1 of .ok-native-list-data-cell)
+  ),
+.ok-native-list-item[data-testid^='home-token-item-']
+  .ok-native-list-data
+  > .ok-native-list-data-cell:nth-child(n + 3 of .ok-native-list-data-cell) {
+  flex: 0 0 calc(25% - 12px) !important;
+}
+
+.ok-native-list-item[data-testid^='home-token-item-']
+  .ok-native-list-data
+  > .ok-native-list-data-cell:nth-child(3 of .ok-native-list-data-cell)
+  ~ .ok-native-list-accessories {
+  flex: 0 0 25%;
+  justify-content: flex-end;
 }
 
 /* 

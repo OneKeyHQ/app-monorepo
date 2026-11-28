@@ -133,6 +133,7 @@ export function UniversalSearchAccountAssetItem({
       <Token
         size="lg"
         tokenImageUri={token?.logoURI}
+        symbol={token?.symbol}
         networkId={token?.networkId}
         showNetworkIcon
       />

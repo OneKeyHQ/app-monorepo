@@ -318,7 +318,7 @@ function BalanceRowDesktop({
           onPress={isAssetClickable ? onChangeAsset : undefined}
           cursor={isAssetClickable ? 'pointer' : 'default'}
         >
-          <Token size="xs" tokenImageUri={item.logoURI} />
+          <Token size="xs" tokenImageUri={item.logoURI} symbol={item.coin} />
           <SizableText
             size="$bodySmMedium"
             fontWeight={600}

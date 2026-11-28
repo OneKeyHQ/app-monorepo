@@ -285,6 +285,7 @@ export function UnifoldExecutionRow({
         tokenImageUri={normalizeUnifoldIconUrl(
           execution.destinationTokenIconUrl,
         )}
+        symbol={execution.destinationCurrency ?? undefined}
         showCornerBadgeBorder={false}
         cornerBadge={
           <Stack x={-2} y={-2} p="$0.5" bg="$bgApp" borderRadius="$full">
@@ -324,11 +325,13 @@ function DetailInfoRow({
   label,
   value,
   valueIconUri,
+  valueIconSymbol,
   onCopy,
 }: {
   label: string;
   value: string;
   valueIconUri?: string;
+  valueIconSymbol?: string;
   onCopy?: () => void;
 }) {
   const isDesktopDark = useThemeVariant() === 'dark' && platformEnv.isDesktop;
@@ -359,7 +362,12 @@ function DetailInfoRow({
       </SizableText>
       <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
         {valueIconUri ? (
-          <Token size="xs" tokenImageUri={valueIconUri} flexShrink={0} />
+          <Token
+            size="xs"
+            tokenImageUri={valueIconUri}
+            symbol={valueIconSymbol}
+            flexShrink={0}
+          />
         ) : null}
         <SizableText
           size="$bodyMdMedium"
@@ -476,6 +484,7 @@ export function UnifoldExecutionDetail({
           tokenImageUri={normalizeUnifoldIconUrl(
             execution.destinationTokenIconUrl,
           )}
+          symbol={destinationCurrency ?? undefined}
           cornerBadge={<ExecutionTokenBadge execution={execution} />}
         />
         <XStack alignItems="center" gap="$1.5">
@@ -531,6 +540,7 @@ export function UnifoldExecutionDetail({
               currency: execution.sourceCurrency,
             })}
             valueIconUri={sourceTokenIconUri}
+            valueIconSymbol={execution.sourceCurrency ?? undefined}
           />
           <Divider borderColor="$bgSubdued" />
           <DetailInfoRow
@@ -545,6 +555,7 @@ export function UnifoldExecutionDetail({
             valueIconUri={normalizeUnifoldIconUrl(
               execution.destinationTokenIconUrl,
             )}
+            valueIconSymbol={destinationCurrency ?? undefined}
           />
           <Divider borderColor="$bgSubdued" />
           <DetailInfoRow

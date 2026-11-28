@@ -280,6 +280,7 @@ export function AvailableAssetsTabViewList({
             <Token
               size="md"
               tokenImageUri={asset.logoURI}
+              symbol={earnUtils.getDisplaySymbol(asset)}
               borderRadius="$full"
             />
             <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
@@ -377,6 +378,7 @@ export function AvailableAssetsTabViewList({
             <Token
               size="md"
               tokenImageUri={asset.logoURI}
+              symbol={earnUtils.getDisplaySymbol(asset)}
               borderRadius="$full"
             />
           }

@@ -302,6 +302,7 @@ const InAppNotification = () => {
           ({
             isInSwapTab,
             isInMarketDetail,
+            isInHomeTab,
             isHasSwapModal,
             isSwapModalOnTheTop,
             hasModal,
@@ -310,6 +311,7 @@ const InAppNotification = () => {
               isSwapApprovalFlowActive({
                 isInSwapTab,
                 isInMarketDetail,
+                isInHomeTab,
                 isHasSwapModal,
                 isSwapModalOnTheTop,
                 hasModal,

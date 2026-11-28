@@ -214,7 +214,11 @@ const RecommendedItem = memo(
         {...rest}
       >
         <XStack gap="$3" ai="center" width="100%">
-          <Token tokenImageUri={token.logoURI} size="md" />
+          <Token
+            tokenImageUri={token.logoURI}
+            symbol={earnUtils.getDisplaySymbol(token)}
+            size="md"
+          />
           <SizableText size="$bodyLgMedium" flex={1} numberOfLines={1}>
             {earnUtils.getDisplaySymbol(token)}
           </SizableText>
@@ -299,7 +303,12 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
       userSelect="none"
       onPress={onPress}
       renderAvatar={
-        <Token size="md" tokenImageUri={token.logoURI} borderRadius="$full" />
+        <Token
+          size="md"
+          tokenImageUri={token.logoURI}
+          symbol={earnUtils.getDisplaySymbol(token)}
+          borderRadius="$full"
+        />
       }
     >
       <ListItem.Text

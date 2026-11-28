@@ -222,6 +222,7 @@ function StockTokenVariantRow({
       <Token
         size="md"
         tokenImageUri={variant.logoUrl}
+        symbol={variant.symbol}
         networkImageUri={variant.networkLogoUrl}
         showNetworkIcon
         placeholder={<Stack width="100%" height="100%" />}
@@ -566,6 +567,7 @@ export function StockTokenVariantSelector({
           <Token
             size="md"
             tokenImageUri={fallbackToken.logoURI}
+            symbol={fallbackToken.symbol}
             placeholder={<Stack width="100%" height="100%" />}
           />
           <YStack justifyContent="center" minWidth={0}>
@@ -649,6 +651,7 @@ export function StockTokenVariantSelector({
           <Token
             size="md"
             tokenImageUri={renderedSelectedVariant.logoUrl}
+            symbol={renderedSelectedVariant.symbol}
             networkImageUri={renderedSelectedVariant.networkLogoUrl}
             showNetworkIcon
             placeholder={<Stack width="100%" height="100%" />}

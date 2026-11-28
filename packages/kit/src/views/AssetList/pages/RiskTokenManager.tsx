@@ -38,6 +38,7 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptySearch } from '../../../components/Empty';
+import { getNativeListTokenFallback } from '../../../components/Token/nativeListTokenFallback';
 import { useTokenListViewContext } from '../../../components/TokenListView/TokenListViewContext';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -331,12 +332,20 @@ export function RiskNativeList({
                 }
               : undefined,
             overlays: networkOverlays.length ? networkOverlays : undefined,
-            fallbackIcon: {
-              name: 'CryptoCoinOutline',
-              tintColor: theme.iconSubdued,
-              size: gtMd ? 24 : 28,
-              backgroundColor: colors.gray5.val,
-            },
+            ...getNativeListTokenFallback({
+              symbol: token.symbol,
+              size: gtMd ? 32 : 40,
+              theme: {
+                inverseBackground: colors.bgInverse.val,
+                inverseText: colors.textInverse.val,
+              },
+              fallbackIcon: {
+                name: 'CryptoCoinOutline',
+                tintColor: theme.iconSubdued,
+                size: gtMd ? 24 : 28,
+                backgroundColor: colors.gray5.val,
+              },
+            }),
             backgroundColor: tokenBackground,
             borderColor:
               themeVariant === 'dark' ? colors.neutral2Dark.val : undefined,

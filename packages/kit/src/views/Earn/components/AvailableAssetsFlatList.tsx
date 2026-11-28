@@ -81,7 +81,12 @@ export function AvailableAssetItem({
       userSelect="none"
       onPress={onPress}
       renderAvatar={
-        <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
+        <Token
+          size="md"
+          tokenImageUri={asset.logoURI}
+          symbol={earnUtils.getDisplaySymbol(asset)}
+          borderRadius="$full"
+        />
       }
     >
       <ListItem.Text

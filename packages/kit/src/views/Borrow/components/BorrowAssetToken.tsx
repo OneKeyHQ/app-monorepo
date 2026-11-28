@@ -9,14 +9,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export function BorrowAssetToken({
   size,
   logoURI,
+  symbol,
 }: {
   size: ITokenSize;
   logoURI?: string;
+  symbol?: string;
 }) {
   return (
     <Token
       size={size}
       tokenImageUri={logoURI}
+      symbol={symbol}
       // Match the prewarm request's native cache identity. Without the same
       // resize hint, a prewarmed image can still be fetched again on iOS.
       resizeWidth={getTokenImageResizeWidth(size)}

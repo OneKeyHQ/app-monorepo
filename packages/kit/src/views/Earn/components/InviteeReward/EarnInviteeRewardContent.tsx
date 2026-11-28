@@ -88,7 +88,11 @@ function RebateList({
           <Stack key={`distributed-${index}`}>
             <ListItem ai="center" jc="space-between" borderWidth="$0">
               <XStack ai="center" gap="$2.5">
-                <Token size="md" tokenImageUri={item.token.logoURI} />
+                <Token
+                  size="md"
+                  tokenImageUri={item.token.logoURI}
+                  symbol={item.token.symbol}
+                />
                 <EarnText
                   text={{
                     ...item.title,
@@ -122,7 +126,11 @@ function RebateList({
         >
           <XStack ai="center" jc="space-between" w="100%">
             <XStack gap="$2.5" ai="center">
-              <Token size="md" tokenImageUri={item.token.logoURI} />
+              <Token
+                size="md"
+                tokenImageUri={item.token.logoURI}
+                symbol={item.token.symbol}
+              />
               <EarnText
                 text={{
                   ...item.title,

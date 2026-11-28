@@ -340,6 +340,7 @@ const TokenInfoCellDesktop = memo(() => {
                 : {
                     tokenImageUris: getHyperliquidTokenImageUris(token.name),
                   })}
+              symbol={token.displayName}
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack flex={1} minWidth={0}>
@@ -834,12 +835,13 @@ const TokenImageMobile = memo(() => {
               : {
                   tokenImageUris: getHyperliquidTokenImageUris(token.name),
                 })}
+            symbol={token.displayName}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.name, isSpot, pairCoin],
+    [token.name, token.displayName, isSpot, pairCoin],
   );
   return content;
 });

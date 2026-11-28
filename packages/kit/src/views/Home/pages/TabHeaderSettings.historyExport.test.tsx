@@ -27,6 +27,10 @@ const mockAuthState = {
   isPrimeSubscriptionActive: false,
 };
 const mockToolbarState = { enabled: false, selected: false };
+const mockDustSweep = {
+  canDustSweep: false,
+  openDustSweep: jest.fn((_entry: string) => undefined),
+};
 const mockPopover = jest.fn();
 
 jest.mock('react-intl', () => ({
@@ -114,6 +118,22 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
     pushFullModal: mockPushFullModal,
   }),
 }));
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => true,
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep',
+  () => ({
+    DustSweepEntryCapabilitiesProvider: ({
+      children,
+    }: {
+      children?: ReactNode;
+    }) => children,
+    useActiveAccountDustSweep: () => mockDustSweep,
+  }),
+);
 
 jest.mock('@onekeyhq/kit/src/hooks/useIsDeFiEnabled', () => ({
   useIsDeFiEnabled: () => false,
@@ -217,6 +237,7 @@ describe('TabHeaderSettings history export entry', () => {
     mockAuthState.isPrimeSubscriptionActive = false;
     mockToolbarState.enabled = false;
     mockToolbarState.selected = false;
+    mockDustSweep.canDustSweep = false;
     mockClosePopover.mockResolvedValue(undefined);
     mockWait.mockResolvedValue(undefined);
   });
@@ -260,6 +281,18 @@ describe('TabHeaderSettings history export entry', () => {
       [EHomeWalletTab.Portfolio, undefined],
       [EHomeWalletTab.History, undefined],
     ]);
+  });
+
+  it('lists Dust sweep in the Spot filter panel', async () => {
+    mockDustSweep.canDustSweep = true;
+    render(<TabHeaderSettings focusedTab={ETranslations.dexmarket_spot} />);
+    fireEvent.click(screen.getByTestId('token-list-settings-dust-sweep'));
+    await waitFor(() =>
+      expect(mockDustSweep.openDustSweep).toHaveBeenCalledWith(
+        'tokenListSettings',
+      ),
+    );
+    expect(mockClosePopover).toHaveBeenCalled();
   });
 
   it('passes the external web toolbar button to the filter popover', () => {

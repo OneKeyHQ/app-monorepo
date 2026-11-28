@@ -42,7 +42,7 @@ const renderSlide = ({ item }: { item: ISlide; index: number }) => (
 );
 
 // The carousel measures its own layout, so the page area needs an explicit
-// height from containerStyle (same as the SupportHub / device-guide usage).
+// height from containerStyle (same as the device-guide usage).
 const CONTAINER_STYLE = {
   height: 120,
   borderWidth: StyleSheet.hairlineWidth,

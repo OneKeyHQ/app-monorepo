@@ -37,15 +37,64 @@ import { showBotWalletDisabledToast } from '../../utils/botWalletDisabledToast';
 import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
 import { blockIfWalletLocalSecretEnvelopeUnavailable } from '../LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 
+import {
+  DESKTOP_HEADER_TRIGGER_PROPS,
+  DesktopHeaderHitArea,
+  handleDesktopHeaderKeyDown,
+} from './AccountSelectorTrigger/AccountSelectorTriggerBase';
 import { LazyAccountSelectorCreateAddressButton } from './LazyAccountSelectorCreateAddressButton';
 import { AccountSelectorTestIDs } from './testIDs';
+
+// Desktop header copy: the same 32 hover shape and 40 tall reach as the
+// account and network triggers, reachable by keyboard and named for screen
+// readers.
+function DesktopHeaderCopyButton({
+  onPress,
+  disabled,
+}: {
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const intl = useIntl();
+  const label = intl.formatMessage({ id: ETranslations.global_copy_address });
+  return (
+    <Tooltip
+      shortcutKey={EShortcutEvents.CopyAddressOrUrl}
+      renderContent={label}
+      placement="bottom"
+      renderTrigger={
+        <XStack
+          testID={AccountSelectorTestIDs.copyAddressButton}
+          {...DESKTOP_HEADER_TRIGGER_PROPS}
+          p="$1.5"
+          m="$-1.5"
+          aria-label={label}
+          aria-disabled={disabled || undefined}
+          hoverStyle={{ bg: disabled ? '$transparent' : '$bgHover' }}
+          pressStyle={{ bg: disabled ? '$transparent' : '$bgActive' }}
+          opacity={disabled ? 0.5 : 1}
+          userSelect="none"
+          onPress={onPress}
+          onKeyDown={(event: { key: string; preventDefault: () => void }) =>
+            handleDesktopHeaderKeyDown(event, onPress)
+          }
+        >
+          <DesktopHeaderHitArea />
+          <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
+        </XStack>
+      }
+    />
+  );
+}
 
 const AllNetworkAccountSelector = ({
   num,
   showCopyButton,
+  desktopHeader,
 }: {
   num: number;
   showCopyButton: boolean;
+  desktopHeader?: boolean;
 }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -98,16 +147,40 @@ const AllNetworkAccountSelector = ({
     return null;
   }
 
+  if (showCopyButton && desktopHeader) {
+    return (
+      <DesktopHeaderCopyButton
+        onPress={() => {
+          void handleCopyAddress();
+        }}
+        disabled={isCopyDisabled}
+      />
+    );
+  }
+
+  const copyLabel = intl.formatMessage({
+    id: ETranslations.global_copy_address,
+  });
   return showCopyButton ? (
     <Tooltip
       shortcutKey={EShortcutEvents.CopyAddressOrUrl}
-      renderContent={intl.formatMessage({
-        id: ETranslations.global_copy_address,
-      })}
+      renderContent={copyLabel}
       placement="bottom"
       renderTrigger={
         <XStack
           testID={AccountSelectorTestIDs.copyAddressButton}
+          role="button"
+          aria-label={copyLabel}
+          aria-disabled={isCopyDisabled || undefined}
+          // `focusable` gives no tab stop on web, so the button takes one and
+          // presses on Enter or Space.
+          {...(!platformEnv.isNative && {
+            tabIndex: 0,
+            onKeyDown: (event: { key: string; preventDefault: () => void }) =>
+              handleDesktopHeaderKeyDown(event, () => {
+                void handleCopyAddress();
+              }),
+          })}
           gap="$2"
           p="$1"
           m="$-1"
@@ -174,17 +247,21 @@ function CopyButton({
   disabled?: boolean;
 }) {
   const intl = useIntl();
+  const label = intl.formatMessage({ id: ETranslations.global_copy_address });
   return visible ? (
     <IconButton
       testID={AccountSelectorTestIDs.copyAddressButton}
-      title={intl.formatMessage({
-        id: ETranslations.global_copy_address,
-      })}
+      title={label}
+      // The tooltip only shows on hover; screen readers need the name.
+      aria-label={label}
       icon="Copy3Outline"
       size="small"
       variant="tertiary"
       disabled={disabled}
       allowPressWhenDisabled={disabled}
+      // Without it IconButton swallows every key on web, Tab included, and
+      // keyboard focus stops here.
+      hotKey
       onPress={onPress}
     />
   ) : null;
@@ -196,12 +273,14 @@ export function AccountSelectorActiveAccountHome({
   showCopyButton = false,
   showCreateAddressButton = true,
   showNoAddressTip = true,
+  desktopHeader = false,
 }: {
   num: number;
   showAccountAddress?: boolean;
   showCopyButton?: boolean;
   showCreateAddressButton?: boolean;
   showNoAddressTip?: boolean;
+  desktopHeader?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -383,7 +462,11 @@ export function AccountSelectorActiveAccountHome({
 
   if (isAllNetworkEnabled) {
     return (
-      <AllNetworkAccountSelector num={num} showCopyButton={showCopyButton} />
+      <AllNetworkAccountSelector
+        num={num}
+        showCopyButton={showCopyButton}
+        desktopHeader={desktopHeader}
+      />
     );
   }
 
@@ -445,6 +528,17 @@ export function AccountSelectorActiveAccountHome({
               )}
             </XStack>
           }
+        />
+      );
+    }
+
+    if (showCopyButton && desktopHeader) {
+      return (
+        <DesktopHeaderCopyButton
+          onPress={() => {
+            void handleAddressOnPress();
+          }}
+          disabled={isCopyDisabled}
         />
       );
     }

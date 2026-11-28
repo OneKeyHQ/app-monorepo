@@ -364,6 +364,7 @@ const MarketTokenSelectorRow = memo(
             <Token
               size="md"
               tokenImageUri={item.tokenImageUri}
+              symbol={item.symbol}
               tokenImageUris={item.tokenImageUris}
               networkImageUri={networkLogoUri}
             />

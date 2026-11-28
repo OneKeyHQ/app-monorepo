@@ -286,6 +286,7 @@ export function UniversalSearchV2MarketTokenItem({
             uris={logoUrls}
             size="sm"
             networkId={network}
+            symbol={symbol}
           />
           <YStack flex={1} minWidth={0}>
             <XStack ai="center" gap="$1" minWidth={0}>

@@ -335,7 +335,13 @@ export type IOverviewTokenDetailListItem = {
   protocol?: IOverviewDefiRes;
 };
 
-export const PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 400;
+// The column docked at the home's right edge from 1280 on the web, for the
+// trade panel. From a 1440 window on it widens so a long amount (twelve
+// characters or so, as Max often fills) fits its field, while the content
+// beside it still keeps its full width.
+export const HOME_TRADE_COLUMN_WIDTH = 400;
+export const HOME_TRADE_COLUMN_WIDE_WIDTH = 440;
+export const HOME_TRADE_COLUMN_WIDE_FROM = 1440;
 
 export const STICKY_TOP_OFFSET = 64;
 export const LIST_END_FADE_PX = 24;

@@ -1987,6 +1987,7 @@ function BasePerpTokenSelector() {
                 : {
                     tokenImageUris: getHyperliquidTokenImageUris(activeCoin),
                   })}
+              symbol={displayName}
               fallbackIcon="CryptoCoinOutline"
             />
 
@@ -2033,6 +2034,7 @@ function BasePerpTokenSelector() {
       contentGeneration,
       isOpen,
       triggerLabel,
+      displayName,
       activeCoin,
       baseName,
       mode,

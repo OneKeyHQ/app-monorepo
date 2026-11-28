@@ -63,8 +63,12 @@ import { useTokenFiat } from '../../states/jotai/contexts/tokenList/cells/useTok
 import { convertFiat } from '../../utils/fiatConvert';
 import { useHomeNativeListTheme } from '../../views/Home/hooks/useHomeNativeListTheme';
 import { ListLoading } from '../Loading';
+import { getNativeListTokenFallback } from '../Token/nativeListTokenFallback';
 
-import { formatNativeSelectorAmount } from './nativeSelectorFormat';
+import {
+  formatNativeSelectorAmount,
+  formatNativeSelectorPriceChange,
+} from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
 import { TOKEN_ROW_CONTAINER_STYLE } from './tokenListRowLayout';
@@ -76,6 +80,7 @@ import {
 
 import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
 import type {
+  DataColumn,
   DataRow,
   IdentityRow,
   NativeListActionAnchor,
@@ -286,6 +291,27 @@ export function NativeTokenSelectorList({
   const intl = useIntl();
   const theme = useHomeNativeListTheme();
   const uiTheme = useTheme();
+  const strongHoverColor = uiTheme.bgStrongHover.val;
+  const strongActiveColor = uiTheme.bgStrongActive.val;
+  // The web Swap shows on a hovered row, so it takes the Send / Receive fill
+  // (a translucent step above the row) rather than the opaque subdued one,
+  // which sits darker than the hover and reads as plain text.
+  const swapButtonColors = useMemo(
+    () =>
+      platformEnv.isNative
+        ? { backgroundColor: theme.subduedBackground }
+        : {
+            backgroundColor: theme.strongBackground,
+            hoverBackgroundColor: strongHoverColor,
+            pressedBackgroundColor: strongActiveColor,
+          },
+    [
+      strongActiveColor,
+      strongHoverColor,
+      theme.strongBackground,
+      theme.subduedBackground,
+    ],
+  );
   const verificationIconColor = uiTheme.iconCaution.val;
   const verificationBadgeTextColor = uiTheme.textCaution.val;
   const verificationBadgeBackgroundColor = uiTheme.bgCautionSubdued.val;
@@ -442,6 +468,7 @@ export function NativeTokenSelectorList({
       gtMd,
       currencyMap,
       theme,
+      swapButtonColors,
       useIOSPrivacyTableLayout,
     ];
     const previousCache = rowCacheRef.current;
@@ -690,21 +717,15 @@ export function NativeTokenSelectorList({
             const priceChangeValue = priceChangeValid
               ? Number(fiat?.price24h)
               : undefined;
-            const priceChangeText = formatNativeSelectorAmount(
+            const priceChange =
               priceChangeValue === undefined
-                ? UNAVAILABLE_DISPLAY
-                : String(priceChangeValue),
-              'priceChange',
-              undefined,
-              priceChangeValue !== undefined && priceChangeValue !== 0,
-            );
-            let priceChangeTone: 'secondary' | 'positive' | 'negative' =
-              'secondary';
-            if (priceChangeValue !== undefined && priceChangeValue > 0) {
-              priceChangeTone = 'positive';
-            } else if (priceChangeValue !== undefined && priceChangeValue < 0) {
-              priceChangeTone = 'negative';
-            }
+                ? undefined
+                : formatNativeSelectorPriceChange(priceChangeValue);
+            const priceChangeText = priceChange ?? {
+              text: UNAVAILABLE_DISPLAY,
+              segments: undefined,
+            };
+            const priceChangeTone = priceChange?.tone ?? 'secondary';
             const amount = fiat
               ? displayFiatValueOrUnavailable(fiat.fiatValue, balance)
               : '';
@@ -857,11 +878,18 @@ export function NativeTokenSelectorList({
                   }
                 : undefined,
               overlays,
-              fallbackIcon: {
-                name: 'CryptoCoinOutline',
-                tintColor: theme.iconSubdued,
-                size: gtMd ? 24 : 28,
-              },
+              ...getNativeListTokenFallback({
+                symbol: token.isAggregateToken
+                  ? (token.commonSymbol ?? token.symbol)
+                  : token.symbol,
+                size: iconSize,
+                theme,
+                fallbackIcon: {
+                  name: 'CryptoCoinOutline',
+                  tintColor: theme.iconSubdued,
+                  size: gtMd ? 24 : 28,
+                },
+              }),
             };
             const nativeRow: IdentityRow = {
               type: 'identity',
@@ -1058,63 +1086,102 @@ export function NativeTokenSelectorList({
                       actionKey: 'swap',
                       disabled: swapDisabled[key] ?? true,
                       testID: 'token-actions-swap-btn',
+                      // Says which token it swaps; every row has one. The
+                      // string orders verb and symbol per language.
+                      accessibilityLabel: intl.formatMessage(
+                        { id: ETranslations.defi_emode_swap_symbol__action },
+                        { symbol: nativeRow.title },
+                      ),
                       textColor: theme.primaryText,
-                      backgroundColor: theme.subduedBackground,
+                      ...swapButtonColors,
                     },
                   ]
                 : [];
+              const assetColumn: DataColumn = {
+                key: 'asset',
+                text: nativeRow.title,
+                secondaryText: tokenStatus?.label ?? token.name,
+                titleIcon,
+                secondaryTitleIcon,
+                weight: columnWeights.asset,
+              };
+              const priceColumn: DataColumn = {
+                key: 'price',
+                text: priceText.text,
+                textSegments: priceText.segments,
+                secondaryText: priceChangeText.text,
+                secondaryTextSegments: priceChangeText.segments,
+                secondaryTone: priceChangeTone,
+                alignment: 'end',
+                weight: columnWeights.price,
+              };
+              // Desktop and web end the row on the holdings, value over
+              // amount (amount alone while there is no value); web index.css
+              // sets the price, the second cell, in regular weight and gives
+              // the four columns, Swap's included, a quarter each. Native
+              // tablets keep balance | price | Swap. An unpriced balance
+              // formats its value as '--', which is no value; a zero balance
+              // without a price still formats a fiat zero, which is not one
+              // either. A grouped row sums its networks' values but takes its
+              // price from one of them, so a value above zero counts even
+              // without that price.
+              const hasValue =
+                !!valueText.text &&
+                amount !== UNAVAILABLE_DISPLAY &&
+                (rawPrice !== UNAVAILABLE_DISPLAY || Number(amount) > 0);
+              let holdingsPrimary = balanceText;
+              let holdingsSecondary = valueText;
+              if (!platformEnv.isNative) {
+                holdingsPrimary = hasValue ? valueText : balanceText;
+                holdingsSecondary = hasValue ? balanceText : { text: '' };
+              }
+              const holdingsColumn: DataColumn = {
+                key: 'balance',
+                text: holdingsPrimary.text,
+                titleIcon: verificationIcon,
+                ...(verificationBadge
+                  ? { webLeadingBadge: verificationBadge }
+                  : {}),
+                textSegments: holdingsPrimary.segments,
+                secondaryText: holdingsSecondary.text,
+                secondaryTextSegments: holdingsSecondary.segments,
+                alignment: 'end',
+                weight: columnWeights.balance,
+              };
+              const tableColumns: DataColumn[] = platformEnv.isNative
+                ? [
+                    assetColumn,
+                    holdingsColumn,
+                    priceColumn,
+                    ...(columnWeights.swapSpacer
+                      ? [
+                          {
+                            key: 'swapSpacer',
+                            text: '',
+                            weight: columnWeights.swapSpacer,
+                          },
+                        ]
+                      : []),
+                  ]
+                : [assetColumn, priceColumn, holdingsColumn];
               const tableRow: DataRow = {
                 type: 'dataRow',
                 key: rowKey,
                 height: 60,
                 heightRounding: 'nearest',
                 testID: nativeRow.testID,
+                // Web: names the token, where the row would read "dataRow". It
+                // leaves the numbers out: a price or value update may only
+                // patch cells, and a changed label would rebuild the list.
+                // Native rows read their cells, which a label would replace.
+                accessibilityLabel: platformEnv.isNative
+                  ? undefined
+                  : [nativeRow.title, token.name].filter(Boolean).join(', '),
                 leading,
                 badges: nativeRow.badges?.filter(
                   (badge) => badge.key !== 'sync-status',
                 ),
-                columns: [
-                  {
-                    key: 'asset',
-                    text: nativeRow.title,
-                    secondaryText: tokenStatus?.label ?? token.name,
-                    titleIcon,
-                    secondaryTitleIcon,
-                    weight: columnWeights.asset,
-                  },
-                  {
-                    key: 'balance',
-                    text: balanceText.text,
-                    titleIcon: verificationIcon,
-                    ...(verificationBadge
-                      ? { webLeadingBadge: verificationBadge }
-                      : {}),
-                    textSegments: balanceText.segments,
-                    secondaryText: valueText.text,
-                    secondaryTextSegments: valueText.segments,
-                    alignment: 'end',
-                    weight: columnWeights.balance,
-                  },
-                  {
-                    key: 'price',
-                    text: priceText.text,
-                    textSegments: priceText.segments,
-                    secondaryText: priceChangeText.text,
-                    secondaryTextSegments: priceChangeText.segments,
-                    secondaryTone: priceChangeTone,
-                    alignment: 'end',
-                    weight: columnWeights.price,
-                  },
-                  ...(columnWeights.swapSpacer
-                    ? [
-                        {
-                          key: 'swapSpacer',
-                          text: '',
-                          weight: columnWeights.swapSpacer,
-                        },
-                      ]
-                    : []),
-                ],
+                columns: tableColumns,
                 trailing: tokenStatus?.loading
                   ? [{ kind: 'spinner' }, ...swapAction]
                   : swapAction,
@@ -1236,6 +1303,7 @@ export function NativeTokenSelectorList({
     gtMd,
     currencyMap,
     theme,
+    swapButtonColors,
     useIOSPrivacyTableLayout,
   ]);
 

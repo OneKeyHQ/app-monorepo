@@ -21,6 +21,10 @@ export const REPLACE_TX_FEE_UP_RATIO = 1.1;
 export const SHOW_NFT_AMOUNT_MAX = 9999;
 
 export const TOKEN_LIST_HIGH_VALUE_MAX = 50;
+// The server's per-network low-value cut (copy: `low_value_assets_desc`): a
+// token under this share of the list's total and under this many USD.
+export const TOKEN_LIST_LOW_VALUE_SHARE = 0.001;
+export const TOKEN_LIST_LOW_VALUE_USD_MAX = 1000;
 
 export const BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE = 2;
 export const BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP = 5;

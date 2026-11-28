@@ -322,7 +322,12 @@ function LendingSelectorRowContent({ item }: { item: ILendingSelectorItem }) {
 
   return (
     <>
-      <Token size="sm" tokenImageUri={item.logoURI} bg="$bg" />
+      <Token
+        size="sm"
+        tokenImageUri={item.logoURI}
+        symbol={item.symbol}
+        bg="$bg"
+      />
       <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
         {item.symbol}
       </SizableText>

@@ -298,6 +298,7 @@ function BasicMobileMarketSelectorListItem({
           size="md"
           tokenImageUri={tokenImageUri}
           tokenImageUris={tokenImageUris}
+          symbol={symbol}
           networkImageUri={networkId ? resolvedNetworkLogoUri : undefined}
           fallbackIcon="CryptoCoinOutline"
         />

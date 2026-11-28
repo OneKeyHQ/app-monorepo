@@ -1098,7 +1098,11 @@ export function useSwapInit(
         !selectedTokensColdStartContextRef.current &&
         !params?.importFromToken &&
         !params?.importToToken &&
-        (!params?.swapSource || params.swapSource === ESwapSource.WALLET_HOME);
+        // Empty entries that start from the home account: its Swap action and
+        // the desktop home's trade column.
+        (!params?.swapSource ||
+          params.swapSource === ESwapSource.WALLET_HOME ||
+          params.swapSource === ESwapSource.WALLET_HOME_TRADE_PANEL);
       const emptyDefaultsAtRead = canBootstrapEmptyDefaults();
       const swapSelectionAtRead = swapSelectedAccountRef.current;
       const { selectedAccount, selectedAccountUpdatedAt, sourceRuntimeId } =

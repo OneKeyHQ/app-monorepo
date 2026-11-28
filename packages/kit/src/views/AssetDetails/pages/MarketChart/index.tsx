@@ -61,6 +61,7 @@ export default function MarketChart() {
         <Token
           size="sm"
           tokenImageUri={tokenImageUri}
+          symbol={symbol}
           networkImageUri={!gtMd ? network?.logoURI : undefined}
           networkId={networkId}
         />

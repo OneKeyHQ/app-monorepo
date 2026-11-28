@@ -16,11 +16,15 @@ export function AccountSelectorTriggerHome({
   spotlightProps,
   linkNetworkId,
   hideAddress,
+  desktopHeader,
+  tertiaryButton,
 }: {
   num: number;
   spotlightProps?: ISpotlightViewProps;
   linkNetworkId?: string;
   hideAddress?: boolean;
+  desktopHeader?: boolean;
+  tertiaryButton?: boolean;
 }) {
   const {
     activeAccount: { network, vaultSettings, wallet, account },
@@ -56,6 +60,8 @@ export function AccountSelectorTriggerHome({
       allowSelectEmptyAccount
       spotlightProps={spotlightProps}
       showConnectWalletModalInDappMode
+      desktopHeader={desktopHeader}
+      tertiaryButton={tertiaryButton}
     />
   );
 }

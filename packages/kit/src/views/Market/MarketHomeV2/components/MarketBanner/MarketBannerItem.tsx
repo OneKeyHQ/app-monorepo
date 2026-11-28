@@ -244,6 +244,7 @@ function BannerQuoteRow({
       <Token
         size="xs"
         tokenImageUri={indexConfig?.logoUrl || token.logo}
+        symbol={token.symbol}
         fallbackIcon={isIndex ? 'ChartColumnarOutline' : 'CryptoCoinOutline'}
         // The banner owns its skeleton; a delayed icon overlay can cover an
         // image that the browser has already painted.

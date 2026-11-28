@@ -32,7 +32,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 const TokenInfoCard = ({ token }: { token: ISwapToken }) => (
   <XStack gap="$3" alignItems="center">
-    <Token tokenImageUri={token.logoURI} />
+    <Token tokenImageUri={token.logoURI} symbol={token.symbol} />
     <YStack gap="$1" flex={1}>
       <XStack gap="$1" alignItems="center">
         <SizableText color="$text" size="$headingLg">

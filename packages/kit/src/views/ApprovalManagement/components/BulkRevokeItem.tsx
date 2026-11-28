@@ -286,6 +286,7 @@ function BulkRevokeItem(props: IProps) {
                 size="md"
                 showNetworkIcon
                 tokenImageUri={approveInfo.tokenInfo?.logoURI}
+                symbol={approveInfo.tokenInfo?.symbol}
                 networkId={
                   approveInfo.tokenInfo?.networkId ?? unsignedTx.networkId
                 }

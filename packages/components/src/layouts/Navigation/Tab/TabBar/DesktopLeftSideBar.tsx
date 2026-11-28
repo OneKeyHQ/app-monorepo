@@ -267,6 +267,7 @@ function BasicTabItemView({
             <SizableText
               size="$bodyXsMedium"
               cursor="default"
+              userSelect="none"
               color="$text"
               textAlign="center"
               numberOfLines={2}
@@ -368,6 +369,7 @@ function SidebarBottomItem({
   isActive,
   options,
   onPress,
+  badge,
 }: {
   route: NavigationState['routes'][0];
   isActive: boolean;
@@ -375,6 +377,7 @@ function SidebarBottomItem({
     collapseTabBarLabel?: string;
   };
   onPress: () => void;
+  badge?: ReactElement;
 }) {
   // @ts-expect-error tabBarIcon returns icon name string, not ReactNode
   const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
@@ -401,6 +404,7 @@ function SidebarBottomItem({
     () => (
       <YStack
         testID={route.name.toLowerCase()}
+        position="relative"
         p="$2"
         borderRadius="$2"
         bg={isActive ? '$bgActive' : undefined}
@@ -417,9 +421,11 @@ function SidebarBottomItem({
           size="$6"
           color={isActive ? '$iconActive' : '$iconSubdued'}
         />
+        {badge}
       </YStack>
     ),
     [
+      badge,
       closeTooltip,
       isActive,
       handlePress,
@@ -599,6 +605,7 @@ function OverflowMoreButton({
           <SizableText
             size="$bodyXsMedium"
             cursor="default"
+            userSelect="none"
             color="$text"
             textAlign="center"
             numberOfLines={1}
@@ -731,10 +738,12 @@ export function DesktopLeftSideBar({
   descriptors,
   extraConfig,
   bottomMenu,
+  deviceTabBadge,
   webPageTabBar,
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
   bottomMenu: ReactElement;
+  deviceTabBadge?: ReactElement;
   webPageTabBar: ReactElement;
 }) {
   const intl = useIntl();
@@ -949,6 +958,7 @@ export function DesktopLeftSideBar({
                     isActive={isDeviceActive}
                     options={descriptors[deviceRoute.key].options}
                     onPress={handleDevicePress}
+                    badge={deviceTabBadge}
                   />
                 </YStack>
               ) : null}

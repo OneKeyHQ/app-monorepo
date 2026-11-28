@@ -580,6 +580,131 @@ it('revokes an in-memory visitor after the shared storage reference is reset', a
   expect(body.has('anonymous_session')).toBe(false);
 });
 
+it('keys an anonymous unread count by the visitor it belongs to', async () => {
+  const old = await subject.createIntercomMessengerSession(null);
+  expect(subject.getIntercomUnreadOwner()).toBe('visitor:test-visitor');
+  mockStorageEpoch += 1;
+  mockVisitor = null;
+  await expect(old.listConversations()).rejects.toThrow();
+  expect(subject.getIntercomUnreadOwner()).toBeUndefined();
+  mockFetch.mockImplementation(
+    async () =>
+      new Response(
+        JSON.stringify({
+          ...boot,
+          user: { id: 'test-user', anonymous_id: 'next-visitor' },
+          conversations: [],
+        }),
+        { status: 200 },
+      ),
+  );
+  await subject.createIntercomMessengerSession(null);
+  expect(subject.getIntercomUnreadOwner()).toBe('visitor:next-visitor');
+});
+
+function recordKnownCounts() {
+  const counts: [string | undefined, number][] = [];
+  subject.subscribeToIntercomUnreadCount(() => {
+    if (subject.isIntercomUnreadCountKnown())
+      counts.push([
+        subject.getIntercomUnreadOwner(),
+        subject.getIntercomUnreadCount(),
+      ]);
+  });
+  return counts;
+}
+
+it('publishes an anonymous boot count together with its visitor', async () => {
+  const counts = recordKnownCounts();
+  await subject.createIntercomMessengerSession(null);
+  expect(counts).toEqual([['visitor:test-visitor', 1]]);
+});
+
+it('drops the old count when an expired visitor is replaced without one', async () => {
+  jest.useFakeTimers();
+  const respond = (body: Record<string, unknown>) =>
+    new Response(JSON.stringify({ ...body, conversations: [] }), {
+      status: 200,
+    });
+  mockFetch.mockImplementation(async () =>
+    respond({ ...boot, session_expiry: Math.floor(Date.now() / 1000) + 600 }),
+  );
+  const session = await subject.createIntercomMessengerSession(null);
+  await jest.advanceTimersByTimeAsync(11 * 60_000);
+  const counts = recordKnownCounts();
+  mockFetch.mockImplementation(async (url) => {
+    if (url.endsWith('/ping')) {
+      const { unread_conversation_ids: _unread, ...next } = boot;
+      return respond({
+        ...next,
+        user: { id: 'test-user', anonymous_id: 'next-visitor' },
+      });
+    }
+    return respond({ unread_conversation_ids: ['7', '8'] });
+  });
+  // Booting another visitor retires the client, so the old count goes with it.
+  await expect(session.refreshUnread()).rejects.toThrow(
+    'Support session changed',
+  );
+  // The next session counts for the visitor saved above.
+  const next = await subject.createIntercomMessengerSession(null);
+  await next.refreshUnread();
+  expect(counts).toEqual([['visitor:next-visitor', 2]]);
+});
+
+it('ignores unread results sent for a visitor that has since been replaced', async () => {
+  jest.useFakeTimers();
+  const respond = (body: Record<string, unknown>) =>
+    new Response(JSON.stringify({ ...body, conversations: [] }), {
+      status: 200,
+    });
+  // Close enough to expiry that the next request boots a replacement.
+  mockFetch.mockImplementation(async () =>
+    respond({ ...boot, session_expiry: Math.floor(Date.now() / 1000) + 61 }),
+  );
+  const session = await subject.createIntercomMessengerSession(null);
+  const held: Array<(response: Response) => void> = [];
+  const hold = () =>
+    new Promise<Response>((resolve) => {
+      held.push(resolve);
+    });
+  mockFetch.mockImplementation(hold);
+  const duringBoot = session.refreshUnread();
+  const afterBoot = session.refreshUnread();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(held).toHaveLength(2);
+  await jest.advanceTimersByTimeAsync(2000);
+  const counts = recordKnownCounts();
+  mockFetch.mockImplementation(async (url) => {
+    if (url.endsWith('/ping')) return hold();
+    return respond({ unread_conversation_ids: [] });
+  });
+  const replacement = session.refreshUnread();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(held).toHaveLength(3);
+  // The old visitor's reply lands while the replacement is booting.
+  held[0](respond({ unread_conversation_ids: ['7', '8'] }));
+  await duringBoot;
+  const { unread_conversation_ids: _unread, ...next } = boot;
+  const nextPing = {
+    ...next,
+    user: { id: 'test-user', anonymous_id: 'next-visitor' },
+  };
+  held[2](respond(nextPing));
+  // Booting another visitor retires the client.
+  await expect(replacement).rejects.toThrow('Support session changed');
+  // And another lands after the replacement is saved.
+  held[1](respond({ unread_conversation_ids: ['7', '8'] }));
+  await expect(afterBoot).rejects.toThrow('Support session changed');
+  // The next session counts for the visitor saved above.
+  mockFetch.mockImplementation(async (url) =>
+    respond(url.endsWith('/ping') ? nextPing : { unread_conversation_ids: [] }),
+  );
+  const nextSession = await subject.createIntercomMessengerSession(null);
+  await nextSession.refreshUnread();
+  expect(counts).toEqual([['visitor:next-visitor', 0]]);
+});
+
 it('binds a new anonymous client only after the previous identity storage removal completes', async () => {
   mockUserId = 'A';
   await subject.createIntercomMessengerSession('A');

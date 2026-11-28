@@ -58,7 +58,7 @@ import { homeHeaderLayoutCache } from '@onekeyhq/shared/src/storage/uiSnapshotCa
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -94,6 +94,7 @@ import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { HomeTradeDock } from '../components/HomeTradePanel';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { useHomeMoneroAccountCreation } from '../hooks/useHomeMoneroAccountCreation';
@@ -105,15 +106,30 @@ import {
   HomeHeaderContainer,
   useHomeHeaderLayout,
 } from './HomeHeaderContainer';
+import {
+  isHomeHeaderInMotion,
+  subscribeHomeHeaderMotion,
+} from './homeHeaderMotion';
 import { HomeNativePager } from './HomeNativePager';
 import {
   HOME_PAGE_CONTENT_MAX_WIDTH,
+  HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH,
+  HomeTradeColumnDockedContext,
   homePageContentMaxWidthSx,
+  homePageDockedContentMaxWidthSx,
+  useHomeTradeColumnDocked,
 } from './homePageContentMaxWidth';
 import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
+import {
+  TAB_BAR_HEIGHT,
+  TAB_TOOLBAR_BUTTON_SIZE,
+  TAB_TOOLBAR_CONTENT_WIDTH,
+  TAB_TOOLBAR_FLUSH_TRAILING_INSET,
+  TAB_TOOLBAR_TRAILING_INSET,
+} from './homeTabBarMetrics';
 import {
   isHomeTabActive,
   useHomeTabFreeze,
@@ -138,6 +154,7 @@ import type {
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+
 const PerpsContainer = lazy(async () => {
   debugPerpsChain('import.start');
   const module = await import('./PerpsContainer');
@@ -216,8 +233,14 @@ function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
 }
 
 function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
+  const docked = useHomeTradeColumnDocked();
   return (
-    <Stack flex={1} {...homePageContentMaxWidthSx}>
+    <Stack
+      flex={1}
+      {...(docked
+        ? homePageDockedContentMaxWidthSx
+        : homePageContentMaxWidthSx)}
+    >
       {children}
     </Stack>
   );
@@ -315,7 +338,16 @@ function BaseHomePageView({
   const isTravelModeRuntime =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
-  const { md: isSmallScreen } = useMedia();
+  const { md: isSmallScreen, gtXl } = useMedia();
+  // Web, desktop and the extension's expanded view dock the trade column on
+  // the right from 1280 on, and the content beside it narrows to the docked
+  // width. The extension's popup and side panel keep the Swap modal.
+  const canDockTradeColumn = Boolean(
+    platformEnv.isWeb ||
+    platformEnv.isDesktop ||
+    platformEnv.isExtensionUiExpandTab,
+  );
+  const dockTradeColumn = canDockTradeColumn && gtXl;
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {
     account,
@@ -454,6 +486,17 @@ function BaseHomePageView({
     }
     return false;
   }, [wallet]);
+  // Only the user's own home trades, and only with a usable wallet that is
+  // backed up (until then the home offers no actions). Everywhere else the
+  // page keeps its regular width, the column's 840 frame included.
+  const showTradeColumn =
+    dockTradeColumn &&
+    sceneName === EAccountSelectorSceneName.home &&
+    !accountUtils.hasNoUsableWallet({ wallet, account }) &&
+    !isWalletNotBackedUp;
+  const contentMaxWidthSx = showTradeColumn
+    ? homePageDockedContentMaxWidthSx
+    : homePageContentMaxWidthSx;
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING) {
@@ -621,7 +664,8 @@ function BaseHomePageView({
     sceneName,
   ].join(':');
   const sharedHeaderKey = [
-    'shared',
+    // v2: the phone header moved the account name above the balance.
+    'shared-v2',
     geometryKey,
     homeHeaderLayout.variant,
     wallet?.type === WALLET_TYPE_WATCHING,
@@ -629,7 +673,8 @@ function BaseHomePageView({
   ].join(':');
   const isHeaderSyncLoading = useIsAccountSelectorSyncLoading(0);
   const fixedHeaderKey = [
-    'fixed',
+    // v2: the phone header is one row (profile avatar, search, network).
+    'fixed-v2',
     geometryKey,
     safeAreaInsets.top,
     safeAreaInsets.left,
@@ -650,7 +695,9 @@ function BaseHomePageView({
     fixedHeaderKey,
   ]);
   const initialHeaderHeight = homeHeaderLayout.nativeMinHeight ?? 182;
-  const initialFixedHeight = platformEnv.isNativeIOS ? 162 : 92;
+  // First-frame hint until the header is measured: one 56 row under the top
+  // inset (8 when there is none, as the row's own margin).
+  const initialFixedHeight = (safeAreaInsets.top || 8) + 56;
   const [headerGeometry, setHeaderGeometry] = useState(() => ({
     identity: measurementIdentity,
     generation: 0,
@@ -687,6 +734,8 @@ function BaseHomePageView({
       }
     };
   }, [measurementIdentity, measurementGeneration]);
+  // Held while a header part animates its height (see homeHeaderMotion).
+  const pendingSharedHeight = useRef<number | undefined>(undefined);
   const nativeHeaderRef = useRef<ViewInstance>(null);
   const nativeFixedHeaderRef = useRef<ViewInstance | null>(null);
   const updateHeaderHeight = useCallback(
@@ -702,6 +751,10 @@ function BaseHomePageView({
       )
         return;
       const height = Math.ceil(rawHeight);
+      if (region === 'shared' && isHomeHeaderInMotion()) {
+        pendingSharedHeight.current = height;
+        return;
+      }
       setHeaderGeometry((previous) => {
         if (
           previous.identity !== measurementIdentity ||
@@ -727,6 +780,16 @@ function BaseHomePageView({
       sharedHeaderKey,
       fixedHeaderKey,
     ],
+  );
+  useEffect(
+    () =>
+      subscribeHomeHeaderMotion(() => {
+        if (isHomeHeaderInMotion()) return;
+        const height = pendingSharedHeight.current;
+        pendingSharedHeight.current = undefined;
+        if (height !== undefined) updateHeaderHeight('shared', height);
+      }),
+    [updateHeaderHeight],
   );
   const handleFullHeaderLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -772,7 +835,7 @@ function BaseHomePageView({
   const renderHeader = useCallback(
     () => (
       <Stack
-        {...homePageContentMaxWidthSx}
+        {...contentMaxWidthSx}
         ref={platformEnv.isNative ? nativeHeaderRef : undefined}
         onLayout={platformEnv.isNative ? handleFullHeaderLayout : undefined}
       >
@@ -784,18 +847,18 @@ function BaseHomePageView({
         <HomeHeaderContainer layout={homeHeaderLayout} />
       </Stack>
     ),
-    [handleFullHeaderLayout, homeHeaderLayout],
+    [contentMaxWidthSx, handleFullHeaderLayout, homeHeaderLayout],
   );
 
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
   const renderSubHeader = useCallback(
     () => (
-      <Stack {...homePageContentMaxWidthSx}>
+      <Stack {...contentMaxWidthSx}>
         <HistoryTabNotificationAlertSlot />
       </Stack>
     ),
-    [],
+    [contentMaxWidthSx],
   );
 
   const accountPaneKey = [
@@ -1088,10 +1151,13 @@ function BaseHomePageView({
         selectedBackgroundColor: nativeTabsTheme.bgStrong.val,
         hoverBackgroundColor: nativeTabsTheme.bgHover.val,
         pressedBackgroundColor: nativeTabsTheme.bgActive.val,
-        size: s(24) + 2 * s(6) + 2,
+        size: TAB_TOOLBAR_BUTTON_SIZE,
         iconSize: s(24),
-        contentWidth: s(24),
-        trailingInset: s(20),
+        contentWidth: TAB_TOOLBAR_CONTENT_WIDTH,
+        trailingInset:
+          !platformEnv.isNative && !isSmallScreen
+            ? TAB_TOOLBAR_FLUSH_TRAILING_INSET
+            : TAB_TOOLBAR_TRAILING_INSET,
       };
     }
     return {
@@ -1106,7 +1172,7 @@ function BaseHomePageView({
       style: isSmallScreen
         ? {
             variant: 'text',
-            height: fs(24) + 2 * s(6) + 2 * s(8),
+            height: TAB_BAR_HEIGHT,
             contentPaddingHorizontal: s(10),
             itemSpacing: 0,
             fontSize: fs(18),
@@ -1120,7 +1186,7 @@ function BaseHomePageView({
             // Matches the former JS pill TabBar: $bodyLgMedium labels with
             // px $3.5 / py $1.5 items, $2 gaps and py $2 around the row.
             variant: 'pill',
-            height: fs(24) + 2 * s(6) + 2 * s(8),
+            height: TAB_BAR_HEIGHT,
             contentPaddingHorizontal: s(20),
             contentPaddingVertical: s(8),
             itemSpacing: s(8),
@@ -1128,12 +1194,25 @@ function BaseHomePageView({
             fontSize: fs(16),
             fontFamily: tabFontFamily,
             backgroundColor: nativeTabsTheme.bgApp.val,
-            activeTextColor: nativeTabsTheme.textInverse.val,
-            inactiveTextColor: nativeTabsTheme.text.val,
-            indicatorColor: nativeTabsTheme.bgPrimary.val,
+            // Web: the selected pill is a light gray chip with the regular
+            // label color, so the balance stays the page's darkest element.
+            // The other labels are subdued, so the selection does not rest on
+            // the chip's faint gray alone. Native tablets keep the inverse
+            // pill.
+            activeTextColor: platformEnv.isNative
+              ? nativeTabsTheme.textInverse.val
+              : nativeTabsTheme.text.val,
+            inactiveTextColor: platformEnv.isNative
+              ? nativeTabsTheme.text.val
+              : nativeTabsTheme.textSubdued.val,
+            indicatorColor: platformEnv.isNative
+              ? nativeTabsTheme.bgPrimary.val
+              : nativeTabsTheme.bgActive.val,
             itemHoverBackgroundColor: nativeTabsTheme.bgHover.val,
             itemPressedBackgroundColor: nativeTabsTheme.bgActive.val,
-            contentMaxWidth: HOME_PAGE_CONTENT_MAX_WIDTH,
+            contentMaxWidth: showTradeColumn
+              ? HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH
+              : HOME_PAGE_CONTENT_MAX_WIDTH,
             // Pill tabs switch instantly, as the 6.6.4 JS pill tab bar did.
             indicatorAnimationEnabled: false,
           },
@@ -1145,6 +1224,7 @@ function BaseHomePageView({
     activeTabId,
     tabConfigs,
     tabTestIDMap,
+    showTradeColumn,
   ]);
   const handleNativeTextTabPress = useCallback<
     NonNullable<IHomeNativePagerProps['onNativeTabPress']>
@@ -1208,7 +1288,7 @@ function BaseHomePageView({
     // tab bar, inside the same centered max-width as the page content.
     return (
       <YStack ref={stickyHostRefCallback as any}>
-        <Stack position="relative" {...homePageContentMaxWidthSx}>
+        <Stack position="relative" {...contentMaxWidthSx}>
           <div
             ref={portalRefCallback}
             style={{
@@ -1231,6 +1311,7 @@ function BaseHomePageView({
     portalRefCallback,
     stickyHostRefCallback,
     tabConfigs,
+    contentMaxWidthSx,
   ]);
 
   const handleTabChange = useCallback(
@@ -1839,23 +1920,56 @@ function BaseHomePageView({
     return (
       <>
         <Page.Body>
-          <Page.Container flex={1} padded={false}>
+          <Page.Container
+            flex={1}
+            padded={false}
+            // Docked, the page spans the window so the column can sit at
+            // its right edge; each block below keeps its own frame.
+            layout={showTradeColumn ? 'full' : undefined}
+          >
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <Stack h={tabPageHeight} />
             ) : null}
-            {!platformEnv.isNative ? (
-              <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-            ) : null}
-            {/* Native keeps the alerts inside the collapsible header (see
-                renderHeader), but that header only mounts with the wallet
-                content. Without a usable wallet fall back to the outer slot
-                so the offline and notification-permission alerts still run. */}
-            {platformEnv.isNative && !hasNoUsableWallet ? null : (
-              <Stack {...homePageContentMaxWidthSx}>
-                <HomeAlerts />
-              </Stack>
+            {canDockTradeColumn ? (
+              // One tree on both sides of 1280, so crossing it only shows or
+              // hides the column instead of remounting the page.
+              <HomeTradeDock showPanel={showTradeColumn}>
+                <Stack
+                  {...(showTradeColumn
+                    ? homePageDockedContentMaxWidthSx
+                    : undefined)}
+                >
+                  <TabPageHeader
+                    sceneName={sceneName}
+                    tabRoute={ETabRoutes.Home}
+                  />
+                </Stack>
+                <Stack {...contentMaxWidthSx}>
+                  <HomeAlerts />
+                </Stack>
+                {content}
+              </HomeTradeDock>
+            ) : (
+              <>
+                {!platformEnv.isNative ? (
+                  <TabPageHeader
+                    sceneName={sceneName}
+                    tabRoute={ETabRoutes.Home}
+                  />
+                ) : null}
+                {/* Native keeps the alerts inside the collapsible header (see
+                    renderHeader), but that header only mounts with the wallet
+                    content. Without a usable wallet fall back to the outer
+                    slot so the offline and notification-permission alerts
+                    still run. */}
+                {platformEnv.isNative && !hasNoUsableWallet ? null : (
+                  <Stack {...homePageContentMaxWidthSx}>
+                    <HomeAlerts />
+                  </Stack>
+                )}
+                {content}
+              </>
             )}
-            {content}
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <YStack
                 ref={handleOuterHeaderHostRef}
@@ -1889,17 +2003,22 @@ function BaseHomePageView({
     handleOuterHeaderHostRef,
     walletPageContent,
     tabBarHeight,
+    canDockTradeColumn,
+    showTradeColumn,
+    contentMaxWidthSx,
   ]);
 
   return useMemo(() => {
     return (
-      <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
-        <Page fullPage testID={HomeTestIDs.page}>
-          {homePage}
-        </Page>
-      </HomeStickyHeaderContext.Provider>
+      <HomeTradeColumnDockedContext.Provider value={showTradeColumn}>
+        <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
+          <Page fullPage testID={HomeTestIDs.page}>
+            {homePage}
+          </Page>
+        </HomeStickyHeaderContext.Provider>
+      </HomeTradeColumnDockedContext.Provider>
     );
-  }, [homePage, stickyHeaderCtx]);
+  }, [homePage, stickyHeaderCtx, showTradeColumn]);
 }
 
 // The layout decision and the rendered header read the same token-list context.

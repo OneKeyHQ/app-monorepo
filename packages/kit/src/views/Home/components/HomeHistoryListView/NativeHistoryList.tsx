@@ -456,6 +456,10 @@ export function NativeHistoryList(
               textColor: theme.primaryText,
               backgroundColor: theme.rowBackground,
             },
+            tokenFallbackTheme: {
+              inverseBackground: theme.inverseBackground,
+              inverseText: theme.inverseText,
+            },
           }),
         ]),
       ),
@@ -471,6 +475,8 @@ export function NativeHistoryList(
       isAllNetworks,
       theme.primaryText,
       theme.rowBackground,
+      theme.inverseBackground,
+      theme.inverseText,
     ],
   );
   const addressTargets = useMemo(

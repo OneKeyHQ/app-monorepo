@@ -1,5 +1,9 @@
 import { rootNavigationRef } from '@onekeyhq/components';
-import { EModalSwapRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalSwapRoutes,
+  ETabHomeRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { isMarketDetailRoute } from './swapNavigationUtils';
 
@@ -16,6 +20,10 @@ export const handleSwapNavigation = (
     const tabSubRouteIndex = tabRoute?.state?.index ?? 0;
     const tabSubRouteName = tabRoute?.state?.routes?.[tabSubRouteIndex]?.name;
     const isInMarketDetail = isMarketDetailRoute(tabSubRouteName);
+    // The home itself, not a page pushed over it (a viewed address's page).
+    const isInHomeTab =
+      tabRoute?.name === ETabRoutes.Home &&
+      (!tabSubRouteName || tabSubRouteName === ETabHomeRoutes.TabHome);
     const hasModal = (state?.routes?.length || 0) > 1;
     let isHasSwapModal = false;
     let isSwapModalOnTheTop = false;
@@ -51,6 +59,7 @@ export const handleSwapNavigation = (
       callback({
         isInSwapTab,
         isInMarketDetail,
+        isInHomeTab,
         isHasSwapModal,
         isSwapModalOnTheTop,
         hasModal,

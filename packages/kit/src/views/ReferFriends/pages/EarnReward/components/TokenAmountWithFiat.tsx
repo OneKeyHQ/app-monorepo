@@ -16,7 +16,7 @@ export function TokenAmountWithFiat({
 }: ITokenAmountWithFiatProps) {
   return (
     <XStack ai="center" gap="$2">
-      <Token size="xs" tokenImageUri={token.logoURI} />
+      <Token size="xs" tokenImageUri={token.logoURI} symbol={token.symbol} />
       <XStack ai="center" gap="$1">
         <NumberSizeableText
           formatter="balance"

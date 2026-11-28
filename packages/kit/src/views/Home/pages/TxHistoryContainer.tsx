@@ -798,8 +798,8 @@ function TxHistoryListContainer(
   // the viewport and make the native SectionList jitter (it has no exact
   // item layout). Held rows merge in automatically once the user scrolls back
   // near the top. Pass-through on web/desktop and for preview / plain lists.
-  // The tab scenario (full wallet-history tab, not RecentHistory's
-  // plainMode+limit preview) also gates the scroll observer mount below.
+  // The tab scenario (full wallet-history tab, not a plainMode+limit
+  // preview) also gates the scroll observer mount below.
   const isFrozenTopTabScenario = !plainMode && !limit;
   const frozenTopEnabled =
     isFocused && isRouteFocused && isFrozenTopTabScenario;

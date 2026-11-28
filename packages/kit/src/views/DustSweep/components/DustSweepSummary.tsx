@@ -637,6 +637,7 @@ export function DustSweepSummary({
               <Token
                 size="md"
                 tokenImageUri={nativeToken?.logoURI}
+                symbol={nativeToken?.symbol}
                 networkId={nativeToken?.networkId}
                 showNetworkIcon
               />

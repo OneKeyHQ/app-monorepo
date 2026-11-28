@@ -193,6 +193,7 @@ function ListItemFiatTokenBase({
           <Token
             size="lg"
             tokenImageUri={item.icon}
+            symbol={item.symbol}
             networkImageUri={network?.logoURI}
           />
           <ListItem.Text

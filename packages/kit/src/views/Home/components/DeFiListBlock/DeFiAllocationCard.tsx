@@ -6,6 +6,8 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { useHomeTradeColumnDocked } from '../../pages/homePageContentMaxWidth';
+
 import { DeFiOverviewGrid } from './DeFiOverviewGrid';
 import { DeFiPortfolioStackedBar } from './DeFiPortfolioStackedBar';
 import { resolveOverviewCols } from './overviewColsResolver';
@@ -32,14 +34,16 @@ function DeFiAllocationCard({
   onPressProtocol,
 }: IDeFiAllocationCardProps) {
   const media = useMedia();
+  const docked = useHomeTradeColumnDocked();
 
   const cols = useMemo(
     () =>
       resolveOverviewCols({
         gtXl: media.gtXl,
         gtLg: media.gtLg,
+        docked,
       }),
-    [media.gtXl, media.gtLg],
+    [media.gtXl, media.gtLg, docked],
   );
 
   // No outer card chrome: each tile is a $bgSubdued card sitting on the

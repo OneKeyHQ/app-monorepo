@@ -253,6 +253,7 @@ function SignatureAssetDetailItem({
         <Token
           size={tokenSize}
           showNetworkIcon={showNetwork}
+          symbol={symbol}
           {...(type === 'nft' && {
             borderRadius: '$2',
           })}

@@ -170,6 +170,7 @@ export function UnifoldExecutionStatusCards({
             tokenImageUri={normalizeUnifoldIconUrl(
               execution.destinationTokenIconUrl,
             )}
+            symbol={execution.destinationCurrency ?? undefined}
             cornerBadge={<StatusBadge execution={execution} />}
           />
           <YStack flex={1} minWidth={0}>

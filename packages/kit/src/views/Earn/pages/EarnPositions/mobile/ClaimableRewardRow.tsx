@@ -11,6 +11,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 export function ClaimableRewardRow({
   networkId,
   logoURI,
+  symbol,
   title,
   subtitle,
   fiatValue,
@@ -18,6 +19,7 @@ export function ClaimableRewardRow({
 }: {
   networkId: string;
   logoURI?: string;
+  symbol?: string;
   /** the amount line, "2.40 USDC" */
   title: React.ReactNode;
   /** the vault or market the reward came from */
@@ -33,6 +35,7 @@ export function ClaimableRewardRow({
         <Token
           size="md"
           tokenImageUri={logoURI}
+          symbol={symbol}
           showNetworkIcon
           networkId={networkId}
         />

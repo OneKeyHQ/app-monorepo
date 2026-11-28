@@ -1063,7 +1063,11 @@ function TokenListViewCmp(props: IProps) {
     if (showSkeleton) {
       return (
         <YStack style={{ flex: 1 }}>
-          <ListLoading isTokenSelectorView={!tableLayout} />
+          <ListLoading
+            isTokenSelectorView={!tableLayout}
+            // No column header above the rows, so no placeholder for one.
+            listHeaderProps={withHeader ? undefined : { display: 'none' }}
+          />
         </YStack>
       );
     }
@@ -1117,6 +1121,7 @@ function TokenListViewCmp(props: IProps) {
     searchKey,
     showSkeleton,
     tableLayout,
+    withHeader,
     emptyProps,
     selectorSearchActive,
     tokenSelectorSearchTokenState.hasError,
@@ -1128,17 +1133,17 @@ function TokenListViewCmp(props: IProps) {
     overFlowState.isOverflow || (!!limit && displayCountForOverflow > limit);
 
   useEffect(() => {
-    if (limit) {
-      const nextIsOverflow = displayCountForOverflow > limit;
-      setOverFlowState((prev) =>
-        prev.isOverflow === nextIsOverflow
-          ? prev
-          : {
-              ...prev,
-              isOverflow: nextIsOverflow,
-            },
-      );
-    }
+    // Without a limit nothing overflows; reset so a list that was capped
+    // before a layout change does not keep "show more".
+    const nextIsOverflow = limit ? displayCountForOverflow > limit : false;
+    setOverFlowState((prev) =>
+      prev.isOverflow === nextIsOverflow
+        ? prev
+        : {
+            ...prev,
+            isOverflow: nextIsOverflow,
+          },
+    );
   }, [displayCountForOverflow, limit]);
 
   const renderPlainModeFooter = useCallback(() => {

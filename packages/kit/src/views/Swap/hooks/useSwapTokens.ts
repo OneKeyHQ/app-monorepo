@@ -1147,19 +1147,38 @@ export function useSwapSelectedTokenInfo({
     },
     [type, loadSwapSelectTokenDetailDeb],
   );
+  // One listener per hook, always calling the latest reload, and removed on
+  // unmount; a reload whose identity changed would otherwise stay subscribed.
+  const reloadSwapSelectTokenDetailRef = useRef(reloadSwapSelectTokenDetail);
+  reloadSwapSelectTokenDetailRef.current = reloadSwapSelectTokenDetail;
+  const onSwapTxHistoryStatusUpdate = useCallback(
+    (payload: Parameters<typeof reloadSwapSelectTokenDetail>[0]) => {
+      reloadSwapSelectTokenDetailRef.current(payload);
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapTxHistoryStatusUpdate,
+        onSwapTxHistoryStatusUpdate,
+      );
+    },
+    [onSwapTxHistoryStatusUpdate],
+  );
   const isModalPage = useIsOverlayPage();
   useEffect(() => {
     if (isFocused && isModalPage) {
       appEventBus.off(
         EAppEventBusNames.SwapTxHistoryStatusUpdate,
-        reloadSwapSelectTokenDetail,
+        onSwapTxHistoryStatusUpdate,
       );
       appEventBus.on(
         EAppEventBusNames.SwapTxHistoryStatusUpdate,
-        reloadSwapSelectTokenDetail,
+        onSwapTxHistoryStatusUpdate,
       );
     }
-  }, [isFocused, isModalPage, reloadSwapSelectTokenDetail]);
+  }, [isFocused, isModalPage, onSwapTxHistoryStatusUpdate]);
 
   useEffect(() => {
     if (isFocused) {
@@ -1197,25 +1216,25 @@ export function useSwapSelectedTokenInfo({
         if (isFocus) {
           appEventBus.off(
             EAppEventBusNames.SwapTxHistoryStatusUpdate,
-            reloadSwapSelectTokenDetail,
+            onSwapTxHistoryStatusUpdate,
           );
           appEventBus.on(
             EAppEventBusNames.SwapTxHistoryStatusUpdate,
-            reloadSwapSelectTokenDetail,
+            onSwapTxHistoryStatusUpdate,
           );
         } else if (isHiddenModel) {
           appEventBus.off(
             EAppEventBusNames.SwapTxHistoryStatusUpdate,
-            reloadSwapSelectTokenDetail,
+            onSwapTxHistoryStatusUpdate,
           );
         } else {
           appEventBus.off(
             EAppEventBusNames.SwapTxHistoryStatusUpdate,
-            reloadSwapSelectTokenDetail,
+            onSwapTxHistoryStatusUpdate,
           );
           appEventBus.on(
             EAppEventBusNames.SwapTxHistoryStatusUpdate,
-            reloadSwapSelectTokenDetail,
+            onSwapTxHistoryStatusUpdate,
           );
         }
       }

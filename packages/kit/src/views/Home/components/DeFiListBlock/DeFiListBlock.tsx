@@ -75,6 +75,7 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 
 import { useTabIsRefreshingFocused } from '../../hooks/useHomeTab';
+import { useHomeTradeColumnDocked } from '../../pages/homePageContentMaxWidth';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import {
@@ -353,13 +354,15 @@ function DeFiListBlock({
   const initDeFiOwnerKeyRef = useRef<string | undefined>(undefined);
 
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
+  const tradeColumnDocked = useHomeTradeColumnDocked();
   const overviewCols = useMemo(
     () =>
       resolveOverviewCols({
         gtXl: media.gtXl,
         gtLg: media.gtLg,
+        docked: tradeColumnDocked,
       }),
-    [media.gtXl, media.gtLg],
+    [media.gtXl, media.gtLg, tradeColumnDocked],
   );
   const maxProtocolsOnLargeScreen = useMemo(
     () =>

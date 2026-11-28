@@ -307,6 +307,7 @@ export function SpecialManageContent({
             <Token
               size="lg"
               tokenImageUri={holdings?.token?.logoURI || fallbackTokenImageUri}
+              symbol={holdings?.token?.symbol || fallbackSymbol}
               networkImageUri={holdings?.network?.logoURI}
             />
           </XStack>

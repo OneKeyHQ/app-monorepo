@@ -1,12 +1,15 @@
-import type { ReactNode } from 'react';
+import type { MutableRefObject, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 
-import { Divider } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { ActionList, Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   buildOverviewOwnerKey,
   useAccountOverviewActions,
@@ -17,12 +20,19 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import type { IDustSweepScope } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
+import {
+  DustSweepEntryCapabilitiesProvider,
+  useActiveAccountDustSweep,
+  useDustSweepScope,
+} from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import {
   useDevSettingsPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -50,6 +60,50 @@ import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
 import { WalletPortfolioSpotlight } from './WalletPortfolioSpotlight';
 
+type IWalletActionDustSweepProps = {
+  onClose: () => void;
+  hostScope: MutableRefObject<IDustSweepScope>;
+};
+
+function WalletActionDustSweepItem({
+  onClose,
+  hostScope,
+}: IWalletActionDustSweepProps) {
+  const intl = useIntl();
+  // The item unmounts as the menu closes, before a first open has loaded the
+  // page; the More button's scope keeps the account and focus guard live.
+  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep({
+    hostScope,
+  });
+  if (!canDustSweep) return null;
+  return (
+    <ActionList.Item
+      testID="wallet-action-dust-sweep"
+      icon="BroomOutline"
+      label={intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
+      onClose={() => {}}
+      onPress={() => {
+        onClose();
+        void openDustSweep('walletMore');
+      }}
+    />
+  );
+}
+
+// Dust sweep for the active account, shown only where it can open, as the
+// token list settings row is. The menu renders outside the list's own
+// capabilities provider, so it brings one.
+function WalletActionDustSweep({
+  onClose,
+  hostScope,
+}: IWalletActionDustSweepProps) {
+  return (
+    <DustSweepEntryCapabilitiesProvider isFocused>
+      <WalletActionDustSweepItem onClose={onClose} hostScope={hostScope} />
+    </DustSweepEntryCapabilitiesProvider>
+  );
+}
+
 type IRenderMoreItemsParams = {
   handleActionListClose: () => void | Promise<void>;
   resolvedVaultSettings?: IVaultSettings;
@@ -62,6 +116,8 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
+  const isRouteFocused = useRouteIsFocused();
+  const dustSweepScope = useDustSweepScope(isRouteFocused);
   // Read here, not in the item: menu items render outside this context.
   const [{ ownerKey: approvalsOwnerKey, showRiskApprovalsDot: ownerDot }] =
     useApprovalsInfoAtom();
@@ -169,7 +225,12 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
           if (action === 'buy') {
             return show;
           }
-          if (action === 'swap' && resolvedVaultSettings?.disabledSwapAction) {
+          // Dust sweep swaps too: networks without Swap have neither, and an
+          // empty item would leave the next group's divider on top.
+          if (
+            (action === 'swap' || action === 'dustSweep') &&
+            resolvedVaultSettings?.disabledSwapAction
+          ) {
             return false;
           }
           return config.moreActions.includes(action);
@@ -189,6 +250,14 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
                   key="swap"
                   onClose={handleActionListClose}
                   inList
+                />
+              );
+            case 'dustSweep':
+              return (
+                <WalletActionDustSweep
+                  key="dustSweep"
+                  onClose={handleActionListClose}
+                  hostScope={dustSweepScope}
                 />
               );
             default:
@@ -395,6 +464,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       sceneUrl,
       showRiskApprovalsDot,
       markRiskApprovalsSeen,
+      dustSweepScope,
     ],
   );
 

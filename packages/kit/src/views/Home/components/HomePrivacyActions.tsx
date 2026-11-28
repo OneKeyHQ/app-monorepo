@@ -10,7 +10,7 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, YStack } from '@onekeyhq/components';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IButtonProps, IXStackProps } from '@onekeyhq/components';
 import {
   useHomeMoneroEnableRequestAtom,
@@ -45,6 +45,8 @@ type IHomePrivacyActionsPresentationProps = {
   onPresentationChange?: (
     presentation: IHomePrivacyActionsPresentation,
   ) => void;
+  // Beside the home total (wide web): medium controls, no description.
+  inBalanceRow?: boolean;
 };
 
 function HomeMoneroEnableButton({
@@ -196,6 +198,7 @@ function HomeMoneroEnableActions({
   pool,
   requestEnable,
   handleEnableRequest,
+  inBalanceRow,
   ...rest
 }: IXStackProps & {
   accountId: string;
@@ -203,6 +206,7 @@ function HomeMoneroEnableActions({
   pool: ILocalWalletPool;
   requestEnable: boolean;
   handleEnableRequest: () => void;
+  inBalanceRow?: boolean;
 }) {
   const intl = useIntl();
   return (
@@ -211,32 +215,49 @@ function HomeMoneroEnableActions({
       accountId={accountId}
       pool={pool}
       presentation="home"
-      renderEnableTrigger={({ onPress, loading, disabled }) => (
-        <YStack {...rest} gap="$3">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.monero_enable_home__desc,
-            })}
-          </SizableText>
-          <RawActions justifyContent="flex-start" gap="$2.5">
+      renderEnableTrigger={({ onPress, loading, disabled }) => {
+        const actions = (
+          <RawActions
+            justifyContent="flex-start"
+            gap="$2.5"
+            actionSize={inBalanceRow ? 'medium' : undefined}
+          >
             <HomeMoneroEnableButton
               requestEnable={requestEnable}
               onRequestHandled={handleEnableRequest}
               testID={HomeTestIDs.enableMoneroButton}
               flex={1}
-              size="large"
+              size={inBalanceRow ? 'medium' : 'large'}
               variant="primary"
               loading={loading}
               disabled={disabled}
               onPress={onPress}
-              $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
+              // In the balance row the button is as wide as its label.
+              $gtSm={{
+                flex: 0,
+                alignSelf: 'flex-start',
+                minWidth: inBalanceRow ? undefined : 200,
+              }}
             >
               {intl.formatMessage({ id: ETranslations.global_enable })}
             </HomeMoneroEnableButton>
             <WalletActionMore iconOnly />
           </RawActions>
-        </YStack>
-      )}
+        );
+        // Beside the total there is no room for the description, as for
+        // Add money there.
+        if (inBalanceRow) return <XStack {...rest}>{actions}</XStack>;
+        return (
+          <YStack {...rest} gap="$3">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.monero_enable_home__desc,
+              })}
+            </SizableText>
+            {actions}
+          </YStack>
+        );
+      }}
     />
   );
 }
@@ -270,6 +291,7 @@ function HomeMoneroActions({
   vaultSettings,
   children,
   onPresentationChange,
+  inBalanceRow,
   ...rest
 }: IHomeMoneroActionsProps) {
   const { pool, isFocused } = useHomeMoneroPool({
@@ -291,6 +313,7 @@ function HomeMoneroActions({
     return (
       <RawActions.Placeholder
         {...rest}
+        actionSize={inBalanceRow ? 'medium' : undefined}
         testID={HomeTestIDs.walletActionsLoading}
       />
     );
@@ -300,6 +323,7 @@ function HomeMoneroActions({
     <HomeMoneroEnableActions
       {...rest}
       {...owner}
+      inBalanceRow={inBalanceRow}
       pool={pool}
       requestEnable={isFocused && requestEnable && !pool.enabled}
       handleEnableRequest={handleEnableRequest}
@@ -312,6 +336,7 @@ const HomeMoneroActionsScoped = withPrivacyChainPoolProvider(HomeMoneroActions);
 export function HomePrivacyActions({
   children,
   onPresentationChange,
+  inBalanceRow,
   ...rest
 }: { children: ReactNode } & IXStackProps &
   IHomePrivacyActionsPresentationProps) {
@@ -345,6 +370,7 @@ export function HomePrivacyActions({
     return (
       <RawActions.Placeholder
         {...rest}
+        actionSize={inBalanceRow ? 'medium' : undefined}
         testID={HomeTestIDs.walletActionsLoading}
       />
     );
@@ -359,6 +385,7 @@ export function HomePrivacyActions({
       account={account}
       vaultSettings={vaultSettings}
       onPresentationChange={onPresentationChange}
+      inBalanceRow={inBalanceRow}
     >
       {children}
     </HomeMoneroActionsScoped>

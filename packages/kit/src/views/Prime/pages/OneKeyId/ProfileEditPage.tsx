@@ -21,7 +21,10 @@ import {
 } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { OneKeyIdAvatar } from '@onekeyhq/kit/src/components/OneKeyIdAvatar';
+import {
+  OneKeyIdAvatar,
+  isOneKeyIdPlaceholderAvatar,
+} from '@onekeyhq/kit/src/components/OneKeyIdAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -205,7 +208,12 @@ function ProfileEditPage() {
                 <Stack position="relative" onPress={handlePickAvatar}>
                   <OneKeyIdAvatar
                     size="$20"
-                    source={profileAvatar ? { uri: profileAvatar } : undefined}
+                    source={
+                      profileAvatar &&
+                      !isOneKeyIdPlaceholderAvatar(profileAvatar)
+                        ? { uri: profileAvatar }
+                        : undefined
+                    }
                     showSocialBadge={false}
                   />
                   <XStack

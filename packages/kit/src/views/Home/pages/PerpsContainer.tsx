@@ -87,16 +87,12 @@ import {
 } from '../components/DeFiListBlock/DeFiOverviewLayout';
 import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsResolver';
 import { HomeScrollView } from '../components/HomeScrollView';
-import {
-  HOME_PERPS_GUIDE_URL,
-  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
-} from '../components/PopularTrading/constants';
+import { HOME_PERPS_HOT_REQUEST_CATEGORY_ID } from '../components/PopularTrading/constants';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
-import { SupportHub } from '../components/SupportHub/SupportHub';
-import { Upgrade } from '../components/Upgrade/Upgrade';
 import { HomeTestIDs } from '../testIDs';
 
+import { useHomeTradeColumnDocked } from './homePageContentMaxWidth';
 import { debugPerpsChain } from './perpsChainTrace';
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
@@ -394,6 +390,7 @@ function PerpsHoldingCard({
           <Token
             size="md"
             tokenImageUri={getHyperliquidTokenImageUrl(holding.symbol)}
+            symbol={holding.symbol}
           />
           <Stack
             position="absolute"
@@ -441,13 +438,15 @@ function PerpsHoldingsBlock({
 }) {
   const media = useMedia();
   const openPerp = useOpenPerpAsset();
+  const docked = useHomeTradeColumnDocked();
   const cols = useMemo(
     () =>
       resolveOverviewCols({
         gtXl: media.gtXl,
         gtLg: media.gtLg,
+        docked,
       }),
-    [media.gtLg, media.gtXl],
+    [media.gtLg, media.gtXl, docked],
   );
 
   return (
@@ -483,13 +482,15 @@ function PerpsHoldingsBlock({
 
 function PerpsHoldingsSkeletonBlock() {
   const media = useMedia();
+  const docked = useHomeTradeColumnDocked();
   const cols = useMemo(
     () =>
       resolveOverviewCols({
         gtXl: media.gtXl,
         gtLg: media.gtLg,
+        docked,
       }),
-    [media.gtLg, media.gtXl],
+    [media.gtLg, media.gtXl, docked],
   );
 
   return (
@@ -500,7 +501,8 @@ function PerpsHoldingsSkeletonBlock() {
       style={buildOverviewGridStyle(cols)}
       py="$2"
     >
-      {Array.from({ length: 5 }).map((_, index) => (
+      {/* One row of the grid the holdings land in. */}
+      {Array.from({ length: cols }).map((_, index) => (
         <XStack key={index} minWidth={0} style={SPAN_1}>
           <XStack
             bg="$bgSubdued"
@@ -776,6 +778,7 @@ function PerpsEmptyRecommendSection() {
                   size="md"
                   borderRadius="$full"
                   tokenImageUri={token.tokenImageUrl}
+                  symbol={token.displayName}
                   fallbackIcon="CryptoCoinOutline"
                 />
                 <YStack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
@@ -1162,6 +1165,7 @@ function PerpsMobileHoldingRow({
             <Token
               size="lg"
               tokenImageUri={getHyperliquidTokenImageUrl(holding.symbol)}
+              symbol={holding.symbol}
             />
             <Stack
               position="absolute"
@@ -1765,24 +1769,7 @@ export function PerpsContainer() {
               ) : null}
             </>
           ) : null}
-          {viewState !== 'loading' ? (
-            <>
-              <PerpsEmptyRecommendSection />
-              <YStack
-                gap="$6"
-                mx="$-5"
-                $gtMd={{ gap: '$8', mx: '$-pagePadding' }}
-              >
-                <Upgrade />
-                <SupportHub
-                  helpCenterTitle={intl.formatMessage({
-                    id: ETranslations.perp_guide_title,
-                  })}
-                  helpCenterLink={HOME_PERPS_GUIDE_URL}
-                />
-              </YStack>
-            </>
-          ) : null}
+          {viewState !== 'loading' ? <PerpsEmptyRecommendSection /> : null}
         </YStack>
       </HomeScrollView>
     </Stack>

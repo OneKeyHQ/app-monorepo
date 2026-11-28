@@ -44,6 +44,7 @@ const SELECTOR_LABEL_BOTTOM_PADDING = platformEnv.isNative ? '$px' : '$0.5';
 function SelectorTrigger({
   testID,
   iconUri,
+  symbol,
   label,
   loading,
   disabled,
@@ -53,6 +54,8 @@ function SelectorTrigger({
 }: {
   testID: string;
   iconUri?: string;
+  // Token rows only; network rows keep the default icon fallback.
+  symbol?: string;
   label?: string;
   loading: boolean;
   disabled?: boolean;
@@ -100,7 +103,11 @@ function SelectorTrigger({
         </>
       ) : (
         <>
-          <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
+          <Token
+            size="xs"
+            tokenImageUri={normalizeUnifoldIconUrl(iconUri)}
+            symbol={symbol}
+          />
           <YStack flex={1} minWidth={0} onLayout={onLabelLayout}>
             <SizableText size="$bodySm" color="$text">
               {label}
@@ -121,6 +128,7 @@ function SelectorTrigger({
 function OptionRow({
   testID,
   iconUri,
+  symbol,
   label,
   description,
   selected,
@@ -128,6 +136,8 @@ function OptionRow({
 }: {
   testID: string;
   iconUri?: string;
+  // Token rows only; network rows keep the default icon fallback.
+  symbol?: string;
   label: string;
   description?: string;
   selected: boolean;
@@ -150,7 +160,11 @@ function OptionRow({
       borderRadius="$2"
       onPress={onPress}
     >
-      <Token size="md" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
+      <Token
+        size="md"
+        tokenImageUri={normalizeUnifoldIconUrl(iconUri)}
+        symbol={symbol}
+      />
       <YStack flex={1} minWidth={0} alignItems="flex-start" gap="$0.5">
         <SizableText size="$bodyMdMedium" color="$text">
           {label}
@@ -365,6 +379,7 @@ export function UnifoldSourceSelector({
       minHeight={triggerMinHeight}
       onLabelLayout={handleTokenLabelLayout}
       iconUri={selection?.asset.icon_url}
+      symbol={selection?.asset.symbol}
       label={selection?.asset.symbol}
       loading={loading || !selection}
       disabled={!canSelectToken}
@@ -449,6 +464,7 @@ export function UnifoldSourceSelector({
                       key={asset.symbol}
                       testID={`perps-unifold-token-option-${asset.symbol}`}
                       iconUri={asset.icon_url}
+                      symbol={asset.symbol}
                       label={asset.symbol}
                       description={
                         asset.chains.length === 1

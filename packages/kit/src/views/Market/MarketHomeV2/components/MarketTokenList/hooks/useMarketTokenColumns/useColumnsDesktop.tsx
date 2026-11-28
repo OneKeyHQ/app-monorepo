@@ -139,6 +139,7 @@ export const useColumnsDesktop = (
                 size="lg"
                 borderRadius="$full"
                 tokenImageUri={record.tokenImageUri}
+                symbol={record.symbol}
                 tokenImageUris={record.tokenImageUris}
                 fallbackIcon="CryptoCoinOutline"
               />

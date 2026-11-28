@@ -198,7 +198,19 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       ),
     [selectableNetworks],
   );
-  const defaultNetwork = visibleNetworks[0];
+  // The Home banner's network leads while its assets loaded and it still has
+  // something selected by default under the current amount setting.
+  const defaultNetwork =
+    visibleNetworks.find(
+      (entry) =>
+        entry.network.networkId === params.preferredNetworkId &&
+        !data.failedNetworkIds?.includes(entry.network.networkId) &&
+        filterDustSweepCandidates(
+          entry.tokens,
+          threshold,
+          includeHidden,
+        ).visible.some(isDefaultSelected),
+    ) ?? visibleNetworks[0];
   const chosenNetwork = networks.find(
     (entry) => entry.network.networkId === networkId,
   );

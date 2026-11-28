@@ -247,6 +247,8 @@ interface ISwapMainLoadProps {
   marketStockTrade?: boolean;
   marketNonStockTrade?: boolean;
   singleSwapBridgeHeader?: boolean;
+  /** Title on the left of the single Swap & Bridge header; none by default. */
+  singleSwapBridgeTitle?: string;
   /** Render the shared stock ticket without Swap's page-level market/K-line shell. */
   embeddedStockTrade?: boolean;
   /** Optional Market-provided config; regular Swap loads its own config. */
@@ -258,6 +260,8 @@ interface ISwapMainLoadProps {
   stockTradeToken?: ISwapToken;
   initialInputAmountDraft?: ISwapInputAmountDraft;
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
+  /** The account the draft belongs to; another one starts the draft over. */
+  draftOwnerKey?: string;
 }
 
 type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
@@ -311,6 +315,7 @@ const SwapMainLoad = ({
   marketStockTrade,
   marketNonStockTrade,
   singleSwapBridgeHeader,
+  singleSwapBridgeTitle,
   embeddedStockTrade,
   stockSpeedConfig,
   stockTradeConfig,
@@ -334,27 +339,33 @@ const SwapMainLoad = ({
   const onTradeAgainFromSource = useSwapHistoryTradeAgainHandler();
   const historyChannelIntent = useSwapHistoryChannelIntent();
   const analyticsSwapSource = swapInitParams?.swapSource;
+  // Embedded in another page: Market detail, or the desktop home's trade
+  // column (the only other host of the single Swap & Bridge header).
+  const isEmbeddedSwap = Boolean(singleSwapBridgeHeader);
   const isMarketEmbeddedSwap =
-    Boolean(singleSwapBridgeHeader) &&
-    analyticsSwapSource === ESwapSource.MARKET;
+    isEmbeddedSwap && analyticsSwapSource === ESwapSource.MARKET;
   // On a phone a focused input raises the keyboard, which covers half the
   // page the user just opened, so only pointer platforms focus the pay input
-  // on entry. Embedded in a Market page, the swap panel is not what the user
-  // came for, so it must not take the focus. A page opened to resume an
-  // approved trade gets its amount shortly after it opens, and the focus must
-  // not land on that trade.
+  // on entry. Embedded in a Market page or the home's trade column, the swap
+  // panel is not what the user came for, so it must not take the focus. A
+  // page opened to resume an approved trade gets its amount shortly after it
+  // opens, and the focus must not land on that trade.
   const autoFocusFromInput =
     !platformEnv.isNative &&
     !platformEnv.isWebMobile &&
-    !isMarketEmbeddedSwap &&
+    !isEmbeddedSwap &&
     analyticsSwapSource !== ESwapSource.APPROVING_SUCCESS;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
   useEffect(() => {
-    if (isMarketEmbeddedSwap) {
-      return registerMarketSwapApprovalFlow(marketSwapApprovalFlowId);
+    // Lets the approval notice know this form's review is on screen there.
+    if (isEmbeddedSwap) {
+      return registerMarketSwapApprovalFlow(
+        marketSwapApprovalFlowId,
+        isMarketEmbeddedSwap ? 'marketDetail' : 'homeTab',
+      );
     }
     return undefined;
-  }, [isMarketEmbeddedSwap, marketSwapApprovalFlowId]);
+  }, [isEmbeddedSwap, isMarketEmbeddedSwap, marketSwapApprovalFlowId]);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
@@ -393,7 +404,7 @@ const SwapMainLoad = ({
     onSwapBroadcast,
     // Order attribution must not change the quote's provider pool.
     buildTxSource: isMarketEmbeddedSwap ? ESwapQuoteSource.MARKET : undefined,
-    marketSwapApprovalFlowId: isMarketEmbeddedSwap
+    marketSwapApprovalFlowId: isEmbeddedSwap
       ? marketSwapApprovalFlowId
       : undefined,
   });
@@ -1994,7 +2005,7 @@ const SwapMainLoad = ({
     accountStatus: swapProAccount.accountStatus,
   });
   useSwapQuote({
-    isMarketEmbeddedSwap,
+    isEmbeddedSwap,
     storeName,
   });
 
@@ -2372,6 +2383,7 @@ const SwapMainLoad = ({
         hideStockAndProTabs={marketNonStockTrade}
         enterFrom={swapInitParams?.swapSource}
         singleSwapBridgeTab={singleSwapBridgeHeader}
+        singleSwapBridgeTitle={singleSwapBridgeTitle}
         marketPresetSettings={
           focusSwapPro ? swapProMarketPresetSettings : undefined
         }
@@ -2516,6 +2528,7 @@ const SwapMainLoad = ({
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const {
     clearInputAmounts,
+    draftOwnerKey,
     initialInputAmountDraft,
     marketNonStockTrade,
     marketStockTrade,
@@ -2741,6 +2754,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   return (
     <SwapProviderMirror
       storeName={storeName}
+      draftOwnerKey={draftOwnerKey}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
       defaultToSwapOnInit={defaultToSwapOnInit}
       pendingSwapDraft={pendingSwapDraft}

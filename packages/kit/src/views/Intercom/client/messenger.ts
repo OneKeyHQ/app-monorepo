@@ -38,12 +38,16 @@ import type { IShowIntercomParams } from './openGuard';
 
 const appId = process.env.INTERCOM_APP_ID || 'vbbj4ssb';
 let owner: string | null | undefined;
+// The anonymous visitor support validated, so each visitor counts apart.
+let visitorId: string | undefined;
 let client: ReturnType<typeof createMessengerClient> | undefined;
 let revision = 0;
 let visible = false;
 let visibilityRevision = 0;
 let backgroundPollingReady = false;
 let unreadIds = new Set<string>();
+// False until this session's first sync: until then 0 means "not loaded yet".
+let unreadKnown = false;
 let unreadPolling: ReturnType<typeof createSupportPollingTask> | undefined;
 let storageQueue: Promise<unknown> = Promise.resolve();
 let identityTransition: Promise<void> | undefined;
@@ -74,6 +78,20 @@ function setUnread(ids: string[]) {
   if (notification && !unreadIds.has(notification.conversationId))
     setNotification(undefined);
   listeners.forEach((listener) => listener());
+}
+// A validated visitor and the unread result its boot returned go out in one
+// notification. A new visitor without a result has no known count yet.
+function publishVisitor(id: string, ids: string[] | undefined) {
+  const changed = visitorId !== id;
+  visitorId = id;
+  if (changed) setNotification(undefined);
+  if (ids) {
+    unreadKnown = true;
+    setUnread(ids);
+  } else if (changed) {
+    unreadKnown = false;
+    setUnread([]);
+  }
 }
 function storageOperation<T>(operation: () => Promise<T>): Promise<T> {
   const next = storageQueue.catch(() => undefined).then(operation);
@@ -114,6 +132,8 @@ function invalidate() {
   const retired = !!client;
   client?.dispose();
   client = undefined;
+  visitorId = undefined;
+  unreadKnown = false;
   liveVisitor = undefined;
   setUnread([]);
   setNotification(undefined);
@@ -134,6 +154,13 @@ export const subscribeToIntercomSessionGeneration = (listener: () => void) => {
   };
 };
 export const getIntercomUnreadCount = () => unreadIds.size;
+export const isIntercomUnreadCountKnown = () => unreadKnown;
+// The identity the count belongs to: the signed-in user, or the anonymous
+// visitor once support has validated it; undefined while neither is known.
+export const getIntercomUnreadOwner = () => {
+  if (owner !== null) return owner;
+  return visitorId === undefined ? undefined : `visitor:${visitorId}`;
+};
 export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   listeners.add(listener);
   return () => {
@@ -344,6 +371,9 @@ export async function createIntercomMessengerSession(
     throw new OneKeyLocalError('Support session changed');
   if (!client) {
     const generation = revision;
+    // An anonymous boot's unread result waits for the visitor it belongs to.
+    let visitorBooting = false;
+    let visitorBootUnread: string[] | undefined;
     let visitorBinding: ReturnType<typeof bindVisitorStorage> | undefined;
     const assertCurrent = async () => {
       const userId = await getCurrentIntercomUserId();
@@ -391,12 +421,17 @@ export async function createIntercomMessengerSession(
           const raw = visitorBinding
             ? await (await visitorBinding).get()
             : null;
+          visitorBooting = true;
+          visitorBootUnread = undefined;
           return parseVisitor(raw);
         }),
       saveVisitor: (visitor) =>
         storageOperation(async () => {
           await assertCurrent();
           await (await visitorBinding)?.set(JSON.stringify(visitor));
+          const ids = visitorBootUnread;
+          visitorBooting = false;
+          visitorBootUnread = undefined;
           if (generation !== revision) return;
           // A boot that replaced an expired or foreign visitor talks as another
           // identity. Retire the client like any identity change, so the call
@@ -408,6 +443,7 @@ export async function createIntercomMessengerSession(
             throw new OneKeyLocalError('Support session changed');
           }
           liveVisitor = visitor;
+          if (!isLocked()) publishVisitor(visitor.anonymousId, ids);
         }),
       onRead: (id) => {
         if (generation !== revision || isLocked()) return;
@@ -415,8 +451,17 @@ export async function createIntercomMessengerSession(
           setUnread([...unreadIds].filter((value) => value !== id));
         if (notification?.conversationId === id) setNotification(undefined);
       },
-      onUnread: (ids) => {
-        if (generation === revision && !isLocked()) setUnread(ids);
+      onUnread: (ids, source) => {
+        if (generation !== revision || isLocked()) return;
+        if (visitorBooting) {
+          // Only the boot's own ping describes the visitor it validates.
+          if (source.boot) visitorBootUnread = ids;
+          return;
+        }
+        // A reply to a request sent for a visitor since replaced is stale.
+        if (expectedUserId === null && source.visitorId !== visitorId) return;
+        unreadKnown = true;
+        setUnread(ids);
       },
     });
   }

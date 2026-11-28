@@ -56,7 +56,11 @@ function TokenRow({
       borderRadius="$3"
     >
       <XStack flex={1} alignItems="center" gap="$3">
-        <Token size="md" tokenImageUri={item.info.logoURI} />
+        <Token
+          size="md"
+          tokenImageUri={item.info.logoURI}
+          symbol={item.info.symbol}
+        />
         <YStack>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {item.info.symbol}

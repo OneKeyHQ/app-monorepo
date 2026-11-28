@@ -113,6 +113,8 @@ export enum ESwapSource {
   WALLET_HOME = 'wallet_home',
   TOKEN_DETAIL = 'token_detail',
   WALLET_HOME_TOKEN_LIST = 'wallet_home_token_list',
+  // The desktop home's trade column before a token row fills it.
+  WALLET_HOME_TRADE_PANEL = 'wallet_home_trade_panel',
   WALLET_HOME_POPULAR_TRADING = 'wallet_home_popular_trading',
   EARN = 'earn',
   MARKET = 'market',
@@ -436,6 +438,8 @@ export interface ISwapApproveTransaction {
   analyticsSwapInfo?: ISwapTxInfo;
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  // An embedded form's flow (Market detail or the desktop home's trade
+  // column), so the approval notice knows its review is on screen.
   marketSwapApprovalFlowId?: string;
   protocol: EProtocolOfExchange;
   swapType: ESwapTabSwitchType;

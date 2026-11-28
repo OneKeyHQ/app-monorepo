@@ -79,13 +79,17 @@ export function LegacyUniversalSearchInput({
   const searchBarHeight = glassActive ? 44 : baseSearchBarHeight;
 
   if (size === 'small') {
+    const searchLabel = intl.formatMessage({ id: ETranslations.global_search });
     return (
       <IconButton
         variant="tertiary"
         icon="SearchOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_search,
-        })}
+        title={searchLabel}
+        // The tooltip only shows on hover; screen readers need the name.
+        aria-label={searchLabel}
+        // Without it IconButton swallows every key on web, Tab included,
+        // and keyboard focus stops here.
+        hotKey
         onPress={toUniversalSearchPage}
         testID="home-header-search-btn"
       />

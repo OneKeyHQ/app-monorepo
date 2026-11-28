@@ -25,6 +25,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { buildSwapNetworkReadyKey } from '../utils/swapNetworkCacheUtils';
 import {
   buildSwapTokenListCacheKey,
@@ -384,6 +385,25 @@ describe('useSwapSelectedTokenInfo requested refresh', () => {
     });
     expect(mockLoadSelectedToken).toHaveBeenCalledTimes(1);
     expect(mockLoadSelectedToken.mock.calls[0][2]).toBe(false);
+  });
+
+  it('removes its swap history listener on unmount', () => {
+    const listenerCount = () =>
+      appEventBus.listenerCount(EAppEventBusNames.SwapTxHistoryStatusUpdate);
+    const before = listenerCount();
+    const { unmount } = renderHook(() =>
+      useSwapSelectedTokenInfo({ type: ESwapDirectionType.FROM, token }),
+    );
+    const onTabFocus = jest
+      .mocked(useListenTabFocusState)
+      .mock.calls.at(-1)?.[1];
+    act(() => {
+      onTabFocus?.(true, false, undefined);
+      onTabFocus?.(true, false, undefined);
+    });
+    expect(listenerCount()).toBe(before + 1);
+    unmount();
+    expect(listenerCount()).toBe(before);
   });
 
   it('keeps an undispatched refresh through unmount and consumes it on return', () => {

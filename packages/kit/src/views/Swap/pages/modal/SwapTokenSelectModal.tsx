@@ -1210,12 +1210,20 @@ const SwapTokenSelectPage = ({
     }),
     [colors],
   );
+  const tokenFallbackTheme = useMemo(
+    () => ({
+      inverseBackground: colors.bgInverse.val,
+      inverseText: colors.textInverse.val,
+    }),
+    [colors],
+  );
   const { snapshot: nativeListSnapshot, tokensByKey: nativeTokensByKey } =
     useMemo(
       () =>
         buildSwapTokenNativeListSnapshot({
           tokens: useNativeTokenRows ? displayTokens : EMPTY_SWAP_TOKEN_LIST,
           theme: nativeListTheme,
+          tokenFallbackTheme,
           disabledNetworkIds: disableNetworks,
           searchKeyword: requestedSearchKeyword,
           isMediumScreen: md,
@@ -1238,6 +1246,7 @@ const SwapTokenSelectPage = ({
         useNativeTokenRows,
         displayTokens,
         nativeListTheme,
+        tokenFallbackTheme,
         disableNetworks,
         requestedSearchKeyword,
         md,

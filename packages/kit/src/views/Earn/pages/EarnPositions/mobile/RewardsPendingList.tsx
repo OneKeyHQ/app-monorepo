@@ -82,6 +82,7 @@ export function RewardsPendingList({
                   key={row.key}
                   networkId={row.position.source.networkId}
                   logoURI={row.asset.meta?.logoUrl}
+                  symbol={row.asset.symbol}
                   title={
                     <NumberSizeableTextWrapper
                       hideValue

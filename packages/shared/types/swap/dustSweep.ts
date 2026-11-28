@@ -2,12 +2,20 @@ import type { ISwapErrorMessage, ISwapNetwork, ISwapToken } from './types';
 
 export const DUST_SWEEP_PROVIDER = 'SwapOKX';
 
-export type IDustSweepEntry = 'lowValueRow' | 'tokenListHeader';
+export type IDustSweepEntry =
+  | 'lowValueRow'
+  | 'tokenListHeader'
+  | 'tokenListSettings'
+  | 'homeBanner'
+  | 'walletMore';
 export type IDustSweepRouteParams = {
   accountId?: string;
   indexedAccountId?: string;
   walletId: string;
   networkId?: string;
+  // On All Networks, the network to open on while it has something to sweep;
+  // the picker still lists the others.
+  preferredNetworkId?: string;
   entry: IDustSweepEntry;
 };
 export type IDustSweepThreshold = 1 | 10 | 100;

@@ -13,6 +13,7 @@ export enum ESpotlightTour {
   perpLayoutSettings = 'perpLayoutSettings',
   perpDesktopChartResize = 'perpDesktopChartResize',
   portfolioMoreMenu = 'portfolioMoreMenu',
+  homeDustSweepBanner = 'homeDustSweepBanner',
 }
 
 export type ITourTripTimes = number;

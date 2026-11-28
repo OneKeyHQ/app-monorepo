@@ -57,7 +57,13 @@ function ApyLineItem({
   // Determine the icon element based on props
   let iconElement = null;
   if (tokenInfo) {
-    iconElement = <Token tokenImageUri={tokenInfo.logoURI ?? ''} size="xs" />;
+    iconElement = (
+      <Token
+        tokenImageUri={tokenInfo.logoURI ?? ''}
+        symbol={tokenInfo.symbol}
+        size="xs"
+      />
+    );
   } else if (iconName) {
     iconElement = <Icon name={iconName} size="$5" color={iconColor} />;
   }

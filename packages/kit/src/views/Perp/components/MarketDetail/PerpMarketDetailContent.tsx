@@ -1053,6 +1053,9 @@ export function PerpMarketDetailContent({
                         )
                       : marketDetail?.image,
                 })}
+            symbol={
+              displayName || stockDetail?.ticker || marketDetail?.symbol || coin
+            }
           />
           <SizableText size="$headingLg">
             {displayName ||

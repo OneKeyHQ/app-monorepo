@@ -14,12 +14,19 @@ function mockPage({
   children,
   ref,
   width,
+  maxWidth,
 }: React.PropsWithChildren<{
   ref?: React.Ref<HTMLDivElement>;
   width?: number;
+  maxWidth?: string;
 }>) {
   return (
-    <div ref={ref} data-testid="page" data-width={width ?? 'auto'}>
+    <div
+      ref={ref}
+      data-testid="page"
+      data-width={width ?? 'auto'}
+      data-max-width={maxWidth ?? 'none'}
+    >
       {children}
     </div>
   );
@@ -71,6 +78,19 @@ describe('AppPagerContent page width (web)', () => {
     mockPageWidth = 390;
     screen.rerender(content());
     expect(screen.getByTestId('page').getAttribute('data-width')).toBe('390');
+    screen.unmount();
+  });
+
+  it('keeps a pinned page within a narrower frame', () => {
+    mockPageWidth = 968;
+    const screen = render(
+      <AppPagerContent>
+        <span>$2.45</span>
+      </AppPagerContent>,
+    );
+    const page = screen.getByTestId('page');
+    expect(page.getAttribute('data-width')).toBe('968');
+    expect(page.getAttribute('data-max-width')).toBe('100%');
     screen.unmount();
   });
 });

@@ -237,11 +237,10 @@ it('serializes Risk geometry and gates stale button actions after edit closes', 
     height: 56,
     heightRounding: 'nearest',
     leading: {
-      fallbackIcon: {
-        name: 'CryptoCoinOutline',
-        size: 28,
-        backgroundColor: '#123456',
-      },
+      // Web draws the symbol's first letter on the inverse circle.
+      fallbackText: 'R',
+      fallbackTextSize: 22,
+      fallbackTextBackgroundColor: '#123456',
       borderColor: '#123456',
     },
     titleIcon: { name: 'GasSolid' },

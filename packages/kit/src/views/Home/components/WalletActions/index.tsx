@@ -4,7 +4,13 @@ import type { ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { blockIfWalletLocalSecretEnvelopeUnavailable } from '@onekeyhq/kit/src/components/LocalSecretEnvelopeRecovery/walletLocalSecretEnvelopeGuard';
 import {
@@ -59,15 +65,27 @@ import type {
 } from '../HomePrivacyActions';
 
 // Privacy account controls load only for Monero, keeping vault helpers out of startup.
+const loadHomePrivacyActions = () =>
+  import('../HomePrivacyActions').then((module) => ({
+    default: module.HomePrivacyActions,
+  }));
 const LazyHomePrivacyActions = LazyLoad<
   ComponentProps<typeof HomePrivacyActions>
 >(
-  () =>
-    import('../HomePrivacyActions').then((module) => ({
-      default: module.HomePrivacyActions,
-    })),
+  loadHomePrivacyActions,
   undefined,
   <RawActions.Placeholder testID={HomeTestIDs.walletActionsLoading} />,
+);
+// Beside the total, the placeholder takes the row's medium size.
+const LazyHomePrivacyActionsInRow = LazyLoad<
+  ComponentProps<typeof HomePrivacyActions>
+>(
+  loadHomePrivacyActions,
+  undefined,
+  <RawActions.Placeholder
+    actionSize="medium"
+    testID={HomeTestIDs.walletActionsLoading}
+  />,
 );
 
 function WalletActionSend({
@@ -493,10 +511,18 @@ function WalletActionSend({
   );
 }
 
-function WalletActionsContent({ ...rest }: IXStackProps) {
+function WalletActionsContent({
+  inBalanceRow = false,
+  ...rest
+}: IXStackProps & {
+  // Wide desktop: the row sits at the right of the total, at the medium
+  // (38) size, and the empty state drops its "add money to get started" line.
+  inBalanceRow?: boolean;
+}) {
   const intl = useIntl();
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
+  const actionSize = inBalanceRow ? 'medium' : 'large';
 
   // No source knows this owner yet (first visit of a never-loaded account, or
   // a wallet switch that reset the sticky fallback): keep the row's footprint
@@ -505,6 +531,7 @@ function WalletActionsContent({ ...rest }: IXStackProps) {
     return (
       <RawActions.Placeholder
         {...rest}
+        actionSize={actionSize}
         testID={HomeTestIDs.walletActionsLoading}
       />
     );
@@ -556,11 +583,45 @@ function WalletActionsContent({ ...rest }: IXStackProps) {
 
   if (balanceState === 'positive') {
     return (
-      <RawActions {...rest} {...rawActionsLayout}>
+      <RawActions {...rest} {...rawActionsLayout} actionSize={actionSize}>
         {config.mainActions.map(renderActionComponent).filter(Boolean)}
         <WalletActionMore />
       </RawActions>
     );
+  }
+
+  const addMoneyActions = (
+    <RawActions {...rawActionsLayout} actionSize={actionSize}>
+      <WalletActionReceive
+        key="receive"
+        useSelector
+        variant="home_add_money"
+        renderTrigger={({ onPress, disabled }) => (
+          <Button
+            flex={1}
+            size={actionSize}
+            variant="primary"
+            icon="PlusLargeOutline"
+            onPress={onPress}
+            disabled={disabled}
+            testID={HomeTestIDs.addMoneyButton}
+            // In the balance row the button is as wide as its label.
+            $gtSm={{
+              flex: 0,
+              alignSelf: 'flex-start',
+              minWidth: inBalanceRow ? undefined : 200,
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_add_money })}
+          </Button>
+        )}
+      />
+      <WalletActionMore iconOnly />
+    </RawActions>
+  );
+
+  if (inBalanceRow) {
+    return <XStack {...rest}>{addMoneyActions}</XStack>;
   }
 
   return (
@@ -568,36 +629,17 @@ function WalletActionsContent({ ...rest }: IXStackProps) {
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.add_money_to_get_started })}
       </SizableText>
-      <RawActions {...rawActionsLayout}>
-        <WalletActionReceive
-          key="receive"
-          useSelector
-          variant="home_add_money"
-          renderTrigger={({ onPress, disabled }) => (
-            <Button
-              flex={1}
-              size="large"
-              variant="primary"
-              icon="PlusLargeOutline"
-              onPress={onPress}
-              disabled={disabled}
-              testID={HomeTestIDs.addMoneyButton}
-              $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_add_money })}
-            </Button>
-          )}
-        />
-        <WalletActionMore iconOnly />
-      </RawActions>
+      {addMoneyActions}
     </YStack>
   );
 }
 
 function WalletActions({
+  inBalanceRow,
   onPresentationChange,
   ...props
 }: IXStackProps & {
+  inBalanceRow?: boolean;
   onPresentationChange?: (
     presentation: IHomePrivacyActionsPresentation,
   ) => void;
@@ -610,7 +652,21 @@ function WalletActions({
     network.isAllNetworks ||
     networkUtils.getNetworkImpl({ networkId: network.id }) !== IMPL_XMR
   ) {
-    return <WalletActionsContent {...props} />;
+    return <WalletActionsContent inBalanceRow={inBalanceRow} {...props} />;
+  }
+  if (inBalanceRow) {
+    // The row places this wrapper, so the placeholder that stands in while
+    // the controls load sits where the actions will.
+    return (
+      <XStack {...props}>
+        <LazyHomePrivacyActionsInRow
+          inBalanceRow
+          onPresentationChange={onPresentationChange}
+        >
+          <WalletActionsContent inBalanceRow />
+        </LazyHomePrivacyActionsInRow>
+      </XStack>
+    );
   }
   return (
     <LazyHomePrivacyActions

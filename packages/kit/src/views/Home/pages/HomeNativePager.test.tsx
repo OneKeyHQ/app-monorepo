@@ -681,6 +681,10 @@ it.each([
   },
 );
 
+// First-frame hint for the phone home header: this suite's safe-area top (24)
+// plus the one 56 header row.
+const INITIAL_FIXED_HEADER_HINT = 24 + 56;
+
 describe('HomePageView complete header authority', () => {
   let HomePage: typeof import('./HomePageView').HomePageView;
   let PageContentContainer: typeof import('@onekeyhq/components/src/layouts/Page/PageContentContainer').PageContentContainer;
@@ -1015,6 +1019,7 @@ describe('HomePageView complete header authority', () => {
         './HomeHeaderContainer',
         './HomeNativePager',
         '../components/HomeTokenListProvider/HomeTokenListProviderMirror',
+        '../components/HomeTradePanel',
         './homePageNoWalletContent',
         './homeTabFreeze',
         './NFTListContainer',
@@ -1486,7 +1491,7 @@ describe('HomePageView complete header authority', () => {
     );
     expect(
       screen.UNSAFE_getByType(HomeNativePager).props.topOverlayHeightHint,
-    ).toBe(162);
+    ).toBe(INITIAL_FIXED_HEADER_HINT);
     const oldHandler = mockNativeEvents.onScrollEdgeCapability;
     act(() => oldHandler?.({ nativeEvent: { available: true } }));
     expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
@@ -1494,7 +1499,7 @@ describe('HomePageView complete header authority', () => {
     );
     expect(
       screen.UNSAFE_getByType(HomeNativePager).props.topOverlayHeightHint,
-    ).toBe(162);
+    ).toBe(INITIAL_FIXED_HEADER_HINT);
     walletBackedUp = false;
     screen.rerender(
       React.createElement(HomePage, {
@@ -1746,10 +1751,14 @@ describe('HomePageView complete header authority', () => {
     expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
     locale = 'de-DE';
     rerenderParent(screen);
-    expect(mockNativeEvents.topOverlayHeightHint).toBe(92);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(
+      INITIAL_FIXED_HEADER_HINT,
+    );
     const currentMeasure = fixedMeasurements.at(-1)!;
     act(() => fixedMeasurements[0](0, 0, 400, 999));
-    expect(mockNativeEvents.topOverlayHeightHint).toBe(92);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(
+      INITIAL_FIXED_HEADER_HINT,
+    );
     act(() => currentMeasure(0, 0, 400, 172));
     expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
     act(() => onFixedLayout?.(headerLayoutEvent(180.2)));
@@ -1797,7 +1806,9 @@ describe('HomePageView complete header authority', () => {
       );
       const measure = fixedMeasurements.at(-1)!;
       act(() => measure(0, 0, 1000, 999));
-      expect(mockNativeEvents.topOverlayHeightHint).toBe(162);
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(
+        INITIAL_FIXED_HEADER_HINT,
+      );
       act(() => measure(0, 0, hostWidth, 190));
       expect(mockNativeEvents.topOverlayHeightHint).toBe(170);
 
@@ -1819,7 +1830,9 @@ describe('HomePageView complete header authority', () => {
         previousLayout?.(layoutEvent(hostWidth, 999));
         measure(0, 0, hostWidth, 999);
       });
-      expect(mockNativeEvents.topOverlayHeightHint).toBe(162);
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(
+        INITIAL_FIXED_HEADER_HINT,
+      );
       expect([...cache.values()]).not.toContain(979);
       act(() => fixedMeasurements.at(-1)?.(0, 0, hostWidth, 210.2));
       expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
@@ -1916,7 +1929,9 @@ describe('HomePageView complete header authority', () => {
       oldMeasure(0, 0, 400, 999);
     });
     expect(mockNativeEvents.headerHeight).toBe(292);
-    expect(mockNativeEvents.topOverlayHeightHint).toBe(92);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(
+      INITIAL_FIXED_HEADER_HINT,
+    );
     measureFull(310);
     accountId = 'test-account';
     rerenderParent(screen);

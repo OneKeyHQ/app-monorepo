@@ -1902,6 +1902,68 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.selected).toEqual(ethereum.tokens);
   });
 
+  it('opens on the Home banner network and keeps every network in the picker', async () => {
+    const { result } = renderController({
+      ...routeParams,
+      preferredNetworkId: ethereum.network.networkId,
+    });
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(result.current.networks).toEqual([base, ethereum]);
+    expect(result.current.current).toBe(ethereum);
+
+    act(() => result.current.selectNetwork(base.network.networkId));
+    expect(result.current.current).toBe(base);
+  });
+
+  it('leaves the Home banner network when its assets fail to load', async () => {
+    const fresh = deferredLoad();
+    mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+    setDustSweepNetworksCache(routeParams, {
+      networks: [ethereum, base],
+      partialError: false,
+    });
+    const { result } = renderController({
+      ...routeParams,
+      preferredNetworkId: ethereum.network.networkId,
+    });
+    expect(result.current.current).toEqual(ethereum);
+    await act(async () => {
+      fresh.resolve({
+        networks: [base],
+        partialError: true,
+        failedNetworkIds: [ethereum.network.networkId],
+        failedNetworkOwners: [
+          {
+            networkId: ethereum.network.networkId,
+            accountId: ethereum.accountId,
+            address: ethereum.address,
+          },
+        ],
+      });
+      await fresh.promise;
+    });
+
+    expect(result.current.current).toEqual(base);
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+    expect(result.current.networks).toContainEqual(ethereum);
+  });
+
+  it('leaves the Home banner network when nothing on it is selected under the amount setting', async () => {
+    const optimism = network('evm--10', ['20']);
+    mockLoadNetworks.mockResolvedValue({
+      networks: [base, optimism],
+      partialError: false,
+    });
+    const { result } = renderController({
+      ...routeParams,
+      preferredNetworkId: optimism.network.networkId,
+    });
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(result.current.networks).toEqual([base, optimism]);
+    expect(result.current.current).toBe(base);
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+  });
+
   it.each(['automatic', 'network', 'selection', 'threshold'] as const)(
     'reconciles a cached default against live network order after an %s choice',
     async (choice) => {

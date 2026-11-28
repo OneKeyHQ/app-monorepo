@@ -246,6 +246,7 @@ const DustSweepTokenRowBase = ({
           <Token
             size="md"
             tokenImageUri={token.logoURI}
+            symbol={token.symbol}
             networkId={token.networkId}
             showNetworkIcon
           />

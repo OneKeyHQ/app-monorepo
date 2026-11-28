@@ -69,16 +69,18 @@ export type ITokenTableColumnWeights = {
   swapSpacer?: ITokenTableColumnWeight;
 };
 
-// The table used to be four equal columns with the swap button right-aligned in
-// the last one, and the token icon inside the first. Rows now keep the icon and
-// the button outside the weighted columns, so 2:3:3:2 approximates that grid
-// and keeps the price column clear of the button. NativeList only accepts
-// weights of 1 to 3. The header must use the same weights to stay aligned.
+// Four equal columns: the asset with its icon, the two numbers, and the one
+// that ends in the swap button (three without it). NativeList only accepts
+// weights of 1 to 3 and keeps the icon and the button outside the weighted
+// columns, so on native tablets the first and last columns come out wider by
+// the icon and the button; web home rows, the only table with Swap there, get
+// exact quarters from index.css. The header must use the same weights to stay
+// aligned.
 export function getTokenTableColumnWeights(
   withSwapAction: boolean | undefined,
 ): ITokenTableColumnWeights {
   if (!withSwapAction) return { asset: 1, balance: 1, price: 1 };
-  return { asset: 2, balance: 3, price: 3, swapSpacer: 2 };
+  return { asset: 1, balance: 1, price: 1, swapSpacer: 1 };
 }
 
 // Row box style handed to NativeList as `style.container`; undefined keeps

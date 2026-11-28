@@ -135,7 +135,7 @@ const LazyPrimeUserBadge = lazy(async () => {
   return { default: PrimeUserBadge };
 });
 
-function MoreActionProvider({ children }: PropsWithChildren) {
+export function MoreActionProvider({ children }: PropsWithChildren) {
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
@@ -931,7 +931,7 @@ function MoreActionOneKeyId() {
   );
 }
 
-const useIsShowRedDot = () => {
+export const useIsShowRedDot = () => {
   const isHorizontal = useIsWebHorizontalLayout();
   const [{ firstTimeGuideOpened, badge: notificationBadges }] =
     useNotificationsAtom();
@@ -974,11 +974,18 @@ const useIsShowWalletXfpStatus = () => {
   );
 };
 
+// The phone home avatar no longer reads the update dot; this keeps the silent
+// wallet-metadata repair that dot used to start, and says whether a hardware
+// wallet still needs its legacy data updated by the user.
+export function useWalletMetaSilentRepair() {
+  return !!useIsShowWalletXfpStatus();
+}
+
 // TODO: Handle potential duplicate update detection requests
 // This component may trigger multiple update checks simultaneously
 // Deduplicate or throttle API requests.
 // to prevent unnecessary API calls and improve performance
-const useIsShowAppUpdateDot = () => {
+export const useIsShowAppUpdateDot = () => {
   const appUpdateInfo = useAppUpdateInfo(true);
   const isAppNeedUpdate = appUpdateInfo.isNeedUpdate;
   const isShowAppUpdateUI = useMemo(() => {
@@ -1009,7 +1016,7 @@ const useIsShowAppUpdateDot = () => {
   );
 };
 
-function UpdateReminders() {
+export function UpdateReminders() {
   const isShowUpgradeComponents = useIsShowAppUpdateDot();
   return isShowUpgradeComponents ? (
     <YStack gap="$2">
@@ -1898,12 +1905,8 @@ const NAVIGATION_ACTION_TYPES = new Set([
   'REPLACE',
   'JUMP_TO',
 ]);
-function MoreActionContent({
-  containerStyle,
-}: {
-  containerStyle?: IYStackProps;
-}) {
-  const isDesktopMode = useIsDesktopModeUIInTabPages();
+// A menu in a popover closes as soon as the app navigates.
+export function useClosePopoverOnNavigate() {
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
@@ -1919,6 +1922,15 @@ function MoreActionContent({
       unsubscribe?.();
     };
   }, [closePopover]);
+}
+
+function MoreActionContent({
+  containerStyle,
+}: {
+  containerStyle?: IYStackProps;
+}) {
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
+  useClosePopoverOnNavigate();
   return (
     <MoreActionProvider>
       <YStack
@@ -2109,14 +2121,20 @@ function MoreActionButtonCmp() {
   );
 }
 
+// Firmware update detection rides on the More button; the native profile
+// avatar that replaces it on the phone wallet home mounts it instead.
+export function HomeFirmwareUpdateDetectHost() {
+  return platformEnv.isWebDappMode ? null : (
+    <Suspense fallback={null}>
+      <LazyHomeFirmwareUpdateDetect />
+    </Suspense>
+  );
+}
+
 export function MoreActionButton() {
   return (
     <MoreActionProvider>
-      {platformEnv.isWebDappMode ? null : (
-        <Suspense fallback={null}>
-          <LazyHomeFirmwareUpdateDetect />
-        </Suspense>
-      )}
+      <HomeFirmwareUpdateDetectHost />
       <MoreActionButtonCmp />
     </MoreActionProvider>
   );

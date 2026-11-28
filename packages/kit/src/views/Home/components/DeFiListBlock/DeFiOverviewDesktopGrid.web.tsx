@@ -12,9 +12,6 @@ import { DeFiOverviewTile } from './DeFiOverviewTile';
 import type { IDeFiOverviewRenderCell } from './DeFiOverviewPlanner';
 import type { IOverviewCols } from './overviewColsResolver';
 
-const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
-const SPAN_2: React.CSSProperties = { gridColumnEnd: 'span 2' };
-
 export type IDeFiOverviewDesktopGridProps = {
   cells: IDeFiOverviewRenderCell[];
   cols: IOverviewCols;
@@ -42,11 +39,7 @@ function DeFiOverviewDesktopGrid({
       style={buildOverviewGridStyle(cols)}
     >
       {cells.map((cell) => (
-        <XStack
-          key={cell.key}
-          minWidth={0}
-          style={cell.span === 2 ? SPAN_2 : SPAN_1}
-        >
+        <XStack key={cell.key} minWidth={0}>
           {cell.kind === 'protocol' ? (
             <DeFiOverviewTile
               protocol={cell.protocol}

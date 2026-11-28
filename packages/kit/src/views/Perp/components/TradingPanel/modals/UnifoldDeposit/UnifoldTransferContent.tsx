@@ -222,6 +222,7 @@ function DepositRouteRow({
           <Token
             size="xxs"
             tokenImageUri={normalizeUnifoldIconUrl(sourceTokenIconUri)}
+            symbol={sourceTokenSymbol}
             networkImageUri={normalizeUnifoldIconUrl(sourceNetworkIconUri)}
           />
           <SizableText
@@ -249,6 +250,7 @@ function DepositRouteRow({
           <Token
             size="xxs"
             tokenImageUri={normalizeUnifoldIconUrl(receiveTokenIconUri)}
+            symbol={receiveTokenSymbol}
             networkImageUri={normalizeUnifoldIconUrl(receiveNetworkIconUri)}
           />
           <SizableText

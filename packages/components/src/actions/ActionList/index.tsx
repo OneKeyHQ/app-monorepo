@@ -92,9 +92,17 @@ const ACTION_LIST_ICON_MD = { size: '$6' } as const;
 const ACTION_LIST_TEXT_MD = { size: '$bodyLg' } as const;
 const ACTION_LIST_HOVER_STYLE = { bg: '$bgHover' } as const;
 const ACTION_LIST_PRESS_STYLE = { bg: '$bgActive' } as const;
+// Above the next row, whose opaque background would hide the ring's bottom.
+const ACTION_LIST_FOCUS_VISIBLE_STYLE = {
+  outlineColor: '$focusRing',
+  outlineStyle: 'solid',
+  outlineWidth: 2,
+  zIndex: 1,
+} as const;
 const ACTION_LIST_ENABLED_STYLE = {
   hoverStyle: ACTION_LIST_HOVER_STYLE,
   pressStyle: ACTION_LIST_PRESS_STYLE,
+  focusVisibleStyle: ACTION_LIST_FOCUS_VISIBLE_STYLE,
 } as const;
 const ACTION_LIST_CONTENT_STYLE = {
   p: '$1',

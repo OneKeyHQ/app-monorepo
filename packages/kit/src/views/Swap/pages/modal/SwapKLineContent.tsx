@@ -464,6 +464,7 @@ function SwapKLineTokenSwitch({
                   <Token
                     size={tokenSize}
                     tokenImageUri={fromToken.logoURI}
+                    symbol={fromToken.symbol}
                     networkId={fromToken.networkId}
                     showNetworkIcon
                   />
@@ -490,6 +491,7 @@ function SwapKLineTokenSwitch({
                   <Token
                     size={tokenSize}
                     tokenImageUri={toToken.logoURI}
+                    symbol={toToken.symbol}
                     networkId={toToken.networkId}
                     showNetworkIcon
                   />
@@ -976,6 +978,7 @@ function SwapKLineTokenInfoRow({
         <Token
           size={compact ? 'md' : 'lg'}
           tokenImageUri={token.logoURI}
+          symbol={token.symbol}
           networkId={token.networkId}
           showNetworkIcon
         />

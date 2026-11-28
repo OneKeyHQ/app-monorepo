@@ -62,8 +62,6 @@ import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock/RichBlock';
-import { SupportHub } from '../components/SupportHub';
-import { Upgrade } from '../components/Upgrade';
 import { STICKY_TOP_OFFSET } from '../types';
 
 import {
@@ -72,6 +70,10 @@ import {
   isProtocolVisible,
   shouldQueueProtocolNavigation,
 } from './defiDesktopStickyDom';
+import {
+  HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH,
+  useHomeTradeColumnDocked,
+} from './homePageContentMaxWidth';
 
 // Mirrors HomePageView's `homePageContentMaxWidthSx` so the DeFi tab content
 // stays in horizontal alignment with the wallet header / tab bar / alerts.
@@ -132,6 +134,7 @@ function scrollToAnchor(
 
 function DeFiContainer() {
   const media = useMedia();
+  const tradeColumnDocked = useHomeTradeColumnDocked();
   const reducedMotion = useReducedMotion();
   const intl = useIntl();
 
@@ -1003,6 +1006,11 @@ function DeFiContainer() {
             maxWidth: DEFI_CONTAINER_CONTENT_MAX_WIDTH,
             mx: 'auto',
           }}
+          $gtXl={
+            tradeColumnDocked
+              ? { maxWidth: HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH }
+              : undefined
+          }
         >
           <RichBlock
             withTitleSeparator
@@ -1043,7 +1051,7 @@ function DeFiContainer() {
               />
             </YStack>
           ) : null}
-          <YStack mt="$8" gap="$8">
+          <YStack mt="$8">
             <DeFiListBlock
               tableLayout
               hideInternalTitle
@@ -1051,8 +1059,6 @@ function DeFiContainer() {
               registerProtocol={registerProtocol}
               onCollapseToProtocol={handleCollapseToProtocol}
             />
-            <Upgrade />
-            <SupportHub />
           </YStack>
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </YStack>
@@ -1080,8 +1086,6 @@ function DeFiContainer() {
   return (
     <YStack testID={DEFI_TAB_CONTENT_TEST_ID} gap="$6" pb="$5">
       <DeFiListBlock />
-      <Upgrade />
-      <SupportHub />
       {addPaddingOnListFooter ? <Stack h="$16" /> : null}
     </YStack>
   );

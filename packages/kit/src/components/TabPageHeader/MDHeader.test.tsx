@@ -17,6 +17,7 @@ let mockDimensions = { width: 1200, height: 800 };
 let mockDeferMeasurement = false;
 let mockMeasurements: ((x: number) => void)[] = [];
 let mockOnLayout: (() => void) | undefined;
+let mockActiveAccount: Record<string, unknown> = {};
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -68,7 +69,7 @@ jest.mock('@onekeyhq/shared/src/modules/WindowControlsInsets', () => ({
     Math.max(0, mockWindowLeft - padding),
 }));
 jest.mock('../../states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({ activeAccount: {} }),
+  useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
   useIsAccountSelectorSyncLoading: () => false,
 }));
 jest.mock(
@@ -79,10 +80,37 @@ jest.mock(
   }),
 );
 jest.mock('../MoreActionButton/LazyMoreActionButton', () => ({
-  LazyMoreActionButton: () => null,
+  LazyMoreActionButton: () => <div data-testid="more-button" />,
+}));
+jest.mock('../ProfileDrawer/LazyProfileAvatarButton', () => ({
+  LazyProfileAvatarButton: () => <div data-testid="profile-avatar" />,
+}));
+jest.mock('../AccountSelector/AccountSelectorProvider', () => ({
+  AccountSelectorProviderMirror: ({ children }: { children?: ReactNode }) =>
+    children,
+}));
+jest.mock('../AccountSelector/LazyAllNetworksManagerTrigger', () => ({
+  LazyAllNetworksManagerTrigger: ({
+    hideChevron,
+  }: {
+    hideChevron?: boolean;
+  }) => (
+    <div
+      data-testid="all-networks-trigger"
+      data-chevron={hideChevron ? 'hidden' : 'shown'}
+    />
+  ),
+}));
+jest.mock('../AccountSelector/NetworkSelectorTrigger', () => ({
+  NetworkSelectorTriggerHome: ({ hideChevron }: { hideChevron?: boolean }) => (
+    <div
+      data-testid="network-trigger"
+      data-chevron={hideChevron ? 'hidden' : 'shown'}
+    />
+  ),
 }));
 jest.mock('./components/HeaderNotificationIconButton', () => ({
-  HeaderNotificationIconButton: () => null,
+  HeaderNotificationIconButton: () => <div data-testid="notification-button" />,
 }));
 jest.mock('./components/HeaderUpdateButton', () => ({
   HeaderUpdateButton: () => null,
@@ -95,7 +123,9 @@ jest.mock('./HeaderRight', () => ({
 }));
 jest.mock('./HeaderTitle', () => ({ HeaderTitle: () => null }));
 jest.mock('./LegacyUniversalSearchInput', () => ({
-  LegacyUniversalSearchInput: () => null,
+  LegacyUniversalSearchInput: ({ size }: { size?: string }) => (
+    <div data-testid="search" data-size={size} />
+  ),
 }));
 
 function AddressHeader({
@@ -120,6 +150,7 @@ describe('MDHeader window controls', () => {
     mockDeferMeasurement = false;
     mockMeasurements = [];
     mockOnLayout = undefined;
+    mockActiveAccount = {};
   });
 
   it.each([
@@ -166,5 +197,54 @@ describe('MDHeader window controls', () => {
     act(() => mockMeasurements[1](600));
     act(() => firstMeasurement(0));
     expect(margin()).toBe(0);
+  });
+
+  it('draws the phone home header as one row: profile avatar, then search and network buttons', () => {
+    const platformEnvMock = jest.requireMock<{
+      default: { isNative?: boolean };
+    }>('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.isNative = true;
+    const wallet = { id: 'hd-1', type: 'hd', backuped: true };
+    const account = { id: 'account-1' };
+    // A new element each time, so the rerender reads the account again.
+    const header = () => (
+      <MDHeader
+        tabRoute={ETabRoutes.Home}
+        sceneName={EAccountSelectorSceneName.home}
+        hideSearch={false}
+      />
+    );
+    try {
+      mockActiveAccount = {
+        wallet,
+        account,
+        accountName: 'Account #1',
+        network: { id: 'evm--1', isAllNetworks: false },
+      };
+      const { rerender } = render(header());
+      expect(screen.getByTestId('profile-avatar')).toBeTruthy();
+      // Search is an icon button, not a field.
+      expect(screen.getByTestId('search').getAttribute('data-size')).toBe(
+        'small',
+      );
+      // The pill already reads as pressable, so neither trigger has a chevron.
+      expect(
+        screen.getByTestId('network-trigger').getAttribute('data-chevron'),
+      ).toBe('hidden');
+      mockActiveAccount = {
+        wallet,
+        account,
+        network: { id: 'onekeyall--0', isAllNetworks: true },
+      };
+      rerender(header());
+      expect(
+        screen.getByTestId('all-networks-trigger').getAttribute('data-chevron'),
+      ).toBe('hidden');
+      // Notifications and the More entries moved into the profile drawer.
+      expect(screen.queryByTestId('notification-button')).toBeNull();
+      expect(screen.queryByTestId('more-button')).toBeNull();
+    } finally {
+      platformEnvMock.isNative = undefined;
+    }
   });
 });

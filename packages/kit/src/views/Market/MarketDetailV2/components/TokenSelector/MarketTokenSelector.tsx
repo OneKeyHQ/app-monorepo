@@ -561,6 +561,7 @@ function BaseMarketTokenSelector({
                 size={triggerTokenSize}
                 tokenImageUri={logoUrl}
                 tokenImageUris={stableLogoUrls}
+                symbol={symbol}
                 networkImageUri={effectiveNetworkLogoUri}
                 fallbackIcon="CryptoCoinOutline"
               />

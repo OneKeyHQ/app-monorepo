@@ -83,7 +83,7 @@ function PortfolioItem({
   return (
     <XStack minHeight={30} alignItems="center" justifyContent="space-between">
       <XStack alignItems="center" gap="$1.5">
-        <Token size="sm" tokenImageUri={tokenImageUri} />
+        <Token size="sm" tokenImageUri={tokenImageUri} symbol={tokenSymbol} />
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="balance"

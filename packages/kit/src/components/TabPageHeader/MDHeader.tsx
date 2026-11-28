@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IElement } from '@onekeyhq/components';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,7 +32,11 @@ import {
   useIsAccountSelectorSyncLoading,
 } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
+import { LazyAllNetworksManagerTrigger } from '../AccountSelector/LazyAllNetworksManagerTrigger';
+import { NetworkSelectorTriggerHome } from '../AccountSelector/NetworkSelectorTrigger';
 import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
+import { LazyProfileAvatarButton } from '../ProfileDrawer/LazyProfileAvatarButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { HeaderUpdateButton } from './components/HeaderUpdateButton';
@@ -92,6 +97,117 @@ function HomeWalletConnectionRow({
         tabRoute={tabRoute}
         customHeaderLeftItems={customHeaderLeftItems}
       />
+    </XStack>
+  );
+}
+
+// Phone wallet home: search and the network end the header row as two
+// buttons of one height, 44 in Liquid Glass (a 36 box in the capsule's 4
+// inset) and 40 on a plain pill.
+const HOME_HEADER_GLASS_BOX = 36;
+const HOME_HEADER_PLAIN_HEIGHT = 40;
+
+function HomeHeaderSearchButton({
+  plain,
+  tabRoute,
+}: {
+  plain: boolean;
+  tabRoute: ETabRoutes;
+}) {
+  // The icon button is 38 with its border; the box keeps the capsule at 44.
+  const search = (
+    <XStack
+      w={HOME_HEADER_GLASS_BOX}
+      h={HOME_HEADER_GLASS_BOX}
+      alignItems="center"
+      justifyContent="center"
+    >
+      <LegacyUniversalSearchInput size="small" tabRoute={tabRoute} />
+    </XStack>
+  );
+  if (!plain && isLiquidGlassAvailable()) {
+    return <GlassButtonCapsule circular>{search}</GlassButtonCapsule>;
+  }
+  return (
+    <XStack
+      w={HOME_HEADER_PLAIN_HEIGHT}
+      h={HOME_HEADER_PLAIN_HEIGHT}
+      alignItems="center"
+      justifyContent="center"
+      bg="$bgStrong"
+      borderRadius="$full"
+    >
+      {search}
+    </XStack>
+  );
+}
+
+// The pill already reads as pressable, so the trigger drops its chevron.
+function HomeHeaderNetworkTrigger({ plain }: { plain: boolean }) {
+  const {
+    activeAccount: { wallet, account, network, accountName },
+  } = useActiveAccount({ num: 0 });
+  const isAllNetworks =
+    network?.isAllNetworks &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' });
+  if (
+    accountUtils.hasNoUsableWallet({ wallet, account }) ||
+    (wallet?.type === WALLET_TYPE_HD && !wallet.backuped) ||
+    // The single-network trigger hides without an account; so does its pill.
+    (!isAllNetworks && !accountName)
+  ) {
+    return null;
+  }
+  // Liquid Glass reacts to the press itself, so the trigger's own press tint
+  // would only add a gray box inside it.
+  const glass = !plain && isLiquidGlassAvailable();
+  const trigger = isAllNetworks ? (
+    <LazyAllNetworksManagerTrigger
+      num={0}
+      unifiedMode
+      hideChevron
+      hidePressStyle={glass}
+    />
+  ) : (
+    <NetworkSelectorTriggerHome
+      num={0}
+      size="small"
+      recordNetworkHistoryEnabled
+      hideOnNoAccount
+      unifiedMode
+      hideChevron
+      hidePressStyle={glass}
+    />
+  );
+  if (glass) {
+    return (
+      // One network is a circle like the search button. The chips sit 8 from
+      // the capsule's ends, as from its top and bottom, so their round ends
+      // stay concentric with the capsule's.
+      <GlassButtonCapsule circular={!isAllNetworks}>
+        <XStack
+          h={HOME_HEADER_GLASS_BOX}
+          minWidth={HOME_HEADER_GLASS_BOX}
+          px={isAllNetworks ? '$0.5' : undefined}
+          alignItems="center"
+          justifyContent="center"
+        >
+          {trigger}
+        </XStack>
+      </GlassButtonCapsule>
+    );
+  }
+  return (
+    <XStack
+      h={HOME_HEADER_PLAIN_HEIGHT}
+      minWidth={HOME_HEADER_PLAIN_HEIGHT}
+      px="$2"
+      alignItems="center"
+      justifyContent="center"
+      bg="$bgStrong"
+      borderRadius="$full"
+    >
+      {trigger}
     </XStack>
   );
 }
@@ -191,7 +307,37 @@ export function MDHeader({
       <Page.Header headerShown={false} />
       {showBaseHeader ? (
         <>
-          {isHomeTab ? (
+          {isHomeTab && platformEnv.isNative ? (
+            // One row: the profile avatar opens the drawer that now holds
+            // notifications and the More entries; the account name sits
+            // above the balance. Search and the network share the end.
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              px={headerPx}
+              ml={windowControlsOffset}
+              h={HOME_HEADER_ROW_HEIGHT}
+              {...getHeaderRowTopMargin(top, HOME_HEADER_ROW_HEIGHT)}
+            >
+              <LazyProfileAvatarButton />
+              <XStack alignItems="center" gap="$2">
+                <HomeHeaderSearchButton
+                  plain={usePlainHomeHeader}
+                  tabRoute={tabRoute}
+                />
+                <AccountSelectorProviderMirror
+                  enabledNum={[0]}
+                  config={{
+                    sceneName,
+                    sceneUrl: '',
+                  }}
+                >
+                  <HomeHeaderNetworkTrigger plain={usePlainHomeHeader} />
+                </AccountSelectorProviderMirror>
+              </XStack>
+            </XStack>
+          ) : null}
+          {isHomeTab && !platformEnv.isNative ? (
             <>
               {/* Row 1: Search bar + notification + more */}
               <XStack
@@ -246,7 +392,8 @@ export function MDHeader({
                 customHeaderLeftItems={customHeaderLeftItems}
               />
             </>
-          ) : (
+          ) : null}
+          {isHomeTab ? null : (
             <>
               <XStack
                 alignItems="center"

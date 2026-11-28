@@ -21,7 +21,10 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { cell } from '../../states/jotai/contexts/tokenList/cells/projection';
 
-import { formatNativeSelectorAmount } from './nativeSelectorFormat';
+import {
+  formatNativeSelectorAmount,
+  formatNativeSelectorPriceChange,
+} from './nativeSelectorFormat';
 import { NativeTokenSelectorList } from './NativeTokenSelectorList';
 
 import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
@@ -43,7 +46,16 @@ const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
 let mockHomeFiatMap: Record<string, ITokenFiat | undefined> = {};
 let mockCurrencyId = 'usd';
 const mockCurrencyMap = { usd: { unit: '$' }, eur: { unit: '€' } };
-let mockIntl = { formatMessage: ({ id }: { id: string }) => id };
+let mockIntl = {
+  formatMessage: (
+    { id }: { id: string },
+    values?: Record<string, number | string>,
+  ) => (values ? `${id}:${JSON.stringify(values)}` : id),
+};
+const mockComponentTheme = {
+  bgStrongHover: { val: '#E8E8E8' },
+  bgStrongActive: { val: '#E0E0E0' },
+};
 let mockTheme = {
   background: '#FFFFFF',
   primaryText: '#000000',
@@ -172,6 +184,7 @@ jest.mock('@onekeyhq/components', () => {
     Stack: Container,
     useMedia: () => ({ gtMd: mockGtMd }),
     useTheme: () => ({
+      ...mockComponentTheme,
       iconCaution: { val: '#B88600' },
       textCaution: { val: '#8F6200' },
       bgCautionSubdued: { val: '#FFF6D5' },
@@ -196,6 +209,9 @@ jest.mock('./nativeSelectorFormat', () => {
   );
   return {
     formatNativeSelectorAmount: jest.fn(actual.formatNativeSelectorAmount),
+    formatNativeSelectorPriceChange: jest.fn(
+      actual.formatNativeSelectorPriceChange,
+    ),
   };
 });
 
@@ -454,7 +470,11 @@ it.each([
       if (pending?.type !== 'dataRow')
         throw new OneKeyLocalError('Expected balance columns');
       const balance = pending.columns.find(({ key }) => key === 'balance');
-      expect(balance).toMatchObject({ text: '2' });
+      // Web tables lead the holdings cell with its value, the amount below.
+      const valueFirst = tableLayout && !isNative;
+      expect(balance).toMatchObject(
+        valueFirst ? { text: '$100.00', secondaryText: '2' } : { text: '2' },
+      );
       if (!tableLayout) {
         const compactWeb = !isNative && !gtMd;
         expect(pending.columns.find(({ key }) => key === 'asset')?.weight).toBe(
@@ -477,9 +497,9 @@ it.each([
           backgroundColor: '#FFF6D5',
         });
       }
-      expect(
-        pending.columns.find(({ key }) => key === 'balance')?.secondaryText,
-      ).toContain('100');
+      expect(valueFirst ? balance?.text : balance?.secondaryText).toContain(
+        '100',
+      );
       validateInstalledSnapshot(mockSnapshot!);
       fireEvent.click(getByTestId(token.$key));
       expect(onPressToken).toHaveBeenCalledTimes(1);
@@ -762,8 +782,14 @@ it.each([
             ].join(', '),
           );
         }
-        expect(syncing.columns[1].text).toBe('2');
-        expect(syncing.columns[1].secondaryText).toContain('100');
+        const holdings = syncing.columns.find(({ key }) => key === 'balance');
+        // Web tables lead the holdings cell with its value, the amount below.
+        const [amountText, valueText] =
+          tableLayout && !isNative
+            ? [holdings?.secondaryText, holdings?.text]
+            : [holdings?.text, holdings?.secondaryText];
+        expect(amountText).toBe('2');
+        expect(valueText).toContain('100');
         expect(syncing.trailing).toEqual([{ kind: 'spinner' }]);
       }
       validateInstalledSnapshot(mockSnapshot!);
@@ -1052,9 +1078,106 @@ it('keeps the creating address state within the installed NativeList accessory l
   }
 });
 
-it('publishes Home cell values into separate table columns and routes the Swap action', () => {
-  mockSwap.mockClear();
-  mockApplyPatches.mockClear();
+it('publishes Home cell values into separate table columns and routes the Swap action on native tablets', () => {
+  // Only native tablets draw the wide Home list as a table.
+  const wasNative = platformEnv.isNative;
+  platformEnv.isNative = true;
+  try {
+    mockSwap.mockClear();
+    mockApplyPatches.mockClear();
+    mockHomeFiatMap = {
+      [ethToken.$key]: {
+        balanceParsed: '0.414',
+        balanceMultiplier: '1000',
+        fiatValue: '0.41',
+        price: 1.5,
+        price24h: 5.5,
+        currency: 'usd',
+      } as ITokenFiat,
+    };
+    const props = {
+      rows: [ethToken, arbToken],
+      networkId: 'evm--1',
+      ownerKey: 'owner-A',
+      crossNetworkGroupingActive: false,
+      zeroFillMissingFiat: false,
+      showProcessingState: false,
+      isSearching: false,
+      currentNetworkName: 'Ethereum',
+      empty: <div />,
+      homeCellSeam: true,
+      tableLayout: true,
+      withPrice: true,
+      withSwapAction: true,
+      structuralTransition: { id: 'expand-1', durationMs: 220 },
+    };
+    const { getByTestId, rerender } = render(
+      <NativeTokenSelectorList {...props} />,
+    );
+    const first = mockSnapshot?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      expect(first).toMatchObject({ height: 60, heightRounding: 'nearest' });
+      expect(first.style?.container?.cornerRadius).toBe(12);
+      expect(first.columns.map(({ key, weight }) => ({ key, weight }))).toEqual(
+        [
+          { key: 'asset', weight: 1 },
+          { key: 'balance', weight: 1 },
+          { key: 'price', weight: 1 },
+          { key: 'swapSpacer', weight: 1 },
+        ],
+      );
+      expect(first.columns[1].text).toBe('414');
+      expect(first.columns[1].secondaryText).toContain('0.41');
+      expect(first.columns[2].text).toContain('1.5');
+      expect(first.columns[2].secondaryTone).toBe('positive');
+      expect(first.trailing?.[0]).toMatchObject({
+        kind: 'button',
+        actionKey: 'swap',
+        disabled: false,
+      });
+    }
+    fireEvent.click(getByTestId(`swap-${ethToken.$key}`));
+    expect(mockSwap).toHaveBeenCalledWith(ethToken.$key);
+
+    const initialSnapshotProp = mockSnapshotProps.at(-1);
+    mockApplyPatches.mockClear();
+
+    mockHomeFiatMap = {
+      [ethToken.$key]: { ...mockHomeFiatMap[ethToken.$key]!, price24h: -2 },
+    };
+    rerender(<NativeTokenSelectorList {...props} />);
+    expect(mockSnapshotProps.at(-1)).toBe(initialSnapshotProp);
+    expect(mockApplyPatches).toHaveBeenCalledTimes(1);
+    expect(mockApplyPatches.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ type: 'dataRow', key: ethToken.$key }),
+    ]);
+    const changed = mockSnapshot?.rows[0];
+    expect(changed?.type).toBe('dataRow');
+    if (changed?.type === 'dataRow') {
+      expect(changed.columns[1].text).toBe('414');
+      expect(changed.columns[2].secondaryTone).toBe('negative');
+    }
+    expect(mockSnapshot?.structuralTransition?.id).toBe('expand-1');
+
+    mockApplyPatches.mockClear();
+    rerender(
+      <NativeTokenSelectorList
+        {...props}
+        structuralTransition={{ id: 'collapse-2', durationMs: 220 }}
+      />,
+    );
+    expect(mockSnapshotProps.at(-1)).not.toBe(initialSnapshotProp);
+    expect(mockSnapshotProps.at(-1)?.structuralTransition?.id).toBe(
+      'collapse-2',
+    );
+    expect(mockApplyPatches).not.toHaveBeenCalled();
+  } finally {
+    platformEnv.isNative = wasNative;
+  }
+});
+
+it('ends the wide Web Home row on the holdings, value first', () => {
   mockHomeFiatMap = {
     [ethToken.$key]: {
       balanceParsed: '0.414',
@@ -1065,79 +1188,133 @@ it('publishes Home cell values into separate table columns and routes the Swap a
       currency: 'usd',
     } as ITokenFiat,
   };
-  const props = {
-    rows: [ethToken, arbToken],
-    networkId: 'evm--1',
-    ownerKey: 'owner-A',
-    crossNetworkGroupingActive: false,
-    zeroFillMissingFiat: false,
-    showProcessingState: false,
-    isSearching: false,
-    currentNetworkName: 'Ethereum',
-    empty: <div />,
-    homeCellSeam: true,
-    tableLayout: true,
-    withPrice: true,
-    withSwapAction: true,
-    structuralTransition: { id: 'expand-1', durationMs: 220 },
-  };
-  const { getByTestId, rerender } = render(
-    <NativeTokenSelectorList {...props} />,
-  );
-  const first = mockSnapshot?.rows[0];
-  expect(first?.type).toBe('dataRow');
-  if (first?.type === 'dataRow') {
-    expect(first).toMatchObject({ height: 60, heightRounding: 'nearest' });
-    expect(first.style?.container?.cornerRadius).toBe(12);
-    expect(first.columns.map(({ key, weight }) => ({ key, weight }))).toEqual([
-      { key: 'asset', weight: 2 },
-      { key: 'balance', weight: 3 },
-      { key: 'price', weight: 3 },
-      { key: 'swapSpacer', weight: 2 },
-    ]);
-    expect(first.columns[1].text).toBe('414');
-    expect(first.columns[1].secondaryText).toContain('0.41');
-    expect(first.columns[2].text).toContain('1.5');
-    expect(first.columns[2].secondaryTone).toBe('positive');
-    expect(first.trailing?.[0]).toMatchObject({
-      kind: 'button',
-      actionKey: 'swap',
-      disabled: false,
-    });
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken]}
+        networkId="evm--1"
+        ownerKey="owner-A"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        homeCellSeam
+        tableLayout
+        withPrice
+        withSwapAction
+        tokenItemTestIDPrefix="home-token-item"
+      />,
+    );
+    const first = mockSnapshot?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      expect(first.columns.map(({ key, weight }) => ({ key, weight }))).toEqual(
+        [
+          { key: 'asset', weight: 1 },
+          { key: 'price', weight: 1 },
+          { key: 'balance', weight: 1 },
+        ],
+      );
+      expect(first.columns[1].text).toContain('1.5');
+      expect(first.columns[2].text).toContain('0.41');
+      expect(first.columns[2].secondaryText).toBe('414');
+      expect(first.trailing?.[0]).toMatchObject({
+        kind: 'button',
+        actionKey: 'swap',
+        // Swap takes the Send / Receive fill, and names its token.
+        hoverBackgroundColor: '#E8E8E8',
+        pressedBackgroundColor: '#E0E0E0',
+        accessibilityLabel: expect.stringContaining(ethToken.symbol),
+      });
+      // Names the token instead of reading "dataRow".
+      expect(first.accessibilityLabel).toBe(
+        `${ethToken.symbol}, ${ethToken.name}`,
+      );
+    }
+  } finally {
+    mockHomeFiatMap = {};
   }
-  fireEvent.click(getByTestId(`swap-${ethToken.$key}`));
-  expect(mockSwap).toHaveBeenCalledWith(ethToken.$key);
+});
 
-  const initialSnapshotProp = mockSnapshotProps.at(-1);
-  mockApplyPatches.mockClear();
-
+it('shows only the amount for an unpriced zero balance on the wide Web Home row', () => {
   mockHomeFiatMap = {
-    [ethToken.$key]: { ...mockHomeFiatMap[ethToken.$key]!, price24h: -2 },
+    [ethToken.$key]: {
+      balanceParsed: '0',
+      fiatValue: '0',
+      currency: 'usd',
+    } as ITokenFiat,
   };
-  rerender(<NativeTokenSelectorList {...props} />);
-  expect(mockSnapshotProps.at(-1)).toBe(initialSnapshotProp);
-  expect(mockApplyPatches).toHaveBeenCalledTimes(1);
-  expect(mockApplyPatches.mock.calls[0][0]).toEqual([
-    expect.objectContaining({ type: 'dataRow', key: ethToken.$key }),
-  ]);
-  const changed = mockSnapshot?.rows[0];
-  expect(changed?.type).toBe('dataRow');
-  if (changed?.type === 'dataRow') {
-    expect(changed.columns[1].text).toBe('414');
-    expect(changed.columns[2].secondaryTone).toBe('negative');
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken]}
+        networkId="evm--1"
+        ownerKey="owner-A"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        homeCellSeam
+        tableLayout
+        withPrice
+        withSwapAction
+        tokenItemTestIDPrefix="home-token-item"
+      />,
+    );
+    const first = mockSnapshot?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      const holdings = first.columns.find(({ key }) => key === 'balance');
+      expect(holdings?.text).toBe('0');
+      expect(holdings?.secondaryText).toBe('');
+    }
+  } finally {
+    mockHomeFiatMap = {};
   }
-  expect(mockSnapshot?.structuralTransition?.id).toBe('expand-1');
+});
 
-  mockApplyPatches.mockClear();
-  rerender(
-    <NativeTokenSelectorList
-      {...props}
-      structuralTransition={{ id: 'collapse-2', durationMs: 220 }}
-    />,
-  );
-  expect(mockSnapshotProps.at(-1)).not.toBe(initialSnapshotProp);
-  expect(mockSnapshotProps.at(-1)?.structuralTransition?.id).toBe('collapse-2');
-  expect(mockApplyPatches).not.toHaveBeenCalled();
+it('keeps the value of a grouped row whose price network has no price', () => {
+  // A grouped row sums its networks' values but takes one network's price.
+  mockHomeFiatMap = {
+    [ethToken.$key]: {
+      balanceParsed: '2',
+      fiatValue: '5',
+      currency: 'usd',
+    } as ITokenFiat,
+  };
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken]}
+        networkId="evm--1"
+        ownerKey="owner-A"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        homeCellSeam
+        tableLayout
+        withPrice
+        withSwapAction
+        tokenItemTestIDPrefix="home-token-item"
+      />,
+    );
+    const first = mockSnapshot?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      const holdings = first.columns.find(({ key }) => key === 'balance');
+      expect(holdings?.text).toContain('5');
+      expect(holdings?.secondaryText).toBe('2');
+    }
+  } finally {
+    mockHomeFiatMap = {};
+  }
 });
 
 it('rounds the Web row box for its hover fill and leaves native rows to the engine', () => {
@@ -1226,6 +1403,7 @@ it('formats and patches only changed selector rows on an immutable fiat update',
   const unchangedRow = getMockSnapshot()?.rows[500];
   mockApplyPatches.mockClear();
   jest.mocked(formatNativeSelectorAmount).mockClear();
+  jest.mocked(formatNativeSelectorPriceChange).mockClear();
   const stringifySpy = jest.spyOn(JSON, 'stringify');
   try {
     expect(planNativeListPatches(initialSnapshot, initialSnapshot)).toEqual([]);
@@ -1237,6 +1415,7 @@ it('formats and patches only changed selector rows on an immutable fiat update',
   expect(mockSnapshotProps.at(-1)).toBe(initialSnapshot);
   expect(mockApplyPatches).not.toHaveBeenCalled();
   expect(formatNativeSelectorAmount).not.toHaveBeenCalled();
+  expect(formatNativeSelectorPriceChange).not.toHaveBeenCalled();
   const changedIndices = [2, 15, 40, 95, 280, 350, 610, 704, 850, 999];
   const updatedFiat = { ...initialFiat };
   for (const index of changedIndices) {
@@ -1516,9 +1695,9 @@ it('fills a first-mount Home row from its cell before the mirror reports', () =>
     const first = mockSnapshotProps[firstIndex]?.rows[0];
     expect(first?.type).toBe('dataRow');
     if (first?.type === 'dataRow') {
-      expect(first.columns[1].text).toBe('414');
-      expect(first.columns[1].secondaryText).toContain('0.41');
-      expect(first.columns[2].text).toContain('1.5');
+      expect(first.columns[1].text).toContain('1.5');
+      expect(first.columns[2].text).toContain('0.41');
+      expect(first.columns[2].secondaryText).toBe('414');
     }
   } finally {
     mockHomeCellStore = undefined;

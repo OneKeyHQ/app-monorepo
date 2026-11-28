@@ -92,6 +92,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                   size="lg"
                   borderRadius="$full"
                   tokenImageUri={record.tokenImageUrl}
+                  symbol={record.displayName}
                   fallbackIcon="CryptoCoinOutline"
                 />
               }

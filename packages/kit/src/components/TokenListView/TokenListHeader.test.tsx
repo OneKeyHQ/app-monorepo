@@ -137,7 +137,7 @@ describe('TokenListHeader table geometry', () => {
       leadingWidth: '32',
       columnGap: '12',
       columnCount: 4,
-      columnWeights: ['2', '3', '3', '2'],
+      columnWeights: ['1', '1', '1', '1'],
       assetInset: '-44',
       swapPlaceholderPx: '11',
     });
@@ -171,7 +171,7 @@ describe('TokenListHeader table geometry', () => {
       leadingWidth: '44',
       columnGap: '8',
       columnCount: 4,
-      columnWeights: ['2', '3', '3', '2'],
+      columnWeights: ['1', '1', '1', '1'],
       assetInset: '-52',
       swapPlaceholderPx: '11',
     });

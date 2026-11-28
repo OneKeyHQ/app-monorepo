@@ -3,6 +3,7 @@ import { createIntl, createIntlCache } from 'react-intl';
 import { getTxActionTransferInfo } from '@onekeyhq/kit/src/components/TxAction/TxActionTransfer';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   buildLocalWalletHistoryAddressGate,
@@ -243,6 +244,53 @@ describe('Home native history financial display parity', () => {
       expect.stringContaining('+1'),
       expect.stringContaining('-2'),
     ]);
+  });
+  it('sizes a token letter fallback to each history circle on web', () => {
+    const isNative = platformEnv.isNative;
+    platformEnv.isNative = false;
+    try {
+      const build = (tx: IAccountHistoryTx, tableLayout: boolean) =>
+        buildHistoryActivityRow({
+          history: tx,
+          intl,
+          tableLayout,
+          isUTXO: false,
+          hideValue: false,
+          currency: '$',
+          tokenFallbackTheme: {
+            inverseBackground: '#000',
+            inverseText: '#fff',
+          },
+        }).row;
+      const send = history([transfer('2')], []);
+      expect(build(send, false).leading).toMatchObject({
+        fallbackText: 'B',
+        fallbackTextSize: 22,
+        fallbackTextColor: '#fff',
+        fallbackTextBackgroundColor: '#000',
+      });
+      expect(build(send, true).amounts[0].leading).toMatchObject({
+        fallbackText: 'B',
+        fallbackTextSize: 11,
+      });
+      const pair = build(
+        history(
+          [transfer('2')],
+          [{ ...transfer('1'), tokenIdOnNetwork: 'eth', symbol: 'ETH' }],
+        ),
+        false,
+      );
+      expect(pair.leading).toMatchObject({
+        fallbackText: 'B',
+        fallbackTextSize: 13,
+      });
+      expect(pair.secondaryLeading).toMatchObject({
+        fallbackText: 'E',
+        fallbackTextSize: 13,
+      });
+    } finally {
+      platformEnv.isNative = isNative;
+    }
   });
   it('adds a fetched network badge without changing the history row key', () => {
     const tx = history([transfer('2')], []);

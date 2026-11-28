@@ -6,6 +6,8 @@ import * as React from 'react';
 
 import { render } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { AllNetworksManagerTrigger } from './AllNetworksManagerTrigger';
 
 /*
@@ -50,19 +52,55 @@ jest.mock('@onekeyhq/components', () => {
   const Box = ({
     children,
     bg,
+    style,
+    'aria-label': ariaLabel,
   }: {
     children?: React.ReactNode;
     bg?: string;
-  }) => <div data-bg={bg}>{children}</div>;
+    style?: React.CSSProperties;
+    'aria-label'?: string;
+  }) => (
+    <div data-bg={bg} style={style} aria-label={ariaLabel}>
+      {children}
+    </div>
+  );
   return {
     Icon: ({ name }: { name: string }) => <span data-icon={name} />,
     SizableText: ({ children }: { children?: React.ReactNode }) => (
       <span data-text="">{children}</span>
     ),
+    Skeleton: () => <i data-skeleton="" />,
     Stack: Box,
+    Tooltip: ({
+      renderContent,
+      renderTrigger,
+    }: {
+      renderContent?: React.ReactNode;
+      renderTrigger?: React.ReactNode;
+    }) => (
+      <div
+        data-tooltip={typeof renderContent === 'string' ? renderContent : ''}
+      >
+        {renderTrigger}
+      </div>
+    ),
     XStack: Box,
   };
 });
+
+jest.mock('react-intl', () => ({
+  ...jest.requireActual<typeof import('react-intl')>('react-intl'),
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+
+// The desktop header helpers live beside the account trigger, whose imports
+// (avatar, animation) this suite does not need.
+jest.mock('./AccountSelectorTrigger/AccountSelectorTriggerBase', () => ({
+  DESKTOP_HEADER_TRIGGER_PROPS: {},
+  DESKTOP_HEADER_TRIGGER_SHAPE: {},
+  DesktopHeaderHitArea: () => null,
+  handleDesktopHeaderKeyDown: jest.fn(),
+}));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -296,5 +334,59 @@ describe('AllNetworksManagerTrigger', () => {
     );
 
     expect(renderedNetworkNames(container)).toEqual([]);
+  });
+
+  // Desktop header: loading keeps the chips' footprint, so the copy button and
+  // the page below do not move when the list arrives.
+  it('shows a skeleton the size of the chips in the desktop header', () => {
+    mockCompatQueries({ walletReady: false, accountReady: false });
+
+    const { container } = render(
+      <AllNetworksManagerTrigger num={0} unifiedMode desktopHeader />,
+    );
+
+    expect(container.querySelectorAll('[data-skeleton]')).toHaveLength(3);
+  });
+
+  it('names the networks and explains the dot in the desktop header', () => {
+    mockCompatQueries({
+      walletReady: true,
+      accountReady: true,
+      networkIdsWithoutAccount: ['evm--56'],
+    });
+
+    const { container } = render(
+      <AllNetworksManagerTrigger num={0} unifiedMode desktopHeader />,
+    );
+
+    expect(
+      container.querySelector('[data-tooltip]')?.getAttribute('data-tooltip'),
+    ).toBe(ETranslations.current_account_missing_addresses);
+    expect(
+      container.querySelector('[aria-label]')?.getAttribute('aria-label'),
+    ).toBe(
+      `${ETranslations.network_view_assets_from_n_networks}, ${ETranslations.current_account_missing_addresses}`,
+    );
+    expect(container.querySelector('[data-bg="$textCaution"]')).not.toBeNull();
+    expect(container.querySelector('[data-bg="$caution10"]')).toBeNull();
+    // Both logos are cut where the next chip overlaps them.
+    expect(
+      Array.from(container.querySelectorAll('div')).filter(
+        (node) => node.style.maskImage,
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('says All networks on hover when no address is missing', () => {
+    mockCompatQueries({ walletReady: true, accountReady: true });
+
+    const { container } = render(
+      <AllNetworksManagerTrigger num={0} unifiedMode desktopHeader />,
+    );
+
+    expect(
+      container.querySelector('[data-tooltip]')?.getAttribute('data-tooltip'),
+    ).toBe(ETranslations.global_all_networks);
+    expect(container.querySelector('[data-bg="$textCaution"]')).toBeNull();
   });
 });

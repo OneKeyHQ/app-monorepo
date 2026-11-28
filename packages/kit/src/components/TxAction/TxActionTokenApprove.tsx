@@ -150,7 +150,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     } else if (showUnlimitedAmount) {
       change = (
         <XStack gap="$1" alignItems="center">
-          <Token size="xs" tokenImageUri={approveIcon} />
+          <Token size="xs" tokenImageUri={approveIcon} symbol={approveSymbol} />
           <SizableText size="$bodyMd">
             {intl.formatMessage({
               id: ETranslations.swap_page_provider_approve_amount_un_limit,
@@ -162,7 +162,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     } else {
       change = (
         <XStack gap="$1" alignItems="center">
-          <Token size="xs" tokenImageUri={approveIcon} />
+          <Token size="xs" tokenImageUri={approveIcon} symbol={approveSymbol} />
           {isIncrease ? <SizableText size="$bodyMd">+</SizableText> : null}
           <NumberSizeableTextWrapper
             hideValue={hideValue}

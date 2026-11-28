@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
@@ -25,9 +25,6 @@ function DeFiOverviewMoreTile({
   const intl = useIntl();
 
   const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
-  const protocolWord = intl.formatMessage({
-    id: ETranslations.global_protocol,
-  });
   const viewMoreLabel = intl.formatMessage({
     id: ETranslations.global_view_more,
   });
@@ -45,8 +42,6 @@ function DeFiOverviewMoreTile({
       px="$4"
       py="$3"
       alignItems="center"
-      justifyContent="space-between"
-      gap="$3"
       cursor="pointer"
       focusable
       focusVisibleStyle={{
@@ -92,19 +87,10 @@ function DeFiOverviewMoreTile({
             {moreLabel}
           </SizableText>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
-            {`+${extraCount} ${protocolWord}`}
+            {`+${extraCount}`}
           </SizableText>
         </YStack>
       </XStack>
-      <Stack
-        width={20}
-        height={20}
-        flexShrink={0}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Icon name="ChevronRightSmallSolid" size="$5" color="$iconSubdued" />
-      </Stack>
     </XStack>
   );
 }

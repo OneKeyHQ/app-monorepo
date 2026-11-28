@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import { getNativeListTokenFallback } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
+import type { INativeListTokenFallbackTheme } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
 import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import {
   MAX_DISPLAYED_TRANSFERS,
@@ -111,14 +113,32 @@ export function formatHistoryNumber(
   return { text: textSegments.map((part) => part.text).join(''), textSegments };
 }
 
-function tokenVisual(uri?: string, isNFT?: boolean): LeadingVisual {
+// `letter.size` is the circle the web history renderer draws: 40 for a single
+// token, 24 inside a send/receive pair and 20 for a table amount.
+function tokenVisual(
+  uri?: string,
+  isNFT?: boolean,
+  letter?: {
+    symbol?: string;
+    size: number;
+    theme?: INativeListTokenFallbackTheme;
+  },
+): LeadingVisual {
+  const fallbackIcon = {
+    name: isNFT ? 'ImageSquareWavesOutline' : 'CryptoCoinOutline',
+  };
   return {
     kind: 'token',
     ...(uri ? { image: { uri, width: 40, height: 40 } } : {}),
     shape: isNFT ? 'rounded' : 'circle',
-    fallbackIcon: {
-      name: isNFT ? 'ImageSquareWavesOutline' : 'CryptoCoinOutline',
-    },
+    ...(!isNFT && letter?.theme
+      ? getNativeListTokenFallback({
+          symbol: letter.symbol,
+          size: letter.size,
+          theme: letter.theme,
+          fallbackIcon,
+        })
+      : { fallbackIcon }),
   };
 }
 
@@ -128,12 +148,14 @@ function expandedAmounts({
   intl,
   currency,
   hideValue,
+  tokenFallbackTheme,
 }: {
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
   intl: IntlShape;
   currency: string;
   hideValue: boolean;
+  tokenFallbackTheme?: INativeListTokenFallbackTheme;
 }): IHistoryAmount[] {
   const transfers = [...sends, ...receives];
   const visibleCount =
@@ -159,7 +181,11 @@ function expandedAmounts({
           hideValue,
           signs: true,
         }),
-        leading: tokenVisual(transfer.icon, transfer.isNFT),
+        leading: tokenVisual(transfer.icon, transfer.isNFT, {
+          symbol: transfer.symbol,
+          size: 20,
+          theme: tokenFallbackTheme,
+        }),
         tone: receive ? 'positive' : 'primary',
         secondaryText: fiat
           ? formatHistoryNumber(fiat, { currency, hideValue }).text
@@ -194,6 +220,7 @@ function buildHistoryActivityRowUnchecked({
   currency,
   isAllNetworks,
   networkBadge,
+  tokenFallbackTheme,
 }: {
   history: IAccountHistoryTx;
   intl: IntlShape;
@@ -204,6 +231,8 @@ function buildHistoryActivityRowUnchecked({
   currency: string;
   isAllNetworks?: boolean;
   networkBadge?: IHistoryNetworkBadge;
+  // Inverse colors for a token's letter fallback (web lists only).
+  tokenFallbackTheme?: INativeListTokenFallbackTheme;
 }): {
   row: ActivityRow & {
     amounts: IHistoryAmount[];
@@ -289,6 +318,7 @@ function buildHistoryActivityRowUnchecked({
       leading = tokenVisual(
         info.sendNFTIcon || info.sendTokenIcon,
         !!info.sendNFTIcon,
+        { symbol: info.sendTokenSymbol, size: 40, theme: tokenFallbackTheme },
       );
     } else if (receiveOnly) {
       title = label(ETranslations.global_receive);
@@ -296,15 +326,26 @@ function buildHistoryActivityRowUnchecked({
       leading = tokenVisual(
         info.receiveNFTIcon || info.receiveTokenIcon,
         !!info.receiveNFTIcon,
+        {
+          symbol: info.receiveTokenSymbol,
+          size: 40,
+          theme: tokenFallbackTheme,
+        },
       );
     } else {
       leading = tokenVisual(
         info.sendNFTIcon || info.sendTokenIcon,
         !!(info.sendNFTIcon || info.receiveNFTIcon),
+        { symbol: info.sendTokenSymbol, size: 24, theme: tokenFallbackTheme },
       );
       secondaryLeading = tokenVisual(
         info.receiveNFTIcon || info.receiveTokenIcon,
         !!(info.sendNFTIcon || info.receiveNFTIcon),
+        {
+          symbol: info.receiveTokenSymbol,
+          size: 24,
+          theme: tokenFallbackTheme,
+        },
       );
     }
     if (tableLayout) {
@@ -337,7 +378,14 @@ function buildHistoryActivityRowUnchecked({
             },
           ];
       }
-      amounts = expandedAmounts({ sends, receives, intl, currency, hideValue });
+      amounts = expandedAmounts({
+        sends,
+        receives,
+        intl,
+        currency,
+        hideValue,
+        tokenFallbackTheme,
+      });
     } else {
       const makeChange = (
         transfers: IDecodedTxTransferInfo[],
@@ -434,7 +482,12 @@ function buildHistoryActivityRowUnchecked({
         { symbol: info.approveSymbol },
       );
     address = info.approveSpender;
-    leading = tokenVisual(info.approveIcon);
+    // Table rows draw the approval token as a 20px amount icon.
+    leading = tokenVisual(info.approveIcon, false, {
+      symbol: info.approveSymbol,
+      size: tableLayout ? 20 : 40,
+      theme: tokenFallbackTheme,
+    });
     icon = revoke ? 'ShieldCheckDoneOutline' : 'UnlockedOutline';
     let value: Pick<IHistoryAmount, 'text' | 'textSegments'>;
     if (unlimited) {

@@ -163,9 +163,9 @@ const CHIP_COLORS = {
     text: '$textCritical',
   },
   update: {
-    bg: '$bgInfoSubdued',
-    border: '$borderInfoSubdued',
-    text: '$textInfo',
+    bg: '$bgSuccessSubdued',
+    border: '$borderSuccessSubdued',
+    text: '$textSuccess',
   },
 } as const;
 

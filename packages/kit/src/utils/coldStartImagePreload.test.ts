@@ -47,6 +47,16 @@ const solNetworkLogoUri = 'https://uni.onekey-asset.com/static/chain/sol.png';
 const HD_WALLET_ID = 'hd-1';
 const INDEXED_ACCOUNT_ID = 'hd-1--0';
 
+// The cases below run at phone width unless noted.
+const setWindowWidth = (width: number) => {
+  Object.defineProperty(globalThis, 'innerWidth', {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
+};
+beforeEach(() => setWindowWidth(375));
+
 const snapshot = {
   [`store-a::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.walletTopBannersAtom}`]: {
     banners: [
@@ -92,6 +102,16 @@ describe('coldStartImagePreload wallet banner images (OK-61505)', () => {
       }),
       expect.objectContaining({ uri: tokenUri, resizeWidth: 32 }),
     ]);
+  });
+});
+
+describe('coldStartImagePreload banner size at any width', () => {
+  it('prewarms banner images at the one banner size when web starts at desktop width', () => {
+    setWindowWidth(1280);
+    expect(getColdStartImageUrisFromSnapshot(snapshot)[0]).toEqual({
+      uri: bannerUri,
+      resizeWidth: WALLET_BANNER_IMAGE_SIZE,
+    });
   });
 });
 

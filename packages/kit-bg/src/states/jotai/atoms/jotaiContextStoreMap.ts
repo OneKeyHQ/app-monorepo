@@ -20,6 +20,8 @@ export enum EJotaiContextStoreNames {
   swapModal = 'swapModal',
   swapHomeMore = 'swapHomeMore',
   swapHomeToken = 'swapHomeToken',
+  // The home's docked trade column, apart from the token-row Swap modal.
+  swapHomeTradePanel = 'swapHomeTradePanel',
   swapTokenSelector = 'swapTokenSelector',
   marketSwap = 'marketSwap',
   marketSwapReview = 'marketSwapReview',

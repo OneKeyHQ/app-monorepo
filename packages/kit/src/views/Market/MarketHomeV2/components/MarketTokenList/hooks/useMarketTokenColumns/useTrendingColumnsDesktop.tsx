@@ -171,6 +171,7 @@ export function useTrendingColumnsDesktop({
                   size="lg"
                   borderRadius="$full"
                   tokenImageUri={record.tokenImageUri}
+                  symbol={record.symbol}
                   tokenImageUris={record.tokenImageUris}
                   networkImageUri={record.networkLogoUri}
                   fallbackIcon="CryptoCoinOutline"

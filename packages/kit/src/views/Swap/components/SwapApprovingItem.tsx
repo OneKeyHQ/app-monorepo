@@ -168,6 +168,7 @@ const SwapApprovingItem = ({
         <Token
           size="sm"
           tokenImageUri={approvingTransaction?.fromToken.logoURI}
+          symbol={approvingTransaction?.fromToken.symbol}
           networkImageUri={approvingTransaction?.fromToken.networkLogoURI}
           showNetworkIcon
         />

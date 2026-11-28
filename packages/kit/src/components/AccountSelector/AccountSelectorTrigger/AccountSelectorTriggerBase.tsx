@@ -27,6 +27,50 @@ import { AccountSelectorTestIDs } from '../testIDs';
 
 import type { ISpotlightViewProps } from '../../Spotlight';
 
+// Desktop wallet header: the account, network and copy triggers share one
+// hover shape (32 high, radius 8, 6 in from the content and 2 on the chevron
+// side), reach 40 high for the pointer without widening into each other, and
+// work from the keyboard (on web `focusable` alone adds no tab stop).
+export const DESKTOP_HEADER_TRIGGER_SHAPE: IXStackProps = {
+  py: '$1',
+  pl: '$1.5',
+  pr: '$0.5',
+  my: '$-1',
+  ml: '$-1.5',
+  mr: '$-0.5',
+  borderRadius: '$2',
+};
+export const DESKTOP_HEADER_TRIGGER_PROPS: IXStackProps = {
+  ...DESKTOP_HEADER_TRIGGER_SHAPE,
+  role: 'button',
+  tabIndex: 0,
+  focusVisibleStyle: {
+    outlineWidth: 2,
+    outlineColor: '$focusRing',
+    outlineStyle: 'solid',
+  },
+};
+
+// A 44 target around the 34 high medium tertiary button.
+const TERTIARY_TRIGGER_HIT_SLOP = { top: 5, bottom: 5 };
+// The chevron sits right after the name and the fill ends 2 past it, so the
+// fill hangs 9 past the label on the left and 3 on the right.
+const TERTIARY_TRIGGER_CHEVRON_PROPS = { ml: '$0' } as const;
+
+export function DesktopHeaderHitArea() {
+  return <Stack position="absolute" top={-4} bottom={-4} left={0} right={0} />;
+}
+
+export function handleDesktopHeaderKeyDown(
+  event: { key: string; preventDefault: () => void },
+  onPress: () => void,
+) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    onPress();
+  }
+}
+
 export function AccountSelectorTriggerBase({
   num,
   spotlightProps,
@@ -39,6 +83,8 @@ export function AccountSelectorTriggerBase({
   linkNetwork,
   containerProps,
   alignChevronToEnd,
+  desktopHeader,
+  tertiaryButton,
   ...others
 }: {
   num: number;
@@ -53,6 +99,10 @@ export function AccountSelectorTriggerBase({
   // Full-width form-field triggers pin the chevron to the row end; adaptive
   // header triggers keep it right after the label (native default).
   alignChevronToEnd?: boolean;
+  desktopHeader?: boolean;
+  // The phone wallet home names the account above the balance with a plain
+  // tertiary button: the name and a chevron, no avatar.
+  tertiaryButton?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const { sceneName } = useAccountSelectorSceneInfo();
   const {
@@ -115,6 +165,35 @@ export function AccountSelectorTriggerBase({
       );
     }
 
+    if (tertiaryButton) {
+      // The fill's overhang (9 left, 3 right) sits on this box, not on the
+      // button: in a box sized to its content, a button carrying those margins
+      // gets a 100% max width 12 short of itself, and its centered name slips
+      // 6 to the left.
+      return (
+        <Stack ml={-9} mr={-3}>
+          <Button
+            testID={AccountSelectorTestIDs.trigger}
+            variant="tertiary"
+            iconAfter={
+              isTriggerDisabled ? undefined : 'ChevronDownSmallOutline'
+            }
+            iconAfterProps={TERTIARY_TRIGGER_CHEVRON_PROPS}
+            disabled={isTriggerDisabled}
+            textEllipsis
+            alignSelf="flex-start"
+            maxWidth="100%"
+            mx={0}
+            pr="$0.5"
+            hitSlop={TERTIARY_TRIGGER_HIT_SLOP}
+            onPress={handleAccountSelectorPress}
+          >
+            {displayLabel}
+          </Button>
+        </Stack>
+      );
+    }
+
     return (
       <XStack
         testID={AccountSelectorTestIDs.trigger}
@@ -141,8 +220,15 @@ export function AccountSelectorTriggerBase({
         }
         onPress={handleAccountSelectorPress}
         userSelect="none"
+        {...(desktopHeader &&
+          !isTriggerDisabled && {
+            ...DESKTOP_HEADER_TRIGGER_PROPS,
+            onKeyDown: (event: { key: string; preventDefault: () => void }) =>
+              handleDesktopHeaderKeyDown(event, handleAccountSelectorPress),
+          })}
         {...containerProps}
       >
+        {desktopHeader && !isTriggerDisabled ? <DesktopHeaderHitArea /> : null}
         <AccountAvatar
           size="small"
           borderRadius="$1"
@@ -150,6 +236,7 @@ export function AccountSelectorTriggerBase({
           account={account}
           dbAccount={dbAccount}
           wallet={showWalletAvatar ? wallet : undefined}
+          compactWalletBadge={desktopHeader}
         />
         <Stack
           flexDirection={horizontalLayout ? 'row' : 'column'}
@@ -165,7 +252,7 @@ export function AccountSelectorTriggerBase({
               }}
               color="$text"
               $gtXl={{
-                maxWidth: '56',
+                maxWidth: '$56',
               }}
               numberOfLines={1}
               flexShrink={1}
@@ -207,6 +294,7 @@ export function AccountSelectorTriggerBase({
     alignChevronToEnd,
     containerProps,
     dbAccount,
+    desktopHeader,
     displayLabel,
     handleAccountSelectorPress,
     horizontalLayout,
@@ -215,6 +303,7 @@ export function AccountSelectorTriggerBase({
     isTriggerDisabled,
     showWalletAvatar,
     showWalletName,
+    tertiaryButton,
     wallet,
     walletName,
     intl,

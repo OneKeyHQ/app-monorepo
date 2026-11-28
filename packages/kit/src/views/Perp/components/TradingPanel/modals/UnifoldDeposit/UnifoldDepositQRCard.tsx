@@ -164,6 +164,7 @@ export function UnifoldDepositQRCard({
             <Token
               size="sm"
               tokenImageUri={normalizeUnifoldIconUrl(sourceTokenIconUri)}
+              symbol={sourceTokenSymbol}
               networkImageUri={normalizedChainIconUri}
             />
             <YStack minWidth={0} flexShrink={1}>
@@ -187,6 +188,7 @@ export function UnifoldDepositQRCard({
             <Token
               size="sm"
               tokenImageUri={normalizeUnifoldIconUrl(receiveTokenIconUri)}
+              symbol={receiveTokenSymbol}
               networkImageUri={normalizeUnifoldIconUrl(receiveNetworkIconUri)}
             />
             <YStack minWidth={0} flexShrink={1}>

@@ -719,7 +719,7 @@ describe.each([false, true])(
       (globalThis as unknown as { __swapQuoteType?: string }).__swapQuoteType =
         'stock';
       const { rerender, unmount } = renderHook(() =>
-        useSwapQuote({ isMarketEmbeddedSwap: true }),
+        useSwapQuote({ isEmbeddedSwap: true }),
       );
       const fetchingSetter = (
         globalThis as unknown as { __swapQuoteFetchingSetter: jest.Mock }
@@ -848,7 +848,7 @@ describe.each([false, true])(
 
     it('removes listeners when a focused route is unmounted without a blur', () => {
       const { result, unmount } = renderHook(() => {
-        useSwapQuote({ isMarketEmbeddedSwap: true });
+        useSwapQuote({ isEmbeddedSwap: true });
         return useSwapActions().current.quoteEventHandler;
       });
       const quoteEventHandler = result.current;
@@ -875,7 +875,7 @@ describe.each([false, true])(
         params: { storeName: 'swap' },
       });
       const { unmount } = renderHook(() =>
-        useSwapQuote({ isMarketEmbeddedSwap: true }),
+        useSwapQuote({ isEmbeddedSwap: true }),
       );
 
       expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
@@ -889,7 +889,7 @@ describe.each([false, true])(
 
     it('keeps receiving quotes while the provider picker blurs the swap route', () => {
       const { result, rerender } = renderHook(() => {
-        useSwapQuote({ isMarketEmbeddedSwap: true });
+        useSwapQuote({ isEmbeddedSwap: true });
         return useSwapActions().current.quoteEventHandler;
       });
       routeMock.mockReturnValue({
@@ -915,7 +915,7 @@ describe.each([false, true])(
       }
 
       const { result, rerender } = renderHook(() => {
-        useSwapQuote({ isMarketEmbeddedSwap: true });
+        useSwapQuote({ isEmbeddedSwap: true });
         return useSwapActions().current.quoteEventHandler;
       });
       focusMock.mockReturnValue(false);
@@ -949,7 +949,7 @@ describe.each([false, true])(
       }
 
       const { unmount, rerender } = renderHook(() =>
-        useSwapQuote({ isMarketEmbeddedSwap: true }),
+        useSwapQuote({ isEmbeddedSwap: true }),
       );
       focusMock.mockReturnValue(false);
       rerender(undefined);
@@ -967,7 +967,7 @@ describe.each([false, true])(
 
     it('drives tab visibility through the real focus listener', () => {
       const { unmount } = renderHook(() =>
-        useSwapQuote({ isMarketEmbeddedSwap: false }),
+        useSwapQuote({ isEmbeddedSwap: false }),
       );
       act(() => getTabFocusCallback()(true, false));
       expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
@@ -990,7 +990,7 @@ describe.each([false, true])(
       }
 
       const { unmount } = renderHook(() =>
-        useSwapQuote({ isMarketEmbeddedSwap: false }),
+        useSwapQuote({ isEmbeddedSwap: false }),
       );
       act(() => getTabFocusCallback()(true, false));
       act(() => getTabFocusCallback()(false, true));
@@ -1015,7 +1015,7 @@ describe.each([false, true])(
 
       addressInfo.address = '0x1';
       const { rerender, unmount } = renderHook(() =>
-        useSwapQuote({ isMarketEmbeddedSwap: true }),
+        useSwapQuote({ isEmbeddedSwap: true }),
       );
       expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
 
@@ -1031,7 +1031,7 @@ describe.each([false, true])(
 
     it('keeps tab quotes alive for the provider picker and cancels stale hides', () => {
       const { unmount } = renderHook(() =>
-        useSwapQuote({ isMarketEmbeddedSwap: false }),
+        useSwapQuote({ isEmbeddedSwap: false }),
       );
       act(() => getTabFocusCallback()(true, false));
       routeMock.mockReturnValue({

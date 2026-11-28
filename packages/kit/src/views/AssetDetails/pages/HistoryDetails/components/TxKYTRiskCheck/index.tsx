@@ -173,7 +173,11 @@ function KytAssetSelectionDialogContent({
           drillIn
           onPress={() => onSelectAsset(detail)}
           renderAvatar={
-            <Token size="lg" tokenImageUri={detail.asset.tokenImageUri} />
+            <Token
+              size="lg"
+              tokenImageUri={detail.asset.tokenImageUri}
+              symbol={detail.asset.symbol}
+            />
           }
         />
       ))}

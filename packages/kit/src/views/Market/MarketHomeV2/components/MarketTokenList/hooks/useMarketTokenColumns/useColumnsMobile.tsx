@@ -69,6 +69,7 @@ export const useColumnsMobile = (
                   size="md"
                   borderRadius="$full"
                   tokenImageUri={record.tokenImageUri}
+                  symbol={record.symbol}
                   tokenImageUris={record.tokenImageUris}
                   fallbackIcon="CryptoCoinOutline"
                 />

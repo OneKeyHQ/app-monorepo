@@ -188,6 +188,7 @@ function BasicWatchlistSidebarRow({
         <Token
           size="md"
           tokenImageUri={item.tokenImageUri}
+          symbol={item.symbol}
           tokenImageUris={item.tokenImageUris}
           networkImageUri={item.networkId ? networkLogoUri : undefined}
           fallbackIcon="CryptoCoinOutline"

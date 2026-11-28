@@ -117,11 +117,12 @@ export const useTabContainerWidth = platformEnv.isNative
           return `calc(100vw)`;
         }
 
-        // Large screen: subtract sidebar width (always collapsed)
+        // Large screen: subtract sidebar width (always collapsed) and the
+        // page's left border; its right border sits past the window's edge.
         return `calc(100vw - ${
           MIN_SIDEBAR_WIDTH +
           DESKTOP_MODE_UI_PAGE_MARGIN +
-          DESKTOP_MODE_UI_PAGE_BORDER_WIDTH * 2
+          DESKTOP_MODE_UI_PAGE_BORDER_WIDTH
         }px)`;
       }, [md]);
     };

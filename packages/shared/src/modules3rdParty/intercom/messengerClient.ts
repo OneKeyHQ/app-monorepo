@@ -16,7 +16,12 @@ type IClientOptions = {
   getIdentity: () => Promise<{ token?: string; language: string }>;
   loadVisitor: () => Promise<IIntercomVisitor | undefined>;
   saveVisitor: (visitor: IIntercomVisitor) => Promise<void>;
-  onUnread: (ids: string[]) => void;
+  // `visitorId` is the anonymous visitor the request was sent for; `boot`
+  // marks the ping that validates the visitor being booted.
+  onUnread: (
+    ids: string[],
+    source: { visitorId?: string; boot: boolean },
+  ) => void;
   onRead?: (id: string) => void;
   withBootLock?: (initialize: () => Promise<void>) => Promise<void>;
 };
@@ -57,6 +62,9 @@ export function createMessengerClient(options: IClientOptions) {
     )
       throw new OneKeyLocalError('Unsupported support operation');
     const sender = pending ?? { identity, visitor };
+    const sentVisitorId = sender.identity?.token
+      ? undefined
+      : sender.visitor?.anonymousId;
     const userData = sender.identity?.token
       ? {
           intercom_user_jwt: sender.identity.token,
@@ -117,7 +125,10 @@ export function createMessengerClient(options: IClientOptions) {
         throw new OneKeyLocalError('Support session could not be verified');
       }
       if (Array.isArray(record.unread_conversation_ids))
-        options.onUnread(record.unread_conversation_ids.map(String));
+        options.onUnread(record.unread_conversation_ids.map(String), {
+          visitorId: sentVisitorId,
+          boot: path === 'ping',
+        });
       return data;
     } finally {
       clearTimeout(timeout);

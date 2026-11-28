@@ -225,6 +225,7 @@ const TradesHistoryRow = memo(
             {...(isSpotInstrument(fill.coin)
               ? { tokenImageUri: getHyperliquidTokenImageUrl(assetSymbol) }
               : { tokenImageUris: getHyperliquidTokenImageUris(fill.coin) })}
+            symbol={assetSymbol}
             fallbackIcon="CryptoCoinOutline"
           />
           <YStack flex={1} minWidth={0} gap="$1">

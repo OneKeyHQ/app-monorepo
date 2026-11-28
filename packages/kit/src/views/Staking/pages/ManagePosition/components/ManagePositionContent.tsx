@@ -370,9 +370,11 @@ const ManageSectionShell = ({
 // first data response does not replace an unrelated tab bar and form.
 const SpecialManageSectionShell = ({
   fallbackTokenImageUri,
+  symbol,
   isInModalContext,
 }: {
   fallbackTokenImageUri?: string;
+  symbol?: string;
   isInModalContext?: boolean;
 }) => {
   const intl = useIntl();
@@ -400,6 +402,7 @@ const SpecialManageSectionShell = ({
             <Token
               size="lg"
               tokenImageUri={fallbackTokenImageUri}
+              symbol={symbol}
               w="$10"
               h="$10"
             />
@@ -878,6 +881,7 @@ export function ManagePositionContent({
       return (
         <SpecialManageSectionShell
           fallbackTokenImageUri={fallbackTokenImageUri}
+          symbol={symbol}
           isInModalContext={isInModalContext}
         />
       );

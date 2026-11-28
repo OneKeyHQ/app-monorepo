@@ -13,16 +13,16 @@ import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
 import { isSwapTokenRisky } from '../../Swap/utils/swapTokenRiskUtils';
 
-// Amount presets of the threshold picker, smallest first.
-export const DUST_SWEEP_THRESHOLDS: readonly IDustSweepThreshold[] = [
-  1, 10, 100,
-];
+import {
+  DUST_SWEEP_THRESHOLDS,
+  getDustSweepHiddenThreshold,
+  isDustSweepEligibleToken,
+} from './tokenEligibility';
+
+export { DUST_SWEEP_THRESHOLDS, getDustSweepHiddenThreshold };
+
 export const DUST_SWEEP_MIN_SLIPPAGE = 5;
 export const DUST_SWEEP_MAX_SLIPPAGE = 50;
-
-export function getDustSweepHiddenThreshold(networkId: string) {
-  return networkId === 'evm--1' ? '0.1' : '0.01';
-}
 
 // Worth less than the gas to sweep it: hidden until the user adds them, and
 // never selected by default.
@@ -76,13 +76,8 @@ export function buildDustSweepCandidates(
         excludedSwapAddresses.has(address) ||
         !swapToken ||
         !value ||
-        token.isNative ||
-        token.defiMarked ||
-        token.dappName ||
-        token.sharedBalanceExcluded ||
-        !token.address ||
-        (token.networkId && token.networkId !== networkId) ||
-        (token.riskLevel ?? 0) >= ETokenRiskLevel.SPAM
+        !isDustSweepEligibleToken(token) ||
+        (token.networkId && token.networkId !== networkId)
       )
         return [];
       const amount = new BigNumber(

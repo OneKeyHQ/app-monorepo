@@ -437,12 +437,18 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({ defaultLogger: {} }));
 jest.mock('@onekeyhq/kit/src/utils/fiatConvert', () => ({
   convertFiat: ({ value }: { value: string }) => value,
 }));
+jest.mock('../DustSweepBanner/DustSweepBanner', () => ({
+  DustSweepBanner: () => null,
+}));
 jest.mock('../HomeStickyHeaderContext', () => ({
   HomeStickyHeaderContext: jest
     .requireActual<typeof import('react')>('react')
     .createContext(undefined),
 }));
-jest.mock('../RichBlock/RichBlock', () => ({ RichBlock: () => null }));
+const mockRichBlock = jest.fn((_props: { subTitle?: unknown }) => null);
+jest.mock('../RichBlock/RichBlock', () => ({
+  RichBlock: (props: { subTitle?: unknown }) => mockRichBlock(props),
+}));
 jest.mock('./useTokenListReactivePipeline', () => ({
   useTokenListReactivePipeline: () => mockPipeline,
 }));
@@ -2476,6 +2482,16 @@ describe('Home automatic Portfolio sync', () => {
     render(<TokenListBlock />);
     await refresh();
     expect(mockNotifySettled).not.toHaveBeenCalled();
+  });
+  it('heads the list with no Tokens title, even beside DeFi or perps value', () => {
+    platformEnv.isNative = false;
+    try {
+      mockHomeDisplay = { ...mockHomeDisplay, defiFiatUsd: '40' };
+      render(<TokenListBlock tableLayout />);
+      expect(mockRichBlock).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNative = true;
+    }
   });
 });
 

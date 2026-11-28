@@ -26,7 +26,11 @@ export const AssetField = ({
   return (
     <FieldWrapper flex={1}>
       <XStack ai="center">
-        <BorrowAssetToken size="md" logoURI={token.logoURI} />
+        <BorrowAssetToken
+          size="md"
+          logoURI={token.logoURI}
+          symbol={token.symbol}
+        />
         <YStack ml="$3" flex={1} gap="$0.5">
           <XStack ai="center">
             {/* Keep a long symbol inside the asset column instead of letting it

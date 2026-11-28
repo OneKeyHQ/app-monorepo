@@ -99,7 +99,7 @@ export const ReserveProtocolHeader = ({
         ) : null}
         {/* Token icon + Symbol */}
         <XStack gap="$2" ai="center" my="$6">
-          <Token size="lg" tokenImageUri={logoURI} />
+          <Token size="lg" tokenImageUri={logoURI} symbol={symbol} />
           <SizableText size="$heading2xl">{symbol}</SizableText>
         </XStack>
         {/* Statistics grid (2x2 layout) */}

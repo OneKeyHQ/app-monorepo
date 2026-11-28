@@ -4,7 +4,11 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
+import type {
+  IDialogInstance,
+  IDialogShowProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -282,11 +286,14 @@ export function TronResourceBannerCard({
   networkId,
   width,
   height,
+  cardProps,
 }: {
   accountId: string;
   networkId: string;
   width: number;
   height: number;
+  // Surface overrides from the banner row (e.g. the wide web white card).
+  cardProps?: IYStackProps;
 }) {
   const intl = useIntl();
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
@@ -347,6 +354,7 @@ export function TronResourceBannerCard({
       onPress={handlePress}
       userSelect="none"
       justifyContent="center"
+      {...cardProps}
     >
       {/* No result means no read has landed for this account yet: keep the
           skeleton rather than painting a 0/0 placeholder for the first

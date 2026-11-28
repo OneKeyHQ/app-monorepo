@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import { getNativeListTokenFallback } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
+import type { INativeListTokenFallbackTheme } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
 import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -20,6 +22,8 @@ type ISwapTokenItem = ISwapToken | IFuseResult<ISwapToken>;
 type IBuildSwapTokenNativeListParams = {
   tokens: ISwapTokenItem[];
   theme: NativeListTheme;
+  // Inverse colors for a token's letter fallback (web lists only).
+  tokenFallbackTheme?: INativeListTokenFallbackTheme;
   disabledNetworkIds: string[];
   searchKeyword?: string;
   isMediumScreen: boolean;
@@ -64,6 +68,7 @@ export const SWAP_TOKEN_LIST_CONTENT_INSET = 8;
 export function buildSwapTokenNativeListSnapshot({
   tokens,
   theme,
+  tokenFallbackTheme,
   disabledNetworkIds,
   searchKeyword,
   isMediumScreen,
@@ -217,10 +222,15 @@ export function buildSwapTokenNativeListSnapshot({
         networkImage: token.networkLogoURI
           ? { uri: token.networkLogoURI, width: 16, height: 16 }
           : undefined,
-        fallbackIcon: {
-          name: 'CryptoCoinOutline',
-          tintColor: theme.iconSubdued,
-        },
+        ...getNativeListTokenFallback({
+          symbol: token.symbol,
+          size: 40,
+          theme: tokenFallbackTheme ?? {},
+          fallbackIcon: {
+            name: 'CryptoCoinOutline',
+            tintColor: theme.iconSubdued,
+          },
+        }),
       },
       title: token.symbol,
       titleMatch,

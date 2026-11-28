@@ -1,3 +1,4 @@
+import type { IYStackProps } from '@onekeyhq/components';
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -8,11 +9,13 @@ export function ResourceBannerCard({
   networkId,
   width,
   height,
+  cardProps,
 }: {
   accountId: string;
   networkId: string;
   width: number;
   height: number;
+  cardProps?: IYStackProps;
 }) {
   const impl = networkUtils.getNetworkImpl({ networkId });
 
@@ -24,6 +27,7 @@ export function ResourceBannerCard({
           networkId={networkId}
           width={width}
           height={height}
+          cardProps={cardProps}
         />
       );
     default:

@@ -82,6 +82,7 @@ export function StockTokenOverview({
         <Token
           size="lg"
           tokenImageUri={stockDetail?.logoUrl ?? tokenDetail?.logoUrl}
+          symbol={stockDetail?.symbol ?? tokenDetail?.symbol}
         />
         <Stack flex={1}>
           <SizableText size="$headingLg" color="$text" fontWeight="600">

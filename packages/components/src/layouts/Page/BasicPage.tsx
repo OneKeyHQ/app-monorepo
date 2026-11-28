@@ -4,12 +4,14 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { useThemeName } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsDesktopModeUIInTabPages } from '../../hooks';
 import { Stack } from '../../primitives';
 import {
   DESKTOP_MODE_UI_HEADER_HEIGHT,
+  DESKTOP_MODE_UI_PAGE_BORDER_COLOR,
   DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
   DESKTOP_MODE_UI_PAGE_MARGIN,
 } from '../../utils';
@@ -47,6 +49,7 @@ export function BasicPage({
   const heightStyle = useHeightStyle();
 
   const isDesktopLayout = useIsDesktopModeUIInTabPages();
+  const themeName = useThemeName();
   // fix re-execute issues in Lazy Component via render phrase
   const [isLayoutMount, setIsLayoutMount] = useState(false);
   useLayoutEffect(() => {
@@ -57,14 +60,21 @@ export function BasicPage({
       ? {
           borderTopLeftRadius: '$4' as const,
           borderTopRightRadius: '$4' as const,
-          borderWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
-          mr: DESKTOP_MODE_UI_PAGE_MARGIN,
+          // The page meets the window's right and bottom edges, so the line
+          // runs along the top and left only. The right border stays for the
+          // top-right corner, whose line would otherwise thin out to nothing;
+          // the negative margin moves its straight part just past the window.
+          borderTopWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
+          borderLeftWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
+          borderRightWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
+          borderBottomWidth: 0,
+          borderColor: DESKTOP_MODE_UI_PAGE_BORDER_COLOR[themeName],
+          mr: DESKTOP_MODE_UI_PAGE_MARGIN - DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
           mb: DESKTOP_MODE_UI_PAGE_MARGIN,
-          borderColor: '$neutral3',
           overflow: 'hidden' as const,
         }
       : undefined;
-  }, [isDesktopLayout]);
+  }, [isDesktopLayout, themeName]);
   return isLayoutMount ? (
     <Stack
       backgroundColor={backgroundColor ?? '$bgApp'}

@@ -93,6 +93,7 @@ export function TokenListItem({
           size={tokenSize}
           tokenImageUri={tokenImageSrc}
           networkImageUri={networkImageSrc}
+          symbol={tokenSymbol}
         />
       </YStack>
       <ListItem.Text

@@ -1,5 +1,6 @@
 import { isEqual } from 'lodash';
 
+import { getNativeListTokenFallback } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
 import {
   numberFormat,
   numberFormatAsRenderText,
@@ -225,6 +226,24 @@ function marketImage(
   };
 }
 
+// Market rows draw a 32px logo.
+function marketTokenFallback(
+  symbol: string | undefined,
+  presentation: IMarketNativeListPresentation,
+) {
+  return getNativeListTokenFallback({
+    symbol,
+    size: 32,
+    theme: presentation.theme,
+    fallbackIcon: {
+      name: 'CryptoCoinOutline',
+      ...(presentation.webImageSources
+        ? { tintColor: presentation.theme.iconSubdued }
+        : {}),
+    },
+  });
+}
+
 function firstNativeImageUri(item: IMarketToken) {
   return [item.tokenImageUri, ...(item.tokenImageUris ?? [])].find(
     (uri) => uri && !uri.toLowerCase().includes('svg'),
@@ -446,12 +465,7 @@ export function buildTokenMarketRow({
       networkImage: isPerp
         ? undefined
         : marketImage(item.networkLogoUri, 16, presentation.webImageSources),
-      fallbackIcon: {
-        name: 'CryptoCoinOutline',
-        ...(presentation.webImageSources
-          ? { tintColor: presentation.theme.iconSubdued }
-          : {}),
-      },
+      ...marketTokenFallback(item.symbol, presentation),
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -532,12 +546,7 @@ export function buildStockMarketRow({
     leading: {
       kind: 'token',
       image: marketImage(item.logoUrl, 32, presentation.webImageSources),
-      fallbackIcon: {
-        name: 'CryptoCoinOutline',
-        ...(presentation.webImageSources
-          ? { tintColor: presentation.theme.iconSubdued }
-          : {}),
-      },
+      ...marketTokenFallback(item.symbol, presentation),
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -589,12 +598,7 @@ export function buildPerpsMarketRow({
     leading: {
       kind: 'token',
       image: marketImage(item.tokenImageUrl, 32, presentation.webImageSources),
-      fallbackIcon: {
-        name: 'CryptoCoinOutline',
-        ...(presentation.webImageSources
-          ? { tintColor: presentation.theme.iconSubdued }
-          : {}),
-      },
+      ...marketTokenFallback(item.displayName, presentation),
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -679,12 +683,7 @@ export function buildTopCoinMarketRow({
     leading: {
       kind: 'token',
       image: marketImage(item.logoUrl, 32, presentation.webImageSources),
-      fallbackIcon: {
-        name: 'CryptoCoinOutline',
-        ...(presentation.webImageSources
-          ? { tintColor: presentation.theme.iconSubdued }
-          : {}),
-      },
+      ...marketTokenFallback(symbol, presentation),
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,

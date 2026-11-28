@@ -137,7 +137,11 @@ export function YieldBreakdownSheet({
             </XStack>
             <XStack ai="center" gap="$1.5" flexShrink={0}>
               {item.yieldToken ? (
-                <Token size="xs" tokenImageUri={item.yieldToken.info.logoURI} />
+                <Token
+                  size="xs"
+                  tokenImageUri={item.yieldToken.info.logoURI}
+                  symbol={item.yieldToken.info.symbol}
+                />
               ) : null}
               {item.yieldToken ? (
                 <SizableText size="$bodyMd" color="$textSubdued">

@@ -82,6 +82,7 @@ function ApprovalItem({
         <Token
           size="md"
           tokenImageUri={tokenInfo?.logoURI}
+          symbol={tokenInfo?.symbol}
           networkImageUri={networkImageUri}
         />
         <YStack flex={1}>
@@ -236,6 +237,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
                         <Token
                           size="xs"
                           tokenImageUri={approvesInfo[0]?.tokenInfo?.logoURI}
+                          symbol={approvesInfo[0]?.tokenInfo?.symbol}
                         />
                         {hasUnlimitedApproval ? (
                           <SizableText size="$bodyMdMedium">

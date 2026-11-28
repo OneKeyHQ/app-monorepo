@@ -295,6 +295,8 @@ function getTxActionTransferInfo(
     receiveNFTIcon: receivesWithNFT[0]?.icon,
     sendTokenIcon: sendsWithToken[0]?.icon,
     receiveTokenIcon: receivesWithToken[0]?.icon,
+    sendTokenSymbol: sendsWithToken[0]?.symbol,
+    receiveTokenSymbol: receivesWithToken[0]?.symbol,
     application,
     isInternalStaking,
     internalStakingLabel,
@@ -482,7 +484,12 @@ function buildExpandedTransferView({
         alignItems="center"
         gap="$1"
       >
-        <Token size="xs" isNFT={transfer.isNFT} tokenImageUri={transfer.icon} />
+        <Token
+          size="xs"
+          isNFT={transfer.isNFT}
+          tokenImageUri={transfer.icon}
+          symbol={transfer.symbol}
+        />
         <NumberSizeableTextWrapper
           hideValue={hideValue}
           formatter="balance"
@@ -1080,6 +1087,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 showNetworkIcon
                 networkId={swapInfo.sender.accountInfo.networkId}
                 tokenImageUri={approve.icon}
+                symbol={approve.symbol}
               />
               <Stack flex={1}>
                 <SizableText size="$bodyLgMedium">{approveContent}</SizableText>
@@ -1096,6 +1104,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
               <Token
                 isNFT={transfer.isNFT}
                 tokenImageUri={transfer.icon}
+                symbol={transfer.symbol}
                 showNetworkIcon
                 networkId={transfer.networkId}
               />

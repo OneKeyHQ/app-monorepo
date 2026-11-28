@@ -1115,6 +1115,7 @@ function TokenDetailsView() {
         <Token
           size="sm"
           tokenImageUri={tokenInfo.logoURI}
+          symbol={tokenInfo.symbol}
           networkImageUri={
             tokens.length <= 1 && !gtMd ? network?.logoURI : undefined
           }
@@ -1136,6 +1137,7 @@ function TokenDetailsView() {
     );
   }, [
     tokenInfo.logoURI,
+    tokenInfo.symbol,
     tokenSymbol,
     tokenInfo.isAggregateToken,
     effectiveTokenInfo.networkName,

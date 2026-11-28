@@ -42,41 +42,41 @@ describe('buildDeFiOverviewRenderCells with cols', () => {
     expect(cells.every((c) => c.kind === 'protocol')).toBe(true);
   });
 
-  it('emits 10 protocols + 1 More(span=2) when length > 12 collapsed (cols=4)', () => {
+  it('emits 11 protocols + 1 More when length > 12 collapsed (cols=4)', () => {
     const cells = buildDeFiOverviewRenderCells({
       rankedProtocols: makeRanked(20),
       protocolMap: makeMap(20),
       isExpanded: false,
       cols: 4,
     });
-    expect(cells).toHaveLength(11);
-    expect(cells.slice(0, 10).every((c) => c.kind === 'protocol')).toBe(true);
-    expect(cells[10]).toMatchObject({ kind: 'more', span: 2 });
+    expect(cells).toHaveLength(12);
+    expect(cells.slice(0, 11).every((c) => c.kind === 'protocol')).toBe(true);
+    expect(cells[11]).toMatchObject({ kind: 'more', extraCount: 9 });
   });
 
-  it('emits 13 protocols + 1 More(span=2) when length > 15 collapsed (cols=5)', () => {
+  it('emits 14 protocols + 1 More when length > 15 collapsed (cols=5)', () => {
     const cells = buildDeFiOverviewRenderCells({
       rankedProtocols: makeRanked(20),
       protocolMap: makeMap(20),
       isExpanded: false,
       cols: 5,
     });
-    expect(cells).toHaveLength(14);
-    expect(cells[13]).toMatchObject({ kind: 'more', span: 2 });
+    expect(cells).toHaveLength(15);
+    expect(cells[14]).toMatchObject({ kind: 'more', extraCount: 6 });
   });
 
-  it('emits 16 protocols + 1 More(span=2) when length > 18 collapsed (cols=6)', () => {
+  it('emits 17 protocols + 1 More when length > 18 collapsed (cols=6)', () => {
     const cells = buildDeFiOverviewRenderCells({
       rankedProtocols: makeRanked(25),
       protocolMap: makeMap(25),
       isExpanded: false,
       cols: 6,
     });
-    expect(cells).toHaveLength(17);
-    expect(cells[16]).toMatchObject({ kind: 'more', span: 2 });
+    expect(cells).toHaveLength(18);
+    expect(cells[17]).toMatchObject({ kind: 'more', extraCount: 8 });
   });
 
-  it('emits all + Less(span=1) when expanded and length > cellsLimit', () => {
+  it('emits all + Less when expanded and length > cellsLimit', () => {
     const cells = buildDeFiOverviewRenderCells({
       rankedProtocols: makeRanked(25),
       protocolMap: makeMap(25),
@@ -84,7 +84,7 @@ describe('buildDeFiOverviewRenderCells with cols', () => {
       cols: 6,
     });
     expect(cells).toHaveLength(26);
-    expect(cells[25]).toMatchObject({ kind: 'less', span: 1 });
+    expect(cells[25]).toMatchObject({ kind: 'less' });
   });
 
   it('does not emit Less when length <= cellsLimit even if isExpanded=true', () => {
@@ -128,18 +128,18 @@ describe('buildDeFiOverviewRenderCells with cols', () => {
     ).toBe(12);
     expect(
       getOverviewCollapsedProtocolLimit({ cols: 4, protocolCount: 13 }),
-    ).toBe(10);
+    ).toBe(11);
     expect(
       getOverviewCollapsedProtocolLimit({ cols: 5, protocolCount: 15 }),
     ).toBe(15);
     expect(
       getOverviewCollapsedProtocolLimit({ cols: 5, protocolCount: 16 }),
-    ).toBe(13);
+    ).toBe(14);
     expect(
       getOverviewCollapsedProtocolLimit({ cols: 6, protocolCount: 18 }),
     ).toBe(18);
     expect(
       getOverviewCollapsedProtocolLimit({ cols: 6, protocolCount: 19 }),
-    ).toBe(16);
+    ).toBe(17);
   });
 });

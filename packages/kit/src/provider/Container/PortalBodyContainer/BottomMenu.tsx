@@ -1,6 +1,9 @@
 import { YStack, useIsWebHorizontalLayout } from '@onekeyhq/components';
 
-import { LazyMoreActionButton } from '../../../components/MoreActionButton/LazyMoreActionButton';
+import {
+  LazyDesktopDeviceUpdateDot,
+  LazyDesktopProfileMenu,
+} from '../../../components/ProfileDrawer/LazyDesktopProfileMenu';
 
 export function BottomMenu() {
   const isShowBottomMenu = useIsWebHorizontalLayout();
@@ -14,7 +17,11 @@ export function BottomMenu() {
       alignItems="center"
       testID="bottom-menu-container"
     >
-      <LazyMoreActionButton />
+      <LazyDesktopProfileMenu />
     </YStack>
   ) : null;
+}
+
+export function DeviceTabBadge() {
+  return <LazyDesktopDeviceUpdateDot />;
 }

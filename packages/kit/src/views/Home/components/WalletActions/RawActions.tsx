@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Children } from 'react';
+import { Children, createContext, useContext } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,6 +25,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RiskApprovalsDot } from './RiskApprovalsDot';
 
+// Desktop pill size of a whole action row. The Home balance row uses medium
+// (38 high, same text and icon) so the total stays the strongest element; other
+// pages keep large.
+export type IRawActionsSize = 'large' | 'medium';
+const RawActionsSizeContext = createContext<IRawActionsSize>('large');
+
 export type IActionItemsProps = {
   icon?: IKeyOfIcons | null;
   label?: string | ReactNode;
@@ -39,6 +45,7 @@ export type IActionItemsProps = {
 
 function ActionItem({
   icon = 'PlaceholderOutline',
+  iconProps,
   label,
   verticalContainerProps,
   showButtonStyle = false,
@@ -48,6 +55,7 @@ function ActionItem({
   disabled,
   ...rest
 }: IActionItemsProps) {
+  const actionSize = useContext(RawActionsSizeContext);
   const visualDisabled = !!disabled;
   const effectiveDisabled = visualDisabled && !allowPressWhenDisabled;
 
@@ -64,6 +72,7 @@ function ActionItem({
       <Button
         testID="home-action-item-btn"
         icon={icon || undefined}
+        iconProps={iconProps}
         variant={highlighted ? 'primary' : undefined}
         {...(!label && {
           py: '$2',
@@ -134,8 +143,9 @@ function ActionItem({
       <Button
         testID="home-btn"
         variant={highlighted ? 'primary' : 'secondary'}
-        size="large"
+        size={actionSize}
         icon={icon || undefined}
+        iconProps={iconProps}
         display="none"
         $gtSm={{ display: 'flex' }}
         onPress={onPress}
@@ -173,6 +183,9 @@ function ActionSend(props: IActionItemsProps) {
   );
 }
 
+// The down arrow's head carries its weight low, so the pill lifts it 1px.
+const RECEIVE_ARROW_ICON_PROPS = { y: -1 } as const;
+
 function ActionReceive(props: IActionItemsProps) {
   const intl = useIntl();
   const { icon, label, ...rest } = props;
@@ -180,6 +193,7 @@ function ActionReceive(props: IActionItemsProps) {
     <ActionItem
       label={label ?? intl.formatMessage({ id: ETranslations.global_receive })}
       icon={icon ?? 'ArrowBottomOutline'}
+      iconProps={icon ? undefined : RECEIVE_ARROW_ICON_PROPS}
       {...rest}
     />
   );
@@ -243,12 +257,14 @@ function ActionMore({
   showDot?: boolean;
 }) {
   const intl = useIntl();
+  const actionSize = useContext(RawActionsSizeContext);
   const label = intl.formatMessage({ id: ETranslations.global_more });
   const iconButtonTrigger = (
     <IconButton
       variant="secondary"
-      size="large"
+      size={actionSize}
       icon="DotHorOutline"
+      aria-label={label}
       testID={testID}
     />
   );
@@ -344,19 +360,25 @@ function ActionMore({
   );
 }
 
-function RawActions({ children, ...rest }: IXStackProps) {
+function RawActions({
+  children,
+  actionSize = 'large',
+  ...rest
+}: IXStackProps & { actionSize?: IRawActionsSize }) {
   return (
-    <XStack
-      gap="$2"
-      $gtSm={{
-        flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
-        justifyContent: 'flex-start',
-        gap: '$3',
-      }}
-      {...rest}
-    >
-      {Children.toArray(children)}
-    </XStack>
+    <RawActionsSizeContext.Provider value={actionSize}>
+      <XStack
+        gap="$2"
+        $gtSm={{
+          flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
+          justifyContent: 'flex-start',
+          gap: '$3',
+        }}
+        {...rest}
+      >
+        {Children.toArray(children)}
+      </XStack>
+    </RawActionsSizeContext.Provider>
   );
 }
 
@@ -368,10 +390,26 @@ function RawActions({ children, ...rest }: IXStackProps) {
  */
 function ActionsPlaceholder({
   slotCount = 4,
+  actionSize = 'large',
   testID,
   ...rest
-}: IXStackProps & { slotCount?: number }) {
+}: IXStackProps & { slotCount?: number; actionSize?: IRawActionsSize }) {
   const slotTestID = testID ? `${testID}-slot` : undefined;
+  if (actionSize === 'medium') {
+    // Same footprint as the medium row: pills plus the round "More" button.
+    return (
+      <XStack gap="$2.5" alignItems="center" testID={testID} {...rest}>
+        {Array.from({ length: Math.max(slotCount - 1, 0) }, (_, index) => (
+          <Stack key={index} testID={slotTestID}>
+            <Skeleton w={100} h={38} radius="round" />
+          </Stack>
+        ))}
+        <Stack testID={slotTestID}>
+          <Skeleton w={38} h={38} radius="round" />
+        </Stack>
+      </XStack>
+    );
+  }
   return (
     <XStack
       gap="$2"

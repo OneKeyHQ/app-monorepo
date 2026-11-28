@@ -2,7 +2,13 @@ import { type ReactNode, memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Spinner, XStack, useMedia } from '@onekeyhq/components';
+import {
+  SizableText,
+  Spinner,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorActiveAccount';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome';
 import { LazyAllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/LazyAllNetworksManagerTrigger';
@@ -27,10 +33,14 @@ function AccountSelectorTriggerWithSpotlight({
   isFocus,
   linkNetworkId,
   hideAddress,
+  desktopHeader,
+  tertiaryButton,
 }: {
   isFocus: boolean;
   linkNetworkId?: string;
   hideAddress?: boolean;
+  desktopHeader?: boolean;
+  tertiaryButton?: boolean;
 }) {
   const intl = useIntl();
   const { tourTimes, tourVisited } = useSpotlight(
@@ -49,6 +59,8 @@ function AccountSelectorTriggerWithSpotlight({
       key="accountSelectorTrigger"
       linkNetworkId={linkNetworkId}
       hideAddress={hideAddress}
+      desktopHeader={desktopHeader}
+      tertiaryButton={tertiaryButton}
       spotlightProps={{
         visible: spotlightVisible,
         content: (
@@ -70,6 +82,60 @@ function AccountSelectorTriggerWithSpotlight({
 const MemoizedAccountSelectorTriggerWithSpotlight = memo(
   AccountSelectorTriggerWithSpotlight,
 );
+
+// One-click copy beside the account name, as the extension's old header had
+// it, on every platform.
+function HomeBalanceAccountCopy() {
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({ num: 0 });
+  if (
+    accountUtils.hasNoUsableWallet({ wallet, account }) ||
+    (wallet?.type === WALLET_TYPE_HD && !wallet.backuped)
+  ) {
+    return null;
+  }
+  return (
+    <AccountSelectorActiveAccountHome
+      num={0}
+      showAccountAddress={false}
+      showCopyButton
+      showCreateAddressButton={false}
+      showNoAddressTip={false}
+    />
+  );
+}
+
+// Phone wallet home: the account names itself above the balance; the header
+// row holds the profile avatar, search and network. On web this row shows
+// only in the extension's popup and side panel.
+export function HomeBalanceAccountTrigger() {
+  const [isFocus, setIsFocus] = useState(false);
+  useListenTabFocusState(
+    ETabRoutes.Home,
+    async (focus: boolean, hideByModal: boolean) => {
+      setIsFocus(!hideByModal && focus);
+    },
+  );
+  const trigger = (
+    <MemoizedAccountSelectorTriggerWithSpotlight
+      isFocus={isFocus}
+      tertiaryButton
+    />
+  );
+  // The account button's fill reaches 3 past its chevron and the copy
+  // button's 4 to 5 past its icon, so 8 lets the two fills meet.
+  return (
+    <XStack alignItems="center" gap="$2">
+      {/* Gives the button's 100% max width a definite box, so a long name
+          shrinks with an ellipsis before the copy button instead. */}
+      <Stack flexShrink={1} minWidth={0}>
+        {trigger}
+      </Stack>
+      <HomeBalanceAccountCopy />
+    </XStack>
+  );
+}
 
 interface IWalletConnectionGroupProps {
   tabRoute: ETabRoutes;
@@ -122,7 +188,7 @@ export function WalletConnectionGroup({
     showNetworkSelector && tabRoute === ETabRoutes.Home;
 
   const renderNetworkSelectorTrigger = useCallback(
-    (size?: 'small' | 'large') => {
+    (size?: 'small' | 'large', desktopHeader?: boolean) => {
       if (!shouldShowNetworkSelector || isNonBackedUpWallet) {
         return null;
       }
@@ -131,7 +197,13 @@ export function WalletConnectionGroup({
         network?.isAllNetworks &&
         !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
       ) {
-        return <LazyAllNetworksManagerTrigger num={0} unifiedMode />;
+        return (
+          <LazyAllNetworksManagerTrigger
+            num={0}
+            unifiedMode
+            desktopHeader={desktopHeader}
+          />
+        );
       }
       return (
         <NetworkSelectorTriggerHome
@@ -140,6 +212,7 @@ export function WalletConnectionGroup({
           recordNetworkHistoryEnabled
           hideOnNoAccount
           unifiedMode
+          desktopHeader={desktopHeader}
         />
       );
     },
@@ -188,14 +261,18 @@ export function WalletConnectionGroup({
     );
   }
 
+  // Desktop: 16 between the triggers' contents, so their hover shapes (6 in on
+  // the content side, 2 on the chevron side) sit 8 apart. Those shapes are 32
+  // high but take no layout height, so the row holds that 32 itself.
   return (
-    <XStack gap="$3" ai="center">
+    <XStack gap="$4" ai="center" minHeight="$8">
       <MemoizedAccountSelectorTriggerWithSpotlight
         isFocus={isFocus}
         linkNetworkId={linkNetworkId}
         hideAddress={hideAddress}
+        desktopHeader
       />
-      {renderNetworkSelectorTrigger()}
+      {renderNetworkSelectorTrigger(undefined, true)}
       {showAccountInfo && !isNonBackedUpWallet ? (
         <AccountSelectorActiveAccountHome
           num={0}
@@ -203,6 +280,7 @@ export function WalletConnectionGroup({
           showCopyButton={tabRoute === ETabRoutes.Home}
           showCreateAddressButton={false}
           showNoAddressTip={false}
+          desktopHeader
         />
       ) : null}
     </XStack>

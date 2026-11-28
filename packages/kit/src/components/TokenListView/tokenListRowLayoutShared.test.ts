@@ -53,12 +53,12 @@ describe('getTokenListSlotInsetCompensation', () => {
 });
 
 describe('getTokenTableColumnWeights', () => {
-  it('reserves a spacer column in front of the swap button', () => {
+  it('gives the swap button an equal column of its own', () => {
     expect(getTokenTableColumnWeights(true)).toEqual({
-      asset: 2,
-      balance: 3,
-      price: 3,
-      swapSpacer: 2,
+      asset: 1,
+      balance: 1,
+      price: 1,
+      swapSpacer: 1,
     });
   });
 

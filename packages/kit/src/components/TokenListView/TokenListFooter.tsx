@@ -1,29 +1,26 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   Icon,
-  IconButton,
-  Popover,
   SizableText,
   Stack,
   XStack,
-  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
@@ -31,9 +28,7 @@ import {
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useListStructureAtom,
@@ -49,8 +44,10 @@ import {
   subcell,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
 import { useTokenFiatSubtotal } from '../../states/jotai/contexts/tokenList/cells/useTokenFiatSubtotal';
+import { convertFiat } from '../../utils/fiatConvert';
 import { Currency } from '../Currency';
 
+import { TokenListFooterRows } from './TokenListFooterRows';
 import { getTokenListFooterLayout } from './tokenListRowLayout';
 import { getTokenListFooterLeading } from './tokenListRowLayoutShared';
 import { useTokenListViewContext } from './TokenListViewContext';
@@ -218,6 +215,20 @@ function TokenListFooter(props: IProps) {
     filteredSmallBalanceTokens === smallBalanceTokens
       ? smallBalanceTokensFiatValue
       : filteredSmallBalanceFiatValue;
+  // Beside the label, "< $0.01" reads as the folding rule rather than a total,
+  // so a total that small is left out. Hidden balances keep their mask.
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const showSmallBalanceTotal =
+    hideValue ||
+    new BigNumber(
+      convertFiat({
+        value: displayedSmallBalanceFiatValue ?? 0,
+        sourceCurrency: 'usd',
+        targetCurrency: currencyInfo?.id ?? 'usd',
+        currencyMap,
+      }),
+    ).gte(0.01);
 
   const filteredRiskyTokens = useMemo(() => {
     if (riskyOwnerKey !== currentOwnerKey) {
@@ -382,65 +393,49 @@ function TokenListFooter(props: IProps) {
     });
   }, [account, network, wallet, navigation, indexedAccount?.id, deriveType]);
 
-  const { result: blockedTokensLength, run } = usePromiseResult(
-    async () => {
-      if (!network) return filteredRiskyTokens?.length ?? 0;
-
-      const [unblockedTokensMap, blockedTokensMap, customTokens] =
-        await Promise.all([
-          backgroundApiProxy.serviceToken.getUnblockedTokensMap({
-            networkId: network.id,
-          }),
-          backgroundApiProxy.serviceToken.getBlockedTokensMap({
-            networkId: network.id,
-          }),
-          backgroundApiProxy.serviceCustomToken.getAllCustomTokens(),
-        ]);
-
-      const customTokensMap = mapValues(
-        groupBy(customTokens, 'networkId'),
-        (tokenArray) => keyBy(tokenArray, 'address'),
-      );
-
-      const blockedTokens = [];
-
-      for (const token of filteredRiskyTokens) {
-        const tokenNetworkId = token.networkId ?? network.id;
-
-        if (
-          blockedTokensMap?.[tokenNetworkId]?.[token.address] ||
-          (!unblockedTokensMap?.[tokenNetworkId]?.[token.address] &&
-            !customTokensMap?.[tokenNetworkId]?.[token.address])
-        ) {
-          blockedTokens.push({
-            ...token,
-            isBlocked: true,
-          });
-        }
-      }
-
-      return blockedTokens.length;
-    },
-    [network, filteredRiskyTokens],
-    {
-      initResult: 0,
-    },
-  );
-
-  useEffect(() => {
-    const refresh = () => {
-      void run();
-    };
-
-    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
-    return () => {
-      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
-    };
-  }, [run]);
-
   const footerLayout = getTokenListFooterLayout({ tableLayout, plainMode });
   const { gtMd } = useMedia();
   const footerLeading = getTokenListFooterLeading(gtMd);
+
+  // Home list: low-value, risky and add-token rows follow the token rows
+  // directly (native tablets keep the list items below).
+  if (plainMode && !(tableLayout && platformEnv.isNative)) {
+    const showLowValue = !isSearchMode && filteredSmallBalanceTokens.length > 0;
+    const showRisky = !isSearchMode && filteredRiskyTokens.length > 0;
+    const showAddToken = !!hasTokens && !!manageTokenEnabled;
+    if (!showLowValue && !showRisky && !showAddToken) {
+      return null;
+    }
+    return (
+      <Stack mx={footerLayout.mx}>
+        <TokenListFooterRows
+          layout={tableLayout ? 'table' : 'list'}
+          lowValue={
+            showLowValue
+              ? {
+                  tokens: filteredSmallBalanceTokens,
+                  count: filteredSmallBalanceTokens.length,
+                  total: displayedSmallBalanceFiatValue,
+                  showTotal: showSmallBalanceTotal,
+                  onPress: handleOnPressLowValueTokens,
+                }
+              : undefined
+          }
+          risky={
+            showRisky
+              ? {
+                  count: filteredRiskyTokens.length,
+                  onPress: handleOnPressRiskyTokens,
+                }
+              : undefined
+          }
+          addToken={
+            showAddToken ? { onPress: handleOnPressManageTokens } : undefined
+          }
+        />
+      </Stack>
+    );
+  }
 
   return (
     <Stack mx={footerLayout.mx}>
@@ -474,48 +469,15 @@ function TokenListFooter(props: IProps) {
             <ListItem.Text
               flexShrink={1}
               minWidth={0}
-              primary={`${
-                filteredSmallBalanceTokens.length
-              } ${intl.formatMessage({
-                id: ETranslations.low_value_assets,
-              })}`}
+              primary={intl.formatMessage(
+                { id: ETranslations.low_value_assets_count__title },
+                { number: filteredSmallBalanceTokens.length },
+              )}
               primaryTextProps={{
                 numberOfLines: 1,
                 ...(tableLayout && { size: '$bodyMdMedium' }),
               }}
             />
-            {tableLayout ? (
-              <Popover
-                placement="top-start"
-                title={intl.formatMessage({
-                  id: ETranslations.low_value_assets,
-                })}
-                renderTrigger={
-                  <IconButton
-                    testID="token-list-footer-help-btn"
-                    size="small"
-                    variant="tertiary"
-                    icon="QuestionmarkOutline"
-                  />
-                }
-                renderContent={
-                  <YStack p="$5" gap="$2">
-                    {helpText.map((text, index) => (
-                      <XStack key={index} gap="$2">
-                        <Stack
-                          w="$1.5"
-                          h="$1.5"
-                          bg="$textSubdued"
-                          borderRadius="$full"
-                          mt="$2"
-                        />
-                        <SizableText size="$bodyMd">{text}</SizableText>
-                      </XStack>
-                    ))}
-                  </YStack>
-                }
-              />
-            ) : null}
           </XStack>
           <XStack
             flexGrow={1}
@@ -558,10 +520,8 @@ function TokenListFooter(props: IProps) {
             </Stack>
             <ListItem.Text
               primary={intl.formatMessage(
-                {
-                  id: ETranslations.wallet_collapsed_risk_assets_number,
-                },
-                { number: blockedTokensLength },
+                { id: ETranslations.risk_assets_count__title },
+                { number: filteredRiskyTokens.length },
               )}
               {...(tableLayout && {
                 primaryTextProps: { size: '$bodyMdMedium' },

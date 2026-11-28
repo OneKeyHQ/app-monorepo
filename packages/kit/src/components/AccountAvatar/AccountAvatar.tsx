@@ -36,6 +36,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -95,7 +96,24 @@ export interface IAccountAvatarProps extends Omit<IImageProps, 'loading'> {
    * must be explicitly enabled.
    */
   enableEnterAnimation?: boolean;
+  /**
+   * Web desktop header: a 16 wallet badge kept inside the trigger, cut out of
+   * the avatar instead of sitting on a white plate that shows on hover.
+   */
+  compactWalletBadge?: boolean;
 }
+
+// The 16 badge's corner (rounded 4) cut out of the 24 avatar, so the trigger's
+// hover background shows around it instead of a white edge.
+const COMPACT_WALLET_BADGE_MASK = `url("data:image/svg+xml,${encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill-rule='evenodd' d='M0 0h24v24H0z M16 10h8v14H12V14a4 4 0 0 1 4-4z'/></svg>",
+)}")`;
+const COMPACT_WALLET_BADGE_MASK_STYLE = {
+  maskImage: COMPACT_WALLET_BADGE_MASK,
+  WebkitMaskImage: COMPACT_WALLET_BADGE_MASK,
+  maskSize: '100% 100%',
+  WebkitMaskSize: '100% 100%',
+};
 
 const getBlockieImageId = (id?: string) => {
   if (!id) {
@@ -151,6 +169,7 @@ function BasicAccountAvatar({
   networkId,
   wallet,
   enableEnterAnimation = false,
+  compactWalletBadge = false,
   ...restProps
 }: IAccountAvatarProps) {
   const isValidSize = !!VARIANT_SIZE[size as IKeyOfVariantSize];
@@ -383,30 +402,52 @@ function BasicAccountAvatar({
       justifyContent="center"
       alignItems="center"
     >
-      {isValidElement(uriSource) ? (
-        uriSource
-      ) : (
-        <Animated.View
-          style={[{ width: '100%', height: '100%' }, animatedStyle]}
-        >
-          <Image
-            size={containerSize}
-            source={uriSource as IImageProps['source']}
-            style={
-              {
-                borderCurve: 'continuous',
-              } as ImageStyle
-            }
-            bg="$bgStrong"
-            borderRadius={size === 'small' ? '$1' : '$2'}
-            {...restProps}
-            placeholder={renderLoading}
-            fallback={renderFallback}
-          />
-        </Animated.View>
-      )}
+      <Stack
+        w="100%"
+        h="100%"
+        style={
+          compactWalletBadge && wallet && !platformEnv.isNative
+            ? COMPACT_WALLET_BADGE_MASK_STYLE
+            : undefined
+        }
+      >
+        {isValidElement(uriSource) ? (
+          uriSource
+        ) : (
+          <Animated.View
+            style={[{ width: '100%', height: '100%' }, animatedStyle]}
+          >
+            <Image
+              size={containerSize}
+              source={uriSource as IImageProps['source']}
+              style={
+                {
+                  borderCurve: 'continuous',
+                } as ImageStyle
+              }
+              bg="$bgStrong"
+              borderRadius={size === 'small' ? '$1' : '$2'}
+              {...restProps}
+              placeholder={renderLoading}
+              fallback={renderFallback}
+            />
+          </Animated.View>
+        )}
+      </Stack>
 
-      {wallet ? (
+      {wallet && compactWalletBadge ? (
+        <Stack
+          position="absolute"
+          height="$4"
+          width="$4"
+          bottom="$-0.5"
+          right="$-1"
+          zIndex="$1"
+        >
+          <WalletAvatar wallet={wallet} size="$4" />
+        </Stack>
+      ) : null}
+      {wallet && !compactWalletBadge ? (
         <Stack
           position="absolute"
           justifyContent="center"

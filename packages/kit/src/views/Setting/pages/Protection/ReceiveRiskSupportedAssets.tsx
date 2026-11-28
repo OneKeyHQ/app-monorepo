@@ -117,6 +117,7 @@ function NetworkAssetSection({
                 <Token
                   size="md"
                   tokenImageUri={token.tokenImageUri}
+                  symbol={token.symbol}
                   bg="$transparent"
                 />
               }

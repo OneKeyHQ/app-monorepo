@@ -54,7 +54,11 @@ function AssetRow({
       borderRadius="$2"
     >
       <XStack flex={1} alignItems="center" gap="$2.5">
-        <Token size="sm" tokenImageUri={item.info.logoURI} />
+        <Token
+          size="sm"
+          tokenImageUri={item.info.logoURI}
+          symbol={item.info.symbol}
+        />
         <SizableText size="$bodyMdMedium" numberOfLines={1}>
           {item.info.symbol}
         </SizableText>

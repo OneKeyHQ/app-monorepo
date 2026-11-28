@@ -46,7 +46,11 @@ const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
       <XStack alignItems="center" pr="$2">
-        <Token size="lg" tokenImageUri={data.token.logoURI} />
+        <Token
+          size="lg"
+          tokenImageUri={data.token.logoURI}
+          symbol={data.token.symbol}
+        />
         <SizableText ml="$3" size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_send })}
         </SizableText>
@@ -77,7 +81,11 @@ const ApproveTransactionItem = ({
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
       <XStack alignItems="center" pr="$2">
-        <Token size="lg" tokenImageUri={data.token.logoURI} />
+        <Token
+          size="lg"
+          tokenImageUri={data.token.logoURI}
+          symbol={data.token.symbol}
+        />
         <SizableText ml="$3" size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_approve })}
         </SizableText>
@@ -119,7 +127,11 @@ const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => {
           mr="$3"
         >
           <Stack position="absolute" left="$0" top="$0">
-            <Token size="sm" tokenImageUri={data.fromToken.logoURI} />
+            <Token
+              size="sm"
+              tokenImageUri={data.fromToken.logoURI}
+              symbol={data.fromToken.symbol}
+            />
           </Stack>
           <Stack
             borderWidth={2}
@@ -127,7 +139,11 @@ const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => {
             borderRadius="$full"
             zIndex={1}
           >
-            <Token size="sm" tokenImageUri={data.toToken.logoURI} />
+            <Token
+              size="sm"
+              tokenImageUri={data.toToken.logoURI}
+              symbol={data.toToken.symbol}
+            />
           </Stack>
         </Stack>
         <SizableText size="$bodyLgMedium">
@@ -177,6 +193,7 @@ const EarnLidoTransactionItem = ({ data }: { data: IEarnTransactionData }) => {
           tokenImageUri={
             primary?.data?.token.logoURI ?? secondary?.data?.token.logoURI
           }
+          symbol={primary?.data?.token.symbol ?? secondary?.data?.token.symbol}
         />
         <SizableText ml="$3" size="$bodyLgMedium">
           {labelFn(data.label)}

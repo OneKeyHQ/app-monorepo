@@ -108,7 +108,7 @@ const ReserveDetailsPage = () => {
   const headerTitle = useCallback(
     () => (
       <XStack gap="$2" alignItems="center">
-        <Token size="sm" tokenImageUri={logoURI} />
+        <Token size="sm" tokenImageUri={logoURI} symbol={symbol} />
         <SizableText size="$headingLg" numberOfLines={1}>
           {symbol}
         </SizableText>

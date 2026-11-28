@@ -52,7 +52,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { getActiveWalletLocalSecretEnvelopeCredentialId } from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
 import { WalletLocalSecretEnvelopeStatus } from '../../../components/AccountSelector/WalletLocalSecretEnvelopeStatus';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
-import { HERO_BALANCE_FIT_PROPS } from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
+import {
+  HERO_BALANCE_FIT_PROPS,
+  useHeroBalanceRowFit,
+} from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
@@ -104,8 +107,14 @@ function isHomeOverviewRefreshTab(
   return HOME_OVERVIEW_REFRESH_TABS.includes(type as IHomeOverviewRefreshTab);
 }
 
-function HomeOverviewContainer() {
+function HomeOverviewContainer({
+  inBalanceRow = false,
+}: {
+  // Wide web: the total shares its row with the actions.
+  inBalanceRow?: boolean;
+}) {
   const num = 0;
+  const balanceFit = useHeroBalanceRowFit(inBalanceRow);
   const { activeAccount } = useActiveAccount({ num });
   const { account, network, wallet, deriveInfoItems, vaultSettings } =
     activeAccount;
@@ -651,13 +660,14 @@ function HomeOverviewContainer() {
       <IconButton
         icon="RefreshCcwOutline"
         variant="tertiary"
+        aria-label={intl.formatMessage({ id: ETranslations.global_refresh })}
         loading={isLoading}
         onPress={handleRefreshWorth}
         testID="wallet-refresh-manually"
         trackID="wallet-refresh-manually"
       />
     );
-  }, [handleRefreshWorth, isLoading, isWalletNotBackedUp]);
+  }, [handleRefreshWorth, intl, isLoading, isWalletNotBackedUp]);
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();
@@ -667,6 +677,18 @@ function HomeOverviewContainer() {
       hideValue: !settingsValue.hideValue,
     });
   }, []);
+
+  // Web: pressing the balance hides it, so it is a real button for the
+  // keyboard too; the amount it shows stays its spoken name.
+  const handleBalanceKeyDown = useCallback(
+    (event: { key: string; preventDefault: () => void }) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        void handleBalanceOnPress();
+      }
+    },
+    [handleBalanceOnPress],
+  );
 
   const handleBalanceDetailsOnPress = useCallback(() => {
     if (balanceDialogInstance?.current) {
@@ -1337,6 +1359,12 @@ function HomeOverviewContainer() {
                 outlineStyle: 'solid',
               }}
               onPress={handleBalanceOnPress}
+              {...(!platformEnv.isNative && {
+                role: 'button',
+                tabIndex: 0,
+                onKeyDown: handleBalanceKeyDown,
+              })}
+              ref={balanceFit.ref}
               testID={HomeTestIDs.totalBalance}
             >
               <NumberSizeableTextWrapper
@@ -1344,7 +1372,7 @@ function HomeOverviewContainer() {
                 splitDecimal
                 flexShrink={1}
                 minWidth={0}
-                fontSize={48}
+                fontSize={balanceFit.fontSize}
                 lineHeight={48}
                 fontWeight={500}
                 // Large hero balance reads better with the font's natural

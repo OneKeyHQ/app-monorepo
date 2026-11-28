@@ -15,6 +15,7 @@ export const HomeTestIDs = {
   tabDefi: 'home-tab-defi',
   tabNFT: 'home-tab-nft',
   tabHistory: 'home-tab-history',
+  spotFilterButton: 'home-media-icon-btn', // preserve existing
   perpsManageButton: 'home-perps-manage-button',
   perpsDepositButton: 'home-perps-deposit-button',
   perpsDesktopDepositButton: 'home-perps-desktop-deposit-button',

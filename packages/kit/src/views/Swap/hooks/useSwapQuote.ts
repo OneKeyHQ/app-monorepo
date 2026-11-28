@@ -105,10 +105,12 @@ export function isSwapQuoteTabEffectivelyVisible({
  * This hook coordinates state and side effects related to swap quote retrieval, token and amount changes, slippage settings, and user interactions. It integrates with Jotai atoms, event bus listeners, and debounced input handling to ensure accurate and efficient quote updates. The hook also manages cleanup and event subscriptions based on tab focus and modal state.
  */
 export function useSwapQuote({
-  isMarketEmbeddedSwap = false,
+  isEmbeddedSwap = false,
   storeName = EJotaiContextStoreNames.swap,
 }: {
-  isMarketEmbeddedSwap?: boolean;
+  // A form embedded in another page (Market's, the desktop home's trade
+  // column) quotes while that page is in view, not while the Trade tab is.
+  isEmbeddedSwap?: boolean;
   storeName?: EJotaiContextStoreNames;
 } = {}) {
   const {
@@ -265,7 +267,7 @@ export function useSwapQuote({
   const [appIsLocked] = useAppIsLockedAtom();
   const isFocused = isRouteFocused && !appIsLocked;
   const isModalPage = useIsOverlayPage();
-  const shouldUseRouteQuoteLifecycle = isModalPage || isMarketEmbeddedSwap;
+  const shouldUseRouteQuoteLifecycle = isModalPage || isEmbeddedSwap;
   const isTabVisibleRef = useRef(isRouteFocused);
   const isProviderSelectRouteActive = useCallback(
     () => isSwapProviderSelectRouteActive(storeName),

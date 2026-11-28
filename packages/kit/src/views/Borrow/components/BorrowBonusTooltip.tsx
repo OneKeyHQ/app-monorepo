@@ -243,7 +243,11 @@ export const BorrowBonusTooltip = ({
                     children: (
                       <>
                         <XStack ai="center" gap="$2.5">
-                          <Token size="sm" tokenImageUri={item.token.logoURI} />
+                          <Token
+                            size="sm"
+                            tokenImageUri={item.token.logoURI}
+                            symbol={item.token.symbol}
+                          />
                           <EarnText
                             size="$bodyMdMedium"
                             color="$text"
@@ -280,7 +284,11 @@ export const BorrowBonusTooltip = ({
                     children: (
                       <>
                         <XStack ai="center" gap="$2.5">
-                          <Token size="sm" tokenImageUri={item.token.logoURI} />
+                          <Token
+                            size="sm"
+                            tokenImageUri={item.token.logoURI}
+                            symbol={item.token.symbol}
+                          />
                           <EarnText
                             size="$bodyMdMedium"
                             color="$text"

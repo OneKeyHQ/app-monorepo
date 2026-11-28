@@ -28,6 +28,7 @@ function BulkSendReviewGrandSummary() {
         <Token
           size="sm"
           tokenImageUri={tokenInfo.logoURI}
+          symbol={tokenInfo.symbol}
           networkImageUri={networkImageUri}
         />
         <NumberSizeableText

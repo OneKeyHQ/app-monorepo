@@ -113,6 +113,7 @@ function AssetSelectorTrigger({
     return (
       <Token
         tokenImageUri={selectedToken?.logoURI}
+        symbol={selectedToken?.symbol}
         networkImageUri={
           seededNetworkForDisplay?.isCustomNetwork
             ? undefined
@@ -126,6 +127,7 @@ function AssetSelectorTrigger({
   }, [
     displayNetworkId,
     selectedToken?.logoURI,
+    selectedToken?.symbol,
     seededNetworkForDisplay?.isCustomNetwork,
     seededNetworkForDisplay?.logoURI,
     showSeedSkeleton,
