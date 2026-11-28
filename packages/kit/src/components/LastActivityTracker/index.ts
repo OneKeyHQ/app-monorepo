@@ -12,6 +12,7 @@ import {
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
+import { markSkanAppOpened } from '@onekeyhq/shared/src/modules/SkanConversion';
 import { initPosthog } from '@onekeyhq/shared/src/modules3rdParty/posthog';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -116,6 +117,20 @@ const LastActivityTracker = () => {
     const timer = setTimeout(refresh, LAST_ACTIVITY_TRACKER_START_DELAY_MS);
     return () => clearTimeout(timer);
   }, [refresh]);
+
+  // SKAdNetwork 4 counts only updates made inside each conversion window, and
+  // a user may resume the app for days without a cold launch.
+  useEffect(() => {
+    if (AppState.currentState === 'active') {
+      void markSkanAppOpened();
+    }
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void markSkanAppOpened();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   // idle event trigger
   useEffect(() => {
