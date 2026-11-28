@@ -13,7 +13,10 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IPageNavigationProp,
+} from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
@@ -27,6 +30,7 @@ import {
   Toast,
   XStack,
   YStack,
+  runAfterActionListClose,
   useClipboard,
   useMedia,
   useSafeAreaInsets,
@@ -52,6 +56,7 @@ import {
   useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { StockSourceLogo } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
@@ -69,7 +74,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
@@ -178,6 +182,26 @@ const EMPTY_STOCK_METADATA_REQUEST: IStockMetadataRequest = {
   tokenKey: '',
 };
 const TOKEN_SELECTOR_LOADING_ROW_COUNT = 5;
+
+function createOpenContractAction({
+  networkId,
+  contractAddress,
+}: Pick<ISwapToken, 'networkId' | 'contractAddress'>): NonNullable<
+  IActionListItemProps['onPress']
+> {
+  const openContract = () =>
+    openTokenDetailsUrl({
+      networkId,
+      tokenAddress: contractAddress,
+      openInExternal: true,
+    });
+
+  if (platformEnv.isNative) {
+    return (close) =>
+      runAfterActionListClose(close, openContract, { waitForAnimation: false });
+  }
+  return openContract;
+}
 
 function buildStockMetadataRequest({
   excludedTokenKeys,
@@ -1134,17 +1158,7 @@ const SwapTokenSelectPage = ({
                       label: intl.formatMessage({
                         id: ETranslations.swap_token_selector_contract_info,
                       }),
-                      onPress: async () => {
-                        const url =
-                          await backgroundApiProxy.serviceExplorer.buildExplorerUrl(
-                            {
-                              networkId: rawItem.networkId,
-                              type: 'token',
-                              param: rawItem.contractAddress,
-                            },
-                          );
-                        openUrlExternal(url);
-                      },
+                      onPress: createOpenContractAction(rawItem),
                       disabled: rawItem.isNative,
                     },
                   ]}
@@ -1301,15 +1315,7 @@ const SwapTokenSelectPage = ({
               label: intl.formatMessage({
                 id: ETranslations.swap_token_selector_contract_info,
               }),
-              onPress: async () => {
-                const url =
-                  await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
-                    networkId: token.networkId,
-                    type: 'token',
-                    param: token.contractAddress,
-                  });
-                openUrlExternal(url);
-              },
+              onPress: createOpenContractAction(token),
             },
           ],
         });
