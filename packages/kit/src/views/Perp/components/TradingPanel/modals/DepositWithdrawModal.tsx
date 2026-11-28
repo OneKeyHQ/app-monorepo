@@ -103,8 +103,8 @@ import { getPerpDepositErrorCode } from '../../../utils/perpDepositAnalytics';
 import { resolvePerpsDepositReceiveAccountId } from '../../../utils/perpsDepositReceiveAccount';
 import { preloadPerpsDepositSelectTokenModal } from '../../../utils/preloadPerpsDepositSelectTokenModal';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../../PerpDialogLayout';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -359,6 +359,7 @@ function DepositWithdrawContent({
   hideDesktopTitle,
 }: IDepositWithdrawContentProps) {
   const intl = useIntl();
+  const dialogButtonSize = usePerpDialogButtonSize();
   const { gtMd } = useMedia();
   const selectedAction = params.actionType;
   const [computedValue] = usePerpsComputedAccountValueAtom();
@@ -2542,7 +2543,7 @@ function DepositWithdrawContent({
               <Button
                 testID="perp-btn-buy"
                 variant="primary"
-                size={PERP_DIALOG_BUTTON_SIZE}
+                size={dialogButtonSize}
                 icon="PlusLargeOutline"
                 onPress={handleBuyPress}
               >
@@ -2552,7 +2553,7 @@ function DepositWithdrawContent({
               <Button
                 testID="perp-btn"
                 variant="primary"
-                size={PERP_DIALOG_BUTTON_SIZE}
+                size={dialogButtonSize}
                 disabled={
                   !isValidAmount ||
                   isSubmitting ||
@@ -2693,7 +2694,7 @@ function DepositWithdrawContent({
             <Button
               testID="perp-btn"
               variant="primary"
-              size={PERP_DIALOG_BUTTON_SIZE}
+              size={dialogButtonSize}
               disabled={withdrawSubmitDisabled}
               loading={isSubmitting}
               onPress={handleConfirm}

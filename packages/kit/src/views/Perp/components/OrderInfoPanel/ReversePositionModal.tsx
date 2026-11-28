@@ -40,7 +40,7 @@ import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
 import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
 import { getTradingSideTextColor } from '../../utils/styleUtils';
-import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
+import { usePerpDialogButtonSize } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 import {
@@ -67,6 +67,7 @@ export function ReversePositionContent({
   onSubmittingChange?: (isSubmitting: boolean) => void;
 }) {
   const intl = useIntl();
+  const dialogButtonSize = usePerpDialogButtonSize();
   const actions = useHyperliquidActions();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const [activeAccount] = usePerpsActiveAccountAtom();
@@ -522,12 +523,12 @@ export function ReversePositionContent({
       ) : null}
       <YStack>
         <TradingGuardWrapper
-          buttonSize={PERP_DIALOG_BUTTON_SIZE}
+          buttonSize={dialogButtonSize}
           disabled={!isScopeValid || isSubmitting}
         >
           <Button
             testID={PerpTestIDs.ReversePositionConfirmButton}
-            size={PERP_DIALOG_BUTTON_SIZE}
+            size={dialogButtonSize}
             variant={isBuy ? 'accent' : 'destructive'}
             disabled={!symbolMeta || !size || !isScopeValid || isSubmitting}
             loading={isSubmitting}

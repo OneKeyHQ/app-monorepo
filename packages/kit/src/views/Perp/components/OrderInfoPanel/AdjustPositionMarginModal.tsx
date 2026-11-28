@@ -29,8 +29,8 @@ import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccoun
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../PerpDialogLayout';
 import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
@@ -51,6 +51,7 @@ type IMarginAction = 'add' | 'remove';
 const AdjustPositionMarginForm = memo(
   ({ coin, onClose = () => {} }: IAdjustPositionMarginFormProps) => {
     const intl = useIntl();
+    const dialogButtonSize = usePerpDialogButtonSize();
     const hyperliquidActions = useHyperliquidActions();
     const activePositions = usePerpsAccountScopedActivePositions();
     const [computedValue] = usePerpsComputedAccountValueAtom();
@@ -336,10 +337,10 @@ const AdjustPositionMarginForm = memo(
           </YStack>
         </YStack>
 
-        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+        <TradingGuardWrapper buttonSize={dialogButtonSize}>
           <Button
             testID="perp-btn"
-            size={PERP_DIALOG_BUTTON_SIZE}
+            size={dialogButtonSize}
             variant="primary"
             onPress={handleSubmit}
             disabled={!isValidAmount || isSubmitting}
