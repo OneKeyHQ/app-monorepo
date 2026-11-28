@@ -11,7 +11,6 @@ import {
   formatPrivacyChainSyncError,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isLocalWalletScanStopped } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type { ILocalWalletSendReadiness } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PRIVACY_CHAIN_SYNC_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
@@ -23,7 +22,7 @@ export function getLocalWalletSendSyncStatusText({
   intl,
 }: {
   readiness: ILocalWalletSendReadiness | undefined;
-  intl: Pick<IntlShape, 'formatMessage'>;
+  intl: Pick<IntlShape, 'formatMessage' | 'formatNumber'>;
 }): string | undefined {
   if (readiness?.canSend !== false) return undefined;
   const { status } = readiness;
@@ -32,25 +31,38 @@ export function getLocalWalletSendSyncStatusText({
       id: ETranslations.privacy_error_webview_outdated__msg,
     });
   }
-  if (status && isLocalWalletScanStopped(status)) {
+  if (status === 'off') {
     return intl.formatMessage({
-      id: ETranslations.privacy_send_private_paused__msg,
+      id: ETranslations.privacy_enable__title,
     });
   }
-  if (status === 'waitingWifi') {
+  if (
+    status &&
+    [
+      'accountPaused',
+      'chainPaused',
+      'unavailable',
+      'enabling',
+      'preparing',
+      'waitingWifi',
+    ].includes(status)
+  ) {
     return intl.formatMessage({
-      id: PRIVACY_CHAIN_SYNC_STATUS_LABELS.waitingWifi,
+      id: PRIVACY_CHAIN_SYNC_STATUS_LABELS[status],
     });
   }
   const errorText = formatPrivacyChainSyncError(readiness.syncError, intl);
   if (errorText) return errorText;
-  // Published progress already at the tip while the requested pass runs.
-  if (readiness.blocksLeft === 0) {
+  if (status === 'error') {
+    return intl.formatMessage({ id: ETranslations.global_sync_error });
+  }
+  // Unknown progress and a tip already reached both still wait for the requested pass.
+  if (!readiness.blocksLeft) {
     return intl.formatMessage({ id: ETranslations.global_syncing });
   }
   return intl.formatMessage(
     { id: ETranslations.privacy_send_waiting_sync__msg },
-    { blocks: readiness.blocksLeft ?? '—' },
+    { blocks: intl.formatNumber(readiness.blocksLeft) },
   );
 }
 

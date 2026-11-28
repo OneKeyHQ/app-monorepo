@@ -47,6 +47,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
 });
 jest.mock('react-intl', () => ({
   useIntl: () => ({
+    formatNumber: (value: number) => String(value),
     formatMessage: (
       { id }: { id: string },
       values?: Record<string, string | number>,
@@ -75,6 +76,7 @@ import {
 } from './useLocalWalletSendReadiness';
 
 const intl = {
+  formatNumber: (value: number) => new Intl.NumberFormat('en-US').format(value),
   formatMessage: (
     { id }: { id: string },
     values?: Record<string, string | number>,
@@ -110,13 +112,20 @@ describe('send sync status text', () => {
   it('explains why a send is waiting', () => {
     const text = (readiness: ILocalWalletSendReadiness) =>
       getLocalWalletSendSyncStatusText({ readiness, intl });
-    for (const status of [
-      'accountPaused',
-      'chainPaused',
-      'unavailable',
-    ] as const) {
+    for (const status of ['accountPaused', 'chainPaused'] as const) {
       expect(text({ blocksLeft: 5, canSend: false, status })).toBe(
-        ETranslations.privacy_send_private_paused__msg,
+        ETranslations.syncing_paused__title,
+      );
+    }
+    expect(text({ blocksLeft: null, canSend: false, status: 'off' })).toBe(
+      ETranslations.privacy_enable__title,
+    );
+    expect(
+      text({ blocksLeft: null, canSend: false, status: 'unavailable' }),
+    ).toBe(ETranslations.global_not_available);
+    for (const status of ['enabling', 'preparing'] as const) {
+      expect(text({ blocksLeft: null, canSend: false, status })).toBe(
+        ETranslations.global_preparing,
       );
     }
     expect(
@@ -132,10 +141,16 @@ describe('send sync status text', () => {
       ETranslations.global_syncing,
     );
     expect(text({ blocksLeft: 120, canSend: false })).toBe(
-      `${ETranslations.privacy_send_waiting_sync__msg}:{"blocks":120}`,
+      `${ETranslations.privacy_send_waiting_sync__msg}:{"blocks":"120"}`,
     );
     expect(text({ blocksLeft: null, canSend: false })).toBe(
-      `${ETranslations.privacy_send_waiting_sync__msg}:{"blocks":"—"}`,
+      ETranslations.global_syncing,
+    );
+    expect(text({ blocksLeft: 123_456, canSend: false })).toBe(
+      `${ETranslations.privacy_send_waiting_sync__msg}:{"blocks":"123,456"}`,
+    );
+    expect(text({ blocksLeft: null, canSend: false, status: 'error' })).toBe(
+      ETranslations.global_sync_error,
     );
   });
 });
@@ -181,7 +196,7 @@ describe('useLocalWalletSendReadiness', () => {
     rerender({ ...props });
     expect(result.current.isWaitingForSync).toBe(true);
     expect(result.current.statusText).toBe(
-      `${ETranslations.privacy_send_waiting_sync__msg}:{"blocks":3}`,
+      `${ETranslations.privacy_send_waiting_sync__msg}:{"blocks":"3"}`,
     );
 
     mockSnapshot.result = { scope, readiness: undefined };
