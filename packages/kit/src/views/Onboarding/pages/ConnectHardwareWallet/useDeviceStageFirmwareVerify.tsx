@@ -58,6 +58,19 @@ const SILENT_CODES = new Set<unknown>([
   HardwareErrorCode.BleUnavailableWhileUsbConnected,
 ]);
 
+/** The silent codes that are the person refusing on the device (the
+ * genuine-check confirm or the PIN prompt). The run stops the same way,
+ * but the refusal is reported so a caller can answer with the same
+ * interrupted prompt the connect flow shows.
+ *
+ * CallQueueActionCancelled is deliberately absent: it is our own cancel
+ * (the app closing the stage), not the person refusing on the device —
+ * see SILENT_CANCEL_CODES comment in DeviceStageBurst.ts. */
+const DEVICE_CANCEL_CODES = new Set<unknown>([
+  HardwareErrorCode.ActionCancelled,
+  HardwareErrorCode.PinCancelled,
+]);
+
 export type IDeviceStageFirmwareVerifyParams = {
   device: SearchDevice | IDBDevice;
   features: IOneKeyDeviceFeatures | undefined;
@@ -70,6 +83,10 @@ export type IDeviceStageFirmwareVerifyResult = {
   checked: boolean;
   /** The run ended without a verdict — cancelled, or the flow moved on. */
   closed?: boolean;
+  /** Closed by the person refusing on the device (the genuine-check
+   * confirm or the PIN prompt) before any verdict — callers may surface
+   * the same interrupted prompt the connect flow shows. */
+  cancelledByDevice?: boolean;
 };
 
 function rowsAtCertificate({
@@ -210,10 +227,11 @@ export function useDeviceStageFirmwareVerify() {
           );
 
         // One run of the check. `failed` leaves a card standing and waits
-        // for its exit; `aborted` means the run ended with no card at all
-        // (cancelled, forced firmware update, a failure a dedicated dialog
-        // owns) and nothing is waiting.
-        type IRunOutcome = 'verified' | 'failed' | 'aborted';
+        // for its exit; `cancelled` is the person's refusal on the device;
+        // `aborted` means the run ended with no card at all (a forced
+        // firmware update, a failure a dedicated dialog owns) and nothing
+        // is waiting.
+        type IRunOutcome = 'verified' | 'failed' | 'aborted' | 'cancelled';
         const runOnce = async (): Promise<IRunOutcome> => {
           // The device asks for a confirmation first; the wait begins when
           // it is given (the bg announces that moment).
@@ -288,6 +306,9 @@ export function useDeviceStageFirmwareVerify() {
             return 'verified';
           } catch (error) {
             const err = error as IOneKeyError;
+            if (DEVICE_CANCEL_CODES.has(err?.code)) {
+              return 'cancelled';
+            }
             if (SILENT_CODES.has(err?.code)) {
               return 'aborted';
             }
@@ -368,6 +389,9 @@ export function useDeviceStageFirmwareVerify() {
           const outcome = await runOnce();
           if (outcome === 'verified') {
             return { checked: true };
+          }
+          if (outcome === 'cancelled') {
+            return { checked: false, closed: true, cancelledByDevice: true };
           }
           if (outcome === 'aborted') {
             return { checked: false, closed: true };

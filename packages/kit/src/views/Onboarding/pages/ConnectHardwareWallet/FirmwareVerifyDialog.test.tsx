@@ -135,7 +135,11 @@ jest.mock('@onekeyhq/shared/src/hardware/deviceStageOwnership', () => ({
 const mockRunDeviceStageFirmwareVerify = jest.fn(
   async (
     _params: unknown,
-  ): Promise<{ checked: boolean; closed?: boolean }> => ({
+  ): Promise<{
+    checked: boolean;
+    closed?: boolean;
+    cancelledByDevice?: boolean;
+  }> => ({
     checked: true,
   }),
 );
@@ -443,9 +447,27 @@ describe('DeviceStage certificate error classification', () => {
     expect(mockDeviceStageNoteAuthResolved).toHaveBeenCalledTimes(1);
   });
 
-  it.each([HardwareErrorCode.PinInvalid, HardwareErrorCode.ActionCancelled])(
-    'still aborts for error %s even with developer privileges',
-    async (code) => {
+  it.each([
+    {
+      code: HardwareErrorCode.PinInvalid,
+      expected: { checked: false, closed: true },
+    },
+    {
+      code: HardwareErrorCode.ActionCancelled,
+      expected: { checked: false, closed: true, cancelledByDevice: true },
+    },
+    {
+      // CallQueueActionCancelled is app-side (our own cancel), not device-side refusal
+      code: HardwareErrorCode.CallQueueActionCancelled,
+      expected: { checked: false, closed: true },
+    },
+    {
+      code: HardwareErrorCode.PinCancelled,
+      expected: { checked: false, closed: true, cancelledByDevice: true },
+    },
+  ])(
+    'still aborts for error $code even with developer privileges',
+    async ({ code, expected }) => {
       mockIsDev = true;
       mockDeveloperMode = true;
       mockFirmwareAuthenticate.mockRejectedValueOnce({ code });
@@ -459,7 +481,7 @@ describe('DeviceStage certificate error classification', () => {
             } as IDBDevice,
             features: undefined,
           }),
-        ).resolves.toEqual({ checked: false, closed: true });
+        ).resolves.toEqual(expected);
       });
       expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
     },
@@ -937,6 +959,57 @@ describe('useFirmwareVerifyDialog', () => {
       deviceType: 'pro2',
       skipDeviceCancel: true,
     });
+  });
+
+  it('reports a device-side refusal through onDeviceCancel after closing', async () => {
+    mockRunDeviceStageFirmwareVerify.mockResolvedValueOnce({
+      checked: false,
+      closed: true,
+      cancelledByDevice: true,
+    });
+    const onClose = jest.fn();
+    const onDeviceCancel = jest.fn();
+    const { result } = renderHook(() => useFirmwareVerifyDialog());
+
+    await act(async () => {
+      await result.current.showFirmwareVerifyDialog({
+        device: {
+          connectId: 'connect-id',
+          deviceType: 'pro2',
+        } as IDBDevice,
+        features: undefined,
+        onContinue: jest.fn(),
+        onClose,
+        onDeviceCancel,
+      });
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onDeviceCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not report onDeviceCancel for a plain closed run', async () => {
+    mockRunDeviceStageFirmwareVerify.mockResolvedValueOnce({
+      checked: false,
+      closed: true,
+    });
+    const onDeviceCancel = jest.fn();
+    const { result } = renderHook(() => useFirmwareVerifyDialog());
+
+    await act(async () => {
+      await result.current.showFirmwareVerifyDialog({
+        device: {
+          connectId: 'connect-id',
+          deviceType: 'pro2',
+        } as IDBDevice,
+        features: undefined,
+        onContinue: jest.fn(),
+        onClose: jest.fn(),
+        onDeviceCancel,
+      });
+    });
+
+    expect(onDeviceCancel).not.toHaveBeenCalled();
   });
 
   it.each([true, false])(

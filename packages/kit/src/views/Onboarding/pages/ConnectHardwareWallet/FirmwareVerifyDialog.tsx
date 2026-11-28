@@ -1013,6 +1013,7 @@ export function useFirmwareVerifyDialog() {
       onContinue,
       onDevSkipVerificationPress,
       onClose,
+      onDeviceCancel,
       dialogHost = Dialog,
     }: {
       device: SearchDevice | IDBDevice;
@@ -1021,6 +1022,10 @@ export function useFirmwareVerifyDialog() {
       onClose: () => Promise<void> | void;
       onVerified?: (params: { checked: boolean }) => Promise<void> | void;
       onDevSkipVerificationPress?: () => void;
+      /** The run closed because the person refused on the device (the
+       * genuine-check confirm or the PIN prompt) — the place to surface
+       * the same interrupted prompt the connect flow shows. */
+      onDeviceCancel?: () => Promise<void> | void;
       // A page-owned dialog host (useInPageDialog) renders this dialog into the
       // page's own portal instead of the global full-window overlay. On iOS the
       // global overlay stacks children by render order only, so a retry loop
@@ -1117,6 +1122,9 @@ export function useFirmwareVerifyDialog() {
           // not cancel the device, or a dismissal the stage already
           // answered with its own cancel. Either way, do not cancel twice.
           await onCloseFn({ flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG });
+          if (result.cancelledByDevice) {
+            await onDeviceCancel?.();
+          }
           return;
         }
         if (!result.checked) {
