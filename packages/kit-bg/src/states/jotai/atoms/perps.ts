@@ -559,6 +559,14 @@ export const {
     const isForActiveAccount = (address: string | null | undefined) =>
       address?.toLowerCase() === activeAddress;
 
+    const status = get(perpsActiveAccountStatusInfoAtom.atom());
+    if (
+      status?.details.activatedOk === false &&
+      isForActiveAccount(status.accountAddress)
+    ) {
+      return { status: 'ready', mmr: '0', mmrPercent: '0.00' };
+    }
+
     const activeSummary = isForActiveAccount(summary?.accountAddress)
       ? summary
       : undefined;
