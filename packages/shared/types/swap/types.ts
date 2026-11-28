@@ -6,6 +6,7 @@ import type {
   IEncodedTx,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+// oxlint-disable-next-line no-restricted-imports -- legacy upward import; do not add new @onekeyhq/kit imports
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {

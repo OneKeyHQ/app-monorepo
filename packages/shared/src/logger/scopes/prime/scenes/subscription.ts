@@ -1,8 +1,10 @@
 /* cspell:ignore Infini */
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
-import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type {
+  EPrimeFeatures,
+  ISubscriptionPeriod,
+} from '@onekeyhq/shared/src/routes/prime';
 import { sanitizeCaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
 import type { ICaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
 import type {

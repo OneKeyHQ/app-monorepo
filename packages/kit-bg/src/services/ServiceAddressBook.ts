@@ -2,10 +2,6 @@ import { Semaphore } from 'async-mutex';
 
 import { decodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
 import { hash160 } from '@onekeyhq/core/src/secret/hash';
-import type {
-  IAddressItem,
-  IAddressNetworkItem,
-} from '@onekeyhq/kit/src/views/AddressBook/type';
 import {
   backgroundClass,
   backgroundMethod,
@@ -22,6 +18,10 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type {
+  IAddressItem,
+  IAddressNetworkItem,
+} from '@onekeyhq/shared/types/addressBook';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';

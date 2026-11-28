@@ -4,10 +4,7 @@ import { createPortal } from 'react-dom';
 
 import { useThemeName } from '@onekeyhq/components/src/hooks';
 import { Icon } from '@onekeyhq/components/src/primitives';
-import type {
-  IMenu,
-  IMenuItem,
-} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSystem';
+import type { IMenu, IMenuItem } from '@onekeyhq/shared/types/desktop';
 
 const MENU_ICON_STYLE = {
   width: 16,

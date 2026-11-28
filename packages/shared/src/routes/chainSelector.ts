@@ -1,3 +1,4 @@
+// oxlint-disable-next-line no-restricted-imports -- legacy upward import; do not add new @onekeyhq/kit imports
 import type {
   IAccountSelectorAvailableNetworks,
   IAccountSelectorRouteParams,

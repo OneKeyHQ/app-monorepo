@@ -1,8 +1,8 @@
-import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IAddressItem } from '@onekeyhq/shared/types/addressBook';
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 

@@ -1,3 +1,5 @@
+import type { IFuseResultMatch } from '../src/modules3rdParty/fuse';
+
 export interface IDiscoveryHomePageData {
   banners: IDiscoveryBanner[];
   categories: ICategory[];
@@ -142,4 +144,58 @@ export interface IHostSecurity {
       logo: string;
     }[];
   };
+}
+
+export interface IBrowserHistory {
+  id: string;
+  title: string;
+  url: string;
+  createdAt: number;
+  logo?: string;
+  titleMatch?: IFuseResultMatch;
+  urlMatch?: IFuseResultMatch;
+}
+
+export interface IBrowserBookmark {
+  title: string;
+  url: string;
+  logo: string | undefined;
+  sortIndex: number | undefined;
+  titleMatch?: IFuseResultMatch;
+  urlMatch?: IFuseResultMatch;
+}
+
+export interface IBrowserRiskWhiteList {
+  url: string;
+}
+
+export enum ESiteMode {
+  desktop = 'desktop',
+  mobile = 'mobile',
+}
+
+export interface IWebTab {
+  id: string;
+  url: string;
+  displayUrl?: string; // URL for address bar display and UI functions (sharing, external browser)
+  isActive?: boolean;
+  title?: string;
+  customTitle?: string;
+  favicon?: string;
+  thumbnail?: string;
+  isBookmark?: boolean;
+  isPinned?: boolean;
+  pinnedTimestamp?: number;
+  loading?: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  refReady?: boolean;
+  timestamp?: number;
+  siteMode?: ESiteMode;
+  type?: 'normal' | 'home';
+}
+
+export interface IWebTabsAtom {
+  tabs: IWebTab[];
+  keys: string[];
 }

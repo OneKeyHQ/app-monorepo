@@ -34,7 +34,10 @@ import { ListItemGroup } from '@onekeyhq/kit/src/views/DeviceManagement/pages/Li
 import { SetupCard } from '@onekeyhq/kit/src/views/Onboardingv2/components/SetupCard';
 import { PrimeBenefitsItem } from '@onekeyhq/kit/src/views/Prime/pages/PrimeDashboard/PrimeBenefitsList';
 import { PRIME_FEATURE_INTROS } from '@onekeyhq/kit/src/views/Prime/pages/PrimeFeatures/primeFeatureIntroUtils';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import {
+  type ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 import zhCNMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
@@ -87,7 +90,7 @@ const DEMO_MESSAGES = {
   ...(Object.fromEntries(
     Object.values(ETranslationsMock).map((key) => [key, key]),
   ) as Record<ETranslationsMock, string>),
-};
+} as Record<ETranslations | ETranslationsMock, string>;
 
 function getPublishedPrimeFeatures() {
   return PRIME_FEATURE_INTROS.filter((feature) => !feature.isComingSoon);

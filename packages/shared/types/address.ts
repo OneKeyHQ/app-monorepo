@@ -3,6 +3,7 @@ import type { IBtcBlockbookDerivedInfo } from '@onekeyhq/core/src/chains/btc/typ
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
+  IAccountDeriveTypes,
   IUtxoInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
@@ -163,6 +164,35 @@ export type IAddressValidateStatus =
   | IAddressValidateBaseStatus
   | 'prohibit-send-to-self'
   | 'address-not-allowlist';
+
+export type IAddressQueryResult = {
+  input?: string;
+  validStatus?: IAddressValidateStatus;
+  walletName?: string;
+  accountName?: string;
+  walletAccountName?: string;
+  walletAccountId?: string; // accountId or indexedAccountId
+  walletId?: string;
+  addressBookId?: string;
+  addressBookName?: string;
+  resolveAddress?: string;
+  validAddress?: string;
+  resolveOptions?: string[];
+  addressInteractionStatus?: EAddressInteractionStatus;
+  isContract?: boolean;
+  addressLabel?: string;
+  isAllowListed?: boolean;
+  isEnableTransferAllowList?: boolean;
+  isScam?: boolean;
+  isCex?: boolean;
+  addressBadges?: IAddressBadge[];
+  addressDeriveInfo?: IAccountDeriveInfo;
+  addressDeriveType?: IAccountDeriveTypes;
+  addressNote?: string;
+  addressMemo?: string;
+  similarAddress?: string;
+  cexSupportedInfo?: ICexSupportedInfo;
+};
 
 export type IQueryCheckAddressArgs = {
   networkId: string;

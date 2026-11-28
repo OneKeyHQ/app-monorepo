@@ -1,10 +1,6 @@
 import { isNil, isNumber } from 'lodash';
 import WebViewCleaner from 'react-native-webview-cleaner';
 
-import type {
-  IBrowserBookmark,
-  IBrowserHistory,
-} from '@onekeyhq/kit/src/views/Discovery/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -33,6 +29,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EHostSecurityLevel,
+  type IBrowserBookmark,
+  type IBrowserHistory,
   type ICategory,
   type IDApp,
   type IDiscoveryHomePageData,

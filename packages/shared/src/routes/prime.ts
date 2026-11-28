@@ -1,6 +1,4 @@
 /* cspell:ignore Infini */
-import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
-
 import type {
   IE2EESocketUserInfo,
   IPrimeTransferData,
@@ -14,6 +12,8 @@ import type {
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
 import type { SearchDevice } from '@onekeyfe/hd-core';
+
+export type ISubscriptionPeriod = 'P1Y' | 'P1M';
 
 export enum EPrimePages {
   PrimeDashboard = 'PrimeDashboard',

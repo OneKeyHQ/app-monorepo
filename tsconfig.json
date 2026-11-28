@@ -12,6 +12,7 @@
       ]
     },
     "allowImportingTsExtensions": true,
+    "allowArbitraryExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

@@ -1,5 +1,6 @@
 import { CommonActions, StackActions } from '@react-navigation/native';
 
+// oxlint-disable-next-line no-restricted-imports -- legacy upward import; do not add new @onekeyhq/kit imports
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import {

@@ -1,7 +1,7 @@
 import { cloneDeep } from 'lodash';
 
-import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import type { IBrowserBookmark } from '@onekeyhq/shared/types/discovery';
 import type {
   ICloudSyncPayloadBrowserBookmark,
   ICloudSyncTargetBrowserBookmark,

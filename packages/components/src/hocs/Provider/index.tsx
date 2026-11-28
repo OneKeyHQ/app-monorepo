@@ -3,7 +3,6 @@ import { memo, useEffect, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import type { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -16,6 +15,7 @@ import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import { SettingConfigContext } from './hooks/useProviderValue';
 import { TamaguiProvider } from './TamaguiProvider';
 
+import type { IHyperlinkTextComponent } from './types';
 import type { TamaguiConfig } from 'tamagui';
 
 export { setSystemBarsOverride } from './hooks/useAppearanceTheme';
@@ -41,7 +41,7 @@ export type IUIProviderProps = PropsWithChildren<{
 
   hapticFeedbackEnabled?: boolean;
 
-  HyperlinkText: typeof HyperlinkText;
+  HyperlinkText: IHyperlinkTextComponent;
 }>;
 
 const MemoizedTamaguiProvider = memo(TamaguiProvider);

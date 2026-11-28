@@ -1,6 +1,5 @@
 // import type { ISimpleDbEntityMarktData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 // import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
-import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import type {
   IDBAccount,
   IDBWallet,
@@ -10,6 +9,7 @@ import type {
 //   market: Pick<ISimpleDbEntityMarktData, 'favorites'>;
 // };
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { IBrowserBookmark } from '@onekeyhq/shared/types/discovery';
 
 type IBackupBasicData = {
   contacts: Record<
