@@ -1,0 +1,18 @@
+diff --git a/node_modules/@onekeyfe/kaspa-wasm/kaspa.js b/node_modules/@onekeyfe/kaspa-wasm/kaspa.js
+index deaf0e5..2c798ed 100644
+--- a/node_modules/@onekeyfe/kaspa-wasm/kaspa.js
++++ b/node_modules/@onekeyfe/kaspa-wasm/kaspa.js
+@@ -15999,7 +15999,12 @@ async function __wbg_init(module_or_path) {
+     );
+ 
+   if (typeof module_or_path === "undefined") {
+-    module_or_path = new URL("kaspa_bg.wasm.bin", import.meta.url);
++    // OneKey patch: this wasm URL is dead. __wbg_load() below ignores its
++    // argument and always instantiates the base64 `kaspa_bg.wasm.js`, and the
++    // `fetch(module_or_path)` branch is commented out upstream. Keeping the
++    // `new URL()` makes rspack emit an 11.5 MB `kaspa_bg.wasm.bin` asset that
++    // no code requests (APK/web/desktop bundle bloat).
++    // module_or_path = new URL("kaspa_bg.wasm.bin", import.meta.url);
+   }
+   const imports = __wbg_get_imports();
+ 

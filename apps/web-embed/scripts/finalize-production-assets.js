@@ -38,6 +38,41 @@ function cleanupProductionAssets(directoryPath) {
   return artifacts;
 }
 
+// `@onekeyfe/kaspa-wasm` builds `new URL("kaspa_bg.wasm.bin", import.meta.url)` in its
+// `__wbg_init`, but `__wbg_load` ignores that argument and always instantiates the base64
+// `kaspa_bg.wasm.js` copy (the `fetch(module_or_path)` branch is commented out upstream).
+// Rspack still emits the unreferenced 11.5 MiB asset, so patches/@onekeyfe+kaspa-wasm+*.patch
+// removes the dead URL. This guard fails the build if a vendor bump restores it.
+const DEAD_KASPA_WASM_BIN_PATTERN = /kaspa_bg\.wasm\.[0-9a-f]+\.bin$/i;
+
+function collectDeadKaspaWasmBinaries(directoryPath) {
+  if (!fs.existsSync(directoryPath)) {
+    return [];
+  }
+  return fs
+    .readdirSync(directoryPath, { withFileTypes: true })
+    .flatMap((entry) => {
+      const entryPath = path.join(directoryPath, entry.name);
+      if (entry.isDirectory()) {
+        return collectDeadKaspaWasmBinaries(entryPath);
+      }
+      return entry.isFile() && DEAD_KASPA_WASM_BIN_PATTERN.test(entry.name)
+        ? [entryPath]
+        : [];
+    });
+}
+
+function assertNoDeadKaspaWasmBinaries(directoryPath) {
+  const deadBinaries = collectDeadKaspaWasmBinaries(directoryPath);
+  if (deadBinaries.length > 0) {
+    throw new Error(
+      `Web-embed build emitted the dead Kaspa wasm binary: ${deadBinaries.join(', ')}. ` +
+        'Nothing requests it (kaspa-wasm loads the base64 kaspa_bg.wasm.js); keep the ' +
+        'patches/@onekeyfe+kaspa-wasm+*.patch in sync with the installed version instead of shipping it.',
+    );
+  }
+}
+
 function resolveSentryRelease() {
   const appVersion =
     process.env.BUILD_APP_VERSION ||
@@ -116,6 +151,7 @@ function uploadSourcemaps() {
 }
 
 function finalizeProductionAssets({ stripOnly = false } = {}) {
+  assertNoDeadKaspaWasmBinaries(buildDir);
   const uploadDelegated = process.env.SENTRY_UPLOAD_BY_CLI === 'true';
   if (uploadDelegated && !stripOnly) {
     if (process.env.WEB_EMBED_SKIP_POSTBUILD !== 'true') {
@@ -172,7 +208,9 @@ if (require.main === module) {
 }
 
 module.exports = {
+  assertNoDeadKaspaWasmBinaries,
   cleanupProductionAssets,
+  collectDeadKaspaWasmBinaries,
   collectProductionArtifacts,
   finalizeProductionAssets,
 };
