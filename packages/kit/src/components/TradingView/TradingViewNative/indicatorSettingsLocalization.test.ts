@@ -1,4 +1,4 @@
-// cspell:ignore donchian macd MAEMV MAMTM MAROC trix
+// cspell:ignore donchian macd MAEMV MAMTM MAROC supertrend trix
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { createTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
@@ -43,15 +43,46 @@ const EXPECTED_TRANSLATION_IDS = [
   ETranslations.market_chart_indicator_zero__label,
   ETranslations.market_chart_indicator_zero_line__label,
   ETranslations.market_chart_settings__background,
+  ETranslations.market_chart_indicator_atr_length__title,
+  ETranslations.market_chart_indicator_bandwidth__title,
+  ETranslations.market_chart_indicator_basis__title,
+  ETranslations.market_chart_indicator_bb_length__title,
+  ETranslations.market_chart_indicator_bb_multiplier__title,
+  ETranslations.market_chart_indicator_down_trend__title,
+  ETranslations.market_chart_indicator_fast_factor__title,
+  ETranslations.market_chart_indicator_fast_line__title,
+  ETranslations.market_chart_indicator_first_length__title,
+  ETranslations.market_chart_indicator_kc_length__title,
+  ETranslations.market_chart_indicator_kc_multiplier__title,
+  ETranslations.market_chart_indicator_long_length__title,
+  ETranslations.market_chart_indicator_long_line__title,
+  ETranslations.market_chart_indicator_lookback__title,
+  ETranslations.market_chart_indicator_lower_band__title,
+  ETranslations.market_chart_indicator_middle_length__title,
+  ETranslations.market_chart_indicator_middle_line__title,
+  ETranslations.market_chart_indicator_momentum_length__title,
+  ETranslations.market_chart_indicator_multiplier__title,
+  ETranslations.market_chart_indicator_second_length__title,
+  ETranslations.market_chart_indicator_short_length__title,
+  ETranslations.market_chart_indicator_short_line__title,
+  ETranslations.market_chart_indicator_slow_factor__title,
+  ETranslations.market_chart_indicator_slow_line__title,
+  ETranslations.market_chart_indicator_up_trend__title,
+  ETranslations.market_chart_indicator_upper_band__title,
 ] as const;
 
-function getLocalizedValue() {
-  const intl: IIndicatorSettingsIntl = {
-    formatMessage: ({ id }) => id,
-  };
+const TRANSLATION_IDS = new Set<string>(Object.values(ETranslations));
+
+// Line and series names such as MA1, DIF, %K, +DI or KST's ROC 1 read the same
+// in every language.
+const TECHNICAL_LABEL_PATTERN = /^(?:[%+-]?[A-Z]+\d*|[A-Z]+ \d)$/;
+
+function getLocalizedValue(
+  formatMessage: IIndicatorSettingsIntl['formatMessage'] = ({ id }) => id,
+) {
   return localizeTradingViewNativeIndicatorSettingsValue(
     createTradingViewNativeIndicatorSettingsValue(),
-    intl,
+    { formatMessage },
   );
 }
 
@@ -88,11 +119,10 @@ describe('indicatorSettingsLocalization', () => {
       name: ETranslations.market_chart_indicator_vol__title,
       title: `VOL (${ETranslations.market_chart_indicator_vol__title})`,
     });
-    // MACD's title has no English name to replace, so it stays the abbreviation.
     expect(macd).toMatchObject({
       label: 'MACD',
       name: ETranslations.market_chart_indicator_macd__desc,
-      title: 'MACD',
+      title: `MACD (${ETranslations.market_chart_indicator_macd__desc})`,
     });
     expect(macd?.lines.map((line) => line.label)).toEqual([
       'DIF',
@@ -109,9 +139,67 @@ describe('indicatorSettingsLocalization', () => {
     });
     expect(trix).toMatchObject({
       label: 'TRIX',
-      name: 'TRIX',
-      title: 'TRIX',
+      name: ETranslations.market_chart_indicator_trix__title,
+      title: `TRIX (${ETranslations.market_chart_indicator_trix__title})`,
     });
+  });
+
+  it('names every indicator after its abbreviation with its own localized name', () => {
+    const value = getLocalizedValue();
+    const names = value.indicators.map((indicator) => indicator.name);
+
+    expect(names).toHaveLength(TRADING_VIEW_NATIVE_ALL_INDICATORS.length);
+    expect(names.every((name) => name && TRANSLATION_IDS.has(name))).toBe(true);
+    expect(new Set(names).size).toBe(names.length);
+    for (const indicator of value.indicators) {
+      expect(indicator.title).toBe(`${indicator.label} (${indicator.name})`);
+    }
+
+    const nameOf = (id: string) =>
+      value.indicators.find((indicator) => indicator.id === id)?.name;
+    expect(nameOf('MA')).toBe(ETranslations.market_chart_indicator_ma__title);
+    expect(nameOf('SUPERTREND')).toBe(
+      ETranslations.market_chart_indicator_supertrend__title,
+    );
+    expect(nameOf('WMA')).toBe(ETranslations.market_chart_indicator_wma__title);
+    expect(nameOf('KDJ')).toBe(ETranslations.market_chart_indicator_kdj__title);
+    expect(nameOf('SLOPE')).toBe(
+      ETranslations.market_chart_indicator_slope__title,
+    );
+  });
+
+  it('keeps only the abbreviation when the localized name repeats it', () => {
+    const value = getLocalizedValue(({ id }) =>
+      id === ETranslations.market_chart_indicator_supertrend__title
+        ? 'Supertrend'
+        : id,
+    );
+    const supertrend = value.indicators.find(
+      (indicator) => indicator.id === 'SUPERTREND',
+    );
+    const kst = value.indicators.find((indicator) => indicator.id === 'KST');
+
+    expect(supertrend?.title).toBe('SUPERTREND');
+    expect(supertrend?.name).toBeUndefined();
+    expect(kst).toMatchObject({
+      name: ETranslations.market_chart_indicator_kst__title,
+      title: `KST (${ETranslations.market_chart_indicator_kst__title})`,
+    });
+  });
+
+  it('translates every settings label that is not a technical name', () => {
+    const value = getLocalizedValue();
+    const englishLabels = value.indicators.flatMap((indicator) =>
+      [...(indicator.parameters ?? []), ...indicator.lines]
+        .map((item) => item.label)
+        .filter(
+          (label) =>
+            !TRANSLATION_IDS.has(label) && !TECHNICAL_LABEL_PATTERN.test(label),
+        )
+        .map((label) => `${indicator.id}: ${label}`),
+    );
+
+    expect(englishLabels).toEqual([]);
   });
 
   it('keeps the moving average line names and localizes their length', () => {
@@ -137,33 +225,56 @@ describe('indicatorSettingsLocalization', () => {
     }
   });
 
-  it('keeps the English name of an added indicator and localizes its shared labels', () => {
+  it('localizes the settings of the added indicators and keeps their technical names', () => {
     const value = getLocalizedValue();
-    const kdj = value.indicators.find((indicator) => indicator.id === 'KDJ');
-    const pmo = value.indicators.find((indicator) => indicator.id === 'PMO');
-    const donchian = value.indicators.find(
-      (indicator) => indicator.id === 'DC',
-    );
+    const find = (id: string) =>
+      value.indicators.find((indicator) => indicator.id === id);
+    const labelsOf = (items: { label: string }[] | undefined) =>
+      items?.map((item) => item.label);
 
-    expect(kdj).toMatchObject({
+    expect(find('KDJ')).toMatchObject({
       label: 'KDJ',
-      name: 'Stochastic Oscillator',
-      title: 'KDJ (Stochastic Oscillator)',
+      title: `KDJ (${ETranslations.market_chart_indicator_kdj__title})`,
     });
-    expect(kdj?.parameters?.map((parameter) => parameter.label)).toEqual([
+    expect(labelsOf(find('KDJ')?.parameters)).toEqual([
       ETranslations.market_chart_indicator_length__label,
       'K',
       'D',
     ]);
-    expect(pmo?.lines.map((line) => line.label)).toEqual([
+    expect(labelsOf(find('PMO')?.parameters)).toEqual([
+      ETranslations.market_chart_indicator_first_length__title,
+      ETranslations.market_chart_indicator_second_length__title,
+      ETranslations.market_chart_indicator_signal_length__label,
+      ETranslations.market_chart_indicator_zero__label,
+    ]);
+    expect(labelsOf(find('PMO')?.lines)).toEqual([
       'PMO',
       ETranslations.market_chart_indicator_signal__label,
       ETranslations.market_chart_indicator_zero__label,
     ]);
-    expect(donchian).toMatchObject({ title: 'DC (Donchian Channels)' });
-    expect(donchian?.lines.at(-1)?.label).toBe(
-      ETranslations.market_chart_settings__background,
+    expect(find('DC')?.title).toBe(
+      `DC (${ETranslations.market_chart_indicator_dc__title})`,
     );
+    expect(labelsOf(find('DC')?.lines)).toEqual([
+      ETranslations.market_chart_indicator_basis__title,
+      ETranslations.market_chart_indicator_upper_band__title,
+      ETranslations.market_chart_indicator_lower_band__title,
+      ETranslations.market_chart_settings__background,
+    ]);
+    expect(labelsOf(find('SUPERTREND')?.lines)).toEqual([
+      ETranslations.market_chart_indicator_up_trend__title,
+      ETranslations.market_chart_indicator_down_trend__title,
+    ]);
+    expect(labelsOf(find('RCI')?.lines)).toEqual([
+      ETranslations.market_chart_indicator_short_line__title,
+      ETranslations.market_chart_indicator_middle_line__title,
+      ETranslations.market_chart_indicator_long_line__title,
+      ETranslations.market_chart_indicator_zero__label,
+    ]);
+    expect(labelsOf(find('KST')?.parameters)?.slice(0, 2)).toEqual([
+      'ROC 1',
+      'ROC 2',
+    ]);
   });
 
   it('explains every indicator with its own text', () => {

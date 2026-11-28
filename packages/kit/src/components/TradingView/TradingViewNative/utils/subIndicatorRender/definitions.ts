@@ -849,7 +849,7 @@ const DEFINITIONS = {
   },
   DMA: {
     bands: [createBand({ id: 'zero', title: 'Zero', value: 0 })],
-    description: 'Different of Moving Average',
+    description: 'Difference of Moving Averages',
     fills: [],
     format: { type: 'inherit' },
     indicator: 'DMA',
@@ -882,7 +882,7 @@ const DEFINITIONS = {
     ],
     scale: createAutoScale(),
     shortTitle: 'DMA',
-    title: 'Different of Moving Average',
+    title: 'Difference of Moving Averages',
   },
   VR: {
     bands: [],
