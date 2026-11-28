@@ -44,8 +44,8 @@ import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorPr
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../PerpDialogLayout';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
@@ -241,6 +241,7 @@ const SetTpslForm = memo(
     onClose = () => {},
   }: ISetTpslFormProps) => {
     const intl = useIntl();
+    const dialogButtonSize = usePerpDialogButtonSize();
     const hyperliquidActions = useHyperliquidActions();
     const ensureTradingEnabled = useEnsureTradingEnabled();
     const { mid: midPrice } = usePerpsMidPrice({
@@ -605,10 +606,10 @@ const SetTpslForm = memo(
     }
 
     const confirmButton = (
-      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+      <TradingGuardWrapper buttonSize={dialogButtonSize}>
         <Button
           testID="perp-processed-value-btn"
-          size={PERP_DIALOG_BUTTON_SIZE}
+          size={dialogButtonSize}
           variant="primary"
           onPress={handleSubmit}
           disabled={!canSubmitForScopedAccount || !isValidForm || isSubmitting}

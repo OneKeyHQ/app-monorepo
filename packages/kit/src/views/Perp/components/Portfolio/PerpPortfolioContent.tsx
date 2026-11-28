@@ -50,7 +50,7 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import { usePerpUserFundingHistory } from '../../hooks/usePerpOrderInfoPanel';
 import { usePerpsActivePositionsByAddress } from '../../hooks/usePerpsActivePositionsByAddress';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
-import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
+import { usePerpDialogButtonSize } from '../PerpDialogLayout';
 import { PerpsPartialAccountValueWarning } from '../TradingPanel/components/PerpsAccountNumberValue';
 
 import { PerpFundingBreakdown } from './PerpFundingBreakdown';
@@ -262,6 +262,7 @@ function PerpPortfolioContentComponent({
   initialChartType = 'accountValue',
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
+  const dialogButtonSize = usePerpDialogButtonSize();
   const { formatDate } = useFormatDate();
   const theme = useTheme();
   const timeZone = useDeviceTimeZone();
@@ -1248,7 +1249,7 @@ function PerpPortfolioContentComponent({
         testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
-        size={PERP_DIALOG_BUTTON_SIZE}
+        size={dialogButtonSize}
         variant="accent"
         icon="DownloadOutline"
         disabled={isDepositDisabled}
@@ -1262,7 +1263,7 @@ function PerpPortfolioContentComponent({
         testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
-        size={PERP_DIALOG_BUTTON_SIZE}
+        size={dialogButtonSize}
         variant="secondary"
         icon="AlignTopOutline"
         onPress={() => showDepositWithdrawModal('withdraw')}
