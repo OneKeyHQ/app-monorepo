@@ -1304,12 +1304,21 @@ export const swrKeys = {
     networkId,
     accountAddress,
     txid,
+    currency,
   }: {
     networkId: string;
     accountAddress?: string;
     txid: string;
+    currency: string;
   }) =>
-    [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+    [
+      NS.historyTxDetail,
+      'v1',
+      networkId,
+      accountAddress ?? '',
+      txid,
+      currency,
+    ].join(':'),
   marketHomeBanners: (locale: string, mock: boolean) =>
     [NS.marketHomeBanners, 'v1', locale, mock ? 'mock' : 'live'].join(':'),
   marketHomeConfig: (locale: string) =>

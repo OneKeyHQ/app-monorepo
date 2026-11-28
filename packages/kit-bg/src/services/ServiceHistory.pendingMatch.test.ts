@@ -2,6 +2,7 @@
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
+import { checkIsLowValueReceiveTx } from '@onekeyhq/shared/src/utils/historyUtils';
 import { getSwapHistoryDisplayToAmount } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -198,22 +199,24 @@ describe('ServiceHistory local pending reconciliation', () => {
   it('refreshes an older off-page token transfer from raw detail once and retries after a failed request', async () => {
     const { service, batchUpdateLocalHistoryTxs } = createService();
     const networkId = 'evm--56';
-    const legacy = legacyTransfer('receipt', ['2', '3', '4']);
+    const legacy = legacyTransfer('receipt', ['2', '3', '4', '4', '5']);
     const transfer = legacy.decodedTx.actions[0].assetTransfer!.receives[0];
     const receipt = {
       data: {
         tx: legacy.decodedTx.txid,
-        // The duplicate 4-unit legs are ambiguous. The other legs have the
-        // same endpoints but can be matched by their raw amounts.
-        receives: ['3', '4', '2.00', '4'].map((amount) => ({
+        // The 4-unit matches agree. The 5-unit matches have different prices.
+        receives: ['3', '4', '2.00', '4', '5', '5.0'].map((amount) => ({
           ...transfer,
           token: 'stock',
-          key: 'stock',
+          key: amount === '5.0' ? 'other' : 'stock',
           amount,
         })),
         sends: [],
       },
-      tokens: { stock: { info: { balanceMultiplier: '8' }, price: '10' } },
+      tokens: {
+        stock: { info: { balanceMultiplier: '8' }, price: '10' },
+        other: { info: { balanceMultiplier: '8' }, price: '11' },
+      },
       nfts: {},
     } as unknown as NonNullable<
       Awaited<ReturnType<typeof service.fetchHistoryTxDetails>>
@@ -262,7 +265,9 @@ describe('ServiceHistory local pending reconciliation', () => {
       expect(legs).toMatchObject([
         { amount: '16', rawAmount: '2.00', price: '10' },
         { amount: '24', rawAmount: '3', price: '10' },
-        { amount: '4', price: undefined },
+        { amount: '32', price: '10' },
+        { amount: '32', price: '10' },
+        { amount: '5', price: undefined },
       ]);
       expect(online.fiatCurrency).toBe('usd');
       expect(await refresh(online)).toEqual(online);
@@ -270,16 +275,20 @@ describe('ServiceHistory local pending reconciliation', () => {
       const displayed = await service.decodeOnChainHistoryTx({
         accountId: 'acc',
         networkId,
-        cachedTx: { ...legacy, fiatCurrency: 'eur' },
+        cachedTx: { ...legacy, fiatCurrency: 'usd' },
+        requestCurrency: 'eur',
         tx: receipt.data,
         tokens: receipt.tokens,
       });
+      expect(displayed?.fiatCurrency).toBe('eur');
       expect(
         displayed?.decodedTx.actions[0].assetTransfer?.receives,
       ).toMatchObject([
         { amount: '16', price: '10' },
         { amount: '24', price: '10' },
-        { amount: '4', price: '80' },
+        { amount: '32', price: '10' },
+        { amount: '32', price: '10' },
+        { amount: '5', price: undefined },
       ]);
       expect(batchUpdateLocalHistoryTxs).toHaveBeenLastCalledWith([
         expect.objectContaining({ confirmedTxsToSave: [online] }),
@@ -287,6 +296,19 @@ describe('ServiceHistory local pending reconciliation', () => {
     } finally {
       clock.mockRestore();
     }
+  });
+
+  it('keeps a partially priced receipt visible, including an unpriced native leg', () => {
+    const row = legacyTransfer('receipt', ['0.005', '20']);
+    const [small, native] = row.decodedTx.actions[0].assetTransfer!.receives;
+    small.price = '1';
+    native.isNative = true;
+    native.price = undefined;
+    expect(checkIsLowValueReceiveTx({ tx: row })).toBe(false);
+    native.price = '1';
+    expect(checkIsLowValueReceiveTx({ tx: row })).toBe(false);
+    native.amount = '0.001';
+    expect(checkIsLowValueReceiveTx({ tx: row })).toBe(true);
   });
 
   it('visits the next account before expired failures can take the backfill budget again', async () => {

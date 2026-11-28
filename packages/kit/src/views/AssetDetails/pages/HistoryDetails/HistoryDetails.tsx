@@ -48,7 +48,10 @@ import {
   isPrivateSendHistoryTx,
   maybeOpenPrivateSendHistoryDetail,
 } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -65,6 +68,7 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import {
+  convertHistoryTxFiatCurrency,
   getHistoryTxDetailInfo,
   hasIndexedTokenTransfers,
 } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -417,18 +421,20 @@ function HistoryDetails() {
     notificationId,
     notificationAccountId,
     allowClickAccountNameSwitch,
-    historyTx: historyTxParam,
+    historyTx: routeHistoryTx,
     privacyChainPoolId,
     isAllNetworks,
     checkIsFocused = true,
   } = route.params;
 
-  const historyInit = useRef(false);
+  const initializedCurrency = useRef<string | undefined>(undefined);
   const historyConfirmed = useRef(false);
   const privateSendSwapDetailOpened = useRef(false);
 
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const requestCurrency = settings.currencyInfo.id;
 
   const { account, network, vaultSettings } = useAccountData({
     networkId,
@@ -436,6 +442,20 @@ function HistoryDetails() {
   });
 
   const isLocalWalletHistory = !!vaultSettings?.localWallet;
+  const refreshTransfer =
+    !isLocalWalletHistory && hasIndexedTokenTransfers(routeHistoryTx);
+  const historyTxParam = useMemo(
+    () =>
+      routeHistoryTx && (refreshTransfer || routeHistoryTx.fiatCurrency)
+        ? convertHistoryTxFiatCurrency({
+            tx: routeHistoryTx,
+            targetCurrency: requestCurrency,
+            currencyMap,
+            hideUnconvertible: true,
+          })
+        : routeHistoryTx,
+    [routeHistoryTx, refreshTransfer, requestCurrency, currencyMap],
+  );
   useEffect(() => {
     if (!isLocalWalletHistory) return;
     // Detail snapshots can contain decrypted memos and private recipients,
@@ -483,12 +503,10 @@ function HistoryDetails() {
     ],
   );
 
-  const refreshTransfer =
-    !isLocalWalletHistory && hasIndexedTokenTransfers(historyTxParam);
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (isInitialPrivateSendHistory && historyTxParam) {
-        historyInit.current = true;
+        initializedCurrency.current = requestCurrency;
         await openPrivateSendHistoryDetailOnce(historyTxParam);
         return {
           txDetails: undefined,
@@ -504,7 +522,7 @@ function HistoryDetails() {
         accountAddress,
         txid,
         privacyChainPoolId,
-        requestCurrency: settings.currencyInfo.id,
+        requestCurrency,
         fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
         // narrow vault extra params (btc find-address) to the addresses the
         // tapped tx involves; deep links have no tx context and fall back
@@ -515,7 +533,7 @@ function HistoryDetails() {
             })
           : undefined,
       });
-      historyInit.current = true;
+      initializedCurrency.current = requestCurrency;
       if (
         r?.data &&
         r?.data.status !== EOnChainHistoryTxStatus.Pending &&
@@ -535,6 +553,7 @@ function HistoryDetails() {
             accountAddress,
             tx: r?.data,
             cachedTx: historyTxParam,
+            requestCurrency,
             tokens: r?.tokens,
             nfts: r?.nfts,
           });
@@ -563,7 +582,7 @@ function HistoryDetails() {
       txid,
       privacyChainPoolId,
       vaultSettings?.fixConfirmedTxEnabled,
-      settings.currencyInfo.id,
+      requestCurrency,
       historyTxParam,
       isInitialPrivateSendHistory,
       refreshTransfer,
@@ -579,7 +598,12 @@ function HistoryDetails() {
       // subtitle (ETA) renders immediately instead of flashing the "waiting"
       // fallback before the request resolves (OK-56372).
       swrKey: txid
-        ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
+        ? swrKeys.historyTxDetail({
+            networkId,
+            accountAddress,
+            txid,
+            currency: requestCurrency,
+          })
         : undefined,
       swrShouldPersist: () =>
         !isLocalWalletHistory &&
@@ -587,7 +611,7 @@ function HistoryDetails() {
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
-        (!historyInit.current ||
+        (initializedCurrency.current !== requestCurrency ||
           ((historyTxParam?.decodedTx.status ?? EDecodedTxStatus.Pending) ===
             EDecodedTxStatus.Pending &&
             !historyConfirmed.current)),
@@ -1744,7 +1768,11 @@ function HistoryDetails() {
     // "fetch path, not yet initialized, loading not settled to false" as
     // loading so the spinner shows immediately and the pending placeholder is
     // never rendered.
-    if (!historyTxParam && !historyInit.current && isLoading !== false) {
+    if (
+      !historyTxParam &&
+      initializedCurrency.current !== requestCurrency &&
+      isLoading !== false
+    ) {
       return (
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
@@ -1944,6 +1972,7 @@ function HistoryDetails() {
       </>
     );
   }, [
+    requestCurrency,
     isLoading,
     historyTxParam,
     intl,

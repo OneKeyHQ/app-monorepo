@@ -220,7 +220,8 @@ function restoreHistoryAmounts(
     return tx;
   }
   // Untagged persisted rows may contain fiat values from any currency.
-  const adoptCurrency = !!requestCurrency && !tx.fiatCurrency;
+  const adoptCurrency =
+    !!requestCurrency && requestCurrency !== tx.fiatCurrency;
   let repaired = false;
   const updated = mapHistoryTransfers(tx, (asset, side) => {
     const unchanged =
@@ -246,19 +247,32 @@ function restoreHistoryAmounts(
         amount.isFinite() &&
         amount.eq(leg.amount),
     );
-    if (matches?.length !== 1) return unchanged;
+    if (!matches?.length) return unchanged;
     const [leg] = matches;
     const token = tokens[leg.key] ?? tokens[leg.token];
     if (!token?.info) return unchanged;
     const balanceMultiplier = token.info.balanceMultiplier ?? '1';
+    const price = new BigNumber(token.price ?? NaN);
+    const conflicting = matches.some((match) => {
+      const other = tokens[match.key] ?? tokens[match.token];
+      if (other === token) return false;
+      if (!other?.info) return true;
+      const otherPrice = new BigNumber(other.price ?? NaN);
+      return (
+        !tokenRebaseUtils.equalBalanceMultipliers(
+          balanceMultiplier,
+          other.info.balanceMultiplier,
+        ) ||
+        ((price.isFinite() || otherPrice.isFinite()) && !price.eq(otherPrice))
+      );
+    });
+    if (conflicting) return unchanged;
     repaired = true;
     return {
       ...asset,
       rawAmount: leg.amount,
       balanceMultiplier,
-      price: new BigNumber(token.price ?? NaN).isFinite()
-        ? token.price
-        : undefined,
+      price: price.isFinite() ? token.price : undefined,
       amount: tokenRebaseUtils.applyBalanceMultiplier({
         amount: leg.amount,
         balanceMultiplier,
@@ -3528,6 +3542,7 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     cachedTx?: IAccountHistoryTx;
+    requestCurrency?: string;
     tx?: IOnChainHistoryTx;
     tokens?: Record<string, IOnChainHistoryTxToken>;
     nfts?: Record<string, IOnChainHistoryTxNFT>;
@@ -3543,7 +3558,12 @@ class ServiceHistory extends ServiceBase {
       cachedTx,
     } = params;
     if (cachedTx) {
-      const restored = restoreHistoryAmounts(cachedTx, tx, tokens);
+      const restored = restoreHistoryAmounts(
+        cachedTx,
+        tx,
+        tokens,
+        params.requestCurrency,
+      );
       return (await this.attachSwapHistoryForDisplay([restored]))[0];
     }
     if (!tx) return;
@@ -3579,7 +3599,12 @@ class ServiceHistory extends ServiceBase {
       nfts,
     });
 
-    if (resp) return (await this.attachSwapHistoryForDisplay([resp]))[0];
+    if (resp) {
+      const row = params.requestCurrency
+        ? { ...resp, fiatCurrency: params.requestCurrency }
+        : resp;
+      return (await this.attachSwapHistoryForDisplay([row]))[0];
+    }
   }
 
   @backgroundMethod()

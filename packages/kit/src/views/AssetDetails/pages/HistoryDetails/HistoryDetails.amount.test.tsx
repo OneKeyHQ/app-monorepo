@@ -59,6 +59,8 @@ function mockGatedDetails() {
     : mockTxDetails;
 }
 
+let mockCurrency = 'usd';
+let mockDetailKey: string | undefined;
 let mockDeepLink = false;
 let mockRefreshedHistory: IAccountHistoryTx | undefined;
 let mockNativeSymbol: string | undefined;
@@ -66,6 +68,7 @@ let mockNativeSymbol: string | undefined;
 beforeEach(() => {
   mockTxDetails = undefined;
   mockAccountAddresses = undefined;
+  mockCurrency = 'usd';
   mockDeepLink = false;
   mockRefreshedHistory = undefined;
   mockNativeSymbol = 'XMR';
@@ -232,23 +235,41 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
   }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (_request: unknown, deps: unknown[]) => ({
-    result:
-      deps.length === 2
-        ? {
-            networkId: mockHistory.decodedTx.networkId,
-            symbol: mockNativeSymbol,
-          }
-        : {
-            txDetails: mockGatedDetails(),
-            decodedOnChainTx:
-              mockRefreshedHistory ?? (mockDeepLink ? mockHistory : undefined),
-          },
-    isLoading: false,
-  }),
+  usePromiseResult: (
+    _request: unknown,
+    deps: unknown[],
+    options?: { swrKey?: string },
+  ) => {
+    if (options?.swrKey) mockDetailKey = options.swrKey;
+    return {
+      result:
+        deps.length === 2
+          ? {
+              networkId: mockHistory.decodedTx.networkId,
+              symbol: mockNativeSymbol,
+            }
+          : {
+              txDetails: mockGatedDetails(),
+              decodedOnChainTx:
+                mockRefreshedHistory ??
+                (mockDeepLink ? mockHistory : undefined),
+            },
+      isLoading: false,
+    };
+  },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useSettingsPersistAtom: () => [{ currencyInfo: { symbol: '$' } }],
+  useSettingsPersistAtom: () => [
+    {
+      currencyInfo: {
+        id: mockCurrency,
+        symbol: mockCurrency === 'usd' ? '$' : '€',
+      },
+    },
+  ],
+  useCurrencyPersistAtom: () => [
+    { currencyMap: { usd: { value: '1' }, eur: { value: '0.8' } } },
+  ],
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider',
@@ -263,7 +284,8 @@ jest.mock('@onekeyhq/kit/src/views/Swap/utils/privateSendHistory', () => ({
 jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
   swrCacheNamespaces: { historyTxDetail: 'detail' },
   swrCacheUtils: { removeByPrefix: jest.fn(), flushNow: jest.fn() },
-  swrKeys: { historyTxDetail: () => 'test-detail' },
+  swrKeys: jest.requireActual('@onekeyhq/shared/src/utils/swrCacheUtils')
+    .swrKeys,
 }));
 jest.mock('../../utils', () => ({ getHistoryTxMeta: () => undefined }));
 jest.mock('./components/TxKYTRiskCheck', () => ({
@@ -709,6 +731,25 @@ it('replaces a legacy route amount when the decoded detail arrives', () => {
   );
   expect(assets.getByText('-16')).toBeTruthy();
   expect(assets.queryByText('-2')).toBeNull();
+});
+
+it('reopens a USD receipt in EUR with a separate cache entry and converted transfer and fee', () => {
+  mockHistory = history('evm--1', '2');
+  mockHistory.fiatCurrency = 'usd';
+  mockHistory.decodedTx.totalFeeInNative = '0.01';
+  mockHistory.decodedTx.totalFeeFiatValue = '5';
+  const usd = render(<HistoryDetails />);
+  expect(usd.getByText('20')).toBeTruthy();
+  expect(usd.getByText('5')).toBeTruthy();
+  const usdKey = mockDetailKey;
+  usd.unmount();
+  mockCurrency = 'eur';
+  const eur = render(<HistoryDetails />);
+  expect(mockDetailKey).toBeDefined();
+  expect(mockDetailKey).not.toBe(usdKey);
+  expect(eur.getByText('16')).toBeTruthy();
+  expect(eur.getByText('4')).toBeTruthy();
+  expect(eur.queryByText('20')).toBeNull();
 });
 
 it.each(['evm--1', 'evm--169'])(

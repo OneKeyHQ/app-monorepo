@@ -412,16 +412,15 @@ export function checkIsLowValueReceiveTx({
   let totalFiatValue = new BigNumber(0);
   let hasNonZeroPrice = false;
 
-  filteredReceives.forEach((receive) => {
-    const { amount, price } = receive;
-
-    if (new BigNumber(price ?? 0).gt(0)) {
+  for (const receive of filteredReceives) {
+    const price = new BigNumber(receive.price ?? NaN);
+    if (price.isFinite() && price.gt(0)) {
       hasNonZeroPrice = true;
-      totalFiatValue = totalFiatValue.plus(
-        new BigNumber(amount ?? 0).multipliedBy(price ?? 0),
-      );
+      totalFiatValue = totalFiatValue.plus(price.times(receive.amount));
+    } else if (!receive.isNFT) {
+      return false;
     }
-  });
+  }
 
   if (!hasNonZeroPrice) {
     return false;
@@ -490,7 +489,7 @@ export function mapHistoryTransfers(
   };
 }
 
-function convertHistoryTxFiatCurrency({
+export function convertHistoryTxFiatCurrency({
   tx,
   targetCurrency,
   currencyMap,
@@ -502,10 +501,12 @@ function convertHistoryTxFiatCurrency({
   hideUnconvertible?: boolean;
 }): IAccountHistoryTx {
   const sourceCurrency = tx.fiatCurrency;
-  if (!sourceCurrency || sourceCurrency === targetCurrency) {
+  if (sourceCurrency === targetCurrency) {
     return tx;
   }
-  const sourceRate = new BigNumber(currencyMap?.[sourceCurrency]?.value ?? NaN);
+  const sourceRate = new BigNumber(
+    (sourceCurrency && currencyMap?.[sourceCurrency]?.value) || NaN,
+  );
   const targetRate = new BigNumber(currencyMap?.[targetCurrency]?.value ?? NaN);
   const rate =
     sourceRate.gt(0) && targetRate.gt(0)
@@ -563,12 +564,14 @@ export function convertHistoryTxsFiatCurrency({
     return txs;
   }
   return txs.map((tx) =>
-    convertHistoryTxFiatCurrency({
-      tx,
-      targetCurrency,
-      currencyMap,
-      hideUnconvertible,
-    }),
+    tx.fiatCurrency
+      ? convertHistoryTxFiatCurrency({
+          tx,
+          targetCurrency,
+          currencyMap,
+          hideUnconvertible,
+        })
+      : tx,
   );
 }
 
