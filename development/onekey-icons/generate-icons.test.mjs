@@ -496,7 +496,7 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
       location: contextGlobals.location,
       DOMParser: contextGlobals.DOMParser,
       fetch: contextGlobals.fetch,
-      desktopApi: contextGlobals.desktopApi,
+      process: contextGlobals.process,
     });
     return exportsObj;
   };
@@ -616,7 +616,7 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
       document: fileDom.window.document,
       location: fileDom.window.location,
       DOMParser: fileDom.window.DOMParser,
-      desktopApi: {},
+      process: { env: { ONEKEY_PLATFORM: 'desktop' } },
       fetch: async (url) => {
         fileFetchCalls.push(url);
         return { ok: true, text: async () => dotVerSvg };

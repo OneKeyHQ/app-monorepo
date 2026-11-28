@@ -417,12 +417,15 @@ function ownValue<T>(record: Record<string, T>, key: string): T | undefined {
     : undefined;
 }
 
-// Electron's renderer exposes desktopApi from the desktop preload. Other file:
-// hosts (the iOS web-embed WKWebView) may refuse fetch() of file: URLs.
-function isDesktopRenderer(): boolean {
-  return (
-    typeof (globalThis as { desktopApi?: unknown }).desktopApi === 'object'
-  );
+// The Rspack build defines ONEKEY_PLATFORM per target. Other file: hosts (the
+// iOS web-embed WKWebView) may refuse fetch() of file: URLs. Builds that do not
+// define it reference a missing \`process\` and count as non-desktop.
+function isDesktopBuild(): boolean {
+  try {
+    return process.env.ONEKEY_PLATFORM === 'desktop';
+  } catch {
+    return false;
+  }
 }
 
 // Cross-origin documents cannot reference external symbols. Chromium never
@@ -440,7 +443,7 @@ function shouldInjectDocumentSymbol(assetUrl: string): boolean {
   try {
     const resolved = new URL(assetUrl, location.href);
     if (resolved.protocol === 'file:') {
-      return isDesktopRenderer();
+      return isDesktopBuild();
     }
     if (resolved.protocol === 'data:' || resolved.protocol === 'blob:') {
       return false;
