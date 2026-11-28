@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { useDustSweep } from '../DustSweepProvider';
@@ -175,6 +176,11 @@ export function DustSweepSelection({
         <DustSweepFilters desktop={desktop} />
         {loading || rows.length ? (
           <XStack
+            // Keep the checkbox nested when Fabric re-enables pointer events.
+            collapsable={platformEnv.isNativeAndroid ? false : undefined}
+            collapsableChildren={
+              platformEnv.isNativeAndroid ? false : undefined
+            }
             height={40}
             px="$5"
             gap="$3"

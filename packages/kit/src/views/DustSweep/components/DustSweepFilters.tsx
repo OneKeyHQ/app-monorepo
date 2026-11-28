@@ -548,6 +548,10 @@ export function DustSweepFilters({ desktop }: { desktop: boolean }) {
       justifyContent="space-between"
     >
       <XStack
+        // Fabric must keep the row and its chip labels in the same native
+        // hierarchy when pointer events and press handlers change together.
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
+        collapsableChildren={platformEnv.isNativeAndroid ? false : undefined}
         gap="$1"
         cursor={selecting ? undefined : 'not-allowed'}
         pointerEvents={selecting ? 'auto' : 'none'}
