@@ -127,6 +127,8 @@ jobs:
       id-token: write
       packages: write
     runs-on: ubuntu-24.04
+    env:
+      GRADLE_OPTS: -Dorg.gradle.workers.max=2
     strategy:
       matrix:
         node-version: [24.x]
@@ -215,26 +217,54 @@ jobs:
           restore-keys: |
             node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
-
-      - name: Install Dep
-        id: dependencies
+      - name: Install dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        uses: ./.github/actions/install-dependencies
+        # Native builds write into dependency directories and hard-link Gradle transforms.
+        run: yarn install --immutable
 
       - name: Restore web-embed prebundle
         uses: ./.github/actions/restore-web-embed
+
+      - name: Resolve Android Gradle plugins
+        working-directory: apps/mobile/android
+        env:
+          ONEKEY_DEV_SHELL: 'true'
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+        run: |
+          set -euo pipefail
+          log_file="$RUNNER_TEMP/android-gradle-configuration.log"
+          set --
+          for attempt in 1 2 3; do
+            if ./gradlew help --console=plain --stacktrace "$@" 2>&1 | tee "$log_file"; then
+              exit 0
+            fi
+            if [[ "$attempt" == 3 ]] || ! grep -Fq "could not resolve plugin artifact 'org.gradle.toolchains.foojay-resolver-convention:" "$log_file"; then
+              exit 1
+            fi
+            echo "::warning::Foojay plugin resolution failed on attempt $attempt. Retrying Gradle configuration."
+            sleep "$((attempt * 10))"
+            set -- --refresh-dependencies --info
+          done
 
       - name: Build arm64 APK
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
+          df -h "$GITHUB_WORKSPACE"
+          free -h
           node apps/mobile/scripts/build-mobile-dev-shell.js build \
             --platform android
+
+      - name: Report Android build resource usage after failure
+        if: failure()
+        run: |
+          df -h "$GITHUB_WORKSPACE"
+          free -h
+          if [[ -r /sys/fs/cgroup/memory.events ]]; then
+            cat /sys/fs/cgroup/memory.events
+          fi
 
       - name: Create arm64 APK manifest
         id: artifact
@@ -275,10 +305,6 @@ jobs:
           platform: android
           signer_workflow: OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-android.yml
 
-      # https://github.com/orgs/community/discussions/25678
-      - name: Delete huge unnecessary tools folder
-        run: rm -rf /opt/hostedtoolcache
-
       - name: Upload Android dev shell
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -288,19 +314,3 @@ jobs:
             apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.json
             apps/mobile/out-dir-bundle/dev-shell/mobile-dev-shell-attestations.jsonl
           if-no-files-found: error
-
-
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # pin to SHA
-        with:
-          tool-cache: false
-          android: true
-          dotnet: false
-          haskell: false
-          large-packages: false
-          docker-images: false
-          swap-storage: false
-
-      - name: Unmount dependency image
-        if: always() && steps.dependencies.outcome != 'skipped'
-        run: python3 .github/scripts/ci-dependencies.py cleanup
