@@ -1,6 +1,9 @@
 import { syncWebRouteNotFoundState } from '@onekeyhq/kit/src/routes/config/webDappUrlFallback';
 
-import { createServiceWorkerVersionProtocol } from '../src/serviceWorkerVersionProtocol';
+import {
+  createServiceWorkerVersionProtocol,
+  nudgeWaitingServiceWorker,
+} from '../src/serviceWorkerVersionProtocol';
 
 const version = process.env.WEB_E2E_CLIENT_VERSION;
 const protocol = createServiceWorkerVersionProtocol({
@@ -48,7 +51,8 @@ globalThis.addEventListener('load', () => {
   console.info('[sw-fixture] Registering recovery service worker', scriptURL);
   void navigator.serviceWorker
     .register(scriptURL, { scope: '/', updateViaCache: 'none' })
-    .then(() => {
+    .then((registration) => {
+      nudgeWaitingServiceWorker(registration);
       const markProtocolReady = ({ data }) => {
         if (
           data?.type === 'VERSION_STATE' &&

@@ -63,6 +63,7 @@ const MESSAGE_TYPES = {
   UPDATE_FAILED: 'UPDATE_FAILED',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
   CLAIM_CLIENTS: 'CLAIM_CLIENTS',
+  SKIP_WAITING: 'SKIP_WAITING',
   GET_TRADINGVIEW_EMBED_PROTOCOL: 'GET_TRADINGVIEW_EMBED_PROTOCOL',
   PREFETCH_TRADINGVIEW_EMBED: 'PREFETCH_TRADINGVIEW_EMBED',
 };
@@ -2337,6 +2338,11 @@ self.addEventListener('message', (event) => {
 
   if (type === MESSAGE_TYPES.CLAIM_CLIENTS) {
     event.waitUntil(self.clients.claim());
+    return;
+  }
+
+  if (type === MESSAGE_TYPES.SKIP_WAITING) {
+    event.waitUntil(self.skipWaiting());
     return;
   }
 

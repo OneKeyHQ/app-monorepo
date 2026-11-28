@@ -2345,7 +2345,7 @@ export interface IEarnInvestmentItemV2 {
     rewardAssets: ({
       title: IEarnText;
       tooltip?: IEarnTooltip;
-      button:
+      button?:
         | IEarnClaimActionIcon
         | IEarnClaimWithKycActionIcon
         | IEarnListaCheckActionIcon;
