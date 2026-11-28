@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[89784],{306923(t,e,r){var a;let i=((a={}).MarketDetailV2="MarketDetailV2",a.MarketBannerDetail="MarketBannerDetail",a.MarketHighlights="MarketHighlights",a.MobileTokenSelector="MobileTokenSelector",a.MarketChartSettings="MarketChartSettings",a.MarketIndicatorSettings="MarketIndicatorSettings",a.MarketWidgetList="MarketWidgetList",a.MarketWidgetEditor="MarketWidgetEditor",a);r.d(e,{j:()=>i})}}]);
+//# sourceMappingURL=89784.41ecdff0ee.chunk.js.map

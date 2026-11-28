@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[78653],{974860(e,t,r){var a=r(826122),o=r(519941);let DefaultLoggerContainer=class DefaultLoggerContainer{constructor(){this._cache=new Map}getScope(e){let t=this._cache.get(e);return t||(t=(0,o.p)(e),this._cache.set(e,t)),t}};for(let e of(0,o.P)())Object.defineProperty(DefaultLoggerContainer.prototype,e,{configurable:!0,enumerable:!0,get(){return this.getScope(e)}});let c=new DefaultLoggerContainer;a.A.$defaultLogger=c,r.d(t,{},{defaultLogger:c})}}]);
+//# sourceMappingURL=78653.564d066f0d.chunk.js.map

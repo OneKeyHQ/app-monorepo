@@ -1,0 +1,2 @@
+(self.rspackChunkweb=self.rspackChunkweb||[]).push([[94129],{941224(_){function __rspack_empty_context(_){var e=Error("Cannot find module '"+_+"'");throw e.code="MODULE_NOT_FOUND",e}__rspack_empty_context.keys=()=>[],__rspack_empty_context.resolve=__rspack_empty_context,__rspack_empty_context.id=941224,_.exports=__rspack_empty_context}}]);
+//# sourceMappingURL=94129.76d0197d82.chunk.js.map

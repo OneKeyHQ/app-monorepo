@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[73316],{709775(e,p,t){var s=t(595838);let SimpleDbEntityAppCleanup=class SimpleDbEntityAppCleanup extends s.t{constructor(...e){super(...e),this.entityName="appCleanup",this.enableCache=!0}};t.d(p,{SimpleDbEntityAppCleanup:()=>SimpleDbEntityAppCleanup})}}]);
+//# sourceMappingURL=73316.17dcc9da92.chunk.js.map

@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[28204],{331362(e,r,a){function normalizeSearchText(e){return e.trim().toLowerCase().replaceAll("_","-").normalize("NFD").replace(/[\u0300-\u036f]/g,"")}a.d(r,{F:()=>normalizeSearchText})}}]);
+//# sourceMappingURL=28204.b20c25d731.chunk.js.map

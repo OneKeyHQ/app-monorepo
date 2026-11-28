@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[3781],{918148(e,r,a){var t=a(934891),s=a(901048).Buffer;function getHardwareCloudSyncDeviceSerialNoHash(e){let r=e?.trim().toLowerCase();if(!(!r||/^0+$/.test(r)))return s.from(t.default.hash.sha256Sync(s.from(r,"utf8"))).toString("hex")}a.d(r,{getHardwareCloudSyncDeviceSerialNoHash:()=>getHardwareCloudSyncDeviceSerialNoHash})}}]);
+//# sourceMappingURL=3781.a8e676ed4b.chunk.js.map
