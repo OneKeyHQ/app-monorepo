@@ -332,7 +332,7 @@ describe('market widget deep link identity', () => {
     });
   });
 
-  it('opens binding instructions for an unconfigured placement', () => {
+  it('recognizes a legacy setup link for an unconfigured placement', () => {
     expect(
       parseMarketWidgetLinkUrl('onekey-wallet://market_widget_config?setup=1')
         .target,

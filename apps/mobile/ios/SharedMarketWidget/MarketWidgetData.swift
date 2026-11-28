@@ -95,6 +95,11 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
     .init(kind: .asset, assetId: "sol", chainId: nil, contractAddress: nil,
           isNative: nil, symbol: "SOL", name: "Solana"),
   ]
+
+  var previewIconName: String? {
+    guard kind == .asset, let assetId, ["btc", "eth", "sol"].contains(assetId) else { return nil }
+    return "MarketWidget-\(assetId)"
+  }
 }
 
 struct MarketWidgetConfiguration: Codable, Equatable {
@@ -829,6 +834,16 @@ struct MarketWidgetStore {
       guard data.count <= 8192 else { throw MarketWidgetError.invalidResponse }
       try data.write(to: directory.appendingPathComponent("metadata-\(digest(asset.id)).json"), options: .atomic)
     }
+  }
+
+  func hasRecentMetadata(for asset: MarketWidgetAsset) -> Bool {
+    guard metadata(for: asset) != nil, let directory,
+          let values = try? directory.appendingPathComponent("metadata-\(digest(asset.id)).json")
+            .resourceValues(forKeys: [.contentModificationDateKey]),
+          let updatedAt = values.contentModificationDate else { return false }
+    // Successful detail responses can omit a logo; avoid retrying on every editor refresh.
+    let age = Date().timeIntervalSince(updatedAt)
+    return age >= 0 && age < 300
   }
 
   func saveProfile(json: String) throws -> MarketWidgetProfile {

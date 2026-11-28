@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
   TradingViewNative,
   TradingViewNativeMultiChart,
@@ -28,6 +28,7 @@ import {
   usePerpsTradingViewMultiChartPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getDexIndexByAssetId } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   getHyperliquidTokenImageUris,
@@ -36,6 +37,8 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
+import { usePerpLatestTrade } from '../hooks/usePerpLatestTrade';
+import { usePerpMarketForeground } from '../hooks/usePerpMarketForeground';
 import { useActivePerpsChartInstrument } from '../hooks/usePerpsChartInstrument';
 import { usePerpsChartOrderMenu } from '../hooks/usePerpsChartOrderMenu';
 import { usePerpsChartPanelInstrument } from '../hooks/usePerpsChartPanelInstrument';
@@ -44,7 +47,11 @@ import { usePerpsNativeChartMarks } from '../hooks/usePerpsNativeChartMarks';
 import { usePerpsNativeChartMetadata } from '../hooks/usePerpsNativeChartMetadata';
 import { PerpTestIDs } from '../testIDs';
 
-import { CtxPriceDisplay } from './FavoritesBar/FavoriteTokenItem';
+import {
+  CtxPriceDisplay,
+  TABULAR_NUMS_STYLE,
+  getStablePriceMinWidth,
+} from './FavoritesBar/FavoriteTokenItem';
 import { PerpChartTokenSelector } from './TokenSelector/PerpChartTokenSelector';
 
 import type { IPerpTokenSelection } from './TokenSelector/PerpTokenSelector';
@@ -127,7 +134,29 @@ const getDefaultPanelSource: ITradingViewNativeMultiChartProps['getDefaultPanelS
     );
   };
 
-// Live price and 24h change of a panel's token, as in the favorites bar.
+// The token's latest trade, priced and colored like the page header's latest
+// price, which follows the same trade feed.
+function PerpChartPanelLatestPrice({ coin }: { coin: string }) {
+  const foreground = usePerpMarketForeground();
+  const { trade } = usePerpLatestTrade(coin, foreground);
+  let color: '$text' | '$green11' | '$red11' = '$text';
+  if (trade) color = trade.side === 'B' ? '$green11' : '$red11';
+  return (
+    <SizableText
+      size="$bodySmMedium"
+      color={color}
+      style={TABULAR_NUMS_STYLE}
+      // Trade prices drop trailing zeros; without a stable width the 24h
+      // change after it would shift with each trade.
+      minWidth={trade ? getStablePriceMinWidth(trade.px) : undefined}
+      textAlign="right"
+    >
+      {trade ? formatLocalizedNumberString(trade.px) : '--'}
+    </SizableText>
+  );
+}
+
+// Latest price and 24h change of a panel's token, as in the page header.
 function PerpChartPanelQuote({
   assetId,
   coin,
@@ -150,17 +179,25 @@ function PerpChartPanelQuote({
     markAllAssetCtxsRequired();
     return () => markAllAssetCtxsNotRequired();
   }, [actions, isLive, mode]);
-  // Off screen the quote would still follow the trade instrument's own ticks.
-  if (assetId === undefined || !isLive) return null;
+  // Off screen the quote would still follow the trade instrument's own ticks,
+  // and the trade feed would stay subscribed.
+  if (!isLive) return null;
   return (
-    <CtxPriceDisplay
-      key={`${mode}:${coin}:${assetId}`}
-      coinName={coin}
-      dexIndex={getDexIndexByAssetId(assetId)}
-      assetId={assetId}
-      mode={mode}
-      displayMode="priceAndPercent"
-    />
+    <>
+      {/* The trade feed needs only the token, so the price does not wait for
+          the panel's metadata, which can still be loading or have failed. */}
+      <PerpChartPanelLatestPrice coin={coin} />
+      {assetId === undefined ? null : (
+        <CtxPriceDisplay
+          key={`${mode}:${coin}:${assetId}`}
+          coinName={coin}
+          dexIndex={getDexIndexByAssetId(assetId)}
+          assetId={assetId}
+          mode={mode}
+          displayMode="percent"
+        />
+      )}
+    </>
   );
 }
 
@@ -171,9 +208,10 @@ function PerpChartPanelQuote({
  * read-only. Selecting a panel only changes these props, so no chart remounts.
  * Only the selected panel's controls are on screen, above the grid, so every
  * panel gets the page-level controls; in a split each panel shows its token,
- * price, 24h change and interval instead. The token is a picker: a press on
- * it selects the panel like any press in it, and a pick selects the panel
- * with the picked token, so one switch of the trade instrument decides both.
+ * latest price, 24h change and interval instead. The token is a picker: a
+ * press on it selects the panel like any press in it, and a pick selects the
+ * panel with the picked token, so one switch of the trade instrument decides
+ * both.
  * The interval is the chart's own picker, so a pick there changes only its
  * panel's interval, or every panel's while the intervals are synced.
  */

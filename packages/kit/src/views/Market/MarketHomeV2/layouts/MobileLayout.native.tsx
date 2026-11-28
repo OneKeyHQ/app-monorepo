@@ -922,10 +922,11 @@ function MobileLayoutComponent({
       emptyContentPaddingTop: 16,
       paddingBottom: contentPaddingBottom,
       emptyContentHeight: Math.max(0, availableHeight - pageStickyHeaderHeight),
-      // Android ScrollView only intercepts drags when its content exceeds the
-      // viewport. The native pager extends that viewport by the header height.
+      // The Android pager extends each page by the banner height and adds both
+      // header heights as scroll insets. One extra point lets short content
+      // start a nested drag without leaving a blank scroll range.
       emptyScrollContentMinHeight: platformEnv.isNativeAndroid
-        ? pagerHeight + headerHeight + 1
+        ? Math.max(0, pagerHeight - pageStickyHeaderHeight + 1)
         : undefined,
     });
     const defaultProps = createListContainerProps(stickyHeaderHeight);
@@ -938,7 +939,6 @@ function MobileLayoutComponent({
     return (tabName: string) => propsByTab.get(tabName) ?? defaultProps;
   }, [
     contentPaddingBottom,
-    headerHeight,
     pagerHeight,
     stickyHeaderHeight,
     stickyHeaderHeights,

@@ -499,9 +499,11 @@ describe('market widget editor native snapshot lifecycle', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await act(async () => result.current.searchAssets('AAPL'));
     expect(result.current.state?.searchResults).toEqual([asset]);
+    expect(result.current.state?.searchIncomplete).toBe(true);
     expect(result.current.searchError).toBe(true);
     await act(async () => result.current.searchAssets('AAPL'));
     expect(mockSearchStocks).toHaveBeenCalledTimes(2);
+    expect(result.current.state?.searchIncomplete).toBe(false);
     expect(result.current.searchError).toBe(false);
   });
 
@@ -644,6 +646,102 @@ describe('market widget editor native snapshot lifecycle', () => {
     unmount();
     expect(mockConfigurationSynced).toBeUndefined();
   });
+
+  it.each(['single', 'list'] as const)(
+    'applies recovered %s slot metadata after configuration sync without replacing selections or drafts',
+    async (kind) => {
+      const selected: IMarketWidgetAsset = {
+        kind: 'token',
+        chainId: 'evm--1',
+        contractAddress: '0xabc',
+        requestTokenAddress: 'selected-request',
+        isNative: false,
+        symbol: 'OLD',
+        name: 'Old name',
+      };
+      const otherNetwork: IMarketWidgetAsset = {
+        ...selected,
+        chainId: 'evm--10',
+      };
+      const recovered: IMarketWidgetAsset = {
+        ...selected,
+        requestTokenAddress: 'server-request',
+        symbol: 'NEW',
+        name: 'Recovered name',
+        logoURL: 'https://example.com/recovered.png',
+      };
+      const draft: IMarketWidgetAsset = {
+        kind: 'stock',
+        stockId: 'QQQ',
+        symbol: 'QQQ',
+        name: 'Draft stock',
+      };
+      const setting = {
+        id: 'binding',
+        kind,
+        source: 'hot' as const,
+        name: 'Selected widget',
+        ...(kind === 'single'
+          ? { asset: selected }
+          : { assets: [selected, otherNetwork, selected] }),
+      };
+      const local = { ...createState('local'), settings: [setting] };
+      const initialMetadata = createPendingState();
+      const syncedMetadata = createPendingState();
+      mockBackgroundRefreshSupported = true;
+      mockGetEditorState.mockResolvedValue(local);
+      mockRefreshEditorState
+        .mockReturnValueOnce(initialMetadata.promise)
+        .mockReturnValueOnce(syncedMetadata.promise);
+      mockSetEditorDraft.mockResolvedValue({ ...local, searchAssets: [draft] });
+      mockSearchStocks.mockResolvedValue({ ...local, searchResults: [draft] });
+      const { result } = renderHook(() =>
+        useMarketWidgetEditorState('session'),
+      );
+      await waitFor(() =>
+        expect(mockRefreshEditorState).toHaveBeenCalledTimes(1),
+      );
+      await act(async () => mockConfigurationSynced?.());
+      await waitFor(() =>
+        expect(mockRefreshEditorState).toHaveBeenCalledTimes(2),
+      );
+      await act(async () => result.current.retainDraft([draft]));
+      await act(async () => result.current.searchAssets('QQQ'));
+      await act(async () => initialMetadata.resolve(createState('outdated')));
+      await act(async () =>
+        syncedMetadata.resolve({
+          ...createState('refreshed'),
+          settings: [
+            {
+              ...setting,
+              name: 'Server name',
+              ...(kind === 'single'
+                ? { asset: recovered }
+                : { assets: [recovered] }),
+            },
+          ],
+        }),
+      );
+
+      const display = {
+        ...recovered,
+        requestTokenAddress: selected.requestTokenAddress,
+      };
+      expect(result.current.state?.settings).toEqual([
+        {
+          ...setting,
+          ...(kind === 'single'
+            ? { asset: display }
+            : { assets: [display, otherNetwork, display] }),
+        },
+      ]);
+      expect(result.current.state?.profiles).toEqual(local.profiles);
+      expect(result.current.state?.searchAssets).toEqual([draft]);
+      expect(result.current.state?.searchResults).toEqual([draft]);
+      expect(result.current.searchQuery).toBe('QQQ');
+      expect(result.current.isLoading).toBe(false);
+    },
+  );
 
   it('uses the latest native Trending list from a draft when browse reads have finished', async () => {
     const local = createState('local');
