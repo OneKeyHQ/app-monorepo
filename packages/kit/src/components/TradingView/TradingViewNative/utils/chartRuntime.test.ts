@@ -1,8 +1,11 @@
+import assert from 'node:assert/strict';
+
 import { TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT } from '../chartConstants';
 
 import {
   createTradingViewNativeChartRuntimeState,
   getTradingViewNativeChartRuntimeVisiblePointRange,
+  getTradingViewNativeViewportRequestEvent,
   reduceTradingViewNativeChartRuntime,
 } from './chartRuntime';
 import { getTradingViewNativeCandleX } from './chartViewport';
@@ -107,6 +110,69 @@ describe('TradingViewNative chart runtime', () => {
     });
 
     expect(nextState.viewport).toEqual({ offset: 36, zoomScale: 1 });
+  });
+
+  it('keeps a panned candle at its pixel position when a gap is filled to its right', () => {
+    const chartWidth = 140;
+    const points = [0, 1, 2, 3, 4, 5, 6].map((t) => ({
+      t,
+      o: 1,
+      h: 1,
+      l: 1,
+      c: 1,
+      v: 1,
+    }));
+    const request = {
+      insertedAfterAnchor: 1,
+      requestId: 1,
+      target: { kind: 'timestamp' as const, timestamp: 2 },
+    };
+    const state = createTradingViewNativeChartRuntimeState({
+      initialRightOffset: { type: 'pointCount', value: 4 },
+    });
+    const before = reduceTradingViewNativeChartRuntime(state, {
+      type: 'panMoved',
+      chartWidth,
+      offset: 8,
+      pointCount: 6,
+    });
+    expect(
+      getTradingViewNativeChartRuntimeVisiblePointRange({
+        chartWidth,
+        pointCount: 6,
+        state: before,
+      }),
+    ).toMatchObject({ endIndex: 6, followsLive: false });
+    const event = getTradingViewNativeViewportRequestEvent({
+      applied: { chartWidth: 0, requestId: 0 },
+      chartWidth,
+      points,
+      request,
+    });
+    assert(event, 'Expected the gap repair to preserve the viewport');
+    const after = reduceTradingViewNativeChartRuntime(before, event);
+    const anchor = { index: 2, priceAxisX: chartWidth };
+    expect(
+      getTradingViewNativeCandleX({
+        ...anchor,
+        ...after.viewport,
+        pointCount: 7,
+      }),
+    ).toBe(
+      getTradingViewNativeCandleX({
+        ...anchor,
+        ...before.viewport,
+        pointCount: 6,
+      }),
+    );
+    expect(
+      getTradingViewNativeViewportRequestEvent({
+        applied: { chartWidth, requestId: 1 },
+        chartWidth: chartWidth + 10,
+        points,
+        request,
+      }),
+    ).toBeUndefined();
   });
 
   it.each([
@@ -296,6 +362,7 @@ describe('TradingViewNative chart runtime', () => {
       }),
     ).toEqual({
       endIndex: 100,
+      followsLive: true,
       startIndex: 57,
     });
   });

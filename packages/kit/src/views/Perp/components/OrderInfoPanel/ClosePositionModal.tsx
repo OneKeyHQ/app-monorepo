@@ -37,8 +37,8 @@ import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { getAggressiveLimitPriceWarning } from '../../utils/aggressiveLimitPrice';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../PerpDialogLayout';
 import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { PerpsSlider } from '../PerpsSlider';
@@ -71,6 +71,7 @@ interface IClosePositionFormProps extends IClosePositionParams {
 const ClosePositionForm = memo(
   ({ position, type, onClose }: IClosePositionFormProps) => {
     const intl = useIntl();
+    const dialogButtonSize = usePerpDialogButtonSize();
     const [allMids] = usePerpsAllMidsAtom();
     const hyperliquidActions = useHyperliquidActions();
 
@@ -596,10 +597,10 @@ const ClosePositionForm = memo(
           </SizableText>
         </XStack>
         <YStack pt={platformEnv.isNative ? '$4' : 0}>
-          <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+          <TradingGuardWrapper buttonSize={dialogButtonSize}>
             <Button
               testID="perp-processed-value-btn"
-              size={PERP_DIALOG_BUTTON_SIZE}
+              size={dialogButtonSize}
               variant="primary"
               onPress={handleSubmit}
               disabled={!isFormValid || isSubmitting}

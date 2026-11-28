@@ -39,6 +39,7 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     Select: () => null,
     SizableText: Container,
+    useMedia: () => ({ md: false }),
     XStack: Container,
     YStack: Container,
   };
