@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { differenceInDays } from 'date-fns';
 import { isEmpty } from 'lodash';
@@ -14,11 +14,17 @@ import {
   Stack,
   XStack,
   YStack,
+  runAfterActionListClose,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowReserveItem,
+  IEarnLinkActionIcon,
+} from '@onekeyhq/shared/types/staking';
 
 import { ListItem } from '../../../components/ListItem';
 import { Token } from '../../../components/Token';
@@ -26,6 +32,41 @@ import { EarnIcon } from '../../Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
+
+function BorrowBonusLink({ button }: { button: IEarnLinkActionIcon }) {
+  const { closePopover } = usePopoverContext();
+  const link = button.data?.link;
+  const openPendingRef = useRef(false);
+
+  const handlePress = useCallback(async () => {
+    if (!link) return;
+
+    if (platformEnv.isNative) {
+      if (openPendingRef.current) return;
+      openPendingRef.current = true;
+      try {
+        await runAfterActionListClose(
+          () => closePopover?.(),
+          () => openUrlExternal(link),
+          { waitForAnimation: false },
+        );
+      } finally {
+        openPendingRef.current = false;
+      }
+      return;
+    }
+
+    // Open the browser while the click still has user activation.
+    void closePopover?.();
+    openUrlExternal(link);
+  }, [closePopover, link]);
+
+  return (
+    <XStack gap="$0.5" cursor="pointer" onPress={handlePress}>
+      <EarnText text={button.text} size="$bodyMdMedium" color="$textSubdued" />
+    </XStack>
+  );
+}
 
 export const BorrowBonusTooltip = ({
   data,
@@ -43,18 +84,9 @@ export const BorrowBonusTooltip = ({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [open, setOpen] = useState(false);
-  const pendingExternalUrlRef = useRef<string | undefined>(undefined);
   const platformBonusLabel = intl.formatMessage({
     id: ETranslations.defi_platform_bonus,
   });
-
-  useEffect(() => {
-    if (open || !pendingExternalUrlRef.current) return;
-
-    const link = pendingExternalUrlRef.current;
-    pendingExternalUrlRef.current = undefined;
-    void openUrlExternal(link);
-  }, [open]);
 
   const handleHistoryClick = useCallback(() => {
     if (!accountId || !networkId || !provider || !marketAddress) return;
@@ -106,14 +138,6 @@ export const BorrowBonusTooltip = ({
 
     return String(Math.max(0, days));
   }, [data?.data?.endsIn]);
-
-  const handleOpenPlatformBonusLink = useCallback(() => {
-    const link = data?.data?.button?.data?.link;
-    if (!link) return;
-
-    pendingExternalUrlRef.current = link;
-    setOpen(false);
-  }, [data?.data?.button?.data?.link]);
 
   if (!data) {
     return null;
@@ -348,17 +372,7 @@ export const BorrowBonusTooltip = ({
                   </YStack>
                 ) : null}
                 {data.data.button ? (
-                  <XStack
-                    gap="$0.5"
-                    cursor="pointer"
-                    onPress={handleOpenPlatformBonusLink}
-                  >
-                    <EarnText
-                      text={data.data.button.text}
-                      size="$bodyMdMedium"
-                      color="$textSubdued"
-                    />
-                  </XStack>
+                  <BorrowBonusLink button={data.data.button} />
                 ) : null}
               </YStack>
             </Stack>

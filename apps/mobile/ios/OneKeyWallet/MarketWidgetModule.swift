@@ -270,11 +270,23 @@ final class MarketWidgetModule: NSObject {
     do {
       let store = MarketWidgetStore()
       let changed = try store.saveConfiguration(json: json)
-      if #available(iOS 17.0, *) {
-        Task {
-          do { try await store.reconcileInstalledInstances() }
-          catch { MarketWidgetDiagnostics.event("instance.reconciliation_failed", error: error) }
-        }
+      // Configuration sync also runs on foreground when its contents have not changed.
+      Task {
+        do {
+          if #available(iOS 17.0, *) {
+            do { try await store.reconcileInstalledInstances() }
+            catch { MarketWidgetDiagnostics.event("instance.reconciliation_failed", error: error) }
+          }
+          let widgets = try await installedMarketWidgets()
+          let assets = MarketWidgetQuoteReloader.assetsForForegroundRefresh(configurations: widgets, store: store)
+          guard !assets.isEmpty, let configuration = store.configuration().configuration,
+                configuration.privacyMasked != true else { return }
+          await MarketWidgetService.shared.refreshPrices(assets: assets, locale: configuration.locale)
+          // Cached prices must be committed before WidgetKit asks any size for a new timeline.
+          for kind in Set(widgets.map(\.kind)).filter({ $0.hasPrefix("OneKeyMarket") }) {
+            WidgetCenter.shared.reloadTimelines(ofKind: kind)
+          }
+        } catch { MarketWidgetDiagnostics.event("quote.foreground_failed", error: error) }
       }
       MarketWidgetDiagnostics.event("configuration.synced", ["changed": changed])
       if changed {
