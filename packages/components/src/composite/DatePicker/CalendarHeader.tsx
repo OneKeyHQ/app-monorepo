@@ -71,6 +71,7 @@ function HeaderTitle({
 }) {
   return (
     <Stack
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       paddingHorizontal="$1"
       borderRadius="$2"
       pointerEvents={onPress ? 'auto' : 'none'}

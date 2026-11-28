@@ -204,6 +204,7 @@ function ArrowAffordance({ side, visible, onPress }: IArrowAffordanceProps) {
   const isLeft = side === 'left';
   return (
     <Stack
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       position="absolute"
       top={0}
       bottom={0}
@@ -631,6 +632,7 @@ function ProtocolChipStripBase({
 
   return (
     <Animated.View
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       style={animatedWrapperStyle}
       pointerEvents={interactive ? 'auto' : 'none'}
     >

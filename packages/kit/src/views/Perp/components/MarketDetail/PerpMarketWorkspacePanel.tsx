@@ -450,6 +450,7 @@ export function PerpMarketWorkspacePanel({
         ) : null}
         {mode === 'perp' && (!platformEnv.isNative || shouldRenderFunding) ? (
           <YStack
+            collapsable={platformEnv.isNativeAndroid ? false : undefined}
             {...tabList.getPanelProps('funding')}
             tabIndex={!platformEnv.isNative && isFundingActive ? 0 : undefined}
             testID="perp-funding-workspace-panel"

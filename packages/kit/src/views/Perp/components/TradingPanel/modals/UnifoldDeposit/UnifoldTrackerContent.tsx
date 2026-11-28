@@ -340,7 +340,7 @@ function DetailInfoRow({
       alignItems="center"
       justifyContent="space-between"
       role={onCopy ? 'button' : undefined}
-      cursor={onCopy ? 'pointer' : undefined}
+      cursor={!platformEnv.isNative && onCopy ? 'pointer' : undefined}
       userSelect={onCopy ? 'none' : undefined}
       hoverStyle={
         onCopy

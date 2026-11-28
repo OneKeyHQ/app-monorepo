@@ -249,6 +249,7 @@ const SwapSwapMbContainer = ({
               overflow="hidden"
             >
               <YStack
+                collapsable={platformEnv.isNativeAndroid ? false : undefined}
                 position="absolute"
                 top={0}
                 bottom={0}

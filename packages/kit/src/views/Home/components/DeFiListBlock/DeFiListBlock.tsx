@@ -2544,6 +2544,7 @@ function DeFiListBlock({
           />
         ) : null}
         <YStack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           gap={tableLayout ? '$5' : '$0'}
           pt={tableLayout ? '$0' : '$1'}
           flex={platformEnv.isNative ? 1 : undefined}

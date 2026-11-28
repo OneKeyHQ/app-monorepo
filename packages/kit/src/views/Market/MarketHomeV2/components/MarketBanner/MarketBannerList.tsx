@@ -109,6 +109,7 @@ function BannerContainerDesktop({
   }
   return (
     <XStack
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       opacity={hidden ? 0 : 1}
       pointerEvents={hidden ? 'none' : 'auto'}
       accessibilityElementsHidden={hidden}
@@ -368,6 +369,7 @@ export function MarketBannerLayout({
         />
       ) : null}
       <YStack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         ref={rootRef}
         flex={1}
         zIndex={0}

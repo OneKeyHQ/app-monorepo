@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EarnTestIDs } from '../testIDs';
 
@@ -30,7 +31,7 @@ function EarnHomeShortcut({
       gap="$1"
       ai="center"
       jc="center"
-      cursor={onPress ? 'pointer' : undefined}
+      cursor={!platformEnv.isNative && onPress ? 'pointer' : undefined}
       userSelect="none"
       pressStyle={onPress ? { opacity: 0.5 } : undefined}
       onPress={onPress}

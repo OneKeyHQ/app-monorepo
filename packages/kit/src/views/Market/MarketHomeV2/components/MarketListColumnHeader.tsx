@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IMarketListColumnHeaderProps = {
   changeSortType?: 'asc' | 'desc';
@@ -62,7 +63,9 @@ function MarketListColumnHeaderBase({
             width="$20"
             onPress={onChangeSortPress}
             pressStyle={onChangeSortPress ? { opacity: 0.8 } : undefined}
-            cursor={onChangeSortPress ? 'pointer' : undefined}
+            cursor={
+              !platformEnv.isNative && onChangeSortPress ? 'pointer' : undefined
+            }
             testID={changeSortTestID}
           >
             <SizableText

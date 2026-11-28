@@ -194,7 +194,7 @@ export function BorrowPositionCard({
     <YStack gap="$2">
       <YStack
         testID={testID}
-        cursor={isPressable ? 'pointer' : undefined}
+        cursor={!platformEnv.isNative && isPressable ? 'pointer' : undefined}
         bg="$bgSubdued"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"

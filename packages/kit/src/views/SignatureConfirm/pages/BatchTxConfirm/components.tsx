@@ -9,6 +9,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { formatRecipientLine } from './utils';
 
@@ -63,7 +64,7 @@ export function TransactionRow({
       bg={signed ? '$bgSuccessSubdued' : '$bgSubdued'}
       opacity={disabled ? 0.5 : 1}
       userSelect="none"
-      cursor={disabled ? undefined : 'pointer'}
+      cursor={!platformEnv.isNative && !disabled ? 'pointer' : undefined}
       hoverStyle={disabled ? undefined : { bg: '$bgHover' }}
       pressStyle={disabled ? undefined : { bg: '$bgActive' }}
       focusable={!disabled}

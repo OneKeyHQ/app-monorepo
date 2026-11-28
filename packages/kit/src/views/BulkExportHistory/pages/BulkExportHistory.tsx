@@ -37,6 +37,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EChainSelectorPages,
   EModalBulkExportHistoryRoutes,
@@ -748,6 +749,7 @@ function BulkExportHistoryContent({
             })}
           </SizableText>
           <Stack
+            collapsable={platformEnv.isNativeAndroid ? false : undefined}
             opacity={isDateRangeDisabled || isExporting ? 0.5 : 1}
             pointerEvents={isDateRangeDisabled || isExporting ? 'none' : 'auto'}
             gap="$3"

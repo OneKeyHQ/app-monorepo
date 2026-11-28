@@ -1,4 +1,5 @@
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getTradingViewNativePriceScaleControlsLayout } from '../utils/priceScaleControls';
 
@@ -46,6 +47,7 @@ export function TradingViewNativePriceScaleControls({
 
   return (
     <XStack
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       testID={`${testIDPrefix}-controls`}
       position="absolute"
       right={layout.right}

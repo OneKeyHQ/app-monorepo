@@ -440,6 +440,7 @@ function WebBannerScroller({
       </ScrollView>
       {!platformEnv.isNative ? (
         <Stack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           position="absolute"
           left={0}
           top={0}
@@ -476,6 +477,7 @@ function WebBannerScroller({
       ) : null}
       {!platformEnv.isNative ? (
         <Stack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           position="absolute"
           right={0}
           top={0}

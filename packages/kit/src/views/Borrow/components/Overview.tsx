@@ -253,6 +253,7 @@ export const Overview = ({
   const phoneMetricsRow =
     showPositionMetrics || isPositionStateUnsettled ? (
       <XStack
+        collapsable={platformEnv.isNativeAndroid ? false : undefined}
         ai="flex-start"
         gap="$2"
         pointerEvents={isInteractionBlocked ? 'none' : 'auto'}
@@ -310,6 +311,7 @@ export const Overview = ({
 
       {gtMd ? (
         <YStack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           gap="$5"
           pl="$5"
           pointerEvents={isInteractionBlocked ? 'none' : 'auto'}

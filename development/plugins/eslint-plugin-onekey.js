@@ -1,4 +1,4 @@
-/* cspell:words oxlintrc callees */
+/* cspell:words oxlintrc callees reparent */
 
 /**
  * Custom oxlint JS plugin for OneKey-specific lint rules.
@@ -360,6 +360,289 @@ const noDeprecatedBufferConstructor = {
   },
 };
 
+const FABRIC_CONTAINERS = new Set([
+  'View',
+  'Stack',
+  'XStack',
+  'YStack',
+  'ZStack',
+]);
+
+const NON_NATIVE_OR_TEST_FILE_RE =
+  /\.(web|desktop|ext|test|spec|stories)\.[jt]sx?$/i;
+
+function isPlatformEnvCondition(node) {
+  if (!node || typeof node !== 'object') return false;
+  if (
+    node.type === 'MemberExpression' &&
+    node.object &&
+    node.object.type === 'Identifier' &&
+    node.object.name === 'platformEnv'
+  ) {
+    return true;
+  }
+  if (node.type === 'UnaryExpression' && node.operator === '!') {
+    return isPlatformEnvCondition(node.argument);
+  }
+  if (node.type === 'LogicalExpression') {
+    return (
+      isPlatformEnvCondition(node.left) && isPlatformEnvCondition(node.right)
+    );
+  }
+  return false;
+}
+
+const ANDROID_TRUE_PLATFORM_FLAGS = new Set([
+  'isNative',
+  'isNativeAndroid',
+  'isAndroid',
+]);
+
+const ANDROID_FALSE_PLATFORM_FLAGS = new Set([
+  'isWeb',
+  'isDesktop',
+  'isExtension',
+  'isNativeIOS',
+  'isIOS',
+]);
+
+// Evaluate a platformEnv boolean expression specifically on Android native.
+// Returns true, false, or null if the expression is not purely static on Android.
+function evalPlatformEnvOnAndroid(node) {
+  if (!node || typeof node !== 'object') return null;
+  if (
+    node.type === 'MemberExpression' &&
+    node.object &&
+    node.object.type === 'Identifier' &&
+    node.object.name === 'platformEnv' &&
+    node.property &&
+    node.property.type === 'Identifier'
+  ) {
+    if (ANDROID_TRUE_PLATFORM_FLAGS.has(node.property.name)) return true;
+    if (ANDROID_FALSE_PLATFORM_FLAGS.has(node.property.name)) return false;
+    return null;
+  }
+  if (node.type === 'UnaryExpression' && node.operator === '!') {
+    const inner = evalPlatformEnvOnAndroid(node.argument);
+    return inner === null ? null : !inner;
+  }
+  if (node.type === 'LogicalExpression') {
+    const left = evalPlatformEnvOnAndroid(node.left);
+    const right = evalPlatformEnvOnAndroid(node.right);
+    if (node.operator === '&&') {
+      if (left === false || right === false) return false;
+      if (left === true && right === true) return true;
+      return null;
+    }
+    if (node.operator === '||') {
+      if (left === true || right === true) return true;
+      if (left === false && right === false) return false;
+      return null;
+    }
+  }
+  return null;
+}
+
+function isStaticOnAndroid(expr) {
+  if (!expr || typeof expr !== 'object') return true;
+  if (expr.type === 'Literal') return true;
+  if (expr.type === 'Identifier' && expr.name === 'undefined') return true;
+  if (expr.type === 'ConditionalExpression') {
+    const androidTest = evalPlatformEnvOnAndroid(expr.test);
+    if (androidTest === true) return isStaticOnAndroid(expr.consequent);
+    if (androidTest === false) return isStaticOnAndroid(expr.alternate);
+    if (isPlatformEnvCondition(expr.test)) {
+      return (
+        isStaticOnAndroid(expr.consequent) && isStaticOnAndroid(expr.alternate)
+      );
+    }
+  }
+  if (expr.type === 'LogicalExpression' && expr.operator === '&&') {
+    if (evalPlatformEnvOnAndroid(expr.left) === false) return true;
+  }
+  return false;
+}
+
+function classifyLiteralString(expr) {
+  if (!expr) return { kind: 'undef' };
+  if (expr.type === 'Identifier' && expr.name === 'undefined') {
+    return { kind: 'undef' };
+  }
+  if (expr.type === 'Literal') {
+    if (expr.value === null) return { kind: 'undef' };
+    if (typeof expr.value === 'string') {
+      return { kind: 'str', value: expr.value };
+    }
+  }
+  return { kind: 'unknown' };
+}
+
+function canFlipPointerEventsStackingContext(expr) {
+  if (isStaticOnAndroid(expr)) return false;
+  if (expr.type === 'ConditionalExpression') {
+    const a = classifyLiteralString(expr.consequent);
+    const b = classifyLiteralString(expr.alternate);
+    if (a.kind !== 'unknown' && b.kind !== 'unknown') {
+      const formsSC = (x) =>
+        x.kind === 'str' && (x.value === 'none' || x.value === 'box-only');
+      return formsSC(a) !== formsSC(b);
+    }
+  }
+  return true;
+}
+
+function canFlipCursorStackingContext(expr) {
+  if (isStaticOnAndroid(expr)) return false;
+  if (expr.type === 'ConditionalExpression') {
+    const a = classifyLiteralString(expr.consequent);
+    const b = classifyLiteralString(expr.alternate);
+    if (a.kind !== 'unknown' && b.kind !== 'unknown') {
+      const formsSC = (x) =>
+        x.kind === 'str' && x.value !== 'auto' && x.value !== '';
+      return formsSC(a) !== formsSC(b);
+    }
+  }
+  return true;
+}
+
+function getFabricContainerName(nameNode) {
+  if (!nameNode) return null;
+  if (nameNode.type === 'JSXIdentifier') {
+    return FABRIC_CONTAINERS.has(nameNode.name) ? nameNode.name : null;
+  }
+  if (
+    nameNode.type === 'JSXMemberExpression' &&
+    nameNode.object &&
+    nameNode.object.name === 'Animated' &&
+    nameNode.property &&
+    nameNode.property.name === 'View'
+  ) {
+    return 'Animated.View';
+  }
+  return null;
+}
+
+function hasPermanentStackingContext(attrs) {
+  for (const attr of attrs) {
+    const name = attr.name && attr.name.name;
+    if (name === 'collapsable') {
+      // Bare `collapsable` or `collapsable={true}` does not prevent flattening.
+      const isLiteralTrue =
+        attr.value &&
+        attr.value.type === 'JSXExpressionContainer' &&
+        attr.value.expression.type === 'Literal' &&
+        attr.value.expression.value === true;
+      if (attr.value && !isLiteralTrue) {
+        return true;
+      }
+    }
+    if (
+      name === 'overflow' &&
+      attr.value &&
+      attr.value.type === 'Literal' &&
+      attr.value.value === 'hidden'
+    ) {
+      return true;
+    }
+    if (name === 'accessible') {
+      if (!attr.value) return true;
+      if (
+        attr.value.type === 'JSXExpressionContainer' &&
+        attr.value.expression.type === 'Literal' &&
+        attr.value.expression.value === true
+      ) {
+        return true;
+      }
+    }
+    if (
+      name === 'nativeID' &&
+      attr.value &&
+      attr.value.type === 'Literal' &&
+      typeof attr.value.value === 'string' &&
+      attr.value.value.length > 0
+    ) {
+      return true;
+    }
+    if (
+      name === 'onPress' &&
+      attr.value &&
+      attr.value.type === 'JSXExpressionContainer' &&
+      (attr.value.expression.type === 'ArrowFunctionExpression' ||
+        attr.value.expression.type === 'FunctionExpression')
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const noUnsafeAndroidFabricFlattening = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'Prevent Android Fabric view-flattening reparent crashes when dynamic pointerEvents or cursor toggles formsStackingContext without collapsable stabilization',
+    },
+    schema: [],
+  },
+  create(context) {
+    const filename =
+      context.filename || (context.getFilename && context.getFilename()) || '';
+    if (NON_NATIVE_OR_TEST_FILE_RE.test(filename)) {
+      return {};
+    }
+
+    return {
+      JSXOpeningElement(node) {
+        const containerName = getFabricContainerName(node.name);
+        if (!containerName) return;
+
+        const attrs = node.attributes.filter((a) => a.type === 'JSXAttribute');
+        if (hasPermanentStackingContext(attrs)) return;
+
+        const getAttr = (prop) =>
+          attrs.find((a) => a.name && a.name.name === prop);
+
+        const pointerEventsAttr = getAttr('pointerEvents');
+        if (
+          pointerEventsAttr &&
+          pointerEventsAttr.value &&
+          pointerEventsAttr.value.type === 'JSXExpressionContainer' &&
+          canFlipPointerEventsStackingContext(
+            pointerEventsAttr.value.expression,
+          )
+        ) {
+          context.report({
+            node: pointerEventsAttr,
+            message:
+              `Dynamic \`pointerEvents\` on <${containerName}> can toggle Android Fabric \`formsStackingContext\` ` +
+              `and crash SurfaceMountingManager.addViewAt during transitions (REACT-NATIVE-3RP). ` +
+              `Prefer \`disabled\` on child controls, or stabilize with ` +
+              `\`collapsable={platformEnv.isNativeAndroid ? false : undefined}\` ` +
+              `(and \`collapsableChildren\` if direct children also toggle \`focusable\`/\`onPress\`).`,
+          });
+        }
+
+        const cursorAttr = getAttr('cursor');
+        if (
+          cursorAttr &&
+          cursorAttr.value &&
+          cursorAttr.value.type === 'JSXExpressionContainer' &&
+          canFlipCursorStackingContext(cursorAttr.value.expression)
+        ) {
+          context.report({
+            node: cursorAttr,
+            message:
+              `Dynamic \`cursor\` on <${containerName}> is unused on Android native but toggles Fabric \`formsStackingContext\` ` +
+              `and can trigger view-flattening reparent crashes (REACT-NATIVE-3RP). ` +
+              `Gate \`cursor\` to web/desktop or stabilize with \`collapsable={platformEnv.isNativeAndroid ? false : undefined}\`.`,
+          });
+        }
+      },
+    };
+  },
+};
+
 const plugin = {
   meta: { name: 'onekey' },
   rules: {
@@ -368,6 +651,7 @@ const plugin = {
     'no-app-locale-main-thread': noAppLocaleMainThread,
     'no-non-worklet-call-in-worklet': noNonWorkletCallInWorklet,
     'no-deprecated-buffer-constructor': noDeprecatedBufferConstructor,
+    'no-unsafe-android-fabric-flattening': noUnsafeAndroidFabricFlattening,
   },
 };
 

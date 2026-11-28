@@ -144,7 +144,7 @@ export function SettingsRow({
       justifyContent="space-between"
       borderRadius="$3"
       role={interactive ? 'button' : undefined}
-      cursor={interactive ? 'pointer' : undefined}
+      cursor={!platformEnv.isNative && interactive ? 'pointer' : undefined}
       hoverStyle={interactive ? { bg: '$bgHover' } : undefined}
       pressStyle={interactive ? { bg: '$bgActive' } : undefined}
       onPress={onPress}

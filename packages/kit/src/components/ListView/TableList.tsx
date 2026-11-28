@@ -513,6 +513,7 @@ function TableListRow<T>({
       {expandable ? (
         <HeightTransition hide={!isExpanded}>
           <YStack
+            collapsable={platformEnv.isNativeAndroid ? false : undefined}
             px="$5"
             py="$4"
             pointerEvents={isExpanded ? 'auto' : 'none'}

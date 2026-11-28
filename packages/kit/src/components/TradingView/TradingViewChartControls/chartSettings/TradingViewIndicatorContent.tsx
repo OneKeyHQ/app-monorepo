@@ -11,6 +11,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
@@ -230,6 +231,7 @@ export function TradingViewIndicatorSettingsDialog({
         gap="$4"
       >
         <Stack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           testID="trading-view-mobile-indicator-settings-body"
           flex={1}
           minHeight={0}
@@ -292,6 +294,7 @@ export function TradingViewIndicatorSettingsDialog({
     >
       {(footer) => (
         <YStack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           flex={1}
           minHeight={0}
           pointerEvents={isSubmitting ? 'none' : 'auto'}

@@ -337,7 +337,11 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
       flexShrink={0}
       gap={isDesktopWeb ? '$5' : '$6'}
       userSelect="none"
-      cursor={isDesktopWeb && !isIndexBanner ? 'pointer' : undefined}
+      cursor={
+        !platformEnv.isNative && isDesktopWeb && !isIndexBanner
+          ? 'pointer'
+          : undefined
+      }
       hoverStyle={
         isIndexBanner || isDesktopWeb ? undefined : { bg: '$bgHover' }
       }

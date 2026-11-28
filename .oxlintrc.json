@@ -490,7 +490,9 @@
     // worklet hooks (regression: REACT-NATIVE-4FJ / 3RG)
     "onekey/no-non-worklet-call-in-worklet": "error",
     // Prevent DEP0005 warnings from new Buffer()/Buffer() in source.
-    "onekey/no-deprecated-buffer-constructor": "error"
+    "onekey/no-deprecated-buffer-constructor": "error",
+    // Prevent Android Fabric view-flattening reparent crashes (REACT-NATIVE-3RP)
+    "onekey/no-unsafe-android-fabric-flattening": "error"
   },
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [

@@ -185,7 +185,7 @@ function SelectItem({
         testID={testID}
         accessibilityLabel={labelComponent ? label : undefined}
         alignItems="center"
-        cursor={disabled ? 'not-allowed' : undefined}
+        cursor={!platformEnv.isNative && disabled ? 'not-allowed' : undefined}
       >
         {leading ? (
           <Stack alignContent="center" justifyContent="center" pr="$3">

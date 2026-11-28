@@ -15,6 +15,7 @@ import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
 import type { IBorrowToken } from '@onekeyhq/shared/types/staking';
@@ -505,6 +506,7 @@ const BorrowHomeContent = memo(
       if (gtMd && !isMidWidth) {
         return (
           <XStack
+            collapsable={platformEnv.isNativeAndroid ? false : undefined}
             gap="$5"
             ai="flex-start"
             pointerEvents={isMarketInteractionBlocked ? 'none' : 'auto'}
@@ -535,6 +537,7 @@ const BorrowHomeContent = memo(
         return (
           <YStack flex={1} gap="$5">
             <YStack
+              collapsable={platformEnv.isNativeAndroid ? false : undefined}
               flex={1}
               pointerEvents={isMarketInteractionBlocked ? 'none' : 'auto'}
             >
@@ -569,6 +572,7 @@ const BorrowHomeContent = memo(
 
       return (
         <YStack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           flex={1}
           gap="$5"
           pointerEvents={isMarketInteractionBlocked ? 'none' : 'auto'}
@@ -619,6 +623,7 @@ const BorrowHomeContent = memo(
             />
             {hasAlerts ? (
               <YStack
+                collapsable={platformEnv.isNativeAndroid ? false : undefined}
                 {...(gtMd ? { my: '$7' } : { mt: '$2', mb: '$7' })}
                 gap="$3"
                 pointerEvents={isMarketInteractionBlocked ? 'none' : 'auto'}

@@ -800,6 +800,7 @@ function MobileBrowser() {
             ) : null}
             <Freeze freeze={!displayBottomBar}>
               <Animated.View
+                collapsable={platformEnv.isNativeAndroid ? false : undefined}
                 pointerEvents={shouldShowRootWebPageLayer ? 'box-none' : 'none'}
                 style={[
                   styles.webPageRootToolbar,

@@ -201,6 +201,7 @@ function CarouselRow({
     <Animated.View
       // Off-screen rows only fade out, so hide them from screen readers,
       // keyboard focus and pointer events as well.
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       aria-hidden={!active}
       accessibilityElementsHidden={!active}
       importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}

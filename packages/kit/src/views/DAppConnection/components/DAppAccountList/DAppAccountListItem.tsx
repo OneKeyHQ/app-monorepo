@@ -547,6 +547,7 @@ function DAppAccountListStandAloneItem({
           // load, but kept transparent and out of layout flow until the data
           // is ready — the skeleton below covers this whole window.
           <Stack
+            collapsable={platformEnv.isNativeAndroid ? false : undefined}
             opacity={isCardVisible ? 1 : 0}
             position={isCardVisible ? 'relative' : 'absolute'}
             pointerEvents={isCardVisible ? 'auto' : 'none'}

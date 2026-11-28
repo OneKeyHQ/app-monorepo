@@ -19,6 +19,7 @@ import type {
 } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketHighlightStrip } from '../../MarketHighlights/MarketHighlightStrip';
 import { useMarketHighlights } from '../../MarketHighlights/useMarketHighlights';
@@ -163,6 +164,7 @@ function MarketHomeTabBar({
       />
       <YStack height={secondaryHeaderHeight} position="relative">
         <YStack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           display={
             currentFocusedTabName === watchlistTabName && !ctx.isWatchlistEmpty
               ? 'flex'
@@ -207,6 +209,7 @@ function MarketHomeTabBar({
           <MarketListColumnHeader />
         </YStack>
         <YStack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           display={showSpotSubHeader ? 'flex' : 'none'}
           position={showSpotSubHeader ? 'relative' : 'absolute'}
           height="100%"
@@ -253,6 +256,7 @@ function MarketHomeTabBar({
           <MarketListColumnHeader />
         </YStack>
         <YStack
+          collapsable={platformEnv.isNativeAndroid ? false : undefined}
           display={currentFocusedTabName === perpsTabName ? 'flex' : 'none'}
           position={
             currentFocusedTabName === perpsTabName ? 'relative' : 'absolute'

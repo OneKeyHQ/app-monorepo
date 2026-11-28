@@ -20,6 +20,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
@@ -151,7 +152,7 @@ function StockTokenInfoContent({
           alignItems="center"
           gap="$1.5"
           minWidth={0}
-          cursor={website ? 'pointer' : undefined}
+          cursor={!platformEnv.isNative && website ? 'pointer' : undefined}
           hoverStyle={website ? PRESSABLE_HOVER_STYLE : undefined}
           testID="stock-token-info-issuer-link"
           onPress={website ? handleOpenIssuerWebsite : undefined}

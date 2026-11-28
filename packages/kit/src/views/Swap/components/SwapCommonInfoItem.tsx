@@ -10,6 +10,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface ISwapCommonInfoItemProps {
   title: string;
@@ -93,7 +94,7 @@ const SwapCommonInfoItem = ({
         }}
         alignItems="center"
         onPress={onPress}
-        cursor={onPress ? 'pointer' : undefined}
+        cursor={!platformEnv.isNative && onPress ? 'pointer' : undefined}
       >
         {valueComponent || (
           <SizableText size="$bodyMdMedium" {...valueProps}>

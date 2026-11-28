@@ -83,6 +83,7 @@ export function PerpetualTradingBanner({
 
   return (
     <XStack
+      collapsable={platformEnv.isNativeAndroid ? false : undefined}
       opacity={isVisible ? 1 : 0}
       pointerEvents={isVisible ? 'auto' : 'none'}
       accessibilityElementsHidden={!isVisible}

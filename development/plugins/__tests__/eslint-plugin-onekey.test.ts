@@ -268,3 +268,115 @@ describe('onekey/no-non-worklet-call-in-worklet', () => {
     },
   );
 });
+
+const jsxTester = new RuleTester({
+  parserOptions: {
+    ecmaVersion: 2022,
+    sourceType: 'module',
+    ecmaFeatures: { jsx: true },
+  },
+});
+
+describe('onekey/no-unsafe-android-fabric-flattening', () => {
+  jsxTester.run(
+    'no-unsafe-android-fabric-flattening',
+    plugin.rules['no-unsafe-android-fabric-flattening'],
+    {
+      valid: [
+        // Stabilized with Android collapsable guard (PR #14850 fix pattern).
+        {
+          filename: 'DustSweepFilters.tsx',
+          code: `
+            <XStack
+              collapsable={platformEnv.isNativeAndroid ? false : undefined}
+              collapsableChildren={platformEnv.isNativeAndroid ? false : undefined}
+              cursor={selecting ? undefined : 'not-allowed'}
+              pointerEvents={selecting ? 'auto' : 'none'}
+            />
+          `,
+        },
+        // Stabilized with unconditional collapsable={false}.
+        {
+          filename: 'Panel.tsx',
+          code: `<View collapsable={false} pointerEvents={enabled ? 'auto' : 'none'} />`,
+        },
+        // Static platform-gated expression never changes at runtime.
+        {
+          filename: 'AppStateLock.tsx',
+          code: `<Stack pointerEvents={platformEnv.isNative ? undefined : 'auto'} />`,
+        },
+        // Dynamic cursor gated off on Android native stays undefined on Android.
+        {
+          filename: 'WebCursorRow.tsx',
+          code: `<XStack cursor={platformEnv.isNative ? undefined : (disabled ? 'not-allowed' : undefined)} />`,
+        },
+        {
+          filename: 'WebCursorRow2.tsx',
+          code: `<XStack cursor={!platformEnv.isNative && disabled ? 'not-allowed' : undefined} />`,
+        },
+        // Both branches keep formsStackingContext=true (non-auto cursors).
+        {
+          filename: 'ButtonRow.tsx',
+          code: `<XStack cursor={disabled ? 'not-allowed' : 'pointer'} />`,
+        },
+        // Both branches keep formsStackingContext=false.
+        {
+          filename: 'Overlay.tsx',
+          code: `<YStack pointerEvents={passthrough ? 'box-none' : 'auto'} />`,
+        },
+        // Permanent stacking context via overflow="hidden" or unconditional onPress.
+        {
+          filename: 'Card.tsx',
+          code: `<Stack overflow="hidden" pointerEvents={enabled ? 'auto' : 'none'} />`,
+        },
+        {
+          filename: 'ClickableRow.tsx',
+          code: `<XStack onPress={() => {}} cursor={active ? undefined : 'pointer'} />`,
+        },
+        // Web/Desktop/Extension/test/stories files are skipped.
+        {
+          filename: 'DesktopToolbar.desktop.tsx',
+          code: `<XStack cursor={selecting ? undefined : 'not-allowed'} pointerEvents={selecting ? 'auto' : 'none'} />`,
+        },
+        {
+          filename: 'WebPanel.web.tsx',
+          code: `<Stack pointerEvents={ready ? 'auto' : 'none'} />`,
+        },
+      ],
+      invalid: [
+        // Exact PR #14850 DustSweepFilters regression.
+        {
+          filename: 'DustSweepFilters.tsx',
+          code: `
+            <XStack
+              cursor={selecting ? undefined : 'not-allowed'}
+              pointerEvents={selecting ? 'auto' : 'none'}
+            />
+          `,
+          errors: [
+            { message: /Dynamic `cursor` on <XStack>/ },
+            { message: /Dynamic `pointerEvents` on <XStack>/ },
+          ],
+        },
+        // Exact PR #14850 DustSweepSelection regression.
+        {
+          filename: 'DustSweepSelection.tsx',
+          code: `<Stack pointerEvents={selecting ? 'auto' : 'none'} />`,
+          errors: [{ message: /Dynamic `pointerEvents` on <Stack>/ }],
+        },
+        // collapsable={true} does not prevent flattening.
+        {
+          filename: 'BadGuard.tsx',
+          code: `<View collapsable={true} pointerEvents={visible ? 'auto' : 'none'} />`,
+          errors: [{ message: /Dynamic `pointerEvents` on <View>/ }],
+        },
+        // Animated.View is also a Fabric container.
+        {
+          filename: 'AnimatedPanel.tsx',
+          code: `<Animated.View pointerEvents={open ? 'auto' : 'none'} />`,
+          errors: [{ message: /Dynamic `pointerEvents` on <Animated\.View>/ }],
+        },
+      ],
+    },
+  );
+});

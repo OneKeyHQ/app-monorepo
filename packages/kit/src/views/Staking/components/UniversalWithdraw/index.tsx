@@ -2719,7 +2719,11 @@ export function UniversalWithdraw({
           gap="$2.5"
           ai="center"
           userSelect="none"
-          cursor={canSelectWithdrawPath ? 'pointer' : undefined}
+          cursor={
+            !platformEnv.isNative && canSelectWithdrawPath
+              ? 'pointer'
+              : undefined
+          }
           hoverStyle={canSelectWithdrawPath ? { bg: '$bgHover' } : undefined}
           onPress={canSelectWithdrawPath ? showWithdrawPathDialog : undefined}
         >

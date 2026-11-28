@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -132,7 +133,7 @@ const SwapProviderInfoItem = ({
           userSelect="none"
           hoverStyle={pressHandler ? { opacity: 0.5 } : undefined}
           onPress={pressHandler}
-          cursor={pressHandler ? 'pointer' : undefined}
+          cursor={!platformEnv.isNative && pressHandler ? 'pointer' : undefined}
         >
           {isEmpty && showEmptyPlaceholder ? (
             <SizableText size="$bodyMdMedium" {...valueProps}>
