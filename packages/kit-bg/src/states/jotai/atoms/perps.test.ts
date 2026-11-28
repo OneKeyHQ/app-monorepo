@@ -909,6 +909,42 @@ describe('perpsActiveAccountMmrAtom', () => {
     jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
     jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), undefined);
     jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), undefined);
+  });
+
+  it('shows zero only after the selected account is confirmed inactive', () => {
+    const account = {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    } as const;
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), account);
+    const ratio = perpsActiveAccountMmrAtom.atom();
+    expect(jotaiDefaultStore.get(ratio).status).toBe('loading');
+
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: ADDR,
+      details: {
+        activatedOk: false,
+        agentOk: false,
+        referralCodeOk: false,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+    expect(jotaiDefaultStore.get(ratio)).toEqual({
+      status: 'ready',
+      mmr: '0',
+      mmrPercent: '0.00',
+    });
+
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      ...account,
+      accountAddress: '0xdef',
+    });
+    expect(jotaiDefaultStore.get(ratio).status).toBe('loading');
   });
 
   it('rates a unified account against its spot USDC, not the perp-side hold', () => {
