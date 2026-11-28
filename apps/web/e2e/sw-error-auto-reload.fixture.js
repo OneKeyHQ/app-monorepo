@@ -62,7 +62,24 @@ globalThis.addEventListener('load', () => {
         }
       };
       navigator.serviceWorker.addEventListener('message', markProtocolReady);
-      protocol.setup();
+      // Do not wake the outgoing worker with a version check while Chrome is
+      // stopping it to activate this release's worker.
+      function startProtocolWhenControlled() {
+        const controller = navigator.serviceWorker.controller;
+        if (controller?.scriptURL !== new URL(scriptURL, location.href).href) {
+          return;
+        }
+        navigator.serviceWorker.removeEventListener(
+          'controllerchange',
+          startProtocolWhenControlled,
+        );
+        protocol.setup();
+      }
+      navigator.serviceWorker.addEventListener(
+        'controllerchange',
+        startProtocolWhenControlled,
+      );
+      startProtocolWhenControlled();
     })
     .catch((error) => {
       console.error(
