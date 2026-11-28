@@ -46,6 +46,7 @@ import type {
   ITradingViewNativeDataProvider,
   ITradingViewNativeHistoryRequest,
   ITradingViewNativeHistoryResponse,
+  ITradingViewNativeRateLimitRetries,
   ITradingViewNativeRealtimeSubscription,
   ITradingViewNativeRealtimeUpdate,
 } from './providers/types';
@@ -732,6 +733,8 @@ function prefetchHistoryBoundaryPage({
   }
 
   const coarsestInterval = getHistoryBoundarySearchInterval();
+  // Shared by charts of the series and not aborted when one goes away, so a
+  // rate-limited page fails at once instead of waiting.
   const abortController = new AbortController();
   const timeFrom = 0;
   const timeTo = Math.floor(Date.now() / 1000);
@@ -753,6 +756,7 @@ function prefetchHistoryBoundaryPage({
             signal: abortController.signal,
             timeFrom,
             timeTo: oldestPageTimeTo,
+            waitOutRateLimit: false,
           },
           requestAttemptBudget,
           unavailableMessage:
@@ -824,6 +828,7 @@ function prefetchHistoryBoundaryPage({
           signal: abortController.signal,
           timeFrom: dailyTimeFrom,
           timeTo: dailyTimeTo,
+          waitOutRateLimit: false,
         },
         requestAttemptBudget,
         unavailableMessage:
@@ -1805,8 +1810,13 @@ export function useTradingViewNativeKLine({
       string,
       IHistoryPointTypeClassification
     >();
+    // One count for this chart and token, e.g. one split-view panel: its
+    // requests and its realtime history share the rate-limit retries.
+    const rateLimitRetries: ITradingViewNativeRateLimitRetries = { used: 0 };
     return {
       ...rawHistoryProvider,
+      subscribeRealtime: (request) =>
+        rawHistoryProvider.subscribeRealtime({ ...request, rateLimitRetries }),
       fetchHistory: async (request) => {
         historyDebugRequestSequence += 1;
         const debugRequestId = historyDebugRequestSequence;
@@ -1822,7 +1832,10 @@ export function useTradingViewNativeKLine({
           name: 'history.request',
         });
         try {
-          const data = await rawHistoryProvider.fetchHistory(request);
+          const data = await rawHistoryProvider.fetchHistory({
+            ...request,
+            rateLimitRetries,
+          });
           const responseDataSource: IHistoryDataSource =
             data?.historySource === 'fallback' ? 'fallback' : 'primary';
           const responseDetails = {
@@ -4350,6 +4363,7 @@ export function useTradingViewNativeKLine({
           consumeHistoryRequestAttempt(requestAttemptBudget);
           let data = await historyProvider.fetchHistory({
             ...(sourceKind === 'stock' ? { allowEarlierHistory: true } : {}),
+            followsLatest: true,
             interval: requestedInterval,
             signal: abortController.signal,
             timeFrom,
@@ -4366,6 +4380,7 @@ export function useTradingViewNativeKLine({
             timeFrom = fullHistoryTimeFrom;
             consumeHistoryRequestAttempt(requestAttemptBudget);
             data = await historyProvider.fetchHistory({
+              followsLatest: true,
               interval: requestedInterval,
               signal: abortController.signal,
               timeFrom,

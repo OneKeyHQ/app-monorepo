@@ -811,6 +811,13 @@ describe('TradingViewNative K-line data state machine', () => {
       await jest.advanceTimersByTimeAsync(4001);
     });
     expect(mockFetchHistory).toHaveBeenCalledTimes(4);
+    // Only the latest candles follow the time of a rate-limited retry; the
+    // warmup range stays fixed.
+    expect(
+      mockFetchHistory.mock.calls.map(
+        ([request]) => request.followsLatest ?? false,
+      ),
+    ).toEqual([true, false, false, false]);
     expect(result.current.dataState.status).toBe('live');
     pushRealtimePoint(buildResponse(105, now - 3600).points[0]);
     expect(result.current.points.map(({ c }) => c)).toEqual([105]);
@@ -1214,6 +1221,43 @@ describe('TradingViewNative K-line data state machine', () => {
     );
   });
 
+  it('gives each chart one rate-limit retry count for all its requests', async () => {
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 100_000));
+    const firstChart = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildPerpsSource('BTC') }),
+    );
+    await waitFor(() =>
+      expect(firstChart.result.current.points).toHaveLength(1),
+    );
+    const firstChartCallCount = mockFetchHistory.mock.calls.length;
+    // E.g. the next split-view panel, on the same token.
+    const secondChart = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildPerpsSource('BTC') }),
+    );
+    await waitFor(() =>
+      expect(secondChart.result.current.points).toHaveLength(1),
+    );
+
+    const counts = mockFetchHistory.mock.calls.map(
+      ([request]) => request.rateLimitRetries,
+    );
+    const [firstCount] = counts;
+    const secondCount = counts[firstChartCallCount];
+    expect(firstCount).toEqual({ used: 0 });
+    expect(secondCount).toEqual({ used: 0 });
+    expect(secondCount).not.toBe(firstCount);
+    expect(
+      counts.map((count) => (count === firstCount ? 'first' : 'second')),
+    ).toEqual([
+      ...Array<string>(firstChartCallCount).fill('first'),
+      ...Array<string>(counts.length - firstChartCallCount).fill('second'),
+    ]);
+    // A perps chart's realtime subscription loads 1W/1M history too.
+    expect(mockSubscribeRealtime.mock.calls[0]?.[0].rateLimitRetries).toBe(
+      firstCount,
+    );
+  });
+
   it('refines the weekly history boundary with daily data and caches it for 24 hours', async () => {
     let now = 200_000_000;
     mockHistoryBatchSize = 2;
@@ -1268,6 +1312,13 @@ describe('TradingViewNative K-line data state machine', () => {
         timeTo: 200_000,
       }),
     );
+    // No chart aborts the shared prefetch, so only its requests fail fast on
+    // a rate limit.
+    expect(
+      mockFetchHistory.mock.calls
+        .filter(([request]) => request.waitOutRateLimit === false)
+        .map(([request]) => request.interval.value),
+    ).toEqual(['1W', '1D']);
 
     now += 24 * 60 * 60 * 1000 - 1;
     act(() => result.current.handleHistoryBoundaryPrefetch());

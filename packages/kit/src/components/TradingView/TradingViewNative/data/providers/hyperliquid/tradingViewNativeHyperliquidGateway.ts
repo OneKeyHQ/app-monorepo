@@ -1,4 +1,5 @@
 import {
+  HttpRequestError,
   HttpTransport,
   InfoClient,
   SubscriptionClient,
@@ -23,6 +24,7 @@ import {
 
 import type { IHyperliquidCandleInterval } from './hyperliquidCandleUtils';
 import type { ITradingViewNativeHyperliquidEnvironment } from '../../../types';
+import type { ITradingViewNativeRateLimitRetries } from '../types';
 
 type IHyperliquidCandleListener = (point: IMarketTokenKLineDataPoint) => void;
 
@@ -56,10 +58,15 @@ interface ISubscribeHyperliquidCandleParams {
 interface IFetchHyperliquidCandlesParams {
   coin: string;
   environment: ITradingViewNativeHyperliquidEnvironment;
+  // A retry asks for candles up to the time it is sent.
+  followsLatest?: boolean;
   interval: IHyperliquidCandleInterval;
+  // The chart's count; without one, the request counts its own retries.
+  rateLimitRetries?: ITradingViewNativeRateLimitRetries;
   signal?: AbortSignal;
   timeFrom: number;
   timeTo: number;
+  waitOutRateLimit?: boolean;
 }
 
 function getChannelKey(coin: string, interval: IHyperliquidCandleInterval) {
@@ -68,6 +75,34 @@ function getChannelKey(coin: string, interval: IHyperliquidCandleInterval) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+// Hyperliquid limits request weight per IP, and a split view loads several
+// charts at once. A rate-limited history request waits and tries again, so
+// the chart loads late instead of showing no data, unless the limit lasts:
+// each chart retries at most this many times in a row.
+const RATE_LIMIT_RETRY_DELAY_MS = 5000;
+const RATE_LIMIT_MAX_RETRIES = 10;
+
+function isRateLimitError(error: unknown) {
+  return error instanceof HttpRequestError && error.response?.status === 429;
+}
+
+// Resolves early once the request is aborted.
+function waitForRateLimitRetry(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    const timeoutState: { timer?: ReturnType<typeof setTimeout> } = {};
+    const finish = () => {
+      clearTimeout(timeoutState.timer);
+      signal?.removeEventListener('abort', finish);
+      resolve();
+    };
+    timeoutState.timer = setTimeout(finish, RATE_LIMIT_RETRY_DELAY_MS);
+    signal?.addEventListener('abort', finish, { once: true });
+  });
 }
 
 export class TradingViewNativeHyperliquidGateway {
@@ -261,13 +296,71 @@ export class TradingViewNativeHyperliquidGateway {
     }
   }
 
+  private async requestCandleSnapshot({
+    coin,
+    endTime,
+    environment,
+    followsLatest = false,
+    interval,
+    rateLimitRetries = { used: 0 },
+    signal,
+    startTime,
+    waitOutRateLimit = true,
+  }: {
+    coin: string;
+    endTime: number;
+    environment: ITradingViewNativeHyperliquidEnvironment;
+    followsLatest?: boolean;
+    interval: IHyperliquidCandleInterval;
+    rateLimitRetries?: ITradingViewNativeRateLimitRetries;
+    signal?: AbortSignal;
+    startTime: number;
+    waitOutRateLimit?: boolean;
+  }) {
+    const client = this.getInfoClient(environment);
+    let requestEndTime = endTime;
+    for (;;) {
+      try {
+        const candles = await client.candleSnapshot(
+          { coin, interval, startTime, endTime: requestEndTime },
+          signal,
+        );
+        // The limit has lifted: the chart's next rate limit gets all retries.
+        rateLimitRetries.used = 0;
+        return candles;
+      } catch (error) {
+        if (
+          !waitOutRateLimit ||
+          !isRateLimitError(error) ||
+          rateLimitRetries.used >= RATE_LIMIT_MAX_RETRIES
+        ) {
+          throw error;
+        }
+        rateLimitRetries.used += 1;
+        await waitForRateLimitRetry(signal);
+        // Stop once the caller aborts; it ignores the error.
+        if (signal?.aborted) {
+          throw error;
+        }
+        // Other ranges stay fixed: candles past their end could overwrite
+        // newer live updates the chart already shows.
+        if (followsLatest) {
+          requestEndTime = Math.max(endTime, Date.now());
+        }
+      }
+    }
+  }
+
   async fetchCandles({
     coin,
     environment,
+    followsLatest,
     interval,
+    rateLimitRetries,
     signal,
     timeFrom,
     timeTo,
+    waitOutRateLimit,
   }: IFetchHyperliquidCandlesParams): Promise<IMarketTokenKLineResponse> {
     const boundary = getHyperliquidCandleHistoryBoundary(coin, environment);
     const startTime = boundary
@@ -276,15 +369,17 @@ export class TradingViewNativeHyperliquidGateway {
     if (boundary && startTime >= timeTo * 1000) {
       return { points: [], total: 0 };
     }
-    const candles = await this.getInfoClient(environment).candleSnapshot(
-      {
-        coin,
-        interval,
-        startTime,
-        endTime: timeTo * 1000,
-      },
+    const candles = await this.requestCandleSnapshot({
+      coin,
+      endTime: timeTo * 1000,
+      environment,
+      followsLatest,
+      interval,
+      rateLimitRetries,
       signal,
-    );
+      startTime,
+      waitOutRateLimit,
+    });
     const points = candles
       .map((candle) => normalizeHyperliquidHistoryCandle(candle, environment))
       .filter((point) => point !== null);
