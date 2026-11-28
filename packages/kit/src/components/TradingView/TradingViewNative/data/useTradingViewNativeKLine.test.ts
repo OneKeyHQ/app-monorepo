@@ -40,6 +40,7 @@ import type {
   ITradingViewNativeHistoryResponse,
   ITradingViewNativeRealtimeSubscriptionRequest,
 } from './providers/types';
+import type { ITradingViewNativeChartInterval } from './tradingViewNativeIntervals';
 import type {
   ITradingViewNativeCandleTimeMode,
   ITradingViewNativeSource,
@@ -254,6 +255,37 @@ function pushRealtimePoint(point: IMarketTokenKLineDataPoint) {
 function updateVisibility(isVisible: boolean) {
   mockCurrentVisibility = isVisible;
   act(() => mockVisibilityListener?.(isVisible));
+}
+
+async function renderPerpsRealtimeGap(
+  interval: ITradingViewNativeChartInterval,
+  step: number,
+) {
+  const left = 1_728_000_000;
+  const middle = left + step;
+  const right = middle + step;
+  let now = left + 1;
+  jest.spyOn(Date, 'now').mockImplementation(() => now * 1000);
+  mockReadTradingViewNativeActiveInterval.mockReturnValue(interval);
+  mockHistoryBatchSize = 2;
+  const gap = createDeferred<IMarketTokenKLineResponse>();
+  mockFetchHistory
+    .mockResolvedValueOnce(buildResponse(100, left))
+    .mockReturnValueOnce(gap.promise)
+    .mockResolvedValue({ points: [], total: 0 });
+  const source = buildPerpsSource('REALTIME_GAP');
+  const { result } = renderHook(() => useTradingViewNativeKLine({ source }));
+  await waitFor(() => expect(result.current.dataState.status).toBe('live'));
+  pushRealtimePoint(buildResponse(105, left).points[0]);
+  now = right + 1;
+  pushRealtimePoint(buildResponse(120, right).points[0]);
+  act(() =>
+    result.current.handleVisiblePointRangeChange({
+      startIndex: 0,
+      endIndex: 2,
+    }),
+  );
+  return { gap, left, middle, result, right };
 }
 
 describe('TradingViewNative K-line data state machine', () => {
@@ -933,6 +965,55 @@ describe('TradingViewNative K-line data state machine', () => {
         600,
       ).at(-1),
     ).toBe(300.5);
+  });
+
+  it('rechecks the same visible candles after their indices shift during warmup', async () => {
+    const left = 1_728_000_000;
+    let now = left + 1;
+    jest.spyOn(Date, 'now').mockImplementation(() => now * 1000);
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    mockHistoryRequestCandleCount = 4;
+    mockInitialHistoryRequestCandleCount = 1;
+    mockHistoryBatchSize = 2;
+    const warmup = createDeferred<IMarketTokenKLineResponse>();
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, left))
+      .mockReturnValueOnce(warmup.promise)
+      .mockResolvedValueOnce(buildResponse(110, left + 60));
+    const source = buildPerpsSource('WARMUP_VISIBLE_GAP');
+    const { result } = renderHook(() => useTradingViewNativeKLine({ source }));
+    await waitFor(() => expect(result.current.dataState.status).toBe('live'));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+
+    now = left + 121;
+    pushRealtimePoint(buildResponse(120, left + 120).points[0]);
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 2,
+        startIndex: 0,
+      }),
+    );
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+    // More than the viewport search padding can be inserted before the observed gap.
+    act(() => {
+      for (let i = 30; i > 0; i -= 1) {
+        realtimePointListener?.(buildResponse(95, left - i * 60).points[0]);
+      }
+    });
+    await act(async () => {
+      warmup.resolve({ points: [], total: 0 });
+      await warmup.promise;
+    });
+
+    await waitFor(() =>
+      expect(result.current.points.slice(-3).map(({ c }) => c)).toEqual([
+        100, 110, 120,
+      ]),
+    );
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+    expect(mockFetchHistory).toHaveBeenLastCalledWith(
+      expect.objectContaining({ timeFrom: left, timeTo: left + 119 }),
+    );
   });
 
   it('falls back to the full window when the fast latest window contains no candles', async () => {
@@ -4694,6 +4775,300 @@ describe('TradingViewNative K-line data state machine', () => {
     });
   });
 
+  it.each([
+    ['1m', '1', 60],
+    ['5m', '5', 300],
+    ['15m', '15', 900],
+    ['30m', '30', 1800],
+    ['1h', '60', 3600],
+    ['4h', '240', 14_400],
+    ['1d', '1D', 86_400],
+  ] as const)(
+    'repairs one missing Hyperliquid %s candle with a single bounded request',
+    async (hyperliquidValue, interval, step) => {
+      const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+        interval,
+        step,
+      );
+      await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+      expect(mockFetchHistory).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          interval: expect.objectContaining({ hyperliquidValue }),
+          timeFrom: left,
+          timeTo: right - 1,
+        }),
+      );
+      pushRealtimePoint(buildResponse(125, right).points[0]);
+      const repaired = buildMultiPointResponse([
+        { close: 110, timestamp: left },
+        { close: 115, timestamp: middle },
+      ]);
+      await act(async () => {
+        gap.resolve({
+          points: [
+            ...buildResponse(80, left - step).points,
+            ...repaired.points,
+            ...buildResponse(90, right).points,
+          ],
+          total: 4,
+        });
+        await gap.promise;
+      });
+      expect(result.current.points).toEqual([
+        ...repaired.points,
+        ...buildResponse(125, right).points,
+      ]);
+      expect(result.current.viewportRequest).toBeNull();
+      expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('keeps late Hyperliquid ticks for the left and missing candles during local repair', async () => {
+    const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+      '1',
+      60,
+    );
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        startIndex: 0,
+        endIndex: 1,
+      }),
+    );
+
+    await act(async () => {
+      realtimePointListener?.(buildResponse(105, left).points[0]);
+      realtimePointListener?.(buildResponse(118, middle).points[0]);
+      gap.resolve(
+        buildMultiPointResponse([
+          { close: 110, timestamp: left },
+          { close: 115, timestamp: middle },
+        ]),
+      );
+      await gap.promise;
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+      [left, 105],
+      [middle, 118],
+      [right, 120],
+    ]);
+    expect(result.current.viewportRequest).toBeNull();
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['latest page', 'indicator warmup'] as const)(
+    'keeps the newer Hyperliquid %s when an earlier gap response arrives later',
+    async (page) => {
+      const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+        '1',
+        60,
+      );
+      await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+      mockHistoryRequestCandleCount = 3;
+      const refresh = createDeferred<IMarketTokenKLineResponse>();
+      const fromWarmup = page === 'indicator warmup';
+      if (fromWarmup) {
+        mockInitialHistoryRequestCandleCount = 1;
+        mockFetchHistory.mockResolvedValueOnce(buildResponse(120, right));
+      }
+      mockFetchHistory.mockReturnValueOnce(refresh.promise);
+      act(() => result.current.handleRetry());
+      await waitFor(() =>
+        expect(mockFetchHistory).toHaveBeenCalledTimes(fromWarmup ? 4 : 3),
+      );
+
+      const refreshed = buildMultiPointResponse([
+        { close: 111, timestamp: left },
+        { close: 116, timestamp: middle },
+      ]);
+      const expected = [
+        ...refreshed.points,
+        ...buildResponse(120, right).points,
+      ];
+      await act(async () => {
+        refresh.resolve(refreshed);
+        await refresh.promise;
+      });
+      expect(result.current.points).toEqual(expected);
+
+      await act(async () => {
+        gap.resolve(
+          buildMultiPointResponse([
+            { close: 110, timestamp: left },
+            { close: 115, timestamp: middle },
+          ]),
+        );
+        await gap.promise;
+      });
+      expect(result.current.points).toEqual(expected);
+      expect(mockFetchHistory).toHaveBeenCalledTimes(fromWarmup ? 4 : 3);
+    },
+  );
+
+  it('orders Hyperliquid gap repairs by the successful retry and keeps later realtime ticks', async () => {
+    jest.useFakeTimers();
+    const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+      '1',
+      60,
+    );
+    const retry = createDeferred<IMarketTokenKLineResponse>();
+    mockFetchHistory.mockReturnValueOnce(retry.promise);
+    await act(async () => {
+      gap.reject(new Error('transient read error'));
+      await gap.promise.catch(() => undefined);
+    });
+
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+    pushRealtimePoint(buildResponse(106, left).points[0]);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1000);
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+
+    pushRealtimePoint(buildResponse(118, middle).points[0]);
+    await act(async () => {
+      retry.resolve(
+        buildMultiPointResponse([
+          { close: 110, timestamp: left },
+          { close: 115, timestamp: middle },
+        ]),
+      );
+      await retry.promise;
+    });
+
+    expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+      [left, 110],
+      [middle, 118],
+      [right, 120],
+    ]);
+  });
+
+  it('updates a repaired Hyperliquid candle during date navigation and keeps later realtime ticks', async () => {
+    const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+      '1',
+      60,
+    );
+    await act(async () => {
+      gap.resolve(
+        buildMultiPointResponse([
+          { close: 110, timestamp: left },
+          { close: 115, timestamp: middle },
+        ]),
+      );
+      await gap.promise;
+    });
+    expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+      [left, 110],
+      [middle, 115],
+      [right, 120],
+    ]);
+
+    mockHistoryRequestCandleCount = 10;
+    const latest = createDeferred<IMarketTokenKLineResponse>();
+    mockFetchHistory.mockReturnValueOnce(latest.promise);
+    let navigationPromise = Promise.resolve();
+    act(() => {
+      navigationPromise = result.current.handleViewportTargetChange({
+        kind: 'timeRange',
+        from: right + 300,
+        to: right + 600,
+      });
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+
+    pushRealtimePoint(buildResponse(125, right).points[0]);
+    await act(async () => {
+      latest.resolve(
+        buildMultiPointResponse([
+          { close: 111, timestamp: left },
+          { close: 116, timestamp: middle },
+          { close: 121, timestamp: right },
+        ]),
+      );
+      await navigationPromise;
+    });
+
+    expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+      [left, 111],
+      [middle, 116],
+      [right, 125],
+    ]);
+  });
+
+  it.each([
+    { mode: 'live', followsLive: true },
+    { mode: 'panned', followsLive: false },
+  ])(
+    'preserves the $mode viewport during Hyperliquid gap repair after a delayed visible range report',
+    async ({ followsLive }) => {
+      const { gap, left, middle, result, right } = await renderPerpsRealtimeGap(
+        '1',
+        60,
+      );
+      const pointCount = result.current.points.length;
+      const range = {
+        startIndex: 0,
+        endIndex: pointCount,
+        followsLive,
+      };
+      const next = right + 60;
+      pushRealtimePoint(buildResponse(125, next).points[0]);
+      expect(result.current.points).toHaveLength(pointCount + 1);
+      act(() => result.current.handleVisiblePointRangeChange(range));
+
+      await act(async () => {
+        gap.resolve(
+          buildMultiPointResponse([
+            { close: 110, timestamp: left },
+            { close: 115, timestamp: middle },
+          ]),
+        );
+        await gap.promise;
+      });
+
+      expect(result.current.points.map((point) => point.t)).toEqual([
+        left,
+        middle,
+        right,
+        next,
+      ]);
+      expect(result.current.viewportRequest).toEqual(
+        followsLive
+          ? null
+          : expect.objectContaining({
+              preserveVisibleAnchor: true,
+              insertedAfterAnchor: 1,
+              target: { kind: 'timestamp', timestamp: left },
+            }),
+      );
+    },
+  );
+
+  it('does not request the same Hyperliquid gap again after an empty response', async () => {
+    const { gap, left, result, right } = await renderPerpsRealtimeGap('1', 60);
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      gap.resolve({ points: [], total: 0 });
+      await gap.promise;
+    });
+
+    pushRealtimePoint(buildResponse(125, right).points[0]);
+    await act(async () =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 2,
+        startIndex: 0,
+      }),
+    );
+
+    expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+      [left, 105],
+      [right, 125],
+    ]);
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+  });
+
   it('applies price ticks to 1m candles without replacing history OHLCV', async () => {
     mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
     mockFetchHistory.mockResolvedValue(buildResponse(100, 3720));
@@ -5636,6 +6011,64 @@ describe('TradingViewNative K-line data state machine', () => {
       expect(result.current.points.map((point) => point.c)).toEqual([100, 110]),
     );
   });
+
+  it.each(['foreground', 'manual retry'] as const)(
+    'merges a Hyperliquid snapshot with realtime ticks on %s',
+    async (trigger) => {
+      const left = 1_728_000_000;
+      const middle = left + 60;
+      const right = left + 120;
+      jest.spyOn(Date, 'now').mockReturnValue((right + 1) * 1000);
+      mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+      mockHistoryRequestCandleCount = 3;
+      const refresh = createDeferred<IMarketTokenKLineResponse>();
+      mockFetchHistory
+        .mockResolvedValueOnce(
+          buildMultiPointResponse([
+            { close: 100, timestamp: left },
+            { close: 110, timestamp: middle },
+            { close: 120, timestamp: right },
+          ]),
+        )
+        .mockReturnValueOnce(refresh.promise);
+      const source = buildPerpsSource('REALTIME_REFRESH');
+      const { result } = renderHook(() =>
+        useTradingViewNativeKLine({ source }),
+      );
+      await waitFor(() => expect(result.current.dataState.status).toBe('live'));
+      pushRealtimePoint(buildResponse(105, left).points[0]);
+      pushRealtimePoint(buildResponse(115, middle).points[0]);
+      pushRealtimePoint(buildResponse(125, right).points[0]);
+
+      if (trigger === 'foreground') {
+        updateVisibility(false);
+        updateVisibility(true);
+      } else {
+        act(() => result.current.handleRetry());
+      }
+      await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(mockSubscribeRealtime).toHaveBeenCalledTimes(2),
+      );
+      pushRealtimePoint(buildResponse(118, middle).points[0]);
+
+      await act(async () => {
+        refresh.resolve(
+          buildMultiPointResponse([
+            { close: 106, timestamp: left },
+            { close: 116, timestamp: middle },
+          ]),
+        );
+        await refresh.promise;
+      });
+
+      expect(result.current.points.map(({ t, c }) => [t, c])).toEqual([
+        [left, 106],
+        [middle, 118],
+        [right, 125],
+      ]);
+    },
+  );
 
   it('polls Asset history while the chart stays visible', async () => {
     jest.useFakeTimers();

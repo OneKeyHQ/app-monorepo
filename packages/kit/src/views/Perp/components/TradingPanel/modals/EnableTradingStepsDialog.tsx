@@ -28,8 +28,8 @@ import {
   openGuideUrl,
 } from '../../Guide/perpGuideData';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../../PerpDialogLayout';
 
 import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/useEnableTradingWithDepositFallback';
@@ -91,6 +91,7 @@ function EnableTradingStepsContent({
   onConfirm: () => Promise<void>;
 }) {
   const intl = useIntl();
+  const dialogButtonSize = usePerpDialogButtonSize();
   const [isConfirming, setIsConfirming] = useState(false);
   const [liveAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [abstractionMode] = usePerpsAbstractionMode();
@@ -182,7 +183,7 @@ function EnableTradingStepsContent({
           testID="perp-enable-trading-steps-continue"
           width="100%"
           variant="primary"
-          size={PERP_DIALOG_BUTTON_SIZE}
+          size={dialogButtonSize}
           onPress={handleConfirm}
           loading={isConfirming}
           disabled={isConfirming}

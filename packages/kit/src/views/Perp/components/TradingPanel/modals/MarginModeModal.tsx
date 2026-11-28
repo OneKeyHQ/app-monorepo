@@ -15,8 +15,8 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 
@@ -30,6 +30,7 @@ interface IMarginModeContentProps {
 
 function MarginModeContent({ onClose }: IMarginModeContentProps) {
   const intl = useIntl();
+  const dialogButtonSize = usePerpDialogButtonSize();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [tokenInfo] = usePerpsActiveAssetAtom();
   const actions = useHyperliquidActions();
@@ -128,11 +129,11 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         </YStack>
       </YStack>
 
-      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+      <TradingGuardWrapper buttonSize={dialogButtonSize}>
         <Button
           testID="perp-btn"
           variant="primary"
-          size={PERP_DIALOG_BUTTON_SIZE}
+          size={dialogButtonSize}
           disabled={loading}
           loading={loading}
           onPress={handleConfirm}

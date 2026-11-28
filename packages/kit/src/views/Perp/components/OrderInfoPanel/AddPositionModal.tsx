@@ -59,8 +59,8 @@ import { getAggressiveLimitPriceWarning } from '../../utils/aggressiveLimitPrice
 import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
 import { buildDefaultTpSlPercent } from '../../utils/tpslSeed';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../PerpDialogLayout';
 import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { PerpsSlider } from '../PerpsSlider';
@@ -107,6 +107,7 @@ const AddPositionForm = memo(
     resizeOnKeyboard,
   }: IAddPositionFormProps) => {
     const intl = useIntl();
+    const dialogButtonSize = usePerpDialogButtonSize();
     const keyboardHeight = useKeyboardHeight();
     const { scrollViewRef } = useScrollView();
     const actions = useHyperliquidActions();
@@ -918,10 +919,10 @@ const AddPositionForm = memo(
           </XStack>
         </YStack>
         <YStack pt={tpslButtonPaddingTop}>
-          <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+          <TradingGuardWrapper buttonSize={dialogButtonSize}>
             <Button
               testID={PerpTestIDs.AddPositionConfirmButton}
-              size={PERP_DIALOG_BUTTON_SIZE}
+              size={dialogButtonSize}
               variant="primary"
               // Stays pressable on a load failure so the press can explain
               // itself and retry, instead of leaving a dead button after

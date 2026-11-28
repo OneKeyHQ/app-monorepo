@@ -26,8 +26,8 @@ import {
   isPerpsAccountAddressMatched,
 } from '../../utils/accountScopedData';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
@@ -43,6 +43,7 @@ function CancelAllOrdersContent({
   scopedAccountAddress,
 }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
+  const dialogButtonSize = usePerpDialogButtonSize();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
@@ -156,11 +157,11 @@ function CancelAllOrdersContent({
       </SizableText>
 
       <YStack pt={platformEnv.isNative ? '$4' : 0}>
-        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+        <TradingGuardWrapper buttonSize={dialogButtonSize}>
           <Button
             testID="perp-button-text-btn"
             variant="primary"
-            size={PERP_DIALOG_BUTTON_SIZE}
+            size={dialogButtonSize}
             disabled={
               isSubmitting || !canSubmit || ordersToProcess.length === 0
             }
