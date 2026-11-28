@@ -6,6 +6,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 
 export function showBotWalletDeactivatedWarningDialog(
   signal?: AbortSignal,
+  { waitForClose = false }: { waitForClose?: boolean } = {},
 ): Promise<boolean> {
   return new Promise((resolve) => {
     let resolved = false;
@@ -53,7 +54,7 @@ export function showBotWalletDeactivatedWarningDialog(
       onConfirm: async ({ close }) => {
         if (resolved || confirming) return;
         confirming = true;
-        if (!signal) safeResolve(true);
+        if (!signal && !waitForClose) safeResolve(true);
         try {
           await close?.();
           safeResolve(!signal?.aborted);

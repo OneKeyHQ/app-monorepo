@@ -78,6 +78,24 @@ export const useScrollEvent = ({
     prevIndex: initialIndex,
   });
 
+  // FlashList on Android may ignore `initialScrollIndex` and stay at offset 0.
+  // Until the initial page is actually visible (or the user/caller scrolls),
+  // viewability reports for other pages must not override the requested index.
+  const initialIndexRef = useRef(initialIndex);
+  const isInitialIndexSettledRef = useRef(initialIndex <= 0);
+  const settleInitialIndex = useCallback(() => {
+    isInitialIndexSettledRef.current = true;
+  }, []);
+  const restoreInitialIndex = useCallback(() => {
+    if (isInitialIndexSettledRef.current) {
+      return;
+    }
+    swiperRef.current?.scrollToIndex({
+      index: initialIndexRef.current,
+      animated: false,
+    });
+  }, []);
+
   useEffect(() => {
     if (onChangeIndex) {
       onChangeIndex(currentIndexes);
@@ -86,6 +104,7 @@ export const useScrollEvent = ({
 
   const scrollToIndex = useCallback(
     (params: IScrollToIndexParams) => {
+      isInitialIndexSettledRef.current = true;
       const { index: indexToScroll, animated = true } = params;
       const newParams = { animated, index: indexToScroll };
       const next = {
@@ -211,6 +230,14 @@ export const useScrollEvent = ({
         return;
       }
       const nextIndex = visibleItem.index;
+      if (!isInitialIndexSettledRef.current) {
+        if (nextIndex === initialIndexRef.current) {
+          isInitialIndexSettledRef.current = true;
+        } else {
+          setTimeout(restoreInitialIndex, 0);
+        }
+        return;
+      }
       setCurrentIndexes((prevState) =>
         prevState.index === nextIndex
           ? prevState
@@ -220,7 +247,7 @@ export const useScrollEvent = ({
             },
       );
     },
-    [],
+    [restoreInitialIndex],
   );
 
   const viewabilityConfig = useMemo(
@@ -232,8 +259,9 @@ export const useScrollEvent = ({
   );
 
   const handleScrollBeginDrag = useCallback(() => {
+    settleInitialIndex();
     clearTimer();
-  }, [clearTimer]);
+  }, [clearTimer, settleInitialIndex]);
 
   const handleScrollEnd = useCallback(() => {
     setTimeout(() => {
@@ -252,6 +280,7 @@ export const useScrollEvent = ({
     onScrollAnimationEnd: handleScrollEnd,
     onScrollBeginDrag: handleScrollBeginDrag,
     onScrollEndDrag: handleScrollEnd,
+    onListLoad: restoreInitialIndex,
     goToNextIndex,
     gotToPrevIndex,
   };

@@ -146,6 +146,77 @@ const useDismissKeyboard = platformEnv.isNative
     }
   : () => {};
 
+function useNativePopoverClose({
+  open,
+  closePopover,
+  shouldWaitForExit,
+}: {
+  open: boolean;
+  closePopover?: () => void;
+  shouldWaitForExit?: () => boolean;
+}) {
+  const pendingCloseRef = useRef<
+    | {
+        promise: Promise<void>;
+        resolve: () => void;
+        reject: (error: Error) => void;
+        timer: ReturnType<typeof setTimeout>;
+        sawClosed: boolean;
+      }
+    | undefined
+  >(undefined);
+  const flushPendingClose = useCallback((cancelled = false) => {
+    const pending = pendingCloseRef.current;
+    if (!pending) return;
+    pendingCloseRef.current = undefined;
+    clearTimeout(pending.timer);
+    if (cancelled) {
+      pending.reject(
+        new OverlayCloseCancelledError('Popover close canceled by reopening'),
+      );
+    } else {
+      pending.resolve();
+    }
+  }, []);
+  useEffect(() => () => flushPendingClose(), [flushPendingClose]);
+  useIsomorphicLayoutEffect(() => {
+    if (pendingCloseRef.current) {
+      if (!open) {
+        pendingCloseRef.current.sawClosed = true;
+      } else if (pendingCloseRef.current.sawClosed) {
+        flushPendingClose(true);
+      }
+    }
+  }, [flushPendingClose, open]);
+  const handleClosePopover = useCallback(() => {
+    if (pendingCloseRef.current) {
+      return pendingCloseRef.current.promise;
+    }
+    if (!(shouldWaitForExit?.() ?? open)) {
+      closePopover?.();
+      return Promise.resolve();
+    }
+    let resolve: () => void = () => undefined;
+    let reject: (error: Error) => void = () => undefined;
+    const promise = new Promise<void>((done, fail) => {
+      resolve = done;
+      reject = fail;
+    });
+    void promise.catch(() => undefined);
+    const timer = setTimeout(flushPendingClose, POPOVER_CLOSE_FALLBACK_MS);
+    pendingCloseRef.current = {
+      promise,
+      resolve,
+      reject,
+      timer,
+      sawClosed: false,
+    };
+    closePopover?.();
+    return promise;
+  }, [closePopover, flushPendingClose, open, shouldWaitForExit]);
+  return { handleClosePopover, flushPendingClose };
+}
+
 function RawPopover({
   title,
   description,
@@ -325,67 +396,15 @@ function RawPopover({
       hasOpenedNativeSheetRef.current = true;
     }
   }, [isOpen, nativeSheetOpen]);
-  // `closePopover()` resolves on the sheet's exit callback. The timer also
-  // covers a missing callback after the SDK's close watchdog.
-  const pendingCloseRef = useRef<
-    | {
-        promise: Promise<void>;
-        resolve: () => void;
-        reject: (error: Error) => void;
-        timer: ReturnType<typeof setTimeout>;
-        sawClosed: boolean;
-      }
-    | undefined
-  >(undefined);
-  const flushPendingClose = useCallback((cancelled = false) => {
-    const pending = pendingCloseRef.current;
-    if (!pending) return;
-    pendingCloseRef.current = undefined;
-    clearTimeout(pending.timer);
-    if (cancelled) {
-      pending.reject(
-        new OverlayCloseCancelledError('Popover close canceled by reopening'),
-      );
-    } else {
-      pending.resolve();
-    }
-  }, []);
-  useEffect(() => () => flushPendingClose(), [flushPendingClose]);
-  useIsomorphicLayoutEffect(() => {
-    if (pendingCloseRef.current) {
-      if (!logicalOpen) {
-        pendingCloseRef.current.sawClosed = true;
-      } else if (pendingCloseRef.current.sawClosed) {
-        flushPendingClose(true);
-      }
-    }
-  }, [flushPendingClose, logicalOpen]);
-  const handleClosePopover = useCallback(() => {
-    if (pendingCloseRef.current) {
-      return pendingCloseRef.current.promise;
-    }
-    if (!nativeSheetOpen && !hasRequestedNativeSheetRef.current) {
-      closePopover?.();
-      return Promise.resolve();
-    }
-    let resolve: () => void = () => undefined;
-    let reject: (error: Error) => void = () => undefined;
-    const promise = new Promise<void>((done, fail) => {
-      resolve = done;
-      reject = fail;
-    });
-    void promise.catch(() => undefined);
-    const timer = setTimeout(flushPendingClose, POPOVER_CLOSE_FALLBACK_MS);
-    pendingCloseRef.current = {
-      promise,
-      resolve,
-      reject,
-      timer,
-      sawClosed: false,
-    };
-    closePopover?.();
-    return promise;
-  }, [closePopover, flushPendingClose, nativeSheetOpen]);
+  const shouldWaitForExit = useCallback(
+    () => nativeSheetOpen || hasRequestedNativeSheetRef.current,
+    [nativeSheetOpen],
+  );
+  const { handleClosePopover, flushPendingClose } = useNativePopoverClose({
+    open: Boolean(logicalOpen),
+    closePopover,
+    shouldWaitForExit,
+  });
   const onSheetAnimationComplete = sheetProps?.onAnimationComplete;
   const hasOpenAttemptRef = useRef(false);
   const handleSheetAnimationComplete = useCallback(
@@ -660,34 +679,19 @@ function AnchoredPopover({
       y: anchor.y + windowOffset.y,
     };
   }, [anchor, anchorIsModalRelative, windowOffset]);
-  const closeResolversRef = useRef<Array<() => void>>([]);
-  const flushCloseResolvers = useCallback(() => {
-    const resolvers = closeResolversRef.current;
-    closeResolversRef.current = [];
-    resolvers.forEach((resolve) => resolve());
-  }, []);
-  useEffect(() => flushCloseResolvers, [flushCloseResolvers]);
+  const { handleClosePopover, flushPendingClose } = useNativePopoverClose({
+    open: isOpen,
+    closePopover: isOpen ? closePopover : undefined,
+  });
   const handlePresented = useCallback(
     () => onAnimationComplete?.({ open: true }),
     [onAnimationComplete],
   );
   const handleClosed = useCallback(() => {
-    flushCloseResolvers();
+    if (openCycle !== openCycleRef.current || isOpen) return;
+    flushPendingClose();
     onAnimationComplete?.({ open: false });
-  }, [flushCloseResolvers, onAnimationComplete]);
-  const handleClosePopover = useCallback(
-    () =>
-      new Promise<void>((resolve) => {
-        if (!isOpen) {
-          resolve();
-          return;
-        }
-        closeResolversRef.current.push(resolve);
-        setTimeout(resolve, POPOVER_CLOSE_FALLBACK_MS);
-        closePopover();
-      }),
-    [closePopover, isOpen],
-  );
+  }, [flushPendingClose, isOpen, onAnimationComplete, openCycle]);
   const popoverContextValue = useMemo(
     () => ({ open: isOpen, closePopover: handleClosePopover }),
     [handleClosePopover, isOpen],

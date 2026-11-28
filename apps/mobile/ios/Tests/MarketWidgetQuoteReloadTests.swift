@@ -51,6 +51,9 @@ struct MarketWidgetQuoteReloadTests {
     let compact = "OneKeyMarketLockScreenCompact"
     let widgets = [first, second, InstalledWidget(kind: watchlist, intent: lockList),
       spot(chart, btc), spot(price, sol), spot(compact, otherBTC)]
+    let selected = Set(widgets.flatMap { MarketWidgetQuoteReloader.selectedAssets(for: $0, store: store) }.map(\.id))
+    precondition(selected == Set([btc, eth, sol, otherBTC].map(\.id)),
+      "Foreground refresh includes every installed size, instance and Lock Screen selection")
     func kinds(_ assets: [MarketWidgetAsset], _ installed: [InstalledWidget]) -> Set<String> {
       MarketWidgetQuoteReloader.affectedKinds(for: Set(assets.map(\.id)), configurations: installed, store: store)
     }
@@ -84,8 +87,34 @@ struct MarketWidgetQuoteReloadTests {
     let remaining = try store.storedInstanceSettings()
     precondition(Set(remaining.map(\.id)) == installed && store.quote(for: otherBTC) == nil,
       "Prune only removed configurations and exclusively owned cached quotes")
+    try store.rememberLockScreenAssets([otherBTC])
     try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
     precondition(kinds([btc, eth, sol, otherBTC], widgets).isEmpty, "A masked widget displays no quote")
+    let masked = MarketWidgetQuoteReloader.assetsForForegroundRefresh(configurations: widgets, store: store)
+    precondition(masked.isEmpty && !store.permitsRequests(for: otherBTC),
+      "Foreground preparation cannot restore Lock Screen permissions while privacy is masked")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":false}"#)
+    precondition(!store.permitsRequests(for: otherBTC), "Unmasking alone does not restore a Lock Screen permission")
+    let registry = directory.appendingPathComponent("lock-screen-assets-v1.json")
+    try FileManager.default.createDirectory(at: registry, withIntermediateDirectories: true)
+    let failedRegistration = MarketWidgetQuoteReloader.assetsForForegroundRefresh(configurations: Array(widgets.reversed()), store: store)
+    precondition(Set(failedRegistration.map(\.id)) == selected,
+      "A failed Lock Screen registry write must not discard the foreground batch")
+    precondition(store.permitsRequests(for: btc) && !store.permitsRequests(for: otherBTC),
+      "Home permissions survive while an unregistered Lock Screen asset stays blocked")
+    let homeQuote = MarketWidgetQuote(asset: btc, price: "123", change24h: "2.5", fetchedAt: Date())
+    try store.saveQuote(homeQuote)
+    let service = MarketWidgetService(store: store)
+    let refreshed = try await service.price(for: btc, locale: "en-US", force: true)
+    precondition(refreshed.price == homeQuote.price, "The Home quote cache remains usable after a registry write failure")
+    do {
+      _ = try await service.price(for: otherBTC, locale: "en-US", force: true)
+      preconditionFailure("An unsuccessful permission write must not authorize a request")
+    } catch MarketWidgetError.invalidConfiguration {}
+    try FileManager.default.removeItem(at: registry)
+    let foreground = MarketWidgetQuoteReloader.assetsForForegroundRefresh(configurations: widgets, store: store)
+    precondition(Set(foreground.map(\.id)) == selected && store.permitsRequests(for: otherBTC),
+      "Installed Lock Screen intents restore their evicted permissions before foreground prices are fetched")
   }
 
   @MainActor

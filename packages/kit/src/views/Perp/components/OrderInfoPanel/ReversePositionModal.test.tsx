@@ -96,6 +96,7 @@ jest.mock('@onekeyhq/components', () => {
       typeof import('../../../../../../components/src/hooks/useDeferredPromise')
     >('../../../../../../components/src/hooks/useDeferredPromise')
       .useDeferredPromise,
+    useMedia: () => ({ md: false }),
     useNetInfo: () => ({ isRawInternetReachable: true }),
     Button: ({
       children,
