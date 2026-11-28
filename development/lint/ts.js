@@ -1,4 +1,4 @@
-/* cspell:words GOMEMLIMIT tsgo */
+/* cspell:words GOMEMLIMIT GOGC tsgo */
 const { execSync, execFileSync } = require('child_process');
 const path = require('path');
 const { exit } = require('process');
@@ -58,6 +58,7 @@ try {
   const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
   const typescriptPackage = require.resolve('typescript/package.json');
   const tscEntry = path.join(path.dirname(typescriptPackage), 'bin', 'tsc');
+  const checkers = process.env.ONEKEY_TSC_CHECKERS || '2';
   const result = execFileSync(
     process.execPath,
     [
@@ -67,14 +68,17 @@ try {
       '--noEmit',
       '--tsBuildInfoFile',
       tsBuildInfoPath,
+      '--checkers',
+      checkers,
     ],
     {
-      // Cap Go heap growth in the TypeScript 7 native compiler (tsgo) so 16 GB CI runners do
-      // not get terminated with SIGTERM (exit code 143) under memory pressure,
-      // while leaving enough headroom above the ~8 GB live AST heap to avoid GC thrashing.
+      // Cap Go heap growth and parallel checker count in TypeScript 7 (tsgo) so
+      // 16 GB CI runners and local machines do not OOM or hit SIGTERM (exit 143)
+      // under memory pressure, while leaving enough headroom to avoid GC thrashing.
       env: {
         ...process.env,
         GOMEMLIMIT: process.env.GOMEMLIMIT || '11GiB',
+        GOGC: process.env.GOGC || '50',
       },
     },
   ).toString('utf-8');

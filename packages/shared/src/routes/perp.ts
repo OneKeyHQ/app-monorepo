@@ -1,7 +1,15 @@
-import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
-
 import type { IFill } from '../../types/hyperliquid/sdk';
 import type { TPerpDepositEntrySource } from '../logger/scopes/perp/type';
+
+export interface ISetTpslParams {
+  coin: string;
+  szDecimals: number;
+  assetId: number;
+  isMobile?: boolean;
+  // Seed a single trigger field when opened from a chart position context.
+  presetTriggerPrice?: string;
+  presetTpsl?: 'tp' | 'sl';
+}
 
 export enum EModalPerpRoutes {
   PerpTradeHistoryDetails = 'PerpTradeHistoryDetails',

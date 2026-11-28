@@ -1,4 +1,4 @@
-import type { IModalMarketParamList } from '@onekeyhq/kit/src/views/Market/router';
+import type { IModalMarketParamList } from '@onekeyhq/kit/src/views/Market/router/types';
 
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
