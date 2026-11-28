@@ -222,6 +222,7 @@ export interface IBundleUpdate {
   verifyExtractedBundle: (
     appVersion: string,
     bundleVersion: string,
+    signature?: string,
   ) => Promise<void>;
   listLocalBundles: () => Promise<
     { appVersion: string; bundleVersion: string }[]

@@ -1932,4 +1932,56 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     expect(client.reloadMock).not.toHaveBeenCalled();
     expect(client.clientHandle.getBannerElement()).toBeNull();
   });
+
+  test('SKIP_WAITING message invokes self.skipWaiting and nudgeWaitingServiceWorker nudges waiting and installing workers', async () => {
+    const {
+      nudgeWaitingServiceWorker,
+    } = require('./serviceWorkerVersionProtocol');
+    const bundleV670 = await createVersionBundle({
+      version: V_NEW,
+      buildTime: 1_700_000_000_000,
+      html: '<!doctype html><html><body>v6.7.0</body></html>',
+      scriptUrl: `${ORIGIN}/main.v670.js`,
+      scriptContent: 'console.log("v6.7.0");',
+    });
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundleV670 });
+    await testBed.sendFromClient(
+      { id: 'client-skip' },
+      { type: 'SKIP_WAITING' },
+    );
+    expect(globalThis.self.skipWaiting).toHaveBeenCalledTimes(1);
+
+    const waitingWorker = {
+      state: 'installed',
+      postMessage: jest.fn(),
+    };
+    const installingListeners = [];
+    const installingWorker = {
+      state: 'installing',
+      postMessage: jest.fn(),
+      addEventListener: (_type, fn) => installingListeners.push(fn),
+    };
+    const updateFoundListeners = [];
+    const registration = {
+      waiting: waitingWorker,
+      installing: null,
+      addEventListener: (type, fn) => {
+        if (type === 'updatefound') updateFoundListeners.push(fn);
+      },
+    };
+
+    nudgeWaitingServiceWorker(registration);
+    expect(waitingWorker.postMessage).toHaveBeenCalledWith({
+      type: 'SKIP_WAITING',
+    });
+
+    registration.installing = installingWorker;
+    updateFoundListeners.forEach((fn) => fn());
+    expect(installingWorker.postMessage).not.toHaveBeenCalled();
+    installingWorker.state = 'installed';
+    installingListeners.forEach((fn) => fn());
+    expect(installingWorker.postMessage).toHaveBeenCalledWith({
+      type: 'SKIP_WAITING',
+    });
+  });
 });
