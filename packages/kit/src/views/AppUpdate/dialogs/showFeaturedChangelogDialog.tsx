@@ -31,6 +31,7 @@ import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotai
 import {
   EAppUpdateStatus,
   EUpdateFileType,
+  getFeaturedChangelogForEntry,
   getUpdateFileType,
   isAllowedFeaturedHref,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -274,9 +275,13 @@ function useFeaturedCta({
   return { ctaText, onCtaPress };
 }
 
-function useFeatures(): IFeaturedItem[] {
+function useFeatures(isPreInstall: boolean): IFeaturedItem[] {
   const preview = useContext(FeaturedChangelogPreviewContext);
   const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const featuredChangelog = getFeaturedChangelogForEntry(
+    appUpdateInfo,
+    isPreInstall,
+  );
   // Memoize so a fresh `?? []` reference doesn't ripple through downstream
   // effects on every unrelated atom-field change. Preview payload wins so the
   // carousel renders the previewed changelog, not the persisted one.
@@ -284,8 +289,8 @@ function useFeatures(): IFeaturedItem[] {
     () =>
       preview
         ? preview.featuredChangelog.features
-        : (appUpdateInfo.featuredChangelog?.features ?? []),
-    [preview, appUpdateInfo.featuredChangelog?.features],
+        : (featuredChangelog?.features ?? []),
+    [preview, featuredChangelog?.features],
   );
 }
 
@@ -303,7 +308,7 @@ function FeaturedChangelogContent({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isPreview = useContext(FeaturedChangelogPreviewContext) !== undefined;
-  const features = useFeatures();
+  const features = useFeatures(isPreInstall);
   const {
     updateInfo,
     isForceUpdate: isLiveLocked,
@@ -378,7 +383,23 @@ function FeaturedChangelogContent({
     return { height: carousel + footerHeight };
   });
 
-  if (!features.length) return null;
+  const footer = (
+    <FeaturedFooter
+      ctaText={ctaText}
+      onCtaPress={() => void onCtaPress()}
+      showFullChangelog={!isLiveLocked && !isPreview}
+      showContactSupport={isLiveLocked && !isPreview}
+      onContactSupportPress={() => void handleContactSupportPress()}
+      isPreInstall={isPreInstall}
+      closeDialog={closeDialog}
+      onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+    />
+  );
+
+  if (!features.length) {
+    // A refresh can remove the cards while the update still requires action.
+    return isPreInstall ? footer : null;
+  }
 
   const badgeText = intl.formatMessage({
     id: ETranslations.settings_whats_new,
@@ -411,16 +432,7 @@ function FeaturedChangelogContent({
         onActiveFeatureChange={onActiveFeatureChange}
         totalHeight={totalCarouselHeight}
       />
-      <FeaturedFooter
-        ctaText={ctaText}
-        onCtaPress={() => void onCtaPress()}
-        showFullChangelog={Boolean(!isLiveLocked && !isPreview)}
-        showContactSupport={Boolean(isLiveLocked && !isPreview)}
-        onContactSupportPress={() => void handleContactSupportPress()}
-        isPreInstall={isPreInstall}
-        closeDialog={closeDialog}
-        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
-      />
+      {footer}
     </Animated.View>
   );
 }
@@ -486,7 +498,7 @@ export function showFeaturedChangelogDialog(
     : jotaiDefaultStore.get(appUpdatePersistAtom.atom());
   const features = previewData
     ? previewData.featuredChangelog.features
-    : (atomInfo?.featuredChangelog?.features ?? []);
+    : (getFeaturedChangelogForEntry(atomInfo, isPreInstall)?.features ?? []);
   if (features.length === 0) return undefined;
 
   // Prevent dismissal when a force-update is pending pre-install. Never lock

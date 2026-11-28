@@ -1744,3 +1744,10 @@ Record only bug fixes with non-obvious, reusable lessons that help diagnose or p
 **Root Cause**: Referral summaries were derived from standard level configuration without the server-resolved personal rates or independent level policy. The existing summary also filtered out explicit zero rates, which are valid partner overrides.
 **Fix**: Read effective personal configs separately from standard level rules, retain explicit zero overrides, display Partner Plan and Floor/Fixed states independently, and refresh Floor expiry in place. Regression coverage includes partial rate responses, stale level detail, cancellation, and expiry; four added runtime modules are registered for native bundles. Device and desktop visual acceptance remain pending.
 **Catchable by**: Sections 4 and 6: Trace API fields through every display consumer and test partner rates below standard rates, explicit zeroes, independent configuration removal, and policy expiry.
+
+## Case: Stale featured changelog and blank force-update dialog (OK-54862)
+**Date**: 2026-11-19 | **Platforms**: iOS and Android. Main and bg initialize independently with separate JS atom snapshots over shared native MMKV storage. The dialog also runs on single-runtime desktop and web.
+**Symptom**: Clearing the update cache could restore withdrawn release cards from the cold-start snapshot. A force-update dialog opened with cached cards could also become blank and stay locked after a refresh removed the cards.
+**Root Cause**: Omitted or undefined changelog fields could not overwrite the stale snapshot. Once an explicit clear reached the open dialog, its empty-card branch removed the update and support actions along with the carousel.
+**Fix**: Persist null for cleared cards and keep the existing pre-install actions when the carousel disappears. Regression tests exercise the stale snapshot merge and a force update whose cards disappear while its store action remains available.
+**Catchable by**: Sections 4 and 6: Check both the persisted clear across runtime boundaries and the live transition to empty optional content while a blocking dialog stays open.

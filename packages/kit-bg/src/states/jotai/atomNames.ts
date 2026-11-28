@@ -190,6 +190,11 @@ export const atomsConfig: Partial<
   [EAtomNames.settingsValuePersistAtom]: {
     deepCompare: true,
   },
+  // Background sends a complete update snapshot. Native startup values must
+  // not restore evicted changelog entries or cleared update metadata.
+  [EAtomNames.appUpdatePersistAtom]: {
+    mergeInitialValue: false,
+  },
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },

@@ -6,7 +6,13 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type { IDialogContainerProps } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
+import type {
+  IAppUpdateInfo,
+  IFeaturedItem,
+} from '@onekeyhq/shared/src/appUpdate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { markPendingContactSupportHandoff } from '../hooks/useForceUpdateContactSupport';
 
@@ -25,10 +31,38 @@ const mockWaitForHandoff = jest.fn(
 );
 let mockNative = false;
 let mockContainerProps: IDialogContainerProps;
-const mockUpdateInfo = {
+const initialUpdateInfo: Pick<
+  IAppUpdateInfo,
+  | 'latestVersion'
+  | 'updateStrategy'
+  | 'featuredChangelog'
+  | 'featuredChangelogs'
+  | 'storeUrl'
+> = {
   latestVersion: '99.0.0',
   updateStrategy: 1,
-  featuredChangelog: { features: [{ title: 'Test update' }] },
+  storeUrl: 'https://example.com/update',
+  featuredChangelog: {
+    version: '99.0.0',
+    features: [
+      {
+        title: 'Test update',
+        mediaUrl: 'https://example.com/update.png',
+        mediaType: 'image',
+      },
+    ],
+  },
+};
+let mockUpdateInfo = initialUpdateInfo;
+const installedFeatured = {
+  version: '1.0.0',
+  features: [
+    {
+      title: 'Installed update',
+      mediaUrl: 'https://example.com/installed.png',
+      mediaType: 'image' as const,
+    },
+  ],
 };
 
 jest.mock('@onekeyhq/components', () => {
@@ -70,6 +104,10 @@ jest.mock('@onekeyhq/shared/src/appUpdate', () => ({
   EUpdateFileType: { appShell: 1 },
   getUpdateFileType: () => 1,
   isAllowedFeaturedHref: () => false,
+  getFeaturedChangelogForEntry: jest.requireActual<
+    typeof import('@onekeyhq/shared/src/appUpdate/featuredChangelog')
+  >('@onekeyhq/shared/src/appUpdate/featuredChangelog')
+    .getFeaturedChangelogForEntry,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { app: { appUpdate: { whatsNewClosed: jest.fn() } } },
@@ -77,6 +115,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    version: '1.0.0',
     get isNative() {
       return mockNative;
     },
@@ -103,14 +142,29 @@ jest.mock('../../../routes/config/deeplink', () => ({
   handleDeepLinkUrl: jest.fn(),
 }));
 jest.mock('../components/FeaturedCarousel', () => ({
-  FeaturedCarousel: () => null,
+  FeaturedCarousel: ({ features }: { features: IFeaturedItem[] }) => (
+    <div>{features[0]?.title}</div>
+  ),
 }));
 jest.mock('../components/FeaturedFooter', () => ({
   FeaturedFooter: ({
+    ctaText,
+    onCtaPress,
+    showContactSupport,
     onContactSupportPress,
   }: {
+    ctaText: string;
+    onCtaPress: () => void;
+    showContactSupport?: boolean;
     onContactSupportPress: () => void;
-  }) => <button onClick={onContactSupportPress}>Contact support</button>,
+  }) => (
+    <>
+      <button onClick={onCtaPress}>{ctaText}</button>
+      {showContactSupport ? (
+        <button onClick={onContactSupportPress}>Contact support</button>
+      ) : null}
+    </>
+  ),
 }));
 jest.mock('../hooks/useForceUpdateContactSupport', () => ({
   markPendingContactSupportHandoff: jest.fn(),
@@ -127,6 +181,7 @@ describe.each([false, true])(
   (native) => {
     beforeEach(() => {
       mockNative = native;
+      mockUpdateInfo = initialUpdateInfo;
       jest.clearAllMocks();
       jest.useFakeTimers();
       jest.mocked(Dialog.show).mockReturnValue({
@@ -136,6 +191,54 @@ describe.each([false, true])(
       });
     });
     afterEach(() => jest.useRealTimers());
+
+    it('keeps the update and support actions when a force refresh clears the cards', async () => {
+      showFeaturedChangelogDialog({ isPreInstall: true });
+      const props = jest.mocked(Dialog.show).mock.calls[0][0];
+      const container = props.dialogContainer?.({ ref: { current: null } });
+      const { rerender } = render(<>{container}</>);
+      expect(screen.getByText('Test update')).toBeTruthy();
+
+      mockUpdateInfo = { ...mockUpdateInfo, featuredChangelog: null };
+      rerender(<>{props.dialogContainer?.({ ref: { current: null } })}</>);
+
+      expect(screen.queryByText('Test update')).toBeNull();
+      expect(await props.onBeforeClose?.()).toBe(false);
+      expect(mockContainerProps.disableSystemClose).toBe(true);
+      expect(
+        screen.getByRole('button', { name: 'Contact support' }),
+      ).toBeTruthy();
+      fireEvent.click(
+        screen.getByRole('button', { name: ETranslations.update_update_now }),
+      );
+      expect(openUrlExternal).toHaveBeenCalledWith(initialUpdateInfo.storeUrl, {
+        useSystemBrowser: true,
+      });
+      expect(mockClose).not.toHaveBeenCalled();
+    });
+
+    it('keeps the installed cards when the next check selects a release without cards', () => {
+      mockUpdateInfo = {
+        latestVersion: '1.0.0',
+        updateStrategy: 0,
+        featuredChangelogs: { '1.0.0': installedFeatured },
+      };
+      showFeaturedChangelogDialog({ isPreInstall: false });
+      const props = jest.mocked(Dialog.show).mock.calls[0][0];
+      const { rerender } = render(
+        <>{props.dialogContainer?.({ ref: { current: null } })}</>,
+      );
+      expect(screen.getByText('Installed update')).toBeTruthy();
+
+      mockUpdateInfo = {
+        latestVersion: '2.0.0',
+        updateStrategy: 0,
+        featuredChangelogs: { '1.0.0': installedFeatured, '2.0.0': null },
+      };
+      rerender(<>{props.dialogContainer?.({ ref: { current: null } })}</>);
+
+      expect(screen.getByText('Installed update')).toBeTruthy();
+    });
 
     it('waits for the dialog exit, transfers the force lock, then opens support', async () => {
       let finishClose: () => void = () => {};
