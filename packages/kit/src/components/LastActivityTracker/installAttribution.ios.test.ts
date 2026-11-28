@@ -6,6 +6,7 @@ const mockGetClient = jest.fn(async () => ({ post: mockPost }));
 const mockReportAttribution = jest.fn();
 const mockWhenInitialized = jest.fn(async () => {});
 const mockReadInviteCode = jest.fn(async (): Promise<unknown> => null);
+const mockReportAppleAdsInstallAttribution = jest.fn(async () => {});
 const mockCaptureInstallInviteCode = jest.fn(
   async (_params: {
     source: string;
@@ -54,18 +55,27 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    isE2E: false,
+    isNativeIOSStore: true,
     isNativeMainThread: true,
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/modules/InstallAttribution/appleAds', () => ({
+  reportAppleAdsInstallAttribution: mockReportAppleAdsInstallAttribution,
 }));
 
 jest.mock('./installInviteCodeCapture', () => ({
   captureInstallInviteCode: mockCaptureInstallInviteCode,
 }));
 
-const { parseAppClipInviteCodeRecord, reportInstallAttribution } =
-  jest.requireActual<typeof import('./installAttribution.ios')>(
-    './installAttribution.ios',
-  );
+const {
+  parseAppClipInviteCodeRecord,
+  reportInstallAttribution,
+  retryAppleAdsInstallAttribution,
+} = jest.requireActual<typeof import('./installAttribution.ios')>(
+  './installAttribution.ios',
+);
 
 const pendingRecord = {
   clickId: '0123456789ABCDEFGHIJKL',
@@ -611,5 +621,135 @@ describe('App Clip invite code capture', () => {
         schemaVersion: 2,
       }).code,
     ).toBeUndefined();
+  });
+});
+
+describe('Apple Ads install attribution runtime guard', () => {
+  const platformEnv = jest.requireMock<{
+    default: {
+      isE2E: boolean;
+      isNativeIOSStore: boolean;
+      isNativeMainThread: boolean;
+    };
+  }>('@onekeyhq/shared/src/platformEnv').default;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReadPending.mockResolvedValue(null);
+    Object.assign(platformEnv, {
+      isE2E: false,
+      isNativeIOSStore: true,
+      isNativeMainThread: true,
+    });
+  });
+
+  it('reports Apple Ads attribution from the iOS App Store main runtime', async () => {
+    await reportInstallAttribution(
+      'https://utility.onekey.so',
+      'installation-123',
+    );
+
+    expect(mockReportAppleAdsInstallAttribution).toHaveBeenCalledWith(
+      'https://utility.onekey.so',
+      'installation-123',
+    );
+  });
+
+  it('retries Apple Ads after a failed launch and shares concurrent retries', async () => {
+    const endpoint = 'https://utility.onekey.so';
+    const installationId = 'installation-123';
+    mockReportAppleAdsInstallAttribution.mockRejectedValueOnce(
+      new Error('offline'),
+    );
+
+    await expect(
+      reportInstallAttribution(endpoint, installationId),
+    ).rejects.toThrow('offline');
+    await Promise.all([
+      retryAppleAdsInstallAttribution(endpoint, installationId),
+      retryAppleAdsInstallAttribution(endpoint, installationId),
+    ]);
+
+    expect(mockReportAppleAdsInstallAttribution).toHaveBeenCalledTimes(2);
+    expect(mockReadPending).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { outcome: 'success', shouldReject: false, expectedAttempts: 1 },
+    { outcome: 'failure', shouldReject: true, expectedAttempts: 2 },
+  ])(
+    'handles a startup $outcome with foreground calls already waiting',
+    async ({ shouldReject, expectedAttempts }) => {
+      const endpoint = 'https://utility.onekey.so';
+      const installationId = 'installation-123';
+      let settleStartup: (() => void) | undefined;
+      mockReportAppleAdsInstallAttribution.mockReturnValueOnce(
+        new Promise<void>((resolve, reject) => {
+          settleStartup = shouldReject
+            ? () => reject(new Error('startup timed out'))
+            : resolve;
+        }),
+      );
+
+      const startup = reportInstallAttribution(endpoint, installationId);
+      const firstForeground = retryAppleAdsInstallAttribution(
+        endpoint,
+        installationId,
+      );
+      const secondForeground = retryAppleAdsInstallAttribution(
+        endpoint,
+        installationId,
+      );
+
+      expect(mockReportAppleAdsInstallAttribution).toHaveBeenCalledTimes(1);
+      settleStartup?.();
+      if (shouldReject) {
+        await expect(startup).rejects.toThrow('startup timed out');
+      } else {
+        await expect(startup).resolves.toBeUndefined();
+      }
+      await Promise.all([firstForeground, secondForeground]);
+
+      expect(mockReportAppleAdsInstallAttribution).toHaveBeenCalledTimes(
+        expectedAttempts,
+      );
+      expect(mockReadPending).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('drains a queued App Clip handoff when the Apple Ads request rejects', async () => {
+    mockReportAppleAdsInstallAttribution.mockRejectedValueOnce(
+      new Error('Apple Ads unavailable'),
+    );
+    mockReadPending
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(pendingRecord);
+    mockPost.mockResolvedValueOnce({ data: { data: { found: true } } });
+
+    const startup = reportInstallAttribution(
+      'https://utility.onekey.so',
+      'installation-123',
+    );
+    const appClip = reportInstallAttribution();
+    await expect(startup).rejects.toThrow('Apple Ads unavailable');
+    await appClip;
+
+    expect(mockReadPending).toHaveBeenCalledTimes(2);
+    expect(mockReportAttribution).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { isNativeIOSStore: false },
+    { isNativeMainThread: false },
+    { isE2E: true },
+  ])('skips an unsupported runtime: %o', async (environment) => {
+    Object.assign(platformEnv, environment);
+
+    await reportInstallAttribution(
+      'https://utility.onekey.so',
+      'installation-123',
+    );
+
+    expect(mockReportAppleAdsInstallAttribution).not.toHaveBeenCalled();
   });
 });

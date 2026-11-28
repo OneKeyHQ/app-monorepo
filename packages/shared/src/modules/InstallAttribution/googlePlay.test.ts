@@ -1,3 +1,4 @@
+/* cspell:ignore gbraid gclid wbraid */
 import {
   getInstallReferrerAsync,
   getInstallationTimeAsync,
@@ -89,6 +90,117 @@ describe('Google Play install attribution', () => {
     });
   });
 
+  it('reports mixed direct and encoded attribution fields', async () => {
+    getInstallReferrerMock.mockResolvedValue(
+      'gad_source=1&utm_source%3Donekey.so%26utm_campaign%3Ddownload_page',
+    );
+
+    await reportGooglePlayInstallAttribution();
+
+    expect(logAttributionMock).toHaveBeenCalledWith({
+      gadSource: '1',
+      utmCampaign: 'download_page',
+      utmSource: 'onekey.so',
+    });
+    expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
+  });
+
+  it.each([
+    'ref_code%3DABC123%26utm_source%3Dpartner%253Dreferral',
+    '?ref%5Fcode%3DABC123%26utm_source%3Dpartner%253Dreferral',
+    '%3Fref_code%3DABC123%26utm_source%3Dpartner%253Dreferral',
+  ])(
+    'preserves encoded attribution and invite fields with equals signs in values: %s',
+    (rawReferrer) => {
+      expect(parseGooglePlayInstallReferrer(rawReferrer)).toEqual({
+        utmSource: 'partner=referral',
+      });
+      expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBe('ABC123');
+    },
+  );
+
+  it.each([
+    {
+      channel: 'landing=partner',
+      utm_source: 'partner=referral',
+      ref_code: 'ABC123',
+    },
+    {
+      utm_source: 'partner=referral',
+      ref_code: 'ABC123',
+      channel: 'landing=partner',
+    },
+  ])(
+    'reads Utility query serialization in either field order: %o',
+    (fields) => {
+      const directQuery = new URLSearchParams(fields).toString();
+      const encodedQuery = new URLSearchParams({ referrer: directQuery })
+        .toString()
+        .slice('referrer='.length);
+
+      for (const referrer of [directQuery, encodedQuery]) {
+        expect(parseGooglePlayInstallReferrer(referrer)).toEqual({
+          utmSource: 'partner=referral',
+        });
+        expect(extractInviteCodeFromInstallReferrer(referrer)).toBe('ABC123');
+      }
+    },
+  );
+
+  it.each([
+    'custom%3Dname=value%26utm_source%3Dother%26ref_code%3DABC123',
+    'utm_source%3Dname=value%26utm_source%3Dother%26ref_code%3DABC123',
+    'channel%3Dlanding=partner%26utm_source%3Dother%26ref_code%3DABC123',
+  ])(
+    'keeps escaped direct parameter names and values opaque: %s',
+    async (param) => {
+      const rawReferrer = `gad_source=1&${param}`;
+      getInstallReferrerMock.mockResolvedValue(rawReferrer);
+
+      await reportGooglePlayInstallAttribution();
+
+      expect(logAttributionMock).not.toHaveBeenCalled();
+      expect(markReportedMock).not.toHaveBeenCalled();
+      expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBeUndefined();
+    },
+  );
+
+  it.each([
+    [
+      'ref_code%3DABC123%26utm_source%3Dpartner=referral',
+      'ref_code=ABC123&utm_source=partner',
+    ],
+    [
+      '%3Fref_code%3DABC123%26utm_source%3Dpartner=referral',
+      '?ref_code=ABC123&utm_source=partner',
+    ],
+  ])(
+    'keeps a query-shaped escaped name as one direct parameter: %s',
+    async (rawReferrer, parameterName) => {
+      expect(
+        new URLSearchParams([[parameterName, 'referral']]).toString(),
+      ).toBe(rawReferrer);
+      getInstallReferrerMock.mockResolvedValue(rawReferrer);
+
+      await reportGooglePlayInstallAttribution();
+
+      expect(logAttributionMock).not.toHaveBeenCalled();
+      expect(markReportedMock).not.toHaveBeenCalled();
+      expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBeUndefined();
+    },
+  );
+
+  it('keeps direct values and treats their encoded delimiters as literal text', () => {
+    expect(
+      parseGooglePlayInstallReferrer(
+        'utm_source=direct&ignored=literal%26gclid%3Dother&utm_source%3Dencoded%26utm_campaign%3Ddownload_page',
+      ),
+    ).toEqual({
+      utmCampaign: 'download_page',
+      utmSource: 'direct',
+    });
+  });
+
   it('ignores empty and not-set referrer values without relying on brackets', () => {
     expect(
       parseGooglePlayInstallReferrer(
@@ -111,6 +223,22 @@ describe('Google Play install attribution', () => {
       utmCampaign: 'download_page',
       utmMedium: 'owned_web',
       utmSource: 'onekey.so',
+    });
+    expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
+  });
+
+  it('logs Google Ads auto-tagged Play installs with gclid/gbraid/wbraid', async () => {
+    getInstallReferrerMock.mockResolvedValue(
+      'gclid=EAIaIQobChMI123&gbraid=0AAAAAD&wbraid=ClIKCA&gad_source=1',
+    );
+
+    await reportGooglePlayInstallAttribution();
+
+    expect(logAttributionMock).toHaveBeenCalledWith({
+      gadSource: '1',
+      gbraid: '0AAAAAD',
+      gclid: 'EAIaIQobChMI123',
+      wbraid: 'ClIKCA',
     });
     expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });

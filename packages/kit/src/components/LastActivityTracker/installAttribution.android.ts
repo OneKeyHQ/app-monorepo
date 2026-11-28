@@ -68,7 +68,10 @@ export function prefetchInstallInviteCode(): Promise<void> {
   return inviteCodeCaptureTask;
 }
 
-export async function reportInstallAttribution(): Promise<void> {
+export async function reportInstallAttribution(
+  _utilityEndpoint?: string,
+  _installationId?: string,
+): Promise<void> {
   if (!isGooglePlayMainRuntime()) {
     return;
   }
@@ -89,4 +92,11 @@ export async function reportInstallAttribution(): Promise<void> {
     // Preserves the original contract: the caller logs this failure.
     throw attributionResult.reason;
   }
+}
+
+export function retryAppleAdsInstallAttribution(
+  _utilityEndpoint: string,
+  _installationId: string,
+): Promise<void> {
+  return Promise.resolve();
 }

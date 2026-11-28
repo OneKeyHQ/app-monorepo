@@ -1,14 +1,19 @@
+/* cspell:ignore gbraid gclid wbraid */
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export type IInstallAttributionParams = {
   clickId?: string;
+  gadSource?: string;
+  gbraid?: string;
+  gclid?: string;
   utmCampaign?: string;
   utmContent?: string;
   utmId?: string;
   utmMedium?: string;
   utmSource?: string;
   utmTerm?: string;
+  wbraid?: string;
 };
 
 export type IAppClipInstallAttributionParams = IInstallAttributionParams & {
@@ -27,20 +32,32 @@ export type IAppClipInstallAttributionParams = IInstallAttributionParams & {
 
 export class InstallScene extends BaseScene {
   @LogToServer({ level: 'info', waitForServer: true })
-  @LogToLocal({ level: 'info' })
   private installAttribution(params: IInstallAttributionParams) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  private installAttributionDiagnostic(params: IInstallAttributionParams) {
     return params;
   }
 
   public reportGooglePlayInstallAttribution(
     params: IInstallAttributionParams,
   ): Promise<void> {
+    const {
+      gbraid: _gbraid,
+      gclid: _gclid,
+      wbraid: _wbraid,
+      ...diagnostics
+    } = params;
+    this.installAttributionDiagnostic(diagnostics);
     return this.installAttribution(params) as unknown as Promise<void>;
   }
 
   public reportAppClipInstallAttribution(
     params: IAppClipInstallAttributionParams,
   ): Promise<void> {
+    this.installAttributionDiagnostic(params);
     return this.installAttribution(params) as unknown as Promise<void>;
   }
 

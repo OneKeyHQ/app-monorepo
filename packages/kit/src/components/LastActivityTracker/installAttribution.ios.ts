@@ -6,6 +6,7 @@ import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsM
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IAppClipInstallAttributionParams } from '@onekeyhq/shared/src/logger/scopes/app/scenes/install';
+import { reportAppleAdsInstallAttribution } from '@onekeyhq/shared/src/modules/InstallAttribution/appleAds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EInviteCodeAttributionSource,
@@ -63,6 +64,9 @@ const nativeModule = NativeModules.AppClipAttribution as
 let reportInstallAttributionTask: Promise<void> | undefined;
 let reportInstallAttributionRequested = false;
 let captureAppClipInviteCodeTask: Promise<void> | undefined;
+let reportAppleAdsAttributionTask:
+  | { attempt: Promise<void>; foregroundRetry?: Promise<void> }
+  | undefined;
 
 function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   if (!value || typeof value !== 'object') {
@@ -324,7 +328,10 @@ export function prefetchInstallInviteCode(): Promise<void> {
   return captureAppClipInviteCodeTask;
 }
 
-export function reportInstallAttribution(): Promise<void> {
+export function reportInstallAttribution(
+  utilityEndpoint?: string,
+  installationId?: string,
+): Promise<void> {
   // Independent of the click-id report below, which needs the network and
   // clears its record once done; the invite code has no such dependency.
   void prefetchInstallInviteCode();
@@ -334,5 +341,48 @@ export function reportInstallAttribution(): Promise<void> {
       reportInstallAttributionTask = undefined;
     },
   );
-  return reportInstallAttributionTask;
+  const appClipTask = reportInstallAttributionTask;
+  if (!utilityEndpoint || !installationId) {
+    return appClipTask;
+  }
+  return Promise.all([
+    appClipTask,
+    reportAppleAdsAttribution(utilityEndpoint, installationId),
+  ]).then(() => undefined);
+}
+
+function reportAppleAdsAttribution(
+  utilityEndpoint: string,
+  installationId: string,
+): Promise<void> {
+  if (
+    !platformEnv.isNativeIOSStore ||
+    !platformEnv.isNativeMainThread ||
+    platformEnv.isE2E
+  ) {
+    return Promise.resolve();
+  }
+  reportAppleAdsAttributionTask ??= {
+    attempt: reportAppleAdsInstallAttribution(
+      utilityEndpoint,
+      installationId,
+    ).finally(() => {
+      reportAppleAdsAttributionTask = undefined;
+    }),
+  };
+  return reportAppleAdsAttributionTask.attempt;
+}
+
+export function retryAppleAdsInstallAttribution(
+  utilityEndpoint: string,
+  installationId: string,
+): Promise<void> {
+  const task = reportAppleAdsAttributionTask;
+  if (task) {
+    task.foregroundRetry ??= task.attempt.catch(() =>
+      reportAppleAdsAttribution(utilityEndpoint, installationId),
+    );
+    return task.foregroundRetry;
+  }
+  return reportAppleAdsAttribution(utilityEndpoint, installationId);
 }

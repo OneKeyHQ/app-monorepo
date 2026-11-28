@@ -1,8 +1,9 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { AppState } from 'react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import {
   usePasswordAtom,
@@ -19,6 +20,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   prefetchInstallInviteCode,
   reportInstallAttribution,
+  retryAppleAdsInstallAttribution,
 } from './installAttribution';
 
 const LAST_ACTIVITY_TRACKER_START_DELAY_MS = platformEnv.isWeb ? 3000 : 0;
@@ -26,10 +28,22 @@ const LAST_ACTIVITY_TRACKER_REFRESH_INTERVAL_MS = platformEnv.isWeb
   ? 6000
   : 5 * 1000;
 
+function logInstallAttributionError(error: unknown) {
+  console.warn(
+    '[InstallAttribution] Attribution report failed',
+    error instanceof Error ? error.message : 'unknown_error',
+  );
+}
+
 const LastActivityTracker = () => {
   const [{ enableSystemIdleLock, appLockDuration }] = usePasswordPersistAtom();
   const [{ unLock }] = usePasswordAtom();
   const [supportSystemIdle] = useSystemIdleLockSupport();
+  const retryAppleAdsRef = useRef<(() => void) | undefined>(undefined);
+  const retryAppleAds = useCallback(() => retryAppleAdsRef.current?.(), []);
+  useHandleAppStateActive(
+    platformEnv.isNativeIOSStore ? retryAppleAds : undefined,
+  );
 
   useEffect(() => {
     // Not behind the analytics bootstrap below: a fresh install's invite code
@@ -43,22 +57,28 @@ const LastActivityTracker = () => {
         await backgroundApiProxy.serviceSetting.getInstanceId();
       const devSettings =
         await backgroundApiProxy.serviceDevSetting.getDevSetting();
+      const utilityEndpointInfo =
+        await backgroundApiProxy.serviceApp.getEndpointInfo({
+          name: EServiceEndpointEnum.Utility,
+        });
       analytics.init({
         instanceId,
-        baseURL: (
-          await backgroundApiProxy.serviceApp.getEndpointInfo({
-            name: EServiceEndpointEnum.Utility,
-          })
-        ).endpoint,
+        baseURL: utilityEndpointInfo.endpoint,
         enableAnalyticsInDev:
           devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
       });
-      void reportInstallAttribution().catch((error) => {
-        console.warn(
-          '[InstallAttribution] Attribution report failed',
-          error instanceof Error ? error.message : 'unknown_error',
-        );
-      });
+      if (platformEnv.isNativeIOSStore) {
+        retryAppleAdsRef.current = () => {
+          void retryAppleAdsInstallAttribution(
+            utilityEndpointInfo.endpoint,
+            instanceId,
+          ).catch(logInstallAttributionError);
+        };
+      }
+      void reportInstallAttribution(
+        utilityEndpointInfo.endpoint,
+        instanceId,
+      ).catch(logInstallAttributionError);
       initPosthog({
         enableTestEndpoint:
           devSettings.enabled && devSettings.settings?.enableTestEndpoint,
@@ -92,7 +112,10 @@ const LastActivityTracker = () => {
       bundleVersion: platformEnv.bundleVersion ?? '',
       githubSHA: platformEnv.githubSHA ?? '',
     });
-    return () => clearTimeout(timer);
+    return () => {
+      retryAppleAdsRef.current = undefined;
+      clearTimeout(timer);
+    };
   }, []);
 
   const refresh = useCallback(() => {
