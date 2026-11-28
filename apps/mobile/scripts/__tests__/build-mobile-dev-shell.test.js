@@ -280,6 +280,8 @@ SPEC CHECKSUMS:
       expect(source).toContain('push:\n    branches:\n      - x\n    paths:');
       expect(source).toContain("- 'apps/mobile/package.json'");
       expect(source).toContain("- 'apps/mobile/dev-vendor.config.js'");
+      expect(source).toContain("- 'apps/mobile/native/mmkv/**'");
+      expect(source).toContain("ONEKEY_FONTS_FORCE_FALLBACK: '1'");
       expect(source).toContain("- 'patches/**'");
       expect(source).toContain("- 'yarn.lock'");
       expect(source).not.toContain('workflow_run:');
@@ -294,11 +296,17 @@ SPEC CHECKSUMS:
         `- name: Publish ${platform === 'android' ? 'Android' : 'iOS Simulator'} dev shell to GHCR\n        if: ${'$'}{{ github.ref == 'refs/heads/x' }}`,
       );
       expect(source).toContain(
-        `exact_tag: ${'$'}{{ steps.artifact.outputs.exact_tag }}`,
+        `exact_tag: ${'$'}{{ needs.resolve.outputs.tag }}`,
       );
+      expect(source).toContain('--expected-exact-tag "$EXPECTED_EXACT_TAG"');
       expect(source).toContain(
         `compatibility_tag: ${'$'}{{ steps.artifact.outputs.compatibility_tag }}`,
       );
+      if (platform === 'ios-simulator') {
+        expect(source).toContain(
+          "installIosPods(path.resolve('apps/mobile/ios'), '1.17.0');",
+        );
+      }
     }
 
     const action = fs.readFileSync(
@@ -328,9 +336,16 @@ SPEC CHECKSUMS:
     const checksumChange =
       '[!] There were changes to the lockfile in deployment mode:\nSPEC CHECKSUMS:\n  AppAuth:\n    New Lockfile: new\n    Old Lockfile: old\n';
     let directory;
+    let projectFile;
 
     beforeEach(() => {
       directory = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-pods-test-'));
+      projectFile = path.join(
+        directory,
+        'OneKeyWallet.xcodeproj/project.pbxproj',
+      );
+      fs.mkdirSync(path.dirname(projectFile));
+      fs.writeFileSync(projectFile, '{ setting = original; }');
       fs.writeFileSync(
         path.join(directory, 'Podfile.lock'),
         `SPEC REPOS:
@@ -360,6 +375,36 @@ SPEC CHECKSUMS:
       installIosPods(directory);
       expect(podArgs()).toEqual([['install', '--deployment']]);
     });
+
+    it.each([false, true])(
+      'preserves semantic project changes from CocoaPods (%s)',
+      (changesSettings) => {
+        const installedProject = changesSettings
+          ? '{\n setting = generated;\n}'
+          : '{\n setting = original;\n}';
+        spawnSync.mockImplementation((command, args, options) => {
+          if (command === 'pod') {
+            expect(args).toEqual(['_1.17.0_', 'install', '--deployment']);
+            fs.writeFileSync(projectFile, installedProject);
+            return { status: 0 };
+          }
+          expect(command).toBe('/usr/bin/plutil');
+          return {
+            status: 0,
+            stdout: JSON.stringify({
+              setting: options.input.includes('generated')
+                ? 'generated'
+                : 'original',
+            }),
+          };
+        });
+        installIosPods(directory, '1.17.0');
+        expect(fs.readFileSync(projectFile, 'utf8')).toBe(
+          changesSettings ? installedProject : '{ setting = original; }',
+        );
+        expect(spawnSync).toHaveBeenCalledTimes(3);
+      },
+    );
 
     it('updates the spec repos and retries once after a spec checksum change', () => {
       spawnSync

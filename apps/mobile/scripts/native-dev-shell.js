@@ -569,6 +569,7 @@ function parseArgs(argv = process.argv.slice(2)) {
       ![
         'artifact',
         'device',
+        'expected-exact-tag',
         'metro-port',
         'metro-url',
         'output',
@@ -591,6 +592,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     command,
     artifact: values.artifact,
     device: values.device,
+    expectedExactTag: values['expected-exact-tag'],
     metroPort: values['metro-port'],
     // Validate before any shell or vendor work starts.
     metroUrl:
@@ -665,6 +667,7 @@ function getShellArtifactTag({ platform, shellArtifactKey }) {
 
 async function writeArtifactManifest({
   artifact,
+  expectedExactTag,
   expectedWebEmbedInputKey,
   output,
   platform,
@@ -700,10 +703,15 @@ async function writeArtifactManifest({
       '[nativeDevShell] Web-embed receipt does not match this checkout.',
     );
   }
-  const compatibility = getShellCompatibility({
-    platform: targetPlatform,
-    webEmbedInputKey: receipt.inputKey,
-  });
+  const compatibility = getShellCompatibility({ platform: targetPlatform });
+  if (
+    expectedExactTag !== undefined &&
+    compatibility.exactTag !== expectedExactTag
+  ) {
+    throw new Error(
+      `[nativeDevShell] Native shell inputs changed during the build. Expected ${expectedExactTag}, got ${compatibility.exactTag}.`,
+    );
+  }
   const stat = fs.statSync(artifactPath);
   if (!stat.isFile()) {
     throw new Error('[nativeDevShell] Artifact must be a regular file.');

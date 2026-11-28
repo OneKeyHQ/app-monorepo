@@ -323,6 +323,7 @@ describe('metro-dev-prebundle release transport', () => {
       ...devVendorConfig.nativeContractDirectories.shared,
       ...devVendorConfig.nativeContractDirectories.android,
       ...devVendorConfig.nativeContractDirectories.ios,
+      ...devVendorConfig.nativeIconResourceDirectories,
     ]) {
       expect(workflow).toContain(`- '${inputDirectory}/**'`);
     }

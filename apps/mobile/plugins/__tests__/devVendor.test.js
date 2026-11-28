@@ -387,6 +387,44 @@ function getAutolinkedNativeDependencies(platform) {
 }
 
 describe('devVendor', () => {
+  it.each([
+    [
+      'android',
+      'ios',
+      'android/src/main/java/Foo.java',
+      '@ReactMethod public void foo() {}',
+    ],
+    ['ios', 'android', 'ios/Foo.m', 'RCT_EXPORT_METHOD(foo) {}'],
+  ])(
+    'keeps %s bridge sources under a checkout in an %s directory',
+    (platform, parent, file, source) => {
+      const temporaryRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'onekey-abi-path-'),
+      );
+      try {
+        const projectRoot = path.join(
+          fs.realpathSync(temporaryRoot),
+          parent,
+          'project',
+        );
+        const packageName = 'onekey-abi-test';
+        const packagePath = path.join('node_modules', packageName);
+        const sourcePath = path.join(projectRoot, packagePath, file);
+        fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+        fs.writeFileSync(
+          path.join(projectRoot, packagePath, 'package.json'),
+          '{}',
+        );
+        fs.writeFileSync(sourcePath, source);
+        expect(
+          getNativePackageAbiInputPaths(packageName, platform, projectRoot),
+        ).toContain(path.posix.join('node_modules', packageName, file));
+      } finally {
+        fs.rmSync(temporaryRoot, { force: true, recursive: true });
+      }
+    },
+  );
+
   afterEach(() => {
     resetRuntimeCacheForTests();
   });
@@ -549,6 +587,23 @@ describe('devVendor', () => {
       expect(
         computeConfigInputsDigest(fixture.repoRoot, developmentEnv),
       ).not.toBe(baseline);
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('keeps the vendor fingerprint stable across generated font manifests', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    const manifest = path.join(
+      fixture.repoRoot,
+      'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
+    );
+    try {
+      fs.mkdirSync(path.dirname(manifest), { recursive: true });
+      fs.writeFileSync(manifest, "export const source = 'private';\n");
+      const original = computeConfigInputsDigest(fixture.repoRoot);
+      fs.writeFileSync(manifest, "export const source = 'fallback';\n");
+      expect(computeConfigInputsDigest(fixture.repoRoot)).toBe(original);
     } finally {
       fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
     }
@@ -813,6 +868,19 @@ describe('devVendor', () => {
       }
 
       const iosBaseline = computeNativeContractKey('ios', fixture.repoRoot);
+      const originalPodLockPath = path.join(
+        fixture.repoRoot,
+        'apps/mobile/ios/Podfile.lock',
+      );
+      const originalPodLock = fs.readFileSync(originalPodLockPath, 'utf8');
+      fs.writeFileSync(
+        originalPodLockPath,
+        originalPodLock.replaceAll('\n', '\r\n'),
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+      fs.writeFileSync(originalPodLockPath, originalPodLock);
       const androidBaseline = computeNativeContractKey(
         'android',
         fixture.repoRoot,

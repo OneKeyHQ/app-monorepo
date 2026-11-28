@@ -62,9 +62,7 @@ const fingerprintFiles = [
   'development/envExposedToClient.js',
   'development/platformEnvDefine.js',
   'package.json',
-  // Native font family names are baked into the vendor bundle; the generated
-  // manifest keeps private-font vendor bundles apart from fallback ones.
-  'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
+  // The generated font manifest is a workspace module served by Metro.
   'packages/components/src/hocs/Provider/fonts/brandFont.ts',
   'packages/components/src/utils/scale.ts',
   'packages/components/src/utils/webFontFamily.ts',
@@ -214,6 +212,11 @@ const nativeContractDirectories = {
   shared: [],
 };
 
+const nativeIconResourceDirectories = [
+  'packages/components/svg',
+  'development/onekey-icons',
+];
+
 const shellInputDirectories = {
   android: [
     'apps/mobile/android/app/src',
@@ -223,11 +226,13 @@ const shellInputDirectories = {
   ],
   ios: [
     'apps/mobile/ios/LiveActivity',
+    'apps/mobile/ios/OneKeyAppClip',
     'apps/mobile/ios/OneKeyLogo.icon',
     'apps/mobile/ios/OneKeyMarketWidget',
     'apps/mobile/ios/OneKeyWallet',
     'apps/mobile/ios/ServiceExtension',
     'apps/mobile/ios/SharedMarketWidget',
+    'apps/mobile/ios/SharedAppClipAttribution',
     'apps/mobile/ios/bn.lproj',
     'apps/mobile/ios/de.lproj',
     'apps/mobile/ios/en.lproj',
@@ -252,7 +257,7 @@ const shellInputDirectories = {
     'apps/mobile/ios/zh-Hans.lproj',
     'apps/mobile/ios/zh-Hant.lproj',
   ],
-  shared: ['packages/components/svg', 'development/onekey-icons'],
+  shared: nativeIconResourceDirectories,
 };
 
 const shellInputFiles = {
@@ -284,6 +289,7 @@ const shellInputFiles = {
     'apps/mobile/ios/Podfile.properties.json',
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
+    'apps/mobile/scripts/inject-sentry-native-config.sh',
     'apps/mobile/scripts/mobile-dev-shell-resource.js',
   ],
   shared: [
@@ -339,6 +345,7 @@ module.exports = {
   nativeContractDependencies,
   nativeContractDirectories,
   nativeContractFiles,
+  nativeIconResourceDirectories,
   getTransformationEnvironment,
   isVendorModule(moduleKey) {
     return moduleKey.startsWith('node_modules/');
@@ -355,6 +362,7 @@ module.exports = {
   shellInputDirectories,
   shellInputFiles,
   shellInputIgnoredDirectories: [
+    'apps/mobile/android/app/src/androidTest',
     'apps/mobile/android/app/src/main/assets/web-embed',
     'apps/mobile/ios/OneKeyWallet/web-embed',
   ],

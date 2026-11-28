@@ -34,19 +34,15 @@ function getBuildDigest(
   platform,
   { repoRoot = path.resolve(__dirname, '../../..') } = {},
 ) {
-  const { getShellInputPaths } = require('../plugins/devVendor');
+  const {
+    getShellInputPaths,
+    hashShellInputFiles,
+  } = require('../plugins/devVendor');
   const inputFiles = [
     ...BUILD_INPUT_FILES.map((name) => `apps/mobile/scripts/${name}`),
     ...getShellInputPaths(platform, repoRoot),
   ];
-  const hash = crypto.createHash('sha256');
-  for (const name of [...new Set(inputFiles)].toSorted()) {
-    hash.update(name);
-    hash.update('\0');
-    hash.update(fs.readFileSync(path.join(repoRoot, name)));
-    hash.update('\0');
-  }
-  return hash.digest('hex');
+  return hashShellInputFiles([...new Set(inputFiles)].toSorted(), repoRoot);
 }
 
 async function getArtifactMetadata(artifactPath) {

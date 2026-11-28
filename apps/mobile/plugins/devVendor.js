@@ -190,7 +190,7 @@ function getNativePatchInputPaths(
       path.resolve(repoRoot, relativePath),
       'utf8',
     );
-    return source.split('\n').some((line) => {
+    return source.split(/\r?\n/u).some((line) => {
       const match = line.match(/^diff --git a\/(.+) b\/(.+)$/u);
       return match
         ? [match[1], match[2]].some(
@@ -220,7 +220,7 @@ function getNativeContractPatchInputPaths(platform, repoRoot, repoFiles) {
       path.resolve(repoRoot, relativePath),
       'utf8',
     );
-    return source.split('\n').some((line) => {
+    return source.split(/\r?\n/u).some((line) => {
       const match = line.match(/^diff --git a\/(.+) b\/(.+)$/u);
       return match
         ? [match[1], match[2]].some((patchPath) => {
@@ -376,7 +376,7 @@ function readCocoaPodsLockScalar(rawValue) {
 function getCocoaPodsLockSections(source) {
   const sections = new Map();
   let activeSection;
-  for (const line of source.split('\n')) {
+  for (const line of source.split(/\r?\n/u)) {
     const section = line.match(/^([A-Z][A-Z ]+):$/u);
     if (section) {
       activeSection = section[1];
@@ -484,7 +484,7 @@ function getPackageSourceFiles(packageRoot, platform) {
       (filePath) =>
         NATIVE_ABI_SOURCE_EXTENSIONS.has(
           path.extname(filePath).toLowerCase(),
-        ) && isFileForPlatform(filePath, platform),
+        ) && isFileForPlatform(path.relative(packageRoot, filePath), platform),
     )
     .toSorted(compareStrings);
 }
@@ -998,10 +998,10 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   return {
     app: getAppNativeAbiDescriptor(platform, repoRoot),
     iconResources: hashRepoFiles(
-      listShellInputRepoFiles(repoRoot, [
-        'packages/components/svg',
-        'development/onekey-icons',
-      ]),
+      listShellInputRepoFiles(
+        repoRoot,
+        devVendorConfig.nativeIconResourceDirectories,
+      ),
       repoRoot,
     ),
     dependencies: dependencyNames.map((name) =>

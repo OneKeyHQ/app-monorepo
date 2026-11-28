@@ -356,48 +356,56 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
   };
 }
 
-async function resolveExactMobileDevShell({
-  compatibility: inputCompatibility,
+async function resolveOciShellWithRetry({
+  compatibility,
   fetchImpl,
+  locator,
   maxAttempts = SHELL_DOWNLOAD_MAX_ATTEMPTS,
   retryDelayMs = 250,
+  tag,
   wait = (durationMs) =>
     new Promise((resolve) => setTimeout(resolve, durationMs)),
 }) {
-  const compatibility = assertCompatibility(inputCompatibility);
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const resolved = await resolveOciShell({
-        compatibility,
-        fetchImpl,
-        locator: 'exact',
-        tag: compatibility.exactTag,
-      });
-      return {
-        exists: true,
-        ociDigest: resolved.ociDigest,
-        sourceCommit: resolved.sourceCommit,
-        tag: compatibility.exactTag,
-      };
+      return await resolveOciShell({ compatibility, fetchImpl, locator, tag });
     } catch (error) {
-      if (error?.code === 'SHELL_LOCATOR_NOT_FOUND') {
-        return {
-          exists: false,
-          ociDigest: null,
-          sourceCommit: null,
-          tag: compatibility.exactTag,
-        };
-      }
       if (attempt === maxAttempts || !isRetryableOciError(error)) {
         throw error;
       }
       console.error(
-        `[mobileDevShellResource] Retrying exact shell lookup after a transient failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+        `[mobileDevShellResource] Retrying ${locator} shell lookup after a transient failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
       );
       await wait(retryDelayMs * attempt);
     }
   }
-  throw new Error('[mobileDevShellResource] Exact shell lookup exhausted.');
+  throw new Error('[mobileDevShellResource] Shell lookup exhausted.');
+}
+
+async function resolveExactMobileDevShell({
+  compatibility: inputCompatibility,
+  fetchImpl,
+  maxAttempts,
+  retryDelayMs,
+  wait,
+}) {
+  const compatibility = assertCompatibility(inputCompatibility);
+  const tag = compatibility.exactTag;
+  try {
+    const { ociDigest, sourceCommit } = await resolveOciShellWithRetry({
+      compatibility,
+      fetchImpl,
+      locator: 'exact',
+      maxAttempts,
+      retryDelayMs,
+      tag,
+      wait,
+    });
+    return { exists: true, ociDigest, sourceCommit, tag };
+  } catch (error) {
+    if (error?.code !== 'SHELL_LOCATOR_NOT_FOUND') throw error;
+    return { exists: false, ociDigest: null, sourceCommit: null, tag };
+  }
 }
 
 function isRetryableOciError(error) {
@@ -931,7 +939,7 @@ async function restoreLocator({
       path.join(cacheRoot, `${tag}.download-`),
     );
     try {
-      const resolved = await resolveOciShell({
+      const resolved = await resolveOciShellWithRetry({
         compatibility,
         fetchImpl,
         locator,

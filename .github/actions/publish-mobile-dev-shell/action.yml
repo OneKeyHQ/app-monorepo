@@ -206,6 +206,25 @@ runs:
         fi
 
         oci_digest="$(oras manifest fetch --descriptor "$exact_reference" | jq -er '.digest')"
+        resolver_platform="$PLATFORM"
+        if [[ "$PLATFORM" == "ios-simulator" ]]; then
+          resolver_platform="ios"
+        fi
+        status_file="$RUNNER_TEMP/mobile-dev-shell-published.json"
+        for attempt in 1 2 3; do
+          if node apps/mobile/scripts/native-dev-shell.js resolve \
+            --platform "$resolver_platform" --output "$status_file" &&
+            jq -e --arg tag "$EXACT_TAG" --arg digest "$oci_digest" \
+              '.exists == true and .tag == $tag and .ociDigest == $digest' \
+              "$status_file" > /dev/null; then
+            break
+          fi
+          if [[ "$attempt" == 3 ]]; then
+            echo "::error::The public dev shell resolver could not find $exact_reference@$oci_digest." >&2
+            exit 1
+          fi
+          sleep "$((attempt * 5))"
+        done
         {
           echo "### $PLATFORM dev shell"
           echo "- Exact OCI reference: \`$exact_reference@$oci_digest\`"
