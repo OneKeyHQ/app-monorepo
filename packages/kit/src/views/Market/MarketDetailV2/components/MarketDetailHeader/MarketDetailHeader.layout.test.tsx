@@ -13,6 +13,7 @@ import type { ShareButton } from '../TokenDetailHeader/ShareButton';
 
 let mockWidth = 900;
 let mockHeight = 800;
+let mockContainerWidth: number | undefined;
 let mockSafeAreaTop = 62;
 let mockIsFoldableIPhone = false;
 let mockIsOverlayPage = false;
@@ -203,6 +204,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
   useNetworkLogoUri: () => undefined,
 }));
+jest.mock('@onekeyhq/kit/src/hooks/useTabContainerWidth', () => ({
+  useTabContainerWidth: () => mockContainerWidth ?? mockWidth,
+}));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     dex: {
@@ -293,6 +297,7 @@ describe('Market detail global navigation', () => {
     jest.clearAllMocks();
     mockWidth = 900;
     mockHeight = 800;
+    mockContainerWidth = undefined;
     mockSafeAreaTop = 62;
     mockIsFoldableIPhone = false;
     mockIsOverlayPage = false;
@@ -507,6 +512,30 @@ describe('Market detail global navigation', () => {
       );
     },
   );
+
+  it('sizes the iOS 26 iPad modal title to the modal, not the window', () => {
+    // An iPad landscape window holds a narrower centered modal page.
+    mockWidth = 700;
+    mockHeight = 1000;
+    mockContainerWidth = 540;
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOSPad', true);
+    mockIsOverlayPage = true;
+
+    render(<MarketDetailHeader />);
+
+    const headerProps = mockPageHeader.mock.calls.at(-1)?.[0] as {
+      headerTitle?: () => ReactNode;
+    };
+    render(<>{headerProps.headerTitle?.()}</>);
+    // 540 - margins(40) - back(44) - star and share(100) - gaps(32); the
+    // 700pt window would have given 484 and pushed the title under the back.
+    expect(
+      screen.getByTestId('market-detail-native-header-title').dataset.width,
+    ).toBe('324');
+  });
 
   it('shares the active contract address even while detail is loading', () => {
     mockWidth = 767;
