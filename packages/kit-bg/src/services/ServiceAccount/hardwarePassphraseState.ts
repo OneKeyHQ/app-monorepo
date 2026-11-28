@@ -8,6 +8,7 @@ export async function getHwHiddenWalletPassphraseState({
   vendor,
   connectId,
   dbDevice,
+  deriveCardano,
   serviceHardware,
   serviceThirdPartyHardware,
 }: {
@@ -16,10 +17,12 @@ export async function getHwHiddenWalletPassphraseState({
   // Passed for Trezor so the passphrase-state call can fall back to BLE (same
   // as the signing path); a BLE-only Trezor otherwise fails with DeviceNotFound.
   dbDevice?: IDBDevice;
+  deriveCardano?: boolean;
   serviceHardware: {
     getPassphraseState(params: {
       connectId: string;
       forceInputPassphrase: boolean;
+      deriveCardano?: boolean;
     }): Promise<string | undefined>;
   };
   serviceThirdPartyHardware: {
@@ -45,5 +48,6 @@ export async function getHwHiddenWalletPassphraseState({
   return serviceHardware.getPassphraseState({
     connectId,
     forceInputPassphrase: true,
+    ...(deriveCardano ? { deriveCardano: true } : {}),
   });
 }

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import {
   CommonActions,
@@ -11,8 +11,24 @@ import { ETabDeviceManagementRoutes } from '@onekeyhq/shared/src/routes';
 export function useDeviceBackNavigation() {
   const navigation = useAppNavigation();
   const reactNavigation = useNativeNavigation();
+  const hasNavigatedBackRef = useRef(false);
+
+  useEffect(() => {
+    const unsubscribe = reactNavigation.addListener?.('focus', () => {
+      hasNavigatedBackRef.current = false;
+    });
+    return unsubscribe;
+  }, [reactNavigation]);
 
   const handleBackPress = useCallback(() => {
+    // A removal can reach the detail screen twice: once from its own
+    // WalletUpdate refresh (the wallet is gone) and once from the caller that
+    // finished the removal. The second call is already on the way out; popping
+    // again would close the refreshed list underneath it.
+    if (!reactNavigation.isFocused() || hasNavigatedBackRef.current) {
+      return;
+    }
+    hasNavigatedBackRef.current = true;
     // Check if the previous route is DeviceDetail
     const state = reactNavigation.getState();
     if (

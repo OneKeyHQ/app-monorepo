@@ -129,6 +129,7 @@ import {
   defaultSelectedAccount,
   selectedAccountsAtom,
 } from './atoms';
+import { shouldDeriveCardanoForWalletSession } from './hardwareWalletSessionUtils';
 import {
   EAccountSelectOutcome,
   EActiveReloadOutcome,
@@ -4005,10 +4006,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         walletId,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
+        deriveCardano,
       }: {
         walletId: string;
         skipDeviceCancel?: boolean;
         hideCheckingDeviceLoading?: boolean;
+        deriveCardano?: boolean;
       },
       options: {
         showAddAccountsLoading?: boolean;
@@ -4024,12 +4027,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           isSoftwareWalletOnlyUser:
             await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
+        const selectedAccount = this.getSelectedAccount.call(set, {
+          num: 0,
+        });
+        const shouldDeriveCardano =
+          deriveCardano ??
+          shouldDeriveCardanoForWalletSession({
+            networkId: selectedAccount.networkId,
+          });
         const res = await serviceAccount.createHWHiddenWallet({
           walletId,
           skipDeviceCancel: options?.addDefaultNetworkAccounts
             ? true
             : skipDeviceCancel,
           hideCheckingDeviceLoading,
+          ...(shouldDeriveCardano ? { deriveCardano: true } : {}),
         });
         const { wallet, indexedAccount, isOverrideWallet, isAttachPinMode } =
           res;

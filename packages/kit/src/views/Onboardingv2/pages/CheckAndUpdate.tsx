@@ -167,6 +167,18 @@ function CheckAndUpdatePage({
   // write its late result, error, or timeout over the state a newer retry
   // round owns — step state alone can't tell two rounds apart.
   const firmwareCheckRunIdRef = useRef(0);
+  const firmwareCheckDelayTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  useEffect(
+    () => () => {
+      if (firmwareCheckDelayTimerRef.current) {
+        clearTimeout(firmwareCheckDelayTimerRef.current);
+        firmwareCheckDelayTimerRef.current = null;
+      }
+    },
+    [],
+  );
   // One-shot timestamp for the focus-effect recheck after firmware runtime state
   // may change. Clear it when the timer fires or the user explicitly skips; it only
   // drives scheduling and delay calculations.
@@ -916,7 +928,17 @@ function CheckAndUpdatePage({
           return newSteps;
         });
         if (shouldContinueToFirmwareCheck && checkFirmwareAfterSuccess) {
-          setTimeout(() => {
+          if (genuineState === ECheckAndUpdateStepState.Skipped) {
+            // The person skipped the authenticity check: its conversation is
+            // over, so close the stage now instead of keeping it up until the
+            // firmware check below finishes (OK-62089 / OK-62484).
+            void endBurst();
+          }
+          if (firmwareCheckDelayTimerRef.current) {
+            clearTimeout(firmwareCheckDelayTimerRef.current);
+          }
+          firmwareCheckDelayTimerRef.current = setTimeout(() => {
+            firmwareCheckDelayTimerRef.current = null;
             void checkFirmwareUpdate();
           }, 150);
         } else {
