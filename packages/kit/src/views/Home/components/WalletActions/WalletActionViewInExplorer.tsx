@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList } from '@onekeyhq/components';
+import { ActionList, runAfterActionListClose } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
@@ -13,13 +13,14 @@ import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/b
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 export function WalletActionViewInExplorer({
   onClose,
 }: {
-  onClose: () => void;
+  onClose: () => void | Promise<void>;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -46,6 +47,37 @@ export function WalletActionViewInExplorer({
     },
   );
 
+  const confirmExplorerAccess = useCallback(async () => {
+    if (
+      !shouldWarnBotWalletInteract({
+        isBotWallet,
+        isBotWalletDeactivated,
+      })
+    ) {
+      return true;
+    }
+    return showBotWalletDeactivatedWarningDialog(undefined, {
+      waitForClose: platformEnv.isNative,
+    });
+  }, [isBotWallet, isBotWalletDeactivated]);
+
+  const openAddressInExplorer = useCallback(
+    async (address?: string) => {
+      defaultLogger.wallet.walletActions.actionViewInExplorer({
+        walletType: wallet?.type ?? '',
+        networkId: network?.id ?? '',
+        source: 'homePage',
+      });
+
+      await runAfterActionListClose(
+        onClose,
+        () => openExplorerAddressUrl({ networkId: network?.id, address }),
+        { waitForAnimation: false },
+      );
+    },
+    [network?.id, onClose, wallet?.type],
+  );
+
   const handleViewInExplorer = useCallback(async () => {
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
@@ -55,38 +87,14 @@ export function WalletActionViewInExplorer({
       return;
     }
 
-    if (
-      shouldWarnBotWalletInteract({
-        isBotWallet,
-        isBotWalletDeactivated,
-      })
-    ) {
-      const confirmed = await showBotWalletDeactivatedWarningDialog();
-      if (!confirmed) {
-        return;
-      }
+    if (await confirmExplorerAccess()) {
+      await openAddressInExplorer(account?.address);
     }
-
-    defaultLogger.wallet.walletActions.actionViewInExplorer({
-      walletType: wallet?.type ?? '',
-      networkId: network?.id ?? '',
-      source: 'homePage',
-    });
-
-    onClose();
-
-    await openExplorerAddressUrl({
-      networkId: network?.id,
-      address: account?.address,
-    });
   }, [
     account?.address,
-    network?.id,
-    onClose,
+    confirmExplorerAccess,
+    openAddressInExplorer,
     wallet?.id,
-    wallet?.type,
-    isBotWallet,
-    isBotWalletDeactivated,
   ]);
 
   if (
@@ -98,6 +106,7 @@ export function WalletActionViewInExplorer({
     return (
       <AddressTypeSelector
         whenCollapsed="skip"
+        closeBeforeSelect={platformEnv.isNative}
         walletId={wallet?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
@@ -118,29 +127,9 @@ export function WalletActionViewInExplorer({
         }: {
           account: INetworkAccount | undefined;
         }) => {
-          if (
-            shouldWarnBotWalletInteract({
-              isBotWallet,
-              isBotWalletDeactivated,
-            })
-          ) {
-            const confirmed = await showBotWalletDeactivatedWarningDialog();
-            if (!confirmed) {
-              return;
-            }
+          if (await confirmExplorerAccess()) {
+            await openAddressInExplorer(a?.address);
           }
-          defaultLogger.wallet.walletActions.actionViewInExplorer({
-            walletType: wallet?.type ?? '',
-            networkId: network?.id ?? '',
-            source: 'homePage',
-          });
-
-          onClose();
-
-          await openExplorerAddressUrl({
-            networkId: network?.id,
-            address: a?.address,
-          });
         }}
       />
     );

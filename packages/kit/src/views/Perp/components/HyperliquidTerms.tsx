@@ -32,7 +32,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
 
-import { PERP_DIALOG_BUTTON_SIZE } from './PerpDialogLayout';
+import { usePerpDialogButtonSize } from './PerpDialogLayout';
 
 function CustomCheckbox({
   value,
@@ -92,6 +92,7 @@ export function HyperliquidTermsContent({
   renderDelay?: number;
 }) {
   const intl = useIntl();
+  const dialogButtonSize = usePerpDialogButtonSize();
   const [isAccountActivatedChecked, setIsAccountActivatedChecked] =
     useState(true);
   const [isNotResponsibleChecked, setIsNotResponsibleChecked] = useState(true);
@@ -195,7 +196,7 @@ export function HyperliquidTermsContent({
                 <Button
                   testID="perp-btn"
                   variant="primary"
-                  size={PERP_DIALOG_BUTTON_SIZE}
+                  size={dialogButtonSize}
                   w="100%"
                   onPress={onConfirm}
                   disabled={

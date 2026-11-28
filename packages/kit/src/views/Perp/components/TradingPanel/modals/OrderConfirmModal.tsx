@@ -61,8 +61,8 @@ import {
 } from '../../../utils/styleUtils';
 import { getTifLabel } from '../../../utils/timeInForce';
 import {
-  PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  usePerpDialogButtonSize,
 } from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
@@ -143,6 +143,7 @@ function OrderConfirmContent({
   aggressiveLimitPriceWarning,
   onConfirmSuccess,
 }: IOrderConfirmContentProps) {
+  const dialogButtonSize = usePerpDialogButtonSize();
   const [isPreparingEnableTrading, setIsPreparingEnableTrading] =
     useState(false);
   const [perpsAccount] = usePerpsActiveAccountAtom();
@@ -1022,13 +1023,13 @@ function OrderConfirmContent({
 
         <TradingGuardWrapper
           bypassEnableTradingGuard={Boolean(enableTradingBeforeConfirm)}
-          buttonSize={PERP_DIALOG_BUTTON_SIZE}
+          buttonSize={dialogButtonSize}
           beforeDeposit={closeBeforeDeposit}
         >
           <Button
             testID="perp-btn"
             variant="primary"
-            size={PERP_DIALOG_BUTTON_SIZE}
+            size={dialogButtonSize}
             disabled={isConfirmLoading}
             loading={isConfirmLoading}
             onPress={handleConfirm}
