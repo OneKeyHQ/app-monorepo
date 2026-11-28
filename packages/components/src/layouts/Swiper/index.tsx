@@ -85,6 +85,7 @@ function BaseSwiperFlatList<T>(
     onScrollAnimationEnd,
     onScrollBeginDrag,
     onScrollEndDrag,
+    onListLoad,
   } = useScrollEvent({
     initialIndex: index,
     autoplay,
@@ -338,6 +339,7 @@ function BaseSwiperFlatList<T>(
             onScrollEndDrag={onScrollEndDrag}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
+            {...(isWeb ? undefined : { onLoad: onListLoad })}
             {...(mouseDragProps as any)}
           />
           {renderPagination?.({
